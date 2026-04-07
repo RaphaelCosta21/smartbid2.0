@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useNotificationStore } from "../../stores/useNotificationStore";
 import { useUIStore } from "../../stores/useUIStore";
+import { useResponsive } from "../../hooks/useResponsive";
 import styles from "./Header.module.scss";
 
 export const Header: React.FC = () => {
@@ -10,6 +11,7 @@ export const Header: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
   const unreadCount = useNotificationStore((s) => s.unreadCount);
   const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
+  const { isMobile } = useResponsive();
 
   const initials = currentUser.displayName
     .split(" ")
@@ -50,7 +52,7 @@ export const Header: React.FC = () => {
           onClick={() => setCommandPaletteOpen(true)}
           readOnly
         />
-        <span className={styles.shortcut}>Ctrl+K</span>
+        <span className={styles.shortcut}>{isMobile ? "" : "Ctrl+K"}</span>
       </div>
 
       <div className={styles.headerActions}>
@@ -95,10 +97,12 @@ export const Header: React.FC = () => {
 
         <div className={styles.userArea}>
           <div className={styles.avatar}>{initials}</div>
-          <div className={styles.userInfo}>
-            <span className={styles.userName}>{currentUser.displayName}</span>
-            <span className={styles.userRole}>{currentUser.jobTitle}</span>
-          </div>
+          {!isMobile && (
+            <div className={styles.userInfo}>
+              <span className={styles.userName}>{currentUser.displayName}</span>
+              <span className={styles.userRole}>{currentUser.jobTitle}</span>
+            </div>
+          )}
         </div>
       </div>
     </header>

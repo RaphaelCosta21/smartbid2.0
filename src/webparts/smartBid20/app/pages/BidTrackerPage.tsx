@@ -1,39 +1,154 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useBidStore, ViewMode } from "../stores/useBidStore";
+import { useBids } from "../hooks/useBids";
+import { isActiveBid } from "../utils/bidHelpers";
+import { DIVISION_COLORS, DIVISIONS, PRIORITIES } from "../utils/constants";
 import { PageHeader } from "../components/common/PageHeader";
+import { DataTable } from "../components/common/DataTable";
+import { FilterPanel } from "../components/common/FilterPanel";
 import { StatusBadge } from "../components/common/StatusBadge";
+import { PriorityBadge } from "../components/common/PriorityBadge";
+import { BidCard } from "../components/bid/BidCard";
+import { IBid } from "../models";
+import { useDebounce } from "../hooks/useDebounce";
 import { differenceInDays, format } from "date-fns";
 import styles from "./DashboardPage.module.scss";
 
 export const BidTrackerPage: React.FC = () => {
   const navigate = useNavigate();
-  const bids = useBidStore((s) => s.bids);
+  const { filteredBids } = useBids();
   const viewMode = useBidStore((s) => s.viewMode);
   const setViewMode = useBidStore((s) => s.setViewMode);
+  const filters = useBidStore((s) => s.filters);
+  const setFilters = useBidStore((s) => s.setFilters);
+  const resetFilters = useBidStore((s) => s.resetFilters);
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const [searchInput, setSearchInput] = React.useState(filters.search);
+  const debouncedSearch = useDebounce(searchInput, 300);
   const now = new Date();
 
-  const activeBids = bids.filter(
-    (b) =>
-      !["Completed", "Returned to Commercial", "Canceled", "No Bid"].includes(
-        b.currentStatus,
-      ),
+  React.useEffect(() => {
+    setFilters({ search: debouncedSearch });
+  }, [debouncedSearch]);
+
+  const activeBids = React.useMemo(
+    () => filteredBids.filter(isActiveBid),
+    [filteredBids],
   );
 
-  const divisionGroups = ["OPG", "SSR-ROV", "SSR-Survey", "SSR-Integrated"].map(
-    (div) => ({
-      division: div,
-      bids: activeBids.filter((b) => b.division === div),
-      color:
-        div === "OPG"
-          ? "#3b82f6"
-          : div === "SSR-ROV"
-            ? "#f59e0b"
-            : div === "SSR-Survey"
-              ? "#10b981"
-              : "#8b5cf6",
-    }),
-  );
+  const divisionGroups = DIVISIONS.map((div) => ({
+    division: div,
+    bids: activeBids.filter((b) => b.division === div),
+    color: DIVISION_COLORS[div] || "#94a3b8",
+  }));
+
+  const handleBidClick = (bid: IBid): void => {
+    navigate(`/bid/${bid.bidNumber}`);
+  };
+
+  /* DataTable column definitions */
+  const tableColumns = [
+    {
+      key: "bidNumber",
+      header: "BID #",
+      sortable: true,
+      width: 130,
+      render: (bid: IBid) => (
+        <span className={styles.mono}>{bid.bidNumber}</span>
+      ),
+    },
+    {
+      key: "client",
+      header: "Client",
+      sortable: true,
+      render: (bid: IBid) => bid.opportunityInfo.client,
+    },
+    {
+      key: "projectName",
+      header: "Project",
+      sortable: true,
+      width: 200,
+      render: (bid: IBid) => (
+        <span
+          style={{
+            maxWidth: 180,
+            display: "inline-block",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {bid.opportunityInfo.projectName}
+        </span>
+      ),
+    },
+    {
+      key: "division",
+      header: "Division",
+      sortable: true,
+      render: (bid: IBid) => (
+        <StatusBadge
+          status={bid.division}
+          color={DIVISION_COLORS[bid.division]}
+        />
+      ),
+    },
+    {
+      key: "ownerName",
+      header: "Owner",
+      sortable: true,
+      render: (bid: IBid) => bid.owner.name,
+    },
+    {
+      key: "dueDate",
+      header: "Due Date",
+      sortable: true,
+      render: (bid: IBid) => {
+        const daysLeft = differenceInDays(new Date(bid.dueDate), now);
+        return (
+          <span className={daysLeft < 0 ? styles.overdue : ""}>
+            {format(new Date(bid.dueDate), "MMM d")}
+          </span>
+        );
+      },
+    },
+    {
+      key: "priority",
+      header: "Priority",
+      sortable: true,
+      render: (bid: IBid) => <PriorityBadge priority={bid.priority} />,
+    },
+    {
+      key: "currentStatus",
+      header: "Status",
+      sortable: true,
+      render: (bid: IBid) => <StatusBadge status={bid.currentStatus} />,
+    },
+    {
+      key: "progress",
+      header: "Progress",
+      render: (bid: IBid) => (
+        <div
+          style={{
+            width: 80,
+            height: 6,
+            background: "var(--border-subtle)",
+            borderRadius: 3,
+          }}
+        >
+          <div
+            style={{
+              width: `${bid.kpis.phaseCompletionPercentage}%`,
+              height: "100%",
+              background: "var(--primary-accent)",
+              borderRadius: 3,
+            }}
+          />
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className={styles.dashboard}>
@@ -70,100 +185,135 @@ export const BidTrackerPage: React.FC = () => {
         }
       />
 
+      {/* Filter Panel */}
+      <FilterPanel
+        isOpen={filtersOpen}
+        onToggle={() => setFiltersOpen(!filtersOpen)}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <label
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--text-secondary)",
+            }}
+          >
+            Search
+          </label>
+          <input
+            type="text"
+            placeholder="BID #, client, project..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid var(--border-subtle)",
+              background: "var(--card-bg-elevated)",
+              color: "var(--text-primary)",
+              fontSize: 13,
+              width: 200,
+            }}
+          />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <label
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--text-secondary)",
+            }}
+          >
+            Division
+          </label>
+          <select
+            value={filters.divisions[0] || ""}
+            onChange={(e) =>
+              setFilters({
+                divisions: e.target.value ? [e.target.value as any] : [],
+              })
+            }
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid var(--border-subtle)",
+              background: "var(--card-bg-elevated)",
+              color: "var(--text-primary)",
+              fontSize: 13,
+            }}
+          >
+            <option value="">All</option>
+            {DIVISIONS.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <label
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--text-secondary)",
+            }}
+          >
+            Priority
+          </label>
+          <select
+            value={filters.priorities[0] || ""}
+            onChange={(e) =>
+              setFilters({
+                priorities: e.target.value ? [e.target.value as any] : [],
+              })
+            }
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid var(--border-subtle)",
+              background: "var(--card-bg-elevated)",
+              color: "var(--text-primary)",
+              fontSize: 13,
+            }}
+          >
+            <option value="">All</option>
+            {PRIORITIES.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={resetFilters}
+          style={{
+            alignSelf: "flex-end",
+            padding: "8px 16px",
+            borderRadius: 8,
+            border: "1px solid var(--border-subtle)",
+            background: "transparent",
+            color: "var(--text-secondary)",
+            cursor: "pointer",
+            fontSize: 13,
+          }}
+        >
+          Clear Filters
+        </button>
+      </FilterPanel>
+
+      {/* Table View — uses DataTable component */}
       {viewMode === "table" && (
         <div className={styles.tableSection}>
-          <div style={{ overflowX: "auto" }}>
-            <table className={styles.bidTable}>
-              <thead>
-                <tr>
-                  <th>BID #</th>
-                  <th>Client</th>
-                  <th>Project</th>
-                  <th>Division</th>
-                  <th>Owner</th>
-                  <th>Due Date</th>
-                  <th>Priority</th>
-                  <th>Status</th>
-                  <th>Progress</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeBids.map((bid) => {
-                  const daysLeft = differenceInDays(new Date(bid.dueDate), now);
-                  return (
-                    <tr
-                      key={bid.bidNumber}
-                      className={styles.clickableRow}
-                      onClick={() => navigate(`/bid/${bid.bidNumber}`)}
-                    >
-                      <td className={styles.mono}>{bid.bidNumber}</td>
-                      <td>{bid.opportunityInfo.client}</td>
-                      <td
-                        style={{
-                          maxWidth: 180,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {bid.opportunityInfo.projectName}
-                      </td>
-                      <td>
-                        <StatusBadge
-                          status={bid.division}
-                          color={
-                            bid.division === "OPG"
-                              ? "#3b82f6"
-                              : bid.division === "SSR-ROV"
-                                ? "#f59e0b"
-                                : bid.division === "SSR-Survey"
-                                  ? "#10b981"
-                                  : "#8b5cf6"
-                          }
-                        />
-                      </td>
-                      <td>{bid.owner.name}</td>
-                      <td className={daysLeft < 0 ? styles.overdue : ""}>
-                        {format(new Date(bid.dueDate), "MMM d")}
-                      </td>
-                      <td>
-                        <span
-                          className={`${styles.priorityBadge} ${(styles as Record<string, string>)[bid.priority.toLowerCase()]}`}
-                        >
-                          {bid.priority}
-                        </span>
-                      </td>
-                      <td>
-                        <StatusBadge status={bid.currentStatus} />
-                      </td>
-                      <td>
-                        <div
-                          style={{
-                            width: 80,
-                            height: 6,
-                            background: "var(--border-subtle)",
-                            borderRadius: 3,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: `${bid.kpis.phaseCompletionPercentage}%`,
-                              height: "100%",
-                              background: "var(--primary-accent)",
-                              borderRadius: 3,
-                            }}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <DataTable<IBid>
+            data={activeBids as any}
+            columns={tableColumns as any}
+            onRowClick={handleBidClick as any}
+            emptyMessage="No active BIDs match your filters."
+          />
         </div>
       )}
 
+      {/* Kanban View — uses BidCard component */}
       {viewMode === "kanban" && (
         <div
           style={{
@@ -212,77 +362,24 @@ export const BidTrackerPage: React.FC = () => {
                 </span>
               </div>
               {group.bids.map((bid) => (
-                <div
+                <BidCard
                   key={bid.bidNumber}
-                  onClick={() => navigate(`/bid/${bid.bidNumber}`)}
-                  style={{
-                    background: "var(--card-bg-elevated)",
-                    borderRadius: 12,
-                    padding: 14,
-                    marginBottom: 10,
-                    border: "1px solid var(--border-subtle)",
-                    cursor: "pointer",
-                    transition: "all 250ms",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: 6,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fontSize: 12,
-                        color: "var(--secondary-accent)",
-                      }}
-                    >
-                      {bid.bidNumber}
-                    </span>
-                    <span
-                      className={`${styles.priorityBadge} ${(styles as Record<string, string>)[bid.priority.toLowerCase()]}`}
-                    >
-                      {bid.priority}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: "var(--text-primary)",
-                      marginBottom: 4,
-                    }}
-                  >
-                    {bid.opportunityInfo.client}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "var(--text-secondary)",
-                      marginBottom: 8,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {bid.opportunityInfo.projectName}
-                  </div>
-                  <StatusBadge status={bid.currentStatus} />
-                </div>
+                  bid={bid}
+                  onClick={handleBidClick}
+                />
               ))}
             </div>
           ))}
         </div>
       )}
 
+      {/* List View */}
       {viewMode === "list" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {activeBids.map((bid) => (
             <div
               key={bid.bidNumber}
-              onClick={() => navigate(`/bid/${bid.bidNumber}`)}
+              onClick={() => handleBidClick(bid)}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -320,15 +417,7 @@ export const BidTrackerPage: React.FC = () => {
               </span>
               <StatusBadge
                 status={bid.division}
-                color={
-                  bid.division === "OPG"
-                    ? "#3b82f6"
-                    : bid.division === "SSR-ROV"
-                      ? "#f59e0b"
-                      : bid.division === "SSR-Survey"
-                        ? "#10b981"
-                        : "#8b5cf6"
-                }
+                color={DIVISION_COLORS[bid.division]}
               />
               <span style={{ width: 80 }}>{bid.owner.name.split(" ")[0]}</span>
               <StatusBadge status={bid.currentStatus} />

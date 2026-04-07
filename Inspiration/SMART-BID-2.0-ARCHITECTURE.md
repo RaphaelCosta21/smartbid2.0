@@ -345,17 +345,27 @@ Seguindo o padrão SmartFlow, toda a informação é armazenada como **JSON blob
 
 **Propósito:** Armazena todos os BIDs (requests + bids ativos + completos).
 
-| Coluna     | Tipo SP                                   | Descrição                                      |
-| ---------- | ----------------------------------------- | ---------------------------------------------- |
-| `Title`    | Single line of text                       | BID Number: `BID-2026-0001`                    |
-| `jsondata` | Multiple lines of text (Plain, Unlimited) | JSON completo do `IBid`                        |
-| `Status`   | Single line of text                       | Status atual (redundante, para OData filter)   |
-| `Division` | Single line of text                       | Divisão (redundante, para OData filter)        |
-| `DueDate`  | DateTime                                  | Data limite (redundante, para sort/filter)     |
-| `Owner`    | Single line of text                       | Email do owner (redundante, para OData filter) |
-| `Phase`    | Single line of text                       | Fase atual (redundante, para OData filter)     |
+| Coluna     | Tipo SP                                   | Descrição                                                   |
+| ---------- | ----------------------------------------- | ----------------------------------------------------------- |
+| `Title`    | Single line of text                       | BID Number: `BID-2026-0001`                                 |
+| `jsondata` | Multiple lines of text (Plain, Unlimited) | JSON completo do `IBid` (source-of-truth)                   |
+| `Status`   | Single line of text                       | Status atual (redundante, para OData `$filter`)             |
+| `DueDate`  | DateTime                                  | Data limite (redundante, para OData `$orderby` e `$filter`) |
 
-> **Nota:** As colunas redundantes (`Status`, `Division`, `DueDate`, `Owner`, `Phase`) são indexadas no SharePoint para permitir queries OData eficientes sem carregar todos os BIDs. O JSON em `jsondata` é a source-of-truth.
+> **Nota:** Apenas `Status` e `DueDate` são mantidos como colunas redundantes indexadas no SharePoint — são os filtros OData mais críticos (BIDs ativos, overdue, ordenação por prazo). Demais campos (Division, Owner, Phase) ficam **apenas no JSON** e são filtrados client-side via TanStack Query cache, evitando duplicidade de informação e simplificando a codificação do service layer. O JSON em `jsondata` é a source-of-truth.
+>
+> **Padrão de atualização (BidService):** Toda escrita atualiza JSON + colunas redundantes numa única chamada PnPjs:
+>
+> ```typescript
+> await sp.web.lists
+>   .getByTitle("smartbid-tracker")
+>   .items.getById(id)
+>   .update({
+>     jsondata: JSON.stringify(bid),
+>     Status: bid.currentStatus,
+>     DueDate: bid.dueDate,
+>   });
+> ```
 
 **Exemplo de `jsondata`:**
 
@@ -652,41 +662,49 @@ Seguindo o padrão SmartFlow, toda a informação é armazenada como **JSON blob
     "lastUpdatedBy": null,
     "lastUpdatedDate": null
   },
-  "approvals": [
-    {
-      "id": "apr-001",
-      "stakeholderRole": "Engineering Manager",
-      "stakeholder": {
-        "name": "Carlos Mendes",
-        "email": "cmendes@oceaneering.com"
-      },
-      "status": "approved",
-      "requestedDate": "2026-03-19T09:00:00Z",
-      "respondedDate": "2026-03-19T11:30:00Z",
-      "decision": "Approved",
-      "comments": "Costs are within budget. Proceed.",
-      "approvedVia": "SmartBid",
-      "notificationSent": true,
-      "reminderCount": 0
+  "approval": {
+    "status": "pending",
+    "approvalType": "BID Approval",
+    "requestedDate": "2026-03-19T09:00:00Z",
+    "requestedBy": {
+      "name": "João Silva",
+      "email": "jsilva@oceaneering.com"
     },
-    {
-      "id": "apr-002",
-      "stakeholderRole": "Commercial Manager",
-      "stakeholder": {
-        "name": "Ana Oliveira",
-        "email": "aoliveira@oceaneering.com"
-      },
-      "status": "pending",
-      "requestedDate": "2026-03-19T09:00:00Z",
-      "respondedDate": null,
-      "decision": null,
-      "comments": null,
-      "approvedVia": null,
-      "notificationSent": true,
-      "reminderCount": 1
-    }
-  ],
-  "approvalStatus": "pending",
+    "chains": {
+      "ROV": [
+        {
+          "order": 1,
+          "email": "rov1@oceaneering.com",
+          "name": "Carlos Mendes",
+          "role": "ROV Project Manager",
+          "decision": "approved",
+          "date": "2026-03-19T11:30:00Z",
+          "comments": "Costs are within budget. Proceed."
+        },
+        {
+          "order": 2,
+          "email": "rov2@oceaneering.com",
+          "name": "Maria Santos",
+          "role": "ROV Director",
+          "decision": null,
+          "date": null,
+          "comments": null
+        }
+      ],
+      "ENG": [
+        {
+          "order": 1,
+          "email": "eng1@oceaneering.com",
+          "name": "Ana Oliveira",
+          "role": "Engineering Manager",
+          "decision": null,
+          "date": null,
+          "comments": null
+        }
+      ]
+    },
+    "completedDate": null
+  },
   "attachments": [
     {
       "id": "att-001",
@@ -2282,14 +2300,17 @@ Seguindo o padrão SmartFlow, toda a informação é armazenada como **JSON blob
 
 ### 4.3 Lista: `smartbid-status-tracker`
 
-**Propósito:** Registro de notificações para Power Automate → Microsoft Teams Adaptive Cards.
+**Propósito:** Fila de notificações para Power Automate → Microsoft Teams. Cada evento gera um **novo item** (write-only). O app nunca lê desta lista — apenas escreve. PA consome via trigger "on created".
 
-| Coluna        | Tipo SP                                   | Descrição                                     |
-| ------------- | ----------------------------------------- | --------------------------------------------- |
-| `Title`       | Single line of text                       | BID Number                                    |
-| `jsondata`    | Multiple lines of text (Plain, Unlimited) | `IStatusTrackerEntry` JSON                    |
-| `ChangeType`  | Single line of text                       | Tipo da mudança (para Power Automate trigger) |
-| `IsProcessed` | Yes/No                                    | Power Automate já processou?                  |
+| Coluna       | Tipo SP                                   | Descrição                                       |
+| ------------ | ----------------------------------------- | ----------------------------------------------- |
+| `Title`      | Single line of text                       | BID Number                                      |
+| `jsondata`   | Multiple lines of text (Plain, Unlimited) | `IStatusTrackerEntry` JSON (detalhes do evento) |
+| `ChangeType` | Single line of text                       | Tipo da mudança (PA usa para condition/routing) |
+
+> **Trigger Power Automate:** "When an item is **created**" — cada item é independente e único, sem risco de perda de eventos. Diferente do trigger "on modified" que tem debounce e pode perder atualizações rápidas no mesmo item.
+>
+> **Crescimento:** ~1000+ items/ano. SharePoint suporta 30M items por lista. Opcional: criar Flow de cleanup para items > 6 meses.
 
 **Change Types para trigger:**
 
@@ -2297,7 +2318,7 @@ Seguindo o padrão SmartFlow, toda a informação é armazenada como **JSON blob
 - `BID_ASSIGNED` — Owner atribuído
 - `STATUS_CHANGED` — Status alterado
 - `PHASE_CHANGED` — Fase alterada
-- `APPROVAL_REQUESTED` — Aprovação solicitada (critical: envia card no Teams)
+- `APPROVAL_REQUESTED` — Aprovação solicitada (critical: envia Adaptive Card no Teams com deep link)
 - `APPROVAL_RESPONSE` — Aprovação respondida
 - `BID_COMPLETED` — BID finalizado
 - `BID_OVERDUE` — BID passou do prazo
@@ -2306,69 +2327,109 @@ Seguindo o padrão SmartFlow, toda a informação é armazenada como **JSON blob
 - `COMMENT_ADDED` — Novo comentário
 - `DEADLINE_WARNING` — Prazo se aproximando (48h, 24h)
 - `HIGH_PRIORITY` — BID urgente criado
-- `TEMPLATE_IMPORTED` — Template importado
-- `EQUIPMENT_UPDATED` — Equipamento atualizado
-- `COST_UPDATED` — Custos atualizados
+
+**Exemplo de item (APPROVAL_REQUESTED):**
+
+```json
+{
+  "bidNumber": "BID-2026-0042",
+  "bidTitle": "ROV Inspection - Marlim Field",
+  "chain": "ROV",
+  "approverEmail": "rov1@oceaneering.com",
+  "approverName": "João Silva",
+  "approverRole": "ROV Project Manager",
+  "costSummary": { "grandTotal": 278740.0, "currency": "USD" },
+  "deepLink": "https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering?bid=BID-2026-0042&tab=approval",
+  "requestedBy": "rcosta@oceaneering.com",
+  "timestamp": "2026-04-07T10:00:00Z"
+}
+```
+
+**Fluxo Power Automate (status-tracker):**
+
+1. Trigger: "When an item is **created**" em `smartbid-status-tracker`
+2. Condition: Switch por `ChangeType`
+3. Action: Envia mensagem/card no Teams para o destinatário apropriado (extraído do `jsondata`)
+4. Para `APPROVAL_REQUESTED`: Envia Adaptive Card com deep link para o app (sem botões de ação — aprovação é feita no app)
 
 ---
 
 ### 4.4 Lista: `smartbid-approvals`
 
-**Propósito:** Registro individual de aprovações. Cada solicitação de aprovação é um item separado para facilitar integração com Power Automate (cada item = 1 card no Teams).
+**Propósito:** Fila write-only de notificações de aprovação para Power Automate. Cada item = uma notificação individual para um aprovador específico. O app cria um novo item cada vez que precisa notificar alguém. **NÃO é a source-of-truth das aprovações** — o estado completo vive no JSON do BID em `smartbid-tracker`.
 
-| Coluna          | Tipo SP                                   | Descrição                                        |
-| --------------- | ----------------------------------------- | ------------------------------------------------ |
-| `Title`         | Single line of text                       | BID Number                                       |
-| `ApprovalId`    | Single line of text                       | ID único da aprovação                            |
-| `jsondata`      | Multiple lines of text (Plain, Unlimited) | `IApprovalRecord` JSON                           |
-| `ApproverEmail` | Single line of text                       | Email do aprovador (para Power Automate filter)  |
-| `Status`        | Single line of text                       | "pending" / "approved" / "rejected" / "revision" |
-| `IsProcessed`   | Yes/No                                    | Power Automate já enviou o card?                 |
+| Coluna     | Tipo SP                                   | Descrição                                                      |
+| ---------- | ----------------------------------------- | -------------------------------------------------------------- |
+| `Title`    | Single line of text                       | BID Number                                                     |
+| `jsondata` | Multiple lines of text (Plain, Unlimited) | Detalhes da notificação: aprovador, BID info, deep link, chain |
+
+> **Trigger Power Automate:** "When an item is **created**" — cada item é independente. Sem race conditions, sem perda de notificações, sem necessidade de colunas extras (`IsProcessed`, `Status`, `ApproverEmail`).
+>
+> **Diferença do `smartbid-status-tracker`:** Enquanto o status-tracker cobre TODOS os tipos de notificação (BID criado, status mudou, etc.), a lista de approvals é **exclusiva para aprovações**. Isso permite um flow de PA dedicado com Adaptive Card formatado especificamente para aprovação, sem poluir o flow genérico de notificações.
+>
+> **Obs:** Se no futuro decidir unificar as notificações de aprovação no `smartbid-status-tracker` (usando `ChangeType = "APPROVAL_REQUESTED"`), esta lista pode ser eliminada. A separação existe para manter o flow de PA de aprovações isolado e mais fácil de manter.
 
 **Exemplo `jsondata`:**
 
 ```json
 {
-  "approvalId": "apr-2026-0042-001",
   "bidNumber": "BID-2026-0042",
   "bidTitle": "ROV Inspection - Marlim Field",
   "client": "Petrobras",
   "division": "SSR-ROV",
-  "requestedBy": {
-    "name": "João Silva",
-    "email": "jsilva@oceaneering.com"
-  },
+  "chain": "ROV",
+  "stepOrder": 1,
   "approver": {
-    "name": "Carlos Mendes",
-    "email": "cmendes@oceaneering.com",
-    "role": "Engineering Manager"
+    "name": "João Silva",
+    "email": "jsilva@oceaneering.com",
+    "role": "ROV Project Manager"
   },
-  "approvalType": "BID Approval",
-  "phase": "PHASE_3",
-  "status": "pending",
-  "requestedDate": "2026-03-19T09:00:00Z",
-  "respondedDate": null,
-  "decision": null,
-  "comments": null,
-  "approvedVia": null,
+  "requestedBy": {
+    "name": "Raphael Costa",
+    "email": "rcosta@oceaneering.com"
+  },
   "costSummary": {
     "grandTotal": 278740.0,
     "currency": "USD"
   },
   "dueDate": "2026-03-25T18:00:00Z",
-  "remindersSent": 0,
-  "lastReminderDate": null,
-  "deepLink": "https://oceaneering.sharepoint.com/sites/smartbid?bid=BID-2026-0042&tab=approval"
+  "deepLink": "https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering?bid=BID-2026-0042&tab=approval",
+  "timestamp": "2026-04-07T10:00:00Z"
 }
 ```
 
-**Fluxo Power Automate:**
+**Fluxo de criação de items (orquestrado pelo App):**
 
-1. Trigger: "When an item is created or modified" em `smartbid-approvals` onde `Status eq 'pending'` e `IsProcessed eq false`
-2. Action: Send Adaptive Card no Teams para `ApproverEmail`
-3. Card tem botões: ✅ Approve, ❌ Reject, 🔄 Request Revision
-4. Quando aprovador clica → Power Automate atualiza o item (`Status`, `respondedDate`, `decision`, `comments`, `approvedVia: "Teams"`)
-5. Smart BID 2.0 poll/webhook detecta a mudança e atualiza o BID principal
+```
+1. Usuário clica "Request Approval"
+   → App identifica cadeias necessárias (ROV, SURVEY, OPG)
+   → App cria 1 item por primeiro aprovador de cada cadeia (paralelo)
+
+   Item 1: Title="BID-2026-0042", jsondata={ chain: "ROV",    approver: rov1@,    stepOrder: 1 }
+   Item 2: Title="BID-2026-0042", jsondata={ chain: "SURVEY", approver: surv1@,   stepOrder: 1 }
+   Item 3: Title="BID-2026-0042", jsondata={ chain: "OPG",    approver: opg1@,    stepOrder: 1 }
+
+   → PA trigga 3x (on created) → 3 Adaptive Cards no Teams ✅
+
+2. rov1 aprova no App
+   → App atualiza JSON do BID em smartbid-tracker (decisions[], currentStep)
+   → App cria 1 novo item para próximo da cadeia ROV:
+
+   Item 4: Title="BID-2026-0042", jsondata={ chain: "ROV",    approver: rov2@,    stepOrder: 2 }
+
+   → PA trigga 1x → card só pra rov2 ✅
+   → surv1 e opg1 NÃO recebem nada (nenhum item novo) ✅
+
+3. Repete até todas as cadeias completarem
+```
+
+**Fluxo Power Automate (approvals):**
+
+1. Trigger: "When an item is **created**" em `smartbid-approvals`
+2. Action: Extrai `approverEmail` e `deepLink` do `jsondata` (PA expression: `json(triggerBody()?['jsondata'])`)
+3. Action: Envia Adaptive Card no Teams para o aprovador
+4. Card contém: info do BID, custos, deep link para aprovar no Smart BID 2.0
+5. **Aprovação acontece no App** (não no Teams) — Card é notificação com link, não formulário interativo
 
 ---
 
@@ -2396,13 +2457,15 @@ SmartBidAttachments/
 
 ### 4.6 Resumo de Todas as Listas
 
-| Lista                     | Propósito                        | Items Estimados | Padrão SF                  |
-| ------------------------- | -------------------------------- | --------------- | -------------------------- |
-| `smartbid-tracker`        | BIDs completos (JSON)            | ~200-500/ano    | `smartflow-flow-tracker`   |
-| `smartbid-config`         | Config, membros, templates, logs | ~10 items fixos | `smartflow-config`         |
-| `smartbid-status-tracker` | Notificações para Power Automate | ~1000+/ano      | `smartflow-status-tracker` |
-| `smartbid-approvals`      | Aprovações individuais           | ~500+/ano       | **Novo**                   |
-| `SmartBidAttachments`     | Document Library                 | Arquivos        | `SmartFlowAttachments`     |
+| Lista                     | Propósito                         | Colunas                                  | Items Estimados | PA Trigger     | Papel                 |
+| ------------------------- | --------------------------------- | ---------------------------------------- | --------------- | -------------- | --------------------- |
+| `smartbid-tracker`        | BIDs completos (source-of-truth)  | `Title`, `jsondata`, `Status`, `DueDate` | ~200-500/ano    | —              | Read + Write          |
+| `smartbid-config`         | Config, membros, templates, logs  | `Title`, `ConfigValue`                   | ~10 items fixos | —              | Read + Write          |
+| `smartbid-status-tracker` | Fila de notificações gerais       | `Title`, `jsondata`, `ChangeType`        | ~1000+/ano      | On **created** | Write-only (pelo app) |
+| `smartbid-approvals`      | Fila de notificações de aprovação | `Title`, `jsondata`                      | ~500+/ano       | On **created** | Write-only (pelo app) |
+| `SmartBidAttachments`     | Document Library                  | —                                        | Arquivos        | —              | Read + Write          |
+
+> **Princípio de design:** `smartbid-tracker` é a única lista que o app **lê e escreve**. As listas `smartbid-status-tracker` e `smartbid-approvals` são **write-only** pelo app — existem apenas como fila para Power Automate consumir. Isso elimina race conditions, simplifica o service layer e evita duplicidade de informação.
 
 ---
 
@@ -2633,7 +2696,14 @@ interface IBidTask {
 
 ### 7.1 Visão Geral
 
-O sistema de aprovação suporta múltiplos stakeholders com notificação via **Microsoft Teams** (Adaptive Cards) e aprovação direta no **Smart BID 2.0**.
+O sistema de aprovação suporta **múltiplas cadeias de aprovação em paralelo** (ROV, SURVEY, OPG), cada uma rodando em cascata interna. A notificação é via **Microsoft Teams** (Adaptive Cards com deep link) e a aprovação acontece exclusivamente no **Smart BID 2.0**. O Teams é apenas "carteiro" — não tem formulário interativo.
+
+**Princípios de design:**
+
+- **Source-of-truth:** Estado das aprovações vive no JSON do BID (`smartbid-tracker.jsondata.approval`)
+- **Write-only queue:** `smartbid-approvals` serve apenas para triggar PA (o app nunca lê desta lista)
+- **Toda lógica no app:** Cascata, avanço de steps, validação — tudo em TypeScript no `ApprovalService`
+- **PA é carteiro:** Recebe item criado → envia Adaptive Card → fim
 
 ### 7.2 Tipos de Aprovação
 
@@ -2643,68 +2713,173 @@ O sistema de aprovação suporta múltiplos stakeholders com notificação via *
 | **Technical Proposal Approval** | Phase 4 (Task 4.3)  | Aprovação da proposta técnica         |
 | **High Value Override**         | Qualquer            | Aprovação extra para BIDs > threshold |
 
-### 7.3 Stakeholders Padrão
+### 7.3 Cadeias de Aprovação
 
-| Papel                            | Obrigatório | Quando                                |
-| -------------------------------- | ----------- | ------------------------------------- |
-| **Engineering Manager**          | Sim         | Sempre                                |
-| **Commercial Manager**           | Sim         | Sempre                                |
-| **Project Manager (ROV/Survey)** | Condicional | Quando divisão envolve ROV ou Survey  |
-| **OPG Manager**                  | Condicional | Quando divisão = OPG                  |
-| **Director**                     | Condicional | Quando valor > threshold configurável |
+As aprovações são organizadas em **cadeias por divisão/área**, que rodam **em paralelo entre si** e **em cascata dentro de cada cadeia**. As cadeias ativas dependem das divisões envolvidas no BID:
 
-### 7.4 Fluxo de Aprovação
+| Cadeia     | Ativada quando         | Aprovadores (cascade)                    |
+| ---------- | ---------------------- | ---------------------------------------- |
+| **ROV**    | Divisão envolve ROV    | ROV Project Manager → ROV Director       |
+| **SURVEY** | Divisão envolve Survey | Survey Project Manager → Survey Director |
+| **OPG**    | Divisão = OPG          | OPG Manager → OPG Director               |
+| **ENG**    | Sempre (obrigatória)   | Engineering Manager                      |
+| **COMM**   | Sempre (obrigatória)   | Commercial Manager                       |
+
+> **Nota:** As cadeias e seus aprovadores são **configuráveis** via `APPROVAL_RULES` no `smartbid-config`. Os exemplos acima são os defaults. O admin pode adicionar/remover cadeias e aprovadores.
+
+### 7.4 Estrutura de Aprovação no JSON do BID
+
+O estado completo das aprovações vive no JSON do BID dentro de `smartbid-tracker`. É a **source-of-truth** que o app lê para renderizar o painel de aprovações:
+
+```json
+{
+  "approval": {
+    "status": "pending",
+    "requestedDate": "2026-04-07T10:00:00Z",
+    "requestedBy": {
+      "name": "Raphael Costa",
+      "email": "rcosta@oceaneering.com"
+    },
+    "approvalType": "BID Approval",
+    "chains": {
+      "ROV": [
+        {
+          "order": 1,
+          "email": "rov1@oceaneering.com",
+          "name": "João Silva",
+          "role": "ROV Project Manager",
+          "decision": "approved",
+          "date": "2026-04-07T14:00:00Z",
+          "comments": "Costs are within budget"
+        },
+        {
+          "order": 2,
+          "email": "rov2@oceaneering.com",
+          "name": "Maria Santos",
+          "role": "ROV Director",
+          "decision": null,
+          "date": null,
+          "comments": null
+        }
+      ],
+      "SURVEY": [
+        {
+          "order": 1,
+          "email": "surv1@oceaneering.com",
+          "name": "Pedro Lima",
+          "role": "Survey Project Manager",
+          "decision": "approved",
+          "date": "2026-04-07T15:00:00Z",
+          "comments": ""
+        }
+      ],
+      "ENG": [
+        {
+          "order": 1,
+          "email": "eng1@oceaneering.com",
+          "name": "Carlos Mendes",
+          "role": "Engineering Manager",
+          "decision": null,
+          "date": null,
+          "comments": null
+        }
+      ]
+    },
+    "completedDate": null
+  }
+}
+```
+
+### 7.5 Regras de Renderização (BidApprovalPanel)
+
+O componente `BidApprovalPanel` renderiza o estado das aprovações com base no JSON:
 
 ```
-┌──────────────────────────────────────────────────────┐
-│                   Owner clica                        │
-│               "Request Approval"                     │
-└────────────────────┬─────────────────────────────────┘
-                     │
-                     ▼
-┌──────────────────────────────────────────────────────┐
-│  Sistema identifica stakeholders obrigatórios        │
-│  baseado em: divisão, valor, regras de config        │
-└────────────────────┬─────────────────────────────────┘
-                     │
-                     ▼
-┌──────────────────────────────────────────────────────┐
-│  Para cada stakeholder:                              │
-│  1. Cria item em smartbid-approvals (Status=pending) │
-│  2. Power Automate envia Adaptive Card no Teams      │
-│  3. Card mostra: BID info, custos, botões de ação    │
-└────────────────────┬─────────────────────────────────┘
-                     │
-          ┌──────────┼──────────┐
-          ▼          ▼          ▼
-     ┌─────────┐ ┌─────────┐ ┌──────────┐
-     │ Via      │ │ Via      │ │ Via      │
-     │ Teams    │ │ SmartBid │ │ Email    │
-     │ Card     │ │ 2.0 Web  │ │ Link    │
-     └────┬────┘ └────┬────┘ └────┬─────┘
-          │           │           │
-          └───────────┼───────────┘
-                      ▼
-┌──────────────────────────────────────────────────────┐
-│  Decisão gravada:                                    │
-│  - Quem aprovou (nome, email, foto)                  │
-│  - Quando (timestamp)                                │
-│  - Decisão (Approved / Rejected / Request Revision)  │
-│  - Comentários                                       │
-│  - Canal (Teams / SmartBid / Email)                  │
-└────────────────────┬─────────────────────────────────┘
-                     │
-                     ▼
-┌──────────────────────────────────────────────────────┐
-│  Todos obrigatórios aprovaram?                       │
-│  ✅ SIM → Status: Approved → Próxima fase           │
-│  ❌ Algum rejeitou → Returned for Revision          │
-│  ⏳ Pendente → Reminder em 24h (configurável)       │
-│     → Escalar após 72h para manager acima            │
-└──────────────────────────────────────────────────────┘
+Para cada chain, para cada pessoa:
+  decision === "approved"   → ✅ Check verde + data + nome
+  decision === "rejected"   → ❌ Vermelho + comentário
+  decision === null && é a PRÓXIMA na cadeia (todos anteriores approved) → ⏳ Amarelo pulsante ("Awaiting")
+  decision === null && NÃO é a próxima (anterior ainda pendente)        → ⚪ Cinza ("Pending")
+
+Exemplo visual:
+  ROV:     ✅ João Silva (07/04 14:00) → ⏳ Maria Santos (awaiting...)
+  SURVEY:  ✅ Pedro Lima (07/04 15:00) — chain complete ✓
+  ENG:     ⏳ Carlos Mendes (awaiting...)
 ```
 
-### 7.5 Adaptive Card do Teams (exemplo)
+### 7.6 Fluxo Completo de Aprovação
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    Owner clica "Request Approval"                │
+└────────────────────────────┬─────────────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  App identifica cadeias obrigatórias                            │
+│  baseado em: divisão, valor, APPROVAL_RULES do config           │
+│  Exemplo: ROV (2 approvers) + SURVEY (1) + ENG (1) = 3 cadeias │
+└────────────────────────────┬─────────────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  App faz 2 escritas simultâneas:                                │
+│                                                                  │
+│  1. ATUALIZA smartbid-tracker:                                   │
+│     → jsondata.approval = { chains, status: "pending", ... }     │
+│     → Status = "Pending Approval"                                │
+│                                                                  │
+│  2. CRIA items em smartbid-approvals (1 por primeiro de cadeia): │
+│     → Item: { chain: "ROV",    approver: rov1@,  stepOrder: 1 } │
+│     → Item: { chain: "SURVEY", approver: surv1@, stepOrder: 1 } │
+│     → Item: { chain: "ENG",    approver: eng1@,  stepOrder: 1 } │
+└────────────────────────────┬─────────────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  PA trigga 3x (on created) → 3 Adaptive Cards no Teams          │
+│  Cada card tem: info do BID, custos, deep link para o app       │
+└────────────────────────────┬─────────────────────────────────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+     ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+     │ ROV chain    │ │ SURVEY chain │ │ ENG chain    │
+     │ (cascata)    │ │ (cascata)    │ │ (cascata)    │
+     └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
+            │                │                │
+            ▼                ▼                ▼
+     Aprovadores clicam deep link → abrem Smart BID 2.0
+            │
+            ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  Aprovador aprova no App:                                        │
+│  1. App ATUALIZA smartbid-tracker:                               │
+│     → chains.ROV[0].decision = "approved"                        │
+│     → chains.ROV[0].date = now()                                 │
+│     → chains.ROV[0].comments = "OK"                              │
+│                                                                  │
+│  2. Se há próximo na cadeia → App CRIA novo item em approvals:   │
+│     → Item: { chain: "ROV", approver: rov2@, stepOrder: 2 }     │
+│     → PA trigga 1x → card só pra rov2 ✅                        │
+│                                                                  │
+│  3. Se era o último da cadeia → cadeia completa ✅               │
+│                                                                  │
+│  4. TanStack Query invalida cache → UI atualiza                  │
+└────────────────────────────┬─────────────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  App verifica: Todas as cadeias completas?                       │
+│  ✅ SIM → approval.status = "approved"                           │
+│          → BID avança para próxima fase                          │
+│  ❌ Algum rejeitou → approval.status = "rejected"                │
+│          → BID volta para "Returned for Revision"                │
+│  ⏳ Pendente → aguarda (reminder via PA scheduled flow, 24h)    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### 7.7 Adaptive Card do Teams (notificação com deep link)
 
 ```json
 {
@@ -2732,47 +2907,27 @@ O sistema de aprovação suporta múltiplos stakeholders com notificação via *
         { "title": "Division", "value": "SSR-ROV" },
         { "title": "Total Cost", "value": "USD 278,740.00" },
         { "title": "Due Date", "value": "March 25, 2026" },
-        { "title": "Requested By", "value": "João Silva" }
+        { "title": "Requested By", "value": "Raphael Costa" },
+        { "title": "Your Chain", "value": "ROV (Step 1 of 2)" }
       ]
     },
     {
       "type": "TextBlock",
-      "text": "Please review and approve this BID.",
+      "text": "Please review and approve this BID in the Smart BID app.",
       "wrap": true
-    },
-    {
-      "type": "Input.Text",
-      "id": "comments",
-      "placeholder": "Comments (optional)...",
-      "isMultiline": true
     }
   ],
   "actions": [
     {
-      "type": "Action.Submit",
-      "title": "✅ Approve",
-      "data": { "action": "approve" },
-      "style": "positive"
-    },
-    {
-      "type": "Action.Submit",
-      "title": "❌ Reject",
-      "data": { "action": "reject" },
-      "style": "destructive"
-    },
-    {
-      "type": "Action.Submit",
-      "title": "🔄 Request Revision",
-      "data": { "action": "revision" }
-    },
-    {
       "type": "Action.OpenUrl",
-      "title": "📂 Open in SmartBid",
-      "url": "https://..."
+      "title": "📂 Open in Smart BID 2.0 to Approve",
+      "url": "https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering?bid=BID-2026-0042&tab=approval"
     }
   ]
 }
 ```
+
+> **Nota:** O card **não tem botões de Approve/Reject** — a aprovação acontece exclusivamente no app. Isso mantém toda a lógica de cascata no TypeScript, evita complexidade no PA, e garante que o estado no JSON do BID seja sempre consistente.
 
 ---
 

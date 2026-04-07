@@ -7,6 +7,8 @@ import {
   INavItem,
 } from "../../config/navigation.config";
 import styles from "./Sidebar.module.scss";
+import { SidebarItem } from "./SidebarItem";
+import { SidebarSubmenu } from "./SidebarSubmenu";
 
 // Simple icon component that renders Lucide-style icons inline
 const Icon: React.FC<{ name: string; size?: number }> = ({
@@ -415,23 +417,8 @@ export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { sidebarExpanded, toggleSidebar, theme, toggleTheme } = useUIStore();
-  const [openSubmenus, setOpenSubmenus] = React.useState<
-    Record<string, boolean>
-  >({});
 
   const currentPath = location.pathname;
-
-  const toggleSubmenu = (key: string): void => {
-    setOpenSubmenus((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const handleNavClick = (item: INavItem): void => {
-    if (item.children) {
-      toggleSubmenu(item.key);
-    } else {
-      navigate(item.route);
-    }
-  };
 
   const groupedItems = React.useMemo(() => {
     const grouped: Record<string, INavItem[]> = {};
@@ -492,41 +479,31 @@ export const Sidebar: React.FC = () => {
             )}
             {items.map((item) => (
               <React.Fragment key={item.key}>
-                <div
-                  className={`${styles.navItem} ${currentPath === item.route ? styles.active : ""} ${item.children ? styles.submenuToggle : ""} ${item.children && openSubmenus[item.key] ? styles.open : ""}`}
-                  onClick={() => handleNavClick(item)}
-                  title={!sidebarExpanded ? item.label : undefined}
-                >
-                  <Icon name={item.icon} />
-                  {sidebarExpanded && (
-                    <>
-                      <span className={styles.navLabel}>{item.label}</span>
-                      {item.badge !== undefined && (
-                        <span
-                          className={`${styles.badge} ${item.badgePulsing ? styles.pulsing : ""}`}
-                        >
-                          {item.badge}
-                        </span>
-                      )}
-                      {item.children && <Icon name="ChevronDown" size={14} />}
-                    </>
-                  )}
-                </div>
-
-                {item.children && sidebarExpanded && (
-                  <div
-                    className={`${styles.submenu} ${openSubmenus[item.key] ? styles.open : ""}`}
+                {item.children ? (
+                  <SidebarSubmenu
+                    label={item.label}
+                    icon={<Icon name={item.icon} />}
+                    isCollapsed={!sidebarExpanded}
                   >
                     {item.children.map((child) => (
-                      <div
+                      <SidebarItem
                         key={child.key}
-                        className={`${styles.submenuItem} ${currentPath === child.route ? styles.active : ""}`}
+                        icon={<Icon name={child.icon || item.icon} size={14} />}
+                        label={child.label}
+                        isActive={currentPath === child.route}
                         onClick={() => navigate(child.route)}
-                      >
-                        {child.label}
-                      </div>
+                      />
                     ))}
-                  </div>
+                  </SidebarSubmenu>
+                ) : (
+                  <SidebarItem
+                    icon={<Icon name={item.icon} />}
+                    label={item.label}
+                    isActive={currentPath === item.route}
+                    badge={item.badge}
+                    isCollapsed={!sidebarExpanded}
+                    onClick={() => navigate(item.route)}
+                  />
                 )}
               </React.Fragment>
             ))}

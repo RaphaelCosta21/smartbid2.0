@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import { IUser, UserRole } from "../models";
+import { IUser } from "../models";
+import {
+  hasAccess as checkAccess,
+  isSuperAdmin as checkSuperAdmin,
+} from "../utils/accessControl";
 
 const DEFAULT_USER: IUser = {
   id: "user-001",
@@ -49,61 +53,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   hasAccess: (section: string, level: "view" | "edit") => {
     const { currentUser, isGuestUser } = get();
     if (isGuestUser) return level === "view" && section === "workspace";
-    if (currentUser.isSuperAdmin) return true;
-
-    const accessMap: Record<UserRole, Record<string, string>> = {
-      manager: {
-        workspace: "edit",
-        insights: "edit",
-        reports: "edit",
-        settings: "edit",
-        approvals: "edit",
-        templates: "edit",
-      },
-      engineer: {
-        workspace: "edit",
-        insights: "view",
-        reports: "view",
-        settings: "none",
-        approvals: "view",
-        templates: "edit",
-      },
-      bidder: {
-        workspace: "edit",
-        insights: "view",
-        reports: "view",
-        settings: "none",
-        approvals: "view",
-        templates: "view",
-      },
-      projectTeam: {
-        workspace: "view",
-        insights: "view",
-        reports: "view",
-        settings: "none",
-        approvals: "edit",
-        templates: "none",
-      },
-      viewer: {
-        workspace: "view",
-        insights: "view",
-        reports: "view",
-        settings: "none",
-        approvals: "none",
-        templates: "none",
-      },
-      guest: {
-        workspace: "view",
-        insights: "none",
-        reports: "none",
-        settings: "none",
-        approvals: "none",
-        templates: "none",
-      },
-    };
-
-    const userAccess = accessMap[currentUser.role]?.[section] ?? "none";
-    if (level === "view") return userAccess === "view" || userAccess === "edit";
-    return userAccess === "edit";
+    if (currentUser.isSuperAdmin || checkSuperAdmin(currentUser.email))
+      return true;
+    return checkAccess(currentUser.role, section as any, level);
   },
 }));

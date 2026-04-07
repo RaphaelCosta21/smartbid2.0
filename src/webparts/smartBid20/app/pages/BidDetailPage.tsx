@@ -3,7 +3,25 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useBidStore } from "../stores/useBidStore";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { GlassCard } from "../components/common/GlassCard";
+import { BidEquipmentTable } from "../components/bid/BidEquipmentTable";
+import { BidHoursTable } from "../components/bid/BidHoursTable";
+import { BidCostSummary } from "../components/bid/BidCostSummary";
+import { BidTaskChecklist } from "../components/bid/BidTaskChecklist";
+import { BidApprovalPanel } from "../components/bid/BidApprovalPanel";
+import { BidComments } from "../components/bid/BidComments";
+import { BidActivityLog } from "../components/bid/BidActivityLog";
+import { BidExportButton } from "../components/bid/BidExportButton";
 import { BID_PHASES } from "../config/status.config";
+import {
+  bidsToCSV,
+  downloadCSV,
+  getExportFilename,
+} from "../utils/exportHelpers";
+import {
+  getPhaseProgress,
+  getOverallProgress,
+  getPhaseLabelForBid,
+} from "../utils/phaseHelpers";
 import { differenceInDays, format } from "date-fns";
 import styles from "./BidDetailPage.module.scss";
 
@@ -141,21 +159,55 @@ export const BidDetailPage: React.FC = () => {
         {activeTab === "overview" && (
           <OverviewTab bid={bid} currentPhaseIndex={currentPhaseIndex} />
         )}
-        {activeTab === "scope" && <ScopeTab bid={bid} />}
-        {activeTab === "hours" && <HoursTab bid={bid} />}
-        {activeTab === "costs" && <CostTab bid={bid} />}
-        {activeTab === "tasks" && <TasksTab bid={bid} />}
+        {activeTab === "scope" && (
+          <GlassCard title="Equipment / Assets">
+            <BidEquipmentTable items={bid.equipmentList} readOnly />
+          </GlassCard>
+        )}
+        {activeTab === "hours" && bid.hoursSummary && (
+          <BidHoursTable hoursSummary={bid.hoursSummary} readOnly />
+        )}
+        {activeTab === "costs" && bid.costSummary && (
+          <BidCostSummary costSummary={bid.costSummary} />
+        )}
+        {activeTab === "tasks" && (
+          <BidTaskChecklist tasks={bid.steps as any} readOnly />
+        )}
         {activeTab === "timeline" && (
           <TimelineTab bid={bid} currentPhaseIndex={currentPhaseIndex} />
         )}
-        {activeTab === "approval" && <ApprovalTab bid={bid} />}
+        {activeTab === "approval" && (
+          <BidApprovalPanel approvals={bid.approvals} />
+        )}
         {activeTab === "documents" && <DocumentsTab bid={bid} />}
-        {activeTab === "comments" && <CommentsTab bid={bid} />}
+        {activeTab === "comments" && <BidComments comments={bid.comments} />}
         {activeTab === "notes" && <NotesTab bid={bid} />}
         {activeTab === "qualifications" && <QualificationsTab bid={bid} />}
         {activeTab === "ai" && <AITab />}
-        {activeTab === "activity" && <ActivityTab bid={bid} />}
-        {activeTab === "export" && <ExportTab bid={bid} />}
+        {activeTab === "activity" && (
+          <BidActivityLog entries={bid.activityLog} />
+        )}
+        {activeTab === "export" && (
+          <GlassCard title="Export BID Data">
+            <BidExportButton
+              onExportExcel={() => {
+                const csv = bidsToCSV([bid]);
+                downloadCSV(
+                  csv,
+                  getExportFilename(`BID-${bid.bidNumber}`, "csv"),
+                );
+              }}
+              onExportPDF={() => {
+                const csv = bidsToCSV([bid]);
+                downloadCSV(
+                  csv,
+                  getExportFilename(`BID-${bid.bidNumber}`, "csv"),
+                );
+              }}
+              onPrint={() => window.print()}
+            />
+          </GlassCard>
+        )}
       </div>
     </div>
   );
@@ -289,10 +341,18 @@ const OverviewTab: React.FC<{ bid: IBid; currentPhaseIndex: number }> = ({
     {/* Right Column — Phase Progress + KPIs */}
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div className={styles.progressSection}>
-        <h4 className={styles.infoTitle}>Phase Progress</h4>
+        <h4 className={styles.infoTitle}>
+          Phase Progress — {getPhaseLabelForBid(bid)} ({getOverallProgress(bid)}
+          % overall)
+        </h4>
         {BID_PHASES.map((phase, idx) => {
           const isCompleted = idx < currentPhaseIndex;
           const isCurrent = idx === currentPhaseIndex;
+          const phasePercent = isCurrent
+            ? getPhaseProgress(bid)
+            : isCompleted
+              ? 100
+              : 0;
           const stateClass = isCompleted
             ? styles.completed
             : isCurrent
@@ -310,7 +370,7 @@ const OverviewTab: React.FC<{ bid: IBid; currentPhaseIndex: number }> = ({
                   {isCompleted
                     ? "Completed"
                     : isCurrent
-                      ? "In Progress"
+                      ? `In Progress (${phasePercent}%)`
                       : "Pending"}
                 </div>
               </div>
@@ -385,294 +445,7 @@ const OverviewTab: React.FC<{ bid: IBid; currentPhaseIndex: number }> = ({
   </div>
 );
 
-/* ─── Tab: Scope of Supply ─── */
-const ScopeTab: React.FC<{ bid: IBid }> = ({ bid }) => (
-  <GlassCard title="Equipment / Assets">
-    {bid.equipmentList.length === 0 ? (
-      <EmptySection message="No equipment items added yet." />
-    ) : (
-      <div style={{ overflowX: "auto" }}>
-        <table className={styles.dataTable}>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Requirement</th>
-              <th>Part Number</th>
-              <th>Description</th>
-              <th>Qty Op.</th>
-              <th>Qty Spare</th>
-              <th>Acq. Type</th>
-              <th>Unit Cost (USD)</th>
-              <th>Total (USD)</th>
-              <th>Category</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bid.equipmentList.map((item) => (
-              <tr key={item.id}>
-                <td>{item.lineNumber}</td>
-                <td>{item.requirementName}</td>
-                <td className={styles.monoValue}>{item.partNumber}</td>
-                <td>{item.toolDescription}</td>
-                <td>{item.qtyOperational}</td>
-                <td>{item.qtySpare}</td>
-                <td>{item.acquisitionType}</td>
-                <td>${item.unitCostUSD.toLocaleString()}</td>
-                <td>${item.totalCostUSD.toLocaleString()}</td>
-                <td>
-                  <StatusBadge
-                    status={item.costCategory}
-                    color={
-                      item.costCategory === "CAPEX" ? "#3b82f6" : "#f59e0b"
-                    }
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )}
-  </GlassCard>
-);
-
-/* ─── Tab: Hours & Resources ─── */
-const HoursTab: React.FC<{ bid: IBid }> = ({ bid }) => {
-  const [subTab, setSubTab] = React.useState<
-    "engineering" | "onshore" | "offshore"
-  >("engineering");
-  const hs = bid.hoursSummary;
-
-  const sections = {
-    engineering: { label: "Engineering Hours", data: hs.engineeringHours },
-    onshore: { label: "Onshore Hours", data: hs.onshoreHours },
-    offshore: { label: "Offshore Hours", data: hs.offshoreHours },
-  };
-
-  const current = sections[subTab];
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Summary Cards */}
-      <div className={styles.costGrid}>
-        <div className={styles.costCard}>
-          <div className={styles.costLabel}>Engineering</div>
-          <div className={styles.costValue}>
-            {hs.engineeringHours.totalHours.toLocaleString()}h
-          </div>
-        </div>
-        <div className={styles.costCard}>
-          <div className={styles.costLabel}>Onshore</div>
-          <div className={styles.costValue}>
-            {hs.onshoreHours.totalHours.toLocaleString()}h
-          </div>
-        </div>
-        <div className={styles.costCard}>
-          <div className={styles.costLabel}>Offshore</div>
-          <div className={styles.costValue}>
-            {hs.offshoreHours.totalHours.toLocaleString()}h
-          </div>
-        </div>
-      </div>
-      <div className={styles.costCard} style={{ textAlign: "center" }}>
-        <div className={styles.costLabel}>Grand Total Hours</div>
-        <div className={styles.costValue} style={{ fontSize: 28 }}>
-          {hs.grandTotalHours.toLocaleString()}h
-        </div>
-      </div>
-
-      {/* Sub-tabs */}
-      <div className={styles.tabBar}>
-        {(Object.keys(sections) as (keyof typeof sections)[]).map((key) => (
-          <button
-            key={key}
-            className={`${styles.tab} ${subTab === key ? styles.active : ""}`}
-            onClick={() => setSubTab(key)}
-          >
-            {sections[key].label}
-          </button>
-        ))}
-      </div>
-
-      <GlassCard title={current.label}>
-        {current.data.items.length === 0 ? (
-          <EmptySection message="No hours items added yet for this section." />
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className={styles.dataTable}>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Requirement</th>
-                  <th>Function</th>
-                  <th>Phase</th>
-                  <th>Hrs/Day</th>
-                  <th>People</th>
-                  <th>Work Days</th>
-                  <th>Total Hours</th>
-                </tr>
-              </thead>
-              <tbody>
-                {current.data.items.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.lineNumber}</td>
-                    <td>{item.requirementName}</td>
-                    <td>{item.function}</td>
-                    <td>{item.phase}</td>
-                    <td>{item.hoursPerDay}</td>
-                    <td>{item.pplQty}</td>
-                    <td>{item.workDays}</td>
-                    <td>{item.totalHours}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </GlassCard>
-    </div>
-  );
-};
-
-/* ─── Tab: Cost Summary ─── */
-const CostTab: React.FC<{ bid: IBid }> = ({ bid }) => {
-  const cs = bid.costSummary;
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div className={styles.costGrid}>
-        <div className={styles.costCard}>
-          <div className={styles.costLabel}>Assets Cost (USD)</div>
-          <div className={styles.costValue}>
-            ${cs.assetsCostUSD.toLocaleString()}
-          </div>
-          <div className={styles.costSub}>
-            R$ {cs.assetsCostBRL.toLocaleString()}
-          </div>
-        </div>
-        <div className={styles.costCard}>
-          <div className={styles.costLabel}>Hours Cost (BRL)</div>
-          <div className={styles.costValue}>
-            R$ {cs.totalHoursCostBRL.toLocaleString()}
-          </div>
-          <div className={styles.costSub}>
-            ${cs.totalHoursCostUSD.toLocaleString()} USD
-          </div>
-        </div>
-        <div className={styles.costCard}>
-          <div className={styles.costLabel}>Total Cost (USD)</div>
-          <div
-            className={styles.costValue}
-            style={{ color: "var(--primary-accent)" }}
-          >
-            ${cs.totalCostUSD.toLocaleString()}
-          </div>
-          <div className={styles.costSub}>
-            R$ {cs.totalCostBRL.toLocaleString()}
-          </div>
-        </div>
-      </div>
-
-      <GlassCard title="Cost Breakdown">
-        <div className={styles.infoGrid}>
-          <InfoRow
-            label="Engineering Hours (BRL)"
-            value={`R$ ${cs.engineeringHoursCostBRL.toLocaleString()}`}
-          />
-          <InfoRow
-            label="Onshore Hours (BRL)"
-            value={`R$ ${cs.onshoreHoursCostBRL.toLocaleString()}`}
-          />
-          <InfoRow
-            label="Offshore Hours (BRL)"
-            value={`R$ ${cs.offshoreHoursCostBRL.toLocaleString()}`}
-          />
-          <InfoRow label="PTAX Used" value={cs.ptaxUsed} />
-          <InfoRow label="Currency" value={cs.currency} />
-          <InfoRow label="Notes" value={cs.notes || "—"} />
-        </div>
-      </GlassCard>
-
-      {/* Assets CAPEX/OPEX */}
-      <GlassCard title="Assets Cost Summary (CAPEX / OPEX)">
-        <div className={styles.costGrid}>
-          <div className={styles.costCard}>
-            <div className={styles.costLabel}>CAPEX Total</div>
-            <div className={styles.costValue}>
-              ${bid.assetsCostSummary.capexTotal.toLocaleString()}
-            </div>
-          </div>
-          <div className={styles.costCard}>
-            <div className={styles.costLabel}>OPEX Total</div>
-            <div className={styles.costValue}>
-              ${bid.assetsCostSummary.opexTotal.toLocaleString()}
-            </div>
-          </div>
-          <div className={styles.costCard}>
-            <div className={styles.costLabel}>Grand Total</div>
-            <div className={styles.costValue}>
-              ${bid.assetsCostSummary.grandTotal.toLocaleString()}
-            </div>
-          </div>
-        </div>
-      </GlassCard>
-    </div>
-  );
-};
-
-/* ─── Tab: Tasks & Phases ─── */
-const TasksTab: React.FC<{ bid: IBid }> = ({ bid }) => (
-  <GlassCard title="BID Tasks (RACI)">
-    {bid.tasks.length === 0 ? (
-      <EmptySection message="No tasks defined for this BID." />
-    ) : (
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {bid.tasks.map((task) => (
-          <div
-            key={task.taskId}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "10px 16px",
-              background: "var(--card-bg-elevated)",
-              borderRadius: 8,
-              borderLeft: `3px solid ${
-                task.status === "completed"
-                  ? "var(--success)"
-                  : task.status === "in-progress"
-                    ? "var(--primary-accent)"
-                    : "var(--border)"
-              }`,
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={task.status === "completed"}
-              readOnly
-              style={{ accentColor: "var(--primary-accent)" }}
-            />
-            <div style={{ flex: 1 }}>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: "var(--text-primary)",
-                }}
-              >
-                {task.name}
-              </div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                {task.phase} · Assigned: {task.assignedTo || "Unassigned"}
-              </div>
-            </div>
-            <StatusBadge status={task.status} />
-          </div>
-        ))}
-      </div>
-    )}
-  </GlassCard>
-);
+/* Scope, Hours, Cost, Tasks tabs now use sub-components: BidEquipmentTable, BidHoursTable, BidCostSummary, BidTaskChecklist */
 
 /* ─── Tab: Timeline ─── */
 const TimelineTab: React.FC<{ bid: IBid; currentPhaseIndex: number }> = ({
@@ -779,111 +552,7 @@ const TimelineTab: React.FC<{ bid: IBid; currentPhaseIndex: number }> = ({
   </div>
 );
 
-/* ─── Tab: Approval ─── */
-const ApprovalTab: React.FC<{ bid: IBid }> = ({ bid }) => (
-  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}
-    >
-      <h3 style={{ color: "var(--text-primary)", margin: 0 }}>
-        Approval Status:{" "}
-        <StatusBadge
-          status={bid.approvalStatus}
-          color={
-            bid.approvalStatus === "approved"
-              ? "#10b981"
-              : bid.approvalStatus === "pending"
-                ? "#f59e0b"
-                : bid.approvalStatus === "rejected"
-                  ? "#ef4444"
-                  : "#94a3b8"
-          }
-        />
-      </h3>
-    </div>
-
-    {bid.approvals.length === 0 ? (
-      <GlassCard>
-        <EmptySection message="No approvals configured for this BID." />
-      </GlassCard>
-    ) : (
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-          gap: 16,
-        }}
-      >
-        {bid.approvals.map((approval) => (
-          <div
-            key={approval.id}
-            style={{
-              background: "var(--card-bg)",
-              borderRadius: 16,
-              padding: 20,
-              border: "1px solid var(--border-subtle)",
-              borderLeft: `4px solid ${
-                approval.status === "approved"
-                  ? "#10b981"
-                  : approval.status === "rejected"
-                    ? "#ef4444"
-                    : approval.status === "pending"
-                      ? "#f59e0b"
-                      : "#94a3b8"
-              }`,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: 12,
-              }}
-            >
-              <strong style={{ color: "var(--text-primary)", fontSize: 14 }}>
-                {approval.stakeholder.name}
-              </strong>
-              <StatusBadge status={approval.status} />
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-              {approval.stakeholderRole}
-            </div>
-            {approval.respondedDate && (
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  marginTop: 8,
-                }}
-              >
-                Responded:{" "}
-                {format(new Date(approval.respondedDate), "MMM d, yyyy")}
-              </div>
-            )}
-            {approval.comments && (
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "var(--text-secondary)",
-                  marginTop: 8,
-                  padding: 8,
-                  background: "var(--card-bg-elevated)",
-                  borderRadius: 8,
-                }}
-              >
-                {approval.comments}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-);
+/* Approval tab now uses BidApprovalPanel sub-component */
 
 /* ─── Tab: Documents ─── */
 const DocumentsTab: React.FC<{ bid: IBid }> = ({ bid }) => (
@@ -938,58 +607,7 @@ const DocumentsTab: React.FC<{ bid: IBid }> = ({ bid }) => (
   </GlassCard>
 );
 
-/* ─── Tab: Comments ─── */
-const CommentsTab: React.FC<{ bid: IBid }> = ({ bid }) => (
-  <GlassCard title="Comments & Discussion">
-    {bid.comments.length === 0 ? (
-      <EmptySection message="No comments yet. Start the conversation!" />
-    ) : (
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {bid.comments.map((comment) => (
-          <div
-            key={comment.id}
-            style={{
-              padding: 16,
-              background: "var(--card-bg-elevated)",
-              borderRadius: 12,
-              borderLeft: "3px solid var(--secondary-accent)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: 8,
-              }}
-            >
-              <strong style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                {comment.author.name}
-              </strong>
-              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                {format(new Date(comment.timestamp), "MMM d, yyyy HH:mm")}
-              </span>
-            </div>
-            <p
-              style={{
-                fontSize: 13,
-                color: "var(--text-secondary)",
-                margin: 0,
-                lineHeight: 1.6,
-              }}
-            >
-              {comment.text}
-            </p>
-            <div
-              style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}
-            >
-              {comment.section} · {comment.phase}
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-  </GlassCard>
-);
+/* Comments tab now uses BidComments sub-component */
 
 /* ─── Tab: BID Notes ─── */
 const NotesTab: React.FC<{ bid: IBid }> = ({ bid }) => {
@@ -1081,97 +699,9 @@ const AITab: React.FC = () => (
   </GlassCard>
 );
 
-/* ─── Tab: Activity Log ─── */
-const ActivityTab: React.FC<{ bid: IBid }> = ({ bid }) => (
-  <GlassCard title="Activity Log">
-    {bid.activityLog.length === 0 ? (
-      <EmptySection message="No activity recorded yet." />
-    ) : (
-      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-        {bid.activityLog.map((entry, idx) => (
-          <div
-            key={idx}
-            style={{
-              display: "flex",
-              gap: 12,
-              padding: "12px 0",
-              borderBottom: "1px solid var(--border-subtle)",
-            }}
-          >
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: "var(--primary-accent)",
-                marginTop: 5,
-                flexShrink: 0,
-              }}
-            />
-            <div>
-              <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                {entry.description}
-              </div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                {entry.actor} · {entry.timestamp}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-  </GlassCard>
-);
+/* Activity tab now uses BidActivityLog sub-component */
 
-/* ─── Tab: Export ─── */
-const ExportTab: React.FC<{ bid: IBid }> = ({ bid }) => (
-  <GlassCard title="Export Options">
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-        gap: 16,
-      }}
-    >
-      {[
-        {
-          label: "Export Excel",
-          icon: "📊",
-          desc: "Multi-tab spreadsheet with all BID data",
-        },
-        {
-          label: "Export PDF",
-          icon: "📄",
-          desc: "Formatted PDF report for stakeholders",
-        },
-        { label: "Export CSV", icon: "📋", desc: "Raw data in CSV format" },
-        { label: "Print Report", icon: "🖨️", desc: "Printer-friendly version" },
-      ].map((opt) => (
-        <button
-          key={opt.label}
-          style={{
-            background: "var(--card-bg-elevated)",
-            border: "1px solid var(--border)",
-            borderRadius: 16,
-            padding: 24,
-            cursor: "pointer",
-            textAlign: "center",
-            transition: "all 200ms ease",
-            color: "var(--text-primary)",
-          }}
-        >
-          <div style={{ fontSize: 32, marginBottom: 12 }}>{opt.icon}</div>
-          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
-            {opt.label}
-          </div>
-          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            {opt.desc}
-          </div>
-        </button>
-      ))}
-    </div>
-  </GlassCard>
-);
+/* Export tab now uses BidExportButton sub-component */
 
 /* ─── Empty State Helper ─── */
 const EmptySection: React.FC<{ message: string }> = ({ message }) => (

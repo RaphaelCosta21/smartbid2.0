@@ -1,0 +1,209 @@
+/* SMART BID 2.0 — Animation Keyframes & Utilities */
+
+/* ─── Fade In ─── */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ─── Fade In Up ─── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Fade In Down ─── */
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Slide In Right ─── */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ─── Slide In Left ─── */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ─── Scale In ─── */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ─── Pulse ─── */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ─── Shimmer (skeleton loading) ─── */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* ─── Spin ─── */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ─── Bounce ─── */
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* ─── Toast Slide In ─── */
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ─── Toast Slide Out ─── */
+@keyframes toastSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* ─── CSS Classes ─── */
+
+.fadeIn {
+  animation: fadeIn 0.3s ease-out both;
+}
+.fadeInUp {
+  animation: fadeInUp 0.3s ease-out both;
+}
+.fadeInDown {
+  animation: fadeInDown 0.3s ease-out both;
+}
+.slideInRight {
+  animation: slideInRight 0.3s ease-out both;
+}
+.slideInLeft {
+  animation: slideInLeft 0.3s ease-out both;
+}
+.scaleIn {
+  animation: scaleIn 0.2s ease-out both;
+}
+.pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+.shimmer {
+  animation: shimmer 1.5s infinite;
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--bg-tertiary) 50%,
+    var(--bg-secondary) 75%
+  );
+  background-size: 200% 100%;
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+.bounce {
+  animation: bounce 0.6s ease-in-out infinite;
+}
+
+/* ─── Staggered children ─── */
+.staggerChildren > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.staggerChildren > *:nth-child(2) {
+  animation-delay: 50ms;
+}
+.staggerChildren > *:nth-child(3) {
+  animation-delay: 100ms;
+}
+.staggerChildren > *:nth-child(4) {
+  animation-delay: 150ms;
+}
+.staggerChildren > *:nth-child(5) {
+  animation-delay: 200ms;
+}
+.staggerChildren > *:nth-child(6) {
+  animation-delay: 250ms;
+}
+.staggerChildren > *:nth-child(7) {
+  animation-delay: 300ms;
+}
+.staggerChildren > *:nth-child(8) {
+  animation-delay: 350ms;
+}
+.staggerChildren > *:nth-child(9) {
+  animation-delay: 400ms;
+}
+.staggerChildren > *:nth-child(10) {
+  animation-delay: 450ms;
+}
