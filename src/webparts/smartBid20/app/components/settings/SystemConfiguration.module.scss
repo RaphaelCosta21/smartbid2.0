@@ -1,0 +1,514 @@
+/**
+ * System Configuration Styles — SMART BID 2.0
+ * Adapted from SmartFlow SystemConfiguration.module.scss
+ */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  background: var(--gradient-header);
+  border-radius: 16px;
+  padding: 32px;
+  color: #f1f5f9;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .headerContent {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .headerIcon {
+    font-size: 48px;
+    color: #60a5fa;
+    display: flex;
+  }
+
+  .headerText {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .title {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0;
+    color: #f1f5f9;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: #94a3b8;
+    margin: 0;
+    font-weight: 400;
+  }
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 4px;
+  border: 1px solid var(--border-subtle);
+  overflow-x: auto;
+  flex-wrap: nowrap;
+
+  .tab {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 200ms ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    &:hover {
+      background: var(--card-bg-elevated);
+      color: var(--text-primary);
+    }
+
+    &.active {
+      background: var(--primary-accent);
+      color: white;
+      font-weight: 600;
+    }
+  }
+}
+
+.tabContent {
+  min-height: 300px;
+}
+
+.sectionHeader {
+  margin-bottom: 16px;
+
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    color: var(--text-primary);
+  }
+
+  p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+}
+
+.optionsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.optionCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  transition: all 200ms ease;
+
+  &:hover {
+    box-shadow: var(--shadow-card);
+    border-color: var(--border);
+  }
+
+  &.inactive {
+    opacity: 0.5;
+  }
+
+  .optionInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    .optionLabel {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .optionValue {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .inactiveTag {
+      display: inline-block;
+      padding: 2px 8px;
+      background: rgba(245, 158, 11, 0.12);
+      color: #f59e0b;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-top: 4px;
+      width: fit-content;
+    }
+  }
+
+  .optionColor {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+
+  .optionActions {
+    display: flex;
+    gap: 6px;
+  }
+}
+
+.actionBtn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover {
+    background: var(--card-bg-elevated);
+    color: var(--text-primary);
+  }
+
+  &.danger {
+    color: var(--danger);
+    border-color: rgba(239, 68, 68, 0.3);
+
+    &:hover {
+      background: rgba(239, 68, 68, 0.1);
+    }
+  }
+
+  &.primary {
+    background: var(--primary-accent);
+    color: white;
+    border-color: var(--primary-accent);
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+}
+
+/* KPI Targets Grid */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.kpiCard {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid var(--border-subtle);
+
+  .kpiLabel {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+
+  .kpiInputRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .kpiInput {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--card-bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+    outline: none;
+    transition: border 200ms ease;
+
+    &:focus {
+      border-color: var(--primary-accent);
+      box-shadow: 0 0 0 2px rgba(0, 201, 167, 0.15);
+    }
+  }
+
+  .kpiUnit {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+}
+
+/* Access Levels Grid */
+.accessGrid {
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.accessGridHeader {
+  display: grid;
+  grid-template-columns: 200px repeat(6, 1fr);
+  background: var(--gradient-header);
+  color: #f1f5f9;
+  font-weight: 600;
+  font-size: 12px;
+
+  > div {
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: center;
+
+    &:first-child {
+      justify-content: flex-start;
+    }
+
+    &:last-child {
+      border-right: none;
+    }
+  }
+}
+
+.accessGridRow {
+  display: grid;
+  grid-template-columns: 200px repeat(6, 1fr);
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 150ms ease;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: var(--card-bg-elevated);
+  }
+
+  > div {
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid var(--border-subtle);
+
+    &:first-child {
+      justify-content: flex-start;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 13px;
+    }
+
+    &:last-child {
+      border-right: none;
+    }
+  }
+}
+
+.accessBadge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+
+  &.edit {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+  }
+
+  &.view {
+    background: rgba(59, 130, 246, 0.12);
+    color: #3b82f6;
+  }
+
+  &.none {
+    background: rgba(100, 116, 139, 0.12);
+    color: #64748b;
+  }
+}
+
+/* Notifications Matrix */
+.notificationsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notificationRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--card-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+
+  .notifLabel {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .notifRoles {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+}
+
+.rolePill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(0, 201, 167, 0.12);
+  color: var(--primary-accent);
+}
+
+/* Currency Settings */
+.currencyRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+/* Panel / Dialog Overlay */
+.panelOverlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 400px;
+  background: var(--card-bg);
+  border-left: 1px solid var(--border);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+}
+
+.panelBody {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panelFooter {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-subtle);
+  justify-content: flex-end;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  input,
+  select {
+    padding: 8px 12px;
+    background: var(--card-bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 13px;
+    outline: none;
+    transition: border 200ms ease;
+
+    &:focus {
+      border-color: var(--primary-accent);
+    }
+  }
+}
+
+.saveBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--card-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+}
+
+.messageBar {
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+
+  &.success {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+  }
+
+  &.error {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+}

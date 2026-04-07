@@ -1,0 +1,31 @@
+/* SMART BID 2.0 — Dark Mode Theme (Default) */
+.smartBidDark {
+  --sidebar-bg: #0a1628;
+  --sidebar-hover: rgba(0, 201, 167, 0.08);
+  --main-bg: #0f1b2d;
+  --card-bg: #152238;
+  --card-bg-elevated: #1a2d4a;
+  --primary-accent: #00c9a7;
+  --secondary-accent: #3b82f6;
+  --tertiary-accent: #8b5cf6;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #06b6d4;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border: #1e3a5f;
+  --border-subtle: #162d50;
+  --glass-bg: rgba(21, 34, 56, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --gradient-header: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  --gradient-primary: linear-gradient(135deg, #00c9a7 0%, #0d9488 100%);
+  --gradient-accent: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  --shadow-glow: 0 0 20px rgba(0, 201, 167, 0.15);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.3);
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+  --scrollbar-thumb: #1e3a5f;
+  --scrollbar-track: #0a1628;
+}

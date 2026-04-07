@@ -1,0 +1,1434 @@
+/**
+ * Members Management Component
+ * Manages team members (Planner, Puller, Deliver, Manager, Shipment Team)
+ */
+
+import * as React from "react";
+import {
+  Stack,
+  Text,
+  PrimaryButton,
+  DefaultButton,
+  Dialog,
+  DialogType,
+  DialogFooter,
+  Dropdown,
+  IDropdownOption,
+  Toggle,
+  MessageBar,
+  MessageBarType,
+  Spinner,
+  Persona,
+  PersonaSize,
+  PersonaPresence,
+  Icon,
+} from "@fluentui/react";
+import { WebPartContext } from "@microsoft/sp-webpart-base";
+import { PeoplePicker } from "@pnp/spfx-controls-react/lib/PeoplePicker";
+import { LivePersona } from "@pnp/spfx-controls-react/lib/LivePersona";
+import styles from "./MembersManagement.module.scss";
+import { MembersService } from "../../services/MembersService";
+import { SystemConfigService } from "../../services/SystemConfigService";
+import { ITeamMember, IMembersData } from "../../models/ITeamMember";
+import { AccessLevel } from "../../models/ISystemConfig";
+import { isGuestUser, showGuestAlert } from "../../utils/userUtils";
+
+// Super admin emails — always have full edit access regardless of Access Level config
+const SUPER_ADMIN_EMAILS: string[] = ["rcosta1@oceaneering.com"];
+
+// Font weight constant - aligned with $font-weight-semibold from variables.scss
+const FONT_WEIGHT_SEMIBOLD = 600;
+
+export interface IMembersManagementProps {
+  context: WebPartContext;
+  currentUser?: ITeamMember;
+  onBack: () => void;
+  onMembersChanged?: () => void;
+}
+
+interface IMembersManagementState {
+  membersData: IMembersData;
+  loading: boolean;
+  showAddDialog: boolean;
+  showEditDialog: boolean;
+  selectedMember: ITeamMember | undefined;
+  newMember: Partial<ITeamMember>;
+  message: string;
+  messageType: MessageBarType;
+  saving: boolean;
+  settingsAccessLevel: AccessLevel;
+}
+
+export class MembersManagement extends React.Component<
+  IMembersManagementProps,
+  IMembersManagementState
+> {
+  private membersService: MembersService;
+
+  constructor(props: IMembersManagementProps) {
+    super(props);
+
+    this.membersService = new MembersService(props.context);
+
+    this.state = {
+      membersData: {
+        plannerMembers: [],
+        pullerMembers: [],
+        managerMembers: [],
+        deliverMembers: [],
+        shipmentTeamMembers: [],
+      },
+      loading: true,
+      showAddDialog: false,
+      showEditDialog: false,
+      selectedMember: undefined,
+      newMember: {
+        teamCategory: "planner",
+        isActive: true,
+        isDeliver: false,
+        isLead: false,
+        isPuller: false,
+      },
+      message: "",
+      messageType: MessageBarType.info,
+      saving: false,
+      settingsAccessLevel: "edit",
+    };
+  }
+
+  public componentDidMount(): void {
+    this.loadMembers().catch(console.error);
+    this.loadAccessLevel().catch(console.error);
+  }
+
+  private async loadAccessLevel(): Promise<void> {
+    try {
+      const configService = new SystemConfigService(this.props.context);
+      const config = await configService.getSystemConfig();
+      if (config && config.accessLevels) {
+        const roleKey = this.getCurrentUserRoleKey();
+        const roleAccess =
+          config.accessLevels[roleKey as keyof typeof config.accessLevels];
+        if (roleAccess) {
+          this.setState({ settingsAccessLevel: roleAccess.settings });
+        }
+      }
+    } catch (error) {
+      console.error("Error loading access levels:", error);
+    }
+  }
+
+  private getCurrentUserRoleKey(): string {
+    const category = this.props.currentUser?.teamCategory?.toLowerCase();
+    if (category === "manager") return "manager";
+    if (category === "planner") return "planner";
+    if (category === "puller") return "puller";
+    if (category === "deliver") return "deliver";
+    if (category === "shipment-team") return "shipmentTeam";
+    return "guest";
+  }
+
+  private get isSuperAdmin(): boolean {
+    const email = this.props.context.pageContext.user.email?.toLowerCase();
+    return SUPER_ADMIN_EMAILS.some((e) => e.toLowerCase() === email);
+  }
+
+  private get canEditMembers(): boolean {
+    if (this.isSuperAdmin) return true;
+    return this.state.settingsAccessLevel === "edit";
+  }
+
+  private async loadMembers(): Promise<void> {
+    this.setState({ loading: true });
+    try {
+      const membersData = await this.membersService.getTeamMembers();
+      this.setState({ membersData, loading: false });
+    } catch (error) {
+      console.error("Error loading team members:", error);
+      this.setState({
+        loading: false,
+        message: "Error loading team members",
+        messageType: MessageBarType.error,
+      });
+    }
+  }
+
+  private teamOptions: IDropdownOption[] = [
+    { key: "planner", text: "Requester" },
+    { key: "puller", text: "Puller" },
+    { key: "deliver", text: "Deliver" },
+    { key: "shipment-team", text: "Shipment Team" },
+    { key: "manager", text: "Manager" },
+  ];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private onPeoplePickerChange = async (items: any[]): Promise<void> => {
+    if (items && items.length > 0) {
+      const selectedPerson = items[0];
+
+      // Log detalhado para debug
+      console.log(
+        "PEOPLE PICKER FULL OBJECT:",
+        JSON.stringify(selectedPerson, null, 2),
+      );
+
+      // Primeiro, define valores básicos - SEMPRE sem photoUrl e sem role
+      // Role será buscado exclusivamente via Graph API
+      const basicInfo = {
+        name: selectedPerson.text || selectedPerson.displayName || "",
+        email:
+          selectedPerson.secondaryText ||
+          selectedPerson.email ||
+          selectedPerson.loginName ||
+          "",
+        role: "", // SEMPRE vazio - será preenchido apenas via Graph API
+        photoUrl: "", // SEMPRE vazio - será preenchido apenas via Graph API como base64
+      };
+
+      console.log("Initial basic info:", basicInfo);
+
+      // Tenta buscar informações mais detalhadas via Microsoft Graph API
+      if (selectedPerson.id || selectedPerson.loginName || basicInfo.email) {
+        try {
+          const graphClient =
+            await this.props.context.msGraphClientFactory.getClient("3");
+          let userQuery = "";
+
+          // Prioriza ID, depois loginName, depois email
+          if (selectedPerson.id) {
+            userQuery = selectedPerson.id;
+          } else if (selectedPerson.loginName) {
+            userQuery = selectedPerson.loginName;
+          } else {
+            userQuery = basicInfo.email;
+          }
+
+          console.log("Querying Graph API with:", userQuery);
+
+          // Buscar informações do usuário com resiliência
+          try {
+            const user = await graphClient.api(`/users/${userQuery}`).get();
+            console.log("Graph API response (direct query):", user);
+
+            if (user.displayName) basicInfo.name = user.displayName;
+            if (user.mail || user.userPrincipalName)
+              basicInfo.email = user.mail || user.userPrincipalName;
+            if (user.jobTitle) {
+              basicInfo.role = user.jobTitle;
+              console.log("✅ JOB TITLE FOUND:", user.jobTitle);
+            }
+
+            // Tentar buscar a foto do usuário e converter para base64
+            try {
+              const photoBlob = await graphClient
+                .api(`/users/${userQuery}/photo/$value`)
+                .get();
+
+              if (photoBlob) {
+                const base64Photo = await this.blobToBase64(photoBlob);
+                const photoUrl = `data:image/jpeg;base64,${base64Photo}`;
+                basicInfo.photoUrl = photoUrl;
+                console.log("✅ Photo converted to base64 successfully");
+              }
+            } catch (photoError) {
+              console.warn("Could not fetch user photo:", photoError);
+              basicInfo.photoUrl = ""; // Garantir que fique vazio
+            }
+          } catch (firstError) {
+            console.warn("First query failed, trying by email:", firstError);
+
+            // Se falhar, tenta consultar por email (fallback importante)
+            if (basicInfo.email) {
+              try {
+                const users = await graphClient
+                  .api(
+                    `/users?$filter=mail eq '${basicInfo.email}' or userPrincipalName eq '${basicInfo.email}'`,
+                  )
+                  .get();
+
+                console.log("Graph API response (email fallback):", users);
+
+                if (users.value && users.value.length > 0) {
+                  const user = users.value[0];
+
+                  if (user.displayName) basicInfo.name = user.displayName;
+                  if (user.jobTitle) {
+                    basicInfo.role = user.jobTitle;
+                    console.log(
+                      "✅ JOB TITLE FOUND (fallback):",
+                      user.jobTitle,
+                    );
+                  }
+
+                  // Tentar buscar a foto do usuário e converter para base64
+                  try {
+                    const photoBlob = await graphClient
+                      .api(`/users/${user.id}/photo/$value`)
+                      .get();
+
+                    if (photoBlob) {
+                      const base64Photo = await this.blobToBase64(photoBlob);
+                      const photoUrl = `data:image/jpeg;base64,${base64Photo}`;
+                      basicInfo.photoUrl = photoUrl;
+                      console.log("✅ Photo converted to base64 (fallback)");
+                    }
+                  } catch (photoError) {
+                    console.warn(
+                      "Could not fetch user photo (fallback):",
+                      photoError,
+                    );
+                    basicInfo.photoUrl = ""; // Garantir que fique vazio
+                  }
+                }
+              } catch (emailError) {
+                console.warn("Email fallback query failed:", emailError);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error in Graph API operations:", error);
+        }
+      }
+
+      // ⚠️ VALIDAÇÃO FINAL CRÍTICA: NUNCA permitir URLs blob
+      if (basicInfo.photoUrl && basicInfo.photoUrl.startsWith("blob:")) {
+        console.warn("⚠️ BLOCKED: Detected blob URL, clearing photoUrl");
+        basicInfo.photoUrl = "";
+      }
+
+      // Validação adicional: só aceitar data:image URLs ou strings vazias
+      if (basicInfo.photoUrl && !basicInfo.photoUrl.startsWith("data:image")) {
+        console.warn("⚠️ BLOCKED: Invalid photoUrl format, clearing");
+        basicInfo.photoUrl = "";
+      }
+
+      // Atualizar state com dados validados
+      this.setState({
+        newMember: {
+          ...this.state.newMember,
+          ...basicInfo,
+          role: basicInfo.role || "Role not specified",
+          photoUrl: basicInfo.photoUrl || "", // Garantir string vazia
+        },
+      });
+
+      console.log("✅ Final member data saved to state:", {
+        name: basicInfo.name,
+        email: basicInfo.email,
+        role: basicInfo.role || "Role not specified",
+        photoUrl: basicInfo.photoUrl ? "base64 present" : "empty",
+      });
+    } else {
+      // Limpar state quando nenhuma pessoa está selecionada
+      this.setState({
+        newMember: {
+          ...this.state.newMember,
+          name: "",
+          email: "",
+          role: "",
+          photoUrl: "",
+        },
+      });
+    }
+  };
+
+  private async handleAddMember(): Promise<void> {
+    // 🚫 GUEST CHECK: Guests cannot add members (super admins bypass)
+    if (
+      this.props.currentUser &&
+      isGuestUser(this.props.currentUser) &&
+      !this.isSuperAdmin
+    ) {
+      showGuestAlert("add team members");
+      return;
+    }
+
+    // 🔒 ACCESS LEVEL CHECK
+    if (!this.canEditMembers) {
+      this.setState({
+        message: "You don't have permission to add team members",
+        messageType: MessageBarType.error,
+      });
+      return;
+    }
+
+    const { newMember, membersData } = this.state;
+
+    if (!newMember.name || !newMember.email) {
+      this.setState({
+        message: "Please fill all required fields",
+        messageType: MessageBarType.error,
+      });
+      return;
+    }
+
+    // 🔁 DUPLICATE CHECK: Prevent adding a member that already exists
+    const allMembers = [
+      ...membersData.plannerMembers,
+      ...membersData.pullerMembers,
+      ...membersData.managerMembers,
+      ...membersData.deliverMembers,
+      ...membersData.shipmentTeamMembers,
+    ];
+    const emailToAdd = newMember.email.toLowerCase();
+    const existingMember = allMembers.find(
+      (m) => m.email?.toLowerCase() === emailToAdd,
+    );
+    if (existingMember) {
+      this.setState({
+        message: `This person is already registered as a ${existingMember.teamCategory} member (${existingMember.name}).`,
+        messageType: MessageBarType.warning,
+      });
+      return;
+    }
+
+    this.setState({ saving: true });
+
+    try {
+      // Preparar dados do membro incluindo photoUrl
+      const memberData: Omit<ITeamMember, "id"> = {
+        name: newMember.name || "",
+        email: newMember.email || "",
+        role: newMember.role || "Role not specified",
+        teamCategory: newMember.teamCategory || "planner",
+        isActive: newMember.isActive !== undefined ? newMember.isActive : true,
+        isDeliver: newMember.isDeliver || false,
+        isLead: newMember.isLead || false,
+        isPuller: newMember.isPuller || false,
+        photoUrl: newMember.photoUrl || "",
+      };
+
+      console.log("Adding member with data:", memberData);
+
+      const success = await this.membersService.addTeamMember(memberData);
+
+      if (success) {
+        this.setState({
+          message: "Team member added successfully!",
+          messageType: MessageBarType.success,
+          showAddDialog: false,
+          newMember: {
+            teamCategory: "planner",
+            isActive: true,
+            isDeliver: false,
+            isLead: false,
+            isPuller: false,
+          },
+        });
+        await this.loadMembers();
+        this.props.onMembersChanged?.();
+      } else {
+        throw new Error("Failed to add team member");
+      }
+    } catch (error) {
+      console.error("Error adding team member:", error);
+      this.setState({
+        message: "Error adding team member",
+        messageType: MessageBarType.error,
+      });
+    }
+
+    this.setState({ saving: false });
+  }
+
+  private async handleEditMember(): Promise<void> {
+    // 🚫 GUEST CHECK: Guests cannot edit members (super admins bypass)
+    if (
+      this.props.currentUser &&
+      isGuestUser(this.props.currentUser) &&
+      !this.isSuperAdmin
+    ) {
+      showGuestAlert("edit team members");
+      return;
+    }
+
+    // 🔒 ACCESS LEVEL CHECK
+    if (!this.canEditMembers) {
+      this.setState({
+        message: "You don't have permission to edit team members",
+        messageType: MessageBarType.error,
+      });
+      return;
+    }
+
+    const { selectedMember } = this.state;
+
+    if (!selectedMember) return;
+
+    this.setState({ saving: true });
+
+    try {
+      const success = await this.membersService.updateTeamMember(
+        selectedMember.id,
+        selectedMember,
+      );
+
+      if (success) {
+        this.setState({
+          message: "Team member updated successfully!",
+          messageType: MessageBarType.success,
+          showEditDialog: false,
+          selectedMember: undefined,
+        });
+        await this.loadMembers();
+        this.props.onMembersChanged?.();
+      } else {
+        throw new Error("Failed to update team member");
+      }
+    } catch (error) {
+      console.error("Error updating team member:", error);
+      this.setState({
+        message: "Error updating team member",
+        messageType: MessageBarType.error,
+      });
+    }
+
+    this.setState({ saving: false });
+  }
+
+  /**
+   * Convert Blob to Base64 string
+   */
+  private blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
+        const base64 = base64String.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  private async handleRemoveMember(member: ITeamMember): Promise<void> {
+    // 🚫 GUEST CHECK: Guests cannot remove members (super admins bypass)
+    if (
+      this.props.currentUser &&
+      isGuestUser(this.props.currentUser) &&
+      !this.isSuperAdmin
+    ) {
+      showGuestAlert("remove team members");
+      return;
+    }
+
+    // 🔒 ACCESS LEVEL CHECK
+    if (!this.canEditMembers) {
+      this.setState({
+        message: "You don't have permission to remove team members",
+        messageType: MessageBarType.error,
+      });
+      return;
+    }
+
+    if (
+      !confirm(`Are you sure you want to remove ${member.name} from the team?`)
+    ) {
+      return;
+    }
+
+    try {
+      const success = await this.membersService.removeTeamMember(member.id);
+
+      if (success) {
+        this.setState({
+          message: "Team member removed successfully!",
+          messageType: MessageBarType.success,
+        });
+        await this.loadMembers();
+        this.props.onMembersChanged?.();
+      } else {
+        throw new Error("Failed to remove team member");
+      }
+    } catch (error) {
+      console.error("Error removing team member:", error);
+      this.setState({
+        message: "Error removing team member",
+        messageType: MessageBarType.error,
+      });
+    }
+  }
+
+  private renderMemberCard = (
+    member: ITeamMember,
+    category: string,
+  ): JSX.Element => {
+    const cardClass = `${styles.memberCard} ${styles[`${category}Card`]}`;
+    const roleClass = `${styles.memberRole} ${styles[`${category}Role`]}`;
+    const badgeClass = `${styles.memberBadge} ${styles[`${category}Badge`]}`;
+
+    return (
+      <div
+        key={member.id}
+        onClick={() =>
+          this.setState({
+            selectedMember: member,
+            showEditDialog: true,
+          })
+        }
+        className={cardClass}
+      >
+        <Stack tokens={{ childrenGap: 8 }}>
+          <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }}>
+            <Persona
+              imageUrl={member.photoUrl}
+              text={member.name}
+              size={PersonaSize.size40}
+              presence={
+                member.isActive
+                  ? PersonaPresence.online
+                  : PersonaPresence.offline
+              }
+            />
+            <Stack>
+              <Text className={styles.memberName}>{member.name}</Text>
+              <Text className={styles.memberEmail}>{member.email}</Text>
+              <Text className={roleClass}>
+                {member.role || "Role not specified"}
+              </Text>
+            </Stack>
+          </Stack>
+          <Stack
+            horizontal
+            horizontalAlign="space-between"
+            verticalAlign="center"
+          >
+            <Stack horizontal tokens={{ childrenGap: 8 }}>
+              <Text className={badgeClass}>
+                {category === "planner"
+                  ? "Requester"
+                  : category.charAt(0).toUpperCase() + category.slice(1)}
+              </Text>
+              {member.isDeliver && category === "puller" && (
+                <Text
+                  className={`${styles.memberBadge} ${styles.deliverBadge}`}
+                >
+                  + Deliver
+                </Text>
+              )}
+              {member.isLead && category === "puller" && (
+                <Text className={`${styles.memberBadge} ${styles.leadBadge}`}>
+                  + Lead
+                </Text>
+              )}
+              {member.isPuller && category === "manager" && (
+                <Text className={`${styles.memberBadge} ${styles.pullerBadge}`}>
+                  + Puller
+                </Text>
+              )}
+            </Stack>
+            <Text
+              className={
+                member.isActive ? styles.activeStatus : styles.inactiveStatus
+              }
+            >
+              {member.isActive ? "Active" : "Inactive"}
+            </Text>
+          </Stack>
+        </Stack>
+      </div>
+    );
+  };
+
+  public render(): React.ReactElement<IMembersManagementProps> {
+    const {
+      membersData,
+      loading,
+      showAddDialog,
+      showEditDialog,
+      selectedMember,
+      newMember,
+      message,
+      messageType,
+      saving,
+    } = this.state;
+
+    if (loading) {
+      return (
+        <Stack
+          horizontalAlign="center"
+          verticalAlign="center"
+          styles={{ root: { height: "400px" } }}
+        >
+          <Spinner size={3} label="Loading team members..." />
+        </Stack>
+      );
+    }
+
+    return (
+      <div className={styles.membersManagement}>
+        <Stack tokens={{ childrenGap: 20 }}>
+          {/* Header - Matching PatchNotes style */}
+          <div className={styles.pageHeader}>
+            <div className={styles.headerContent}>
+              <Icon iconName="People" className={styles.headerIcon} />
+              <div className={styles.headerText}>
+                <h1 className={styles.pageTitle}>Team Members Management</h1>
+                <p className={styles.pageSubtitle}>
+                  Add, edit, and manage team members across all roles
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Message Bar */}
+          {message && (
+            <MessageBar
+              messageBarType={messageType}
+              isMultiline={false}
+              onDismiss={() => this.setState({ message: "" })}
+            >
+              {message}
+            </MessageBar>
+          )}
+
+          {/* View-only notice */}
+          {!this.canEditMembers && (
+            <MessageBar
+              messageBarType={MessageBarType.info}
+              isMultiline={false}
+            >
+              You have view-only access to team members management.
+              {this.state.settingsAccessLevel === "none" &&
+                " Your role does not have access to this page."}
+            </MessageBar>
+          )}
+
+          {/* Actions */}
+          <Stack
+            horizontal
+            horizontalAlign="space-between"
+            verticalAlign="center"
+            className={styles.actionsContainer}
+          >
+            <Stack horizontal tokens={{ childrenGap: 12 }}>
+              <PrimaryButton
+                text="Add Member"
+                iconProps={{ iconName: "AddFriend" }}
+                onClick={() => {
+                  this.setState({ showAddDialog: true });
+                }}
+                className={styles.primaryButton}
+                disabled={!this.canEditMembers}
+                title={
+                  !this.canEditMembers
+                    ? "You don't have permission to add members"
+                    : undefined
+                }
+              />
+              <DefaultButton
+                text="Refresh"
+                iconProps={{ iconName: "Refresh" }}
+                onClick={() => this.loadMembers().catch(console.error)}
+                className={styles.defaultButton}
+              />
+            </Stack>
+
+            <Text className={styles.infoText}>
+              ⚠️ Only active members will receive automatic notifications and
+              have full system access.
+            </Text>
+          </Stack>
+
+          {/* Statistics */}
+          <Stack
+            horizontal
+            tokens={{ childrenGap: 16 }}
+            wrap={false}
+            styles={{ root: { flexWrap: "nowrap" } }}
+          >
+            <div className={`${styles.statCard} ${styles.statCardPlanner}`}>
+              <Text className={styles.statNumber}>
+                {membersData.plannerMembers.length}
+              </Text>
+              <Text className={styles.statTitle}>Requesters</Text>
+              <Text className={styles.statSubtitle}>
+                {membersData.plannerMembers.filter((m) => m.isActive).length}{" "}
+                active
+              </Text>
+            </div>
+
+            <div className={`${styles.statCard} ${styles.statCardPuller}`}>
+              <Text className={styles.statNumber}>
+                {membersData.pullerMembers.length}
+              </Text>
+              <Text className={styles.statTitle}>Pullers</Text>
+              <Text className={styles.statSubtitle}>
+                {membersData.pullerMembers.filter((m) => m.isActive).length}{" "}
+                active
+              </Text>
+            </div>
+
+            <div className={`${styles.statCard} ${styles.statCardDeliver}`}>
+              <Text className={styles.statNumber}>
+                {membersData.pullerMembers.filter((m) => m.isDeliver).length}
+              </Text>
+              <Text className={styles.statTitle}>Delivers</Text>
+              <Text className={styles.statSubtitle}>
+                {
+                  membersData.pullerMembers.filter(
+                    (m) => m.isDeliver && m.isActive,
+                  ).length
+                }{" "}
+                active
+              </Text>
+            </div>
+
+            <div className={`${styles.statCard} ${styles.statCardLead}`}>
+              <Text className={styles.statNumber}>
+                {membersData.pullerMembers.filter((m) => m.isLead).length}
+              </Text>
+              <Text className={styles.statTitle}>Leads</Text>
+              <Text className={styles.statSubtitle}>
+                {
+                  membersData.pullerMembers.filter(
+                    (m) => m.isLead && m.isActive,
+                  ).length
+                }{" "}
+                active
+              </Text>
+            </div>
+
+            <div
+              className={`${styles.statCard} ${styles.statCardShipmentTeam}`}
+            >
+              <Text className={styles.statNumber}>
+                {membersData.shipmentTeamMembers.length}
+              </Text>
+              <Text className={styles.statTitle}>Shipment Team</Text>
+              <Text className={styles.statSubtitle}>
+                {
+                  membersData.shipmentTeamMembers.filter((m) => m.isActive)
+                    .length
+                }{" "}
+                active
+              </Text>
+            </div>
+
+            <div className={`${styles.statCard} ${styles.statCardManager}`}>
+              <Text className={styles.statNumber}>
+                {membersData.managerMembers.length}
+              </Text>
+              <Text className={styles.statTitle}>Managers</Text>
+              <Text className={styles.statSubtitle}>
+                {membersData.managerMembers.filter((m) => m.isActive).length}{" "}
+                active
+              </Text>
+            </div>
+          </Stack>
+
+          {/* Members by Category */}
+          <Stack tokens={{ childrenGap: 30 }}>
+            {/* Manager Members */}
+            {membersData.managerMembers.length > 0 && (
+              <Stack tokens={{ childrenGap: 15 }}>
+                <Text className={styles.categoryTitle}>
+                  ⚙️ Managers ({membersData.managerMembers.length})
+                </Text>
+                <Stack horizontal wrap tokens={{ childrenGap: 15 }}>
+                  {membersData.managerMembers.map((member) =>
+                    this.renderMemberCard(member, "manager"),
+                  )}
+                </Stack>
+              </Stack>
+            )}
+
+            {/* Planner Members */}
+            {membersData.plannerMembers.length > 0 && (
+              <Stack tokens={{ childrenGap: 15 }}>
+                <Text className={styles.categoryTitle}>
+                  📋 Requesters ({membersData.plannerMembers.length})
+                </Text>
+                <Stack horizontal wrap tokens={{ childrenGap: 15 }}>
+                  {membersData.plannerMembers.map((member) =>
+                    this.renderMemberCard(member, "planner"),
+                  )}
+                </Stack>
+              </Stack>
+            )}
+
+            {/* Puller Members */}
+            {membersData.pullerMembers.length > 0 && (
+              <Stack tokens={{ childrenGap: 15 }}>
+                <Text className={styles.categoryTitle}>
+                  🧰 Pullers ({membersData.pullerMembers.length})
+                </Text>
+                <Stack horizontal wrap tokens={{ childrenGap: 15 }}>
+                  {membersData.pullerMembers.map((member) =>
+                    this.renderMemberCard(member, "puller"),
+                  )}
+                </Stack>
+              </Stack>
+            )}
+
+            {/* Deliver Members */}
+            {membersData.deliverMembers.length > 0 && (
+              <Stack tokens={{ childrenGap: 15 }}>
+                <Text className={styles.categoryTitle}>
+                  🚚 Delivers ({membersData.deliverMembers.length})
+                </Text>
+                <Stack horizontal wrap tokens={{ childrenGap: 15 }}>
+                  {membersData.deliverMembers.map((member) =>
+                    this.renderMemberCard(member, "deliver"),
+                  )}
+                </Stack>
+              </Stack>
+            )}
+
+            {/* Shipment Team Members */}
+            {membersData.shipmentTeamMembers.length > 0 && (
+              <Stack tokens={{ childrenGap: 15 }}>
+                <Text className={styles.categoryTitle}>
+                  📦 Shipment Team ({membersData.shipmentTeamMembers.length})
+                </Text>
+                <Stack horizontal wrap tokens={{ childrenGap: 15 }}>
+                  {membersData.shipmentTeamMembers.map((member) =>
+                    this.renderMemberCard(member, "shipment-team"),
+                  )}
+                </Stack>
+              </Stack>
+            )}
+
+            {/* Empty State */}
+            {membersData.plannerMembers.length === 0 &&
+              membersData.pullerMembers.length === 0 &&
+              membersData.managerMembers.length === 0 &&
+              membersData.deliverMembers.length === 0 &&
+              membersData.shipmentTeamMembers.length === 0 && (
+                <Stack className={styles.emptyState}>
+                  <Text className={styles.emptyStateIcon}>👥</Text>
+                  <Text className={styles.emptyStateTitle}>
+                    No team members registered
+                  </Text>
+                  <Text className={styles.emptyStateSubtitle}>
+                    Click &quot;Add Member&quot; to start managing your team
+                  </Text>
+                </Stack>
+              )}
+          </Stack>
+
+          {/* Add Member Dialog */}
+          <Dialog
+            hidden={!showAddDialog}
+            onDismiss={() => this.setState({ showAddDialog: false })}
+            dialogContentProps={{
+              type: DialogType.normal,
+              title: "➕ Add New Team Member",
+              subText: "Add a new member to the team",
+            }}
+            minWidth={500}
+          >
+            <Stack tokens={{ childrenGap: 15 }}>
+              <Stack>
+                <Text className={styles.fieldLabel}>👤 Select Person *</Text>
+                <PeoplePicker
+                  context={{
+                    absoluteUrl: this.props.context.pageContext.web.absoluteUrl,
+                    msGraphClientFactory:
+                      this.props.context.msGraphClientFactory,
+                    spHttpClient: this.props.context.spHttpClient,
+                  }}
+                  titleText=""
+                  personSelectionLimit={1}
+                  groupName={""}
+                  showtooltip={true}
+                  required={true}
+                  disabled={false}
+                  onChange={this.onPeoplePickerChange}
+                  showHiddenInUI={false}
+                  principalTypes={[1, 2]}
+                  resolveDelay={1000}
+                  placeholder="Type person's name to search..."
+                  ensureUser={true}
+                  suggestionsLimit={10}
+                />
+
+                {newMember.name && (
+                  <Stack className={styles.previewContainer}>
+                    <Text className={styles.previewTitle}>
+                      📋 Detected Information:
+                    </Text>
+
+                    {newMember.email && (
+                      <div style={{ display: "none" }}>
+                        <LivePersona
+                          upn={newMember.email}
+                          template={"<div>{{displayName}} - {{jobTitle}}</div>"}
+                          serviceScope={this.props.context.serviceScope}
+                        />
+                      </div>
+                    )}
+
+                    <Stack tokens={{ childrenGap: 8 }}>
+                      <Text variant="small">
+                        <span className={styles.previewLabel}>👤 Name:</span>{" "}
+                        {newMember.name}
+                      </Text>
+                      <Text variant="small">
+                        <span className={styles.previewLabel}>📧 Email:</span>{" "}
+                        {newMember.email}
+                      </Text>
+                      <Text variant="small">
+                        <span className={styles.previewLabel}>💼 Role:</span>{" "}
+                        <span
+                          className={
+                            newMember.role === "Role not specified"
+                              ? styles.previewMissing
+                              : styles.previewPresent
+                          }
+                        >
+                          {newMember.role}
+                        </span>
+                      </Text>
+                    </Stack>
+                  </Stack>
+                )}
+              </Stack>
+
+              <Dropdown
+                label="Team Category"
+                options={this.teamOptions}
+                selectedKey={newMember.teamCategory}
+                onChange={(_, option) =>
+                  this.setState({
+                    newMember: {
+                      ...newMember,
+                      teamCategory: option?.key as
+                        | "planner"
+                        | "puller"
+                        | "manager",
+                      isDeliver:
+                        option?.key === "planner" || option?.key === "manager"
+                          ? false
+                          : newMember.isDeliver,
+                      isLead:
+                        option?.key === "planner" || option?.key === "manager"
+                          ? false
+                          : newMember.isLead,
+                      isPuller:
+                        option?.key === "manager" ? newMember.isPuller : false,
+                    },
+                  })
+                }
+                required
+              />
+
+              {/* Role Badges - bucket/pool concept */}
+              {/* Role Badges — bucket/pool concept */}
+              {(newMember.teamCategory === "puller" ||
+                newMember.teamCategory === "manager") && (
+                <div className={styles.roleBadgesSection}>
+                  {/* Assigned roles */}
+                  {((newMember.teamCategory === "puller" &&
+                    (newMember.isDeliver || newMember.isLead)) ||
+                    (newMember.teamCategory === "manager" &&
+                      newMember.isPuller)) && (
+                    <div className={styles.assignedRolesArea}>
+                      <span className={styles.roleSectionLabel}>
+                        Assigned Additional Roles
+                      </span>
+                      <div className={styles.roleBadgesRow}>
+                        {newMember.teamCategory === "puller" &&
+                          newMember.isDeliver && (
+                            <button
+                              type="button"
+                              className={`${styles.badgeDeliver} ${styles.roleBadgeClickable}`}
+                              onClick={() =>
+                                this.setState({
+                                  newMember: { ...newMember, isDeliver: false },
+                                })
+                              }
+                              title="Click to remove"
+                            >
+                              + Deliver ✕
+                            </button>
+                          )}
+                        {newMember.teamCategory === "puller" &&
+                          newMember.isLead && (
+                            <button
+                              type="button"
+                              className={`${styles.badgeLead} ${styles.roleBadgeClickable}`}
+                              onClick={() =>
+                                this.setState({
+                                  newMember: { ...newMember, isLead: false },
+                                })
+                              }
+                              title="Click to remove"
+                            >
+                              + Lead ✕
+                            </button>
+                          )}
+                        {newMember.teamCategory === "manager" &&
+                          newMember.isPuller && (
+                            <button
+                              type="button"
+                              className={`${styles.badgePuller} ${styles.roleBadgeClickable}`}
+                              onClick={() =>
+                                this.setState({
+                                  newMember: { ...newMember, isPuller: false },
+                                })
+                              }
+                              title="Click to remove"
+                            >
+                              + Puller ✕
+                            </button>
+                          )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Available roles bucket */}
+                  {((newMember.teamCategory === "puller" &&
+                    (!newMember.isDeliver || !newMember.isLead)) ||
+                    (newMember.teamCategory === "manager" &&
+                      !newMember.isPuller)) && (
+                    <div className={styles.availableRolesArea}>
+                      <span className={styles.roleSectionLabel}>
+                        Available Additional Roles
+                      </span>
+                      <div className={styles.roleBadgesRow}>
+                        {newMember.teamCategory === "puller" &&
+                          !newMember.isDeliver && (
+                            <button
+                              type="button"
+                              className={`${styles.badgeDeliver} ${styles.roleBadgeFaded} ${styles.roleBadgeClickable}`}
+                              onClick={() =>
+                                this.setState({
+                                  newMember: { ...newMember, isDeliver: true },
+                                })
+                              }
+                              title="Click to assign"
+                            >
+                              + Deliver
+                            </button>
+                          )}
+                        {newMember.teamCategory === "puller" &&
+                          !newMember.isLead && (
+                            <button
+                              type="button"
+                              className={`${styles.badgeLead} ${styles.roleBadgeFaded} ${styles.roleBadgeClickable}`}
+                              onClick={() =>
+                                this.setState({
+                                  newMember: { ...newMember, isLead: true },
+                                })
+                              }
+                              title="Click to assign"
+                            >
+                              + Lead
+                            </button>
+                          )}
+                        {newMember.teamCategory === "manager" &&
+                          !newMember.isPuller && (
+                            <button
+                              type="button"
+                              className={`${styles.badgePuller} ${styles.roleBadgeFaded} ${styles.roleBadgeClickable}`}
+                              onClick={() =>
+                                this.setState({
+                                  newMember: { ...newMember, isPuller: true },
+                                })
+                              }
+                              title="Click to assign"
+                            >
+                              + Puller
+                            </button>
+                          )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Stack>
+
+            <DialogFooter>
+              <PrimaryButton
+                onClick={() => this.handleAddMember()}
+                text="Add"
+                disabled={saving}
+              />
+              <DefaultButton
+                onClick={() => this.setState({ showAddDialog: false })}
+                text="Cancel"
+                disabled={saving}
+              />
+            </DialogFooter>
+          </Dialog>
+
+          {/* Edit Member Dialog */}
+          <Dialog
+            hidden={!showEditDialog}
+            onDismiss={() => this.setState({ showEditDialog: false })}
+            dialogContentProps={{
+              type: DialogType.normal,
+              title: "✏️ Edit Team Member",
+              subText: selectedMember
+                ? `Editing information for ${selectedMember.name}`
+                : "",
+            }}
+            minWidth={500}
+          >
+            {selectedMember && (
+              <Stack tokens={{ childrenGap: 15 }}>
+                <Stack>
+                  <Text
+                    variant="medium"
+                    styles={{ root: { fontWeight: FONT_WEIGHT_SEMIBOLD } }}
+                  >
+                    Name:
+                  </Text>
+                  <Text>{selectedMember.name}</Text>
+                </Stack>
+
+                <Stack>
+                  <Text
+                    variant="medium"
+                    styles={{ root: { fontWeight: FONT_WEIGHT_SEMIBOLD } }}
+                  >
+                    Email:
+                  </Text>
+                  <Text>{selectedMember.email}</Text>
+                </Stack>
+
+                <Stack>
+                  <Text
+                    variant="medium"
+                    styles={{ root: { fontWeight: FONT_WEIGHT_SEMIBOLD } }}
+                  >
+                    Role:
+                  </Text>
+                  <Text>{selectedMember.role}</Text>
+                </Stack>
+
+                <Dropdown
+                  label="Team Category"
+                  options={this.teamOptions}
+                  selectedKey={selectedMember.teamCategory}
+                  onChange={(_, option) =>
+                    this.setState({
+                      selectedMember: {
+                        ...selectedMember,
+                        teamCategory: option?.key as
+                          | "planner"
+                          | "puller"
+                          | "manager",
+                        isDeliver:
+                          option?.key === "planner" || option?.key === "manager"
+                            ? false
+                            : selectedMember.isDeliver,
+                        isLead:
+                          option?.key === "planner" || option?.key === "manager"
+                            ? false
+                            : selectedMember.isLead,
+                        isPuller:
+                          option?.key === "manager"
+                            ? selectedMember.isPuller
+                            : false,
+                      },
+                    })
+                  }
+                  required
+                  disabled={!this.canEditMembers}
+                />
+
+                {/* Role Badges — bucket/pool concept */}
+                {(selectedMember.teamCategory === "puller" ||
+                  selectedMember.teamCategory === "manager") && (
+                  <div className={styles.roleBadgesSection}>
+                    {/* Assigned roles */}
+                    {((selectedMember.teamCategory === "puller" &&
+                      (selectedMember.isDeliver || selectedMember.isLead)) ||
+                      (selectedMember.teamCategory === "manager" &&
+                        selectedMember.isPuller)) && (
+                      <div className={styles.assignedRolesArea}>
+                        <span className={styles.roleSectionLabel}>
+                          Assigned Additional Roles
+                        </span>
+                        <div className={styles.roleBadgesRow}>
+                          {selectedMember.teamCategory === "puller" &&
+                            selectedMember.isDeliver && (
+                              <button
+                                type="button"
+                                className={`${styles.badgeDeliver} ${styles.roleBadgeClickable}`}
+                                onClick={() =>
+                                  this.canEditMembers &&
+                                  this.setState({
+                                    selectedMember: {
+                                      ...selectedMember,
+                                      isDeliver: false,
+                                    },
+                                  })
+                                }
+                                disabled={!this.canEditMembers}
+                                title="Click to remove"
+                              >
+                                + Deliver ✕
+                              </button>
+                            )}
+                          {selectedMember.teamCategory === "puller" &&
+                            selectedMember.isLead && (
+                              <button
+                                type="button"
+                                className={`${styles.badgeLead} ${styles.roleBadgeClickable}`}
+                                onClick={() =>
+                                  this.canEditMembers &&
+                                  this.setState({
+                                    selectedMember: {
+                                      ...selectedMember,
+                                      isLead: false,
+                                    },
+                                  })
+                                }
+                                disabled={!this.canEditMembers}
+                                title="Click to remove"
+                              >
+                                + Lead ✕
+                              </button>
+                            )}
+                          {selectedMember.teamCategory === "manager" &&
+                            selectedMember.isPuller && (
+                              <button
+                                type="button"
+                                className={`${styles.badgePuller} ${styles.roleBadgeClickable}`}
+                                onClick={() =>
+                                  this.canEditMembers &&
+                                  this.setState({
+                                    selectedMember: {
+                                      ...selectedMember,
+                                      isPuller: false,
+                                    },
+                                  })
+                                }
+                                disabled={!this.canEditMembers}
+                                title="Click to remove"
+                              >
+                                + Puller ✕
+                              </button>
+                            )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Available roles bucket */}
+                    {((selectedMember.teamCategory === "puller" &&
+                      (!selectedMember.isDeliver || !selectedMember.isLead)) ||
+                      (selectedMember.teamCategory === "manager" &&
+                        !selectedMember.isPuller)) && (
+                      <div className={styles.availableRolesArea}>
+                        <span className={styles.roleSectionLabel}>
+                          Available Additional Roles
+                        </span>
+                        <div className={styles.roleBadgesRow}>
+                          {selectedMember.teamCategory === "puller" &&
+                            !selectedMember.isDeliver && (
+                              <button
+                                type="button"
+                                className={`${styles.badgeDeliver} ${styles.roleBadgeFaded} ${styles.roleBadgeClickable}`}
+                                onClick={() =>
+                                  this.canEditMembers &&
+                                  this.setState({
+                                    selectedMember: {
+                                      ...selectedMember,
+                                      isDeliver: true,
+                                    },
+                                  })
+                                }
+                                disabled={!this.canEditMembers}
+                                title="Click to assign"
+                              >
+                                + Deliver
+                              </button>
+                            )}
+                          {selectedMember.teamCategory === "puller" &&
+                            !selectedMember.isLead && (
+                              <button
+                                type="button"
+                                className={`${styles.badgeLead} ${styles.roleBadgeFaded} ${styles.roleBadgeClickable}`}
+                                onClick={() =>
+                                  this.canEditMembers &&
+                                  this.setState({
+                                    selectedMember: {
+                                      ...selectedMember,
+                                      isLead: true,
+                                    },
+                                  })
+                                }
+                                disabled={!this.canEditMembers}
+                                title="Click to assign"
+                              >
+                                + Lead
+                              </button>
+                            )}
+                          {selectedMember.teamCategory === "manager" &&
+                            !selectedMember.isPuller && (
+                              <button
+                                type="button"
+                                className={`${styles.badgePuller} ${styles.roleBadgeFaded} ${styles.roleBadgeClickable}`}
+                                onClick={() =>
+                                  this.canEditMembers &&
+                                  this.setState({
+                                    selectedMember: {
+                                      ...selectedMember,
+                                      isPuller: true,
+                                    },
+                                  })
+                                }
+                                disabled={!this.canEditMembers}
+                                title="Click to assign"
+                              >
+                                + Puller
+                              </button>
+                            )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <Toggle
+                  label="Active member"
+                  checked={selectedMember.isActive}
+                  onChange={(_, checked) =>
+                    this.setState({
+                      selectedMember: {
+                        ...selectedMember,
+                        isActive: !!checked,
+                      },
+                    })
+                  }
+                  disabled={!this.canEditMembers}
+                />
+
+                {this.canEditMembers && (
+                  <Stack horizontal horizontalAlign="space-between">
+                    <DefaultButton
+                      text="🗑️ Remove Member"
+                      onClick={async () => {
+                        this.setState({ showEditDialog: false });
+                        await this.handleRemoveMember(selectedMember);
+                      }}
+                      className={styles.deleteButton}
+                    />
+                  </Stack>
+                )}
+              </Stack>
+            )}
+
+            <DialogFooter>
+              <PrimaryButton
+                onClick={() => this.handleEditMember()}
+                text="Save"
+                disabled={saving || !this.canEditMembers}
+              />
+              <DefaultButton
+                onClick={() => this.setState({ showEditDialog: false })}
+                text="Cancel"
+                disabled={saving}
+              />
+            </DialogFooter>
+          </Dialog>
+        </Stack>
+      </div>
+    );
+  }
+}

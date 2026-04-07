@@ -1,0 +1,682 @@
+/**
+ * Order Details Modal
+ * Modal detalhado que mostra timeline, informações e histórico de um pedido
+ */
+
+import * as React from "react";
+import { Modal, IconButton } from "@fluentui/react";
+import {
+  IOrder,
+  IStep,
+  IOnHoldInfo,
+  IOrderComplain,
+} from "../../../models/IOrder";
+import { OrderStatus } from "../../../models/enums";
+import { DateUtils } from "../../../utils/dateUtils";
+import styles from "./OrderDetailsModal.module.scss";
+
+export interface IOrderDetailsModalProps {
+  isOpen: boolean;
+  order: IOrder | undefined;
+  onDismiss: () => void;
+}
+
+export const OrderDetailsModal: React.FC<IOrderDetailsModalProps> = ({
+  isOpen,
+  order,
+  onDismiss,
+}) => {
+  if (!order) return null;
+
+  /**
+   * Format date
+   */
+  const formatDate = (dateStr?: string): string => {
+    if (!dateStr) return "N/A";
+    try {
+      return DateUtils.formatDateTime(dateStr);
+    } catch {
+      return dateStr;
+    }
+  };
+
+  /**
+   * Get status display name
+   */
+  const getStatusLabel = (status: OrderStatus): string => {
+    return status;
+  };
+
+  /**
+   * Get status class for timeline
+   */
+  const getStatusClass = (status: OrderStatus): string => {
+    const cleanStatus = status.replace(/\s+/g, "").toLowerCase();
+    return cleanStatus;
+  };
+
+  /**
+   * Check if step is completed
+   */
+  const isStepCompleted = (step: IStep): boolean => {
+    return !!step.end;
+  };
+
+  /**
+   * Get step timestamp
+   */
+  const getStepTimestamp = (step: IStep): string => {
+    return formatDate(step.start);
+  };
+
+  /**
+   * Calculate step duration in human-readable format
+   * Note: Delivered, Canceled, and One Time Delivery statuses do not count time
+   */
+  const calculateStepDuration = (step: IStep, nextStep?: IStep): string => {
+    if (!step.start) return "N/A";
+
+    // Delivered, Canceled, and One Time Delivery statuses have no duration - show dash
+    if (
+      step.status === OrderStatus.Delivered ||
+      step.status === OrderStatus.Canceled ||
+      step.status === OrderStatus.ShipmentDelivered ||
+      step.status === OrderStatus.ShipmentCanceled ||
+      step.status === OrderStatus.OneTimeDelivery
+    ) {
+      return "-";
+    }
+
+    const startTime = new Date(step.start).getTime();
+    const endTime = nextStep
+      ? new Date(nextStep.start).getTime()
+      : new Date().getTime();
+
+    const diffMs = endTime - startTime;
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) {
+      const remainingHours = diffHours % 24;
+      return `${diffDays}d ${remainingHours}h`;
+    } else if (diffHours > 0) {
+      const remainingMinutes = diffMinutes % 60;
+      return `${diffHours}h ${remainingMinutes}min`;
+    } else {
+      return `${diffMinutes}min`;
+    }
+  };
+
+  /**
+   * Calculate total duration for all occurrences of a specific status
+   * Note: Delivered, Canceled, and One Time Delivery statuses do not count time
+   */
+  const calculateTotalDurationForStatus = (status: OrderStatus): string => {
+    // Delivered, Canceled, and One Time Delivery statuses have 0 duration
+    if (
+      status === OrderStatus.Delivered ||
+      status === OrderStatus.Canceled ||
+      status === OrderStatus.ShipmentDelivered ||
+      status === OrderStatus.ShipmentCanceled ||
+      status === OrderStatus.OneTimeDelivery
+    ) {
+      return "-";
+    }
+
+    // Find all steps with this status
+    const stepsWithStatus = order.steps
+      .map((step, index) => ({ step, index }))
+      .filter(({ step }) => step.status === status);
+
+    if (stepsWithStatus.length === 0) return "N/A";
+
+    // Calculate total duration in milliseconds
+    let totalMs = 0;
+
+    stepsWithStatus.forEach(({ step, index }) => {
+      const nextStep = order.steps[index + 1];
+      const startTime = new Date(step.start).getTime();
+      const endTime = nextStep
+        ? new Date(nextStep.start).getTime()
+        : new Date().getTime();
+
+      totalMs += endTime - startTime;
+    });
+
+    // Convert to human-readable format
+    const totalMinutes = Math.floor(totalMs / (1000 * 60));
+    const totalHours = Math.floor(totalMinutes / 60);
+    const totalDays = Math.floor(totalHours / 24);
+
+    if (totalDays > 0) {
+      const remainingHours = totalHours % 24;
+      return `${totalDays}d ${remainingHours}h`;
+    } else if (totalHours > 0) {
+      const remainingMinutes = totalMinutes % 60;
+      return `${totalHours}h ${remainingMinutes}min`;
+    } else {
+      return `${totalMinutes}min`;
+    }
+  };
+
+  /**
+   * Calculate total elapsed time since creation
+   * Uses createdDate as start time
+   * For Delivered/Canceled/OneTimeDelivery: uses their step start as end time
+   * For other statuses: uses current time (now) as end time
+   */
+  const calculateTotalElapsedTime = (): string => {
+    if (!order.createdDate) return "N/A";
+
+    // One Time Delivery has 0 elapsed time
+    if (order.currentStatus === OrderStatus.OneTimeDelivery) {
+      return "0min";
+    }
+
+    const startTime = new Date(order.createdDate).getTime();
+    let endTime: number;
+
+    // Check if order is Delivered or Canceled - use their step start time
+    if (
+      order.currentStatus === OrderStatus.Delivered ||
+      order.currentStatus === OrderStatus.Canceled
+    ) {
+      // Find the last Delivered or Canceled step
+      const finalStep = order.steps
+        .filter(
+          (s) =>
+            s.status === OrderStatus.Delivered ||
+            s.status === OrderStatus.Canceled,
+        )
+        .pop();
+
+      if (finalStep && finalStep.start) {
+        endTime = new Date(finalStep.start).getTime();
+      } else {
+        // Fallback to now if no final step found
+        endTime = new Date().getTime();
+      }
+    } else {
+      // For other statuses, use current time (now)
+      endTime = new Date().getTime();
+    }
+
+    const diffMs = endTime - startTime;
+
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) {
+      const remainingHours = diffHours % 24;
+      const remainingMinutes = diffMinutes % 60;
+      return `${diffDays}d ${remainingHours}h ${remainingMinutes}min`;
+    } else if (diffHours > 0) {
+      const remainingMinutes = diffMinutes % 60;
+      return `${diffHours}h ${remainingMinutes}min`;
+    } else {
+      return `${diffMinutes}min`;
+    }
+  };
+
+  /**
+   * Get step status (In Process or Completed)
+   */
+  const getStepStatus = (stepIndex: number): string => {
+    const lastStepIndex = order.steps.length - 1;
+
+    // If order is in a final state (Canceled, Delivered, Shipment Delivered, Shipment Canceled), all steps are "Completed"
+    if (
+      order.currentStatus === OrderStatus.Canceled ||
+      order.currentStatus === OrderStatus.Delivered ||
+      order.currentStatus === OrderStatus.ShipmentDelivered ||
+      order.currentStatus === OrderStatus.ShipmentCanceled
+    ) {
+      return "Completed";
+    }
+
+    // Otherwise, the last step is "In Process", all previous steps are "Completed"
+    if (stepIndex === lastStepIndex) {
+      return "In Process";
+    } else if (stepIndex < lastStepIndex) {
+      return "Completed";
+    } else {
+      return "Pending";
+    }
+  };
+
+  /**
+   * Get icon for each status
+   */
+  const getStatusIcon = (status: OrderStatus): string => {
+    switch (status) {
+      case OrderStatus.Open:
+        return "📝";
+      case OrderStatus.InProgress:
+        return "⚙️";
+      case OrderStatus.ReleasedForDelivery:
+        return "📦";
+      case OrderStatus.Delivered:
+        return "✅";
+      case OrderStatus.Rework:
+        return "🔧";
+      case OrderStatus.OnHold:
+        return "⏸️";
+      case OrderStatus.Canceled:
+        return "❌";
+      case OrderStatus.ShipmentPreparation:
+        return "🚢";
+      case OrderStatus.ShipmentsOnHold:
+        return "⏸️";
+      case OrderStatus.AwaitingFreightInfo:
+        return "📋";
+      case OrderStatus.ReleasedForShipment:
+        return "📦";
+      case OrderStatus.ShipmentDelivered:
+        return "✅";
+      case OrderStatus.ShipmentCanceled:
+        return "❌";
+      default:
+        return "•";
+    }
+  };
+
+  // Use all steps from the order directly
+  const timelineSteps = order.steps;
+
+  /**
+   * Get all On Hold entries from an order (OnHold, OnHold2, OnHold3...)
+   */
+  const getOnHoldEntries = (): Array<{ key: string; data: IOnHoldInfo }> => {
+    const entries: Array<{ key: string; data: IOnHoldInfo }> = [];
+    const orderAny = order as unknown as Record<string, unknown>;
+
+    if (orderAny.OnHold && typeof orderAny.OnHold === "object") {
+      entries.push({ key: "OnHold", data: orderAny.OnHold as IOnHoldInfo });
+    }
+
+    let counter = 2;
+    while (
+      orderAny[`OnHold${counter}`] &&
+      typeof orderAny[`OnHold${counter}`] === "object"
+    ) {
+      entries.push({
+        key: `OnHold${counter}`,
+        data: orderAny[`OnHold${counter}`] as IOnHoldInfo,
+      });
+      counter++;
+    }
+
+    return entries;
+  };
+
+  const onHoldEntries = getOnHoldEntries();
+
+  /**
+   * Get all Complain entries from an order (Complain, Complain2, Complain3...)
+   * Falls back to legacy `complain` field if no structured entries exist
+   */
+  const getComplainEntries = (): Array<{
+    key: string;
+    data: IOrderComplain;
+  }> => {
+    const entries: Array<{ key: string; data: IOrderComplain }> = [];
+    const orderAny = order as unknown as Record<string, unknown>;
+
+    if (orderAny.Complain && typeof orderAny.Complain === "object") {
+      entries.push({
+        key: "Complain",
+        data: orderAny.Complain as IOrderComplain,
+      });
+    }
+
+    let counter = 2;
+    while (
+      orderAny[`Complain${counter}`] &&
+      typeof orderAny[`Complain${counter}`] === "object"
+    ) {
+      entries.push({
+        key: `Complain${counter}`,
+        data: orderAny[`Complain${counter}`] as IOrderComplain,
+      });
+      counter++;
+    }
+
+    // Fallback: if no structured entries but legacy complain field exists
+    if (entries.length === 0 && order.complain) {
+      entries.push({ key: "complain", data: order.complain });
+    }
+
+    return entries;
+  };
+
+  const complainEntries = getComplainEntries();
+
+  // Get current step index (last step with idStep or last step with start date)
+  const currentStepIndex = timelineSteps.reduce((maxIndex, step, index) => {
+    if (step.idStep && step.start) {
+      const currentMax = timelineSteps[maxIndex];
+      if (!currentMax?.idStep || step.idStep > currentMax.idStep) {
+        return index;
+      }
+    }
+    return maxIndex;
+  }, 0);
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onDismiss={onDismiss}
+      isBlocking={false}
+      containerClassName={styles.modalContainer}
+    >
+      <div className={styles.modalHeader}>
+        <div className={styles.modalTitle}>
+          <span className={styles.modalIcon}>📋</span>
+          <h2>Detailed Flow - {order.orderNumber}</h2>
+        </div>
+        <IconButton
+          iconProps={{ iconName: "Cancel" }}
+          ariaLabel="Close"
+          onClick={onDismiss}
+          className={styles.closeButton}
+        />
+      </div>
+
+      <div className={styles.modalBody}>
+        {/* Timeline Section - Horizontal moderna */}
+        <section className={styles.timelineSection}>
+          <div className={styles.sectionHeader}>
+            <h3 className={styles.sectionTitle}>Order Timeline</h3>
+            <div className={styles.totalElapsedTime}>
+              <span className={styles.elapsedLabel}>Total Elapsed Time:</span>
+              <span className={styles.elapsedValue}>
+                {calculateTotalElapsedTime()}
+              </span>
+            </div>
+          </div>
+          <div className={styles.timeline}>
+            {timelineSteps.map((step, index) => {
+              const stepData = step;
+              const isCompleted = stepData && isStepCompleted(stepData);
+              // Pulse only the very last circle in the timeline, and only if order is NOT in a final state
+              const isLastStep = index === timelineSteps.length - 1;
+              const isFinalStatus =
+                order.currentStatus === OrderStatus.Delivered ||
+                order.currentStatus === OrderStatus.Canceled ||
+                order.currentStatus === OrderStatus.ShipmentDelivered ||
+                order.currentStatus === OrderStatus.ShipmentCanceled;
+              const isCurrent = isLastStep && !isFinalStatus;
+              const isPast = index < currentStepIndex;
+              const isNotLast = index < timelineSteps.length - 1;
+
+              // Calculate total duration for all occurrences of this status
+              const duration = stepData
+                ? calculateTotalDurationForStatus(step.status)
+                : null;
+
+              return (
+                <React.Fragment key={`step-${stepData.idStep || index}`}>
+                  <div
+                    className={`${styles.timelineItem} ${
+                      isCompleted || isPast ? styles.completed : ""
+                    } ${isCurrent ? styles.current : ""}`}
+                  >
+                    <div className={styles.timelineMarker}>
+                      <div
+                        className={`${styles.timelineCircle} ${
+                          styles[getStatusClass(step.status)]
+                        }`}
+                      >
+                        {getStatusIcon(step.status)}
+                      </div>
+                    </div>
+                    <div className={styles.timelineContent}>
+                      <h4 className={styles.timelineLabel}>
+                        {getStatusLabel(step.status)}
+                      </h4>
+                      <p className={styles.timelineDate}>
+                        {stepData ? getStepTimestamp(stepData) : "Pending"}
+                      </p>
+                      {duration && (
+                        <p className={styles.timelineDuration}>{duration}</p>
+                      )}
+                    </div>
+                  </div>
+                  {isNotLast && (
+                    <div className={styles.timelineArrow}>
+                      <svg width="24" height="24" viewBox="0 0 24 24">
+                        <path
+                          d="M8 4L16 12L8 20"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Detailed Steps Table */}
+        <section className={styles.stepsSection}>
+          <h3 className={styles.sectionTitle}>Detailed Steps</h3>
+          <div className={styles.tableContainer}>
+            <table className={styles.detailsTable}>
+              <thead>
+                <tr>
+                  <th>STEP</th>
+                  <th>START DATE/TIME</th>
+                  <th>DURATION</th>
+                  <th>STATUS</th>
+                  <th>COMMENTS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {order.steps.map((step, index) => {
+                  const nextStep = order.steps[index + 1];
+                  const duration = calculateStepDuration(step, nextStep);
+                  const isOtd = step.status === OrderStatus.OneTimeDelivery;
+                  const stepStatus = isOtd ? "Completed" : getStepStatus(index);
+
+                  const statusCell =
+                    stepStatus === "Completed" ? (
+                      <span className={styles.successBadge}>✓ Completed</span>
+                    ) : stepStatus === "In Process" ? (
+                      <span>⏳ In Process</span>
+                    ) : (
+                      <span>Pending</span>
+                    );
+
+                  // Badge roxo para OTD, padrão para outros
+                  const badgeClass = `${styles.statusBadge} ${
+                    isOtd
+                      ? styles.oneTimeDeliveryBadge
+                      : styles[getStatusClass(step.status)]
+                  }`;
+
+                  return (
+                    <tr key={index}>
+                      <td>
+                        <span className={badgeClass}>
+                          {getStatusLabel(step.status)}
+                        </span>
+                      </td>
+                      <td>{getStepTimestamp(step)}</td>
+                      <td className={styles.durationCell}>{duration}</td>
+                      <td>{statusCell}</td>
+                      <td
+                        style={{
+                          maxWidth: 300,
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {typeof step.comments === "string" &&
+                        step.comments.trim()
+                          ? step.comments
+                          : Array.isArray(step.comments) && step.comments.length
+                            ? step.comments.join(" • ")
+                            : "No comments"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Changes History Section */}
+        {order.changes && order.changes.length > 0 && (
+          <section className={styles.changesSection}>
+            <h3 className={styles.sectionTitle}>Changes History</h3>
+            <div className={styles.tableContainer}>
+              <table className={styles.detailsTable}>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>FIELD</th>
+                    <th>OLD VALUE</th>
+                    <th>NEW VALUE</th>
+                    <th>CHANGED BY</th>
+                    <th>DATE/TIME</th>
+                    <th>COMMENTS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {order.changes.map((change, index) => (
+                    <tr key={index}>
+                      <td>{change.changeNumber}</td>
+                      <td>
+                        <strong>
+                          {change.fieldName === "Attachment Added" && "📎 "}
+                          {change.fieldName}
+                        </strong>
+                      </td>
+                      <td className={styles.oldValue}>
+                        {change.oldValue || "N/A"}
+                      </td>
+                      <td className={styles.newValue}>
+                        {change.attachmentFileName ? (
+                          <span>📄 {change.newValue}</span>
+                        ) : (
+                          change.newValue || "N/A"
+                        )}
+                      </td>
+                      <td>
+                        {change.changedByName}
+                        <br />
+                        <span style={{ fontSize: "0.85em", color: "#666" }}>
+                          {change.changedBy}
+                        </span>
+                      </td>
+                      <td>{formatDate(change.changedDate)}</td>
+                      <td
+                        style={{
+                          maxWidth: 250,
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {change.comments || "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* On Hold History Section */}
+        {onHoldEntries.length > 0 && (
+          <section className={styles.onHoldSection}>
+            <h3 className={styles.sectionTitle}>⏸️ On Hold History</h3>
+            <div className={styles.tableContainer}>
+              <table className={styles.detailsTable}>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>REASON</th>
+                    <th>COMMENT</th>
+                    <th>ON HOLD BY</th>
+                    <th>DATE/TIME</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {onHoldEntries.map((entry, index) => (
+                    <tr key={entry.key}>
+                      <td>{index + 1}</td>
+                      <td>
+                        <strong>{entry.data.onHoldReason || "N/A"}</strong>
+                      </td>
+                      <td
+                        style={{
+                          maxWidth: 300,
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {entry.data.onHoldComment || "N/A"}
+                      </td>
+                      <td>{entry.data.onHoldBy || "N/A"}</td>
+                      <td>{formatDate(entry.data.onHoldDate)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* Complain History Section */}
+        {complainEntries.length > 0 && (
+          <section className={styles.onHoldSection}>
+            <h3 className={styles.sectionTitle}>⚠️ Complain History</h3>
+            <div className={styles.tableContainer}>
+              <table className={styles.detailsTable}>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>REASON</th>
+                    <th>COMMENT</th>
+                    <th>COMPLAINED BY</th>
+                    <th>DATE/TIME</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {complainEntries.map((entry, index) => (
+                    <tr key={entry.key}>
+                      <td>{index + 1}</td>
+                      <td>
+                        <strong>{entry.data.reason || "N/A"}</strong>
+                      </td>
+                      <td
+                        style={{
+                          maxWidth: 300,
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {entry.data.comments || "N/A"}
+                      </td>
+                      <td>{entry.data.complainedBy || "N/A"}</td>
+                      <td>{formatDate(entry.data.complainedDate)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+      </div>
+    </Modal>
+  );
+};

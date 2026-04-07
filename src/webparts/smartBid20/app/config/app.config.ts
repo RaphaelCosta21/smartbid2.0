@@ -1,0 +1,41 @@
+export const APP_CONFIG = {
+  appName: "SMART BID",
+  appVersion: "2.0.0",
+  appSubtitle: "Oceaneering · Bid Dept",
+  region: "BRAZIL",
+  sharepointSiteUrl:
+    "https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering",
+  lists: {
+    bidTracker: "smartbid-tracker",
+    config: "smartbid-config",
+    statusTracker: "smartbid-status-tracker",
+    approvals: "smartbid-approvals",
+    attachmentsLibrary: "SmartBidAttachments",
+  },
+  configKeys: {
+    systemConfig: "SYSTEM_CONFIG",
+    teamMembers: "TEAM_MEMBERS",
+    activityLog: "ACTIVITY_LOG",
+    bidTemplates: "BID_TEMPLATES",
+    approvalRules: "APPROVAL_RULES",
+    quotationDatabase: "QUOTATION_DATABASE",
+    patchNotes: "PATCH_NOTES",
+  },
+  superAdminEmails: ["rcosta1@oceaneering.com"],
+  defaults: {
+    pageSize: 25,
+    debounceMs: 300,
+    toastDuration: 5000,
+    autoRefreshMs: 30000,
+    notificationMarkReadDelay: 3000,
+    maxRecentActivity: 10,
+    maxNotifications: 50,
+  },
+  featureFlags: {
+    enableAIChat: false,
+    enableKnowledgeBase: true,
+    enableDragDrop: true,
+    enableExport: true,
+    useMockData: true,
+  },
+} as const;

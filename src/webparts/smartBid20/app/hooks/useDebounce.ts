@@ -1,0 +1,16 @@
+/**
+ * useDebounce — Debounces a value by the given delay (ms).
+ */
+
+import * as React from "react";
+
+export function useDebounce<T>(value: T, delay: number = 300): T {
+  const [debounced, setDebounced] = React.useState<T>(value);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debounced;
+}

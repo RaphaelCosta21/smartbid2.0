@@ -1,0 +1,2584 @@
+/**
+ * System Configuration Component
+ * Manager-only page to configure KPI targets, order types, business units, and notifications
+ */
+
+import * as React from "react";
+import {
+  Stack,
+  TextField,
+  PrimaryButton,
+  DefaultButton,
+  Label,
+  MessageBar,
+  MessageBarType,
+  Spinner,
+  SpinnerSize,
+  IconButton,
+  Toggle,
+  Separator,
+  Panel,
+  PanelType,
+  Icon,
+  Pivot,
+  PivotItem,
+} from "@fluentui/react";
+import { WebPartContext } from "@microsoft/sp-webpart-base";
+import { SystemConfigService } from "../../services/SystemConfigService";
+import {
+  ISystemConfig,
+  IKPITargets,
+  IConfigOption,
+  IRoleNotifications,
+  IAccessLevels,
+  IRequestAccessConfig,
+  AccessLevel,
+  SmartFlowPage,
+  IRoleAccessConfig,
+  DEFAULT_SYSTEM_CONFIG,
+} from "../../models/ISystemConfig";
+import { ITeamMember } from "../../models/ITeamMember";
+import { ActivityLogType } from "../../models/IActivityLog";
+import { isGuestUser, showGuestAlert } from "../../utils/userUtils";
+import { v4 as uuidv4 } from "uuid";
+import styles from "./SystemConfiguration.module.scss";
+
+export interface ISystemConfigurationProps {
+  context?: WebPartContext;
+  currentUser?: ITeamMember;
+  userRole?: string;
+}
+
+interface ISystemConfigurationState {
+  config: ISystemConfig | undefined;
+  isLoading: boolean;
+  isSaving: boolean;
+  error: string | undefined;
+  success: string | undefined;
+  activeTab:
+    | "kpis"
+    | "orderTypes"
+    | "businessUnits"
+    | "deliveryLocations"
+    | "reasonCategories"
+    | "notifications"
+    | "accessLevels";
+  editingOption: IConfigOption | undefined;
+  isPanelOpen: boolean;
+  panelMode: "add" | "edit";
+  currentEditType:
+    | "orderType"
+    | "businessUnit"
+    | "deliveryLocation"
+    | "shipmentLocation"
+    | "shipmentType"
+    | "complainReason"
+    | "onHoldReason"
+    | undefined;
+  // Temporary edit states
+  tempKpiTargets: IKPITargets | undefined;
+  tempNotifications: IRoleNotifications | undefined;
+  tempEditOption: IConfigOption | undefined;
+  tempAccessLevels: IAccessLevels | undefined;
+  tempRequestAccessLevels: IRequestAccessConfig | undefined;
+}
+
+const ALL_NOTIFICATION_TYPES: {
+  value: ActivityLogType;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "ORDER_CREATED",
+    label: "Request Created",
+    description: "When a new request is created by a requester",
+  },
+  {
+    value: "ORDER_ASSIGNED",
+    label: "Request Assigned",
+    description: "When a request is assigned to a puller",
+  },
+  {
+    value: "ORDER_COMPLETED",
+    label: "Request Completed",
+    description: "When a request is marked as delivered",
+  },
+  {
+    value: "ORDER_CANCELLED",
+    label: "Request Cancelled",
+    description: "When a request is cancelled",
+  },
+  {
+    value: "HIGH_PRIORITY_REQUEST",
+    label: "High Priority Request",
+    description: "When a HOT demand request is created",
+  },
+  {
+    value: "ORDER_ON_HOLD",
+    label: "Request On Hold",
+    description: "When a request is placed on hold",
+  },
+  {
+    value: "ORDER_RESUMED",
+    label: "Request Resumed",
+    description: "When an on-hold request is resumed",
+  },
+  {
+    value: "REQUEST_EDITED",
+    label: "Request Edited",
+    description: "When request information is updated",
+  },
+  {
+    value: "COMPLAIN_ADDED",
+    label: "Complain Added",
+    description: "When a complaint is registered for a request",
+  },
+  {
+    value: "RELEASED_DELIVERY",
+    label: "Released for Delivery",
+    description: "When a delivery request is released for final delivery",
+  },
+  {
+    value: "SHIPMENT_PREPARATION",
+    label: "Shipment Preparation",
+    description: "When a shipment request moves to preparation stage",
+  },
+  {
+    value: "RELEASED_SHIPMENT",
+    label: "Released for Shipment",
+    description: "When a shipment request is released to the shipment team",
+  },
+  {
+    value: "SHIPMENT_DELIVERED",
+    label: "Shipment Delivered",
+    description: "When a shipment is confirmed as delivered",
+  },
+  {
+    value: "FREIGHT_INFO_REQUEST",
+    label: "Freight Info Request",
+    description: "When freight information is requested for a shipment",
+  },
+  {
+    value: "DUE_DATE_WARNING",
+    label: "Due Date Warning",
+    description: "When a request due date is less than 2 hours away",
+  },
+  {
+    value: "ONE_TIME_DELIVERY_CREATED",
+    label: "One Time Delivery Created",
+    description: "When a One Time Delivery is created by a Deliver",
+  },
+  {
+    value: "ONE_TIME_SHIPMENT_CREATED",
+    label: "One Time Shipment Created",
+    description: "When a One Time Shipment is created",
+  },
+];
+
+export class SystemConfiguration extends React.Component<
+  ISystemConfigurationProps,
+  ISystemConfigurationState
+> {
+  private configService: SystemConfigService | null = null;
+
+  constructor(props: ISystemConfigurationProps) {
+    super(props);
+    console.log("[SystemConfiguration] Constructor called with props:", props);
+
+    this.state = {
+      config: undefined,
+      isLoading: true,
+      isSaving: false,
+      error: undefined,
+      success: undefined,
+      activeTab: "kpis",
+      editingOption: undefined,
+      isPanelOpen: false,
+      panelMode: "add",
+      currentEditType: undefined,
+      tempKpiTargets: undefined,
+      tempNotifications: undefined,
+      tempEditOption: undefined,
+      tempAccessLevels: undefined,
+      tempRequestAccessLevels: undefined,
+    };
+  }
+
+  public async componentDidMount(): Promise<void> {
+    console.log("[SystemConfiguration] componentDidMount - loading config");
+    await this.loadConfig();
+  }
+
+  private loadConfig = async (): Promise<void> => {
+    console.log("[SystemConfiguration] loadConfig started");
+    this.setState({ isLoading: true, error: undefined });
+
+    try {
+      if (this.props.context) {
+        console.log(
+          "[SystemConfiguration] Creating SystemConfigService with context",
+        );
+        this.configService = new SystemConfigService(this.props.context);
+        console.log("[SystemConfiguration] Fetching system config...");
+        const config = await this.configService.getSystemConfig();
+        console.log("[SystemConfiguration] Config loaded:", config);
+        this.setState({ config, isLoading: false });
+      } else {
+        console.error("[SystemConfiguration] No context available!");
+        // Modo sem contexto (fallback para desenvolvimento)
+        this.setState({
+          config: undefined,
+          isLoading: false,
+          error:
+            "Context not available. This page requires SharePoint context.",
+        });
+      }
+    } catch (error) {
+      console.error("[SystemConfiguration] Error loading config:", error);
+      this.setState({
+        isLoading: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to load configuration",
+      });
+    }
+  };
+
+  private saveKPITargets = async (targets: IKPITargets): Promise<void> => {
+    // 🚫 GUEST CHECK: Guests cannot save KPI targets
+    if (this.props.currentUser && isGuestUser(this.props.currentUser)) {
+      showGuestAlert("save KPI targets");
+      return;
+    }
+
+    if (!this.configService || !this.props.context) return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.updateKPITargets(targets, updatedBy);
+
+      this.setState({
+        isSaving: false,
+        success: "KPI targets updated successfully!",
+      });
+
+      // Reload config
+      await this.loadConfig();
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error ? error.message : "Failed to save KPI targets",
+      });
+    }
+  };
+
+  private saveOrderType = async (orderType: IConfigOption): Promise<void> => {
+    if (!this.configService || !this.props.context) return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.saveOrderType(orderType, updatedBy);
+
+      this.setState({
+        isSaving: false,
+        success: "Order type saved successfully!",
+        isPanelOpen: false,
+        editingOption: undefined,
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error ? error.message : "Failed to save order type",
+      });
+    }
+  };
+
+  private deleteOrderType = async (orderTypeId: string): Promise<void> => {
+    if (!this.configService || !this.props.context) return;
+
+    if (!confirm("Are you sure you want to deactivate this order type?"))
+      return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.deleteOrderType(orderTypeId, updatedBy);
+
+      this.setState({
+        isSaving: false,
+        success: "Order type deactivated successfully!",
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete order type",
+      });
+    }
+  };
+
+  private saveShipmentType = async (
+    shipmentType: IConfigOption,
+  ): Promise<void> => {
+    if (!this.configService || !this.props.context) return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.saveShipmentType(shipmentType, updatedBy);
+
+      this.setState({
+        isSaving: false,
+        success: "Shipment type saved successfully!",
+        isPanelOpen: false,
+        editingOption: undefined,
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to save shipment type",
+      });
+    }
+  };
+
+  private deleteShipmentType = async (
+    shipmentTypeId: string,
+  ): Promise<void> => {
+    if (!this.configService || !this.props.context) return;
+
+    if (!confirm("Are you sure you want to deactivate this shipment type?"))
+      return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.deleteShipmentType(shipmentTypeId, updatedBy);
+
+      this.setState({
+        isSaving: false,
+        success: "Shipment type deactivated successfully!",
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete shipment type",
+      });
+    }
+  };
+
+  private saveBusinessUnit = async (
+    businessUnit: IConfigOption,
+  ): Promise<void> => {
+    if (!this.configService || !this.props.context) return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.saveBusinessUnit(businessUnit, updatedBy);
+
+      this.setState({
+        isSaving: false,
+        success: "Business unit saved successfully!",
+        isPanelOpen: false,
+        editingOption: undefined,
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to save business unit",
+      });
+    }
+  };
+
+  private deleteBusinessUnit = async (
+    businessUnitId: string,
+  ): Promise<void> => {
+    if (!this.configService || !this.props.context) return;
+
+    if (!confirm("Are you sure you want to deactivate this business unit?"))
+      return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.deleteBusinessUnit(businessUnitId, updatedBy);
+
+      this.setState({
+        isSaving: false,
+        success: "Business unit deactivated successfully!",
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete business unit",
+      });
+    }
+  };
+
+  // ===================== DELIVERY LOCATIONS =====================
+
+  private saveDeliveryLocation = async (
+    deliveryLocation: IConfigOption,
+  ): Promise<void> => {
+    if (!this.configService || !this.props.context) return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.saveDeliveryLocation(
+        deliveryLocation,
+        updatedBy,
+      );
+
+      this.setState({
+        isSaving: false,
+        success: "location saved successfully!",
+        isPanelOpen: false,
+        editingOption: undefined,
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error ? error.message : "Failed to save location",
+      });
+    }
+  };
+
+  private deleteDeliveryLocation = async (
+    deliveryLocationId: string,
+  ): Promise<void> => {
+    if (!this.configService || !this.props.context) return;
+
+    if (!confirm("Are you sure you want to deactivate this location?")) return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.deleteDeliveryLocation(
+        deliveryLocationId,
+        updatedBy,
+      );
+
+      this.setState({
+        isSaving: false,
+        success: "Location deactivated successfully!",
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error ? error.message : "Failed to delete location",
+      });
+    }
+  };
+
+  // ===================== SHIPMENT LOCATIONS =====================
+
+  private saveShipmentLocation = async (
+    shipmentLocation: IConfigOption,
+  ): Promise<void> => {
+    if (!this.configService || !this.props.context) return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.saveShipmentLocation(
+        shipmentLocation,
+        updatedBy,
+      );
+
+      this.setState({
+        isSaving: false,
+        isPanelOpen: false,
+        editingOption: undefined,
+        success: "Shipment location saved successfully!",
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to save shipment location",
+      });
+    }
+  };
+
+  private deleteShipmentLocation = async (
+    shipmentLocationId: string,
+  ): Promise<void> => {
+    if (!this.configService || !this.props.context) return;
+
+    if (!confirm("Are you sure you want to deactivate this shipment location?"))
+      return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.deleteShipmentLocation(
+        shipmentLocationId,
+        updatedBy,
+      );
+
+      this.setState({
+        isSaving: false,
+        success: "Shipment location deactivated successfully!",
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete shipment location",
+      });
+    }
+  };
+
+  // ===================== COMPLAIN REASONS =====================
+
+  private saveComplainReason = async (
+    complainReason: IConfigOption,
+  ): Promise<void> => {
+    if (!this.configService || !this.props.context) return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.saveComplainReason(complainReason, updatedBy);
+
+      this.setState({
+        isSaving: false,
+        success: "Complain reason saved successfully!",
+        isPanelOpen: false,
+        editingOption: undefined,
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to save complain reason",
+      });
+    }
+  };
+
+  private deleteComplainReason = async (
+    complainReasonId: string,
+  ): Promise<void> => {
+    if (!this.configService || !this.props.context) return;
+
+    if (!confirm("Are you sure you want to deactivate this complain reason?"))
+      return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.deleteComplainReason(
+        complainReasonId,
+        updatedBy,
+      );
+
+      this.setState({
+        isSaving: false,
+        success: "Complain reason deactivated successfully!",
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete complain reason",
+      });
+    }
+  };
+
+  // ===================== ON HOLD REASONS =====================
+
+  private saveOnHoldReason = async (
+    onHoldReason: IConfigOption,
+  ): Promise<void> => {
+    if (!this.configService || !this.props.context) return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.saveOnHoldReason(onHoldReason, updatedBy);
+
+      this.setState({
+        isSaving: false,
+        success: "On Hold reason saved successfully!",
+        isPanelOpen: false,
+        editingOption: undefined,
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to save on hold reason",
+      });
+    }
+  };
+
+  private deleteOnHoldReason = async (
+    onHoldReasonId: string,
+  ): Promise<void> => {
+    if (!this.configService || !this.props.context) return;
+
+    if (!confirm("Are you sure you want to deactivate this on hold reason?"))
+      return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.deleteOnHoldReason(onHoldReasonId, updatedBy);
+
+      this.setState({
+        isSaving: false,
+        success: "On Hold reason deactivated successfully!",
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete on hold reason",
+      });
+    }
+  };
+
+  private saveNotifications = async (
+    notifications: IRoleNotifications,
+  ): Promise<void> => {
+    // 🚫 GUEST CHECK: Guests cannot save notification settings
+    if (this.props.currentUser && isGuestUser(this.props.currentUser)) {
+      showGuestAlert("save notification settings");
+      return;
+    }
+
+    if (!this.configService || !this.props.context) return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.updateNotifications(notifications, updatedBy);
+
+      this.setState({
+        isSaving: false,
+        success: "Notification settings saved successfully!",
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to save notifications",
+      });
+    }
+  };
+
+  // ===================== ACCESS LEVELS =====================
+
+  private saveAccessLevels = async (
+    accessLevels: IAccessLevels,
+  ): Promise<void> => {
+    // 🚫 GUEST CHECK: Guests cannot save access level settings
+    if (this.props.currentUser && isGuestUser(this.props.currentUser)) {
+      showGuestAlert("save access level settings");
+      return;
+    }
+
+    if (!this.configService || !this.props.context) return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.updateAccessLevels(accessLevels, updatedBy);
+
+      this.setState({
+        isSaving: false,
+        success: "Access level settings saved successfully!",
+        tempAccessLevels: undefined,
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to save access levels",
+      });
+    }
+  };
+
+  private renderAccessLevelsTab = (): JSX.Element => {
+    const { config, isSaving, tempAccessLevels } = this.state;
+    if (!config) return <></>;
+
+    const localAccessLevels = tempAccessLevels || config.accessLevels;
+
+    const roles: {
+      key: keyof IAccessLevels;
+      label: string;
+      icon: string;
+      description: string;
+    }[] = [
+      {
+        key: "manager",
+        label: "Managers",
+        icon: "Crown",
+        description: "Full system administrators",
+      },
+      {
+        key: "planner",
+        label: "Requesters",
+        icon: "People",
+        description: "Create and manage requests",
+      },
+      {
+        key: "puller",
+        label: "Pullers",
+        icon: "HandsFree",
+        description: "Pick and separate materials",
+      },
+      {
+        key: "deliver",
+        label: "Delivers",
+        icon: "DeliveryTruck",
+        description: "Handle deliveries",
+      },
+      {
+        key: "shipmentTeam",
+        label: "Shipment Team",
+        icon: "Package",
+        description: "Manage shipments and receiving",
+      },
+      {
+        key: "guest",
+        label: "Guest / Demo",
+        icon: "Guest",
+        description: "View-only access for unregistered users",
+      },
+    ];
+
+    const pages: { key: SmartFlowPage; label: string; icon: string }[] = [
+      { key: "workspace", label: "Workspace", icon: "ViewDashboard" },
+      { key: "insights", label: "Insights", icon: "Lightbulb" },
+      { key: "reports", label: "Reports", icon: "ReportDocument" },
+      { key: "settings", label: "Settings", icon: "Settings" },
+    ];
+
+    const accessOptions: {
+      value: AccessLevel;
+      label: string;
+      color: string;
+    }[] = [
+      { value: "edit", label: "View & Edit", color: "#107c10" },
+      { value: "view", label: "View Only", color: "#0078d4" },
+      { value: "none", label: "No Access", color: "#d13438" },
+    ];
+
+    const updateAccess = (
+      role: keyof IAccessLevels,
+      page: SmartFlowPage,
+      level: AccessLevel,
+    ): void => {
+      // Manager always has full access — cannot be changed
+      if (role === "manager") return;
+
+      const currentRoleConfig = localAccessLevels[role] || {
+        workspace: "edit",
+        insights: "none",
+        reports: "edit",
+        settings: "view",
+      };
+
+      this.setState({
+        tempAccessLevels: {
+          ...localAccessLevels,
+          [role]: {
+            ...currentRoleConfig,
+            [page]: level,
+          },
+        },
+      });
+    };
+
+    const isManager = this.props.userRole === "Manager";
+
+    return (
+      <div className={styles.tabContent}>
+        <div className={styles.sectionHeader}>
+          <h3>🔐 Access Levels Configuration</h3>
+          <p>
+            Define which roles can access each page and their permission level.
+            Only Managers can modify these settings.
+          </p>
+        </div>
+
+        <div className={styles.accessLevelsGrid}>
+          {/* Header row */}
+          <div className={styles.accessGridHeader}>
+            <div className={styles.accessGridRoleHeader}>Role</div>
+            {pages.map((page) => (
+              <div key={page.key} className={styles.accessGridPageHeader}>
+                <Icon iconName={page.icon} />
+                <span>{page.label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Role rows */}
+          {roles.map((role) => {
+            const roleAccess: IRoleAccessConfig = localAccessLevels[
+              role.key
+            ] || {
+              workspace: "edit",
+              insights: "none",
+              reports: "edit",
+              settings: "view",
+            };
+            const isManagerRole = role.key === "manager";
+
+            return (
+              <div
+                key={role.key}
+                className={`${styles.accessGridRow} ${isManagerRole ? styles.accessGridRowManager : ""}`}
+              >
+                <div className={styles.accessGridRoleCell}>
+                  <div className={styles.accessRoleInfo}>
+                    <Icon
+                      iconName={role.icon}
+                      className={styles.accessRoleIcon}
+                    />
+                    <div>
+                      <span className={styles.accessRoleName}>
+                        {role.label}
+                      </span>
+                      <span className={styles.accessRoleDesc}>
+                        {role.description}
+                      </span>
+                    </div>
+                  </div>
+                  {isManagerRole && (
+                    <span className={styles.accessLockedBadge}>
+                      <Icon iconName="Lock" /> Full Access
+                    </span>
+                  )}
+                </div>
+
+                {pages.map((page) => {
+                  const currentLevel = roleAccess[page.key];
+                  const currentOption = accessOptions.find(
+                    (o) => o.value === currentLevel,
+                  );
+
+                  return (
+                    <div key={page.key} className={styles.accessGridCell}>
+                      {isManagerRole ? (
+                        <span
+                          className={styles.accessBadge}
+                          style={{ backgroundColor: "#107c10", color: "white" }}
+                        >
+                          View & Edit
+                        </span>
+                      ) : (
+                        <div className={styles.accessDropdown}>
+                          <select
+                            value={currentLevel}
+                            onChange={(e) =>
+                              updateAccess(
+                                role.key,
+                                page.key,
+                                e.target.value as AccessLevel,
+                              )
+                            }
+                            disabled={!isManager || isSaving}
+                            className={styles.accessSelect}
+                            style={{
+                              borderColor: currentOption?.color || "#605e5c",
+                            }}
+                          >
+                            {accessOptions.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Legend */}
+        <div className={styles.accessLegend}>
+          {accessOptions.map((opt) => (
+            <div key={opt.value} className={styles.accessLegendItem}>
+              <span
+                className={styles.accessLegendDot}
+                style={{ backgroundColor: opt.color }}
+              />
+              <span className={styles.accessLegendLabel}>
+                <strong>{opt.label}</strong>
+                {opt.value === "edit" && " — Can view and modify content"}
+                {opt.value === "view" &&
+                  " — Can see content but cannot make changes"}
+                {opt.value === "none" &&
+                  " — Cannot access the page (visible but disabled)"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <Stack
+          horizontal
+          tokens={{ childrenGap: 12 }}
+          style={{ marginTop: 24 }}
+        >
+          <PrimaryButton
+            text="Save Access Levels"
+            onClick={() => this.saveAccessLevels(localAccessLevels)}
+            disabled={isSaving || !isManager}
+            iconProps={{ iconName: "Save" }}
+          />
+          <DefaultButton
+            text="Reset"
+            onClick={() => this.setState({ tempAccessLevels: undefined })}
+            disabled={isSaving || !isManager}
+          />
+        </Stack>
+
+        {/* ── Request Creation Access Levels ── */}
+        {this.renderRequestAccessLevelsSection(isManager)}
+      </div>
+    );
+  };
+
+  private saveRequestAccessLevels = async (
+    requestAccessLevels: IRequestAccessConfig,
+  ): Promise<void> => {
+    if (this.props.currentUser && isGuestUser(this.props.currentUser)) {
+      showGuestAlert("save request access settings");
+      return;
+    }
+
+    if (!this.configService || !this.props.context) return;
+
+    this.setState({ isSaving: true, error: undefined, success: undefined });
+
+    try {
+      const updatedBy = this.props.context.pageContext.user.displayName;
+      await this.configService.updateRequestAccessLevels(
+        requestAccessLevels,
+        updatedBy,
+      );
+
+      this.setState({
+        isSaving: false,
+        success: "Request access level settings saved successfully!",
+        tempRequestAccessLevels: undefined,
+      });
+
+      await this.loadConfig();
+
+      setTimeout(() => {
+        this.setState({ success: undefined });
+      }, 3000);
+    } catch (error) {
+      this.setState({
+        isSaving: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to save request access levels",
+      });
+    }
+  };
+
+  private renderRequestAccessLevelsSection = (
+    isManager: boolean,
+  ): JSX.Element => {
+    const { config, isSaving, tempRequestAccessLevels } = this.state;
+    if (!config) return <></>;
+
+    const localRequestAccess =
+      tempRequestAccessLevels ||
+      config.requestAccessLevels ||
+      DEFAULT_SYSTEM_CONFIG.requestAccessLevels!;
+
+    const requestTypes: {
+      key: keyof IRequestAccessConfig;
+      label: string;
+      icon: string;
+    }[] = [
+      {
+        key: "deliveryRequest",
+        label: "Delivery Request",
+        icon: "Sync",
+      },
+      {
+        key: "oneTimeDelivery",
+        label: "One Time Delivery",
+        icon: "DeliveryTruck",
+      },
+      {
+        key: "shipmentRequest",
+        label: "Shipment Request",
+        icon: "ClipboardList",
+      },
+      {
+        key: "oneTimeShipment",
+        label: "One Time Shipment",
+        icon: "Mail",
+      },
+    ];
+
+    const allRoles = [
+      { key: "manager", label: "Manager" },
+      { key: "planner", label: "Requester" },
+      { key: "puller", label: "Puller" },
+      { key: "deliver", label: "Deliver" },
+      { key: "shipmentTeam", label: "Shipment Team" },
+    ];
+
+    const toggleRole = (
+      requestType: keyof IRequestAccessConfig,
+      role: string,
+    ): void => {
+      if (role === "manager") return; // Manager always has access
+      const current = [...(localRequestAccess[requestType] || [])];
+      const idx = current.indexOf(role);
+      if (idx >= 0) {
+        current.splice(idx, 1);
+      } else {
+        current.push(role);
+      }
+      this.setState({
+        tempRequestAccessLevels: {
+          ...localRequestAccess,
+          [requestType]: current,
+        },
+      });
+    };
+
+    return (
+      <>
+        <Separator style={{ margin: "32px 0 16px 0" }} />
+        <div className={styles.sectionHeader}>
+          <h3>📋 Request Creation Access</h3>
+          <p>
+            Control which roles can create each request type. Manager always has
+            access to all request types.
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "180px repeat(5, 1fr)",
+            gap: 0,
+            border: "1px solid #edebe9",
+            borderRadius: 8,
+            overflow: "hidden",
+          }}
+        >
+          {/* Header row */}
+          <div
+            style={{
+              padding: "12px 16px",
+              fontWeight: 600,
+              backgroundColor: "#f5f5f5",
+              borderBottom: "2px solid #e1e1e1",
+              fontSize: 12,
+              textTransform: "uppercase",
+              color: "#323130",
+            }}
+          >
+            Request Type
+          </div>
+          {allRoles.map((role) => (
+            <div
+              key={role.key}
+              style={{
+                padding: "12px 8px",
+                fontWeight: 600,
+                backgroundColor: "#f5f5f5",
+                borderBottom: "2px solid #e1e1e1",
+                fontSize: 12,
+                textTransform: "uppercase",
+                color: "#323130",
+                textAlign: "center",
+              }}
+            >
+              {role.label}
+            </div>
+          ))}
+
+          {/* Data rows */}
+          {requestTypes.map((rt, rtIndex) => (
+            <React.Fragment key={rt.key}>
+              <div
+                style={{
+                  padding: "12px 16px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  borderBottom:
+                    rtIndex < requestTypes.length - 1
+                      ? "1px solid #edebe9"
+                      : "none",
+                  backgroundColor: rtIndex % 2 === 0 ? "#fff" : "#fafafa",
+                }}
+              >
+                <Icon iconName={rt.icon} style={{ fontSize: 16 }} />
+                <span style={{ fontWeight: 500, fontSize: 13 }}>
+                  {rt.label}
+                </span>
+              </div>
+              {allRoles.map((role) => {
+                const isAllowed =
+                  localRequestAccess[rt.key]?.includes(role.key) ?? false;
+                const isManagerRole = role.key === "manager";
+
+                // Lock Planner for One Time Delivery, Puller for One Time Shipment
+                const isLocked =
+                  (rt.key === "oneTimeDelivery" && role.key === "planner") ||
+                  (rt.key === "oneTimeShipment" && role.key === "puller");
+
+                const lockedReason =
+                  rt.key === "oneTimeDelivery" && role.key === "planner"
+                    ? "One Time Deliveries have no Requester"
+                    : rt.key === "oneTimeShipment" && role.key === "puller"
+                      ? "Pullers are not involved in One Time Shipments"
+                      : "";
+
+                return (
+                  <div
+                    key={role.key}
+                    style={{
+                      padding: "12px 8px",
+                      textAlign: "center",
+                      borderBottom:
+                        rtIndex < requestTypes.length - 1
+                          ? "1px solid #edebe9"
+                          : "none",
+                      backgroundColor: rtIndex % 2 === 0 ? "#fff" : "#fafafa",
+                    }}
+                  >
+                    {isManagerRole ? (
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "4px 10px",
+                          borderRadius: 4,
+                          backgroundColor: "#107c10",
+                          color: "white",
+                          fontSize: 11,
+                          fontWeight: 600,
+                        }}
+                      >
+                        Always
+                      </span>
+                    ) : isLocked ? (
+                      <span
+                        title={lockedReason}
+                        style={{
+                          display: "inline-block",
+                          padding: "4px 10px",
+                          borderRadius: 4,
+                          backgroundColor: "#d2d0ce",
+                          color: "#605e5c",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: "help",
+                        }}
+                      >
+                        🔒 Blocked
+                      </span>
+                    ) : (
+                      <Toggle
+                        checked={isAllowed}
+                        onChange={() => toggleRole(rt.key, role.key)}
+                        disabled={!isManager || isSaving}
+                        styles={{
+                          root: {
+                            margin: "0 auto",
+                            display: "flex",
+                            justifyContent: "center",
+                          },
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
+        </div>
+
+        <Stack
+          horizontal
+          tokens={{ childrenGap: 12 }}
+          style={{ marginTop: 16 }}
+        >
+          <PrimaryButton
+            text="Save Request Access"
+            onClick={() => this.saveRequestAccessLevels(localRequestAccess)}
+            disabled={isSaving || !isManager}
+            iconProps={{ iconName: "Save" }}
+          />
+          <DefaultButton
+            text="Reset"
+            onClick={() =>
+              this.setState({ tempRequestAccessLevels: undefined })
+            }
+            disabled={isSaving || !isManager}
+          />
+        </Stack>
+      </>
+    );
+  };
+
+  private renderKPIsTab = (): JSX.Element => {
+    const { config, isSaving, tempKpiTargets } = this.state;
+    if (!config) return <></>;
+
+    // Use temp state or fallback to config
+    const localTargets = tempKpiTargets || config.kpiTargets;
+
+    return (
+      <div className={styles.tabContent}>
+        <div className={styles.sectionHeader}>
+          <h3>📊 KPI Targets Configuration</h3>
+          <p>
+            Define the target values for key performance indicators across the
+            warehouse.
+          </p>
+        </div>
+
+        <Stack tokens={{ childrenGap: 20 }}>
+          <TextField
+            label="Target OTIF (%)"
+            type="number"
+            min={0}
+            max={100}
+            value={localTargets.targetOTIF.toString()}
+            onChange={(_, value) =>
+              this.setState({
+                tempKpiTargets: {
+                  ...localTargets,
+                  targetOTIF: parseInt(value || "0"),
+                },
+              })
+            }
+            description="On-Time In-Full percentage target (e.g., 85)"
+            suffix="%"
+            disabled={this.props.userRole !== "Manager"}
+          />
+
+          <TextField
+            label="Target Accuracy Rate (%)"
+            type="number"
+            min={0}
+            max={100}
+            value={localTargets.targetAccuracyRate.toString()}
+            onChange={(_, value) =>
+              this.setState({
+                tempKpiTargets: {
+                  ...localTargets,
+                  targetAccuracyRate: parseInt(value || "0"),
+                },
+              })
+            }
+            description="Pull accuracy percentage target (e.g., 98)"
+            suffix="%"
+            disabled={this.props.userRole !== "Manager"}
+          />
+
+          <TextField
+            label="Target On-Time Delivery (%)"
+            type="number"
+            min={0}
+            max={100}
+            value={localTargets.targetOnTimeDelivery.toString()}
+            onChange={(_, value) =>
+              this.setState({
+                tempKpiTargets: {
+                  ...localTargets,
+                  targetOnTimeDelivery: parseInt(value || "0"),
+                },
+              })
+            }
+            description="On-time delivery percentage target (e.g., 90)"
+            suffix="%"
+            disabled={this.props.userRole !== "Manager"}
+          />
+
+          <TextField
+            label="Target Cancellation Rate (%)"
+            type="number"
+            min={0}
+            max={100}
+            value={(localTargets.targetCancellationRate || 5).toString()}
+            onChange={(_, value) =>
+              this.setState({
+                tempKpiTargets: {
+                  ...localTargets,
+                  targetCancellationRate: parseInt(value || "5"),
+                },
+              })
+            }
+            description="Maximum acceptable cancellation rate percentage (e.g., 5). Lower is better."
+            suffix="%"
+            disabled={this.props.userRole !== "Manager"}
+          />
+
+          <TextField
+            label="Target Avg Assignment Time (minutes)"
+            type="number"
+            min={0}
+            value={(localTargets.targetAvgAssignmentTime || 30).toString()}
+            onChange={(_, value) =>
+              this.setState({
+                tempKpiTargets: {
+                  ...localTargets,
+                  targetAvgAssignmentTime: parseInt(value || "30"),
+                },
+              })
+            }
+            description="Target average time from order creation to puller assignment in minutes (e.g., 30). Lower is better."
+            suffix="min"
+            disabled={this.props.userRole !== "Manager"}
+          />
+
+          <TextField
+            label="Target < 2/3 Days Notice Rate (%)"
+            type="number"
+            min={0}
+            max={100}
+            value={(localTargets.targetShortNoticeRate || 15).toString()}
+            onChange={(_, value) =>
+              this.setState({
+                tempKpiTargets: {
+                  ...localTargets,
+                  targetShortNoticeRate: parseInt(value || "15"),
+                },
+              })
+            }
+            description="Maximum acceptable short notice rate percentage (e.g., 15). Orders with < 2 days (Delivery) or < 3 days (Shipment) notice. Lower is better."
+            suffix="%"
+            disabled={this.props.userRole !== "Manager"}
+          />
+
+          <Stack horizontal tokens={{ childrenGap: 12 }}>
+            <PrimaryButton
+              text="Save KPI Targets"
+              onClick={() => this.saveKPITargets(localTargets)}
+              disabled={isSaving || this.props.userRole !== "Manager"}
+              iconProps={{ iconName: "Save" }}
+            />
+            <DefaultButton
+              text="Reset"
+              onClick={() => this.setState({ tempKpiTargets: undefined })}
+              disabled={isSaving || this.props.userRole !== "Manager"}
+            />
+          </Stack>
+        </Stack>
+      </div>
+    );
+  };
+
+  private renderOrderTypesTab = (): JSX.Element => {
+    const { config, isSaving } = this.state;
+    if (!config) return <></>;
+
+    return (
+      <div className={styles.tabContent}>
+        <div className={styles.sectionHeader}>
+          <Stack
+            horizontal
+            horizontalAlign="space-between"
+            verticalAlign="center"
+          >
+            <div>
+              <h3>📦 Request Types Configuration</h3>
+              <p>Manage available request types for order creation.</p>
+            </div>
+            <PrimaryButton
+              text="Add Request Type"
+              iconProps={{ iconName: "Add" }}
+              onClick={() =>
+                this.setState({
+                  isPanelOpen: true,
+                  panelMode: "add",
+                  currentEditType: "orderType",
+                  editingOption: {
+                    id: uuidv4(),
+                    label: "",
+                    value: "",
+                    isActive: true,
+                    order: config.orderTypes.length + 1,
+                  },
+                })
+              }
+              disabled={isSaving || this.props.userRole !== "Manager"}
+            />
+          </Stack>
+        </div>
+
+        <div className={styles.optionsList}>
+          {config.orderTypes.map((orderType) => (
+            <div
+              key={orderType.id}
+              className={`${styles.optionCard} ${
+                !orderType.isActive ? styles.inactive : ""
+              }`}
+            >
+              <div className={styles.optionInfo}>
+                <Label className={styles.optionLabel}>{orderType.label}</Label>
+                {!orderType.isActive && (
+                  <span className={styles.inactiveTag}>Inactive</span>
+                )}
+              </div>
+              <div className={styles.optionActions}>
+                <IconButton
+                  iconProps={{ iconName: "Edit" }}
+                  title="Edit"
+                  onClick={() =>
+                    this.setState({
+                      isPanelOpen: true,
+                      panelMode: "edit",
+                      currentEditType: "orderType",
+                      editingOption: orderType,
+                    })
+                  }
+                  disabled={isSaving || this.props.userRole !== "Manager"}
+                />
+                <IconButton
+                  iconProps={{ iconName: "Delete" }}
+                  title="Deactivate"
+                  onClick={() => this.deleteOrderType(orderType.id)}
+                  disabled={
+                    isSaving ||
+                    !orderType.isActive ||
+                    this.props.userRole !== "Manager"
+                  }
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Shipment Types Configuration */}
+        <div className={styles.sectionHeader} style={{ marginTop: "32px" }}>
+          <Stack
+            horizontal
+            horizontalAlign="space-between"
+            verticalAlign="center"
+          >
+            <div>
+              <h3>🚢 Shipment Types Configuration</h3>
+              <p>Manage available shipment types for shipment requests.</p>
+            </div>
+            <PrimaryButton
+              text="Add Shipment Type"
+              iconProps={{ iconName: "Add" }}
+              onClick={() =>
+                this.setState({
+                  isPanelOpen: true,
+                  panelMode: "add",
+                  currentEditType: "shipmentType",
+                  editingOption: {
+                    id: uuidv4(),
+                    label: "",
+                    value: "",
+                    isActive: true,
+                    order: (config.shipmentTypes || []).length + 1,
+                  },
+                })
+              }
+              disabled={isSaving || this.props.userRole !== "Manager"}
+            />
+          </Stack>
+        </div>
+
+        <div className={styles.optionsList}>
+          {(config.shipmentTypes || []).map((shipmentType) => (
+            <div
+              key={shipmentType.id}
+              className={`${styles.optionCard} ${
+                !shipmentType.isActive ? styles.inactive : ""
+              }`}
+            >
+              <div className={styles.optionInfo}>
+                <Label className={styles.optionLabel}>
+                  {shipmentType.label}
+                </Label>
+                {!shipmentType.isActive && (
+                  <span className={styles.inactiveTag}>Inactive</span>
+                )}
+              </div>
+              <div className={styles.optionActions}>
+                <IconButton
+                  iconProps={{ iconName: "Edit" }}
+                  title="Edit"
+                  onClick={() =>
+                    this.setState({
+                      isPanelOpen: true,
+                      panelMode: "edit",
+                      currentEditType: "shipmentType",
+                      editingOption: shipmentType,
+                    })
+                  }
+                  disabled={isSaving || this.props.userRole !== "Manager"}
+                />
+                <IconButton
+                  iconProps={{ iconName: "Delete" }}
+                  title="Deactivate"
+                  onClick={() => this.deleteShipmentType(shipmentType.id)}
+                  disabled={
+                    isSaving ||
+                    !shipmentType.isActive ||
+                    this.props.userRole !== "Manager"
+                  }
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  private renderBusinessUnitsTab = (): JSX.Element => {
+    const { config, isSaving } = this.state;
+    if (!config) return <></>;
+
+    return (
+      <div className={styles.tabContent}>
+        <div className={styles.sectionHeader}>
+          <Stack
+            horizontal
+            horizontalAlign="space-between"
+            verticalAlign="center"
+          >
+            <div>
+              <h3>🏢 Business Units Configuration</h3>
+              <p>Manage available business units for request creation.</p>
+            </div>
+            <PrimaryButton
+              text="Add Business Unit"
+              iconProps={{ iconName: "Add" }}
+              onClick={() =>
+                this.setState({
+                  isPanelOpen: true,
+                  panelMode: "add",
+                  currentEditType: "businessUnit",
+                  editingOption: {
+                    id: uuidv4(),
+                    label: "",
+                    value: "",
+                    isActive: true,
+                    order: config.businessUnits.length + 1,
+                  },
+                })
+              }
+              disabled={isSaving || this.props.userRole !== "Manager"}
+            />
+          </Stack>
+        </div>
+
+        <div className={styles.optionsList}>
+          {config.businessUnits.map((businessUnit) => (
+            <div
+              key={businessUnit.id}
+              className={`${styles.optionCard} ${
+                !businessUnit.isActive ? styles.inactive : ""
+              }`}
+            >
+              <div className={styles.optionInfo}>
+                <Label className={styles.optionLabel}>
+                  {businessUnit.label}
+                </Label>
+                {!businessUnit.isActive && (
+                  <span className={styles.inactiveTag}>Inactive</span>
+                )}
+              </div>
+              <div className={styles.optionActions}>
+                <IconButton
+                  iconProps={{ iconName: "Edit" }}
+                  title="Edit"
+                  onClick={() =>
+                    this.setState({
+                      isPanelOpen: true,
+                      panelMode: "edit",
+                      currentEditType: "businessUnit",
+                      editingOption: businessUnit,
+                    })
+                  }
+                  disabled={isSaving || this.props.userRole !== "Manager"}
+                />
+                <IconButton
+                  iconProps={{ iconName: "Delete" }}
+                  title="Deactivate"
+                  onClick={() => this.deleteBusinessUnit(businessUnit.id)}
+                  disabled={
+                    isSaving ||
+                    !businessUnit.isActive ||
+                    this.props.userRole !== "Manager"
+                  }
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  private renderDeliveryLocationsTab = (): JSX.Element => {
+    const { config, isSaving } = this.state;
+    if (!config) return <></>;
+
+    const shipmentLocations = config.shipmentLocations || [];
+
+    return (
+      <div className={styles.tabContent}>
+        {/* ===== Delivery Locations (Internal) ===== */}
+        <div className={styles.sectionHeader}>
+          <Stack
+            horizontal
+            horizontalAlign="space-between"
+            verticalAlign="center"
+          >
+            <div>
+              <h3>📍 Delivery Locations (Internal)</h3>
+              <p>
+                Manage available delivery locations for internal delivery
+                requests.
+              </p>
+            </div>
+            <PrimaryButton
+              text="Add Delivery Location"
+              iconProps={{ iconName: "Add" }}
+              onClick={() =>
+                this.setState({
+                  isPanelOpen: true,
+                  panelMode: "add",
+                  currentEditType: "deliveryLocation",
+                  editingOption: {
+                    id: uuidv4(),
+                    label: "",
+                    value: "",
+                    isActive: true,
+                    order: config.deliveryLocations.length + 1,
+                  },
+                })
+              }
+              disabled={isSaving || this.props.userRole !== "Manager"}
+            />
+          </Stack>
+        </div>
+
+        <div className={styles.optionsList}>
+          {config.deliveryLocations.map((location) => (
+            <div
+              key={location.id}
+              className={`${styles.optionCard} ${
+                !location.isActive ? styles.inactive : ""
+              }`}
+            >
+              <div className={styles.optionInfo}>
+                <Label className={styles.optionLabel}>{location.label}</Label>
+                {!location.isActive && (
+                  <span className={styles.inactiveTag}>Inactive</span>
+                )}
+              </div>
+              <div className={styles.optionActions}>
+                <IconButton
+                  iconProps={{ iconName: "Edit" }}
+                  title="Edit"
+                  onClick={() =>
+                    this.setState({
+                      isPanelOpen: true,
+                      panelMode: "edit",
+                      currentEditType: "deliveryLocation",
+                      editingOption: location,
+                    })
+                  }
+                  disabled={isSaving || this.props.userRole !== "Manager"}
+                />
+                <IconButton
+                  iconProps={{ iconName: "Delete" }}
+                  title="Deactivate"
+                  onClick={() => this.deleteDeliveryLocation(location.id)}
+                  disabled={
+                    isSaving ||
+                    !location.isActive ||
+                    this.props.userRole !== "Manager"
+                  }
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <Separator />
+
+        {/* ===== Shipment Locations ===== */}
+        <div className={styles.sectionHeader}>
+          <Stack
+            horizontal
+            horizontalAlign="space-between"
+            verticalAlign="center"
+          >
+            <div>
+              <h3>🚢 Shipment Locations</h3>
+              <p>Manage available locations for shipment requests.</p>
+            </div>
+            <PrimaryButton
+              text="Add Shipment Location"
+              iconProps={{ iconName: "Add" }}
+              onClick={() =>
+                this.setState({
+                  isPanelOpen: true,
+                  panelMode: "add",
+                  currentEditType: "shipmentLocation",
+                  editingOption: {
+                    id: uuidv4(),
+                    label: "",
+                    value: "",
+                    isActive: true,
+                    order: shipmentLocations.length + 1,
+                  },
+                })
+              }
+              disabled={isSaving || this.props.userRole !== "Manager"}
+            />
+          </Stack>
+        </div>
+
+        <div className={styles.optionsList}>
+          {shipmentLocations.map((location) => (
+            <div
+              key={location.id}
+              className={`${styles.optionCard} ${
+                !location.isActive ? styles.inactive : ""
+              }`}
+            >
+              <div className={styles.optionInfo}>
+                <Label className={styles.optionLabel}>{location.label}</Label>
+                {!location.isActive && (
+                  <span className={styles.inactiveTag}>Inactive</span>
+                )}
+              </div>
+              <div className={styles.optionActions}>
+                <IconButton
+                  iconProps={{ iconName: "Edit" }}
+                  title="Edit"
+                  onClick={() =>
+                    this.setState({
+                      isPanelOpen: true,
+                      panelMode: "edit",
+                      currentEditType: "shipmentLocation",
+                      editingOption: location,
+                    })
+                  }
+                  disabled={isSaving || this.props.userRole !== "Manager"}
+                />
+                <IconButton
+                  iconProps={{ iconName: "Delete" }}
+                  title="Deactivate"
+                  onClick={() => this.deleteShipmentLocation(location.id)}
+                  disabled={
+                    isSaving ||
+                    !location.isActive ||
+                    this.props.userRole !== "Manager"
+                  }
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  private renderReasonCategoriesTab = (): JSX.Element => {
+    const { config, isSaving } = this.state;
+    if (!config) return <></>;
+
+    return (
+      <div className={styles.tabContent}>
+        {/* Complain Reasons Section */}
+        <div className={styles.sectionHeader}>
+          <Stack
+            horizontal
+            horizontalAlign="space-between"
+            verticalAlign="center"
+          >
+            <div>
+              <h3>⚠️ Complain Reasons</h3>
+              <p>
+                Manage available reasons for complaints registered by
+                requesters.
+              </p>
+            </div>
+            <PrimaryButton
+              text="Add Complain Reason"
+              iconProps={{ iconName: "Add" }}
+              onClick={() =>
+                this.setState({
+                  isPanelOpen: true,
+                  panelMode: "add",
+                  currentEditType: "complainReason",
+                  editingOption: {
+                    id: uuidv4(),
+                    label: "",
+                    value: "",
+                    isActive: true,
+                    order: config.complainReasons.length + 1,
+                  },
+                })
+              }
+              disabled={isSaving || this.props.userRole !== "Manager"}
+            />
+          </Stack>
+        </div>
+
+        <div className={styles.optionsList}>
+          {config.complainReasons.map((reason) => (
+            <div
+              key={reason.id}
+              className={`${styles.optionCard} ${
+                !reason.isActive ? styles.inactive : ""
+              }`}
+            >
+              <div className={styles.optionInfo}>
+                <Label className={styles.optionLabel}>{reason.label}</Label>
+                {!reason.isActive && (
+                  <span className={styles.inactiveTag}>Inactive</span>
+                )}
+              </div>
+              <div className={styles.optionActions}>
+                <IconButton
+                  iconProps={{ iconName: "Edit" }}
+                  title="Edit"
+                  onClick={() =>
+                    this.setState({
+                      isPanelOpen: true,
+                      panelMode: "edit",
+                      currentEditType: "complainReason",
+                      editingOption: reason,
+                    })
+                  }
+                  disabled={isSaving || this.props.userRole !== "Manager"}
+                />
+                <IconButton
+                  iconProps={{ iconName: "Delete" }}
+                  title="Deactivate"
+                  onClick={() => this.deleteComplainReason(reason.id)}
+                  disabled={
+                    isSaving ||
+                    !reason.isActive ||
+                    this.props.userRole !== "Manager"
+                  }
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <Separator />
+
+        {/* On Hold Reasons Section */}
+        <div className={styles.sectionHeader} style={{ marginTop: 24 }}>
+          <Stack
+            horizontal
+            horizontalAlign="space-between"
+            verticalAlign="center"
+          >
+            <div>
+              <h3>⏸️ On Hold Reasons</h3>
+              <p>Manage available reasons for placing requests on hold.</p>
+            </div>
+            <PrimaryButton
+              text="Add On Hold Reason"
+              iconProps={{ iconName: "Add" }}
+              onClick={() =>
+                this.setState({
+                  isPanelOpen: true,
+                  panelMode: "add",
+                  currentEditType: "onHoldReason",
+                  editingOption: {
+                    id: uuidv4(),
+                    label: "",
+                    value: "",
+                    isActive: true,
+                    order: config.onHoldReasons.length + 1,
+                  },
+                })
+              }
+              disabled={isSaving || this.props.userRole !== "Manager"}
+            />
+          </Stack>
+        </div>
+
+        <div className={styles.optionsList}>
+          {config.onHoldReasons.map((reason) => (
+            <div
+              key={reason.id}
+              className={`${styles.optionCard} ${
+                !reason.isActive ? styles.inactive : ""
+              }`}
+            >
+              <div className={styles.optionInfo}>
+                <Label className={styles.optionLabel}>{reason.label}</Label>
+                {!reason.isActive && (
+                  <span className={styles.inactiveTag}>Inactive</span>
+                )}
+              </div>
+              <div className={styles.optionActions}>
+                <IconButton
+                  iconProps={{ iconName: "Edit" }}
+                  title="Edit"
+                  onClick={() =>
+                    this.setState({
+                      isPanelOpen: true,
+                      panelMode: "edit",
+                      currentEditType: "onHoldReason",
+                      editingOption: reason,
+                    })
+                  }
+                  disabled={isSaving || this.props.userRole !== "Manager"}
+                />
+                <IconButton
+                  iconProps={{ iconName: "Delete" }}
+                  title="Deactivate"
+                  onClick={() => this.deleteOnHoldReason(reason.id)}
+                  disabled={
+                    isSaving ||
+                    !reason.isActive ||
+                    this.props.userRole !== "Manager"
+                  }
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  private renderNotificationsTab = (): JSX.Element => {
+    const { config, isSaving, tempNotifications } = this.state;
+    if (!config) return <></>;
+
+    // Use temp state or fallback to config
+    const localNotifications = tempNotifications || config.notifications;
+
+    const toggleNotification = (
+      role: "manager" | "planner" | "puller" | "deliver" | "shipmentTeam",
+      notificationType: ActivityLogType,
+    ): void => {
+      const currentNotifs = localNotifications[role] || [];
+      const newNotifs = currentNotifs.includes(notificationType)
+        ? currentNotifs.filter((n) => n !== notificationType)
+        : [...currentNotifs, notificationType];
+
+      this.setState({
+        tempNotifications: {
+          ...localNotifications,
+          [role]: newNotifs,
+        },
+      });
+    };
+
+    const renderRoleToggles = (
+      role: "manager" | "planner" | "puller" | "deliver" | "shipmentTeam",
+      description: string,
+    ): JSX.Element => {
+      // Define which notification types are locked (disabled & forced off) per role
+      const lockedTypes: Partial<
+        Record<typeof role, { types: ActivityLogType[]; reason: string }>
+      > = {
+        planner: {
+          types: ["ONE_TIME_DELIVERY_CREATED"],
+          reason:
+            "One Time Deliveries have no Requester. The creator (Deliver) is notified as the actor.",
+        },
+        puller: {
+          types: ["ONE_TIME_SHIPMENT_CREATED"],
+          reason: "Pullers are not involved in One Time Shipments.",
+        },
+      };
+
+      const locked = lockedTypes[role];
+      const lockedTypeSet = new Set(locked?.types || []);
+
+      return (
+        <>
+          <p
+            style={{
+              fontSize: 13,
+              color: "#605e5c",
+              margin: "0 0 16px 0",
+              fontStyle: "italic",
+            }}
+          >
+            {description}
+          </p>
+          <div className={styles.notificationsList}>
+            {ALL_NOTIFICATION_TYPES.map((notif) => {
+              const isLocked = lockedTypeSet.has(notif.value);
+              return (
+                <div key={notif.value} className={styles.notificationItem}>
+                  <Toggle
+                    label={notif.label}
+                    checked={
+                      isLocked
+                        ? false
+                        : (localNotifications[role] || []).includes(notif.value)
+                    }
+                    onChange={() => toggleNotification(role, notif.value)}
+                    onText="Enabled"
+                    offText="Disabled"
+                    disabled={this.props.userRole !== "Manager" || isLocked}
+                  />
+                  <span className={styles.notificationDesc}>
+                    {isLocked ? `🔒 ${locked!.reason}` : notif.description}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      );
+    };
+
+    return (
+      <div className={styles.tabContent}>
+        <div className={styles.sectionHeader}>
+          <h3>🔔 Notification Settings</h3>
+          <p>
+            Configure which notifications each role receives. Select a role tab
+            below.
+          </p>
+        </div>
+
+        <Stack tokens={{ childrenGap: 20 }}>
+          {/* Master Notification Toggle */}
+          <div
+            style={{
+              padding: 16,
+              background:
+                localNotifications.enabled === false ? "#fef2f2" : "#f0fdf4",
+              borderRadius: 8,
+              border: `1px solid ${localNotifications.enabled === false ? "#fca5a5" : "#86efac"}`,
+            }}
+          >
+            <Toggle
+              label="Enable All Notifications"
+              checked={localNotifications.enabled !== false}
+              onChange={(_e, checked) => {
+                this.setState({
+                  tempNotifications: {
+                    ...localNotifications,
+                    enabled: checked,
+                  },
+                });
+              }}
+              onText="Notifications are ON — All roles will receive their configured notifications."
+              offText="Notifications are OFF — No notifications will be sent to any role."
+              disabled={this.props.userRole !== "Manager"}
+              styles={{
+                root: { marginBottom: 0 },
+                label: { fontSize: 16, fontWeight: 700 },
+              }}
+            />
+          </div>
+
+          {/* Role-based Pivot Tabs */}
+          <Pivot
+            aria-label="Notification settings by role"
+            styles={{
+              root: { borderBottom: "1px solid #edebe9" },
+              link: { fontSize: 14 },
+              linkIsSelected: { fontWeight: 600 },
+            }}
+          >
+            <PivotItem headerText="Manager" itemIcon="Admin" itemKey="manager">
+              <div style={{ padding: "16px 0" }}>
+                {renderRoleToggles(
+                  "manager",
+                  "All Active Managers receive these notifications.",
+                )}
+              </div>
+            </PivotItem>
+
+            <PivotItem
+              headerText="Requester"
+              itemIcon="People"
+              itemKey="planner"
+            >
+              <div style={{ padding: "16px 0" }}>
+                {renderRoleToggles(
+                  "planner",
+                  "Specific to each Requester's assigned requests.",
+                )}
+              </div>
+            </PivotItem>
+
+            <PivotItem
+              headerText="Puller"
+              itemIcon="DeliveryTruck"
+              itemKey="puller"
+            >
+              <div style={{ padding: "16px 0" }}>
+                {renderRoleToggles(
+                  "puller",
+                  "Specific to each Puller. Request Created, Hot Requests, and Complain Added are sent to all Pullers.",
+                )}
+              </div>
+            </PivotItem>
+
+            <PivotItem
+              headerText="Deliver"
+              itemIcon="Package"
+              itemKey="deliver"
+            >
+              <div style={{ padding: "16px 0" }}>
+                {renderRoleToggles(
+                  "deliver",
+                  "Released for Delivery is for all Deliverers. Others are specific to each Deliverer.",
+                )}
+              </div>
+            </PivotItem>
+
+            <PivotItem
+              headerText="Shipment Team"
+              itemIcon="Ferry"
+              itemKey="shipmentTeam"
+            >
+              <div style={{ padding: "16px 0" }}>
+                {renderRoleToggles(
+                  "shipmentTeam",
+                  "Specific to Shipment Team members for shipment-related notifications.",
+                )}
+              </div>
+            </PivotItem>
+          </Pivot>
+
+          <Stack horizontal tokens={{ childrenGap: 12 }}>
+            <PrimaryButton
+              text="Save Notification Settings"
+              onClick={() => this.saveNotifications(localNotifications)}
+              disabled={isSaving || this.props.userRole !== "Manager"}
+              iconProps={{ iconName: "Save" }}
+            />
+            <DefaultButton
+              text="Reset"
+              onClick={() => this.setState({ tempNotifications: undefined })}
+              disabled={isSaving || this.props.userRole !== "Manager"}
+            />
+          </Stack>
+        </Stack>
+      </div>
+    );
+  };
+
+  private renderEditPanel = (): JSX.Element => {
+    const {
+      editingOption,
+      isPanelOpen,
+      panelMode,
+      currentEditType,
+      tempEditOption,
+    } = this.state;
+    if (!editingOption) return <></>;
+
+    // Use temp state or fallback to editingOption
+    const localOption = tempEditOption || editingOption;
+
+    const handleSave = async (): Promise<void> => {
+      // 🚫 GUEST CHECK: Guests cannot save system configuration
+      if (this.props.currentUser && isGuestUser(this.props.currentUser)) {
+        showGuestAlert("save system configuration");
+        return;
+      }
+
+      // Auto-populate value from label if value is empty
+      if (!localOption.value && localOption.label) {
+        localOption.value = localOption.label;
+      }
+
+      if (currentEditType === "orderType") {
+        await this.saveOrderType(localOption);
+      } else if (currentEditType === "businessUnit") {
+        await this.saveBusinessUnit(localOption);
+      } else if (currentEditType === "deliveryLocation") {
+        await this.saveDeliveryLocation(localOption);
+      } else if (currentEditType === "shipmentLocation") {
+        await this.saveShipmentLocation(localOption);
+      } else if (currentEditType === "shipmentType") {
+        await this.saveShipmentType(localOption);
+      } else if (currentEditType === "complainReason") {
+        await this.saveComplainReason(localOption);
+      } else if (currentEditType === "onHoldReason") {
+        await this.saveOnHoldReason(localOption);
+      }
+      // Clear temp state after save
+      this.setState({ tempEditOption: undefined });
+    };
+
+    return (
+      <Panel
+        isOpen={isPanelOpen}
+        onDismiss={() =>
+          this.setState({
+            isPanelOpen: false,
+            editingOption: undefined,
+            tempEditOption: undefined,
+          })
+        }
+        type={PanelType.medium}
+        headerText={`${panelMode === "add" ? "Add" : "Edit"} ${
+          currentEditType === "orderType"
+            ? "Request Type"
+            : currentEditType === "businessUnit"
+              ? "Business Unit"
+              : currentEditType === "deliveryLocation"
+                ? "Delivery Location"
+                : currentEditType === "shipmentLocation"
+                  ? "Shipment Location"
+                  : currentEditType === "complainReason"
+                    ? "Complain Reason"
+                    : currentEditType === "onHoldReason"
+                      ? "On Hold Reason"
+                      : ""
+        }`}
+        closeButtonAriaLabel="Close"
+      >
+        <Stack tokens={{ childrenGap: 16 }} style={{ marginTop: 20 }}>
+          <TextField
+            label="Label"
+            value={localOption.label}
+            onChange={(_, value) =>
+              this.setState({
+                tempEditOption: {
+                  ...localOption,
+                  label: value || "",
+                  value: value || "",
+                },
+              })
+            }
+            required
+            description="Display name shown to users"
+          />
+
+          <Toggle
+            label="Active"
+            checked={localOption.isActive}
+            onChange={(_, checked) =>
+              this.setState({
+                tempEditOption: { ...localOption, isActive: !!checked },
+              })
+            }
+            onText="Active"
+            offText="Inactive"
+          />
+
+          <Stack horizontal tokens={{ childrenGap: 12 }}>
+            <PrimaryButton
+              text="Save"
+              onClick={handleSave}
+              iconProps={{ iconName: "Save" }}
+            />
+            <DefaultButton
+              text="Cancel"
+              onClick={() =>
+                this.setState({ isPanelOpen: false, editingOption: undefined })
+              }
+            />
+          </Stack>
+        </Stack>
+      </Panel>
+    );
+  };
+
+  public render(): React.ReactElement<ISystemConfigurationProps> {
+    const { isLoading, error, success, activeTab } = this.state;
+    console.log(
+      "[SystemConfiguration] Rendering - isLoading:",
+      isLoading,
+      "error:",
+      error,
+    );
+
+    if (isLoading) {
+      return (
+        <div className={styles.container}>
+          <Spinner size={SpinnerSize.large} label="Loading configuration..." />
+        </div>
+      );
+    }
+
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <h1 className={styles.title}>
+            <Icon iconName="Settings" />
+            System Configuration
+          </h1>
+          <p className={styles.subtitle}>
+            Configure system-wide settings, KPI targets, and notifications
+            (Manager Only)
+          </p>
+        </div>
+
+        {error && (
+          <MessageBar
+            messageBarType={MessageBarType.error}
+            onDismiss={() => this.setState({ error: undefined })}
+          >
+            {error}
+          </MessageBar>
+        )}
+
+        {success && (
+          <MessageBar
+            messageBarType={MessageBarType.success}
+            onDismiss={() => this.setState({ success: undefined })}
+          >
+            {success}
+          </MessageBar>
+        )}
+
+        <div className={styles.tabs}>
+          <button
+            className={`${styles.tab} ${
+              activeTab === "kpis" ? styles.active : ""
+            }`}
+            onClick={() => this.setState({ activeTab: "kpis" })}
+          >
+            <Icon iconName="BarChartVertical" />
+            KPI Targets
+          </button>
+          <button
+            className={`${styles.tab} ${
+              activeTab === "orderTypes" ? styles.active : ""
+            }`}
+            onClick={() => this.setState({ activeTab: "orderTypes" })}
+          >
+            <Icon iconName="Package" />
+            Types
+          </button>
+          <button
+            className={`${styles.tab} ${
+              activeTab === "businessUnits" ? styles.active : ""
+            }`}
+            onClick={() => this.setState({ activeTab: "businessUnits" })}
+          >
+            <Icon iconName="CityNext" />
+            Business Units
+          </button>
+          <button
+            className={`${styles.tab} ${
+              activeTab === "deliveryLocations" ? styles.active : ""
+            }`}
+            onClick={() => this.setState({ activeTab: "deliveryLocations" })}
+          >
+            <Icon iconName="MapPin" />
+            Locations
+          </button>
+          <button
+            className={`${styles.tab} ${
+              activeTab === "reasonCategories" ? styles.active : ""
+            }`}
+            onClick={() => this.setState({ activeTab: "reasonCategories" })}
+          >
+            <Icon iconName="ClipboardList" />
+            Reason Categories
+          </button>
+          <button
+            className={`${styles.tab} ${
+              activeTab === "notifications" ? styles.active : ""
+            }`}
+            onClick={() => this.setState({ activeTab: "notifications" })}
+          >
+            <Icon iconName="Ringer" />
+            Notifications
+          </button>
+          <button
+            className={`${styles.tab} ${
+              activeTab === "accessLevels" ? styles.active : ""
+            }`}
+            onClick={() => this.setState({ activeTab: "accessLevels" })}
+          >
+            <Icon iconName="Permissions" />
+            Access Levels
+          </button>
+        </div>
+
+        {activeTab === "kpis" && this.renderKPIsTab()}
+        {activeTab === "orderTypes" && this.renderOrderTypesTab()}
+        {activeTab === "businessUnits" && this.renderBusinessUnitsTab()}
+        {activeTab === "deliveryLocations" && this.renderDeliveryLocationsTab()}
+        {activeTab === "reasonCategories" && this.renderReasonCategoriesTab()}
+        {activeTab === "notifications" && this.renderNotificationsTab()}
+        {activeTab === "accessLevels" && this.renderAccessLevelsTab()}
+
+        {this.renderEditPanel()}
+      </div>
+    );
+  }
+}

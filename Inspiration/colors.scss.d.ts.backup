@@ -1,0 +1,41 @@
+/**
+ * TypeScript declarations for colors.scss :export
+ * Auto-generated type definitions for SCSS color variables
+ */
+
+export interface IColorStyles {
+  // Primary
+  primaryColor: string;
+  primaryDark: string;
+  accentColor: string;
+
+  // Secondary
+  secondaryBlue: string;
+  secondaryLight: string;
+  secondaryTeal: string;
+
+  // Tertiary
+  tertiaryGreen: string;
+  tertiaryOrange: string;
+  tertiaryRed: string;
+
+  // Status
+  success: string;
+  warning: string;
+  danger: string;
+  info: string;
+  pending: string;
+
+  // Text
+  textPrimary: string;
+  textSecondary: string;
+  textLight: string;
+
+  // Background
+  bgPrimary: string;
+  bgSecondary: string;
+  bgDark: string;
+}
+
+declare const styles: IColorStyles;
+export default styles;

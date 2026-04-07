@@ -1,0 +1,273 @@
+.sidebar {
+  height: 100vh;
+  background: var(--sidebar-bg);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-right: 1px solid var(--border-subtle);
+  transition: width 300ms ease;
+  position: relative;
+}
+
+.logo {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  min-height: 64px;
+}
+
+.logoIcon {
+  width: 32px;
+  height: 32px;
+  background: var(--gradient-primary);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  svg {
+    color: white;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.logoText {
+  overflow: hidden;
+  white-space: nowrap;
+
+  h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.2;
+  }
+
+  span {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+}
+
+.createBtn {
+  margin: 16px 12px 8px;
+  padding: 10px 16px;
+  background: var(--gradient-primary);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  transition: all 250ms ease;
+  box-shadow: 0 0 12px rgba(0, 201, 167, 0.2);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0 20px rgba(0, 201, 167, 0.35);
+  }
+}
+
+.navSection {
+  padding: 8px 0;
+}
+
+.sectionLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+  padding: 16px 20px 6px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 20px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 200ms ease;
+  border-left: 3px solid transparent;
+  text-decoration: none;
+  font-size: 13px;
+  position: relative;
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--sidebar-hover);
+  }
+
+  &.active {
+    color: var(--primary-accent);
+    background: var(--sidebar-hover);
+    border-left-color: var(--primary-accent);
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+}
+
+.navLabel {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  background: var(--primary-accent);
+  color: white;
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 20px;
+  text-align: center;
+
+  &.pulsing {
+    animation: pulse-badge 2s infinite;
+  }
+}
+
+.submenuToggle {
+  cursor: pointer;
+
+  svg.chevron {
+    transition: transform 200ms ease;
+  }
+
+  &.open svg.chevron {
+    transform: rotate(180deg);
+  }
+}
+
+.submenu {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 300ms ease;
+
+  &.open {
+    max-height: 200px;
+  }
+}
+
+.submenuItem {
+  padding: 7px 20px 7px 50px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--sidebar-hover);
+  }
+
+  &.active {
+    color: var(--primary-accent);
+  }
+}
+
+.sidebarFooter {
+  margin-top: auto;
+  padding: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.themeToggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 12px;
+  transition: all 200ms ease;
+  background: none;
+  border: none;
+  width: 100%;
+
+  &:hover {
+    background: var(--sidebar-hover);
+    color: var(--text-primary);
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.brandFooter {
+  text-align: center;
+  padding: 8px 0 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+
+  .createdBy {
+    font-size: 9px;
+    margin-top: 2px;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+}
+
+.collapseBtn {
+  position: absolute;
+  top: 20px;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 200ms ease;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    color: var(--text-secondary);
+  }
+
+  &:hover {
+    background: var(--primary-accent);
+    border-color: var(--primary-accent);
+    svg {
+      color: white;
+    }
+  }
+}
+
+@keyframes pulse-badge {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.8;
+  }
+}

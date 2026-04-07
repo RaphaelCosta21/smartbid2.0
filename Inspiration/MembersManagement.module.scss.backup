@@ -1,0 +1,666 @@
+/**
+ * Members Management Styles
+ * Responsive design for Desktop (1920x1080) and Zebra ET40 Tablet (1920x1200)
+ */
+
+@import "../../styles/variables.scss";
+@import "../../styles/colors.scss";
+@import "../../styles/mixins.scss";
+@import "../../styles/responsive.scss";
+
+.membersManagement {
+  padding: 24px;
+  background: #f9fafb;
+  min-height: calc(100vh - 120px);
+
+  @include tablet {
+    padding: 16px;
+  }
+
+  @include mobile {
+    padding: 12px;
+  }
+
+  // New Header Styles
+  .pageHeader {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 24px;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    @include tablet {
+      padding: 24px;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+    }
+  }
+
+  .headerContent {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .headerIcon {
+    font-size: 48px;
+    color: #60a5fa;
+  }
+
+  .headerText {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pageTitle {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0;
+    color: white;
+  }
+
+  .pageSubtitle {
+    font-size: 16px;
+    margin: 0;
+    color: #cbd5e1;
+    font-weight: 400;
+  }
+
+  .backButton {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 8px 16px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  }
+
+  .actionsContainer {
+    background-color: $white;
+    border: 1px solid $border-light;
+    border-radius: 8px;
+    padding: 16px 20px;
+    box-shadow: 0 2px 4px $shadow-sm;
+    margin-bottom: 20px;
+
+    @include tablet {
+      padding: 14px 16px;
+      flex-direction: column;
+      align-items: flex-start !important;
+      gap: 12px;
+    }
+
+    @include mobile {
+      padding: 12px;
+    }
+  }
+
+  .primaryButton {
+    background-color: $color-primary;
+    border: none;
+    border-radius: 6px;
+    height: 36px;
+    min-width: 160px;
+
+    &:hover {
+      background-color: $color-primary-dark;
+    }
+
+    @include tablet {
+      height: 40px;
+      min-width: 140px;
+      font-size: 14px;
+    }
+
+    @include mobile {
+      width: 100%;
+    }
+  }
+
+  .defaultButton {
+    border-radius: 6px;
+    height: 36px;
+    min-width: 120px;
+
+    @include tablet {
+      height: 40px;
+      min-width: 110px;
+    }
+
+    @include mobile {
+      width: 100%;
+    }
+  }
+
+  .infoText {
+    color: $warning;
+    font-weight: 500;
+    line-height: 1.4;
+    max-width: 400px;
+    font-size: 13px;
+
+    @include tablet {
+      font-size: 14px;
+      max-width: 100%;
+    }
+
+    @include mobile {
+      font-size: 12px;
+    }
+  }
+
+  .statCard {
+    padding: 20px;
+    border-radius: 12px;
+    background-color: $white;
+    border-width: 2px;
+    border-style: solid;
+    box-shadow: 0 2px 8px $shadow-md;
+    min-width: 140px;
+    text-align: center;
+    flex: 1 1 0;
+
+    @include tablet {
+      padding: 18px 16px;
+      min-width: 130px;
+      flex: 0 0 calc(30% - 11px);
+    }
+
+    @include mobile {
+      padding: 16px 12px;
+      min-width: 120px;
+      flex: 0 0 calc(48% - 8px);
+    }
+
+    &.statCardPlanner {
+      border-color: lighten($info, 35%);
+
+      .statNumber,
+      .statTitle {
+        color: $info-dark;
+      }
+    }
+
+    &.statCardPuller {
+      border-color: lighten($tertiary-red, 45%);
+
+      .statNumber,
+      .statTitle {
+        color: $tertiary-red;
+      }
+    }
+
+    &.statCardDeliver {
+      border-color: lighten($success, 45%);
+
+      .statNumber,
+      .statTitle {
+        color: $success-dark;
+      }
+    }
+
+    &.statCardLead {
+      border-color: #fef3c7;
+
+      .statNumber,
+      .statTitle {
+        color: #92400e;
+      }
+    }
+
+    &.statCardShipmentTeam {
+      border-color: lighten($tertiary-orange, 40%);
+
+      .statNumber,
+      .statTitle {
+        color: darken($tertiary-orange, 10%);
+      }
+    }
+
+    &.statCardManager {
+      border-color: lighten($secondary-blue, 35%);
+
+      .statNumber,
+      .statTitle {
+        color: darken($secondary-blue, 15%);
+      }
+    }
+  }
+
+  .statNumber {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: block;
+
+    @include tablet {
+      font-size: 26px;
+    }
+
+    @include mobile {
+      font-size: 24px;
+    }
+  }
+
+  .statTitle {
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: block;
+    font-size: 15px;
+
+    @include tablet {
+      font-size: 14px;
+    }
+  }
+
+  .statSubtitle {
+    color: $text-secondary;
+    font-weight: 500;
+    font-size: 12px;
+
+    @include tablet {
+      font-size: 11px;
+    }
+  }
+
+  .categoryTitle {
+    font-size: 20px;
+    font-weight: 600;
+    color: $color-primary;
+
+    @include tablet {
+      font-size: 19px;
+    }
+
+    @include mobile {
+      font-size: 18px;
+    }
+  }
+
+  .memberCard {
+    cursor: pointer;
+    border: 1px solid;
+    border-radius: 8px;
+    padding: 16px;
+    background-color: $white;
+    box-shadow: 0 2px 4px $shadow-sm;
+    min-width: 280px;
+    max-width: 420px;
+    transition: all 0.2s ease;
+
+    @include tablet {
+      padding: 14px;
+      min-width: 260px;
+      max-width: 400px;
+    }
+
+    @include mobile {
+      padding: 12px;
+      min-width: 100%;
+      max-width: 100%;
+    }
+
+    &:hover {
+      box-shadow: 0 4px 12px $shadow-lg;
+      transform: translateY(-2px);
+    }
+
+    &.plannerCard {
+      border-color: lighten($info, 35%);
+    }
+
+    &.pullerCard {
+      border-color: lighten($tertiary-red, 45%);
+    }
+
+    &.deliverCard {
+      border-color: lighten($success, 45%);
+    }
+
+    &.managerCard {
+      border-color: lighten($secondary-blue, 35%);
+    }
+
+    &.shipment-teamCard {
+      border-color: lighten($tertiary-orange, 40%);
+    }
+  }
+
+  .memberName {
+    font-weight: 600;
+    font-size: 15px;
+    color: $text-primary;
+
+    @include tablet {
+      font-size: 16px;
+    }
+  }
+
+  .memberEmail {
+    color: $text-secondary;
+    font-size: 12px;
+
+    @include tablet {
+      font-size: 13px;
+    }
+  }
+
+  .memberRole {
+    font-weight: 600;
+    margin-top: 2px;
+    font-size: 12px;
+
+    @include tablet {
+      font-size: 13px;
+    }
+
+    &.plannerRole {
+      color: $info-dark;
+    }
+
+    &.pullerRole {
+      color: $tertiary-red;
+    }
+
+    &.deliverRole {
+      color: $success-dark;
+    }
+
+    &.managerRole {
+      color: darken($secondary-blue, 15%);
+    }
+
+    &.shipment-teamRole {
+      color: darken($tertiary-orange, 10%);
+    }
+  }
+
+  .memberBadge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+
+    @include tablet {
+      padding: 5px 12px;
+      font-size: 12px;
+    }
+
+    &.plannerBadge {
+      background-color: lighten($info, 35%);
+      color: darken($info, 20%);
+    }
+
+    &.pullerBadge {
+      background-color: lighten($tertiary-red, 45%);
+      color: darken($tertiary-red, 10%);
+    }
+
+    &.deliverBadge {
+      background-color: lighten($success, 45%);
+      color: darken($success, 15%);
+    }
+
+    &.leadBadge {
+      background-color: #fef3c7;
+      color: #92400e;
+    }
+
+    &.managerBadge {
+      background-color: lighten($secondary-blue, 35%);
+      color: darken($secondary-blue, 20%);
+    }
+
+    &.shipment-teamBadge {
+      background-color: lighten($tertiary-orange, 40%);
+      color: darken($tertiary-orange, 15%);
+    }
+  }
+
+  .activeStatus {
+    color: $success;
+    font-weight: 500;
+    font-size: 12px;
+
+    @include tablet {
+      font-size: 13px;
+    }
+  }
+
+  .inactiveStatus {
+    color: $warning;
+    font-weight: 500;
+    font-size: 12px;
+
+    @include tablet {
+      font-size: 13px;
+    }
+  }
+
+  .emptyState {
+    padding: 60px 20px;
+    text-align: center;
+    background-color: $bg-secondary;
+    border-radius: 8px;
+    border: 1px dashed $border-medium;
+    align-items: center;
+
+    @include tablet {
+      padding: 50px 20px;
+    }
+
+    @include mobile {
+      padding: 40px 16px;
+    }
+
+    .emptyStateIcon {
+      font-size: 48px;
+      color: $text-secondary;
+      margin-bottom: 16px;
+
+      @include tablet {
+        font-size: 42px;
+      }
+    }
+
+    .emptyStateTitle {
+      font-weight: 600;
+      color: $text-primary;
+      font-size: 20px;
+      margin-bottom: 8px;
+
+      @include tablet {
+        font-size: 19px;
+      }
+
+      @include mobile {
+        font-size: 18px;
+      }
+    }
+
+    .emptyStateSubtitle {
+      color: $text-secondary;
+      font-size: 15px;
+
+      @include tablet {
+        font-size: 16px;
+      }
+
+      @include mobile {
+        font-size: 14px;
+      }
+    }
+  }
+
+  .fieldLabel {
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 14px;
+
+    @include tablet {
+      font-size: 15px;
+    }
+  }
+
+  .previewContainer {
+    margin-top: 12px;
+    padding: 16px;
+    background-color: $bg-secondary;
+    border-radius: 8px;
+    border: 1px solid $border-light;
+
+    @include tablet {
+      padding: 14px;
+    }
+
+    .previewTitle {
+      font-weight: 600;
+      color: $text-primary;
+      font-size: 13px;
+      margin-bottom: 8px;
+
+      @include tablet {
+        font-size: 14px;
+      }
+    }
+
+    .previewLabel {
+      font-weight: 500;
+      color: $text-primary;
+    }
+
+    .previewMissing {
+      color: $danger;
+      font-weight: 600;
+    }
+
+    .previewPresent {
+      color: $success;
+      font-weight: 600;
+    }
+  }
+
+  .deleteButton {
+    color: $danger;
+    border-color: $danger;
+
+    &:hover {
+      background-color: $danger-light;
+      border-color: $danger-dark;
+    }
+  }
+}
+
+// ========================================
+// ROLE BADGES for Dialogs (outside .membersManagement because
+// Fluent UI Dialog renders via portal outside the component DOM tree)
+// ========================================
+
+.roleBadgesSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.roleSectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #64748b;
+  margin-bottom: 0;
+}
+
+.assignedRolesArea {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.availableRolesArea {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 10px;
+  min-height: 44px;
+}
+
+.roleBadgesRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+// Reusable badge base for dialog badges (mirrors .memberBadge from cards)
+.roleBadgeClickable {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+// Faded state for available/unassigned badges (in the bucket)
+.roleBadgeFaded {
+  opacity: 0.45;
+
+  &:hover:not(:disabled) {
+    opacity: 0.8;
+  }
+}
+
+// Color variants matching the card badge colors
+.badgeDeliver {
+  background-color: lighten($success, 45%);
+  color: darken($success, 15%);
+}
+
+.badgeLead {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.badgePuller {
+  background-color: lighten($tertiary-red, 45%);
+  color: darken($tertiary-red, 10%);
+}

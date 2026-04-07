@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "smartbid-2-0-client-side-solution",
+    "id": "9b2850fe-5207-47a1-a5dd-b78dc49b172b",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "developer": {
+      "name": "",
+      "websiteUrl": "",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.21.1"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "smartbid-2-0 description"
+      },
+      "longDescription": {
+        "default": "smartbid-2-0 description"
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "smartbid-2-0 Feature",
+        "description": "The feature that activates elements of the smartbid-2-0 solution.",
+        "id": "12d66f87-6959-4437-b2d8-d6e6ea07861c",
+        "version": "1.0.0.0"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/smartbid-2-0.sppkg"
+  }
+}

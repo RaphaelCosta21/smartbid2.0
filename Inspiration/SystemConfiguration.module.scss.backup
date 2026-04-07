@@ -1,0 +1,566 @@
+/**
+ * System Configuration Styles
+ */
+
+.container {
+  padding: 24px;
+  max-width: 100%;
+  margin: 0;
+  background: #f9fafb;
+  min-height: calc(100vh - 120px);
+}
+
+.header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-radius: 12px;
+  padding: 32px;
+  margin-bottom: 24px;
+  color: white;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+  .title {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: white;
+
+    i {
+      font-size: 48px;
+      color: #60a5fa;
+    }
+  }
+
+  .subtitle {
+    font-size: 16px;
+    color: #cbd5e1;
+    margin: 0;
+    font-weight: 400;
+  }
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--border-color, #edebe9);
+  margin-bottom: 16px;
+
+  .tab {
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary, #605e5c);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    i {
+      font-size: 16px;
+    }
+
+    &:hover {
+      background-color: var(--hover-background, #f3f2f1);
+      color: var(--text-primary, #323130);
+    }
+
+    &.active {
+      color: var(--primary-color, #0078d4);
+      border-bottom-color: var(--primary-color, #0078d4);
+      background-color: var(--active-background, #f3f2f1);
+    }
+  }
+}
+
+.tabContent {
+  animation: fadeIn 0.3s ease;
+}
+
+.sectionHeader {
+  margin-bottom: 16px;
+
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    color: var(--text-primary, #323130);
+  }
+
+  p {
+    font-size: 13px;
+    color: var(--text-secondary, #605e5c);
+    margin: 0;
+  }
+}
+
+.optionsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 12px;
+}
+
+.optionCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--card-background, #ffffff);
+  border: 1px solid var(--border-color, #edebe9);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-color: var(--border-hover, #d2d0ce);
+  }
+
+  &.inactive {
+    opacity: 0.6;
+    background: var(--inactive-background, #f3f2f1);
+  }
+}
+
+.optionInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .optionLabel {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary, #323130);
+  }
+
+  .optionValue {
+    font-size: 13px;
+    color: var(--text-secondary, #605e5c);
+  }
+
+  .inactiveTag {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--warning-background, #fff4ce);
+    color: var(--warning-text, #8a8886);
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-top: 4px;
+    width: fit-content;
+  }
+}
+
+.optionActions {
+  display: flex;
+  gap: 8px;
+}
+
+.roleSection {
+  .roleLabelContainer {
+    margin-bottom: 16px;
+  }
+
+  .roleLabel {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-primary, #323130);
+
+    i {
+      font-size: 20px;
+      color: var(--primary-color, #0078d4);
+    }
+  }
+
+  .roleLabelSubtext {
+    display: block;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-secondary, #605e5c);
+    margin-left: 28px;
+    font-style: italic;
+  }
+}
+
+.notificationsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.notificationItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: var(--card-background, #faf9f8);
+  border-radius: 4px;
+
+  .notificationDesc {
+    font-size: 12px;
+    color: var(--text-secondary, #605e5c);
+    margin-left: 4px;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+  .container {
+    background-color: #1b1a19;
+  }
+
+  .header .title {
+    color: #ffffff;
+  }
+
+  .header .subtitle {
+    color: #c8c6c4;
+  }
+
+  .tabs {
+    border-bottom-color: #3b3a39;
+
+    .tab {
+      color: #c8c6c4;
+
+      &:hover {
+        background-color: #292827;
+        color: #ffffff;
+      }
+
+      &.active {
+        background-color: #292827;
+      }
+    }
+  }
+
+  .sectionHeader h3 {
+    color: #ffffff;
+  }
+
+  .sectionHeader p {
+    color: #c8c6c4;
+  }
+
+  .optionCard {
+    background: #292827;
+    border-color: #3b3a39;
+
+    &:hover {
+      border-color: #605e5c;
+    }
+
+    &.inactive {
+      background: #1b1a19;
+    }
+  }
+
+  .optionInfo {
+    .optionLabel {
+      color: #ffffff;
+    }
+
+    .optionValue {
+      color: #c8c6c4;
+    }
+  }
+
+  .notificationItem {
+    background: #292827;
+  }
+
+  .notificationDesc {
+    color: #c8c6c4;
+  }
+}
+
+/* ===================== ACCESS LEVELS TAB ===================== */
+
+.accessLevelsGrid {
+  background: var(--card-background, #ffffff);
+  border: 1px solid var(--border-color, #edebe9);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.accessGridHeader {
+  display: grid;
+  grid-template-columns: 280px repeat(4, 1fr);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.accessGridRoleHeader {
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.accessGridPageHeader {
+  padding: 14px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+
+  &:last-child {
+    border-right: none;
+  }
+
+  i {
+    font-size: 16px;
+    color: #60a5fa;
+  }
+}
+
+.accessGridRow {
+  display: grid;
+  grid-template-columns: 280px repeat(4, 1fr);
+  border-bottom: 1px solid var(--border-color, #edebe9);
+  transition: background-color 0.15s ease;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background-color: var(--hover-background, #f9f9f9);
+  }
+}
+
+.accessGridRowManager {
+  background-color: var(--active-background, #f0f7ff);
+
+  &:hover {
+    background-color: var(--active-background, #e6f0fa);
+  }
+}
+
+.accessGridRoleCell {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-right: 1px solid var(--border-color, #edebe9);
+}
+
+.accessRoleInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.accessRoleIcon {
+  font-size: 22px;
+  color: var(--primary-color, #0078d4);
+}
+
+.accessRoleName {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #323130);
+}
+
+.accessRoleDesc {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary, #605e5c);
+  font-style: italic;
+}
+
+.accessLockedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0078d4;
+  background: #e6f0fa;
+  padding: 3px 10px;
+  border-radius: 12px;
+  width: fit-content;
+
+  i {
+    font-size: 12px;
+  }
+}
+
+.accessGridCell {
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--border-color, #edebe9);
+
+  &:last-child {
+    border-right: none;
+  }
+}
+
+.accessBadge {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.accessDropdown {
+  width: 100%;
+  max-width: 160px;
+}
+
+.accessSelect {
+  width: 100%;
+  padding: 7px 10px;
+  border: 2px solid var(--border-color, #edebe9);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--card-background, #ffffff);
+  color: var(--text-primary, #323130);
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  appearance: auto;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary-color, #0078d4);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-color, #0078d4);
+    box-shadow: 0 0 0 1px var(--primary-color, #0078d4);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: var(--inactive-background, #f3f2f1);
+  }
+}
+
+.accessLegend {
+  display: flex;
+  gap: 24px;
+  padding: 16px 0;
+  flex-wrap: wrap;
+}
+
+.accessLegendItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.accessLegendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.accessLegendLabel {
+  font-size: 13px;
+  color: var(--text-secondary, #605e5c);
+
+  strong {
+    color: var(--text-primary, #323130);
+  }
+}
+
+/* Dark theme – Access Levels */
+@media (prefers-color-scheme: dark) {
+  .accessLevelsGrid {
+    background: #292827;
+    border-color: #3b3a39;
+  }
+
+  .accessGridRow {
+    border-bottom-color: #3b3a39;
+
+    &:hover {
+      background-color: #1b1a19;
+    }
+  }
+
+  .accessGridRowManager {
+    background-color: #1e293b;
+
+    &:hover {
+      background-color: #1e293b;
+    }
+  }
+
+  .accessGridRoleCell {
+    border-right-color: #3b3a39;
+  }
+
+  .accessGridCell {
+    border-right-color: #3b3a39;
+  }
+
+  .accessRoleName {
+    color: #ffffff;
+  }
+
+  .accessRoleDesc {
+    color: #c8c6c4;
+  }
+
+  .accessLockedBadge {
+    background: #1e293b;
+    color: #60a5fa;
+  }
+
+  .accessSelect {
+    background: #1b1a19;
+    color: #ffffff;
+    border-color: #3b3a39;
+
+    &:disabled {
+      background: #292827;
+    }
+  }
+
+  .accessLegendLabel {
+    color: #c8c6c4;
+
+    strong {
+      color: #ffffff;
+    }
+  }
+}

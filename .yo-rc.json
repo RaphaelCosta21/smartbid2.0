@@ -1,0 +1,18 @@
+{
+  "@microsoft/generator-sharepoint": {
+    "plusBeta": false,
+    "isCreatingSolution": true,
+    "nodeVersion": "18.20.7",
+    "sdksVersions": {},
+    "version": "1.21.1",
+    "libraryName": "smartbid-2-0",
+    "libraryId": "9b2850fe-5207-47a1-a5dd-b78dc49b172b",
+    "environment": "spo",
+    "packageManager": "npm",
+    "solutionName": "smartbid-2-0",
+    "solutionShortDescription": "smartbid-2-0 description",
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "componentType": "webpart"
+  }
+}

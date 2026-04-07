@@ -1,0 +1,59 @@
+.footer {
+  height: 40px;
+  background: var(--card-bg);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 0 24px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.separator {
+  color: var(--border);
+}
+
+.regionBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 10px;
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+  }
+}
+
+.link {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 200ms;
+
+  &:hover {
+    color: var(--primary-accent);
+  }
+}
+
+.clock {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+}
+
+.patchLink {
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+  &:hover {
+    color: var(--primary-accent);
+  }
+}

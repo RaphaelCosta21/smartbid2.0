@@ -1,0 +1,643 @@
+/**
+ * Smart Bid 2.0 - SharePoint Overrides
+ * Custom styles to override default SharePoint/SPFx styles
+ * Adapted from Smart Flow Warehouse overrides to use CSS custom properties.
+ */
+
+// All selectors in this file target SharePoint's global DOM, not our webpart.
+// :global { } prevents CSS Modules from hashing them.
+:global {
+  // ========================================
+  // WEBPART CONTAINER OVERRIDES
+  // ========================================
+
+  // Remove default padding from webpart container
+  .CanvasZone .CanvasSection .ControlZone {
+    padding: 0 !important;
+  }
+
+  // ========================================
+  // FULL SCREEN MODE - Remove Width Limits
+  // ========================================
+
+  // Target workbenchPageContent by ID
+  #workbenchPageContent {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  // Target Canvas components that limit width
+  div[data-sp-feature-tag="Page Chrome"],
+  div[data-sp-feature-instance-id],
+  div[id*="workbench"],
+  div[class*="FluentProvider"] {
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  // Remove width limits from canvas automation elements
+  div[data-automation-id*="Canvas"],
+  div[data-automation-id*="CanvasZone"],
+  div[data-automation-id*="CanvasSection"] {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+  }
+
+  // Force full width on CanvasZoneContainer
+  .CanvasZoneContainer,
+  div[class*="CanvasZoneContainer"] {
+    max-width: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+
+  // Remove padding from CanvasComponent
+  .CanvasComponent,
+  div[class*="CanvasComponent"] {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  // Remove width limits from dynamic SharePoint classes
+  div[class*="_"] {
+    &[class*="margin"],
+    &[class*="padding"],
+    &[class*="width"],
+    &[class*="max"] {
+      max-width: none !important;
+    }
+  }
+
+  // Remove margins and borders from main SharePoint containers
+  .CanvasComponent,
+  .CanvasZone,
+  .CanvasSection,
+  .ControlZone,
+  div[class*="_wDEw"],
+  div[class*="_2KThM"],
+  div[class*="CanvasZoneSectionContainer"],
+  div[class*="CanvasSection-col"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  // Force 100% width for specific dynamic class elements
+  div[class*="r_NLtZH"],
+  div[class*="r_SL6Vs"],
+  div[class*="c_AKUIH"],
+  div[class*="e_PjVy"],
+  div[class*="mainWrapper_"],
+  div[class*="smartBid_"] {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  // Remove debug/highlight borders from SharePoint
+  div[style*="outline"],
+  div[class*="CanvasSection"][style*="outline"] {
+    outline: none !important;
+    border: none !important;
+  }
+
+  // ========================================
+  // FLUENT UI OVERRIDES
+  // ========================================
+
+  // Override default Fluent UI button styles
+  .ms-Button {
+    font-family:
+      "Inter",
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
+
+    &.ms-Button--primary {
+      background: var(--gradient-primary);
+      border: none;
+
+      &:hover {
+        background: var(--primary-accent);
+      }
+    }
+
+    &.ms-Button--default {
+      border-color: var(--border);
+
+      &:hover {
+        border-color: var(--primary-accent);
+        background-color: var(--card-bg-elevated);
+      }
+    }
+  }
+
+  // Override Fluent UI TextField
+  .ms-TextField-fieldGroup {
+    border-color: var(--border);
+
+    &:hover {
+      border-color: var(--primary-accent);
+    }
+
+    &:focus-within {
+      border-color: var(--primary-accent);
+    }
+  }
+
+  // Override Fluent UI Dropdown
+  .ms-Dropdown {
+    &:hover .ms-Dropdown-title {
+      border-color: var(--primary-accent);
+    }
+
+    &:focus .ms-Dropdown-title {
+      border-color: var(--primary-accent);
+    }
+  }
+
+  // Override Fluent UI Panel
+  .ms-Panel {
+    .ms-Panel-main {
+      background-color: var(--card-bg);
+    }
+
+    .ms-Panel-header {
+      background: var(--gradient-header);
+      color: #ffffff;
+    }
+  }
+
+  // Override Fluent UI Modal/Dialog
+  .ms-Dialog-main {
+    border-radius: 12px;
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  // Override Fluent UI Pivot
+  .ms-Pivot {
+    .ms-Pivot-link {
+      color: var(--text-secondary);
+
+      &:hover {
+        color: var(--primary-accent);
+      }
+
+      &.is-selected {
+        color: var(--primary-accent);
+        border-bottom-color: var(--primary-accent);
+      }
+    }
+  }
+
+  // Override Fluent UI CommandBar
+  .ms-CommandBar {
+    background-color: var(--card-bg);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  // Override Fluent UI DetailsList
+  .ms-DetailsList {
+    .ms-DetailsHeader {
+      background-color: var(--main-bg);
+
+      .ms-DetailsHeader-cell {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+    }
+
+    .ms-DetailsRow {
+      border-bottom: 1px solid var(--border-subtle);
+
+      &:hover {
+        background-color: var(--card-bg-elevated);
+      }
+
+      &.is-selected {
+        background-color: var(--card-bg-elevated);
+      }
+    }
+  }
+
+  // Override Fluent UI MessageBar
+  .ms-MessageBar {
+    border-radius: 8px;
+    margin-bottom: 16px;
+
+    &.ms-MessageBar--success {
+      background-color: rgba(16, 185, 129, 0.1);
+      border-left: 4px solid var(--success);
+    }
+
+    &.ms-MessageBar--warning {
+      background-color: rgba(245, 158, 11, 0.1);
+      border-left: 4px solid var(--warning);
+    }
+
+    &.ms-MessageBar--error {
+      background-color: rgba(239, 68, 68, 0.1);
+      border-left: 4px solid var(--danger);
+    }
+
+    &.ms-MessageBar--info {
+      background-color: rgba(6, 182, 212, 0.1);
+      border-left: 4px solid var(--info);
+    }
+  }
+
+  // ========================================
+  // SHAREPOINT CHROME OVERRIDES
+  // ========================================
+
+  // Hide SharePoint search box in chrome areas (scoped to not affect app SearchBox)
+  #SuiteNavWrapper,
+  .spPageChromeAppHeaderWrapper,
+  #O365_NavHeader {
+    [data-automation-id="searchBox"],
+    .ms-SearchBox-container,
+    .ms-SearchBox {
+      display: none !important;
+    }
+  }
+
+  // Hide settings button (gear icon)
+  [data-automation-id="SettingsButton"],
+  button[aria-label*="Configurações"] {
+    display: none !important;
+  }
+
+  // Hide help button
+  [data-automation-id="HelpButton"],
+  button[aria-label*="Ajuda"],
+  button[aria-label*="Help"] {
+    display: none !important;
+  }
+
+  // Hide SuiteNavWrapper (SharePoint top blue bar)
+  // IMPORTANT: Do NOT use substring selectors like [class*="sp-appBar"] or [class*="appBar"]
+  // because on mobile SharePoint wraps all content in a container with class
+  // "sp-appBar-parent-mobile", and substring matching hides the entire page.
+  #SuiteNavWrapper,
+  div[id="SuiteNavWrapper"],
+  div[class*="SuiteNavWrapper"],
+  div[data-sp-feature-tag="Suite Navigation"],
+  .ms-compositeHeader,
+  .od-TopBar,
+  #sp-appBar,
+  .sp-appBar:not([class*="parent"]),
+  .spDeThemeAppBar,
+  .sp-appBar-mobile {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    top: -9999px !important;
+    left: -9999px !important;
+    z-index: -999 !important;
+    opacity: 0 !important;
+  }
+
+  // Remove padding-bottom from mobile container that reserves space for appBar
+  .sp-appBar-parent-mobile {
+    padding-bottom: 0 !important;
+  }
+
+  // Hide Site Header
+  div[data-sp-feature-tag="Site header host"],
+  div[data-sp-feature-instance-id*="Site header host"],
+  div[class*="spSiteHeader"],
+  div[id*="spSiteHeader"],
+  [class*="ms-fabric--isFocusHidden"]
+    div[data-sp-feature-tag="Site header host"],
+  div#spSiteHeader,
+  div#spPageChromeAppHeader,
+  .SPPageChrome-app-header,
+  .ms-HorizontalNavItem {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    z-index: -1 !important;
+    opacity: 0 !important;
+  }
+
+  // Hide page action buttons (Edit, etc)
+  .ms-CommandBar,
+  [data-automation-id="pageCommandBar"],
+  .commandBarWrapper,
+  [class*="commandBar"],
+  [class*="CommandBar"],
+  [id*="commandBar"],
+  [id*="CommandBar"] {
+    display: none !important;
+  }
+
+  // Force main content to fill space
+  #workbenchPageContent,
+  .CanvasComponent {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+
+  // Remove lateral padding from SharePoint Canvas Zones
+  .CanvasZone {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  // Remove padding from specific Canvas elements
+  .CanvasZoneSectionContainer {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  // Remove margin and padding from ControlZone
+  .ControlZone {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  // Remove lateral padding from CanvasSection
+  .CanvasSection {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  // Hide CommentsWrapper
+  .CommentsWrapper {
+    display: none !important;
+  }
+
+  // Hide all comment-related elements
+  [data-sp-feature-tag="Comments"],
+  [data-sp-feature-instance-id*="Comments"],
+  [id*="CommentsWrapper"],
+  [class*="CommentsWrapper"],
+  [class*="comments"],
+  [class*="Comments"],
+  .Page-commentsWrapper,
+  [data-viewport-id*="Comments"] {
+    display: none !important;
+  }
+
+  // Hide comment child elements
+  [data-sp-feature-tag="Comments"] * {
+    display: none !important;
+  }
+
+  // SharePoint Site header navigation overrides
+  div[data-sp-feature-tag="Site header"] {
+    .ms-HorizontalNav {
+      .ms-HorizontalNav-itemContainer {
+        &:has([aria-label*="Pesquisar"]),
+        &:has([aria-label*="Search"]) {
+          display: none !important;
+        }
+      }
+    }
+  }
+
+  // More specific selectors for modern SharePoint
+  .root-41 .ms-FocusZone .ms-Button--commandBar,
+  .root-41 .ms-CommandBar .ms-Button {
+    &[aria-label*="Pesquisar"],
+    &[aria-label*="Search"],
+    &[aria-label*="Configurações"],
+    &[aria-label*="Settings"] {
+      display: none !important;
+    }
+  }
+
+  // For newer SharePoint versions
+  .spPageChromeAppHeaderWrapper {
+    .ms-SearchBox,
+    [data-automation-id="searchBox"] {
+      display: none !important;
+    }
+  }
+
+  // Alternative using visibility instead of display none
+  #SuiteNavWrapper,
+  .spPageChromeAppHeaderWrapper,
+  #O365_NavHeader {
+    .ms-SearchBox-container {
+      visibility: hidden !important;
+      width: 0 !important;
+      overflow: hidden !important;
+    }
+  }
+  [data-automation-id="SettingsButton"] {
+    visibility: hidden !important;
+    width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  // Additional rules to hide persistent SharePoint elements
+  .commandBarWrapper,
+  [class*="commandBarWrapper"],
+  [id*="commandBarWrapper"],
+  div[class*="commandBar"]:not([class*="hse"]):not([class*="HSE"]),
+  div[id*="commandBar"]:not([id*="hse"]):not([id*="HSE"]),
+  [data-sp-feature-tag*="Command"],
+  [aria-label*="Command bar"],
+  [role="menubar"]:not([class*="hse"]):not([class*="HSE"]) {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  // Hide modern SharePoint toolbars
+  .spPageChromeAppHeaderWrapper .ms-CommandBar,
+  .spPageChromeAppHeaderWrapper [class*="commandBar"] {
+    display: none !important;
+  }
+
+  // Hide SharePoint suite bar in full page mode
+  #SuiteNavWrapper {
+    &.fullPageMode {
+      display: none !important;
+    }
+  }
+
+  // Hide Hub Navigation (top site navigation bar)
+  .ms-HubNav,
+  div[class*="ms-HubNav"] {
+    display: none !important;
+  }
+
+  // Hide Left Navigation (left sidebar navigation panel)
+  #spLeftNav,
+  div[id="spLeftNav"] {
+    display: none !important;
+  }
+
+  // Override SharePoint canvas zone
+  #spPageCanvasContent {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  // ========================================
+  // SCROLLBAR OVERRIDES
+  // ========================================
+
+  .smartBidRoot {
+    *::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    *::-webkit-scrollbar-track {
+      background: var(--scrollbar-track);
+      border-radius: 8px;
+    }
+
+    *::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+      border-radius: 8px;
+
+      &:hover {
+        background: var(--text-muted);
+      }
+    }
+  }
+
+  // ========================================
+  // MOBILE/TABLET OVERRIDES
+  // ========================================
+
+  @media (max-width: 1024px) {
+    // Hide SharePoint navigation on mobile
+    #SuiteNavWrapper,
+    #O365_MainLink_NavMenu {
+      display: none !important;
+    }
+
+    // Full width on mobile
+    .CanvasZone {
+      padding: 0 !important;
+    }
+
+    // Remove width limits on mobile too
+    #workbenchPageContent,
+    div[data-automation-id*="Canvas"] {
+      max-width: none !important;
+      width: 100% !important;
+    }
+  }
+
+  // ========================================
+  // ADDITIONAL FULL WIDTH RULES
+  // ========================================
+
+  // Target specific SharePoint page structure elements
+  #spPageChromeAppDiv,
+  .SPCanvas-canvaschrome,
+  .SPPageChrome-app,
+  div[class*="root-"] {
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  // Remove fixed width from any container
+  .CanvasZone .CanvasZone,
+  div[role="main"],
+  div[role="article"],
+  main {
+    max-width: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+
+  // Override inline styles that may limit width
+  // Exclude fixed-position popup overlays
+  div[style*="max-width"]:not([data-popup-overlay]):not([data-popup-overlay] *),
+  div[style*="width: 924px"],
+  div[style*="width: 1200px"] {
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  // ========================================
+  // PRINT OVERRIDES
+  // ========================================
+
+  @media print {
+    // Hide SharePoint chrome when printing
+    #SuiteNavWrapper,
+    #O365_MainLink_NavMenu,
+    .ms-CommandBar,
+    .SPCanvas-canvaschrome {
+      display: none !important;
+    }
+  }
+
+  // ========================================
+  // ACCESSIBILITY ENHANCEMENTS
+  // ========================================
+
+  // Enhanced focus indicators
+  *:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+    box-shadow: var(--shadow-glow);
+  }
+
+  // Skip to main content link
+  .skip-to-main {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--primary-accent);
+    color: #ffffff;
+    padding: 8px 16px;
+    text-decoration: none;
+    z-index: 100;
+
+    &:focus {
+      top: 0;
+    }
+  }
+
+  // ========================================
+  // HIGH CONTRAST MODE
+  // ========================================
+
+  @media (prefers-contrast: high) {
+    .smartBidRoot {
+      border: 2px solid currentColor;
+
+      * {
+        border-color: currentColor !important;
+      }
+    }
+  }
+
+  // ========================================
+  // REDUCED MOTION
+  // ========================================
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+} // end :global
