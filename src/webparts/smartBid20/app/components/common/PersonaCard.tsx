@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./PersonaCard.module.scss";
 
 interface PersonaCardProps {
   name: string;
@@ -27,47 +28,35 @@ export const PersonaCard: React.FC<PersonaCardProps> = ({
     .slice(0, 2);
 
   return (
-    <div
-      className={className}
-      style={{ display: "flex", alignItems: "center", gap: 10 }}
-    >
+    <div className={`${styles.card} ${className || ""}`}>
       {photoUrl ? (
         <img
           src={photoUrl}
           alt={name}
-          style={{
-            width: avatarSize,
-            height: avatarSize,
-            borderRadius: "50%",
-            objectFit: "cover",
-          }}
+          className={styles.avatar}
+          style={{ width: avatarSize, height: avatarSize }}
         />
       ) : (
         <div
+          className={styles.avatarInitials}
           style={{
             width: avatarSize,
             height: avatarSize,
-            borderRadius: "50%",
-            background: "var(--accent-color, #3B82F6)",
-            color: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
             fontSize: avatarSize * 0.4,
-            fontWeight: 600,
           }}
         >
           {initials}
         </div>
       )}
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <span style={{ fontSize: size === "small" ? 12 : 14, fontWeight: 600 }}>
+      <div className={styles.info}>
+        <span
+          className={styles.name}
+          style={{ fontSize: size === "small" ? 12 : 14 }}
+        >
           {name}
         </span>
         {size !== "small" && (
-          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-            {role || email}
-          </span>
+          <span className={styles.sub}>{role || email}</span>
         )}
       </div>
     </div>

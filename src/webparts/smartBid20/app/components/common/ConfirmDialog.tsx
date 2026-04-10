@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./ConfirmDialog.module.scss";
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -30,72 +31,18 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(0,0,0,0.5)",
-      }}
-      onClick={onCancel}
-    >
-      <div
-        style={{
-          background: "var(--card-bg, #fff)",
-          borderRadius: 16,
-          padding: 24,
-          maxWidth: 420,
-          width: "90%",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{title}</h3>
-        <p
-          style={{
-            marginTop: 12,
-            fontSize: 14,
-            color: "var(--text-secondary)",
-          }}
-        >
-          {message}
-        </p>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 12,
-            marginTop: 24,
-          }}
-        >
-          <button
-            onClick={onCancel}
-            style={{
-              padding: "8px 20px",
-              border: "1px solid var(--border-subtle)",
-              borderRadius: 8,
-              background: "transparent",
-              cursor: "pointer",
-              fontSize: 14,
-            }}
-          >
+    <div className={styles.overlay} onClick={onCancel}>
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <h3 className={styles.title}>{title}</h3>
+        <p className={styles.message}>{message}</p>
+        <div className={styles.actions}>
+          <button onClick={onCancel} className={styles.cancelBtn}>
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            style={{
-              padding: "8px 20px",
-              border: "none",
-              borderRadius: 8,
-              background: confirmColors[variant],
-              color: "#fff",
-              cursor: "pointer",
-              fontSize: 14,
-              fontWeight: 600,
-            }}
+            className={styles.confirmBtn}
+            style={{ background: confirmColors[variant] }}
           >
             {confirmLabel}
           </button>

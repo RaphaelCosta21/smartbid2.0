@@ -1,4 +1,4 @@
-import { UserRole } from "./IUser";
+import { UserRole, MemberDivision } from "./IUser";
 
 export interface ITeamMember {
   id: string;
@@ -6,7 +6,7 @@ export interface ITeamMember {
   email: string;
   jobTitle: string;
   department: string;
-  division: string;
+  division: MemberDivision;
   role: UserRole;
   isActive: boolean;
   photoUrl?: string;
@@ -16,8 +16,9 @@ export interface ITeamMember {
 
 export interface IMembersData {
   manager: ITeamMember[];
-  engineer: ITeamMember[];
-  bidder: ITeamMember[];
-  projectTeam: ITeamMember[];
-  viewer: ITeamMember[];
+  project: ITeamMember[];
+  operations: ITeamMember[];
+  equipment: ITeamMember[];
+  dataCenter: ITeamMember[];
+  engineering: ITeamMember[];
 }

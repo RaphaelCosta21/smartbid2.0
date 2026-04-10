@@ -1,0 +1,28 @@
+.container {
+  padding: 20px;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+}
+
+.dateRow {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.dateInput {
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.generateBtn {
+  padding: 10px 20px;
+  background: var(--accent-color, #3b82f6);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}

@@ -18,15 +18,15 @@ const ACCESS_MAP: Record<UserRole, AccessRule> = {
     approvals: "edit",
     templates: "edit",
   },
-  engineer: {
+  project: {
     workspace: "edit",
     insights: "view",
     reports: "view",
     settings: "none",
-    approvals: "view",
-    templates: "edit",
+    approvals: "edit",
+    templates: "view",
   },
-  bidder: {
+  operations: {
     workspace: "edit",
     insights: "view",
     reports: "view",
@@ -34,21 +34,29 @@ const ACCESS_MAP: Record<UserRole, AccessRule> = {
     approvals: "view",
     templates: "view",
   },
-  projectTeam: {
+  equipment: {
     workspace: "view",
     insights: "view",
     reports: "view",
     settings: "none",
-    approvals: "edit",
+    approvals: "view",
     templates: "none",
   },
-  viewer: {
+  dataCenter: {
     workspace: "view",
     insights: "view",
     reports: "view",
     settings: "none",
-    approvals: "none",
+    approvals: "view",
     templates: "none",
+  },
+  engineering: {
+    workspace: "edit",
+    insights: "view",
+    reports: "view",
+    settings: "none",
+    approvals: "view",
+    templates: "edit",
   },
   guest: {
     workspace: "view",

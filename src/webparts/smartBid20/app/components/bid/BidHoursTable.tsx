@@ -1,5 +1,6 @@
 import * as React from "react";
 import { IHoursSummary } from "../../models";
+import styles from "./BidHoursTable.module.scss";
 
 interface BidHoursTableProps {
   hoursSummary: IHoursSummary;
@@ -17,24 +18,14 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div className={styles.container}>
       {sections.map((section) => (
         <div key={section.label}>
-          <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
-            {section.label}
-          </h4>
+          <h4 className={styles.sectionTitle}>{section.label}</h4>
           {section.data.items.length === 0 ? (
-            <div style={{ color: "var(--text-secondary)", fontSize: 13 }}>
-              No items
-            </div>
+            <div className={styles.empty}>No items</div>
           ) : (
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: 13,
-              }}
-            >
+            <table className={styles.table}>
               <thead>
                 <tr>
                   {[
@@ -47,69 +38,39 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
                     "Total Hrs",
                     "Cost (BRL)",
                   ].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        padding: "8px 12px",
-                        textAlign: "left",
-                        borderBottom: "1px solid var(--border-subtle)",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: "var(--text-secondary)",
-                      }}
-                    >
-                      {h}
-                    </th>
+                    <th key={h}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {section.data.items.map((item) => (
-                  <tr
-                    key={item.id}
-                    style={{ borderBottom: "1px solid var(--border-subtle)" }}
-                  >
-                    <td style={{ padding: "8px 12px" }}>{item.function}</td>
-                    <td style={{ padding: "8px 12px" }}>{item.phase}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "center" }}>
-                      {item.hoursPerDay}
-                    </td>
-                    <td style={{ padding: "8px 12px", textAlign: "center" }}>
-                      {item.pplQty}
-                    </td>
-                    <td style={{ padding: "8px 12px", textAlign: "center" }}>
-                      {item.workDays}
-                    </td>
-                    <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                  <tr key={item.id}>
+                    <td>{item.function}</td>
+                    <td>{item.phase}</td>
+                    <td className={styles.cellCenter}>{item.hoursPerDay}</td>
+                    <td className={styles.cellCenter}>{item.pplQty}</td>
+                    <td className={styles.cellCenter}>{item.workDays}</td>
+                    <td className={styles.cellCenter}>
                       {item.utilizationPercent}%
                     </td>
-                    <td
-                      style={{
-                        padding: "8px 12px",
-                        textAlign: "right",
-                        fontWeight: 600,
-                      }}
-                    >
+                    <td className={`${styles.cellRight} ${styles.cellBold}`}>
                       {item.totalHours.toLocaleString()}
                     </td>
-                    <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                    <td className={styles.cellRight}>
                       R$ {item.costBRL.toLocaleString()}
                     </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ fontWeight: 600 }}>
-                  <td
-                    colSpan={6}
-                    style={{ padding: "10px 12px", textAlign: "right" }}
-                  >
+                <tr>
+                  <td colSpan={6} className={styles.cellRight}>
                     Subtotal:
                   </td>
-                  <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                  <td className={styles.cellRight}>
                     {section.data.totalHours.toLocaleString()}
                   </td>
-                  <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                  <td className={styles.cellRight}>
                     R$ {section.data.totalCostBRL.toLocaleString()}
                   </td>
                 </tr>
@@ -118,22 +79,8 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
           )}
         </div>
       ))}
-      <div
-        style={{
-          padding: 16,
-          background: "var(--card-bg)",
-          borderRadius: 12,
-          border: "1px solid var(--border-subtle)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: 16,
-            fontWeight: 700,
-          }}
-        >
+      <div className={styles.grandTotal}>
+        <div className={styles.grandTotalRow}>
           <span>Grand Total</span>
           <span>
             {hoursSummary.grandTotalHours.toLocaleString()} hrs — R${" "}

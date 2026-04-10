@@ -231,7 +231,7 @@ const OverviewTab: React.FC<{ bid: IBid; currentPhaseIndex: number }> = ({
   currentPhaseIndex,
 }) => (
   <div className={styles.overviewGrid}>
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className={styles.flexColumn}>
       {/* General Information */}
       <div className={styles.infoSection}>
         <h4 className={styles.infoTitle}>General Information</h4>
@@ -303,13 +303,7 @@ const OverviewTab: React.FC<{ bid: IBid; currentPhaseIndex: number }> = ({
       {/* Scope */}
       <div className={styles.infoSection}>
         <h4 className={styles.infoTitle}>Scope of Work</h4>
-        <p
-          style={{
-            fontSize: 13,
-            color: "var(--text-secondary)",
-            lineHeight: 1.6,
-          }}
-        >
+        <p className={styles.scopeDescription}>
           {bid.opportunityInfo.projectDescription || "No description provided."}
         </p>
       </div>
@@ -339,7 +333,7 @@ const OverviewTab: React.FC<{ bid: IBid; currentPhaseIndex: number }> = ({
     </div>
 
     {/* Right Column — Phase Progress + KPIs */}
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className={styles.flexColumn}>
       <div className={styles.progressSection}>
         <h4 className={styles.infoTitle}>
           Phase Progress — {getPhaseLabelForBid(bid)} ({getOverallProgress(bid)}
@@ -381,7 +375,7 @@ const OverviewTab: React.FC<{ bid: IBid; currentPhaseIndex: number }> = ({
 
       <div className={styles.infoSection}>
         <h4 className={styles.infoTitle}>BID KPIs</h4>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className={styles.flexColumnSmall}>
           <InfoRow
             label="Days Elapsed"
             value={`${bid.kpis.totalDaysElapsed} days`}
@@ -410,7 +404,7 @@ const OverviewTab: React.FC<{ bid: IBid; currentPhaseIndex: number }> = ({
       {/* Dates */}
       <div className={styles.infoSection}>
         <h4 className={styles.infoTitle}>Key Dates</h4>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className={styles.flexColumnSmall}>
           <InfoRow
             label="Created"
             value={format(new Date(bid.createdDate), "MMM d, yyyy HH:mm")}
@@ -452,59 +446,26 @@ const TimelineTab: React.FC<{ bid: IBid; currentPhaseIndex: number }> = ({
   bid,
   currentPhaseIndex,
 }) => (
-  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+  <div className={styles.flexColumn}>
     <GlassCard title="BID Timeline">
       {/* Horizontal step circles */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 0,
-          padding: "24px 0",
-          overflowX: "auto",
-        }}
-      >
+      <div className={styles.timelineStepRow}>
         {BID_PHASES.map((phase, idx) => {
           const isCompleted = idx < currentPhaseIndex;
           const isCurrent = idx === currentPhaseIndex;
           return (
             <React.Fragment key={phase.id}>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  minWidth: 100,
-                }}
-              >
+              <div className={styles.timelineStepItem}>
                 <div
-                  className={`${styles.phaseCircle} ${isCompleted ? styles.completed : isCurrent ? styles.current : styles.pending}`}
-                  style={{ width: 40, height: 40, fontSize: 14 }}
+                  className={`${styles.phaseCircle} ${styles.timelinePhaseCircle} ${isCompleted ? styles.completed : isCurrent ? styles.current : styles.pending}`}
                 >
                   {isCompleted ? "✓" : idx}
                 </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "var(--text-primary)",
-                    marginTop: 8,
-                  }}
-                >
-                  {phase.label}
-                </div>
+                <div className={styles.timelineStepLabel}>{phase.label}</div>
               </div>
               {idx < BID_PHASES.length - 1 && (
                 <div
-                  style={{
-                    flex: 1,
-                    height: 2,
-                    minWidth: 30,
-                    background: isCompleted
-                      ? "var(--success)"
-                      : "var(--border-subtle)",
-                    marginBottom: 24,
-                  }}
+                  className={`${styles.timelineConnector} ${isCompleted ? styles.timelineConnectorCompleted : styles.timelineConnectorPending}`}
                 />
               )}
             </React.Fragment>
@@ -518,30 +479,13 @@ const TimelineTab: React.FC<{ bid: IBid; currentPhaseIndex: number }> = ({
         <EmptySection message="No step history recorded." />
       ) : (
         bid.steps.map((step, idx) => (
-          <div
-            key={idx}
-            style={{
-              display: "flex",
-              gap: 12,
-              padding: "10px 0",
-              borderBottom: "1px solid var(--border-subtle)",
-            }}
-          >
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                marginTop: 5,
-                background: "var(--primary-accent)",
-                flexShrink: 0,
-              }}
-            />
+          <div key={idx} className={styles.stepHistoryItem}>
+            <div className={styles.stepDot} />
             <div>
-              <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
+              <div className={styles.stepText}>
                 Step {step.idStep}: {step.status} ({step.phase})
               </div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+              <div className={styles.stepMeta}>
                 {step.start} {step.actor ? `· ${step.actor}` : ""}
               </div>
             </div>
@@ -560,19 +504,9 @@ const DocumentsTab: React.FC<{ bid: IBid }> = ({ bid }) => (
     {bid.attachments.length === 0 ? (
       <EmptySection message="No documents uploaded yet." />
     ) : (
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className={styles.docList}>
         {bid.attachments.map((att) => (
-          <div
-            key={att.id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "10px 16px",
-              background: "var(--card-bg-elevated)",
-              borderRadius: 8,
-            }}
-          >
+          <div key={att.id} className={styles.docItem}>
             <svg
               width="18"
               height="18"
@@ -584,17 +518,9 @@ const DocumentsTab: React.FC<{ bid: IBid }> = ({ bid }) => (
               <path d="M14.5 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7.5L14.5 2z" />
               <path d="M14 2v6h6" />
             </svg>
-            <div style={{ flex: 1 }}>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: "var(--text-primary)",
-                }}
-              >
-                {att.fileName}
-              </div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+            <div className={styles.docItemInfo}>
+              <div className={styles.docItemName}>{att.fileName}</div>
+              <div className={styles.docItemMeta}>
                 {att.category} · {(att.fileSize / 1024).toFixed(0)} KB ·{" "}
                 {att.uploadedBy}
               </div>
@@ -619,19 +545,11 @@ const NotesTab: React.FC<{ bid: IBid }> = ({ bid }) => {
       {entries.length === 0 ? (
         <EmptySection message="No analysis notes added yet." />
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className={styles.flexColumn}>
           {entries.map(([section, content]) => (
             <div key={section} className={styles.infoSection}>
               <h4 className={styles.infoTitle}>{section}</h4>
-              <p
-                style={{
-                  fontSize: 13,
-                  color: "var(--text-secondary)",
-                  lineHeight: 1.6,
-                }}
-              >
-                {content}
-              </p>
+              <p className={styles.noteContent}>{content}</p>
             </div>
           ))}
         </div>
@@ -646,20 +564,9 @@ const QualificationsTab: React.FC<{ bid: IBid }> = ({ bid }) => (
     {bid.opportunityInfo.qualifications.length === 0 ? (
       <EmptySection message="No qualifications specified." />
     ) : (
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+      <div className={styles.qualificationsList}>
         {bid.opportunityInfo.qualifications.map((q, idx) => (
-          <span
-            key={idx}
-            style={{
-              padding: "6px 14px",
-              background: "var(--card-bg-elevated)",
-              borderRadius: 999,
-              fontSize: 12,
-              fontWeight: 500,
-              color: "var(--text-primary)",
-              border: "1px solid var(--border)",
-            }}
-          >
+          <span key={idx} className={styles.qualificationTag}>
             {q}
           </span>
         ))}
@@ -671,13 +578,7 @@ const QualificationsTab: React.FC<{ bid: IBid }> = ({ bid }) => (
 /* ─── Tab: AI Analysis ─── */
 const AITab: React.FC = () => (
   <GlassCard title="AI Analysis">
-    <div
-      style={{
-        textAlign: "center",
-        padding: 32,
-        color: "var(--text-muted)",
-      }}
-    >
+    <div className={styles.emptyTabContent}>
       <svg
         width="48"
         height="48"
@@ -685,14 +586,12 @@ const AITab: React.FC = () => (
         fill="none"
         stroke="currentColor"
         strokeWidth="1.5"
-        style={{ marginBottom: 12, opacity: 0.5 }}
+        className={styles.emptyTabIconLg}
       >
         <path d="M12 2a4 4 0 014 4v1a1 1 0 001 1h1a4 4 0 010 8h-1a1 1 0 00-1 1v1a4 4 0 01-8 0v-1a1 1 0 00-1-1H6a4 4 0 010-8h1a1 1 0 001-1V6a4 4 0 014-4z" />
       </svg>
-      <h3 style={{ fontSize: 16, fontWeight: 500, margin: "0 0 8px" }}>
-        AI Analysis Coming Soon
-      </h3>
-      <p style={{ fontSize: 13 }}>
+      <h3 className={styles.emptyTabTitle}>AI Analysis Coming Soon</h3>
+      <p className={styles.emptyTabText}>
         The AI-powered analysis feature will be available in a future release.
       </p>
     </div>
@@ -705,14 +604,7 @@ const AITab: React.FC = () => (
 
 /* ─── Empty State Helper ─── */
 const EmptySection: React.FC<{ message: string }> = ({ message }) => (
-  <div
-    style={{
-      textAlign: "center",
-      padding: 32,
-      color: "var(--text-muted)",
-      fontSize: 13,
-    }}
-  >
+  <div className={styles.emptyTabContent}>
     <svg
       width="40"
       height="40"
@@ -720,7 +612,7 @@ const EmptySection: React.FC<{ message: string }> = ({ message }) => (
       fill="none"
       stroke="currentColor"
       strokeWidth="1.5"
-      style={{ marginBottom: 8, opacity: 0.4 }}
+      className={styles.emptyTabIcon}
     >
       <rect x="2" y="6" width="20" height="12" rx="2" />
       <path d="M12 12h.01" />

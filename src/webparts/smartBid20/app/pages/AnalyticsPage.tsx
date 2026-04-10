@@ -11,6 +11,7 @@ import { ProgressBar } from "../components/common/ProgressBar";
 import { DIVISION_COLORS, DIVISIONS } from "../utils/constants";
 import { formatPercentage } from "../utils/formatters";
 import { KPI_DEFINITIONS } from "../config/kpi.config";
+import styles from "./AnalyticsPage.module.scss";
 
 type AnalyticsView = "overview" | "performance" | "bottlenecks" | "team";
 
@@ -49,7 +50,7 @@ export const AnalyticsPage: React.FC = () => {
   }, [filteredBids]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div className={styles.page}>
       <PageHeader
         title="Analytics"
         subtitle="Advanced analytics and insights"
@@ -70,27 +71,12 @@ export const AnalyticsPage: React.FC = () => {
       />
 
       {/* Tab navigation */}
-      <div style={{ display: "flex", gap: 8 }}>
+      <div className={styles.tabBar}>
         {views.map((v) => (
           <button
             key={v.key}
             onClick={() => setActiveView(v.key)}
-            style={{
-              padding: "8px 20px",
-              borderRadius: 8,
-              border:
-                activeView === v.key
-                  ? "none"
-                  : "1px solid var(--border-subtle)",
-              background:
-                activeView === v.key
-                  ? "var(--accent-color, #3B82F6)"
-                  : "transparent",
-              color: activeView === v.key ? "#fff" : "var(--text-secondary)",
-              cursor: "pointer",
-              fontSize: 14,
-              fontWeight: activeView === v.key ? 600 : 400,
-            }}
+            className={`${styles.tabBtn} ${activeView === v.key ? styles.tabBtnActive : ""}`}
           >
             {v.label}
           </button>
@@ -100,13 +86,7 @@ export const AnalyticsPage: React.FC = () => {
       {activeView === "overview" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* KPI Summary */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-              gap: 16,
-            }}
-          >
+          <div className={styles.kpiGrid}>
             {KPI_DEFINITIONS.slice(0, 6).map((def) => {
               const valueMap: Record<string, string | number> = {
                 "on-time-delivery": formatPercentage(100 - kpis.overdueRate),
@@ -119,58 +99,27 @@ export const AnalyticsPage: React.FC = () => {
               return (
                 <div
                   key={def.id}
-                  style={{
-                    padding: 20,
-                    background: "var(--card-bg)",
-                    borderRadius: 12,
-                    border: `1px solid ${def.color}30`,
-                  }}
+                  className={styles.kpiCard}
+                  style={{ borderColor: `${def.color}30` }}
                 >
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: def.color,
-                      marginBottom: 4,
-                      fontWeight: 600,
-                    }}
-                  >
+                  <div className={styles.kpiLabel} style={{ color: def.color }}>
                     {def.label}
                   </div>
-                  <div style={{ fontSize: 24, fontWeight: 700 }}>
+                  <div className={styles.kpiValue}>
                     {valueMap[def.id] ?? kpis.totalBids}
                   </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-secondary)",
-                      marginTop: 2,
-                    }}
-                  >
-                    {def.description}
-                  </div>
+                  <div className={styles.kpiDescription}>{def.description}</div>
                 </div>
               );
             })}
           </div>
 
           {/* Division breakdown */}
-          <div
-            style={{
-              background: "var(--card-bg)",
-              borderRadius: 12,
-              padding: 20,
-              border: "1px solid var(--border-subtle)",
-            }}
-          >
-            <h4 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600 }}>
-              Division Breakdown
-            </h4>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className={styles.sectionCard}>
+            <h4 className={styles.sectionTitle}>Division Breakdown</h4>
+            <div className={styles.divisionRows}>
               {divisionStats.map((ds) => (
-                <div
-                  key={ds.division}
-                  style={{ display: "flex", alignItems: "center", gap: 12 }}
-                >
+                <div key={ds.division} className={styles.divisionRow}>
                   <DivisionBadge division={ds.division} />
                   <div style={{ flex: 1 }}>
                     <ProgressBar
@@ -180,13 +129,7 @@ export const AnalyticsPage: React.FC = () => {
                       showLabel
                     />
                   </div>
-                  <span
-                    style={{
-                      fontSize: 13,
-                      color: "var(--text-secondary)",
-                      minWidth: 80,
-                    }}
-                  >
+                  <span className={styles.divisionLabel}>
                     {ds.total} BIDs ({ds.winRate}%)
                   </span>
                 </div>

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { IApprovalChain } from "../../models/IBidApproval";
 import { Timeline } from "../common/Timeline";
+import styles from "./ApprovalTimeline.module.scss";
 
 interface ApprovalTimelineProps {
   chains: IApprovalChain[];
@@ -12,13 +13,10 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({
   className,
 }) => {
   return (
-    <div
-      className={className}
-      style={{ display: "flex", flexDirection: "column", gap: 24 }}
-    >
+    <div className={`${styles.container} ${className || ""}`}>
       {chains.map((chain) => (
         <div key={chain.chainId}>
-          <h5 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
+          <h5 className={styles.chainTitle}>
             {chain.chainName} ({chain.division})
           </h5>
           <Timeline

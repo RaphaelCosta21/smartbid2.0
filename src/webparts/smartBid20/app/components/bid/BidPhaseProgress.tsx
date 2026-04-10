@@ -1,5 +1,6 @@
 import * as React from "react";
 import { BID_PHASES } from "../../config/status.config";
+import styles from "./BidPhaseProgress.module.scss";
 
 interface BidPhaseProgressProps {
   currentPhase: string;
@@ -11,7 +12,7 @@ export const BidPhaseProgress: React.FC<BidPhaseProgressProps> = ({
   const currentIndex = BID_PHASES.findIndex((p) => p.value === currentPhase);
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+    <div className={styles.container}>
       {BID_PHASES.map((phase, idx) => {
         const isCompleted = idx < currentIndex;
         const isCurrent = idx === currentIndex;
@@ -19,15 +20,8 @@ export const BidPhaseProgress: React.FC<BidPhaseProgressProps> = ({
           <React.Fragment key={phase.id}>
             <div
               title={phase.label}
+              className={styles.circle}
               style={{
-                width: 24,
-                height: 24,
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 10,
-                fontWeight: 700,
                 background: isCompleted
                   ? "#10b981"
                   : isCurrent
@@ -41,9 +35,8 @@ export const BidPhaseProgress: React.FC<BidPhaseProgressProps> = ({
             </div>
             {idx < BID_PHASES.length - 1 && (
               <div
+                className={styles.connector}
                 style={{
-                  width: 12,
-                  height: 2,
                   background: isCompleted ? "#10b981" : "var(--border-subtle)",
                 }}
               />

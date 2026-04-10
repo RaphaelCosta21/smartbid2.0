@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./EmptyState.module.scss";
 
 interface EmptyStateProps {
   title: string;
@@ -18,17 +19,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   className,
 }) => {
   return (
-    <div
-      className={className}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 48,
-        textAlign: "center",
-      }}
-    >
+    <div className={`${styles.container} ${className || ""}`}>
       {icon || (
         <svg
           width="64"
@@ -43,43 +34,10 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           <polyline points="13 2 13 9 20 9" />
         </svg>
       )}
-      <h3
-        style={{
-          marginTop: 16,
-          fontSize: 18,
-          fontWeight: 600,
-          color: "var(--text-primary)",
-        }}
-      >
-        {title}
-      </h3>
-      {description && (
-        <p
-          style={{
-            marginTop: 8,
-            fontSize: 14,
-            color: "var(--text-secondary)",
-            maxWidth: 400,
-          }}
-        >
-          {description}
-        </p>
-      )}
+      <h3 className={styles.title}>{title}</h3>
+      {description && <p className={styles.description}>{description}</p>}
       {actionLabel && onAction && (
-        <button
-          onClick={onAction}
-          style={{
-            marginTop: 20,
-            padding: "10px 24px",
-            background: "var(--accent-color, #3B82F6)",
-            color: "#fff",
-            border: "none",
-            borderRadius: 8,
-            cursor: "pointer",
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-        >
+        <button onClick={onAction} className={styles.actionBtn}>
           {actionLabel}
         </button>
       )}

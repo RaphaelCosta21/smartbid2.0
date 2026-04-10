@@ -1,5 +1,6 @@
 import * as React from "react";
 import { KPICard } from "../common/KPICard";
+import styles from "./DashboardKPIRow.module.scss";
 
 interface DashboardKPIRowProps {
   activeBids: number;
@@ -22,13 +23,7 @@ export const DashboardKPIRow: React.FC<DashboardKPIRowProps> = ({
   lostCount,
   pipelineValueUSD,
 }) => (
-  <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-      gap: 16,
-    }}
-  >
+  <div className={styles.kpiGrid}>
     <KPICard
       label="Active BIDs"
       value={activeBids}

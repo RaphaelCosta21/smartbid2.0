@@ -1,0 +1,63 @@
+.cardGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.divisionCard {
+  flex: 1 1 200px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg);
+  transition: all 200ms ease;
+
+  &:hover {
+    border-color: var(--border);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+.divisionName {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.statLabel {
+  color: var(--text-secondary);
+}
+
+.statValue {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.statActive {
+  color: #3b82f6;
+}
+
+.statApprovals {
+  color: #f59e0b;
+}
+
+.statOverdue {
+  color: #ef4444;
+}
+
+.statOk {
+  color: #10b981;
+}
+
+.statDefault {
+  color: var(--text-primary);
+}

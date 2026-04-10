@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./BidExportButton.module.scss";
 
 interface BidExportButtonProps {
   onExportExcel?: () => void;
@@ -18,21 +19,11 @@ export const BidExportButton: React.FC<BidExportButtonProps> = ({
   const [isOpen, setIsOpen] = React.useState(false);
 
   return (
-    <div className={className} style={{ position: "relative" }}>
+    <div className={`${styles.wrapper} ${className || ""}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         disabled={isExporting}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "8px 16px",
-          border: "1px solid var(--border-subtle)",
-          borderRadius: 8,
-          background: "var(--card-bg)",
-          cursor: isExporting ? "not-allowed" : "pointer",
-          fontSize: 14,
-        }}
+        className={styles.triggerBtn}
       >
         <svg
           width="16"
@@ -49,36 +40,14 @@ export const BidExportButton: React.FC<BidExportButtonProps> = ({
         {isExporting ? "Exporting..." : "Export"}
       </button>
       {isOpen && (
-        <div
-          style={{
-            position: "absolute",
-            top: "100%",
-            right: 0,
-            marginTop: 4,
-            background: "var(--card-bg)",
-            border: "1px solid var(--border-subtle)",
-            borderRadius: 8,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            minWidth: 160,
-            zIndex: 100,
-          }}
-        >
+        <div className={styles.dropdown}>
           {onExportExcel && (
             <button
               onClick={() => {
                 onExportExcel();
                 setIsOpen(false);
               }}
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "10px 16px",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                textAlign: "left",
-                fontSize: 14,
-              }}
+              className={styles.dropdownItem}
             >
               Export to Excel
             </button>
@@ -89,16 +58,7 @@ export const BidExportButton: React.FC<BidExportButtonProps> = ({
                 onExportPDF();
                 setIsOpen(false);
               }}
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "10px 16px",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                textAlign: "left",
-                fontSize: 14,
-              }}
+              className={styles.dropdownItem}
             >
               Export to PDF
             </button>
@@ -109,16 +69,7 @@ export const BidExportButton: React.FC<BidExportButtonProps> = ({
                 onPrint();
                 setIsOpen(false);
               }}
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "10px 16px",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                textAlign: "left",
-                fontSize: 14,
-              }}
+              className={styles.dropdownItem}
             >
               Print
             </button>

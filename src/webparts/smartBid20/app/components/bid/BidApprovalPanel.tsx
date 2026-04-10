@@ -1,5 +1,6 @@
 import * as React from "react";
 import { IBidApproval } from "../../models";
+import styles from "./BidApprovalPanel.module.scss";
 
 interface BidApprovalPanelProps {
   approvals: IBidApproval[];
@@ -21,57 +22,46 @@ export const BidApprovalPanel: React.FC<BidApprovalPanelProps> = ({
   };
 
   return (
-    <div className={className} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Approvals</h4>
+    <div className={`${styles.container} ${className || ""}`}>
+      <div className={styles.header}>
+        <h4 className={styles.title}>Approvals</h4>
         {onRequestApproval && (
-          <button
-            onClick={onRequestApproval}
-            style={{
-              padding: "8px 16px",
-              background: "var(--accent-color, #3B82F6)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 8,
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
+          <button onClick={onRequestApproval} className={styles.requestBtn}>
             Request Approval
           </button>
         )}
       </div>
       {approvals.length === 0 ? (
-        <div style={{ color: "var(--text-secondary)", fontSize: 14 }}>
-          No approvals requested yet
-        </div>
+        <div className={styles.empty}>No approvals requested yet</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className={styles.list}>
           {approvals.map((approval) => {
-            const { icon, color } = statusIcons[approval.status] || statusIcons["not-started"];
+            const { icon, color } =
+              statusIcons[approval.status] || statusIcons["not-started"];
             return (
               <div
                 key={approval.id}
+                className={styles.item}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: 12,
-                  borderRadius: 8,
                   border: `1px solid ${color}30`,
                   background: `${color}08`,
                 }}
               >
-                <span style={{ fontSize: 18 }}>{icon}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{approval.stakeholder.name}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{approval.stakeholderRole}</div>
+                <span className={styles.itemIcon}>{icon}</span>
+                <div className={styles.itemInfo}>
+                  <div className={styles.itemName}>
+                    {approval.stakeholder.name}
+                  </div>
+                  <div className={styles.itemRole}>
+                    {approval.stakeholderRole}
+                  </div>
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color }}>{approval.status}</div>
+                <div className={styles.itemStatus}>
+                  <div className={styles.itemStatusLabel} style={{ color }}>
+                    {approval.status}
+                  </div>
                   {approval.respondedDate && (
-                    <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                    <div className={styles.itemDate}>
                       {new Date(approval.respondedDate).toLocaleDateString()}
                     </div>
                   )}

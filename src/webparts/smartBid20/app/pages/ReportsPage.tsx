@@ -13,6 +13,7 @@ import {
   downloadCSV,
   getExportFilename,
 } from "../utils/exportHelpers";
+import styles from "./ReportsPage.module.scss";
 
 type ReportView = "hub" | "period" | "details" | "operational";
 
@@ -60,14 +61,8 @@ export const ReportsPage: React.FC = () => {
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
+    <div className={styles.page}>
+      <div className={styles.headerRow}>
         <PageHeader
           title="Reports"
           subtitle="Generate and export reports"
@@ -90,27 +85,12 @@ export const ReportsPage: React.FC = () => {
         <ExportOptions onExport={handleExport} />
       </div>
 
-      <div style={{ display: "flex", gap: 8 }}>
+      <div className={styles.tabBar}>
         {reports.map((r) => (
           <button
             key={r.key}
             onClick={() => setActiveReport(r.key)}
-            style={{
-              padding: "8px 20px",
-              borderRadius: 8,
-              border:
-                activeReport === r.key
-                  ? "none"
-                  : "1px solid var(--border-subtle)",
-              background:
-                activeReport === r.key
-                  ? "var(--accent-color, #3B82F6)"
-                  : "transparent",
-              color: activeReport === r.key ? "#fff" : "var(--text-secondary)",
-              cursor: "pointer",
-              fontSize: 14,
-              fontWeight: activeReport === r.key ? 600 : 400,
-            }}
+            className={`${styles.tabBtn} ${activeReport === r.key ? styles.tabBtnActive : ""}`}
           >
             {r.label}
           </button>

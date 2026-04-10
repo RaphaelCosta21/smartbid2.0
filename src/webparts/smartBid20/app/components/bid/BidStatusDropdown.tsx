@@ -1,5 +1,6 @@
 import * as React from "react";
 import { BID_STATUSES, getStatusColor } from "../../config/status.config";
+import styles from "./BidStatusDropdown.module.scss";
 
 interface BidStatusDropdownProps {
   value: string;
@@ -19,16 +20,12 @@ export const BidStatusDropdown: React.FC<BidStatusDropdownProps> = ({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
+      className={styles.select}
       style={{
-        padding: "4px 8px",
-        borderRadius: 6,
         border: `1px solid ${color}40`,
         background: `${color}14`,
         color,
-        fontSize: 12,
-        fontWeight: 600,
         cursor: disabled ? "not-allowed" : "pointer",
-        outline: "none",
       }}
     >
       {BID_STATUSES.map((s) => (

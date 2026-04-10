@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./DivisionBadge.module.scss";
 
 interface DivisionBadgeProps {
   division: string;
@@ -20,14 +21,8 @@ export const DivisionBadge: React.FC<DivisionBadgeProps> = ({
 
   return (
     <span
-      className={className}
+      className={`${styles.badge} ${className || ""}`}
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "2px 10px",
-        borderRadius: 12,
-        fontSize: 12,
-        fontWeight: 600,
         background: `${color}20`,
         color,
         border: `1px solid ${color}40`,

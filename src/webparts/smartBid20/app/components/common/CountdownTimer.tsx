@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./CountdownTimer.module.scss";
 
 interface CountdownTimerProps {
   targetDate: string;
@@ -40,13 +41,8 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
 
   return (
     <span
-      className={className}
+      className={`${styles.timer} ${className || ""}`}
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
-        fontSize: 12,
-        fontWeight: 600,
         color: isOverdue
           ? "#EF4444"
           : remaining.startsWith("0")

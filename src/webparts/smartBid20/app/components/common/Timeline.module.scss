@@ -1,0 +1,50 @@
+.container {
+  position: relative;
+  padding-left: 24px;
+}
+
+.line {
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border-subtle);
+}
+
+.item {
+  position: relative;
+  padding-left: 24px;
+  padding-bottom: 20px;
+}
+
+.dot {
+  position: absolute;
+  left: -20px;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--card-bg, #fff);
+}
+
+.itemTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.itemDescription {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.itemTimestamp {
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}

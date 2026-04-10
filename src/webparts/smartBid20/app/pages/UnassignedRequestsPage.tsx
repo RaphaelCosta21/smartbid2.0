@@ -6,6 +6,7 @@ import { GlassCard } from "../components/common/GlassCard";
 import { useRequests } from "../hooks/useRequests";
 import { IBidRequest } from "../models/IBidRequest";
 import { format } from "date-fns";
+import styles from "./UnassignedRequestsPage.module.scss";
 
 export const UnassignedRequestsPage: React.FC = () => {
   const { requests } = useRequests();
@@ -25,15 +26,7 @@ export const UnassignedRequestsPage: React.FC = () => {
       sortable: true,
       width: 140,
       render: (r: IBidRequest) => (
-        <span
-          style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 12,
-            color: "var(--secondary-accent)",
-          }}
-        >
-          {r.requestNumber}
-        </span>
+        <span className={styles.mono}>{r.requestNumber}</span>
       ),
     },
     {
@@ -47,17 +40,7 @@ export const UnassignedRequestsPage: React.FC = () => {
       header: "Project",
       sortable: true,
       render: (r: IBidRequest) => (
-        <span
-          style={{
-            maxWidth: 200,
-            display: "inline-block",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap" as const,
-          }}
-        >
-          {r.projectName}
-        </span>
+        <span className={styles.textTruncate}>{r.projectName}</span>
       ),
     },
     {
@@ -92,7 +75,7 @@ export const UnassignedRequestsPage: React.FC = () => {
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div className={styles.page}>
       <PageHeader
         title="Unassigned Requests"
         subtitle={`${requests.filter((r) => r.status === "submitted").length} requests awaiting assignment`}
@@ -114,23 +97,12 @@ export const UnassignedRequestsPage: React.FC = () => {
       />
 
       {/* Tab Bar */}
-      <div style={{ display: "flex", gap: 8 }}>
+      <div className={styles.tabBar}>
         {(["submitted", "assigned", "all"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            style={{
-              padding: "8px 20px",
-              borderRadius: 8,
-              border: "1px solid var(--border-subtle)",
-              background:
-                tab === t ? "var(--primary-accent)" : "var(--card-bg)",
-              color: tab === t ? "#fff" : "var(--text-primary)",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 600,
-              textTransform: "capitalize",
-            }}
+            className={`${styles.tabBtn} ${tab === t ? styles.tabBtnActive : ""}`}
           >
             {t} (
             {

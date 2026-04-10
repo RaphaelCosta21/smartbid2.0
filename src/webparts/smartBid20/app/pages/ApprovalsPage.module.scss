@@ -1,0 +1,208 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.tabBar {
+  display: flex;
+  gap: 8px;
+}
+
+.tabBtn {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: capitalize;
+  transition: all 200ms ease;
+
+  &.tabBtnActive {
+    background: var(--primary-accent);
+    color: #fff;
+    border-color: var(--primary-accent);
+  }
+}
+
+.emptyState {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-muted);
+}
+
+.approvalCards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.approvalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.bidNumber {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  color: var(--secondary-accent);
+  margin-right: 12px;
+}
+
+.requestInfo {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.chainName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.chainContainer {
+  margin-bottom: 12px;
+}
+
+.stepsRow {
+  display: flex;
+  gap: 0;
+  align-items: center;
+}
+
+.stepNode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+}
+
+.stepCircle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  border-width: 2px;
+  border-style: solid;
+}
+
+.stepApproved {
+  background: rgba(16, 185, 129, 0.19);
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.stepRejected {
+  background: rgba(239, 68, 68, 0.19);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.stepPending {
+  background: var(--card-bg-elevated);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.stepName {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 6px;
+  text-align: center;
+}
+
+.stepRole {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.stepComment {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  max-width: 120px;
+  text-align: center;
+}
+
+.stepConnector {
+  flex: 1;
+  height: 2px;
+  min-width: 20px;
+  margin-bottom: 40px;
+}
+
+.stepConnectorApproved {
+  background: #10b981;
+}
+
+.stepConnectorDefault {
+  background: var(--border-subtle);
+}
+
+.actionButtons {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+
+.btnApprove {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: none;
+  background: #10b981;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 200ms ease;
+
+  &:hover {
+    background: #059669;
+  }
+}
+
+.btnReject {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 200ms ease;
+
+  &:hover {
+    background: #dc2626;
+  }
+}
+
+.btnOutline {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 200ms ease;
+
+  &:hover {
+    background: var(--card-bg-elevated);
+  }
+}

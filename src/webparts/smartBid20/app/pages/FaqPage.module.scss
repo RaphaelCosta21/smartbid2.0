@@ -1,0 +1,93 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.tabBar {
+  display: flex;
+  gap: 8px;
+}
+
+.tabBtn {
+  padding: 6px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 400;
+  transition: all 200ms ease;
+
+  &.tabBtnActive {
+    border: none;
+    background: var(--accent-color, #3b82f6);
+    color: #fff;
+    font-weight: 600;
+  }
+}
+
+.faqList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.faqItem {
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg);
+  overflow: hidden;
+  transition: border-color 200ms ease;
+
+  &:hover {
+    border-color: var(--border);
+  }
+}
+
+.faqQuestion {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.faqQuestionContent {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.faqCategory {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--border-subtle);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.faqChevron {
+  flex-shrink: 0;
+  transition: transform 200ms ease;
+
+  &.faqChevronOpen {
+    transform: rotate(180deg);
+  }
+}
+
+.faqAnswer {
+  padding: 0 20px 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}

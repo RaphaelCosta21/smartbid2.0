@@ -1,0 +1,44 @@
+.card {
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--card-bg);
+  transition: box-shadow 200ms ease;
+
+  &:hover {
+    box-shadow: var(--shadow-card);
+  }
+}
+
+.cardClickable {
+  cursor: pointer;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.bidNumber {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.statusBadge {
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.metaSub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}

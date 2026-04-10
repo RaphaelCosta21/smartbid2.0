@@ -5,6 +5,7 @@ import { StatusBadge } from "../components/common/StatusBadge";
 import { useTemplates } from "../hooks/useTemplates";
 import { DIVISION_COLORS } from "../utils/constants";
 import { format } from "date-fns";
+import styles from "./TemplatesPage.module.scss";
 
 export const TemplatesPage: React.FC = () => {
   const { templates } = useTemplates();
@@ -22,7 +23,7 @@ export const TemplatesPage: React.FC = () => {
   }, [search, templates]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div className={styles.page}>
       <PageHeader
         title="Templates"
         subtitle={`${templates.length} equipment templates available`}
@@ -48,47 +49,17 @@ export const TemplatesPage: React.FC = () => {
         placeholder="Search templates by name, division, or tag..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        style={{
-          padding: "10px 16px",
-          borderRadius: 10,
-          border: "1px solid var(--border-subtle)",
-          background: "var(--card-bg)",
-          color: "var(--text-primary)",
-          fontSize: 14,
-          maxWidth: 400,
-        }}
+        className={styles.searchInput}
       />
 
       {/* Template Grid */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-          gap: 16,
-        }}
-      >
+      <div className={styles.cardGrid}>
         {filtered.map((tpl) => (
           <GlassCard key={tpl.id}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                marginBottom: 12,
-              }}
-            >
+            <div className={styles.tplHeader}>
               <div>
-                <div
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 600,
-                    color: "var(--text-primary)",
-                    marginBottom: 4,
-                  }}
-                >
-                  {tpl.name}
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
+                <div className={styles.tplName}>{tpl.name}</div>
+                <div className={styles.tplBadges}>
                   <StatusBadge
                     status={tpl.division}
                     color={DIVISION_COLORS[tpl.division]}
@@ -97,75 +68,29 @@ export const TemplatesPage: React.FC = () => {
                 </div>
               </div>
               <span
-                style={{
-                  fontSize: 11,
-                  padding: "2px 8px",
-                  borderRadius: 999,
-                  background: tpl.isActive ? "#10b98120" : "#ef444420",
-                  color: tpl.isActive ? "#10b981" : "#ef4444",
-                  fontWeight: 600,
-                }}
+                className={`${styles.tplStatusBadge} ${tpl.isActive ? styles.tplActive : styles.tplInactive}`}
               >
                 {tpl.isActive ? "Active" : "Inactive"}
               </span>
             </div>
 
-            <p
-              style={{
-                fontSize: 12,
-                color: "var(--text-secondary)",
-                lineHeight: 1.5,
-                margin: "0 0 12px",
-              }}
-            >
-              {tpl.description}
-            </p>
+            <p className={styles.tplDescription}>{tpl.description}</p>
 
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 6,
-                marginBottom: 12,
-              }}
-            >
+            <div className={styles.tplTags}>
               {tpl.tags.map((tag) => (
-                <span
-                  key={tag}
-                  style={{
-                    padding: "3px 10px",
-                    borderRadius: 999,
-                    fontSize: 11,
-                    background: "var(--card-bg-elevated)",
-                    color: "var(--text-secondary)",
-                    border: "1px solid var(--border-subtle)",
-                  }}
-                >
+                <span key={tag} className={styles.tplTag}>
                   {tag}
                 </span>
               ))}
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: 11,
-                color: "var(--text-muted)",
-              }}
-            >
+            <div className={styles.tplMeta}>
               <span>{tpl.equipmentItems.length} items</span>
               <span>Used {tpl.usageCount}x</span>
               <span>By {tpl.createdBy}</span>
             </div>
             {tpl.lastModified && (
-              <div
-                style={{
-                  fontSize: 10,
-                  color: "var(--text-muted)",
-                  marginTop: 4,
-                }}
-              >
+              <div className={styles.tplDate}>
                 Last modified:{" "}
                 {format(new Date(tpl.lastModified), "MMM d, yyyy")}
               </div>

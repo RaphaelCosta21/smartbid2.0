@@ -6,6 +6,7 @@ import { mockApprovals } from "../data/mockApprovals";
 import { useApprovals } from "../hooks/useApprovals";
 import { useAccessLevel } from "../hooks/useAccessLevel";
 import { format } from "date-fns";
+import styles from "./ApprovalsPage.module.scss";
 
 type ApprovalTab = "pending" | "approved" | "rejected" | "all";
 
@@ -30,7 +31,7 @@ export const ApprovalsPage: React.FC = () => {
           : "#94a3b8";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div className={styles.page}>
       <PageHeader
         title="Approvals"
         subtitle={`${approvalSummary.totalPending} pending approvals across ${approvalSummary.pending.length} BIDs`}
@@ -50,24 +51,13 @@ export const ApprovalsPage: React.FC = () => {
       />
 
       {/* Tab Bar */}
-      <div style={{ display: "flex", gap: 8 }}>
+      <div className={styles.tabBar}>
         {(["pending", "approved", "rejected", "all"] as ApprovalTab[]).map(
           (t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              style={{
-                padding: "8px 20px",
-                borderRadius: 8,
-                border: "1px solid var(--border-subtle)",
-                background:
-                  tab === t ? "var(--primary-accent)" : "var(--card-bg)",
-                color: tab === t ? "#fff" : "var(--text-primary)",
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 600,
-                textTransform: "capitalize",
-              }}
+              className={`${styles.tabBtn} ${tab === t ? styles.tabBtnActive : ""}`}
             >
               {t} (
               {
@@ -84,39 +74,17 @@ export const ApprovalsPage: React.FC = () => {
       {/* Approval Cards */}
       {filtered.length === 0 ? (
         <GlassCard>
-          <div
-            style={{
-              textAlign: "center",
-              padding: 32,
-              color: "var(--text-muted)",
-            }}
-          >
+          <div className={styles.emptyState}>
             No approvals in this category.
           </div>
         </GlassCard>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className={styles.approvalCards}>
           {filtered.map((approval) => (
             <GlassCard key={approval.bidNumber}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 16,
-                }}
-              >
+              <div className={styles.approvalHeader}>
                 <div>
-                  <span
-                    style={{
-                      fontFamily: "'JetBrains Mono', monospace",
-                      fontSize: 14,
-                      color: "var(--secondary-accent)",
-                      marginRight: 12,
-                    }}
-                  >
-                    {approval.bidNumber}
-                  </span>
+                  <span className={styles.bidNumber}>{approval.bidNumber}</span>
                   <StatusBadge status={approval.type.replace("-", " ")} />
                 </div>
                 <StatusBadge
@@ -125,13 +93,7 @@ export const ApprovalsPage: React.FC = () => {
                 />
               </div>
 
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "var(--text-secondary)",
-                  marginBottom: 16,
-                }}
-              >
+              <div className={styles.requestInfo}>
                 Requested by <strong>{approval.requestedBy.name}</strong> (
                 {approval.requestedBy.role}) on{" "}
                 {format(new Date(approval.requestedDate), "MMM d, yyyy HH:mm")}
@@ -139,54 +101,16 @@ export const ApprovalsPage: React.FC = () => {
 
               {/* Approval Chain */}
               {approval.chains.map((chain) => (
-                <div key={chain.chainId} style={{ marginBottom: 12 }}>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: "var(--text-primary)",
-                      marginBottom: 12,
-                    }}
-                  >
+                <div key={chain.chainId} className={styles.chainContainer}>
+                  <div className={styles.chainName}>
                     {chain.chainName} <StatusBadge status={chain.division} />
                   </div>
-                  <div
-                    style={{ display: "flex", gap: 0, alignItems: "center" }}
-                  >
+                  <div className={styles.stepsRow}>
                     {chain.steps.map((step, idx) => (
                       <React.Fragment key={idx}>
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            minWidth: 120,
-                          }}
-                        >
+                        <div className={styles.stepNode}>
                           <div
-                            style={{
-                              width: 36,
-                              height: 36,
-                              borderRadius: "50%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: 14,
-                              fontWeight: 700,
-                              background:
-                                step.decision === "approved"
-                                  ? "#10b98130"
-                                  : step.decision === "rejected"
-                                    ? "#ef444430"
-                                    : "var(--card-bg-elevated)",
-                              border: `2px solid ${step.decision === "approved" ? "#10b981" : step.decision === "rejected" ? "#ef4444" : "var(--border-subtle)"}`,
-                              color:
-                                step.decision === "approved"
-                                  ? "#10b981"
-                                  : step.decision === "rejected"
-                                    ? "#ef4444"
-                                    : "var(--text-muted)",
-                            }}
+                            className={`${styles.stepCircle} ${step.decision === "approved" ? styles.stepApproved : step.decision === "rejected" ? styles.stepRejected : styles.stepPending}`}
                           >
                             {step.decision === "approved"
                               ? "✓"
@@ -194,52 +118,19 @@ export const ApprovalsPage: React.FC = () => {
                                 ? "✕"
                                 : idx + 1}
                           </div>
-                          <div
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 600,
-                              color: "var(--text-primary)",
-                              marginTop: 6,
-                              textAlign: "center",
-                            }}
-                          >
+                          <div className={styles.stepName}>
                             {step.approver.name.split(" ")[0]}
                           </div>
-                          <div
-                            style={{
-                              fontSize: 10,
-                              color: "var(--text-muted)",
-                              textAlign: "center",
-                            }}
-                          >
-                            {step.role}
-                          </div>
+                          <div className={styles.stepRole}>{step.role}</div>
                           {step.comments && (
-                            <div
-                              style={{
-                                fontSize: 10,
-                                color: "var(--text-secondary)",
-                                marginTop: 4,
-                                maxWidth: 120,
-                                textAlign: "center",
-                              }}
-                            >
+                            <div className={styles.stepComment}>
                               &quot;{step.comments.substring(0, 40)}…&quot;
                             </div>
                           )}
                         </div>
                         {idx < chain.steps.length - 1 && (
                           <div
-                            style={{
-                              flex: 1,
-                              height: 2,
-                              minWidth: 20,
-                              background:
-                                chain.steps[idx].decision === "approved"
-                                  ? "#10b981"
-                                  : "var(--border-subtle)",
-                              marginBottom: 40,
-                            }}
+                            className={`${styles.stepConnector} ${chain.steps[idx].decision === "approved" ? styles.stepConnectorApproved : styles.stepConnectorDefault}`}
                           />
                         )}
                       </React.Fragment>
@@ -249,54 +140,10 @@ export const ApprovalsPage: React.FC = () => {
               ))}
 
               {canManageApprovals && approval.status === "pending" && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    marginTop: 16,
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  <button
-                    style={{
-                      padding: "8px 20px",
-                      borderRadius: 8,
-                      border: "none",
-                      background: "#10b981",
-                      color: "#fff",
-                      cursor: "pointer",
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    style={{
-                      padding: "8px 20px",
-                      borderRadius: 8,
-                      border: "none",
-                      background: "#ef4444",
-                      color: "#fff",
-                      cursor: "pointer",
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
-                  >
-                    Reject
-                  </button>
-                  <button
-                    style={{
-                      padding: "8px 20px",
-                      borderRadius: 8,
-                      border: "1px solid var(--border-subtle)",
-                      background: "transparent",
-                      color: "var(--text-primary)",
-                      cursor: "pointer",
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
-                  >
+                <div className={styles.actionButtons}>
+                  <button className={styles.btnApprove}>Approve</button>
+                  <button className={styles.btnReject}>Reject</button>
+                  <button className={styles.btnOutline}>
                     Request Revision
                   </button>
                 </div>

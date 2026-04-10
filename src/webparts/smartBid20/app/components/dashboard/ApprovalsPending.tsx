@@ -1,5 +1,6 @@
 import * as React from "react";
 import { GlassCard } from "../common/GlassCard";
+import styles from "./ApprovalsPending.module.scss";
 
 interface ApprovalsPendingProps {
   approvals: { bidNumber: string; requester: string; days: number }[];
@@ -12,58 +13,35 @@ export const ApprovalsPending: React.FC<ApprovalsPendingProps> = ({
   onView,
   className,
 }) => {
+  const getDaysClass = (days: number): string => {
+    if (days > 3) return styles.urgent;
+    if (days > 1) return styles.warning;
+    return styles.normal;
+  };
+
   return (
     <GlassCard
       title={`Pending Approvals (${approvals.length})`}
       className={className}
     >
       {approvals.length === 0 ? (
-        <div
-          style={{ padding: 16, color: "var(--text-secondary)", fontSize: 14 }}
-        >
-          No pending approvals
-        </div>
+        <div className={styles.emptyState}>No pending approvals</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div className={styles.approvalList}>
           {approvals.map((a) => (
             <div
               key={a.bidNumber}
+              className={`${styles.approvalItem} ${a.days > 3 ? styles.stale : ""}`}
               onClick={() => onView?.(a.bidNumber)}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "10px 12px",
-                borderRadius: 8,
-                cursor: onView ? "pointer" : "default",
-                background: a.days > 3 ? "#F59E0B08" : "transparent",
-              }}
             >
-              <div>
-                <span style={{ fontWeight: 600, fontSize: 14 }}>
-                  {a.bidNumber}
-                </span>
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "var(--text-secondary)",
-                    marginLeft: 8,
-                  }}
-                >
+              <div className={styles.approvalInfo}>
+                <span className={styles.approvalBid}>{a.bidNumber}</span>
+                <span className={styles.approvalRequester}>
                   by {a.requester}
                 </span>
               </div>
               <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color:
-                    a.days > 3
-                      ? "#EF4444"
-                      : a.days > 1
-                        ? "#F59E0B"
-                        : "var(--text-secondary)",
-                }}
+                className={`${styles.approvalDays} ${getDaysClass(a.days)}`}
               >
                 {a.days}d ago
               </span>

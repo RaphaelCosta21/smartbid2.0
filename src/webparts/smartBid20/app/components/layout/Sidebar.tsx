@@ -486,13 +486,13 @@ export const Sidebar: React.FC = () => {
                     isCollapsed={!sidebarExpanded}
                   >
                     {item.children.map((child) => (
-                      <SidebarItem
+                      <div
                         key={child.key}
-                        icon={<Icon name={child.icon || item.icon} size={14} />}
-                        label={child.label}
-                        isActive={currentPath === child.route}
+                        className={`${styles.submenuItem} ${currentPath === child.route ? styles.active : ""}`}
                         onClick={() => navigate(child.route)}
-                      />
+                      >
+                        {child.label}
+                      </div>
                     ))}
                   </SidebarSubmenu>
                 ) : (
@@ -501,6 +501,7 @@ export const Sidebar: React.FC = () => {
                     label={item.label}
                     isActive={currentPath === item.route}
                     badge={item.badge}
+                    badgePulsing={item.badgePulsing}
                     isCollapsed={!sidebarExpanded}
                     onClick={() => navigate(item.route)}
                   />

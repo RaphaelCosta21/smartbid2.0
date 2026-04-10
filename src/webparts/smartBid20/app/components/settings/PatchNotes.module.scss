@@ -1,0 +1,48 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.noteCard {
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg);
+}
+
+.noteHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.noteVersion {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.noteDate {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.noteList {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.noteItem {
+  font-size: 14px;
+  color: var(--text-secondary);
+}

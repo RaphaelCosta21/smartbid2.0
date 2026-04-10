@@ -358,3 +358,171 @@
     color: var(--text-primary);
   }
 }
+
+/* ── Additional classes for inline style extraction ── */
+
+.flexColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.flexColumnSmall {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.scopeDescription {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.timelineStepRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 24px 0;
+  overflow-x: auto;
+}
+
+.timelineStepItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 100px;
+}
+
+.timelinePhaseCircle {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+
+.timelineStepLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 8px;
+}
+
+.timelineConnector {
+  flex: 1;
+  height: 2px;
+  min-width: 30px;
+  margin-bottom: 24px;
+}
+
+.timelineConnectorCompleted {
+  background: var(--success);
+}
+
+.timelineConnectorPending {
+  background: var(--border-subtle);
+}
+
+.stepHistoryItem {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.stepDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 5px;
+  background: var(--primary-accent);
+  flex-shrink: 0;
+}
+
+.stepText {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.stepMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.docList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.docItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--card-bg-elevated);
+  border-radius: 8px;
+}
+
+.docItemInfo {
+  flex: 1;
+}
+
+.docItemName {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.docItemMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.noteContent {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.qualificationsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.qualificationTag {
+  padding: 6px 14px;
+  background: var(--card-bg-elevated);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.emptyTabContent {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.emptyTabIcon {
+  margin-bottom: 8px;
+  opacity: 0.4;
+}
+
+.emptyTabIconLg {
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.emptyTabTitle {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 8px;
+}
+
+.emptyTabText {
+  font-size: 13px;
+}

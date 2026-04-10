@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./PatchNotes.module.scss";
 
 interface PatchNote {
   version: string;
@@ -23,47 +24,17 @@ export const PatchNotes: React.FC = () => {
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Patch Notes</h3>
+    <div className={styles.container}>
+      <h3 className={styles.title}>Patch Notes</h3>
       {notes.map((note) => (
-        <div
-          key={note.version}
-          style={{
-            padding: 20,
-            borderRadius: 12,
-            border: "1px solid var(--border-subtle)",
-            background: "var(--card-bg)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
-          >
-            <span style={{ fontSize: 16, fontWeight: 700 }}>
-              v{note.version}
-            </span>
-            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-              {note.date}
-            </span>
+        <div key={note.version} className={styles.noteCard}>
+          <div className={styles.noteHeader}>
+            <span className={styles.noteVersion}>v{note.version}</span>
+            <span className={styles.noteDate}>{note.date}</span>
           </div>
-          <ul
-            style={{
-              margin: 0,
-              paddingLeft: 20,
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-            }}
-          >
+          <ul className={styles.noteList}>
             {note.changes.map((change, i) => (
-              <li
-                key={i}
-                style={{ fontSize: 14, color: "var(--text-secondary)" }}
-              >
+              <li key={i} className={styles.noteItem}>
                 {change}
               </li>
             ))}

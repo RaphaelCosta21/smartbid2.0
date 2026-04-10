@@ -1,0 +1,64 @@
+.emptyState {
+  padding: 16px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.approvalList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.approvalItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover {
+    background: var(--card-bg-elevated);
+  }
+
+  &.stale {
+    background: rgba(245, 158, 11, 0.03);
+  }
+}
+
+.approvalInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.approvalBid {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  font-family: "JetBrains Mono", monospace;
+}
+
+.approvalRequester {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.approvalDays {
+  font-size: 12px;
+  font-weight: 600;
+
+  &.urgent {
+    color: #ef4444;
+  }
+
+  &.warning {
+    color: #f59e0b;
+  }
+
+  &.normal {
+    color: var(--text-secondary);
+  }
+}

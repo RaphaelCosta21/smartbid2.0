@@ -30,13 +30,6 @@ const TABS: ITabDef[] = [
     configKey: "serviceLines",
   },
   { key: "bidTypes", label: "Bid Types", icon: "📋", configKey: "bidTypes" },
-  { key: "bidSizes", label: "Bid Sizes", icon: "📏", configKey: "bidSizes" },
-  {
-    key: "priorities",
-    label: "Priorities",
-    icon: "🔥",
-    configKey: "priorities",
-  },
   {
     key: "bidStatuses",
     label: "Statuses",
@@ -118,10 +111,11 @@ const KPI_META: Record<keyof IKPITargets, { label: string; unit: string }> = {
 
 const ROLES = [
   "manager",
-  "engineer",
-  "bidder",
-  "projectTeam",
-  "viewer",
+  "project",
+  "operations",
+  "equipment",
+  "dataCenter",
+  "engineering",
   "guest",
 ] as const;
 
@@ -262,7 +256,7 @@ const SystemConfiguration: React.FC = () => {
             activate/deactivate.
           </p>
         </div>
-        <div style={{ marginBottom: 12 }}>
+        <div className={styles.addBtnRow}>
           <button
             className={`${styles.actionBtn} ${styles.primary}`}
             onClick={openAddPanel}
@@ -499,7 +493,7 @@ const SystemConfiguration: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ marginTop: 24 }}>
+        <div className={styles.approversSection}>
           <div className={styles.sectionHeader}>
             <h3>Default Approvers</h3>
           </div>

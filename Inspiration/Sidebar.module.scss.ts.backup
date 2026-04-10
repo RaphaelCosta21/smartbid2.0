@@ -1,0 +1,29 @@
+
+require("./Sidebar.module.css");
+const styles = {
+  sidebar: 'sidebar_ab7a9f69',
+  logo: 'logo_ab7a9f69',
+  logoIcon: 'logoIcon_ab7a9f69',
+  logoText: 'logoText_ab7a9f69',
+  createBtn: 'createBtn_ab7a9f69',
+  navSection: 'navSection_ab7a9f69',
+  sectionLabel: 'sectionLabel_ab7a9f69',
+  navItem: 'navItem_ab7a9f69',
+  active: 'active_ab7a9f69',
+  navLabel: 'navLabel_ab7a9f69',
+  badge: 'badge_ab7a9f69',
+  pulsing: 'pulsing_ab7a9f69',
+  'pulse-badge': 'pulse-badge_ab7a9f69',
+  submenuToggle: 'submenuToggle_ab7a9f69',
+  chevron: 'chevron_ab7a9f69',
+  open: 'open_ab7a9f69',
+  submenu: 'submenu_ab7a9f69',
+  submenuItem: 'submenuItem_ab7a9f69',
+  sidebarFooter: 'sidebarFooter_ab7a9f69',
+  themeToggle: 'themeToggle_ab7a9f69',
+  brandFooter: 'brandFooter_ab7a9f69',
+  createdBy: 'createdBy_ab7a9f69',
+  collapseBtn: 'collapseBtn_ab7a9f69'
+};
+
+export default styles;

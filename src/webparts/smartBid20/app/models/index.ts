@@ -1,4 +1,9 @@
-export { type IUser, type IPersonRef, type UserRole } from "./IUser";
+export {
+  type IUser,
+  type IPersonRef,
+  type UserRole,
+  type MemberDivision,
+} from "./IUser";
 export {
   type BidPhase,
   type BidStatusId,

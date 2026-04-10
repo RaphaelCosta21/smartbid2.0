@@ -1,10 +1,11 @@
 import * as React from "react";
+import styles from "./OperationalSummaryReport.module.scss";
 
 export const OperationalSummaryReport: React.FC = () => {
   return (
-    <div style={{ padding: 20 }}>
+    <div className={styles.container}>
       <h3>Operational Summary Report</h3>
-      <p style={{ color: "var(--text-secondary)" }}>
+      <p className={styles.subtitle}>
         Overview of operational metrics and BID throughput.
       </p>
     </div>

@@ -137,7 +137,7 @@ export const MOCK_BIDS: IBid[] = [
     serviceLine: "IMR",
     bidType: "Firm",
     bidSize: "Epic",
-    priority: "High",
+    priority: "Normal",
     opportunityInfo: {
       client: "Petrobras",
       clientContact: "João Silva",
@@ -311,7 +311,7 @@ export const MOCK_BIDS: IBid[] = [
     serviceLine: "Installation",
     bidType: "Budgetary",
     bidSize: "Epic",
-    priority: "High",
+    priority: "Normal",
     opportunityInfo: {
       client: "Equinor",
       clientContact: "Anders Berg",
@@ -420,7 +420,7 @@ export const MOCK_BIDS: IBid[] = [
     serviceLine: "IMR",
     bidType: "Firm",
     bidSize: "Epic",
-    priority: "High",
+    priority: "Normal",
     opportunityInfo: {
       client: "Petrobras",
       clientContact: "Roberto Lima",
@@ -610,7 +610,7 @@ export const MOCK_BIDS: IBid[] = [
     serviceLine: "Tooling",
     bidType: "Firm",
     bidSize: "Standard",
-    priority: "High",
+    priority: "Normal",
     opportunityInfo: {
       client: "Subsea7",
       clientContact: "Henrik Larsen",
@@ -925,7 +925,7 @@ export const MOCK_BIDS: IBid[] = [
     serviceLine: "Construction",
     bidType: "Firm",
     bidSize: "Epic",
-    priority: "High",
+    priority: "Normal",
     opportunityInfo: {
       client: "Petrobras",
       clientContact: "Roberto Lima",

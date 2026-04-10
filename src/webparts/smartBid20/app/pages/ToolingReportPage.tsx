@@ -6,6 +6,7 @@ import { ProgressBar } from "../components/common/ProgressBar";
 import { useBids } from "../hooks/useBids";
 import { formatCurrency } from "../utils/formatters";
 import { DIVISION_COLORS } from "../utils/constants";
+import styles from "./ToolingReportPage.module.scss";
 
 interface IToolingStat {
   name: string;
@@ -45,50 +46,88 @@ export const ToolingReportPage: React.FC = () => {
   const maxBidCount = Math.max(...toolingStats.map((t) => t.bidCount), 1);
 
   const columns = [
-    { key: "name", header: "Equipment", render: (t: IToolingStat) => <span style={{ fontWeight: 600 }}>{t.name}</span> },
-    { key: "division", header: "Division", render: (t: IToolingStat) => <DivisionBadge division={t.division} /> },
-    { key: "qty", header: "Total Qty", render: (t: IToolingStat) => t.totalQty },
-    { key: "cost", header: "Total Cost", render: (t: IToolingStat) => formatCurrency(t.avgCost) },
-    { key: "bids", header: "Used in BIDs", render: (t: IToolingStat) => (
-      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 120 }}>
-        <ProgressBar value={t.bidCount} max={maxBidCount} color={DIVISION_COLORS[t.division] || "#3B82F6"} />
-        <span style={{ fontSize: 12 }}>{t.bidCount}</span>
-      </div>
-    )},
+    {
+      key: "name",
+      header: "Equipment",
+      render: (t: IToolingStat) => (
+        <span className={styles.bold}>{t.name}</span>
+      ),
+    },
+    {
+      key: "division",
+      header: "Division",
+      render: (t: IToolingStat) => <DivisionBadge division={t.division} />,
+    },
+    {
+      key: "qty",
+      header: "Total Qty",
+      render: (t: IToolingStat) => t.totalQty,
+    },
+    {
+      key: "cost",
+      header: "Total Cost",
+      render: (t: IToolingStat) => formatCurrency(t.avgCost),
+    },
+    {
+      key: "bids",
+      header: "Used in BIDs",
+      render: (t: IToolingStat) => (
+        <div className={styles.bidUsageCell}>
+          <ProgressBar
+            value={t.bidCount}
+            max={maxBidCount}
+            color={DIVISION_COLORS[t.division] || "#3B82F6"}
+          />
+          <span className={styles.bidUsageCount}>{t.bidCount}</span>
+        </div>
+      ),
+    },
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div className={styles.page}>
       <PageHeader
         title="Tooling Report"
         subtitle={`${toolingStats.length} equipment types across ${filteredBids.length} BIDs`}
         icon={
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
           </svg>
         }
       />
 
-      {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-        <div style={{ padding: 20, background: "var(--card-bg)", borderRadius: 12, border: "1px solid var(--border-subtle)" }}>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Unique Equipment Types</div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>{toolingStats.length}</div>
+      <div className={styles.statsGrid}>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>Unique Equipment Types</div>
+          <div className={styles.statValue}>{toolingStats.length}</div>
         </div>
-        <div style={{ padding: 20, background: "var(--card-bg)", borderRadius: 12, border: "1px solid var(--border-subtle)" }}>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Total Quantity</div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>{toolingStats.reduce((sum, t) => sum + t.totalQty, 0)}</div>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>Total Quantity</div>
+          <div className={styles.statValue}>
+            {toolingStats.reduce((sum, t) => sum + t.totalQty, 0)}
+          </div>
         </div>
-        <div style={{ padding: 20, background: "var(--card-bg)", borderRadius: 12, border: "1px solid var(--border-subtle)" }}>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Total Value</div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>{formatCurrency(toolingStats.reduce((sum, t) => sum + t.avgCost, 0))}</div>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>Total Value</div>
+          <div className={styles.statValue}>
+            {formatCurrency(
+              toolingStats.reduce((sum, t) => sum + t.avgCost, 0),
+            )}
+          </div>
         </div>
       </div>
 
       {toolingStats.length > 0 ? (
         <DataTable columns={columns} data={toolingStats} />
       ) : (
-        <div style={{ padding: 48, textAlign: "center", color: "var(--text-secondary)", background: "var(--card-bg)", borderRadius: 12, border: "1px solid var(--border-subtle)" }}>
+        <div className={styles.emptyState}>
           No equipment data found in current BIDs.
         </div>
       )}

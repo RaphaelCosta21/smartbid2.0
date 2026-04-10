@@ -1,0 +1,55 @@
+.wrapper {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.body {
+  padding: 16px 20px;
+  background: var(--card-bg);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 14px;
+}
+
+.rowBold {
+  font-weight: 600;
+}
+
+.rowLabel {
+  color: var(--text-secondary);
+}
+
+.totalBar {
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  display: flex;
+  justify-content: space-between;
+  color: #fff;
+}
+
+.totalLabel {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.totalValue {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.totalRight {
+  text-align: right;
+}
+
+.notes {
+  padding: 12px 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--card-bg);
+}

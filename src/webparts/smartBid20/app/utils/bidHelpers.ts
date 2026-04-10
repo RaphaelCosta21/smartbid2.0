@@ -65,7 +65,7 @@ export function getUniqueOwners(
   }
   const result: { name: string; email: string }[] = [];
   for (const key in seen) {
-    if (seen.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(seen, key)) {
       result.push(seen[key]);
     }
   }

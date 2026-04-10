@@ -1,0 +1,35 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.tabBar {
+  display: flex;
+  gap: 8px;
+}
+
+.tabBtn {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 400;
+  transition: all 200ms ease;
+
+  &.tabBtnActive {
+    border: none;
+    background: var(--accent-color, #3b82f6);
+    color: #fff;
+    font-weight: 600;
+  }
+}

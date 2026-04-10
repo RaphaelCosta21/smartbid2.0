@@ -14,7 +14,7 @@ export class UserService {
       email: (user as { Email: string }).Email,
       jobTitle: "",
       department: "",
-      role: "viewer",
+      role: "engineering",
       teamCategory: "",
       isActive: true,
     };

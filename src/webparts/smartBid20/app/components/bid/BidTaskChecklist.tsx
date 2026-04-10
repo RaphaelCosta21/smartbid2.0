@@ -1,5 +1,6 @@
 import * as React from "react";
 import { IBidTask } from "../../models";
+import styles from "./BidTaskChecklist.module.scss";
 
 interface BidTaskChecklistProps {
   tasks: IBidTask[];
@@ -17,44 +18,32 @@ export const BidTaskChecklist: React.FC<BidTaskChecklistProps> = ({
   const completedCount = tasks.filter((t) => t.status === "completed").length;
 
   return (
-    <div className={className}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-        }}
-      >
-        <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+    <div className={`${styles.container} ${className || ""}`}>
+      <div className={styles.header}>
+        <h4 className={styles.title}>
           Tasks ({completedCount}/{tasks.length})
         </h4>
-        <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+        <span className={styles.progressText}>
           {tasks.length > 0
             ? Math.round((completedCount / tasks.length) * 100)
             : 0}
           % complete
         </span>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div className={styles.taskList}>
         {tasks.map((task) => {
           const isCompleted = task.status === "completed";
           const isSkipped = task.status === "skipped";
           return (
             <div
               key={task.taskId}
+              className={`${styles.taskItem} ${isSkipped ? styles.taskSkipped : ""}`}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "10px 12px",
-                borderRadius: 8,
                 background: isCompleted
                   ? "#10B98108"
                   : isSkipped
                     ? "#94A3B808"
                     : "transparent",
-                opacity: isSkipped ? 0.5 : 1,
               }}
             >
               <input
@@ -62,21 +51,15 @@ export const BidTaskChecklist: React.FC<BidTaskChecklistProps> = ({
                 checked={isCompleted}
                 disabled={readOnly || isSkipped}
                 onChange={() => onToggle?.(task.taskId)}
-                style={{
-                  width: 18,
-                  height: 18,
-                  cursor: readOnly ? "default" : "pointer",
-                }}
+                className={styles.checkbox}
+                style={{ cursor: readOnly ? "default" : "pointer" }}
               />
-              <div style={{ flex: 1 }}>
+              <div className={styles.taskContent}>
                 <span
+                  className={styles.taskName}
                   style={{
-                    fontSize: 14,
-                    textDecoration: isCompleted
-                      ? "line-through"
-                      : isSkipped
-                        ? "line-through"
-                        : "none",
+                    textDecoration:
+                      isCompleted || isSkipped ? "line-through" : "none",
                     color:
                       isCompleted || isSkipped
                         ? "var(--text-secondary)"
@@ -86,9 +69,7 @@ export const BidTaskChecklist: React.FC<BidTaskChecklistProps> = ({
                   <strong>{task.taskId}</strong> — {task.name}
                 </span>
               </div>
-              <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-                {task.assignedTo}
-              </span>
+              <span className={styles.taskAssignee}>{task.assignedTo}</span>
             </div>
           );
         })}

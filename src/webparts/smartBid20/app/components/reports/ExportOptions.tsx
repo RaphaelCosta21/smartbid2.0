@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./ExportOptions.module.scss";
 
 interface ExportOptionsProps {
   onExport: (format: "xlsx" | "pdf" | "print") => void;
@@ -10,41 +11,14 @@ export const ExportOptions: React.FC<ExportOptionsProps> = ({
   className,
 }) => {
   return (
-    <div className={className} style={{ display: "flex", gap: 8 }}>
-      <button
-        onClick={() => onExport("xlsx")}
-        style={{
-          padding: "8px 16px",
-          border: "1px solid var(--border-subtle)",
-          borderRadius: 8,
-          background: "transparent",
-          cursor: "pointer",
-        }}
-      >
+    <div className={`${styles.row} ${className || ""}`}>
+      <button onClick={() => onExport("xlsx")} className={styles.btn}>
         Export Excel
       </button>
-      <button
-        onClick={() => onExport("pdf")}
-        style={{
-          padding: "8px 16px",
-          border: "1px solid var(--border-subtle)",
-          borderRadius: 8,
-          background: "transparent",
-          cursor: "pointer",
-        }}
-      >
+      <button onClick={() => onExport("pdf")} className={styles.btn}>
         Export PDF
       </button>
-      <button
-        onClick={() => onExport("print")}
-        style={{
-          padding: "8px 16px",
-          border: "1px solid var(--border-subtle)",
-          borderRadius: 8,
-          background: "transparent",
-          cursor: "pointer",
-        }}
-      >
+      <button onClick={() => onExport("print")} className={styles.btn}>
         Print
       </button>
     </div>

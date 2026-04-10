@@ -1,0 +1,31 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.placeholderCard {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 48px;
+  border: 1px solid var(--border-subtle);
+  text-align: center;
+}
+
+.placeholderIcon {
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.placeholderTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.placeholderText {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}

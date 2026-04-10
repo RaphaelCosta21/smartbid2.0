@@ -1,6 +1,7 @@
 import * as React from "react";
 import { IBidTemplate } from "../../models/IBidTemplate";
 import { IEquipmentItem } from "../../models";
+import styles from "./TemplateEditor.module.scss";
 
 interface TemplateEditorProps {
   template?: IBidTemplate;
@@ -47,132 +48,50 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   };
 
   return (
-    <div
-      className={className}
-      style={{ display: "flex", flexDirection: "column", gap: 16 }}
-    >
+    <div className={`${styles.form} ${className || ""}`}>
       <div>
-        <label
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            display: "block",
-            marginBottom: 4,
-          }}
-        >
-          Name
-        </label>
+        <label className={styles.label}>Name</label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          style={{
-            width: "100%",
-            padding: 10,
-            border: "1px solid var(--border-subtle)",
-            borderRadius: 8,
-            fontSize: 14,
-          }}
+          className={styles.input}
         />
       </div>
       <div>
-        <label
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            display: "block",
-            marginBottom: 4,
-          }}
-        >
-          Description
-        </label>
+        <label className={styles.label}>Description</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          style={{
-            width: "100%",
-            padding: 10,
-            border: "1px solid var(--border-subtle)",
-            borderRadius: 8,
-            fontSize: 14,
-            minHeight: 60,
-            resize: "vertical",
-          }}
+          className={styles.textarea}
         />
       </div>
       <div>
-        <label
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            display: "block",
-            marginBottom: 4,
-          }}
-        >
-          Division
-        </label>
+        <label className={styles.label}>Division</label>
         <input
           type="text"
           value={division}
           onChange={(e) => setDivision(e.target.value)}
-          style={{
-            width: "100%",
-            padding: 10,
-            border: "1px solid var(--border-subtle)",
-            borderRadius: 8,
-            fontSize: 14,
-          }}
+          className={styles.input}
         />
       </div>
       <div>
-        <label
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            display: "block",
-            marginBottom: 4,
-          }}
-        >
-          Tags (comma separated)
-        </label>
+        <label className={styles.label}>Tags (comma separated)</label>
         <input
           type="text"
           value={tags}
           onChange={(e) => setTags(e.target.value)}
-          style={{
-            width: "100%",
-            padding: 10,
-            border: "1px solid var(--border-subtle)",
-            borderRadius: 8,
-            fontSize: 14,
-          }}
+          className={styles.input}
         />
       </div>
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button
-          onClick={onCancel}
-          style={{
-            padding: "8px 20px",
-            border: "1px solid var(--border-subtle)",
-            borderRadius: 8,
-            background: "transparent",
-            cursor: "pointer",
-          }}
-        >
+      <div className={styles.actions}>
+        <button onClick={onCancel} className={styles.cancelBtn}>
           Cancel
         </button>
         <button
           onClick={handleSave}
           disabled={!name}
-          style={{
-            padding: "8px 20px",
-            background: "var(--accent-color, #3B82F6)",
-            color: "#fff",
-            border: "none",
-            borderRadius: 8,
-            cursor: "pointer",
-            fontWeight: 600,
-          }}
+          className={styles.saveBtn}
         >
           Save
         </button>

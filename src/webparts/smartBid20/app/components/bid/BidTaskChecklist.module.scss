@@ -1,0 +1,58 @@
+.container {
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.progressText {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.taskList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.taskItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.taskSkipped {
+  opacity: 0.5;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+}
+
+.taskContent {
+  flex: 1;
+}
+
+.taskName {
+  font-size: 14px;
+}
+
+.taskAssignee {
+  font-size: 11px;
+  color: var(--text-secondary);
+}

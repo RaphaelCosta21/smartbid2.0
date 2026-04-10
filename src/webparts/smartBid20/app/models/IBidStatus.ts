@@ -44,7 +44,7 @@ export interface IPhaseDef {
   color: string;
 }
 
-export type BidPriority = "Urgent" | "High" | "Normal" | "Low";
+export type BidPriority = "Urgent" | "Normal" | "Low";
 export type BidType = "Firm" | "Budgetary" | "RFI" | "Extension" | "Amendment";
 export type BidSize = "Small" | "Standard" | "Epic";
 export type Division = "OPG" | "SSR-Survey" | "SSR-ROV" | "SSR-Integrated";

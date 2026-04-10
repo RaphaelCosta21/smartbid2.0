@@ -1,0 +1,63 @@
+.emptyState {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.deadlineItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover {
+    background: var(--card-bg-elevated);
+    padding: 10px 8px;
+    border-radius: 8px;
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.deadlineInfo {
+  .deadlineBid {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 2px;
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  .deadlineClient {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+}
+
+.deadlineCountdown {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+
+  &.urgent {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+  }
+
+  &.warning {
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+  }
+
+  &.ok {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+  }
+}

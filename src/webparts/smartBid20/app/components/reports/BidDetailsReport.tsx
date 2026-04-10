@@ -1,10 +1,11 @@
 import * as React from "react";
+import styles from "./BidDetailsReport.module.scss";
 
 export const BidDetailsReport: React.FC = () => {
   return (
-    <div style={{ padding: 20 }}>
+    <div className={styles.container}>
       <h3>BID Details Report</h3>
-      <p style={{ color: "var(--text-secondary)" }}>
+      <p className={styles.subtitle}>
         Select a BID to generate a detailed report.
       </p>
     </div>

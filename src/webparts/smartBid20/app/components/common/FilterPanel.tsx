@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./FilterPanel.module.scss";
 
 interface FilterPanelProps {
   isOpen: boolean;
@@ -17,20 +18,12 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
     <div className={className}>
       <button
         onClick={onToggle}
+        className={styles.toggleBtn}
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "8px 16px",
-          border: "1px solid var(--border-subtle)",
-          borderRadius: 8,
           background: isOpen
             ? "var(--accent-color, #3B82F6)"
             : "var(--card-bg)",
           color: isOpen ? "#fff" : "var(--text-primary)",
-          cursor: "pointer",
-          fontSize: 14,
-          fontWeight: 500,
         }}
       >
         <svg
@@ -45,22 +38,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
         </svg>
         Filters
       </button>
-      {isOpen && (
-        <div
-          style={{
-            marginTop: 12,
-            padding: 20,
-            background: "var(--card-bg)",
-            borderRadius: 12,
-            border: "1px solid var(--border-subtle)",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 16,
-          }}
-        >
-          {children}
-        </div>
-      )}
+      {isOpen && <div className={styles.panel}>{children}</div>}
     </div>
   );
 };

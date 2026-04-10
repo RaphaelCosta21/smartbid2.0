@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./FileUpload.module.scss";
 
 interface FileUploadProps {
   accept?: string;
@@ -34,7 +35,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
   return (
     <div
-      className={className}
+      className={`${styles.dropzone} ${className || ""}`}
       onDragOver={(e) => {
         e.preventDefault();
         setIsDragOver(true);
@@ -43,15 +44,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
       style={{
-        padding: 32,
         border: `2px dashed ${isDragOver ? "var(--accent-color, #3B82F6)" : "var(--border-subtle)"}`,
-        borderRadius: 12,
         background: isDragOver
           ? "var(--accent-color, #3B82F6)10"
           : "transparent",
-        textAlign: "center",
-        cursor: "pointer",
-        transition: "all 0.2s ease",
       }}
     >
       <input
@@ -60,7 +56,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         accept={accept}
         multiple={multiple}
         onChange={(e) => handleFiles(e.target.files)}
-        style={{ display: "none" }}
+        className={styles.hiddenInput}
       />
       <svg
         width="32"
@@ -74,12 +70,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         <polyline points="17 8 12 3 7 8" />
         <line x1="12" y1="3" x2="12" y2="15" />
       </svg>
-      <p style={{ marginTop: 8, fontSize: 14, color: "var(--text-secondary)" }}>
+      <p className={styles.hint}>
         Drag &amp; drop files here or click to browse
       </p>
-      <p style={{ fontSize: 12, color: "var(--text-secondary)", opacity: 0.7 }}>
-        Max {maxSizeMB}MB per file
-      </p>
+      <p className={styles.subHint}>Max {maxSizeMB}MB per file</p>
     </div>
   );
 };

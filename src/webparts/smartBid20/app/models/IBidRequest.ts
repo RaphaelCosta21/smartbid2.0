@@ -1,7 +1,7 @@
 /**
  * IBidRequest — Solicitação do comercial para novo BID.
  */
-import { Division, BidType, BidSize, BidPriority } from "./IBidStatus";
+import { Division, BidType, BidPriority } from "./IBidStatus";
 import { IPersonRef } from "./IUser";
 
 export interface IBidRequest {
@@ -11,15 +11,17 @@ export interface IBidRequest {
   requestDate: string;
   client: string;
   clientContact: string;
+  crmNumber: string;
   projectName: string;
   projectDescription: string;
   division: Division;
   serviceLine: string;
+  projectManager: IPersonRef | null;
   bidType: BidType;
-  bidSize: BidSize;
   priority: BidPriority;
   desiredDueDate: string;
-  region: string;
+  creationDate: string;
+  createdBy: IPersonRef;
   vessel: string;
   field: string;
   attachments: string[];

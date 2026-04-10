@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./DataTable.module.scss";
 
 interface DataTableColumn<T> {
   key: string;
@@ -48,22 +49,12 @@ export function DataTable<T extends object>({
   };
 
   if (data.length === 0) {
-    return (
-      <div
-        style={{
-          textAlign: "center",
-          padding: 40,
-          color: "var(--text-secondary)",
-        }}
-      >
-        {emptyMessage}
-      </div>
-    );
+    return <div className={styles.empty}>{emptyMessage}</div>;
   }
 
   return (
-    <div className={className} style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+    <div className={`${styles.wrapper} ${className || ""}`}>
+      <table className={styles.table}>
         <thead>
           <tr>
             {columns.map((col) => (
@@ -71,15 +62,8 @@ export function DataTable<T extends object>({
                 key={col.key}
                 onClick={() => col.sortable && handleSort(col.key)}
                 style={{
-                  padding: "12px 16px",
-                  textAlign: "left",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--text-secondary)",
-                  borderBottom: "1px solid var(--border-subtle)",
                   cursor: col.sortable ? "pointer" : "default",
                   width: col.width,
-                  whiteSpace: "nowrap",
                 }}
               >
                 {col.header}
@@ -95,17 +79,13 @@ export function DataTable<T extends object>({
             <tr
               key={idx}
               onClick={() => onRowClick?.(item)}
-              style={{
-                cursor: onRowClick ? "pointer" : "default",
-                borderBottom: "1px solid var(--border-subtle)",
-              }}
+              style={{ cursor: onRowClick ? "pointer" : "default" }}
             >
               {columns.map((col) => (
-                <td
-                  key={col.key}
-                  style={{ padding: "12px 16px", fontSize: 14 }}
-                >
-                  {col.render ? col.render(item) : String((item as any)[col.key] ?? "")}
+                <td key={col.key}>
+                  {col.render
+                    ? col.render(item)
+                    : String((item as any)[col.key] ?? "")}
                 </td>
               ))}
             </tr>

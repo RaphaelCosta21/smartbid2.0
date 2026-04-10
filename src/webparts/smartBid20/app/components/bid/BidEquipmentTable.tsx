@@ -1,5 +1,6 @@
 import * as React from "react";
 import { IEquipmentItem } from "../../models";
+import styles from "./BidEquipmentTable.module.scss";
 
 interface BidEquipmentTableProps {
   items: IEquipmentItem[];
@@ -15,24 +16,12 @@ export const BidEquipmentTable: React.FC<BidEquipmentTableProps> = ({
   readOnly = false,
 }) => {
   if (items.length === 0) {
-    return (
-      <div
-        style={{
-          textAlign: "center",
-          padding: 32,
-          color: "var(--text-secondary)",
-        }}
-      >
-        No equipment items added yet
-      </div>
-    );
+    return <div className={styles.empty}>No equipment items added yet</div>;
   }
 
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table
-        style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
-      >
+    <div className={styles.wrapper}>
+      <table className={styles.table}>
         <thead>
           <tr>
             {[
@@ -46,69 +35,30 @@ export const BidEquipmentTable: React.FC<BidEquipmentTableProps> = ({
               "Total Cost",
               "Category",
             ].map((h) => (
-              <th
-                key={h}
-                style={{
-                  padding: "10px 12px",
-                  textAlign: "left",
-                  borderBottom: "1px solid var(--border-subtle)",
-                  fontWeight: 600,
-                  fontSize: 12,
-                  color: "var(--text-secondary)",
-                }}
-              >
-                {h}
-              </th>
+              <th key={h}>{h}</th>
             ))}
-            {!readOnly && (
-              <th
-                style={{
-                  padding: "10px 12px",
-                  borderBottom: "1px solid var(--border-subtle)",
-                }}
-              />
-            )}
+            {!readOnly && <th />}
           </tr>
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr
-              key={item.id}
-              style={{ borderBottom: "1px solid var(--border-subtle)" }}
-            >
-              <td style={{ padding: "10px 12px" }}>{item.lineNumber}</td>
-              <td style={{ padding: "10px 12px", fontFamily: "monospace" }}>
-                {item.partNumber}
-              </td>
-              <td style={{ padding: "10px 12px" }}>{item.toolDescription}</td>
-              <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                {item.qtyOperational}
-              </td>
-              <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                {item.qtySpare}
-              </td>
-              <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                {item.qtyToBuy}
-              </td>
-              <td style={{ padding: "10px 12px", textAlign: "right" }}>
+            <tr key={item.id}>
+              <td>{item.lineNumber}</td>
+              <td className={styles.cellMono}>{item.partNumber}</td>
+              <td>{item.toolDescription}</td>
+              <td className={styles.cellCenter}>{item.qtyOperational}</td>
+              <td className={styles.cellCenter}>{item.qtySpare}</td>
+              <td className={styles.cellCenter}>{item.qtyToBuy}</td>
+              <td className={styles.cellRight}>
                 ${item.unitCostUSD.toLocaleString()}
               </td>
-              <td
-                style={{
-                  padding: "10px 12px",
-                  textAlign: "right",
-                  fontWeight: 600,
-                }}
-              >
+              <td className={`${styles.cellRight} ${styles.cellBold}`}>
                 ${item.totalCostUSD.toLocaleString()}
               </td>
-              <td style={{ padding: "10px 12px" }}>
+              <td>
                 <span
+                  className={styles.categoryBadge}
                   style={{
-                    padding: "2px 8px",
-                    borderRadius: 8,
-                    fontSize: 11,
-                    fontWeight: 600,
                     background:
                       item.costCategory === "CAPEX" ? "#3B82F620" : "#10B98120",
                     color:
@@ -119,17 +69,12 @@ export const BidEquipmentTable: React.FC<BidEquipmentTableProps> = ({
                 </span>
               </td>
               {!readOnly && (
-                <td style={{ padding: "10px 12px" }}>
-                  <div style={{ display: "flex", gap: 4 }}>
+                <td>
+                  <div className={styles.actionsCell}>
                     {onEdit && (
                       <button
                         onClick={() => onEdit(item)}
-                        style={{
-                          border: "none",
-                          background: "transparent",
-                          cursor: "pointer",
-                          color: "var(--accent-color)",
-                        }}
+                        className={styles.editBtn}
                       >
                         Edit
                       </button>
@@ -137,12 +82,7 @@ export const BidEquipmentTable: React.FC<BidEquipmentTableProps> = ({
                     {onDelete && (
                       <button
                         onClick={() => onDelete(item.id)}
-                        style={{
-                          border: "none",
-                          background: "transparent",
-                          cursor: "pointer",
-                          color: "#EF4444",
-                        }}
+                        className={styles.deleteBtn}
                       >
                         Delete
                       </button>

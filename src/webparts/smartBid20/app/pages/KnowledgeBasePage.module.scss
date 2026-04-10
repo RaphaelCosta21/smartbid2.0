@@ -1,0 +1,123 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.searchInput {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 200ms ease;
+
+  &:focus {
+    border-color: var(--primary-accent);
+  }
+}
+
+.tabBar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tabBtn {
+  padding: 6px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 400;
+  transition: all 200ms ease;
+
+  &.tabBtnActive {
+    border: none;
+    background: var(--accent-color, #3b82f6);
+    color: #fff;
+    font-weight: 600;
+  }
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.kbCard {
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 200ms ease;
+
+  &:hover {
+    border-color: var(--border);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+.kbCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.kbIcon {
+  font-size: 24px;
+}
+
+.kbViews {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.kbTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.kbDescription {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.kbTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.kbTag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--border-subtle);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.kbMeta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.kbFile {
+  font-size: 12px;
+  color: var(--accent-color, #3b82f6);
+}

@@ -1,0 +1,70 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.empty {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  tr {
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  td {
+    padding: 8px 12px;
+    color: var(--text-primary);
+  }
+
+  .cellCenter {
+    text-align: center;
+  }
+
+  .cellRight {
+    text-align: right;
+  }
+
+  .cellBold {
+    font-weight: 600;
+  }
+
+  tfoot tr {
+    font-weight: 600;
+  }
+}
+
+.grandTotal {
+  padding: 16px;
+  background: var(--card-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+}
+
+.grandTotalRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 16px;
+  font-weight: 700;
+}

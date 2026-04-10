@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./SkeletonLoader.module.scss";
 
 interface SkeletonLoaderProps {
   width?: number | string;
@@ -16,30 +17,14 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
   className,
 }) => {
   return (
-    <div
-      className={className}
-      style={{ display: "flex", flexDirection: "column", gap: 8 }}
-    >
+    <div className={`${styles.container} ${className || ""}`}>
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          style={{
-            width,
-            height,
-            borderRadius,
-            background:
-              "linear-gradient(90deg, var(--border-subtle) 25%, var(--card-bg) 50%, var(--border-subtle) 75%)",
-            backgroundSize: "200% 100%",
-            animation: "shimmer 1.5s infinite",
-          }}
+          className={styles.bar}
+          style={{ width, height, borderRadius }}
         />
       ))}
-      <style>{`
-        @keyframes shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-      `}</style>
     </div>
   );
 };

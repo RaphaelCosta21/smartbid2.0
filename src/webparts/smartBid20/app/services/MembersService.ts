@@ -19,10 +19,11 @@ export class MembersService {
     if (items.length === 0) {
       return {
         manager: [],
-        engineer: [],
-        bidder: [],
-        projectTeam: [],
-        viewer: [],
+        project: [],
+        operations: [],
+        equipment: [],
+        dataCenter: [],
+        engineering: [],
       };
     }
     return JSON.parse(

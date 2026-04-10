@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./PhaseBadge.module.scss";
 
 interface PhaseBadgeProps {
   phase: string;
@@ -26,15 +27,8 @@ export const PhaseBadge: React.FC<PhaseBadgeProps> = ({
 
   return (
     <span
-      className={className}
+      className={`${styles.badge} ${className || ""}`}
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
-        padding: "2px 10px",
-        borderRadius: 12,
-        fontSize: 12,
-        fontWeight: 600,
         background: `${bgColor}20`,
         color: bgColor,
         border: `1px solid ${bgColor}40`,

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { PageHeader } from "../common/PageHeader";
+import styles from "./ReportsDashboard.module.scss";
 
 export const ReportsDashboard: React.FC = () => {
   const reports = [
@@ -24,39 +25,14 @@ export const ReportsDashboard: React.FC = () => {
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div className={styles.container}>
       <PageHeader title="Reports" subtitle="Generate and export reports" />
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-          gap: 16,
-        }}
-      >
+      <div className={styles.grid}>
         {reports.map((r) => (
-          <div
-            key={r.id}
-            style={{
-              padding: 20,
-              borderRadius: 12,
-              border: "1px solid var(--border-subtle)",
-              background: "var(--card-bg)",
-              cursor: "pointer",
-            }}
-          >
-            <span style={{ fontSize: 32 }}>{r.icon}</span>
-            <h4 style={{ margin: "12px 0 4px", fontSize: 16, fontWeight: 600 }}>
-              {r.title}
-            </h4>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 13,
-                color: "var(--text-secondary)",
-              }}
-            >
-              {r.description}
-            </p>
+          <div key={r.id} className={styles.card}>
+            <span className={styles.cardIcon}>{r.icon}</span>
+            <h4 className={styles.cardTitle}>{r.title}</h4>
+            <p className={styles.cardDesc}>{r.description}</p>
           </div>
         ))}
       </div>

@@ -1,0 +1,28 @@
+// Type definitions for CreateOrderFormNew SCSS Module
+// Auto-generated - do not modify manually
+
+export interface ICreateOrderFormNewScss {
+  primaryColor: string;
+  primaryDark: string;
+  accentColor: string;
+  createOrderForm: string;
+  header: string;
+  title: string;
+  subtitle: string;
+  stepIndicator: string;
+  stepItem: string;
+  active: string;
+  completed: string;
+  stepNumber: string;
+  stepTitle: string;
+  progressBar: string;
+  formContainer: string;
+  stepContent: string;
+  stepLabel: string;
+  errorLabel: string;
+  hotDemandAlert: string;
+  footer: string;
+}
+
+declare const styles: ICreateOrderFormNewScss;
+export default styles;

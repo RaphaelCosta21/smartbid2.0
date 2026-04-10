@@ -1,5 +1,6 @@
 import * as React from "react";
 import { GlassCard } from "../common/GlassCard";
+import styles from "./BidsByStatusChart.module.scss";
 
 interface BidsByStatusChartProps {
   data: { status: string; count: number; color: string }[];
@@ -14,57 +15,20 @@ export const BidsByStatusChart: React.FC<BidsByStatusChartProps> = ({
 
   return (
     <GlassCard title="BIDs by Status" className={className}>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-          padding: "8px 0",
-        }}
-      >
+      <div className={styles.chartContainer}>
         {data.map((item) => (
-          <div
-            key={item.status}
-            style={{ display: "flex", alignItems: "center", gap: 12 }}
-          >
-            <span
-              style={{
-                minWidth: 120,
-                fontSize: 13,
-                color: "var(--text-secondary)",
-              }}
-            >
-              {item.status}
-            </span>
-            <div
-              style={{
-                flex: 1,
-                height: 24,
-                background: "var(--border-subtle)",
-                borderRadius: 4,
-                overflow: "hidden",
-              }}
-            >
+          <div key={item.status} className={styles.pipelineRow}>
+            <span className={styles.pipelineLabel}>{item.status}</span>
+            <div className={styles.pipelineBar}>
               <div
+                className={styles.pipelineBarFill}
                 style={{
                   width: `${(item.count / maxCount) * 100}%`,
-                  height: "100%",
                   background: item.color,
-                  borderRadius: 4,
-                  transition: "width 0.5s ease",
                 }}
               />
             </div>
-            <span
-              style={{
-                minWidth: 30,
-                textAlign: "right",
-                fontWeight: 600,
-                fontSize: 14,
-              }}
-            >
-              {item.count}
-            </span>
+            <span className={styles.pipelineCount}>{item.count}</span>
           </div>
         ))}
       </div>

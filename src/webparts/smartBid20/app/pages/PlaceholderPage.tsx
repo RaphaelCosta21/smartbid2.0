@@ -1,5 +1,6 @@
 import * as React from "react";
 import { PageHeader } from "../components/common/PageHeader";
+import styles from "./PlaceholderPage.module.scss";
 
 interface PlaceholderPageProps {
   title: string;
@@ -7,7 +8,7 @@ interface PlaceholderPageProps {
 
 export const PlaceholderPage: React.FC<PlaceholderPageProps> = ({ title }) => {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div className={styles.page}>
       <PageHeader
         title={title}
         subtitle="This page is under construction"
@@ -24,15 +25,7 @@ export const PlaceholderPage: React.FC<PlaceholderPageProps> = ({ title }) => {
           </svg>
         }
       />
-      <div
-        style={{
-          background: "var(--card-bg)",
-          borderRadius: 16,
-          padding: 48,
-          border: "1px solid var(--border-subtle)",
-          textAlign: "center",
-        }}
-      >
+      <div className={styles.placeholderCard}>
         <svg
           width="64"
           height="64"
@@ -40,30 +33,15 @@ export const PlaceholderPage: React.FC<PlaceholderPageProps> = ({ title }) => {
           fill="none"
           stroke="var(--text-muted)"
           strokeWidth="1.5"
-          style={{ marginBottom: 16, opacity: 0.5 }}
+          className={styles.placeholderIcon}
         >
           <rect x="2" y="6" width="20" height="12" rx="2" />
           <path d="M12 12h.01" />
           <path d="M17 12h.01" />
           <path d="M7 12h.01" />
         </svg>
-        <h3
-          style={{
-            color: "var(--text-secondary)",
-            fontWeight: 500,
-            fontSize: 16,
-            margin: "0 0 8px",
-          }}
-        >
-          Coming Soon
-        </h3>
-        <p
-          style={{
-            color: "var(--text-muted)",
-            fontSize: 13,
-            margin: 0,
-          }}
-        >
+        <h3 className={styles.placeholderTitle}>Coming Soon</h3>
+        <p className={styles.placeholderText}>
           The <strong>{title}</strong> page will be available in the next
           release.
         </p>

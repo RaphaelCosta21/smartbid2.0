@@ -1,0 +1,50 @@
+.wrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .thCenter {
+    text-align: center;
+  }
+
+  tr {
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  td {
+    padding: 10px 12px;
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+
+  .cellChain {
+    font-weight: 600;
+    vertical-align: top;
+  }
+
+  .cellRole {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .cellCenter {
+    text-align: center;
+  }
+
+  .cellDate {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+}

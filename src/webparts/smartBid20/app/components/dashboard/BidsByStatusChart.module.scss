@@ -1,0 +1,45 @@
+.chartContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.pipelineRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+
+  &:hover .pipelineBarFill {
+    opacity: 0.9;
+  }
+}
+
+.pipelineLabel {
+  min-width: 120px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.pipelineBar {
+  flex: 1;
+  height: 24px;
+  background: var(--border-subtle);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.pipelineBarFill {
+  height: 100%;
+  border-radius: 6px;
+  transition: all 300ms ease;
+}
+
+.pipelineCount {
+  min-width: 30px;
+  text-align: right;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}

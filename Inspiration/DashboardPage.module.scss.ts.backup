@@ -1,0 +1,41 @@
+
+require("./DashboardPage.module.css");
+const styles = {
+  dashboard: 'dashboard_b72ac53d',
+  greeting: 'greeting_b72ac53d',
+  kpiGrid: 'kpiGrid_b72ac53d',
+  chartsRow: 'chartsRow_b72ac53d',
+  activityRow: 'activityRow_b72ac53d',
+  tableSection: 'tableSection_b72ac53d',
+  tableHeader: 'tableHeader_b72ac53d',
+  viewToggle: 'viewToggle_b72ac53d',
+  active: 'active_b72ac53d',
+  bidTable: 'bidTable_b72ac53d',
+  mono: 'mono_b72ac53d',
+  clickableRow: 'clickableRow_b72ac53d',
+  overdue: 'overdue_b72ac53d',
+  priorityBadge: 'priorityBadge_b72ac53d',
+  urgent: 'urgent_b72ac53d',
+  high: 'high_b72ac53d',
+  normal: 'normal_b72ac53d',
+  low: 'low_b72ac53d',
+  activityList: 'activityList_b72ac53d',
+  activityItem: 'activityItem_b72ac53d',
+  activityDot: 'activityDot_b72ac53d',
+  activityContent: 'activityContent_b72ac53d',
+  activityText: 'activityText_b72ac53d',
+  activityTime: 'activityTime_b72ac53d',
+  deadlineItem: 'deadlineItem_b72ac53d',
+  deadlineInfo: 'deadlineInfo_b72ac53d',
+  deadlineBid: 'deadlineBid_b72ac53d',
+  deadlineClient: 'deadlineClient_b72ac53d',
+  deadlineCountdown: 'deadlineCountdown_b72ac53d',
+  warning: 'warning_b72ac53d',
+  ok: 'ok_b72ac53d',
+  pipelineRow: 'pipelineRow_b72ac53d',
+  pipelineBarFill: 'pipelineBarFill_b72ac53d',
+  pipelineLabel: 'pipelineLabel_b72ac53d',
+  pipelineBar: 'pipelineBar_b72ac53d'
+};
+
+export default styles;

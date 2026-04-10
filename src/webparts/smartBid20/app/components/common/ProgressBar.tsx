@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./ProgressBar.module.scss";
 
 interface ProgressBarProps {
   value: number;
@@ -20,40 +21,21 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   const percent = Math.min(Math.round((value / max) * 100), 100);
 
   return (
-    <div
-      className={className}
-      style={{ display: "flex", alignItems: "center", gap: 8 }}
-    >
+    <div className={`${styles.wrapper} ${className || ""}`}>
       <div
-        style={{
-          flex: 1,
-          background: "var(--border-subtle, #e5e7eb)",
-          borderRadius: height / 2,
-          height,
-          overflow: "hidden",
-        }}
+        className={styles.track}
+        style={{ borderRadius: height / 2, height }}
       >
         <div
+          className={styles.fill}
           style={{
             width: `${percent}%`,
-            height: "100%",
             background: color,
             borderRadius: height / 2,
-            transition: "width 0.5s ease",
           }}
         />
       </div>
-      {showLabel && (
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: "var(--text-secondary)",
-          }}
-        >
-          {percent}%
-        </span>
-      )}
+      {showLabel && <span className={styles.label}>{percent}%</span>}
     </div>
   );
 };

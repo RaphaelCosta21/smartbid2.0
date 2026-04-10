@@ -1,6 +1,7 @@
 import * as React from "react";
 import { GlassCard } from "../common/GlassCard";
 import { IDivisionWorkload } from "../../models/IDashboard";
+import styles from "./DivisionWorkload.module.scss";
 
 interface DivisionWorkloadProps {
   data: IDivisionWorkload[];
@@ -13,62 +14,34 @@ export const DivisionWorkload: React.FC<DivisionWorkloadProps> = ({
 }) => {
   return (
     <GlassCard title="Division Workload" className={className}>
-      <div
-        style={{ display: "flex", flexWrap: "wrap", gap: 12, padding: "8px 0" }}
-      >
+      <div className={styles.cardGrid}>
         {data.map((div) => (
-          <div
-            key={div.division}
-            style={{
-              flex: "1 1 200px",
-              padding: 16,
-              borderRadius: 8,
-              border: "1px solid var(--border-subtle)",
-              background: "var(--card-bg)",
-            }}
-          >
-            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>
-              {div.division}
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 8,
-                fontSize: 12,
-              }}
-            >
+          <div key={div.division} className={styles.divisionCard}>
+            <div className={styles.divisionName}>{div.division}</div>
+            <div className={styles.statsGrid}>
               <div>
-                <div style={{ color: "var(--text-secondary)" }}>Active</div>
-                <div
-                  style={{ fontSize: 18, fontWeight: 700, color: "#3B82F6" }}
-                >
+                <div className={styles.statLabel}>Active</div>
+                <div className={`${styles.statValue} ${styles.statActive}`}>
                   {div.activeBids}
                 </div>
               </div>
               <div>
-                <div style={{ color: "var(--text-secondary)" }}>Approvals</div>
-                <div
-                  style={{ fontSize: 18, fontWeight: 700, color: "#F59E0B" }}
-                >
+                <div className={styles.statLabel}>Approvals</div>
+                <div className={`${styles.statValue} ${styles.statApprovals}`}>
                   {div.pendingApprovals}
                 </div>
               </div>
               <div>
-                <div style={{ color: "var(--text-secondary)" }}>Overdue</div>
+                <div className={styles.statLabel}>Overdue</div>
                 <div
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: div.overdueBids > 0 ? "#EF4444" : "#10B981",
-                  }}
+                  className={`${styles.statValue} ${div.overdueBids > 0 ? styles.statOverdue : styles.statOk}`}
                 >
                   {div.overdueBids}
                 </div>
               </div>
               <div>
-                <div style={{ color: "var(--text-secondary)" }}>Avg Days</div>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>
+                <div className={styles.statLabel}>Avg Days</div>
+                <div className={`${styles.statValue} ${styles.statDefault}`}>
                   {div.avgCompletionDays}
                 </div>
               </div>

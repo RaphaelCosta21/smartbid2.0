@@ -35,7 +35,7 @@ export function getPhaseIndex(phase: string): number {
 }
 
 export function isPhaseCompleted(bid: IBid, phaseKey: string): boolean {
-  const config = getPhaseConfig(phaseKey as any);
+  const config = getPhaseConfig(phaseKey);
   if (!config) return false;
   const phaseSteps = bid.steps.filter((s) => s.phase === phaseKey);
   return (
@@ -43,15 +43,15 @@ export function isPhaseCompleted(bid: IBid, phaseKey: string): boolean {
   );
 }
 
-export function getNextPhase(currentPhase: string): string | null {
+export function getNextPhase(currentPhase: string): string | undefined {
   const idx = PHASE_CONFIGS.findIndex((p) => p.id === currentPhase);
-  if (idx < 0 || idx >= PHASE_CONFIGS.length - 1) return null;
+  if (idx < 0 || idx >= PHASE_CONFIGS.length - 1) return undefined;
   return PHASE_CONFIGS[idx + 1].id;
 }
 
-export function getPreviousPhase(currentPhase: string): string | null {
+export function getPreviousPhase(currentPhase: string): string | undefined {
   const idx = PHASE_CONFIGS.findIndex((p) => p.id === currentPhase);
-  if (idx <= 0) return null;
+  if (idx <= 0) return undefined;
   return PHASE_CONFIGS[idx - 1].id;
 }
 

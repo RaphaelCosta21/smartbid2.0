@@ -1,0 +1,14 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.placeholder {
+  padding: 32px;
+  background: var(--card-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  text-align: center;
+  color: var(--text-secondary);
+}

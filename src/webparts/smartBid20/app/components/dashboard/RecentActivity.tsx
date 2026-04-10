@@ -2,6 +2,7 @@ import * as React from "react";
 import { INotification } from "../../models";
 import { formatDistanceToNow } from "date-fns";
 import { GlassCard } from "../common/GlassCard";
+import styles from "./RecentActivity.module.scss";
 
 interface RecentActivityProps {
   notifications: INotification[];
@@ -29,49 +30,20 @@ export const RecentActivity: React.FC<RecentActivityProps> = ({
   return (
     <GlassCard title="Recent Activity">
       {items.length === 0 ? (
-        <div
-          style={{
-            textAlign: "center",
-            padding: 24,
-            color: "var(--text-muted)",
-            fontSize: 13,
-          }}
-        >
-          No recent activity.
-        </div>
+        <div className={styles.emptyState}>No recent activity.</div>
       ) : (
-        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+        <ul className={styles.activityList}>
           {items.map((item) => (
-            <li
-              key={item.id}
-              style={{
-                display: "flex",
-                gap: 12,
-                padding: "10px 0",
-                borderBottom: "1px solid var(--border-subtle)",
-              }}
-            >
+            <li key={item.id} className={styles.activityItem}>
               <div
+                className={styles.activityDot}
                 style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  marginTop: 5,
-                  flexShrink: 0,
                   background: TYPE_COLORS[item.type] || "#94a3b8",
                 }}
               />
-              <div style={{ flex: 1 }}>
-                <div
-                  style={{
-                    fontSize: 13,
-                    color: "var(--text-primary)",
-                    margin: "0 0 2px",
-                  }}
-                >
-                  {item.message}
-                </div>
-                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+              <div className={styles.activityContent}>
+                <div className={styles.activityText}>{item.message}</div>
+                <div className={styles.activityTime}>
                   {item.actorName ? `${item.actorName} · ` : ""}
                   {formatDistanceToNow(new Date(item.timestamp), {
                     addSuffix: true,

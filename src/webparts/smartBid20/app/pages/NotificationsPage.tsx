@@ -71,7 +71,7 @@ export const NotificationsPage: React.FC = () => {
       <div className={styles.list}>
         {filtered.length === 0 && (
           <div className={styles.emptyState}>
-            <div style={{ fontSize: 40, opacity: 0.3 }}>🔔</div>
+            <div className={styles.emptyIcon}>🔔</div>
             <p>
               {filter === "unread"
                 ? "No unread notifications"

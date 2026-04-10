@@ -1,10 +1,18 @@
 export type UserRole =
   | "manager"
-  | "engineer"
-  | "bidder"
-  | "projectTeam"
-  | "viewer"
+  | "project"
+  | "operations"
+  | "equipment"
+  | "dataCenter"
+  | "engineering"
   | "guest";
+
+export type MemberDivision =
+  | "ROV"
+  | "SURVEY"
+  | "OPG"
+  | "ENGINEERING"
+  | "COMMERCIAL";
 
 export interface IPersonRef {
   name: string;

@@ -9,7 +9,6 @@ import { IBidTemplate } from "../models/IBidTemplate";
 import { IBidRequest } from "../models/IBidRequest";
 import { IKnowledgeBaseItem } from "../models/IKnowledgeBase";
 import { MOCK_BIDS } from "../data/mockBids";
-import { MOCK_MEMBERS } from "../data/mockMembers";
 import { MOCK_NOTIFICATIONS } from "../data/mockNotifications";
 import { MOCK_SYSTEM_CONFIG } from "../data/mockSystemConfig";
 import { MOCK_TEMPLATES } from "../data/mockTemplates";
@@ -22,7 +21,14 @@ export class MockDataService {
   }
 
   public static getMembers(): IMembersData {
-    return MOCK_MEMBERS;
+    return {
+      manager: [],
+      project: [],
+      operations: [],
+      equipment: [],
+      dataCenter: [],
+      engineering: [],
+    };
   }
 
   public static getNotifications(): INotification[] {

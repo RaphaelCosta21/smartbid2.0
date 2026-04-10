@@ -1,5 +1,6 @@
 import * as React from "react";
 import { ICostSummary } from "../../models";
+import styles from "./BidCostSummary.module.scss";
 
 interface BidCostSummaryProps {
   costSummary: ICostSummary;
@@ -43,65 +44,34 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
   ];
 
   return (
-    <div
-      className={className}
-      style={{
-        borderRadius: 12,
-        overflow: "hidden",
-        border: "1px solid var(--border-subtle)",
-      }}
-    >
-      <div style={{ padding: "16px 20px", background: "var(--card-bg)" }}>
+    <div className={`${styles.wrapper} ${className || ""}`}>
+      <div className={styles.body}>
         {rows.map((row) => (
           <div
             key={row.label}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              padding: "8px 0",
-              borderBottom: "1px solid var(--border-subtle)",
-              fontWeight: row.isBold ? 600 : 400,
-              fontSize: 14,
-            }}
+            className={`${styles.row} ${row.isBold ? styles.rowBold : ""}`}
           >
-            <span style={{ color: "var(--text-secondary)" }}>{row.label}</span>
+            <span className={styles.rowLabel}>{row.label}</span>
             <span>{row.value}</span>
           </div>
         ))}
       </div>
-      <div
-        style={{
-          padding: "16px 20px",
-          background: "linear-gradient(135deg, #3B82F6, #8B5CF6)",
-          display: "flex",
-          justifyContent: "space-between",
-          color: "#fff",
-        }}
-      >
+      <div className={styles.totalBar}>
         <div>
-          <div style={{ fontSize: 12, opacity: 0.8 }}>Total Cost (USD)</div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>
+          <div className={styles.totalLabel}>Total Cost (USD)</div>
+          <div className={styles.totalValue}>
             $ {costSummary.totalCostUSD.toLocaleString()}
           </div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 12, opacity: 0.8 }}>Total Cost (BRL)</div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>
+        <div className={styles.totalRight}>
+          <div className={styles.totalLabel}>Total Cost (BRL)</div>
+          <div className={styles.totalValue}>
             R$ {costSummary.totalCostBRL.toLocaleString()}
           </div>
         </div>
       </div>
       {costSummary.notes && (
-        <div
-          style={{
-            padding: "12px 20px",
-            fontSize: 13,
-            color: "var(--text-secondary)",
-            background: "var(--card-bg)",
-          }}
-        >
-          {costSummary.notes}
-        </div>
+        <div className={styles.notes}>{costSummary.notes}</div>
       )}
     </div>
   );

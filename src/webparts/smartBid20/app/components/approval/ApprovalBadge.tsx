@@ -1,5 +1,6 @@
 import * as React from "react";
 import { ApprovalStatus } from "../../models";
+import styles from "./ApprovalBadge.module.scss";
 
 interface ApprovalBadgeProps {
   status: ApprovalStatus;
@@ -22,14 +23,8 @@ export const ApprovalBadge: React.FC<ApprovalBadgeProps> = ({
 
   return (
     <span
-      className={className}
+      className={`${styles.badge} ${className || ""}`}
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "2px 10px",
-        borderRadius: 12,
-        fontSize: 12,
-        fontWeight: 600,
         background: `${color}20`,
         color,
         border: `1px solid ${color}40`,

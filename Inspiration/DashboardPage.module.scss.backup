@@ -1,0 +1,299 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.greeting {
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 4px;
+  }
+
+  p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.chartsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.activityRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.tableSection {
+  background: var(--card-bg);
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.tableHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+}
+
+.viewToggle {
+  display: flex;
+  gap: 4px;
+
+  button {
+    padding: 5px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 200ms ease;
+
+    &.active {
+      background: var(--primary-accent);
+      color: white;
+      border-color: var(--primary-accent);
+    }
+
+    &:hover:not(.active) {
+      background: var(--card-bg-elevated);
+    }
+  }
+}
+
+.bidTable {
+  width: 100%;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 13px;
+  }
+
+  th {
+    background: var(--card-bg-elevated);
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: sticky;
+    top: 0;
+    backdrop-filter: blur(8px);
+  }
+
+  tr {
+    border-bottom: 1px solid var(--border-subtle);
+    transition: all 200ms ease;
+
+    &:hover {
+      background: var(--card-bg-elevated);
+      border-left: 3px solid var(--primary-accent);
+    }
+  }
+
+  td {
+    color: var(--text-primary);
+  }
+}
+
+.mono {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  color: var(--secondary-accent);
+}
+
+.clickableRow {
+  cursor: pointer;
+}
+
+.overdue {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.priorityBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+
+  &.urgent {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+  }
+  &.high {
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+  }
+  &.normal {
+    background: rgba(59, 130, 246, 0.12);
+    color: #3b82f6;
+  }
+  &.low {
+    background: rgba(100, 116, 139, 0.12);
+    color: #64748b;
+  }
+}
+
+.activityList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.activityItem {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.activityDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.activityContent {
+  flex: 1;
+
+  .activityText {
+    font-size: 13px;
+    color: var(--text-primary);
+    margin: 0 0 2px;
+  }
+
+  .activityTime {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+}
+
+.deadlineItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover {
+    background: var(--card-bg-elevated);
+    padding: 10px 8px;
+    border-radius: 8px;
+  }
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.deadlineInfo {
+  .deadlineBid {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 2px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .deadlineClient {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+}
+
+.deadlineCountdown {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+
+  &.urgent {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+  }
+  &.warning {
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+  }
+  &.ok {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+  }
+}
+
+.pipelineRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+
+  &:hover .pipelineBarFill {
+    opacity: 0.9;
+  }
+}
+
+.pipelineLabel {
+  width: 140px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.pipelineBar {
+  flex: 1;
+  height: 24px;
+  background: var(--border-subtle);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.pipelineBarFill {
+  height: 100%;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  transition: all 300ms ease;
+  min-width: 30px;
+}

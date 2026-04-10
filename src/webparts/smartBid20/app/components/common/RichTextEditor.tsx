@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./RichTextEditor.module.scss";
 
 interface RichTextEditorProps {
   value: string;
@@ -21,19 +22,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        style={{
-          width: "100%",
-          minHeight,
-          padding: 16,
-          border: "1px solid var(--border-subtle)",
-          borderRadius: 8,
-          resize: "vertical",
-          fontSize: 14,
-          fontFamily: "inherit",
-          background: "var(--input-bg, #fff)",
-          color: "var(--text-primary)",
-          outline: "none",
-        }}
+        className={styles.textarea}
+        style={{ minHeight }}
       />
     </div>
   );

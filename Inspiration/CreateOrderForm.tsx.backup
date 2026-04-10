@@ -1,0 +1,1918 @@
+/**
+ * Smart Flow Warehouse - Create Order Form (Planner/Puller Workflow)
+ * Wizard multi-step form: Order Info → Job Details → Attachments → Delivery
+ */
+
+import * as React from "react";
+import {
+  Stack,
+  PrimaryButton,
+  DefaultButton,
+  TextField,
+  Dropdown,
+  IDropdownOption,
+  Label,
+  Toggle,
+  MessageBar,
+  MessageBarType,
+  ProgressIndicator,
+  DatePicker,
+  DayOfWeek,
+  IDatePickerStrings,
+  IconButton,
+  Modal,
+  Separator,
+  Spinner,
+  SpinnerSize,
+  Overlay,
+} from "@fluentui/react";
+import { WebPartContext } from "@microsoft/sp-webpart-base";
+import { IOrder, IAttachment, IStep } from "../../models/IOrder";
+import { ITeamMember } from "../../models/ITeamMember";
+import { OrderStatus, DemandCategory } from "../../models/enums";
+import { SmartFlowService } from "../../services/SmartFlowService";
+import { formatLocalISOString } from "../../utils/formatters";
+import { AttachmentService } from "../../services/AttachmentService";
+import { ActivityLogService } from "../../services/ActivityLogService";
+import { StatusTrackerService } from "../../services/StatusTrackerService";
+import { SystemConfigService } from "../../services/SystemConfigService";
+import {
+  calculateDemandCategory,
+  isHotDemand,
+  DateUtils,
+} from "../../utils/dateUtils";
+import { isGuestUser, showGuestAlert } from "../../utils/userUtils";
+import styles from "./CreateOrderForm.module.scss";
+
+export interface ICreateOrderFormProps {
+  context: WebPartContext;
+  currentUser?: ITeamMember;
+  currentUserName?: string;
+  currentUserEmail?: string;
+  currentUserDepartment?: string;
+  requestType: "Delivery" | "Shipment";
+  onCancel: () => void;
+  onSuccess: (order: IOrder) => void;
+}
+
+interface IFormData {
+  // Step 1: Order Info
+  orderNumber: string;
+  linesToPull: number;
+  orderType: string;
+  businessUnit: string;
+
+  // Step 2: Job Details
+  jobName: string;
+  jobNumber: string;
+  specialInstructions: string;
+
+  // Step 3: Attachments
+  attachments: IAttachment[];
+  tempFiles: File[]; // Arquivos temporários antes da criação da order
+
+  // Step 4: Delivery
+  dateNeeded: Date | undefined;
+  productionDate: Date | undefined;
+  deliverTo: string;
+  customerShipment: boolean;
+  domesticShipment: boolean; // true = Domestic, false = International
+  shipmentType: string; // Shipment type from config
+  isManualHotDemand: boolean; // Toggle manual para HOT quando data = hoje
+  confirmLessThanTwoDays: boolean; // Confirmação quando productionDate < 2 dias de dateNeeded
+}
+
+interface IFormState {
+  currentStep: number;
+  formData: IFormData;
+  errors: Record<string, string>;
+  isSubmitting: boolean;
+  errorMessage?: string;
+  successMessage?: string;
+  createdOrderId?: number;
+  folderName?: string;
+  orderTypeOptions: IDropdownOption[];
+  businessUnitOptions: IDropdownOption[];
+  deliveryLocationOptions: IDropdownOption[];
+  shipmentTypeOptions: IDropdownOption[];
+  isLoadingOptions: boolean;
+  showReviewModal: boolean;
+}
+
+const datePickerStrings: IDatePickerStrings = {
+  months: [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ],
+  shortMonths: [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ],
+  days: [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ],
+  shortDays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  goToToday: "Go to today",
+  weekNumberFormatString: "Week {0}",
+  invalidInputErrorMessage: "Invalid date",
+};
+
+export class CreateOrderForm extends React.Component<
+  ICreateOrderFormProps,
+  IFormState
+> {
+  constructor(props: ICreateOrderFormProps) {
+    super(props);
+
+    this.state = {
+      currentStep: 1,
+      formData: {
+        orderNumber: "",
+        linesToPull: 0, // Alterado para 0 para permitir que usuário digite qualquer valor
+        orderType: "", // Sem valor inicial - placeholder será mostrado
+        businessUnit: "", // Sem valor inicial - placeholder será mostrado
+        jobName: "",
+        jobNumber: "",
+        specialInstructions: "",
+        attachments: [],
+        tempFiles: [],
+        dateNeeded: undefined,
+        productionDate: undefined,
+        deliverTo: "",
+        customerShipment: false,
+        domesticShipment: true,
+        shipmentType: "",
+        isManualHotDemand: false,
+        confirmLessThanTwoDays: false,
+      },
+      errors: {},
+      isSubmitting: false,
+      orderTypeOptions: [],
+      businessUnitOptions: [],
+      deliveryLocationOptions: [],
+      shipmentTypeOptions: [],
+      isLoadingOptions: true,
+      showReviewModal: false,
+    };
+  }
+
+  public async componentDidMount(): Promise<void> {
+    await this.loadConfigOptions();
+  }
+
+  private loadConfigOptions = async (): Promise<void> => {
+    try {
+      const configService = new SystemConfigService(this.props.context);
+      const isShipment = this.props.requestType === "Shipment";
+
+      // Load request types, business units, locations, and shipment types from system config
+      // For Shipment requests, load shipment locations instead of delivery locations
+      const [orderTypes, businessUnits, locations, shipmentTypes] =
+        await Promise.all([
+          configService.getActiveOrderTypes(),
+          configService.getActiveBusinessUnits(),
+          isShipment
+            ? configService.getActiveShipmentLocations()
+            : configService.getActiveDeliveryLocations(),
+          isShipment
+            ? configService.getActiveShipmentTypes()
+            : Promise.resolve([]),
+        ]);
+
+      const orderTypeOptions: IDropdownOption[] = orderTypes.map((ot) => ({
+        key: ot.value,
+        text: ot.label,
+      }));
+
+      const businessUnitOptions: IDropdownOption[] = businessUnits.map(
+        (bu) => ({
+          key: bu.value,
+          text: bu.label,
+        }),
+      );
+
+      const deliveryLocationOptions: IDropdownOption[] = locations.map(
+        (dl) => ({
+          key: dl.value,
+          text: dl.label,
+        }),
+      );
+
+      const shipmentTypeOptions: IDropdownOption[] = shipmentTypes.map(
+        (st) => ({
+          key: st.value,
+          text: st.label,
+        }),
+      );
+
+      this.setState({
+        orderTypeOptions,
+        businessUnitOptions,
+        deliveryLocationOptions,
+        shipmentTypeOptions,
+        isLoadingOptions: false,
+      });
+    } catch (error) {
+      console.error("Error loading config options:", error);
+      // Fallback to empty arrays if config fails to load
+      this.setState({
+        orderTypeOptions: [],
+        businessUnitOptions: [],
+        deliveryLocationOptions: [],
+        shipmentTypeOptions: [],
+        isLoadingOptions: false,
+      });
+    }
+  };
+
+  private validateStep = (step: number): boolean => {
+    const { formData } = this.state;
+    const errors: Record<string, string> = {};
+
+    switch (step) {
+      case 1: // Order Info
+        if (!formData.orderNumber.trim()) {
+          errors.orderNumber = "Request Number is required";
+        } else if (/["*:<>?\/\\|~#%&{}]/.test(formData.orderNumber)) {
+          errors.orderNumber =
+            'Request Number cannot contain special characters: " * : < > ? / \\ | ~ # % & { }';
+        }
+        if (formData.linesToPull < 1) {
+          errors.linesToPull = "Lines to Pull must be greater than 0";
+        }
+        if (!formData.orderType) {
+          errors.orderType = "Request Type is required";
+        }
+        if (!formData.businessUnit) {
+          errors.businessUnit = "Business Unit is required";
+        }
+        break;
+
+      case 2: // Job Details
+        if (!formData.jobName.trim()) {
+          errors.jobName = "Job Name is required";
+        }
+        break;
+
+      case 3: // Attachments
+        // Attachments são opcionais, mas se houver erro no upload, mostrar
+        break;
+
+      case 4: // Delivery
+        if (!formData.dateNeeded) {
+          errors.dateNeeded = "Date Needed is required";
+        } else {
+          const selectedDate = new Date(formData.dateNeeded.getTime());
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          selectedDate.setHours(0, 0, 0, 0);
+
+          if (selectedDate < today) {
+            errors.dateNeeded = "Date Needed cannot be in the past";
+          }
+        }
+
+        if (!formData.productionDate) {
+          errors.productionDate =
+            this.props.requestType === "Shipment"
+              ? "Shipment Date is required"
+              : "Production Date is required";
+        } else if (!formData.dateNeeded) {
+          errors.productionDate =
+            "Date Needed must be set before Production/Shipment Date";
+        } else {
+          const prodDate = new Date(formData.productionDate.getTime());
+          const deliveryDate = new Date(formData.dateNeeded.getTime());
+          prodDate.setHours(0, 0, 0, 0);
+          deliveryDate.setHours(0, 0, 0, 0);
+
+          if (prodDate < deliveryDate) {
+            errors.productionDate =
+              "Production/Shipment Date must be equal to or after Date Needed";
+          }
+
+          // Check if less than N days and confirmation not checked
+          const diffTime = prodDate.getTime() - deliveryDate.getTime();
+          const diffDays = diffTime / (1000 * 60 * 60 * 24);
+          const threshold = this.props.requestType === "Shipment" ? 3 : 2;
+          if (diffDays <= threshold && !formData.confirmLessThanTwoDays) {
+            errors.confirmLessThanTwoDays =
+              this.props.requestType === "Shipment"
+                ? "You must confirm that you are aware the shipment date is less than three days from delivery date"
+                : "You must confirm that you are aware the production date is less than two days from delivery date";
+          }
+        }
+
+        if (!formData.deliverTo.trim()) {
+          errors.deliverTo = "Delivery Location is required";
+        }
+        break;
+    }
+
+    this.setState({ errors });
+    return Object.keys(errors).length === 0;
+  };
+
+  private handleNext = (): void => {
+    if (this.validateStep(this.state.currentStep)) {
+      this.setState((prev) => ({
+        currentStep: Math.min(prev.currentStep + 1, 4),
+        errorMessage: undefined,
+      }));
+    }
+  };
+
+  private handleBack = (): void => {
+    this.setState((prev) => ({
+      currentStep: Math.max(prev.currentStep - 1, 1),
+      errorMessage: undefined,
+    }));
+  };
+
+  private handleOpenReviewModal = (): void => {
+    // 🚫 GUEST CHECK: Guests cannot create orders
+    if (this.props.currentUser && isGuestUser(this.props.currentUser)) {
+      showGuestAlert("create orders");
+      return;
+    }
+
+    if (!this.validateStep(4)) {
+      return;
+    }
+
+    this.setState({ showReviewModal: true, errorMessage: undefined });
+  };
+
+  private handleCloseReviewModal = (): void => {
+    this.setState({ showReviewModal: false });
+  };
+
+  private handleConfirmSubmit = async (): Promise<void> => {
+    this.setState({
+      showReviewModal: false,
+      isSubmitting: true,
+      errorMessage: undefined,
+    });
+
+    try {
+      const { formData } = this.state;
+      const { currentUserName, currentUserEmail, currentUserDepartment } =
+        this.props;
+
+      // Buscar informações do usuário atual do SharePoint como fallback
+      const spUser = this.props.context.pageContext.user;
+      const plannerName =
+        currentUserName || spUser.displayName || "Unknown User";
+      const plannerEmail = currentUserEmail || spUser.email || "";
+
+      // Buscar jobTitle do usuário via Microsoft Graph API
+      let plannerDepartment = currentUserDepartment || "Unknown Department";
+      try {
+        const graphClient =
+          await this.props.context.msGraphClientFactory.getClient("3");
+        const user = await graphClient.api(`/users/${plannerEmail}`).get();
+        if (user.jobTitle) {
+          plannerDepartment = user.jobTitle;
+          console.log("✅ JOB TITLE FOUND:", user.jobTitle);
+        }
+      } catch (error) {
+        console.warn("Could not fetch job title from Graph API:", error);
+        // Mantém o valor do fallback se falhar
+      }
+
+      // Calcula demandCategory baseado na dateNeeded com lógica de hora correta
+      const now = new Date();
+      let finalDateNeeded: Date;
+      let demandCategory: DemandCategory;
+      let hotDemand: boolean;
+
+      // Verifica se é hoje
+      const selectedDate = new Date(formData.dateNeeded!);
+      const today = new Date();
+      selectedDate.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+      const isToday = selectedDate.getTime() === today.getTime();
+
+      if (isToday && formData.isManualHotDemand) {
+        // HOT DEMAND: data/hora atual + 4 horas
+        finalDateNeeded = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+        demandCategory = DemandCategory.HOT;
+        hotDemand = true;
+      } else {
+        // RUSH/REGULAR: usa data selecionada com hora 23:59:59
+        finalDateNeeded = new Date(
+          formData.dateNeeded!.getFullYear(),
+          formData.dateNeeded!.getMonth(),
+          formData.dateNeeded!.getDate(),
+          23,
+          59,
+          59,
+          999,
+        );
+
+        // Calcula categoria baseado na data final com hora 23:59
+        const demandCategoryString = calculateDemandCategory(finalDateNeeded);
+        demandCategory = demandCategoryString as DemandCategory;
+        hotDemand = isHotDemand(finalDateNeeded);
+      }
+
+      // Cria o step inicial
+      const initialStep: IStep = {
+        idStep: 1,
+        status: OrderStatus.Open,
+        start: formatLocalISOString(new Date()),
+        durationFormatted: "0m",
+        comments: `Created by Planner ${plannerName}. Category: ${demandCategory}`,
+      };
+
+      // Busca o label do orderType e businessUnit do estado (que veio do config)
+      const orderTypeLabel =
+        this.state.orderTypeOptions.find(
+          (opt) => opt.key === formData.orderType,
+        )?.text || formData.orderType;
+
+      const businessUnitLabel =
+        this.state.businessUnitOptions.find(
+          (opt) => opt.key === formData.businessUnit,
+        )?.text || formData.businessUnit;
+
+      // Calculate isLessThanTwoDays / isLessThanThreeDays based on request type
+      let isLessThanTwoDays = false;
+      let isLessThanThreeDays = false;
+      if (formData.productionDate && formData.dateNeeded) {
+        const prodDate = new Date(formData.productionDate);
+        const deliveryDate = new Date(formData.dateNeeded);
+        prodDate.setHours(0, 0, 0, 0);
+        deliveryDate.setHours(0, 0, 0, 0);
+        const diffTime = prodDate.getTime() - deliveryDate.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        if (this.props.requestType === "Shipment") {
+          isLessThanThreeDays = diffDays <= 3;
+        } else {
+          isLessThanTwoDays = diffDays <= 2;
+        }
+      }
+
+      // Format productionDate with time 23:59:59 (end of day)
+      let formattedProductionDate: string | undefined = undefined;
+      if (formData.productionDate) {
+        const prodDateWithTime = new Date(
+          formData.productionDate.getFullYear(),
+          formData.productionDate.getMonth(),
+          formData.productionDate.getDate(),
+          23,
+          59,
+          59,
+          999,
+        );
+        formattedProductionDate = formatLocalISOString(prodDateWithTime);
+      }
+
+      // Cria o objeto Order completo (sem attachments ainda)
+      const newOrder: IOrder = {
+        Title: formData.orderNumber,
+        orderNumber: formData.orderNumber,
+        requestType: this.props.requestType,
+        linesToPull: formData.linesToPull,
+        orderType: orderTypeLabel,
+        businessUnit: businessUnitLabel,
+        attachments: [], // Vazio por enquanto
+        specialInstructions: formData.specialInstructions || "",
+        jobName: formData.jobName,
+        jobNumber: formData.jobNumber,
+        dateNeeded: formatLocalISOString(finalDateNeeded),
+        productionDate:
+          this.props.requestType === "Shipment"
+            ? undefined
+            : formattedProductionDate,
+        shipmentDate:
+          this.props.requestType === "Shipment"
+            ? formattedProductionDate
+            : undefined,
+        isLessThanTwoDays:
+          this.props.requestType === "Delivery" ? isLessThanTwoDays : undefined,
+        isLessThanThreeDays:
+          this.props.requestType === "Shipment"
+            ? isLessThanThreeDays
+            : undefined,
+        demandCategory: demandCategory,
+        isHotDemand: hotDemand,
+        isLargePull: formData.linesToPull > 10,
+        deliverTo: formData.deliverTo,
+        customerShipment: formData.customerShipment,
+        domesticShipment:
+          this.props.requestType === "Shipment"
+            ? formData.domesticShipment
+            : undefined,
+        shipmentType:
+          this.props.requestType === "Shipment"
+            ? formData.shipmentType
+            : undefined,
+        finalDeliveryDate: "",
+        planner: {
+          name: plannerName,
+          email: plannerEmail,
+          department: plannerDepartment,
+        },
+        puller: {
+          name: "",
+          email: "",
+          department: "",
+        },
+        createdDate: formatLocalISOString(new Date()),
+        createdTime: DateUtils.formatTime(new Date()),
+        lastModified: formatLocalISOString(new Date()),
+        currentStatus: OrderStatus.Open,
+        idStatus: 1,
+        steps: [initialStep],
+        kpis: {
+          isProcessOtif: false,
+          completionDuration: "",
+        },
+        metadata: {
+          version: "2.0",
+          schema: "smart-flow-planner-puller",
+          source: "Smart Flow Warehouse",
+          location:
+            this.props.context.pageContext.web.serverRelativeUrl.replace(
+              /\/$/,
+              "",
+            ),
+          facility: "Oceaneering - Macaé",
+        },
+      };
+
+      // Cria a order (pasta será criada automaticamente)
+      const createdOrder = await SmartFlowService.createOrder(newOrder);
+
+      // Determine notification type based on demand category
+      const notificationType = hotDemand
+        ? "HIGH_PRIORITY_REQUEST"
+        : "ORDER_CREATED";
+
+      // Track initial status (Open) for Power Automate
+      try {
+        const statusTrackerService = new StatusTrackerService(
+          this.props.context,
+        );
+        await statusTrackerService.trackNotification(
+          createdOrder,
+          notificationType,
+          OrderStatus.Open,
+          `Created by Planner ${plannerName}. Category: ${demandCategory}`,
+        );
+      } catch (error) {
+        console.error(
+          "[CreateOrderForm] Error tracking order creation:",
+          error,
+        );
+        // Don't fail the whole operation if tracking fails
+      }
+
+      // Log ORDER_CREATED activity
+      try {
+        const activityLogService = new ActivityLogService(this.props.context);
+        await activityLogService.addLog(
+          notificationType,
+          createdOrder.orderNumber,
+          createdOrder.Id!,
+          {
+            name: plannerName,
+            email: plannerEmail,
+            department: plannerDepartment,
+          },
+          undefined, // puller is undefined for new orders
+          {
+            demandCategory: demandCategory,
+            isHotDemand: hotDemand,
+            linesToPull: formData.linesToPull,
+            businessUnit: formData.businessUnit,
+            jobNumber: formData.jobNumber,
+            dateNeeded: formatLocalISOString(finalDateNeeded),
+            urgencyReason: hotDemand
+              ? "HOT DEMAND - Immediate attention required"
+              : undefined,
+          },
+        );
+      } catch (error) {
+        console.error("[CreateOrderForm] Error logging activity:", error);
+        // Don't fail the whole operation if logging fails
+      }
+
+      // Se houver arquivos temporários, fazer upload agora
+      if (formData.tempFiles.length > 0) {
+        const folderName = createdOrder.metadata.attachmentFolder;
+
+        if (!folderName) {
+          this.setState({
+            errorMessage:
+              "Attachment folder was not created. Request created but attachments were not saved.",
+          });
+        } else {
+          try {
+            // Upload all files
+            const uploadedAttachments =
+              await AttachmentService.uploadMultipleFiles(
+                formData.tempFiles,
+                folderName,
+              );
+
+            // Atualiza a order com os attachments
+            const updatedOrder = {
+              ...createdOrder,
+              attachments: uploadedAttachments,
+            };
+            await SmartFlowService.updateOrder(createdOrder.Id!, updatedOrder);
+          } catch {
+            // Não falha a criação da order, apenas mostra warning
+            this.setState({
+              errorMessage:
+                "⚠️ Request created, but there was an error uploading some attachments. You can add the files manually later.",
+            });
+          }
+        }
+      }
+
+      this.setState({
+        isSubmitting: false,
+        successMessage: `Request ${formData.orderNumber} created successfully!${
+          hotDemand ? " ⚠️ HOT DEMAND - Urgent!" : ""
+        }`,
+        createdOrderId: createdOrder.Id,
+        folderName: createdOrder.metadata.attachmentFolder,
+      });
+
+      // Notify success after 2 seconds
+      setTimeout(() => {
+        this.props.onSuccess(createdOrder);
+      }, 2000);
+    } catch (error) {
+      this.setState({
+        isSubmitting: false,
+        errorMessage:
+          error instanceof Error
+            ? error.message
+            : "Error creating request. Please try again.",
+      });
+    }
+  };
+
+  private handleTempFilesSelected = (files: File[]): void => {
+    this.setState((prev) => ({
+      formData: {
+        ...prev.formData,
+        tempFiles: [...prev.formData.tempFiles, ...files],
+      },
+    }));
+  };
+
+  private handleRemoveTempFile = (index: number): void => {
+    this.setState((prev) => ({
+      formData: {
+        ...prev.formData,
+        tempFiles: prev.formData.tempFiles.filter((_, i) => i !== index),
+      },
+    }));
+  };
+
+  private renderStepIndicator = (): JSX.Element => {
+    const { currentStep } = this.state;
+    const isShipment = this.props.requestType === "Shipment";
+    const steps = [
+      { number: 1, title: "Request Info" },
+      { number: 2, title: "Job Details" },
+      { number: 3, title: "Attachments" },
+      { number: 4, title: isShipment ? "Shipping Info" : "Delivery Info" },
+    ];
+
+    return (
+      <div className={styles.stepIndicator}>
+        <Stack horizontal tokens={{ childrenGap: 16 }}>
+          {steps.map((step) => (
+            <div
+              key={step.number}
+              className={`${styles.stepItem} ${
+                currentStep === step.number ? styles.active : ""
+              } ${currentStep > step.number ? styles.completed : ""}`}
+            >
+              <div className={styles.stepNumber}>{step.number}</div>
+              <Label className={styles.stepTitle}>{step.title}</Label>
+            </div>
+          ))}
+        </Stack>
+        <ProgressIndicator
+          percentComplete={(currentStep - 1) / 3}
+          barHeight={4}
+          className={styles.progressBar}
+        />
+      </div>
+    );
+  };
+
+  private renderStep1 = (): JSX.Element => {
+    const { formData, errors, orderTypeOptions, businessUnitOptions } =
+      this.state;
+
+    return (
+      <div className={styles.stepContent}>
+        <Label className={styles.stepLabel}>
+          📋 Step 1: Request Information
+        </Label>
+
+        <TextField
+          label="Request Number"
+          placeholder="Ex: MSR-2025-001234"
+          value={formData.orderNumber}
+          onChange={(_, value) =>
+            this.setState((prev) => {
+              const newErrors = { ...prev.errors };
+              delete newErrors.orderNumber;
+              return {
+                formData: { ...prev.formData, orderNumber: value || "" },
+                errors: newErrors,
+              };
+            })
+          }
+          errorMessage={errors.orderNumber}
+          required
+          description="Unique Request Number (MSR, SOR, PID, WCF, EMO)"
+        />
+
+        <TextField
+          label="Lines to Pull"
+          type="number"
+          min={1}
+          value={
+            formData.linesToPull > 0 ? formData.linesToPull.toString() : ""
+          }
+          placeholder="Type number of lines to pull"
+          onChange={(_, value) =>
+            this.setState((prev) => {
+              const newErrors = { ...prev.errors };
+              delete newErrors.linesToPull;
+              const numValue = value ? parseInt(value) : 0;
+              return {
+                formData: {
+                  ...prev.formData,
+                  linesToPull: numValue,
+                },
+                errors: newErrors,
+              };
+            })
+          }
+          errorMessage={errors.linesToPull}
+          required
+          description="Quantity of part numbers to be separated"
+        />
+
+        {/* Large Pull Warning */}
+        {formData.linesToPull > 10 && (
+          <MessageBar
+            messageBarType={MessageBarType.warning}
+            style={{ marginBottom: "16px" }}
+          >
+            <strong>Large Pull</strong> - This request has been categorized as
+            &quot;Large Pull&quot; (more than 10 lines).
+          </MessageBar>
+        )}
+
+        <Dropdown
+          label="Request Type"
+          placeholder="Select type"
+          options={orderTypeOptions}
+          selectedKey={formData.orderType || undefined}
+          onChange={(_, option) =>
+            this.setState((prev) => {
+              const newErrors = { ...prev.errors };
+              delete newErrors.orderType;
+              return {
+                formData: {
+                  ...prev.formData,
+                  orderType: (option?.key as string) || "",
+                },
+                errors: newErrors,
+              };
+            })
+          }
+          errorMessage={errors.orderType}
+          required
+        />
+
+        <Dropdown
+          label="Business Unit"
+          placeholder="Select business unit"
+          options={businessUnitOptions}
+          selectedKey={formData.businessUnit || undefined}
+          onChange={(_, option) =>
+            this.setState((prev) => {
+              const newErrors = { ...prev.errors };
+              delete newErrors.businessUnit;
+              return {
+                formData: {
+                  ...prev.formData,
+                  businessUnit: (option?.key as string) || "",
+                },
+                errors: newErrors,
+              };
+            })
+          }
+          errorMessage={errors.businessUnit}
+          required
+        />
+      </div>
+    );
+  };
+
+  private renderStep2 = (): JSX.Element => {
+    const { formData, errors } = this.state;
+
+    return (
+      <div className={styles.stepContent}>
+        <Label className={styles.stepLabel}>🔧 Step 2: Job Details</Label>
+
+        <TextField
+          label="Job Name"
+          placeholder="Ex: P&G Subsea Manifold Installation"
+          value={formData.jobName}
+          onChange={(_, value) =>
+            this.setState((prev) => {
+              const newErrors = { ...prev.errors };
+              delete newErrors.jobName;
+              return {
+                formData: { ...prev.formData, jobName: value || "" },
+                errors: newErrors,
+              };
+            })
+          }
+          errorMessage={errors.jobName}
+          required
+          multiline
+          rows={2}
+        />
+
+        <TextField
+          label="Job Number"
+          placeholder="Ex: PRJ-2025-789"
+          value={formData.jobNumber}
+          onChange={(_, value) =>
+            this.setState((prev) => {
+              const newErrors = { ...prev.errors };
+              delete newErrors.jobNumber;
+              return {
+                formData: { ...prev.formData, jobNumber: value || "" },
+                errors: newErrors,
+              };
+            })
+          }
+          errorMessage={errors.jobNumber}
+        />
+
+        <TextField
+          label="Special Instructions"
+          placeholder="Special instructions, observations, care..."
+          value={formData.specialInstructions}
+          onChange={(_, value) =>
+            this.setState((prev) => ({
+              formData: { ...prev.formData, specialInstructions: value || "" },
+            }))
+          }
+          multiline
+          rows={4}
+          description="Additional information important for the Puller"
+        />
+      </div>
+    );
+  };
+
+  private renderStep3 = (): JSX.Element => {
+    const { formData } = this.state;
+
+    return (
+      <div className={styles.stepContent}>
+        <Label className={styles.stepLabel}>📎 Step 3: Attachments</Label>
+
+        <MessageBar messageBarType={MessageBarType.info}>
+          <strong>Attach relevant documents:</strong> Purchase Orders, material
+          lists, diagrams, technical specifications, etc.
+        </MessageBar>
+
+        <MessageBar messageBarType={MessageBarType.warning}>
+          ⚠️ The folder will be created automatically when saving the request in
+          the next step.
+        </MessageBar>
+        {/* Área de seleção de arquivos */}
+        <div className={styles.fileUploadArea}>
+          <PrimaryButton
+            text="Select Files to Attach"
+            iconProps={{ iconName: "Attach" }}
+            onClick={() => {
+              const input = document.createElement("input");
+              input.type = "file";
+              input.multiple = true;
+              input.accept =
+                ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.bmp,.txt,.csv,.zip";
+              input.onchange = (e: Event) => {
+                const target = e.target as HTMLInputElement;
+                if (target.files && target.files.length > 0) {
+                  const filesArray = Array.from(target.files);
+                  this.handleTempFilesSelected(filesArray);
+                }
+              };
+              input.click();
+            }}
+            style={{ marginTop: "16px" }}
+          />
+
+          {formData.tempFiles.length > 0 && (
+            <div style={{ marginTop: "16px" }}>
+              <Label>
+                Arquivos selecionados ({formData.tempFiles.length}):
+              </Label>
+              <Stack tokens={{ childrenGap: 8 }} style={{ marginTop: "8px" }}>
+                {formData.tempFiles.map((file, index) => (
+                  <Stack
+                    key={index}
+                    horizontal
+                    verticalAlign="center"
+                    tokens={{ childrenGap: 8 }}
+                    className={styles.fileItemCard}
+                  >
+                    <div className={styles.fileInfo}>
+                      <div className={styles.fileName}>{file.name}</div>
+                      <span className={styles.fileSize}>
+                        {(file.size / 1024).toFixed(2)} KB
+                      </span>
+                    </div>
+                    <IconButton
+                      iconProps={{ iconName: "Delete" }}
+                      title="Remove file"
+                      ariaLabel="Remove file"
+                      onClick={() => this.handleRemoveTempFile(index)}
+                    />
+                  </Stack>
+                ))}
+              </Stack>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  private renderStep4 = (): JSX.Element => {
+    const { formData, errors } = this.state;
+    const isShipment = this.props.requestType === "Shipment";
+
+    // Verifica se a data selecionada é hoje
+    const selectedDate = formData.dateNeeded
+      ? new Date(formData.dateNeeded)
+      : null;
+    const today = new Date();
+    const currentHour = new Date().getHours();
+
+    if (selectedDate) {
+      selectedDate.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+    }
+    const isToday = selectedDate && selectedDate.getTime() === today.getTime();
+    const isLargePull = formData.linesToPull > 10;
+
+    // Verifica se precisa de aviso especial para Large Pull + Same Day
+    const needsManagerConfirmation =
+      isToday && isLargePull && currentHour >= 15;
+    const needsUserConfirmation =
+      isToday && isLargePull && currentHour >= 14 && currentHour < 15;
+
+    return (
+      <div className={styles.stepContent}>
+        <Label className={styles.stepLabel}>
+          {isShipment ? "🚢 Step 4: Shipping Info" : "🚚 Step 4: Delivery Info"}
+        </Label>
+
+        {/* Informação sobre categorias de demand */}
+        <MessageBar
+          messageBarType={MessageBarType.info}
+          style={{ marginBottom: "16px" }}
+        >
+          <strong>Pull Categories:</strong>
+          <ul className={styles.demandInfoList}>
+            <li>
+              <strong>HOT DEMAND</strong> - Delivery in a maximum of 4 hours
+            </li>
+            <li>
+              <strong>RUSH DEMAND</strong> - Delivery in less than 3 days and
+              more than 4 hours
+            </li>
+            <li>
+              <strong>REGULAR DEMAND</strong> - Delivery in 3 days or more
+            </li>
+          </ul>
+        </MessageBar>
+
+        {/* Important Notices */}
+        <MessageBar
+          messageBarType={MessageBarType.warning}
+          style={{ marginBottom: "16px" }}
+        >
+          <strong>Important:</strong>
+          <ul className={styles.demandInfoList}>
+            <li>
+              Requests should be entered at least <strong>3 days prior</strong>{" "}
+              to Need Date for shop floor/shipping.
+            </li>
+            <li>
+              Requests entered after <strong>3pm for same day pull</strong>{" "}
+              require a call to Warehouse Leads/Manager to expedite. Comments
+              must be entered.
+            </li>
+          </ul>
+        </MessageBar>
+
+        {/* Created Date - Read Only */}
+        <TextField
+          label="Created Date"
+          value={DateUtils.formatDate(new Date())}
+          readOnly
+          disabled
+          description="Date when this request will be created in the system"
+          styles={{ root: { marginBottom: "16px" } }}
+        />
+
+        <DatePicker
+          label="Date Needed (Internal Date)"
+          placeholder="Select a date"
+          value={formData.dateNeeded}
+          onSelectDate={(date) =>
+            this.setState((prev) => {
+              const newErrors = { ...prev.errors };
+              delete newErrors.dateNeeded;
+
+              // Se mudou a data e não é mais hoje, desmarca o toggle HOT
+              const newDate = date ? new Date(date) : null;
+              const todayCheck = new Date();
+              if (newDate) {
+                newDate.setHours(0, 0, 0, 0);
+                todayCheck.setHours(0, 0, 0, 0);
+              }
+              const newIsToday =
+                newDate && newDate.getTime() === todayCheck.getTime();
+
+              return {
+                formData: {
+                  ...prev.formData,
+                  dateNeeded: date || undefined,
+                  isManualHotDemand: newIsToday
+                    ? prev.formData.isManualHotDemand
+                    : false,
+                },
+                errors: newErrors,
+              };
+            })
+          }
+          formatDate={(date) => (date ? DateUtils.formatDate(date) : "")}
+          strings={datePickerStrings}
+          firstDayOfWeek={DayOfWeek.Sunday}
+          isRequired
+          minDate={new Date()}
+        />
+        {errors.dateNeeded && (
+          <Label className={styles.errorLabel}>{errors.dateNeeded}</Label>
+        )}
+
+        {/* Production/Shipment Date - Date of Use */}
+        <DatePicker
+          label={isShipment ? "Shipment Date" : "Production Date"}
+          placeholder={
+            isShipment ? "Select shipment date..." : "Select production date..."
+          }
+          value={formData.productionDate}
+          onSelectDate={(date) =>
+            this.setState((prev) => {
+              const newErrors = { ...prev.errors };
+              delete newErrors.productionDate;
+              delete newErrors.confirmLessThanTwoDays;
+              return {
+                formData: {
+                  ...prev.formData,
+                  productionDate: date || undefined,
+                  confirmLessThanTwoDays: false, // Reset confirmation when date changes
+                },
+                errors: newErrors,
+              };
+            })
+          }
+          formatDate={(date) => (date ? DateUtils.formatDate(date) : "")}
+          strings={datePickerStrings}
+          firstDayOfWeek={DayOfWeek.Sunday}
+          isRequired
+          minDate={formData.dateNeeded || new Date()}
+          styles={{ root: { marginTop: "16px" } }}
+        />
+        <span
+          style={{
+            fontSize: "12px",
+            color: "#605e5c",
+            display: "block",
+            marginTop: "4px",
+          }}
+        >
+          When will the material be used in{" "}
+          {isShipment ? "shipment" : "production"}?
+        </span>
+        {errors.productionDate && (
+          <Label className={styles.errorLabel}>{errors.productionDate}</Label>
+        )}
+
+        {/* Warning if Production/Shipment Date is within threshold days from Date Needed */}
+        {formData.productionDate &&
+          formData.dateNeeded &&
+          (() => {
+            const prodDate = new Date(formData.productionDate);
+            const deliveryDate = new Date(formData.dateNeeded);
+            prodDate.setHours(0, 0, 0, 0);
+            deliveryDate.setHours(0, 0, 0, 0);
+            const diffTime = prodDate.getTime() - deliveryDate.getTime();
+            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+            const threshold = isShipment ? 3 : 2;
+
+            if (diffDays <= threshold) {
+              const warningTitle = isShipment
+                ? "\u26A0\uFE0F Shipment Date Within 3 Days of Delivery"
+                : "\u26A0\uFE0F Production Date Within 2 Days of Delivery";
+              const warningMessage = isShipment
+                ? diffDays === 0
+                  ? "The shipment date is the same day as the Needed date (Internal)."
+                  : `The shipment date is only ${Math.round(diffDays)} day(s) after the Needed date (Internal).`
+                : diffDays === 0
+                  ? "The production date is the same day as the Needed date."
+                  : `The production date is only ${Math.round(diffDays)} day(s) after the Needed date.`;
+              const toggleLabel = isShipment
+                ? "Are you aware that the shipment date is less than three days from the delivery date?"
+                : "Are you aware that the production date is less than two days from the delivery date?";
+
+              return (
+                <div style={{ marginTop: "16px" }}>
+                  <MessageBar
+                    messageBarType={MessageBarType.warning}
+                    styles={{ root: { marginBottom: "12px" } }}
+                  >
+                    <strong>{warningTitle}</strong>
+                    <br />
+                    {warningMessage}
+                  </MessageBar>
+
+                  <Toggle
+                    label={toggleLabel}
+                    checked={formData.confirmLessThanTwoDays}
+                    onChange={(_, checked) =>
+                      this.setState((prev) => {
+                        const newErrors = { ...prev.errors };
+                        delete newErrors.confirmLessThanTwoDays;
+                        return {
+                          formData: {
+                            ...prev.formData,
+                            confirmLessThanTwoDays: !!checked,
+                          },
+                          errors: newErrors,
+                        };
+                      })
+                    }
+                    onText="Yes, I confirm"
+                    offText="No"
+                  />
+                  {errors.confirmLessThanTwoDays && (
+                    <Label className={styles.errorLabel}>
+                      {errors.confirmLessThanTwoDays}
+                    </Label>
+                  )}
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+        {/* Toggle HOT apenas se a data selecionada for HOJE */}
+        {isToday && (
+          <div style={{ marginTop: 20, marginBottom: 20 }}>
+            <Label style={{ marginBottom: 12, fontWeight: 600 }}>
+              Is HOT Demand? (less than 4 hours)
+            </Label>
+
+            <button
+              type="button"
+              aria-pressed={formData.isManualHotDemand}
+              aria-label="Toggle HOT demand"
+              className={`${styles.hotToggle} ${
+                formData.isManualHotDemand ? styles.isOn : styles.isOff
+              }`}
+              onClick={() =>
+                this.setState((prev) => ({
+                  formData: {
+                    ...prev.formData,
+                    isManualHotDemand: !prev.formData.isManualHotDemand,
+                  },
+                }))
+              }
+            >
+              <span className={styles.hotToggleTrack}>
+                <span className={`${styles.hotIcon} ${styles.hotIconOn}`}>
+                  ✓
+                </span>
+                <span className={`${styles.hotIcon} ${styles.hotIconOff}`}>
+                  ✕
+                </span>
+              </span>
+              <span className={styles.hotToggleKnob} />
+            </button>
+
+            <MessageBar
+              messageBarType={
+                formData.isManualHotDemand
+                  ? MessageBarType.severeWarning
+                  : MessageBarType.success
+              }
+              styles={{ root: { marginTop: 12 } }}
+            >
+              {formData.isManualHotDemand ? (
+                <>
+                  <strong>HOT DEMAND</strong> - Delivery in a maximum of 4
+                  hours!
+                </>
+              ) : (
+                <>
+                  <strong>RUSH DEMAND</strong> - Same day delivery, but more
+                  than 4 hours.
+                </>
+              )}
+            </MessageBar>
+          </div>
+        )}
+
+        {/* Mostra categoria automática se não for hoje */}
+        {formData.dateNeeded && !isToday && (
+          <MessageBar
+            messageBarType={MessageBarType.info}
+            style={{ marginTop: "16px" }}
+          >
+            Category:{" "}
+            <strong>{calculateDemandCategory(formData.dateNeeded)}</strong>
+            <br />
+            {calculateDemandCategory(formData.dateNeeded) === "RUSH" && (
+              <span>
+                Delivery in less than 3 days (up to 2 days from today)
+              </span>
+            )}
+            {calculateDemandCategory(formData.dateNeeded) === "REGULAR" && (
+              <span>Delivery in 3 days or more (third day onwards)</span>
+            )}
+          </MessageBar>
+        )}
+
+        {/* Large Pull + Same Day After 2pm Warning */}
+        {needsUserConfirmation && (
+          <MessageBar
+            messageBarType={MessageBarType.severeWarning}
+            style={{ marginTop: "16px" }}
+          >
+            <strong>⚠️ ATTENTION - Large Pull + Same Day After 2pm</strong>
+            <br />
+            You are requesting a <strong>Large Pull</strong> (more than 10
+            lines) for
+            <strong> same day delivery after 2pm</strong>. Please confirm this
+            is necessary and add detailed comments explaining the urgency.
+          </MessageBar>
+        )}
+
+        {/* Large Pull + Same Day After 3pm - Manager Call Required */}
+        {needsManagerConfirmation && (
+          <MessageBar
+            messageBarType={MessageBarType.blocked}
+            style={{ marginTop: "16px" }}
+          >
+            <strong>🚨 MANAGER CONFIRMATION REQUIRED</strong>
+            <br />
+            You are requesting a <strong>Large Pull</strong> for{" "}
+            <strong>same day delivery after 3pm</strong>.
+            <br />
+            <strong>
+              You must call the Warehouse Manager to confirm and expedite this
+              request.
+            </strong>
+            <br />
+            Please add detailed comments with the manager&apos;s confirmation.
+          </MessageBar>
+        )}
+
+        <Dropdown
+          label="Deliver To:"
+          placeholder={
+            isShipment ? "Select Shipment Location" : "Select Delivery Location"
+          }
+          options={this.state.deliveryLocationOptions}
+          selectedKey={formData.deliverTo}
+          onChange={(_, option) =>
+            this.setState((prev) => {
+              const newErrors = { ...prev.errors };
+              delete newErrors.deliverTo;
+              return {
+                formData: { ...prev.formData, deliverTo: option?.text || "" },
+                errors: newErrors,
+              };
+            })
+          }
+          errorMessage={errors.deliverTo}
+          required
+        />
+
+        {isShipment && (
+          <>
+            <Toggle
+              label="International or Domestic Request"
+              checked={formData.domesticShipment}
+              onChange={(_, checked) =>
+                this.setState((prev) => ({
+                  formData: { ...prev.formData, domesticShipment: !!checked },
+                }))
+              }
+              onText="Domestic"
+              offText="International"
+            />
+
+            <Dropdown
+              label="Shipment Type"
+              placeholder="Select Shipment Type"
+              options={this.state.shipmentTypeOptions}
+              selectedKey={formData.shipmentType}
+              onChange={(_, option) =>
+                this.setState((prev) => ({
+                  formData: {
+                    ...prev.formData,
+                    shipmentType: (option?.text || "") as string,
+                  },
+                }))
+              }
+            />
+
+            <Toggle
+              label="Oceaneering or Customer Shipment"
+              checked={formData.customerShipment}
+              onChange={(_, checked) =>
+                this.setState((prev) => ({
+                  formData: { ...prev.formData, customerShipment: !!checked },
+                }))
+              }
+              onText="Customer Pick Up"
+              offText="Oceaneering Ships"
+            />
+            <p
+              style={{
+                fontSize: "12px",
+                color: "#666",
+                marginTop: "4px",
+                fontStyle: "italic",
+              }}
+            >
+              This information will be sent to the Shipment Team to define
+              whether the customer will collect the material or Oceaneering will
+              need to ship it.
+            </p>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  private renderReviewModal = (): JSX.Element => {
+    const {
+      formData,
+      showReviewModal,
+      isSubmitting,
+      orderTypeOptions,
+      businessUnitOptions,
+    } = this.state;
+
+    // Get labels from options
+    const orderTypeLabel =
+      orderTypeOptions.find((opt) => opt.key === formData.orderType)?.text ||
+      formData.orderType;
+    const businessUnitLabel =
+      businessUnitOptions.find((opt) => opt.key === formData.businessUnit)
+        ?.text || formData.businessUnit;
+
+    // Calculate demand category for display
+    let demandCategoryDisplay = "REGULAR";
+    if (formData.dateNeeded) {
+      const selectedDate = new Date(formData.dateNeeded);
+      const today = new Date();
+      selectedDate.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+      const isToday = selectedDate.getTime() === today.getTime();
+
+      if (isToday && formData.isManualHotDemand) {
+        demandCategoryDisplay = "HOT";
+      } else {
+        const calculated = calculateDemandCategory(formData.dateNeeded);
+        // Only show HOT if user explicitly set isManualHotDemand
+        demandCategoryDisplay =
+          calculated === "HOT" && !formData.isManualHotDemand
+            ? "RUSH"
+            : calculated;
+      }
+    }
+
+    // Calculate isLessThanTwoDays/isLessThanThreeDays for display
+    let isLessThanTwoDaysDisplay = false;
+    let isLessThanThreeDaysDisplay = false;
+    if (formData.productionDate && formData.dateNeeded) {
+      const prodDate = new Date(formData.productionDate);
+      const deliveryDate = new Date(formData.dateNeeded);
+      prodDate.setHours(0, 0, 0, 0);
+      deliveryDate.setHours(0, 0, 0, 0);
+      const diffTime = prodDate.getTime() - deliveryDate.getTime();
+      const diffDays = diffTime / (1000 * 60 * 60 * 24);
+      if (this.props.requestType === "Shipment") {
+        isLessThanThreeDaysDisplay = diffDays <= 3;
+      } else {
+        isLessThanTwoDaysDisplay = diffDays <= 2;
+      }
+    }
+
+    // Inline styles for the modal
+    const modalStyles = {
+      container: {
+        maxWidth: "700px",
+        width: "95%",
+        maxHeight: "90vh",
+        borderRadius: "12px",
+        overflow: "hidden",
+      } as React.CSSProperties,
+      header: {
+        padding: "24px 24px 16px",
+        background: "linear-gradient(135deg,#0f172a,#1e293b)",
+        color: "white",
+      } as React.CSSProperties,
+      headerTitle: {
+        margin: "0 0 8px 0",
+        fontSize: "1.5rem",
+        fontWeight: 600,
+      } as React.CSSProperties,
+      headerSubtitle: {
+        margin: 0,
+        opacity: 0.9,
+        fontSize: "0.9rem",
+      } as React.CSSProperties,
+      content: {
+        padding: "24px",
+        maxHeight: "60vh",
+        overflowY: "auto",
+        background: "#faf9f8",
+      } as React.CSSProperties,
+      section: {
+        marginBottom: "24px",
+        padding: "16px",
+        background: "white",
+        borderRadius: "8px",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+      } as React.CSSProperties,
+      sectionTitle: {
+        margin: "0 0 12px 0",
+        fontSize: "1.1rem",
+        fontWeight: 600,
+        color: "#0078d4",
+      } as React.CSSProperties,
+      grid: {
+        display: "grid",
+        gridTemplateColumns: "repeat(2, 1fr)",
+        gap: "16px",
+        marginTop: "12px",
+      } as React.CSSProperties,
+      item: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+      } as React.CSSProperties,
+      itemLabel: {
+        fontSize: "0.8rem",
+        color: "#605e5c",
+        fontWeight: 500,
+        margin: 0,
+      } as React.CSSProperties,
+      itemValue: {
+        fontSize: "0.95rem",
+        color: "#323130",
+        fontWeight: 500,
+      } as React.CSSProperties,
+      itemFull: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+        gridColumn: "1 / -1",
+      } as React.CSSProperties,
+      specialInstructions: {
+        whiteSpace: "pre-wrap",
+        background: "#faf9f8",
+        padding: "8px 12px",
+        borderRadius: "4px",
+        border: "1px solid #edebe9",
+      } as React.CSSProperties,
+      attachmentList: {
+        margin: "8px 0 0 0",
+        paddingLeft: "20px",
+      } as React.CSSProperties,
+      footer: {
+        padding: "16px 24px",
+        background: "white",
+        borderTop: "1px solid #edebe9",
+      } as React.CSSProperties,
+    };
+
+    return (
+      <Modal
+        isOpen={showReviewModal}
+        onDismiss={this.handleCloseReviewModal}
+        isBlocking={true}
+        styles={{
+          main: {
+            maxWidth: "700px",
+            width: "95%",
+            maxHeight: "90vh",
+            borderRadius: "12px",
+            overflow: "hidden",
+          },
+        }}
+      >
+        <div style={modalStyles.header}>
+          <h2 style={modalStyles.headerTitle}>📋 Review Your Request</h2>
+          <p style={modalStyles.headerSubtitle}>
+            Please review all the information before submitting.
+          </p>
+        </div>
+
+        <div style={modalStyles.content}>
+          {/* Step 1: Request Info */}
+          <div style={modalStyles.section}>
+            <h3 style={modalStyles.sectionTitle}>📋 Request Information</h3>
+            <Separator />
+            <div style={modalStyles.grid}>
+              <div style={modalStyles.item as React.CSSProperties}>
+                <Label style={modalStyles.itemLabel}>Request Number</Label>
+                <span style={modalStyles.itemValue}>
+                  {formData.orderNumber}
+                </span>
+              </div>
+              <div style={modalStyles.item as React.CSSProperties}>
+                <Label style={modalStyles.itemLabel}>Lines to Pull</Label>
+                <span style={modalStyles.itemValue}>
+                  {formData.linesToPull}{" "}
+                  {formData.linesToPull > 10 && (
+                    <strong style={{ color: "#d83b01" }}>(Large Pull)</strong>
+                  )}
+                </span>
+              </div>
+              <div style={modalStyles.item as React.CSSProperties}>
+                <Label style={modalStyles.itemLabel}>Request Type</Label>
+                <span style={modalStyles.itemValue}>{orderTypeLabel}</span>
+              </div>
+              <div style={modalStyles.item as React.CSSProperties}>
+                <Label style={modalStyles.itemLabel}>Business Unit</Label>
+                <span style={modalStyles.itemValue}>{businessUnitLabel}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 2: Job Details */}
+          <div style={modalStyles.section}>
+            <h3 style={modalStyles.sectionTitle}>🔧 Job Details</h3>
+            <Separator />
+            <div style={modalStyles.grid}>
+              <div style={modalStyles.item as React.CSSProperties}>
+                <Label style={modalStyles.itemLabel}>Job Name</Label>
+                <span style={modalStyles.itemValue}>{formData.jobName}</span>
+              </div>
+              <div style={modalStyles.item as React.CSSProperties}>
+                <Label style={modalStyles.itemLabel}>Job Number</Label>
+                <span style={modalStyles.itemValue}>{formData.jobNumber}</span>
+              </div>
+              {formData.specialInstructions && (
+                <div style={modalStyles.itemFull as React.CSSProperties}>
+                  <Label style={modalStyles.itemLabel}>
+                    Special Instructions
+                  </Label>
+                  <span
+                    style={
+                      {
+                        ...modalStyles.itemValue,
+                        ...modalStyles.specialInstructions,
+                      } as React.CSSProperties
+                    }
+                  >
+                    {formData.specialInstructions}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Step 3: Attachments */}
+          <div style={modalStyles.section}>
+            <h3 style={modalStyles.sectionTitle}>📎 Attachments</h3>
+            <Separator />
+            {formData.tempFiles.length > 0 ? (
+              <ul style={modalStyles.attachmentList}>
+                {formData.tempFiles.map((file, index) => (
+                  <li
+                    key={index}
+                    style={{ marginBottom: "4px", fontSize: "0.9rem" }}
+                  >
+                    {file.name} ({(file.size / 1024).toFixed(2)} KB)
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <span style={{ color: "#605e5c", fontStyle: "italic" }}>
+                No attachments
+              </span>
+            )}
+          </div>
+
+          {/* Step 4: Delivery/Shipment */}
+          <div style={{ ...modalStyles.section, marginBottom: 0 }}>
+            <h3 style={modalStyles.sectionTitle}>
+              {this.props.requestType === "Shipment"
+                ? "🚢 Shipping Info"
+                : "🚚 Delivery Info"}
+            </h3>
+            <Separator />
+            <div style={modalStyles.grid}>
+              <div style={modalStyles.item as React.CSSProperties}>
+                <Label style={modalStyles.itemLabel}>Created Date</Label>
+                <span style={modalStyles.itemValue}>
+                  {DateUtils.formatDate(new Date())}
+                </span>
+              </div>
+              <div style={modalStyles.item as React.CSSProperties}>
+                <Label style={modalStyles.itemLabel}>
+                  Date Needed (Internal Date)
+                </Label>
+                <span style={modalStyles.itemValue}>
+                  {formData.dateNeeded
+                    ? DateUtils.formatDate(formData.dateNeeded)
+                    : ""}
+                </span>
+              </div>
+              {formData.productionDate && (
+                <div style={modalStyles.item as React.CSSProperties}>
+                  <Label style={modalStyles.itemLabel}>
+                    {this.props.requestType === "Shipment"
+                      ? "Shipment Date"
+                      : "Production Date"}
+                  </Label>
+                  <span style={modalStyles.itemValue}>
+                    {DateUtils.formatDate(formData.productionDate)}
+                    {isLessThanTwoDaysDisplay && (
+                      <strong style={{ color: "#d83b01" }}>
+                        {" "}
+                        (Less than 2 days)
+                      </strong>
+                    )}
+                    {isLessThanThreeDaysDisplay && (
+                      <strong style={{ color: "#d83b01" }}>
+                        {" "}
+                        (Less than 3 days)
+                      </strong>
+                    )}
+                  </span>
+                </div>
+              )}
+              <div style={modalStyles.item as React.CSSProperties}>
+                <Label style={modalStyles.itemLabel}>Demand Category</Label>
+                <span
+                  style={{
+                    ...modalStyles.itemValue,
+                    fontWeight: 600,
+                    color:
+                      demandCategoryDisplay === "HOT"
+                        ? "#d13438"
+                        : demandCategoryDisplay === "RUSH"
+                          ? "#ff8c00"
+                          : "#107c10",
+                  }}
+                >
+                  {demandCategoryDisplay}
+                </span>
+              </div>
+              <div style={modalStyles.item as React.CSSProperties}>
+                <Label style={modalStyles.itemLabel}>
+                  {this.props.requestType === "Shipment"
+                    ? "Deliver To:"
+                    : "Deliver To"}
+                </Label>
+                <span style={modalStyles.itemValue}>{formData.deliverTo}</span>
+              </div>
+              {this.props.requestType === "Shipment" && (
+                <div style={modalStyles.item as React.CSSProperties}>
+                  <Label style={modalStyles.itemLabel}>
+                    International or Domestic
+                  </Label>
+                  <span style={modalStyles.itemValue}>
+                    {formData.domesticShipment ? "Domestic" : "International"}
+                  </span>
+                </div>
+              )}
+              {this.props.requestType === "Shipment" &&
+                formData.shipmentType && (
+                  <div style={modalStyles.item as React.CSSProperties}>
+                    <Label style={modalStyles.itemLabel}>Shipment Type</Label>
+                    <span style={modalStyles.itemValue}>
+                      {formData.shipmentType}
+                    </span>
+                  </div>
+                )}
+              {this.props.requestType === "Shipment" && (
+                <div style={modalStyles.item as React.CSSProperties}>
+                  <Label style={modalStyles.itemLabel}>
+                    Oceaneering or Customer Shipment
+                  </Label>
+                  <span style={modalStyles.itemValue}>
+                    {formData.customerShipment
+                      ? "Customer Pick Up"
+                      : "Oceaneering Ships"}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Warning for HOT demand */}
+          {demandCategoryDisplay === "HOT" && (
+            <MessageBar
+              messageBarType={MessageBarType.severeWarning}
+              style={{ marginTop: "16px" }}
+            >
+              <strong>⚠️ HOT DEMAND</strong> - This request requires delivery
+              within 4 hours!
+            </MessageBar>
+          )}
+        </div>
+
+        <div style={modalStyles.footer}>
+          <Stack horizontal tokens={{ childrenGap: 12 }} horizontalAlign="end">
+            <DefaultButton
+              text="Go Back & Edit"
+              onClick={this.handleCloseReviewModal}
+              disabled={isSubmitting}
+              iconProps={{ iconName: "Edit" }}
+            />
+            <PrimaryButton
+              text={isSubmitting ? "Creating..." : "Confirm & Create Request"}
+              onClick={this.handleConfirmSubmit}
+              disabled={isSubmitting}
+              iconProps={{ iconName: "CheckMark" }}
+            />
+          </Stack>
+        </div>
+      </Modal>
+    );
+  };
+
+  public render(): React.ReactElement<ICreateOrderFormProps> {
+    const { currentStep, isSubmitting, errorMessage, successMessage } =
+      this.state;
+
+    return (
+      <div className={styles.createOrderForm}>
+        {/* Submitting Loading Overlay */}
+        {isSubmitting && (
+          <Overlay
+            styles={{
+              root: {
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "rgba(255, 255, 255, 0.85)",
+                zIndex: 1000,
+                borderRadius: "12px",
+              },
+            }}
+          >
+            <Spinner
+              size={SpinnerSize.large}
+              label="Creating your request..."
+              labelPosition="bottom"
+            />
+            <p style={{ marginTop: 12, color: "#605e5c", fontSize: 13 }}>
+              Please wait while the request is being submitted.
+            </p>
+          </Overlay>
+        )}
+        <div className={styles.header}>
+          <h2 className={styles.title}>
+            {this.props.requestType === "Shipment"
+              ? "📝 Create New Shipment Request"
+              : "📝 Create New Delivery Request"}
+          </h2>
+          <p className={styles.subtitle}>
+            Planner Workflow - Fill in the details below
+          </p>
+        </div>
+
+        {this.renderStepIndicator()}
+
+        {errorMessage && (
+          <MessageBar
+            messageBarType={MessageBarType.error}
+            isMultiline={false}
+            onDismiss={() => this.setState({ errorMessage: undefined })}
+            dismissButtonAriaLabel="Fechar"
+          >
+            {errorMessage}
+          </MessageBar>
+        )}
+
+        {successMessage && (
+          <MessageBar
+            messageBarType={MessageBarType.success}
+            isMultiline={false}
+          >
+            {successMessage}
+          </MessageBar>
+        )}
+
+        <div className={styles.formContainer}>
+          {currentStep === 1 && this.renderStep1()}
+          {currentStep === 2 && this.renderStep2()}
+          {currentStep === 3 && this.renderStep3()}
+          {currentStep === 4 && this.renderStep4()}
+        </div>
+
+        <div className={styles.footer}>
+          <Stack horizontal tokens={{ childrenGap: 12 }}>
+            <DefaultButton
+              text="Cancel"
+              onClick={this.props.onCancel}
+              disabled={isSubmitting}
+            />
+            {currentStep > 1 && (
+              <DefaultButton
+                text="Back"
+                onClick={this.handleBack}
+                disabled={isSubmitting}
+                iconProps={{ iconName: "ChevronLeft" }}
+              />
+            )}
+            {currentStep < 4 ? (
+              <PrimaryButton
+                text="Next"
+                onClick={this.handleNext}
+                disabled={isSubmitting}
+                iconProps={{ iconName: "ChevronRight" }}
+              />
+            ) : (
+              <PrimaryButton
+                text={isSubmitting ? "Saving..." : "Review & Create Request"}
+                onClick={this.handleOpenReviewModal}
+                disabled={isSubmitting || !!successMessage}
+                iconProps={{ iconName: "EntryView" }}
+              />
+            )}
+          </Stack>
+        </div>
+
+        {/* Review Modal */}
+        {this.renderReviewModal()}
+      </div>
+    );
+  }
+}

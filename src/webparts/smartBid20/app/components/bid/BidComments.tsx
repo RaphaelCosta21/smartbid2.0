@@ -1,6 +1,7 @@
 import * as React from "react";
 import { IBidComment } from "../../models";
 import { PersonaCard } from "../common/PersonaCard";
+import styles from "./BidComments.module.scss";
 
 interface BidCommentsProps {
   comments: IBidComment[];
@@ -23,83 +24,39 @@ export const BidComments: React.FC<BidCommentsProps> = ({
   };
 
   return (
-    <div
-      className={className}
-      style={{ display: "flex", flexDirection: "column", gap: 16 }}
-    >
-      <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
-        Comments ({comments.length})
-      </h4>
+    <div className={`${styles.container} ${className || ""}`}>
+      <h4 className={styles.title}>Comments ({comments.length})</h4>
       {onAdd && (
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className={styles.addRow}>
           <textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Add a comment..."
-            style={{
-              flex: 1,
-              padding: 12,
-              border: "1px solid var(--border-subtle)",
-              borderRadius: 8,
-              resize: "vertical",
-              minHeight: 60,
-              fontSize: 14,
-              fontFamily: "inherit",
-            }}
+            className={styles.textarea}
           />
           <button
             onClick={handleAdd}
             disabled={!newComment.trim()}
-            style={{
-              padding: "8px 20px",
-              background: "var(--accent-color, #3B82F6)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 8,
-              cursor: newComment.trim() ? "pointer" : "not-allowed",
-              opacity: newComment.trim() ? 1 : 0.5,
-              fontSize: 14,
-              fontWeight: 600,
-              alignSelf: "flex-end",
-            }}
+            className={styles.postBtn}
           >
             Post
           </button>
         </div>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div className={styles.commentList}>
         {comments.map((comment) => (
-          <div
-            key={comment.id}
-            style={{
-              padding: 16,
-              borderRadius: 8,
-              border: "1px solid var(--border-subtle)",
-              background: "var(--card-bg)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 8,
-              }}
-            >
+          <div key={comment.id} className={styles.comment}>
+            <div className={styles.commentHeader}>
               <PersonaCard
                 name={comment.author.name}
                 email={comment.author.email}
                 size="small"
               />
-              <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+              <span className={styles.commentTime}>
                 {new Date(comment.timestamp).toLocaleString()}
               </span>
             </div>
-            <p
-              style={{ margin: 0, fontSize: 14, color: "var(--text-primary)" }}
-            >
-              {comment.text}
-            </p>
+            <p className={styles.commentText}>{comment.text}</p>
           </div>
         ))}
       </div>

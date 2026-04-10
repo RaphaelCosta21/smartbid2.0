@@ -1,5 +1,6 @@
 import * as React from "react";
 import { IBidApprovalState } from "../../models/IBidApproval";
+import styles from "./ApprovalRequestCard.module.scss";
 
 interface ApprovalRequestCardProps {
   approval: IBidApprovalState;
@@ -20,48 +21,28 @@ export const ApprovalRequestCard: React.FC<ApprovalRequestCardProps> = ({
     "not-started": "#94A3B8",
   };
 
+  const color = statusColors[approval.status] || "#94A3B8";
+
   return (
     <div
-      className={className}
+      className={`${styles.card} ${onView ? styles.cardClickable : ""} ${className || ""}`}
       onClick={onView}
-      style={{
-        padding: 16,
-        borderRadius: 12,
-        border: `1px solid ${statusColors[approval.status] || "#94A3B8"}30`,
-        background: "var(--card-bg)",
-        cursor: onView ? "pointer" : "default",
-      }}
+      style={{ border: `1px solid ${color}30` }}
     >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: 8,
-        }}
-      >
-        <span style={{ fontWeight: 600, fontSize: 14 }}>
-          {approval.bidNumber}
-        </span>
+      <div className={styles.cardHeader}>
+        <span className={styles.bidNumber}>{approval.bidNumber}</span>
         <span
-          style={{
-            padding: "2px 10px",
-            borderRadius: 12,
-            fontSize: 12,
-            fontWeight: 600,
-            background: `${statusColors[approval.status]}20`,
-            color: statusColors[approval.status],
-          }}
+          className={styles.statusBadge}
+          style={{ background: `${color}20`, color }}
         >
           {approval.status}
         </span>
       </div>
-      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+      <div className={styles.meta}>
         {approval.type} · {approval.approvedCount}/{approval.totalApprovers}{" "}
         approved
       </div>
-      <div
-        style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}
-      >
+      <div className={styles.metaSub}>
         Requested by {approval.requestedBy.name} on{" "}
         {new Date(approval.requestedDate).toLocaleDateString()}
       </div>

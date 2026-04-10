@@ -1,0 +1,112 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ganttContainer {
+  background: var(--card-bg);
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.ganttHeader {
+  display: flex;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ganttLabelCol {
+  width: 280px;
+  flex-shrink: 0;
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ganttBarCol {
+  flex: 1;
+  position: relative;
+  height: 40px;
+}
+
+.todayLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ef4444;
+  z-index: 2;
+}
+
+.todayLineLight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.emptyState {
+  padding: 48px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.ganttRow {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  min-height: 52px;
+}
+
+.ganttRowLabel {
+  width: 280px;
+  flex-shrink: 0;
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ganttRowTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ganttBidNumber {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.ganttRowBottom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ganttBarArea {
+  flex: 1;
+  position: relative;
+  height: 32px;
+  padding: 0 8px;
+}
+
+.ganttBar {
+  position: absolute;
+  top: 6px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  padding-left: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+}

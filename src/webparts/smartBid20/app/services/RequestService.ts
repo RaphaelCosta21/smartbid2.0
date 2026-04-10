@@ -11,18 +11,18 @@ export class RequestService {
     // Requests are stored as BIDs in Phase 0
     const bid: Partial<IBid> = {
       bidNumber: request.requestNumber,
-      crmNumber: "",
+      crmNumber: request.crmNumber || "",
       division: request.division,
       serviceLine: request.serviceLine,
       bidType: request.bidType,
-      bidSize: request.bidSize,
+      bidSize: "Standard",
       priority: request.priority,
       opportunityInfo: {
         client: request.client,
         clientContact: request.clientContact,
         projectName: request.projectName,
         projectDescription: request.projectDescription,
-        region: request.region,
+        region: "",
         vessel: request.vessel,
         field: request.field,
         waterDepth: 0,

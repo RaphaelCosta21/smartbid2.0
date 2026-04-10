@@ -96,6 +96,11 @@
     border-color: var(--border);
   }
 
+  .emptyIcon {
+    font-size: 40px;
+    opacity: 0.3;
+  }
+
   &.unread {
     border-left: 3px solid var(--primary-accent);
     background: var(--card-bg-elevated);

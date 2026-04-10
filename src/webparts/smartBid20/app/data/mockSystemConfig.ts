@@ -161,26 +161,18 @@ export const MOCK_SYSTEM_CONFIG: ISystemConfig = {
     },
     {
       id: "pr-2",
-      label: "High",
-      value: "High",
-      isActive: true,
-      order: 2,
-      color: "#f59e0b",
-    },
-    {
-      id: "pr-3",
       label: "Normal",
       value: "Normal",
       isActive: true,
-      order: 3,
+      order: 2,
       color: "#3b82f6",
     },
     {
-      id: "pr-4",
+      id: "pr-3",
       label: "Low",
       value: "Low",
       isActive: true,
-      order: 4,
+      order: 3,
       color: "#64748b",
     },
   ],
@@ -490,8 +482,8 @@ export const MOCK_SYSTEM_CONFIG: ISystemConfig = {
     APPROVAL_REQUESTED: ["manager", "projectTeam"],
     APPROVAL_RESPONSE: ["manager", "engineer"],
     BID_COMPLETED: ["manager", "bidder"],
-    BID_OVERDUE: ["manager", "engineer"],
-    DEADLINE_WARNING: ["manager", "engineer"],
+    BID_OVERDUE: ["manager", "engineering"],
+    DEADLINE_WARNING: ["manager", "engineering"],
   },
   accessLevels: {
     manager: {
@@ -502,15 +494,15 @@ export const MOCK_SYSTEM_CONFIG: ISystemConfig = {
       approvals: "edit",
       templates: "edit",
     },
-    engineer: {
+    project: {
       workspace: "edit",
       insights: "view",
       reports: "view",
       settings: "none",
-      approvals: "view",
-      templates: "edit",
+      approvals: "edit",
+      templates: "view",
     },
-    bidder: {
+    operations: {
       workspace: "edit",
       insights: "view",
       reports: "view",
@@ -518,21 +510,29 @@ export const MOCK_SYSTEM_CONFIG: ISystemConfig = {
       approvals: "view",
       templates: "view",
     },
-    projectTeam: {
+    equipment: {
       workspace: "view",
       insights: "view",
       reports: "view",
       settings: "none",
-      approvals: "edit",
+      approvals: "view",
       templates: "none",
     },
-    viewer: {
+    dataCenter: {
       workspace: "view",
       insights: "view",
       reports: "view",
       settings: "none",
-      approvals: "none",
+      approvals: "view",
       templates: "none",
+    },
+    engineering: {
+      workspace: "edit",
+      insights: "view",
+      reports: "view",
+      settings: "none",
+      approvals: "view",
+      templates: "edit",
     },
     guest: {
       workspace: "view",

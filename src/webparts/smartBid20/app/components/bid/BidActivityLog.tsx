@@ -1,6 +1,7 @@
 import * as React from "react";
 import { IActivityLogEntry } from "../../models";
 import { Timeline } from "../common/Timeline";
+import styles from "./BidActivityLog.module.scss";
 
 interface BidActivityLogProps {
   entries: IActivityLogEntry[];
@@ -20,14 +21,10 @@ export const BidActivityLog: React.FC<BidActivityLogProps> = ({
   }));
 
   return (
-    <div className={className}>
-      <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
-        Activity Log
-      </h4>
+    <div className={`${styles.container} ${className || ""}`}>
+      <h4 className={styles.title}>Activity Log</h4>
       {items.length === 0 ? (
-        <div style={{ color: "var(--text-secondary)", fontSize: 14 }}>
-          No activity yet
-        </div>
+        <div className={styles.empty}>No activity yet</div>
       ) : (
         <Timeline items={items} />
       )}

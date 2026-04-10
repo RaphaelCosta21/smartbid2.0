@@ -13,7 +13,7 @@ import { BidCard } from "../components/bid/BidCard";
 import { IBid } from "../models";
 import { useDebounce } from "../hooks/useDebounce";
 import { differenceInDays, format } from "date-fns";
-import styles from "./DashboardPage.module.scss";
+import styles from "./BidTrackerPage.module.scss";
 
 export const BidTrackerPage: React.FC = () => {
   const navigate = useNavigate();
@@ -70,15 +70,7 @@ export const BidTrackerPage: React.FC = () => {
       sortable: true,
       width: 200,
       render: (bid: IBid) => (
-        <span
-          style={{
-            maxWidth: 180,
-            display: "inline-block",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
+        <span className={styles.textTruncate}>
           {bid.opportunityInfo.projectName}
         </span>
       ),
@@ -129,20 +121,11 @@ export const BidTrackerPage: React.FC = () => {
       key: "progress",
       header: "Progress",
       render: (bid: IBid) => (
-        <div
-          style={{
-            width: 80,
-            height: 6,
-            background: "var(--border-subtle)",
-            borderRadius: 3,
-          }}
-        >
+        <div className={styles.progressBarTrack}>
           <div
+            className={styles.progressBarFill}
             style={{
               width: `${bid.kpis.phaseCompletionPercentage}%`,
-              height: "100%",
-              background: "var(--primary-accent)",
-              borderRadius: 3,
             }}
           />
         </div>
@@ -151,7 +134,7 @@ export const BidTrackerPage: React.FC = () => {
   ];
 
   return (
-    <div className={styles.dashboard}>
+    <div className={styles.page}>
       <PageHeader
         title="BID Tracker"
         subtitle={`${activeBids.length} active BIDs across all divisions`}
@@ -190,42 +173,19 @@ export const BidTrackerPage: React.FC = () => {
         isOpen={filtersOpen}
         onToggle={() => setFiltersOpen(!filtersOpen)}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <label
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: "var(--text-secondary)",
-            }}
-          >
-            Search
-          </label>
+        <div className={styles.filterGroup}>
+          <label className={styles.filterLabel}>Search</label>
           <input
             type="text"
             placeholder="BID #, client, project..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid var(--border-subtle)",
-              background: "var(--card-bg-elevated)",
-              color: "var(--text-primary)",
-              fontSize: 13,
-              width: 200,
-            }}
+            className={styles.filterInput}
+            style={{ width: 200 }}
           />
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <label
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: "var(--text-secondary)",
-            }}
-          >
-            Division
-          </label>
+        <div className={styles.filterGroup}>
+          <label className={styles.filterLabel}>Division</label>
           <select
             value={filters.divisions[0] || ""}
             onChange={(e) =>
@@ -233,14 +193,7 @@ export const BidTrackerPage: React.FC = () => {
                 divisions: e.target.value ? [e.target.value as any] : [],
               })
             }
-            style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid var(--border-subtle)",
-              background: "var(--card-bg-elevated)",
-              color: "var(--text-primary)",
-              fontSize: 13,
-            }}
+            className={styles.filterInput}
           >
             <option value="">All</option>
             {DIVISIONS.map((d) => (
@@ -250,16 +203,8 @@ export const BidTrackerPage: React.FC = () => {
             ))}
           </select>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <label
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: "var(--text-secondary)",
-            }}
-          >
-            Priority
-          </label>
+        <div className={styles.filterGroup}>
+          <label className={styles.filterLabel}>Priority</label>
           <select
             value={filters.priorities[0] || ""}
             onChange={(e) =>
@@ -267,14 +212,7 @@ export const BidTrackerPage: React.FC = () => {
                 priorities: e.target.value ? [e.target.value as any] : [],
               })
             }
-            style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid var(--border-subtle)",
-              background: "var(--card-bg-elevated)",
-              color: "var(--text-primary)",
-              fontSize: 13,
-            }}
+            className={styles.filterInput}
           >
             <option value="">All</option>
             {PRIORITIES.map((p) => (
@@ -284,19 +222,7 @@ export const BidTrackerPage: React.FC = () => {
             ))}
           </select>
         </div>
-        <button
-          onClick={resetFilters}
-          style={{
-            alignSelf: "flex-end",
-            padding: "8px 16px",
-            borderRadius: 8,
-            border: "1px solid var(--border-subtle)",
-            background: "transparent",
-            color: "var(--text-secondary)",
-            cursor: "pointer",
-            fontSize: 13,
-          }}
-        >
+        <button onClick={resetFilters} className={styles.clearBtn}>
           Clear Filters
         </button>
       </FilterPanel>

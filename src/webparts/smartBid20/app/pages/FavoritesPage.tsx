@@ -5,6 +5,7 @@ import { GlassCard } from "../components/common/GlassCard";
 import { BidCard } from "../components/bid/BidCard";
 import { useBids } from "../hooks/useBids";
 import { IBid } from "../models";
+import styles from "./FavoritesPage.module.scss";
 
 export const FavoritesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ export const FavoritesPage: React.FC = () => {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div className={styles.page}>
       <PageHeader
         title="Favorites"
         subtitle={`${favorites.length} bookmarked BIDs`}
@@ -38,13 +39,7 @@ export const FavoritesPage: React.FC = () => {
 
       {favorites.length === 0 ? (
         <GlassCard>
-          <div
-            style={{
-              textAlign: "center",
-              padding: 40,
-              color: "var(--text-muted)",
-            }}
-          >
+          <div className={styles.emptyState}>
             <svg
               width="48"
               height="48"
@@ -52,24 +47,18 @@ export const FavoritesPage: React.FC = () => {
               fill="none"
               stroke="currentColor"
               strokeWidth="1.5"
-              style={{ marginBottom: 12, opacity: 0.4 }}
+              className={styles.emptyIcon}
             >
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
             <p>You haven&apos;t bookmarked any BIDs yet.</p>
-            <p style={{ fontSize: 12 }}>
+            <p className={styles.emptyHint}>
               Open a BID and click the star icon to add it to favorites.
             </p>
           </div>
         </GlassCard>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-            gap: 16,
-          }}
-        >
+        <div className={styles.cardGrid}>
           {favorites.map((bid) => (
             <BidCard key={bid.bidNumber} bid={bid} onClick={handleClick} />
           ))}

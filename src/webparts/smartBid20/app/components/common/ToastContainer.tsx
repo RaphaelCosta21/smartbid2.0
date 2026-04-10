@@ -1,4 +1,5 @@
 import * as React from "react";
+import styles from "./ToastContainer.module.scss";
 
 interface Toast {
   id: string;
@@ -24,64 +25,30 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 16,
-        right: 16,
-        zIndex: 10000,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        maxWidth: 360,
-      }}
-    >
+    <div className={styles.container}>
       {toasts.map((toast) => {
-        const style = colors[toast.type] || colors.info;
+        const c = colors[toast.type] || colors.info;
         return (
           <div
             key={toast.id}
+            className={styles.toast}
             style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 12,
-              padding: 16,
-              background: style.bg,
-              border: `1px solid ${style.border}`,
-              borderRadius: 12,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-              animation: "slideIn 0.3s ease",
+              background: c.bg,
+              border: `1px solid ${c.border}`,
             }}
           >
-            <span
-              style={{ fontWeight: 700, color: style.border, fontSize: 16 }}
-            >
-              {style.icon}
+            <span className={styles.toastIcon} style={{ color: c.border }}>
+              {c.icon}
             </span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{toast.title}</div>
+            <div className={styles.toastBody}>
+              <div className={styles.toastTitle}>{toast.title}</div>
               {toast.message && (
-                <div
-                  style={{
-                    fontSize: 13,
-                    color: "var(--text-secondary)",
-                    marginTop: 2,
-                  }}
-                >
-                  {toast.message}
-                </div>
+                <div className={styles.toastMessage}>{toast.message}</div>
               )}
             </div>
             <button
               onClick={() => onDismiss(toast.id)}
-              style={{
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                fontSize: 16,
-                color: "var(--text-secondary)",
-                padding: 0,
-              }}
+              className={styles.dismissBtn}
             >
               ×
             </button>

@@ -1,0 +1,87 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.kpiValue {
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.kpiInner {
+  text-align: center;
+}
+
+.kpiLabel {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  text-align: center;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-muted);
+}
+
+.bidList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bidRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--card-bg-elevated);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover {
+    background: var(--card-bg);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+.bidRowNumber {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  color: var(--secondary-accent);
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.bidRowInfo {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.bidRowDays {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.daysOverdue {
+  color: #ef4444;
+}
+
+.daysWarning {
+  color: #f59e0b;
+}
+
+.daysOk {
+  color: var(--text-muted);
+}

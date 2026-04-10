@@ -1,0 +1,30 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+
+  p {
+    margin: 0 0 4px;
+  }
+
+  .emptyHint {
+    font-size: 12px;
+  }
+}
+
+.emptyIcon {
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}

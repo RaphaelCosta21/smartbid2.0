@@ -7,7 +7,6 @@ export const DIVISION_COLORS: Record<string, string> = {
 
 export const PRIORITY_COLORS: Record<string, string> = {
   Urgent: "#ef4444",
-  High: "#f59e0b",
   Normal: "#3b82f6",
   Low: "#64748b",
 };
@@ -47,7 +46,7 @@ export const BID_TYPES = [
 
 export const BID_SIZES = ["Small", "Standard", "Epic"] as const;
 
-export const PRIORITIES = ["Urgent", "High", "Normal", "Low"] as const;
+export const PRIORITIES = ["Urgent", "Normal", "Low"] as const;
 
 export const ACQUISITION_TYPES = [
   "Buy",

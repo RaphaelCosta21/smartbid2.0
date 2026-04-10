@@ -1,5 +1,6 @@
 import * as React from "react";
 import { GlassCard } from "../common/GlassCard";
+import styles from "./BidsByDivisionChart.module.scss";
 
 interface BidsByDivisionChartProps {
   data: { division: string; count: number; color: string }[];
@@ -14,23 +15,9 @@ export const BidsByDivisionChart: React.FC<BidsByDivisionChartProps> = ({
 
   return (
     <GlassCard title="BIDs by Division" className={className}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 24,
-          padding: "8px 0",
-        }}
-      >
-        <div style={{ position: "relative", width: 120, height: 120 }}>
-          <svg
-            viewBox="0 0 36 36"
-            style={{
-              width: "100%",
-              height: "100%",
-              transform: "rotate(-90deg)",
-            }}
-          >
+      <div className={styles.chartLayout}>
+        <div className={styles.donutWrapper}>
+          <svg viewBox="0 0 36 36" className={styles.donutSvg}>
             {
               data.reduce(
                 (acc, item) => {
@@ -56,43 +43,20 @@ export const BidsByDivisionChart: React.FC<BidsByDivisionChartProps> = ({
               ).elements
             }
           </svg>
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexDirection: "column",
-            }}
-          >
-            <span style={{ fontSize: 20, fontWeight: 700 }}>{total}</span>
-            <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>
-              Total
-            </span>
+          <div className={styles.donutCenter}>
+            <span className={styles.donutTotal}>{total}</span>
+            <span className={styles.donutLabel}>Total</span>
           </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className={styles.legend}>
           {data.map((item) => (
-            <div
-              key={item.division}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 13,
-              }}
-            >
+            <div key={item.division} className={styles.legendItem}>
               <div
-                style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: "50%",
-                  background: item.color,
-                }}
+                className={styles.legendDot}
+                style={{ background: item.color }}
               />
               <span>{item.division}</span>
-              <span style={{ fontWeight: 600 }}>{item.count}</span>
+              <span className={styles.legendCount}>{item.count}</span>
             </div>
           ))}
         </div>
