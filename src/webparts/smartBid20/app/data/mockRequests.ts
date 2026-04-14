@@ -3,7 +3,7 @@ import { IBidRequest } from "../models/IBidRequest";
 export const mockRequests: IBidRequest[] = [
   {
     id: "REQ-001",
-    requestNumber: "REQ-2026-001",
+    requestNumber: "REQ-2026-0001",
     requestedBy: {
       name: "João Silva",
       email: "jsilva@oceaneering.com",
@@ -18,23 +18,48 @@ export const mockRequests: IBidRequest[] = [
       "ROV inspection campaign for Búzios FPSO risers and flowlines.",
     division: "SSR-ROV",
     serviceLine: "IMR",
-    projectManager: {
-      name: "Carlos Eduardo",
-      email: "ceduardo@oceaneering.com",
-      role: "Project Manager",
-    },
+    projectManager: [
+      {
+        name: "Carlos Eduardo",
+        email: "ceduardo@oceaneering.com",
+        role: "Project Manager",
+      },
+    ],
     bidType: "Firm",
     priority: "Normal",
     desiredDueDate: "2026-05-01T00:00:00Z",
+    operationStartDate: "",
+    totalDuration: 0,
     creationDate: "2026-04-15T10:30:00Z",
-    createdBy: {
+    creator: {
       name: "João Silva",
       email: "jsilva@oceaneering.com",
       role: "Commercial Manager",
     },
+    engineerResponsible: null,
+    analyst: null,
     vessel: "Ocean Patriot",
     field: "Búzios",
-    attachments: ["scope-buzios-2026.pdf"],
+    commercialFolderUrl: "",
+    attachments: [
+      {
+        fileName: "scope-buzios-2026.pdf",
+        fileType: "pdf",
+        description: "",
+        path: "",
+        uploadedDate: "2026-04-15T10:30:00Z",
+        size: 0,
+      },
+    ],
+    phases: [
+      {
+        idPhase: 1,
+        status: "Request Submitted",
+        start: "2026-04-15T10:30:00Z",
+        duration: 0,
+        durationFormatted: "0m",
+      },
+    ],
     notes: "Urgent: client expects proposal within 2 weeks.",
     status: "submitted",
     assignedTo: null,
@@ -44,7 +69,7 @@ export const mockRequests: IBidRequest[] = [
   },
   {
     id: "REQ-002",
-    requestNumber: "REQ-2026-002",
+    requestNumber: "REQ-2026-0002",
     requestedBy: {
       name: "Ana Costa",
       email: "acosta@oceaneering.com",
@@ -59,23 +84,39 @@ export const mockRequests: IBidRequest[] = [
       "Subsea repair on Peregrino well-head platform pipelines.",
     division: "SSR-ROV",
     serviceLine: "IMR",
-    projectManager: {
-      name: "Fernanda Lima",
-      email: "flima@oceaneering.com",
-      role: "Engineering Manager",
-    },
+    projectManager: [
+      {
+        name: "Fernanda Lima",
+        email: "flima@oceaneering.com",
+        role: "Engineering Manager",
+      },
+    ],
     bidType: "Budgetary",
     priority: "Normal",
     desiredDueDate: "2026-05-15T00:00:00Z",
+    operationStartDate: "",
+    totalDuration: 0,
     creationDate: "2026-04-16T14:00:00Z",
-    createdBy: {
+    creator: {
       name: "Ana Costa",
       email: "acosta@oceaneering.com",
       role: "Commercial Coordinator",
     },
+    engineerResponsible: null,
+    analyst: null,
     vessel: "Normand Maximus",
     field: "Peregrino",
+    commercialFolderUrl: "",
     attachments: [],
+    phases: [
+      {
+        idPhase: 1,
+        status: "Request Submitted",
+        start: "2026-04-16T14:00:00Z",
+        duration: 0,
+        durationFormatted: "0m",
+      },
+    ],
     notes: "",
     status: "submitted",
     assignedTo: null,
@@ -85,7 +126,7 @@ export const mockRequests: IBidRequest[] = [
   },
   {
     id: "REQ-003",
-    requestNumber: "REQ-2026-003",
+    requestNumber: "REQ-2026-0003",
     requestedBy: {
       name: "Marcos Santos",
       email: "msantos@oceaneering.com",
@@ -100,23 +141,63 @@ export const mockRequests: IBidRequest[] = [
       "Geotechnical survey campaign for Mero 3 pre-salt development.",
     division: "SSR-Survey",
     serviceLine: "Survey",
-    projectManager: {
-      name: "Marcos Santos",
-      email: "msantos@oceaneering.com",
-      role: "Senior PM",
-    },
+    projectManager: [
+      {
+        name: "Marcos Santos",
+        email: "msantos@oceaneering.com",
+        role: "Senior PM",
+      },
+    ],
     bidType: "Firm",
     priority: "Normal",
     desiredDueDate: "2026-04-30T00:00:00Z",
+    operationStartDate: "",
+    totalDuration: 0,
     creationDate: "2026-04-10T09:00:00Z",
-    createdBy: {
+    creator: {
       name: "Marcos Santos",
       email: "msantos@oceaneering.com",
       role: "Commercial Coordinator",
     },
+    engineerResponsible: null,
+    analyst: null,
     vessel: "Skandi Vitória",
     field: "Mero",
-    attachments: ["mero3-scope.pdf", "survey-specs.xlsx"],
+    commercialFolderUrl: "",
+    attachments: [
+      {
+        fileName: "mero3-scope.pdf",
+        fileType: "pdf",
+        description: "",
+        path: "",
+        uploadedDate: "2026-04-10T09:00:00Z",
+        size: 0,
+      },
+      {
+        fileName: "survey-specs.xlsx",
+        fileType: "xlsx",
+        description: "",
+        path: "",
+        uploadedDate: "2026-04-10T09:00:00Z",
+        size: 0,
+      },
+    ],
+    phases: [
+      {
+        idPhase: 1,
+        status: "Request Submitted",
+        start: "2026-04-10T09:00:00Z",
+        duration: 0,
+        durationFormatted: "0m",
+      },
+      {
+        idPhase: 2,
+        status: "Request Assigned",
+        start: "2026-04-11T08:00:00Z",
+        duration: 82800000,
+        durationFormatted: "23h",
+      },
+    ],
     notes: "Client requires IMCA compliant vessel.",
     status: "assigned",
     assignedTo: {
@@ -130,7 +211,7 @@ export const mockRequests: IBidRequest[] = [
   },
   {
     id: "REQ-004",
-    requestNumber: "REQ-2026-004",
+    requestNumber: "REQ-2026-0004",
     requestedBy: {
       name: "João Silva",
       email: "jsilva@oceaneering.com",
@@ -145,23 +226,55 @@ export const mockRequests: IBidRequest[] = [
       "Decommissioning support for BC-10 subsea infrastructure removal.",
     division: "SSR-ROV",
     serviceLine: "IMR",
-    projectManager: {
-      name: "Ana Costa",
-      email: "acosta@oceaneering.com",
-      role: "Project Manager",
-    },
+    projectManager: [
+      {
+        name: "Ana Costa",
+        email: "acosta@oceaneering.com",
+        role: "Project Manager",
+      },
+    ],
     bidType: "Firm",
     priority: "Urgent",
     desiredDueDate: "2026-04-20T00:00:00Z",
+    operationStartDate: "",
+    totalDuration: 0,
     creationDate: "2026-04-08T16:45:00Z",
-    createdBy: {
+    creator: {
       name: "João Silva",
       email: "jsilva@oceaneering.com",
       role: "Commercial Manager",
     },
+    engineerResponsible: null,
+    analyst: null,
     vessel: "",
     field: "BC-10",
-    attachments: ["decom-scope.pdf"],
+    commercialFolderUrl: "",
+    attachments: [
+      {
+        fileName: "decom-scope.pdf",
+        fileType: "pdf",
+        description: "",
+        path: "",
+        uploadedDate: "2026-04-08T16:45:00Z",
+        size: 0,
+      },
+    ],
+    phases: [
+      {
+        idPhase: 1,
+        status: "Request Submitted",
+        start: "2026-04-08T16:45:00Z",
+        duration: 0,
+        durationFormatted: "0m",
+      },
+      {
+        idPhase: 2,
+        status: "Request Assigned",
+        start: "2026-04-09T07:30:00Z",
+        duration: 53100000,
+        durationFormatted: "14h 45m",
+      },
+    ],
     notes: "High-value opportunity. Needs fast turnaround.",
     status: "converted",
     assignedTo: {
@@ -175,7 +288,7 @@ export const mockRequests: IBidRequest[] = [
   },
   {
     id: "REQ-005",
-    requestNumber: "REQ-2026-005",
+    requestNumber: "REQ-2026-0005",
     requestedBy: {
       name: "Ana Costa",
       email: "acosta@oceaneering.com",
@@ -193,15 +306,29 @@ export const mockRequests: IBidRequest[] = [
     bidType: "Budgetary",
     priority: "Low",
     desiredDueDate: "2026-05-30T00:00:00Z",
+    operationStartDate: "",
+    totalDuration: 0,
     creationDate: "2026-04-05T11:20:00Z",
-    createdBy: {
+    creator: {
       name: "Ana Costa",
       email: "acosta@oceaneering.com",
       role: "Commercial Coordinator",
     },
+    engineerResponsible: null,
+    analyst: null,
     vessel: "",
     field: "Frade",
+    commercialFolderUrl: "",
     attachments: [],
+    phases: [
+      {
+        idPhase: 1,
+        status: "Request Submitted",
+        start: "2026-04-05T11:20:00Z",
+        duration: 0,
+        durationFormatted: "0m",
+      },
+    ],
     notes: "Initial budgetary quote only. No technical proposal needed.",
     status: "rejected",
     assignedTo: null,

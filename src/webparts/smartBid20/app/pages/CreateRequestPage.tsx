@@ -7,6 +7,7 @@ import { PersonaCard } from "../components/common/PersonaCard";
 import { useRequestStore } from "../stores/useRequestStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useSpfxContext } from "../config/SpfxContext";
 import { sanitizeText } from "../utils/validators";
 import {
   calculatePriority,
@@ -15,9 +16,12 @@ import {
   countBusinessDays,
 } from "../utils/businessDays";
 import { PRIORITY_COLORS } from "../utils/constants";
-import { SERVICE_LINES, BID_TYPES } from "../utils/constants";
 import { IPersonRef } from "../models/IUser";
+import { ITeamMember } from "../models/ITeamMember";
 import { BidPriority } from "../models/IBidStatus";
+import { MembersService } from "../services/MembersService";
+import { RequestService } from "../services/RequestService";
+import { AttachmentService } from "../services/AttachmentService";
 import styles from "./CreateRequestPage.module.scss";
 
 interface FormData {
@@ -28,12 +32,15 @@ interface FormData {
   projectDescription: string;
   division: string;
   serviceLine: string;
-  projectManager: IPersonRef | null;
+  projectManagers: IPersonRef[];
   projectManagerSearch: string;
   bidType: string;
   desiredDueDate: string;
+  operationStartDate: string;
+  totalDuration: string;
   vessel: string;
   field: string;
+  commercialFolderUrl: string;
   notes: string;
 }
 
@@ -45,12 +52,15 @@ const INITIAL_FORM: FormData = {
   projectDescription: "",
   division: "",
   serviceLine: "",
-  projectManager: null,
+  projectManagers: [],
   projectManagerSearch: "",
   bidType: "Firm",
   desiredDueDate: "",
+  operationStartDate: "",
+  totalDuration: "",
   vessel: "",
   field: "",
+  commercialFolderUrl: "",
   notes: "",
 };
 
@@ -61,49 +71,10 @@ const STEPS = [
   { number: 4, title: "Review & Submit", icon: "✅" },
 ];
 
-// Mock people for Project Manager picker
-const MOCK_PEOPLE: IPersonRef[] = [
-  {
-    name: "Fernanda Lima",
-    email: "flima@oceaneering.com",
-    role: "Engineering Manager",
-    photoUrl: "",
-  },
-  {
-    name: "Carlos Eduardo",
-    email: "ceduardo@oceaneering.com",
-    role: "Project Manager",
-    photoUrl: "",
-  },
-  {
-    name: "Marcos Santos",
-    email: "msantos@oceaneering.com",
-    role: "Senior PM",
-    photoUrl: "",
-  },
-  {
-    name: "Ana Costa",
-    email: "acosta@oceaneering.com",
-    role: "Project Manager",
-    photoUrl: "",
-  },
-  {
-    name: "João Silva",
-    email: "jsilva@oceaneering.com",
-    role: "Engineering Lead",
-    photoUrl: "",
-  },
-  {
-    name: "Ricardo Alves",
-    email: "ralves@oceaneering.com",
-    role: "Project Manager",
-    photoUrl: "",
-  },
-];
-
 export const CreateRequestPage: React.FC = () => {
   const navigate = useNavigate();
   const currentUser = useCurrentUser();
+  const spfxContext = useSpfxContext();
   const config = useConfigStore((s) => s.config);
   const addRequest = useRequestStore((s) => s.setRequests);
   const requests = useRequestStore((s) => s.requests);
@@ -113,7 +84,13 @@ export const CreateRequestPage: React.FC = () => {
   const [showConfirm, setShowConfirm] = React.useState(false);
   const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([]);
   const [showPeoplePicker, setShowPeoplePicker] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
   const peoplePickerRef = React.useRef<HTMLDivElement>(null);
+
+  // Team members for PM picker
+  const [teamMembers, setTeamMembers] = React.useState<ITeamMember[]>([]);
+  // Current user photo from Graph
+  const [currentUserPhoto, setCurrentUserPhoto] = React.useState<string>("");
 
   const todayISO = getTodayISO();
 
@@ -130,19 +107,111 @@ export const CreateRequestPage: React.FC = () => {
   // Config-driven lists
   const clientOptions = config?.clientList?.filter((c) => c.isActive) || [];
   const divisionOptions = config?.divisions?.filter((d) => d.isActive) || [];
+  const bidTypeOptions = config?.bidTypes?.filter((b) => b.isActive) || [];
 
-  // Filtered people for PM picker
-  const filteredPeople = form.projectManagerSearch
-    ? MOCK_PEOPLE.filter(
-        (p) =>
-          p.name
-            .toLowerCase()
-            .includes(form.projectManagerSearch.toLowerCase()) ||
-          p.email
-            .toLowerCase()
-            .includes(form.projectManagerSearch.toLowerCase()),
-      )
-    : MOCK_PEOPLE;
+  // Service lines filtered by selected division (using category field)
+  const serviceLineOptions = React.useMemo(() => {
+    if (!config?.serviceLines || !form.division) return [];
+    return config.serviceLines.filter(
+      (sl) => sl.isActive && sl.category === form.division,
+    );
+  }, [config?.serviceLines, form.division]);
+
+  // Project managers: sector=project, bidRole=manager, filtered by division
+  const projectManagerOptions = React.useMemo(() => {
+    if (!form.division || teamMembers.length === 0) return [];
+    return teamMembers.filter((m) => {
+      if (m.sector !== "project" || m.bidRole !== "manager" || !m.isActive)
+        return false;
+      if (form.division === "SSR") {
+        return (
+          m.businessLines.includes("ROV") || m.businessLines.includes("SURVEY")
+        );
+      }
+      // OPG or other divisions
+      return (
+        m.businessLines.includes(form.division as any) ||
+        m.businessLines.length === 0
+      );
+    });
+  }, [form.division, teamMembers]);
+
+  // Filtered PM list for search input
+  const filteredPeople = React.useMemo(() => {
+    if (!form.projectManagerSearch) return projectManagerOptions;
+    const q = form.projectManagerSearch.toLowerCase();
+    return projectManagerOptions.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q),
+    );
+  }, [projectManagerOptions, form.projectManagerSearch]);
+
+  // Load team members from SharePoint
+  React.useEffect(() => {
+    MembersService.getAll()
+      .then((data) => setTeamMembers(data.members))
+      .catch(() => setTeamMembers([]));
+  }, []);
+
+  // Load current user photo from Graph API
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const graphClient =
+          await spfxContext.msGraphClientFactory.getClient("3");
+        const blob: Blob = await graphClient.api("/me/photo/$value").get();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64String = reader.result as string;
+          const base64 = base64String.split(",")[1];
+          setCurrentUserPhoto(`data:image/jpeg;base64,${base64}`);
+        };
+        reader.readAsDataURL(blob);
+      } catch {
+        // No photo available — fallback to initials
+      }
+    })();
+  }, [spfxContext]);
+
+  // Load photos for team members from Graph API
+  React.useEffect(() => {
+    if (teamMembers.length === 0) return;
+    const membersNeedingPhotos = teamMembers.filter(
+      (m) => !m.photoUrl && m.email,
+    );
+    if (membersNeedingPhotos.length === 0) return;
+
+    (async () => {
+      try {
+        const graphClient =
+          await spfxContext.msGraphClientFactory.getClient("3");
+        for (const member of membersNeedingPhotos) {
+          graphClient
+            .api(`/users/${member.email}/photo/$value`)
+            .get()
+            .then(async (photoBlob: Blob) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const base64String = reader.result as string;
+                const base64 = base64String.split(",")[1];
+                const url = `data:image/jpeg;base64,${base64}`;
+                setTeamMembers((prev) =>
+                  prev.map((m) =>
+                    m.id === member.id ? { ...m, photoUrl: url } : m,
+                  ),
+                );
+              };
+              reader.readAsDataURL(photoBlob);
+            })
+            .catch(() => {
+              /* no photo available */
+            });
+        }
+      } catch {
+        /* graph client error */
+      }
+    })();
+  }, [teamMembers.length, spfxContext]);
 
   // Close people picker on outside click
   React.useEffect(() => {
@@ -159,7 +228,16 @@ export const CreateRequestPage: React.FC = () => {
   }, []);
 
   const updateField = (field: keyof FormData, value: string): void => {
-    setForm((prev) => ({ ...prev, [field]: sanitizeText(value) }));
+    setForm((prev) => {
+      const updated = { ...prev, [field]: sanitizeText(value) };
+      // Reset dependent fields when division changes
+      if (field === "division" && value !== prev.division) {
+        updated.serviceLine = "";
+        updated.projectManagers = [];
+        updated.projectManagerSearch = "";
+      }
+      return updated;
+    });
   };
 
   const validateStep = (): boolean => {
@@ -168,12 +246,12 @@ export const CreateRequestPage: React.FC = () => {
       if (!form.client) stepErrors.push("Client is required.");
       if (!form.projectName) stepErrors.push("Project Name is required.");
       if (!form.division) stepErrors.push("Division is required.");
+      if (!form.serviceLine) stepErrors.push("Service Line is required.");
       if (!form.projectDescription) stepErrors.push("Description is required.");
       setErrors(stepErrors);
       return stepErrors.length === 0;
     }
     if (step === 1) {
-      if (!form.serviceLine) stepErrors.push("Service Line is required.");
       if (!form.bidType) stepErrors.push("BID Type is required.");
       if (!form.desiredDueDate)
         stepErrors.push("Desired Due Date is required.");
@@ -188,53 +266,128 @@ export const CreateRequestPage: React.FC = () => {
     if (validateStep()) setStep((s) => Math.min(s + 1, STEPS.length - 1));
   };
 
-  const handleSubmit = (): void => {
-    const reqNum = requests.length + 6;
-    const padded =
-      reqNum < 100
-        ? reqNum < 10
-          ? "00" + reqNum
-          : "0" + reqNum
-        : String(reqNum);
-    const newReq = {
-      id: `REQ-${Date.now()}`,
-      requestNumber: `REQ-2026-${padded}`,
-      requestedBy: {
-        name: currentUser.displayName,
-        email: currentUser.email,
-        role: currentUser.role,
-      },
-      requestDate: new Date().toISOString(),
-      client: form.client,
-      clientContact: form.clientContact,
-      crmNumber: form.crmNumber,
-      projectName: form.projectName,
-      projectDescription: form.projectDescription,
-      division: form.division as any,
-      serviceLine: form.serviceLine,
-      projectManager: form.projectManager,
-      bidType: form.bidType as any,
-      priority: computedPriority,
-      desiredDueDate: form.desiredDueDate,
-      creationDate: new Date().toISOString(),
-      createdBy: {
-        name: currentUser.displayName,
-        email: currentUser.email,
-        role: currentUser.role,
-        photoUrl: currentUser.photoUrl,
-      },
-      vessel: form.vessel,
-      field: form.field,
-      attachments: [],
-      notes: form.notes,
-      status: "submitted" as const,
-      assignedTo: null,
-      assignedDate: null,
-      rejectionReason: null,
-      convertedBidNumber: null,
-    };
-    addRequest([...requests, newReq]);
-    navigate("/requests");
+  const handleSubmit = async (): Promise<void> => {
+    setSubmitting(true);
+    try {
+      // Sequential request number: REQ-YYYY-NNNN
+      const currentYear = new Date().getFullYear();
+      const sameYearRequests = requests.filter((r) =>
+        r.requestNumber?.startsWith(`REQ-${currentYear}-`),
+      );
+      const nextSeq = sameYearRequests.length + 1;
+      const padded = String(nextSeq).padStart(4, "0");
+      const requestNumber = `REQ-${currentYear}-${padded}`;
+
+      const now = new Date().toISOString();
+
+      // Build attachments metadata from uploaded files
+      const attachmentsMeta = uploadedFiles.map((f) => ({
+        fileName: f.name,
+        fileType: f.name.split(".").pop() || "",
+        description: "",
+        path: "",
+        uploadedDate: now,
+        size: f.size,
+      }));
+
+      const newReq = {
+        id: `REQ-${Date.now()}`,
+        requestNumber,
+        requestedBy: {
+          name: currentUser.displayName,
+          email: currentUser.email,
+          role: currentUser.role,
+        },
+        requestDate: now,
+        client: form.client,
+        clientContact: form.clientContact,
+        crmNumber: form.crmNumber,
+        projectName: form.projectName,
+        projectDescription: form.projectDescription,
+        division: form.division as any,
+        serviceLine: form.serviceLine,
+        projectManager:
+          form.projectManagers.length > 0
+            ? form.projectManagers.map((pm) => ({
+                name: pm.name,
+                email: pm.email,
+                role: pm.role,
+                photoUrl: pm.photoUrl,
+              }))
+            : null,
+        bidType: form.bidType as any,
+        priority: computedPriority,
+        desiredDueDate: form.desiredDueDate,
+        operationStartDate: form.operationStartDate || "",
+        totalDuration: form.totalDuration
+          ? parseInt(form.totalDuration, 10)
+          : 0,
+        creationDate: now,
+        creator: {
+          name: currentUser.displayName,
+          email: currentUser.email,
+          role: currentUser.role,
+          photoUrl: currentUserPhoto || currentUser.photoUrl,
+        },
+        engineerResponsible: null,
+        analyst: null,
+        vessel: form.vessel,
+        field: form.field,
+        commercialFolderUrl: form.commercialFolderUrl,
+        attachments: attachmentsMeta,
+        phases: [
+          {
+            idPhase: 1,
+            status: "Request Submitted",
+            start: now,
+            duration: 0,
+            durationFormatted: "0m",
+          },
+        ] as Array<{
+          idPhase: number;
+          status: string;
+          start: string;
+          duration: number;
+          durationFormatted: string;
+        }>,
+        notes: form.notes,
+        status: "submitted" as const,
+        assignedTo: null,
+        assignedDate: null,
+        rejectionReason: null,
+        convertedBidNumber: null,
+      };
+
+      // 1. Save to SharePoint smartbid-tracker list (returns the SP item ID)
+      const spItemId = await RequestService.createRequest(newReq as any);
+
+      // 2. Upload attachments to SmartBidAttachments/{ID}-{CRM}-{CreatedBy}/
+      if (uploadedFiles.length > 0) {
+        const uploadedResults = await AttachmentService.uploadRequestFiles(
+          spItemId,
+          form.crmNumber,
+          currentUser.displayName,
+          uploadedFiles,
+        );
+        // Update attachment paths with actual SP paths
+        if (uploadedResults && Array.isArray(uploadedResults)) {
+          uploadedResults.forEach((result, idx) => {
+            if (newReq.attachments[idx]) {
+              newReq.attachments[idx].path = result.fileUrl || "";
+            }
+          });
+        }
+      }
+
+      // 3. Update local store
+      addRequest([...requests, newReq as any]);
+      navigate("/requests");
+    } catch (err) {
+      console.error("Failed to submit request:", err);
+      setErrors(["Failed to submit request. Please try again."]);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleClose = (): void => {
@@ -245,8 +398,8 @@ export const CreateRequestPage: React.FC = () => {
   const priorityColor = PRIORITY_COLORS[computedPriority] || "#3b82f6";
 
   return (
-    <div className={styles.overlay} onClick={handleClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+    <div className={styles.overlay}>
+      <div className={styles.modal}>
         {/* ── Header ── */}
         <div className={styles.header}>
           <div className={styles.headerInfo}>
@@ -351,28 +504,11 @@ export const CreateRequestPage: React.FC = () => {
                     onChange={(e) => updateField("client", e.target.value)}
                   >
                     <option value="">Select client...</option>
-                    {clientOptions.length > 0
-                      ? clientOptions.map((c) => (
-                          <option key={c.id} value={c.value}>
-                            {c.label}
-                          </option>
-                        ))
-                      : [
-                          "Petrobras",
-                          "Shell",
-                          "Equinor",
-                          "TotalEnergies",
-                          "Enauta",
-                          "PRIO",
-                          "Subsea7",
-                          "MODEC",
-                          "Saipem",
-                          "SBM Offshore",
-                        ].map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
+                    {clientOptions.map((c) => (
+                      <option key={c.id} value={c.value}>
+                        {c.label}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label className={styles.formGroup}>
@@ -412,19 +548,31 @@ export const CreateRequestPage: React.FC = () => {
                     onChange={(e) => updateField("division", e.target.value)}
                   >
                     <option value="">Select division...</option>
-                    {divisionOptions.length > 0
-                      ? divisionOptions.map((d) => (
-                          <option key={d.id} value={d.value}>
-                            {d.label}
-                          </option>
-                        ))
-                      : ["OPG", "SSR-Survey", "SSR-ROV", "SSR-Integrated"].map(
-                          (d) => (
-                            <option key={d} value={d}>
-                              {d}
-                            </option>
-                          ),
-                        )}
+                    {divisionOptions.map((d) => (
+                      <option key={d.id} value={d.value}>
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.formGroup}>
+                  <span className={styles.formLabel}>Service Line *</span>
+                  <select
+                    className={styles.formInput}
+                    value={form.serviceLine}
+                    onChange={(e) => updateField("serviceLine", e.target.value)}
+                    disabled={!form.division}
+                  >
+                    <option value="">
+                      {form.division
+                        ? "Select service line..."
+                        : "Select division first"}
+                    </option>
+                    {serviceLineOptions.map((sl) => (
+                      <option key={sl.id} value={sl.value}>
+                        {sl.label}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label className={styles.formGroupFull}>
@@ -436,6 +584,32 @@ export const CreateRequestPage: React.FC = () => {
                     minHeight={80}
                   />
                 </label>
+                <label className={styles.formGroup}>
+                  <span className={styles.formLabel}>Operation Start Date</span>
+                  <input
+                    type="date"
+                    className={styles.formInput}
+                    value={form.operationStartDate}
+                    onChange={(e) =>
+                      updateField("operationStartDate", e.target.value)
+                    }
+                  />
+                </label>
+                <label className={styles.formGroup}>
+                  <span className={styles.formLabel}>
+                    Expected Duration (days)
+                  </span>
+                  <input
+                    type="number"
+                    className={styles.formInput}
+                    value={form.totalDuration}
+                    min="0"
+                    onChange={(e) =>
+                      updateField("totalDuration", e.target.value)
+                    }
+                    placeholder="e.g. 30"
+                  />
+                </label>
               </div>
             </>
           )}
@@ -445,96 +619,104 @@ export const CreateRequestPage: React.FC = () => {
             <>
               <div className={styles.stepLabel}>🔧 BID Internal Details</div>
               <div className={styles.formGrid}>
-                <label className={styles.formGroup}>
-                  <span className={styles.formLabel}>Service Line *</span>
-                  <select
-                    className={styles.formInput}
-                    value={form.serviceLine}
-                    onChange={(e) => updateField("serviceLine", e.target.value)}
-                  >
-                    <option value="">Select service line...</option>
-                    {SERVICE_LINES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {/* Project Manager with PersonaCard picker */}
-                <div className={styles.formGroup} ref={peoplePickerRef}>
-                  <span className={styles.formLabel}>Project Manager *</span>
-                  {form.projectManager ? (
-                    <div className={styles.selectedPersona}>
-                      <PersonaCard
-                        name={form.projectManager.name}
-                        email={form.projectManager.email}
-                        role={form.projectManager.role}
-                        photoUrl={form.projectManager.photoUrl}
-                        size="small"
-                      />
-                      <button
-                        className={styles.removePersona}
-                        onClick={() =>
-                          setForm((prev) => ({
-                            ...prev,
-                            projectManager: null,
-                            projectManagerSearch: "",
-                          }))
-                        }
-                      >
-                        ✕
-                      </button>
+                {/* Project Manager multi-select picker */}
+                <div className={styles.formGroupFull} ref={peoplePickerRef}>
+                  <span className={styles.formLabel}>Project Manager</span>
+                  {form.projectManagers.length > 0 && (
+                    <div className={styles.selectedPersonaList}>
+                      {form.projectManagers.map((pm) => (
+                        <div key={pm.email} className={styles.selectedPersona}>
+                          <PersonaCard
+                            name={pm.name}
+                            email={pm.email}
+                            role={pm.role}
+                            photoUrl={pm.photoUrl}
+                            size="small"
+                          />
+                          <button
+                            className={styles.removePersona}
+                            onClick={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                projectManagers: prev.projectManagers.filter(
+                                  (p) => p.email !== pm.email,
+                                ),
+                              }))
+                            }
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ) : (
-                    <div className={styles.peoplePickerWrapper}>
-                      <input
-                        className={styles.formInput}
-                        value={form.projectManagerSearch}
-                        onChange={(e) => {
-                          setForm((prev) => ({
-                            ...prev,
-                            projectManagerSearch: e.target.value,
-                          }));
-                          setShowPeoplePicker(true);
-                        }}
-                        onFocus={() => setShowPeoplePicker(true)}
-                        placeholder="Search by name or email..."
-                      />
-                      {showPeoplePicker && (
-                        <div className={styles.peopleDropdown}>
-                          {filteredPeople.length === 0 ? (
-                            <div className={styles.peopleDropdownEmpty}>
-                              No results found
-                            </div>
-                          ) : (
-                            filteredPeople.map((person) => (
+                  )}
+                  <div className={styles.peoplePickerWrapper}>
+                    <input
+                      className={styles.formInput}
+                      value={form.projectManagerSearch}
+                      onChange={(e) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          projectManagerSearch: e.target.value,
+                        }));
+                        setShowPeoplePicker(true);
+                      }}
+                      onFocus={() => setShowPeoplePicker(true)}
+                      placeholder={
+                        form.division
+                          ? "Search by name or email..."
+                          : "Select division first on Step 1"
+                      }
+                      disabled={!form.division}
+                    />
+                    {showPeoplePicker && form.division && (
+                      <div className={styles.peopleDropdown}>
+                        {filteredPeople.length === 0 ? (
+                          <div className={styles.peopleDropdownEmpty}>
+                            No project managers found for {form.division}
+                          </div>
+                        ) : (
+                          filteredPeople
+                            .filter(
+                              (m) =>
+                                !form.projectManagers.some(
+                                  (pm) => pm.email === m.email,
+                                ),
+                            )
+                            .map((member) => (
                               <div
-                                key={person.email}
+                                key={member.id}
                                 className={styles.peopleDropdownItem}
                                 onClick={() => {
                                   setForm((prev) => ({
                                     ...prev,
-                                    projectManager: person,
+                                    projectManagers: [
+                                      ...prev.projectManagers,
+                                      {
+                                        name: member.name,
+                                        email: member.email,
+                                        role: member.jobTitle,
+                                        photoUrl: member.photoUrl,
+                                      },
+                                    ],
                                     projectManagerSearch: "",
                                   }));
                                   setShowPeoplePicker(false);
                                 }}
                               >
                                 <PersonaCard
-                                  name={person.name}
-                                  email={person.email}
-                                  role={person.role}
-                                  photoUrl={person.photoUrl}
+                                  name={member.name}
+                                  email={member.email}
+                                  role={member.jobTitle}
+                                  photoUrl={member.photoUrl}
                                   size="small"
                                 />
                               </div>
                             ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <label className={styles.formGroup}>
@@ -545,9 +727,9 @@ export const CreateRequestPage: React.FC = () => {
                     onChange={(e) => updateField("bidType", e.target.value)}
                   >
                     <option value="">Select BID type...</option>
-                    {BID_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
+                    {bidTypeOptions.map((t) => (
+                      <option key={t.id} value={t.value}>
+                        {t.label}
                       </option>
                     ))}
                   </select>
@@ -573,14 +755,14 @@ export const CreateRequestPage: React.FC = () => {
                       name={currentUser.displayName}
                       email={currentUser.email}
                       role={currentUser.jobTitle || currentUser.role}
-                      photoUrl={currentUser.photoUrl}
+                      photoUrl={currentUserPhoto || currentUser.photoUrl}
                       size="small"
                     />
                   </div>
                 </div>
 
                 {/* Desired Due Date */}
-                <label className={styles.formGroup}>
+                <label className={styles.formGroupFull}>
                   <span className={styles.formLabel}>Desired Due Date *</span>
                   <input
                     type="date"
@@ -593,32 +775,7 @@ export const CreateRequestPage: React.FC = () => {
                   />
                 </label>
 
-                {/* Auto-calculated Priority */}
-                <div className={styles.formGroup}>
-                  <span className={styles.formLabel}>Priority (automatic)</span>
-                  <div
-                    className={styles.priorityBadgeDisplay}
-                    style={{
-                      background: `${priorityColor}18`,
-                      border: `1px solid ${priorityColor}50`,
-                      color: priorityColor,
-                    }}
-                  >
-                    <span
-                      className={styles.priorityDot}
-                      style={{ background: priorityColor }}
-                    />
-                    {computedPriority}
-                    {businessDaysUntilDue !== null && (
-                      <span className={styles.priorityDays}>
-                        ({businessDaysUntilDue} business day
-                        {businessDaysUntilDue !== 1 ? "s" : ""})
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Date notifications */}
+                {/* Priority message — shown only after date selection */}
                 {form.desiredDueDate && (
                   <div className={styles.formGroupFull}>
                     {isToday(form.desiredDueDate) && (
@@ -658,9 +815,10 @@ export const CreateRequestPage: React.FC = () => {
                             <line x1="12" y1="17" x2="12.01" y2="17" />
                           </svg>
                           <span>
-                            <strong>Urgent:</strong> Due date is within 4
-                            business days. This BID will be flagged as high
-                            priority.
+                            <strong>🔴 Urgent Priority</strong> — Due date is
+                            within {businessDaysUntilDue} business day
+                            {businessDaysUntilDue !== 1 ? "s" : ""}. This BID
+                            will be flagged as high priority.
                           </span>
                         </div>
                       )}
@@ -678,7 +836,9 @@ export const CreateRequestPage: React.FC = () => {
                           <polyline points="12 6 12 12 16 14" />
                         </svg>
                         <span>
-                          Standard timeline — due within 5 to 14 business days.
+                          <strong>🟡 Normal Priority</strong> — Standard
+                          timeline ({businessDaysUntilDue} business day
+                          {businessDaysUntilDue !== 1 ? "s" : ""}).
                         </span>
                       </div>
                     )}
@@ -696,8 +856,10 @@ export const CreateRequestPage: React.FC = () => {
                           <polyline points="12 6 12 12 16 14" />
                         </svg>
                         <span>
-                          Extended timeline — more than 14 business days until
-                          due date.
+                          <strong>🟢 Low Priority</strong> — Extended timeline (
+                          {businessDaysUntilDue} business day
+                          {businessDaysUntilDue !== 1 ? "s" : ""} until due
+                          date).
                         </span>
                       </div>
                     )}
@@ -729,6 +891,23 @@ export const CreateRequestPage: React.FC = () => {
                     onChange={(e) => updateField("field", e.target.value)}
                     placeholder="Field name"
                   />
+                </label>
+                <label className={styles.formGroupFull}>
+                  <span className={styles.formLabel}>
+                    Commercial BID Folder Link
+                  </span>
+                  <input
+                    className={styles.formInput}
+                    value={form.commercialFolderUrl}
+                    onChange={(e) =>
+                      updateField("commercialFolderUrl", e.target.value)
+                    }
+                    placeholder="https://sharepoint.com/sites/.../BidFolder"
+                  />
+                  <span className={styles.fieldNote}>
+                    ⚠ Please ensure access is granted to the engineering team.
+                    Do not change the folder path after submission.
+                  </span>
                 </label>
                 <label className={styles.formGroupFull}>
                   <span className={styles.formLabel}>Notes</span>
@@ -799,7 +978,13 @@ export const CreateRequestPage: React.FC = () => {
                     {form.division || "—"}
                   </span>
                 </div>
-                <div className={styles.reviewCellFull}>
+                <div className={styles.reviewCell}>
+                  <span className={styles.reviewCellLabel}>Service Line</span>
+                  <span className={styles.reviewCellValue}>
+                    {form.serviceLine || "—"}
+                  </span>
+                </div>
+                <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Project Name</span>
                   <span className={styles.reviewCellValue}>
                     {form.projectName || "—"}
@@ -811,6 +996,26 @@ export const CreateRequestPage: React.FC = () => {
                     {form.projectDescription || "—"}
                   </span>
                 </div>
+                {form.operationStartDate && (
+                  <div className={styles.reviewCell}>
+                    <span className={styles.reviewCellLabel}>
+                      Operation Start Date
+                    </span>
+                    <span className={styles.reviewCellValue}>
+                      {form.operationStartDate}
+                    </span>
+                  </div>
+                )}
+                {form.totalDuration && (
+                  <div className={styles.reviewCell}>
+                    <span className={styles.reviewCellLabel}>
+                      Expected Duration
+                    </span>
+                    <span className={styles.reviewCellValue}>
+                      {form.totalDuration} days
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* BID Internal Details */}
@@ -818,12 +1023,6 @@ export const CreateRequestPage: React.FC = () => {
                 🔧 BID Internal Details
               </div>
               <div className={styles.reviewGrid}>
-                <div className={styles.reviewCell}>
-                  <span className={styles.reviewCellLabel}>Service Line</span>
-                  <span className={styles.reviewCellValue}>
-                    {form.serviceLine || "—"}
-                  </span>
-                </div>
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>BID Type</span>
                   <span className={styles.reviewCellValue}>{form.bidType}</span>
@@ -833,17 +1032,18 @@ export const CreateRequestPage: React.FC = () => {
                     Project Manager
                   </span>
                   <span className={styles.reviewCellValue}>
-                    {form.projectManager ? (
-                      <PersonaCard
-                        name={form.projectManager.name}
-                        email={form.projectManager.email}
-                        role={form.projectManager.role}
-                        photoUrl={form.projectManager.photoUrl}
-                        size="small"
-                      />
-                    ) : (
-                      "—"
-                    )}
+                    {form.projectManagers.length > 0
+                      ? form.projectManagers.map((pm) => (
+                          <PersonaCard
+                            key={pm.email}
+                            name={pm.name}
+                            email={pm.email}
+                            role={pm.role}
+                            photoUrl={pm.photoUrl}
+                            size="small"
+                          />
+                        ))
+                      : "—"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>
@@ -853,7 +1053,7 @@ export const CreateRequestPage: React.FC = () => {
                       name={currentUser.displayName}
                       email={currentUser.email}
                       role={currentUser.jobTitle || currentUser.role}
-                      photoUrl={currentUser.photoUrl}
+                      photoUrl={currentUserPhoto || currentUser.photoUrl}
                       size="small"
                     />
                   </span>
@@ -870,7 +1070,7 @@ export const CreateRequestPage: React.FC = () => {
                     {form.desiredDueDate || "—"}
                   </span>
                 </div>
-                <div className={styles.reviewCellFull}>
+                <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Priority</span>
                   <div
                     className={styles.priorityBadgeDisplay}
@@ -900,6 +1100,7 @@ export const CreateRequestPage: React.FC = () => {
               {/* Additional Info */}
               {(form.vessel ||
                 form.field ||
+                form.commercialFolderUrl ||
                 form.notes ||
                 uploadedFiles.length > 0) && (
                 <>
@@ -920,6 +1121,22 @@ export const CreateRequestPage: React.FC = () => {
                         <span className={styles.reviewCellLabel}>Field</span>
                         <span className={styles.reviewCellValue}>
                           {form.field}
+                        </span>
+                      </div>
+                    )}
+                    {form.commercialFolderUrl && (
+                      <div className={styles.reviewCellFull}>
+                        <span className={styles.reviewCellLabel}>
+                          Commercial BID Folder
+                        </span>
+                        <span className={styles.reviewCellValue}>
+                          <a
+                            href={form.commercialFolderUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {form.commercialFolderUrl}
+                          </a>
                         </span>
                       </div>
                     )}
@@ -963,6 +1180,7 @@ export const CreateRequestPage: React.FC = () => {
             <button
               onClick={() => (step > 0 ? setStep((s) => s - 1) : handleClose())}
               className={styles.btnSecondary}
+              disabled={submitting}
             >
               {step > 0 ? "← Back" : "Cancel"}
             </button>
@@ -974,18 +1192,28 @@ export const CreateRequestPage: React.FC = () => {
               <button
                 onClick={() => setShowConfirm(true)}
                 className={styles.btnSubmit}
+                disabled={submitting}
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                Submit Request
+                {submitting ? (
+                  <>
+                    <span className={styles.spinnerSmall} />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Submit Request
+                  </>
+                )}
               </button>
             )}
           </div>

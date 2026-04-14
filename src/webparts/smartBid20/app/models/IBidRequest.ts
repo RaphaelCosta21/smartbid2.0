@@ -4,6 +4,23 @@
 import { Division, BidType, BidPriority } from "./IBidStatus";
 import { IPersonRef } from "./IUser";
 
+export interface IRequestAttachment {
+  fileName: string;
+  fileType: string;
+  description: string;
+  path: string;
+  uploadedDate: string;
+  size: number;
+}
+
+export interface IRequestPhase {
+  idPhase: number;
+  status: string;
+  start: string;
+  duration: number;
+  durationFormatted: string;
+}
+
 export interface IBidRequest {
   id: string;
   requestNumber: string;
@@ -16,15 +33,21 @@ export interface IBidRequest {
   projectDescription: string;
   division: Division;
   serviceLine: string;
-  projectManager: IPersonRef | null;
+  projectManager: IPersonRef[] | null;
   bidType: BidType;
   priority: BidPriority;
   desiredDueDate: string;
+  operationStartDate: string;
+  totalDuration: number;
   creationDate: string;
-  createdBy: IPersonRef;
+  creator: IPersonRef;
+  engineerResponsible: IPersonRef[] | null;
+  analyst: IPersonRef[] | null;
   vessel: string;
   field: string;
-  attachments: string[];
+  commercialFolderUrl: string;
+  attachments: IRequestAttachment[];
+  phases: IRequestPhase[];
   notes: string;
   status: "submitted" | "assigned" | "rejected" | "converted";
   assignedTo: IPersonRef | null;

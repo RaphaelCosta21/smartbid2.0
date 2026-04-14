@@ -87,5 +87,5 @@ export function validateBidRequest(data: {
 }
 
 export function sanitizeText(text: string): string {
-  return text.replace(/<[^>]*>/g, "").trim();
+  return text.replace(/<[^>]*>/g, "");
 }

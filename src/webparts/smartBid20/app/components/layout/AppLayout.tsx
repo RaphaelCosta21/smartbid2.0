@@ -6,7 +6,9 @@ import { useBidStore } from "../../stores/useBidStore";
 import { useNotificationStore } from "../../stores/useNotificationStore";
 import { useRequestStore } from "../../stores/useRequestStore";
 import { useTemplateStore } from "../../stores/useTemplateStore";
+import { useConfigStore } from "../../stores/useConfigStore";
 import { MockDataService } from "../../services/MockDataService";
+import { SystemConfigService } from "../../services/SystemConfigService";
 import { ROUTES } from "../../config/routes.config";
 import darkTheme from "../../styles/themes/dark.module.scss";
 import lightTheme from "../../styles/themes/light.module.scss";
@@ -53,12 +55,18 @@ export const AppLayout: React.FC = () => {
   const dismissToast = useUIStore((s) => s.dismissToast);
   const setRequests = useRequestStore((s) => s.setRequests);
   const setTemplates = useTemplateStore((s) => s.setTemplates);
+  const setConfig = useConfigStore((s) => s.setConfig);
 
   React.useEffect(() => {
     setBids(MockDataService.getBids());
     setNotifications(MockDataService.getNotifications());
     setRequests(MockDataService.getRequests());
     setTemplates(MockDataService.getTemplates() as any);
+
+    // Load system config from SharePoint into global store
+    SystemConfigService.get()
+      .then((cfg) => setConfig(cfg))
+      .catch((err) => console.error("Failed to load system config:", err));
   }, []);
 
   const themeClass =
@@ -90,12 +98,21 @@ export const AppLayout: React.FC = () => {
               <Route path={ROUTES.dashboard} element={<DashboardPage />} />
               <Route path={ROUTES.tracker} element={<BidTrackerPage />} />
               <Route path={ROUTES.bidDetail} element={<BidDetailPage />} />
-              <Route path={ROUTES.requests} element={<UnassignedRequestsPage />} />
-              <Route path={ROUTES.createRequest} element={<CreateRequestPage />} />
+              <Route
+                path={ROUTES.requests}
+                element={<UnassignedRequestsPage />}
+              />
+              <Route
+                path={ROUTES.createRequest}
+                element={<CreateRequestPage />}
+              />
               <Route path={ROUTES.myDashboard} element={<MyDashboardPage />} />
               <Route path={ROUTES.flowboard} element={<FlowBoardPage />} />
               <Route path={ROUTES.timeline} element={<TimelinePage />} />
-              <Route path={ROUTES.notifications} element={<NotificationsPage />} />
+              <Route
+                path={ROUTES.notifications}
+                element={<NotificationsPage />}
+              />
               <Route path={ROUTES.faq} element={<FaqPage />} />
               <Route path={ROUTES.knowledge} element={<KnowledgeBasePage />} />
               <Route path={ROUTES.analytics} element={<AnalyticsPage />} />
@@ -109,7 +126,10 @@ export const AppLayout: React.FC = () => {
               <Route path={ROUTES.quotations} element={<QuotationsPage />} />
               <Route path={ROUTES.tooling} element={<ToolingReportPage />} />
               <Route path={ROUTES.pricing} element={<PriceConsultingPage />} />
-              <Route path={ROUTES.systemConfig} element={<SystemConfigPage />} />
+              <Route
+                path={ROUTES.systemConfig}
+                element={<SystemConfigPage />}
+              />
               <Route path={ROUTES.members} element={<MembersPage />} />
               <Route path={ROUTES.patchNotes} element={<PatchNotesPage />} />
             </Routes>

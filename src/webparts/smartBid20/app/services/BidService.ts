@@ -39,20 +39,21 @@ export class BidService {
     return JSON.parse((items[0] as { jsondata: string }).jsondata) as IBid;
   }
 
-  public static async create(bid: IBid): Promise<void> {
-    await BidService._list.items.add({
+  public static async create(bid: IBid): Promise<number> {
+    const result = await BidService._list.items.add({
       Title: bid.bidNumber,
       jsondata: JSON.stringify(bid),
       Status: bid.currentStatus,
-      DueDate: bid.dueDate,
+      DueDate: bid.desiredDueDate || bid.dueDate,
     });
+    return ((result as any).data as { Id: number }).Id;
   }
 
   public static async update(id: number, bid: IBid): Promise<void> {
     await BidService._list.items.getById(id).update({
       jsondata: JSON.stringify(bid),
       Status: bid.currentStatus,
-      DueDate: bid.dueDate,
+      DueDate: bid.desiredDueDate || bid.dueDate,
     });
   }
 

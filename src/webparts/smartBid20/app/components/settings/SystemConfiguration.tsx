@@ -44,16 +44,9 @@ const NAV_GROUPS: INavGroup[] = [
     group: "BID Structure",
     items: [
       {
-        key: "divisions",
-        label: "Divisions",
+        key: "divisionsAndServiceLines",
+        label: "Divisions & Lines",
         icon: "🏢",
-        configKey: "divisions",
-      },
-      {
-        key: "serviceLines",
-        label: "Service Lines",
-        icon: "🔧",
-        configKey: "serviceLines",
       },
       {
         key: "bidTypes",
@@ -239,6 +232,7 @@ const SystemConfiguration: React.FC = () => {
     text: string;
   } | null>(null);
   const [dirty, setDirty] = React.useState(false);
+  const [fetchingRates, setFetchingRates] = React.useState(false);
 
   const currentNavItem = ALL_NAV_ITEMS.find((n) => n.key === activeTab);
 
@@ -378,6 +372,46 @@ const SystemConfiguration: React.FC = () => {
     }
     setShowPanel(false);
   };
+
+  /* ---- force-update exchange rates ------------------------------- */
+
+  const forceUpdateRates = React.useCallback(async () => {
+    if (!config || !canEdit) return;
+    setFetchingRates(true);
+    try {
+      const cs = config.currencySettings;
+      const codes = cs.exchangeRates.map((er) => er.currency);
+      const resp = await fetch(
+        `https://open.er-api.com/v6/latest/${cs.defaultCurrency}`,
+      );
+      if (!resp.ok) throw new Error(`API returned ${resp.status}`);
+      const data = (await resp.json()) as {
+        result: string;
+        rates: Record<string, number>;
+      };
+      if (data.result !== "success") throw new Error("API error");
+
+      const now = new Date().toISOString();
+      const updatedRates = cs.exchangeRates.map((er) => {
+        const newRate = data.rates[er.currency];
+        return newRate !== null && newRate !== undefined
+          ? { ...er, rate: Math.round(newRate * 100) / 100, lastUpdate: now }
+          : er;
+      });
+      updateConfig({
+        currencySettings: { ...cs, exchangeRates: updatedRates },
+      });
+      showMsg(
+        "success",
+        `Rates updated from Open Exchange Rates API (${codes.join(", ")})`,
+      );
+    } catch (err) {
+      console.error("Failed to fetch rates:", err);
+      showMsg("error", "Failed to fetch exchange rates — check console");
+    } finally {
+      setFetchingRates(false);
+    }
+  }, [config, canEdit, showMsg]);
 
   /* ---- KPI changes ---------------------------------------------- */
 
@@ -532,6 +566,140 @@ const SystemConfiguration: React.FC = () => {
                           className={`${styles.actionBtn} ${styles.danger}`}
                           onClick={() =>
                             handleDeleteOption("jobFunctions", opt.id)
+                          }
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  /* ---- Divisions & Service Lines (merged) ----------------------- */
+
+  const renderDivisionsAndServiceLines = (): React.ReactElement => {
+    if (!config) return <></>;
+    const divisions = config.divisions;
+    const allLines = config.serviceLines;
+
+    return (
+      <div>
+        <div className={styles.sectionHeader}>
+          <h3>Divisions &amp; Service Lines</h3>
+          <p>
+            Each division contains its own set of service lines. Manage
+            divisions and their sub-lines below.
+          </p>
+        </div>
+
+        {/* Division management */}
+        {canEdit && (
+          <div className={styles.addBtnRow}>
+            <button
+              className={`${styles.actionBtn} ${styles.primary}`}
+              onClick={() => openAddPanel("divisions")}
+            >
+              + Add Division
+            </button>
+          </div>
+        )}
+
+        {divisions.map((div) => {
+          const lines = allLines.filter((sl) => sl.category === div.value);
+          return (
+            <div key={div.id} className={styles.groupedSection}>
+              <div className={styles.divisionHeader}>
+                <div className={styles.divisionTitleRow}>
+                  {div.color && (
+                    <span
+                      className={styles.optionColor}
+                      style={{ background: div.color }}
+                    />
+                  )}
+                  <span className={styles.divisionName}>{div.label}</span>
+                  {!div.isActive && (
+                    <span className={styles.inactiveTag}>Inactive</span>
+                  )}
+                </div>
+                {canEdit && (
+                  <div className={styles.optionActions}>
+                    <button
+                      className={styles.actionBtn}
+                      onClick={() => openEditPanel("divisions", div)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className={styles.actionBtn}
+                      onClick={() => handleOptionToggle("divisions", div.id)}
+                    >
+                      {div.isActive ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      className={`${styles.actionBtn} ${styles.danger}`}
+                      onClick={() => handleDeleteOption("divisions", div.id)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {canEdit && (
+                <div className={styles.addBtnRow}>
+                  <button
+                    className={`${styles.actionBtn} ${styles.primary}`}
+                    onClick={() => openAddPanel("serviceLines", div.value)}
+                  >
+                    + Add Service Line to {div.label}
+                  </button>
+                </div>
+              )}
+
+              <div className={styles.optionsList}>
+                {lines.length === 0 && (
+                  <div className={styles.emptyHint}>
+                    No service lines for this division yet.
+                  </div>
+                )}
+                {lines.map((opt) => (
+                  <div
+                    key={opt.id}
+                    className={`${styles.optionCard} ${!opt.isActive ? styles.inactive : ""}`}
+                  >
+                    <div className={styles.optionInfo}>
+                      <span className={styles.optionLabel}>{opt.label}</span>
+                      {!opt.isActive && (
+                        <span className={styles.inactiveTag}>Inactive</span>
+                      )}
+                    </div>
+                    {canEdit && (
+                      <div className={styles.optionActions}>
+                        <button
+                          className={styles.actionBtn}
+                          onClick={() => openEditPanel("serviceLines", opt)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className={styles.actionBtn}
+                          onClick={() =>
+                            handleOptionToggle("serviceLines", opt.id)
+                          }
+                        >
+                          {opt.isActive ? "Disable" : "Enable"}
+                        </button>
+                        <button
+                          className={`${styles.actionBtn} ${styles.danger}`}
+                          onClick={() =>
+                            handleDeleteOption("serviceLines", opt.id)
                           }
                         >
                           ✕
@@ -766,9 +934,29 @@ const SystemConfiguration: React.FC = () => {
           <p>
             Default currency: <strong>{cs.defaultCurrency}</strong>. Exchange
             rates update <strong>{cs.updateFrequency}</strong> (beginning of
-            each month).
+            each month). Source:{" "}
+            <a
+              href="https://open.er-api.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--primary-accent)" }}
+            >
+              Open Exchange Rates API
+            </a>
+            .
           </p>
         </div>
+        {canEdit && (
+          <div className={styles.addBtnRow}>
+            <button
+              className={`${styles.actionBtn} ${styles.primary}`}
+              onClick={forceUpdateRates}
+              disabled={fetchingRates}
+            >
+              {fetchingRates ? "Updating…" : "⟳ Force Update Rates"}
+            </button>
+          </div>
+        )}
         <div className={styles.currencyGrid}>
           {cs.exchangeRates.map((er, idx) => {
             const lastDate = new Date(er.lastUpdate);
@@ -966,6 +1154,8 @@ const SystemConfiguration: React.FC = () => {
     switch (activeTab) {
       case "kpi":
         return renderKPITargets();
+      case "divisionsAndServiceLines":
+        return renderDivisionsAndServiceLines();
       case "jobFunctions":
         return renderJobFunctions();
       case "resultsAndLoss":
@@ -1147,6 +1337,29 @@ const SystemConfiguration: React.FC = () => {
                         {c}
                       </option>
                     ))}
+                  </select>
+                </div>
+              )}
+              {panelConfigKey === "serviceLines" && config && (
+                <div className={styles.fieldGroup}>
+                  <label>Division</label>
+                  <select
+                    value={panelForm.category}
+                    onChange={(e) =>
+                      setPanelForm({
+                        ...panelForm,
+                        category: e.currentTarget.value,
+                      })
+                    }
+                  >
+                    <option value="">— Select —</option>
+                    {config.divisions
+                      .filter((d) => d.isActive)
+                      .map((d) => (
+                        <option key={d.id} value={d.value}>
+                          {d.label}
+                        </option>
+                      ))}
                   </select>
                 </div>
               )}

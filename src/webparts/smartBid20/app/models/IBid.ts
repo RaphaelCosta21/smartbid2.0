@@ -240,10 +240,17 @@ export interface IBid {
   priority: BidPriority;
   opportunityInfo: IOpportunityInfo;
   bidder: IPersonRef;
+  /** @deprecated Use creator instead */
+  creator: IPersonRef;
+  /** @deprecated Use engineerResponsible instead */
   owner: IPersonRef;
+  engineerResponsible: IPersonRef[];
+  analyst: IPersonRef[];
   reviewers: IPersonRef[];
   createdDate: string;
+  /** @deprecated Use desiredDueDate instead */
   dueDate: string;
+  desiredDueDate: string;
   startDate: string | null;
   completedDate: string | null;
   lastModified: string;

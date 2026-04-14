@@ -38,7 +38,11 @@ export {
   type IBidKPIs,
   type IBidMetadata,
 } from "./IBid";
-export { type IBidRequest } from "./IBidRequest";
+export {
+  type IBidRequest,
+  type IRequestAttachment,
+  type IRequestPhase,
+} from "./IBidRequest";
 export { type IBidTaskDef, type TaskStatusType } from "./IBidTask";
 export {
   type IBidApprovalState,

@@ -69,4 +69,51 @@ export class AttachmentService {
       }),
     );
   }
+
+  /**
+   * Upload request files into a folder named by SP item ID, CRM number, and creator.
+   * Folder pattern: {spItemId}-{crm}-{createdByName}
+   */
+  public static async uploadRequestFiles(
+    spItemId: number,
+    crmNumber: string,
+    createdByName: string,
+    files: File[],
+  ): Promise<IBidAttachment[]> {
+    const safeCrm = (crmNumber || "no-crm").replace(/[\\/:*?"<>|]/g, "_");
+    const safeName = createdByName.replace(/[\\/:*?"<>|]/g, "_");
+    const folderName = `${spItemId}-${safeCrm}-${safeName}`;
+    const libraryPath = SHAREPOINT_CONFIG.libraries.attachments;
+
+    // Ensure folder exists
+    await SPService.sp.web
+      .getFolderByServerRelativePath(libraryPath)
+      .addSubFolderUsingPath(folderName)
+      .catch(() => {
+        // Folder may already exist
+      });
+
+    const folderPath = `${libraryPath}/${folderName}`;
+    const results: IBidAttachment[] = [];
+
+    for (const file of files) {
+      const result = await SPService.sp.web
+        .getFolderByServerRelativePath(folderPath)
+        .files.addUsingPath(file.name, file, { Overwrite: true });
+
+      results.push({
+        id: crypto.randomUUID(),
+        fileName: file.name,
+        fileUrl: (result.data as { ServerRelativeUrl: string })
+          .ServerRelativeUrl,
+        fileSize: file.size,
+        fileType: file.type,
+        uploadedBy: createdByName,
+        uploadedDate: new Date().toISOString(),
+        category: "request",
+      });
+    }
+
+    return results;
+  }
 }

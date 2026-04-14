@@ -7,7 +7,7 @@ import { IBid, IPersonRef } from "../models";
 import { BidService } from "./BidService";
 
 export class RequestService {
-  public static async createRequest(request: IBidRequest): Promise<void> {
+  public static async createRequest(request: IBidRequest): Promise<number> {
     // Requests are stored as BIDs in Phase 0
     const bid: Partial<IBid> = {
       bidNumber: request.requestNumber,
@@ -27,22 +27,26 @@ export class RequestService {
         field: request.field,
         waterDepth: 0,
         waterDepthUnit: "m",
-        operationStartDate: "",
-        totalDuration: 0,
+        operationStartDate: request.operationStartDate || "",
+        totalDuration: request.totalDuration || 0,
         totalDurationUnit: "days",
         currency: "USD",
         ptax: 0,
         ptaxDate: "",
         qualifications: [],
       },
-      bidder: request.requestedBy,
+      bidder: request.creator,
+      creator: request.creator,
       owner: { name: "", email: "" },
+      engineerResponsible: [],
+      analyst: [],
       currentStatus: "Request Submitted",
       currentPhase: "PHASE_0",
       createdDate: new Date().toISOString(),
       dueDate: request.desiredDueDate,
+      desiredDueDate: request.desiredDueDate,
     };
-    await BidService.create(bid as IBid);
+    return await BidService.create(bid as IBid);
   }
 
   public static async assignRequest(
@@ -51,6 +55,7 @@ export class RequestService {
   ): Promise<void> {
     const bid = await BidService.getByBidNumber(bidNumber);
     if (!bid) throw new Error(`BID ${bidNumber} not found`);
+    bid.engineerResponsible = [assignTo];
     bid.owner = assignTo;
     bid.currentStatus = "Pending Assignment";
     bid.lastModified = new Date().toISOString();
