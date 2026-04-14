@@ -19,9 +19,13 @@ export class ActivityLogService {
       .select("ConfigValue")
       .top(1)();
     if (items.length === 0) return [];
-    return JSON.parse(
-      (items[0] as { ConfigValue: string }).ConfigValue,
-    ) as IActivityLogEntry[];
+    const raw = (items[0] as { ConfigValue: string }).ConfigValue;
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw) as IActivityLogEntry[];
+    } catch {
+      return [];
+    }
   }
 
   public static async addEntry(entry: IActivityLogEntry): Promise<void> {

@@ -11,11 +11,6 @@ import { IReadonlyTheme } from "@microsoft/sp-component-base";
 import * as strings from "SmartBid20WebPartStrings";
 import SmartBid20 from "./components/SmartBid20";
 import { ISmartBid20Props } from "./components/ISmartBid20Props";
-import { spfi, SPFx } from "@pnp/sp";
-import "@pnp/sp/webs";
-import "@pnp/sp/lists";
-import "@pnp/sp/items";
-import "@pnp/sp/site-users/web";
 import { SPService } from "./app/services/SPService";
 
 export interface ISmartBid20WebPartProps {
@@ -44,8 +39,7 @@ export default class SmartBid20WebPart extends BaseClientSideWebPart<ISmartBid20
 
   protected onInit(): Promise<void> {
     // Initialize PnPjs with SPFx context
-    const sp = spfi().using(SPFx(this.context));
-    SPService.init(sp);
+    SPService.init(this.context);
 
     // Load Google Fonts (Inter + JetBrains Mono) for the app
     if (!document.getElementById("smartbid-google-fonts")) {

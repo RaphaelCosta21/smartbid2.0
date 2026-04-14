@@ -7,6 +7,7 @@ export interface IConfigOption {
   isActive?: boolean;
   order?: number;
   color?: string;
+  category?: string;
   [key: string]: unknown;
 }
 
@@ -22,29 +23,16 @@ export interface IKPITargets {
   targetWinRate: number;
 }
 
+export interface IExchangeRate {
+  currency: string;
+  rate: number;
+  lastUpdate: string;
+}
+
 export interface ICurrencySettings {
   defaultCurrency: string;
-  ptax: number;
-  ptaxLastUpdate: string;
-  ptaxUpdateFrequency: string;
-}
-
-export interface IApprovalRuleEntry {
-  role: string;
-  required: boolean;
-  order: number;
-}
-
-export interface IApprovalRules {
-  defaultApprovers: IApprovalRuleEntry[];
-  divisionOverrides: Record<string, IApprovalRuleEntry[]>;
-  thresholds: {
-    highValueThreshold: number;
-    highValueAdditionalApprovers: IApprovalRuleEntry[];
-  };
-  reminderIntervalHours: number;
-  maxReminders: number;
-  autoEscalateAfterHours: number;
+  exchangeRates: IExchangeRate[];
+  updateFrequency: "monthly" | "weekly" | "daily";
 }
 
 export type AccessPermission = "edit" | "view" | "none";
@@ -64,22 +52,17 @@ export interface ISystemConfig {
   bidTypes: IConfigOption[];
   divisions: IConfigOption[];
   serviceLines: IConfigOption[];
-  bidSizes: IConfigOption[];
-  priorities: IConfigOption[];
   clientList: IConfigOption[];
   jobFunctions: IConfigOption[];
   hoursPhases: IConfigOption[];
   acquisitionTypes: IConfigOption[];
   deliverableTypes: IConfigOption[];
-  equipmentCategories: IConfigOption[];
+  engineerDeliverables: IConfigOption[];
   bidResultOptions: IConfigOption[];
+  lossReasons: IConfigOption[];
+  costReferences: IConfigOption[];
+  phases: IConfigOption[];
   currencySettings: ICurrencySettings;
   notifications: Record<string, string[]>;
   accessLevels: Record<UserRole, IAccessLevelDef>;
-  approvalRules: IApprovalRules;
-  bidStatuses: IConfigOption[];
-  phases: IConfigOption[];
-  costReferences: IConfigOption[];
-  equipmentSubCategories: IConfigOption[];
-  lossReasons: IConfigOption[];
 }

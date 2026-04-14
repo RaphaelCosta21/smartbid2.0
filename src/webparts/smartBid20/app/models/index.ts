@@ -3,6 +3,9 @@ export {
   type IPersonRef,
   type UserRole,
   type MemberDivision,
+  type Sector,
+  type BusinessLine,
+  type BidRole,
 } from "./IUser";
 export {
   type BidPhase,
@@ -77,7 +80,7 @@ export {
   type IConfigOption,
   type IKPITargets,
   type ICurrencySettings,
-  type IApprovalRules,
+  type IExchangeRate,
   type IAccessLevelDef,
   type AccessPermission,
 } from "./ISystemConfig";

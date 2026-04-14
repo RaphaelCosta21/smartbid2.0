@@ -1,5 +1,8 @@
 declare module "@pnp/sp" {
+  export function spfi(root?: string | SPFI): SPFI;
+  export function SPFx(context: any): any;
   export interface SPFI {
+    using(...behaviors: any[]): this;
     web: SPWeb;
   }
   export interface SPWeb {

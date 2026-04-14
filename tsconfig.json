@@ -1,5 +1,5 @@
 {
-  "extends": "./node_modules/@microsoft/rush-stack-compiler-5.3/includes/tsconfig-web.json",
+  "extends": "./node_modules/@microsoft/rush-stack-compiler-4.7/includes/tsconfig-web.json",
   "compilerOptions": {
     "target": "es5",
     "forceConsistentCasingInFileNames": true,
@@ -12,7 +12,8 @@
     "skipLibCheck": true,
     "outDir": "lib",
     "inlineSources": false,
-    "noImplicitAny": true,
+    "noImplicitAny": false,
+    "downlevelIteration": true,
 
     "typeRoots": ["./node_modules/@types", "./node_modules/@microsoft"],
     "types": ["webpack-env"],
@@ -23,10 +24,10 @@
       "es2015.promise",
       "es2015.core",
       "es2015.iterable",
-      "es2015.symbol",
       "es2016.array.include",
-      "es2017.object"
+      "es2017.object",
+      "es2017.string"
     ]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/typings/**/*.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

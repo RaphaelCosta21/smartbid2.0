@@ -7,7 +7,7 @@ import {
   getPhaseLabel,
   getAllTasks,
 } from "../config/phases.config";
-import { IBid } from "../models";
+import { IBid, BidPhase } from "../models";
 
 export function getPhaseProgress(bid: IBid): number {
   const phaseConfig = getPhaseConfig(bid.currentPhase);
@@ -35,7 +35,7 @@ export function getPhaseIndex(phase: string): number {
 }
 
 export function isPhaseCompleted(bid: IBid, phaseKey: string): boolean {
-  const config = getPhaseConfig(phaseKey);
+  const config = getPhaseConfig(phaseKey as BidPhase);
   if (!config) return false;
   const phaseSteps = bid.steps.filter((s) => s.phase === phaseKey);
   return (

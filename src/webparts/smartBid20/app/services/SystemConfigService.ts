@@ -31,9 +31,16 @@ export class SystemConfigService {
     if (items.length === 0) {
       throw new Error("System configuration not found");
     }
-    const config = JSON.parse(
-      (items[0] as { ConfigValue: string }).ConfigValue,
-    ) as ISystemConfig;
+    const raw = (items[0] as { ConfigValue: string }).ConfigValue;
+    if (!raw) {
+      throw new Error("System configuration is empty");
+    }
+    let config: ISystemConfig;
+    try {
+      config = JSON.parse(raw) as ISystemConfig;
+    } catch {
+      throw new Error("System configuration has invalid JSON");
+    }
     SystemConfigService._cache = config;
     SystemConfigService._cacheTimestamp = now;
     return config;

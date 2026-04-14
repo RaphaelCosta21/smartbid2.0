@@ -1,18 +1,21 @@
-export type UserRole =
-  | "manager"
-  | "project"
-  | "operations"
-  | "equipment"
-  | "dataCenter"
+export type Sector =
+  | "commercial"
   | "engineering"
-  | "guest";
+  | "project"
+  | "operation"
+  | "dataCenter"
+  | "equipmentInstallation"
+  | "supplyChain";
 
-export type MemberDivision =
-  | "ROV"
-  | "SURVEY"
-  | "OPG"
-  | "ENGINEERING"
-  | "COMMERCIAL";
+export type BusinessLine = "ROV" | "OPG" | "SURVEY";
+
+export type BidRole = "contributor" | "manager" | "coordinator";
+
+/** @deprecated Use Sector instead */
+export type UserRole = Sector | "guest";
+
+/** @deprecated Use Sector instead */
+export type MemberDivision = string;
 
 export interface IPersonRef {
   name: string;
@@ -31,6 +34,9 @@ export interface IUser {
   role: UserRole;
   teamCategory: string;
   division?: string;
+  sector?: Sector;
+  businessLines?: BusinessLine[];
+  bidRole?: BidRole;
   isActive: boolean;
   isSuperAdmin?: boolean;
 }

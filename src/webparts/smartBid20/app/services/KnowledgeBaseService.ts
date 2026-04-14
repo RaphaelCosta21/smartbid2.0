@@ -17,9 +17,13 @@ export class KnowledgeBaseService {
       .select("ConfigValue")
       .top(1)();
     if (items.length === 0) return [];
-    return JSON.parse(
-      (items[0] as { ConfigValue: string }).ConfigValue,
-    ) as IKnowledgeBaseItem[];
+    const raw = (items[0] as { ConfigValue: string }).ConfigValue;
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw) as IKnowledgeBaseItem[];
+    } catch {
+      return [];
+    }
   }
 
   public static async getByCategory(

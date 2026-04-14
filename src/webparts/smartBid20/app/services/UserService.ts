@@ -15,7 +15,7 @@ export class UserService {
       jobTitle: "",
       department: "",
       role: "engineering",
-      teamCategory: "",
+      teamCategory: "engineering",
       isActive: true,
     };
   }

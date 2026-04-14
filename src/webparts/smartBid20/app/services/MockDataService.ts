@@ -10,7 +10,7 @@ import { IBidRequest } from "../models/IBidRequest";
 import { IKnowledgeBaseItem } from "../models/IKnowledgeBase";
 import { MOCK_BIDS } from "../data/mockBids";
 import { MOCK_NOTIFICATIONS } from "../data/mockNotifications";
-import { MOCK_SYSTEM_CONFIG } from "../data/mockSystemConfig";
+import { DEFAULT_SYSTEM_CONFIG } from "../data/defaultSystemConfig";
 import { MOCK_TEMPLATES } from "../data/mockTemplates";
 import { mockRequests } from "../data/mockRequests";
 import { mockKnowledgeBase } from "../data/mockKnowledgeBase";
@@ -21,14 +21,7 @@ export class MockDataService {
   }
 
   public static getMembers(): IMembersData {
-    return {
-      manager: [],
-      project: [],
-      operations: [],
-      equipment: [],
-      dataCenter: [],
-      engineering: [],
-    };
+    return { members: [] };
   }
 
   public static getNotifications(): INotification[] {
@@ -36,7 +29,7 @@ export class MockDataService {
   }
 
   public static getSystemConfig(): ISystemConfig {
-    return MOCK_SYSTEM_CONFIG;
+    return DEFAULT_SYSTEM_CONFIG;
   }
 
   public static getTemplates(): IBidTemplate[] {

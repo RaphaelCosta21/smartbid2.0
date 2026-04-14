@@ -1,100 +1,147 @@
 /**
  * SystemConfiguration Component — SMART BID 2.0
- * Adapted from SmartFlow SystemConfiguration reference
- * Manages all system configuration: KPI targets, lists, access levels, etc.
+ * Real SharePoint data with DEFAULT_SYSTEM_CONFIG as seed.
+ * Editable only by engineering sector (or superAdmin).
+ * Sidebar navigation with grouped menus.
  */
 
 import * as React from "react";
 import styles from "./SystemConfiguration.module.scss";
-import { ISystemConfig, IConfigOption, IKPITargets } from "../../models";
-import { MOCK_SYSTEM_CONFIG } from "../../data/mockSystemConfig";
+import {
+  ISystemConfig,
+  IConfigOption,
+  IKPITargets,
+  IExchangeRate,
+  AccessPermission,
+} from "../../models";
+import { SystemConfigService } from "../../services/SystemConfigService";
+import { DEFAULT_SYSTEM_CONFIG } from "../../data/defaultSystemConfig";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { APP_CONFIG } from "../../config/app.config";
 
 /* ------------------------------------------------------------------ */
-/* TAB DEFINITIONS                                                    */
+/* NAV STRUCTURE                                                      */
 /* ------------------------------------------------------------------ */
 
-interface ITabDef {
+interface INavItem {
   key: string;
   label: string;
   icon: string;
   configKey?: keyof ISystemConfig;
 }
 
-const TABS: ITabDef[] = [
-  { key: "kpi", label: "KPI Targets", icon: "📊" },
-  { key: "divisions", label: "Divisions", icon: "🏢", configKey: "divisions" },
+interface INavGroup {
+  group: string;
+  items: INavItem[];
+}
+
+const NAV_GROUPS: INavGroup[] = [
   {
-    key: "serviceLines",
-    label: "Service Lines",
-    icon: "🔧",
-    configKey: "serviceLines",
-  },
-  { key: "bidTypes", label: "Bid Types", icon: "📋", configKey: "bidTypes" },
-  {
-    key: "bidStatuses",
-    label: "Statuses",
-    icon: "🏷️",
-    configKey: "bidStatuses",
-  },
-  { key: "phases", label: "Phases", icon: "📐", configKey: "phases" },
-  { key: "regions", label: "Regions", icon: "🌎", configKey: "regions" },
-  { key: "clientList", label: "Clients", icon: "🤝", configKey: "clientList" },
-  {
-    key: "hoursPhases",
-    label: "Hours Phases",
-    icon: "⏱️",
-    configKey: "hoursPhases",
+    group: "Performance",
+    items: [{ key: "kpi", label: "KPI Targets", icon: "📊" }],
   },
   {
-    key: "equipmentCategories",
-    label: "Equipment",
-    icon: "⚙️",
-    configKey: "equipmentCategories",
+    group: "BID Structure",
+    items: [
+      {
+        key: "divisions",
+        label: "Divisions",
+        icon: "🏢",
+        configKey: "divisions",
+      },
+      {
+        key: "serviceLines",
+        label: "Service Lines",
+        icon: "🔧",
+        configKey: "serviceLines",
+      },
+      {
+        key: "bidTypes",
+        label: "Bid Types",
+        icon: "📋",
+        configKey: "bidTypes",
+      },
+      { key: "phases", label: "Phases", icon: "📐", configKey: "phases" },
+      { key: "regions", label: "Regions", icon: "🌎", configKey: "regions" },
+    ],
   },
   {
-    key: "costReferences",
-    label: "Cost Refs",
-    icon: "💰",
-    configKey: "costReferences",
+    group: "People & Resources",
+    items: [
+      {
+        key: "clientList",
+        label: "Clients",
+        icon: "🤝",
+        configKey: "clientList",
+      },
+      {
+        key: "jobFunctions",
+        label: "Job Functions",
+        icon: "👷",
+        configKey: "jobFunctions",
+      },
+      {
+        key: "hoursPhases",
+        label: "Hours Phases",
+        icon: "⏱️",
+        configKey: "hoursPhases",
+      },
+      {
+        key: "acquisitionTypes",
+        label: "Acquisition",
+        icon: "📥",
+        configKey: "acquisitionTypes",
+      },
+      {
+        key: "costReferences",
+        label: "Cost References",
+        icon: "💰",
+        configKey: "costReferences",
+      },
+    ],
   },
   {
-    key: "jobFunctions",
-    label: "Job Functions",
-    icon: "👷",
-    configKey: "jobFunctions",
+    group: "Deliverables",
+    items: [
+      {
+        key: "deliverableTypes",
+        label: "BID Deliverables",
+        icon: "📦",
+        configKey: "deliverableTypes",
+      },
+      {
+        key: "engineerDeliverables",
+        label: "Eng. Deliverables",
+        icon: "🛠️",
+        configKey: "engineerDeliverables",
+      },
+    ],
   },
   {
-    key: "acquisitionTypes",
-    label: "Acquisition",
-    icon: "📥",
-    configKey: "acquisitionTypes",
+    group: "Results",
+    items: [
+      { key: "resultsAndLoss", label: "Results & Loss Reasons", icon: "🏆" },
+    ],
   },
   {
-    key: "deliverableTypes",
-    label: "Deliverables",
-    icon: "📦",
-    configKey: "deliverableTypes",
+    group: "Financial",
+    items: [{ key: "currency", label: "Currency", icon: "💱" }],
   },
   {
-    key: "bidResultOptions",
-    label: "Results",
-    icon: "🏆",
-    configKey: "bidResultOptions",
+    group: "System",
+    items: [
+      { key: "access", label: "Access Levels", icon: "🔐" },
+      { key: "notifications", label: "Notifications", icon: "🔔" },
+    ],
   },
-  {
-    key: "lossReasons",
-    label: "Loss Reasons",
-    icon: "❌",
-    configKey: "lossReasons",
-  },
-  { key: "currency", label: "Currency", icon: "💱" },
-  { key: "access", label: "Access Levels", icon: "🔐" },
-  { key: "notifications", label: "Notifications", icon: "🔔" },
-  { key: "approvalRules", label: "Approval Rules", icon: "✅" },
 ];
 
+const ALL_NAV_ITEMS: INavItem[] = ([] as INavItem[]).concat(
+  ...NAV_GROUPS.map((g) => g.items),
+);
+
 /* ------------------------------------------------------------------ */
-/* KPI LABEL HELPERS                                                  */
+/* KPI HELPERS                                                        */
 /* ------------------------------------------------------------------ */
 
 const KPI_META: Record<keyof IKPITargets, { label: string; unit: string }> = {
@@ -109,15 +156,31 @@ const KPI_META: Record<keyof IKPITargets, { label: string; unit: string }> = {
   targetWinRate: { label: "Win Rate", unit: "%" },
 };
 
+/* ------------------------------------------------------------------ */
+/* ACCESS / NOTIFICATION CONSTANTS                                    */
+/* ------------------------------------------------------------------ */
+
 const ROLES = [
-  "manager",
-  "project",
-  "operations",
-  "equipment",
-  "dataCenter",
+  "commercial",
   "engineering",
+  "project",
+  "operation",
+  "dataCenter",
+  "equipmentInstallation",
+  "supplyChain",
   "guest",
 ] as const;
+
+const ROLE_LABELS: Record<string, string> = {
+  commercial: "Commercial",
+  engineering: "Engineering",
+  project: "Project",
+  operation: "Operation",
+  dataCenter: "Data Center",
+  equipmentInstallation: "Equip. Install.",
+  supplyChain: "Supply Chain",
+  guest: "Guest",
+};
 
 const ACCESS_AREAS: Array<{ key: string; label: string }> = [
   { key: "workspace", label: "Workspace" },
@@ -128,77 +191,162 @@ const ACCESS_AREAS: Array<{ key: string; label: string }> = [
   { key: "templates", label: "Templates" },
 ];
 
+const PERM_CYCLE: AccessPermission[] = ["none", "view", "edit"];
+
+const NOTIFICATION_LABELS: Record<string, string> = {
+  BID_CREATED: "BID Created",
+  BID_ASSIGNED: "BID Assigned",
+  STATUS_CHANGED: "Status Changed",
+  APPROVAL_REQUESTED: "Approval Requested",
+  APPROVAL_RESPONSE: "Approval Response",
+  BID_COMPLETED: "BID Completed",
+  BID_OVERDUE: "BID Overdue",
+  DEADLINE_WARNING: "Deadline Warning",
+};
+
+/* Job function team categories */
+const JOB_CATEGORIES = ["ROV", "Survey", "Engineer", "General"] as const;
+
 /* ------------------------------------------------------------------ */
 /* COMPONENT                                                          */
 /* ------------------------------------------------------------------ */
 
 const SystemConfiguration: React.FC = () => {
+  const currentUser = useCurrentUser();
+  const canEdit =
+    currentUser.sector === "engineering" ||
+    currentUser.isSuperAdmin === true ||
+    (APP_CONFIG.superAdminEmails as readonly string[]).includes(
+      currentUser.email,
+    );
+
   const [activeTab, setActiveTab] = React.useState<string>("kpi");
-  const [config, setConfig] = React.useState<ISystemConfig>(MOCK_SYSTEM_CONFIG);
+  const [config, setConfig] = React.useState<ISystemConfig | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
   const [showPanel, setShowPanel] = React.useState(false);
   const [editItem, setEditItem] = React.useState<IConfigOption | null>(null);
+  const [panelConfigKey, setPanelConfigKey] = React.useState<
+    keyof ISystemConfig | null
+  >(null);
   const [panelForm, setPanelForm] = React.useState({
     label: "",
-    value: "",
     color: "#3b82f6",
+    category: "",
   });
   const [message, setMessage] = React.useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [dirty, setDirty] = React.useState(false);
 
-  const currentTabDef = TABS.find((t) => t.key === activeTab);
+  const currentNavItem = ALL_NAV_ITEMS.find((n) => n.key === activeTab);
 
   /* ---- helpers --------------------------------------------------- */
 
-  const showMessage = (type: "success" | "error", text: string): void => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 3000);
+  const showMsg = React.useCallback(
+    (type: "success" | "error", text: string): void => {
+      setMessage({ type, text });
+      setTimeout(() => setMessage(null), 3000);
+    },
+    [],
+  );
+
+  /* ---- load config from SharePoint (or seed default) ------------- */
+
+  const loadConfig = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await SystemConfigService.get();
+      setConfig(data);
+    } catch {
+      // No config in SP yet — seed with defaults
+      setConfig({ ...DEFAULT_SYSTEM_CONFIG });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadConfig().catch(() => undefined);
+  }, [loadConfig]);
+
+  /* ---- persist to SharePoint ------------------------------------ */
+
+  const saveConfig = React.useCallback(
+    async (updatedConfig: ISystemConfig) => {
+      setSaving(true);
+      try {
+        await SystemConfigService.update(updatedConfig);
+        setConfig(updatedConfig);
+        setDirty(false);
+        showMsg("success", "Configuration saved to SharePoint");
+      } catch (err) {
+        console.error("Failed to save config:", err);
+        showMsg("error", "Failed to save — check console for details");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [showMsg],
+  );
+
+  const updateConfig = (patch: Partial<ISystemConfig>): void => {
+    if (!config) return;
+    setConfig({ ...config, ...patch });
+    setDirty(true);
   };
+
+  /* ---- generic list CRUD ---------------------------------------- */
 
   const handleOptionToggle = (
     configKey: keyof ISystemConfig,
     optionId: string,
   ): void => {
+    if (!config || !canEdit) return;
     const list = config[configKey] as IConfigOption[];
     const updated = list.map((o) =>
       o.id === optionId ? { ...o, isActive: !o.isActive } : o,
     );
-    setConfig({ ...config, [configKey]: updated });
-    showMessage("success", "Option updated");
+    updateConfig({ [configKey]: updated });
   };
 
   const handleDeleteOption = (
     configKey: keyof ISystemConfig,
     optionId: string,
   ): void => {
+    if (!config || !canEdit) return;
     const list = config[configKey] as IConfigOption[];
-    setConfig({
-      ...config,
-      [configKey]: list.filter((o) => o.id !== optionId),
-    });
-    showMessage("success", "Option removed");
+    updateConfig({ [configKey]: list.filter((o) => o.id !== optionId) });
   };
 
-  const openAddPanel = (): void => {
+  const openAddPanel = (
+    configKey: keyof ISystemConfig,
+    category?: string,
+  ): void => {
     setEditItem(null);
-    setPanelForm({ label: "", value: "", color: "#3b82f6" });
+    setPanelConfigKey(configKey);
+    setPanelForm({ label: "", color: "#3b82f6", category: category || "" });
     setShowPanel(true);
   };
 
-  const openEditPanel = (item: IConfigOption): void => {
+  const openEditPanel = (
+    configKey: keyof ISystemConfig,
+    item: IConfigOption,
+  ): void => {
     setEditItem(item);
+    setPanelConfigKey(configKey);
     setPanelForm({
       label: item.label,
-      value: item.value,
       color: item.color || "#3b82f6",
+      category: (item.category as string) || "",
     });
     setShowPanel(true);
   };
 
   const handlePanelSave = (): void => {
-    if (!currentTabDef?.configKey || !panelForm.label.trim()) return;
-    const key: keyof ISystemConfig = currentTabDef.configKey;
+    if (!config || !panelConfigKey || !panelForm.label.trim()) return;
+    const key = panelConfigKey;
     const list = config[key] as IConfigOption[];
 
     if (editItem) {
@@ -207,63 +355,74 @@ const SystemConfiguration: React.FC = () => {
           ? {
               ...o,
               label: panelForm.label,
-              value: panelForm.value || panelForm.label,
+              value: panelForm.label,
               color: panelForm.color,
+              category: panelForm.category || undefined,
             }
           : o,
       );
-      setConfig({ ...config, [key]: updated });
-      showMessage("success", `"${panelForm.label}" updated`);
+      updateConfig({ [key]: updated });
+      showMsg("success", `"${panelForm.label}" updated`);
     } else {
       const newItem: IConfigOption = {
-        id: `${key}-${Date.now()}`,
+        id: `${String(key)}-${Date.now()}`,
         label: panelForm.label,
-        value: panelForm.value || panelForm.label,
+        value: panelForm.label,
         isActive: true,
         order: list.length + 1,
         color: panelForm.color,
+        category: panelForm.category || undefined,
       };
-      setConfig({ ...config, [key]: [...list, newItem] });
-      showMessage("success", `"${panelForm.label}" added`);
+      updateConfig({ [key]: [...list, newItem] });
+      showMsg("success", `"${panelForm.label}" added`);
     }
     setShowPanel(false);
   };
+
+  /* ---- KPI changes ---------------------------------------------- */
 
   const handleKPIChange = (
     kpiKey: keyof IKPITargets,
     valueStr: string,
   ): void => {
+    if (!config || !canEdit) return;
     const num = Number(valueStr);
     if (isNaN(num)) return;
-    setConfig({
-      ...config,
-      kpiTargets: { ...config.kpiTargets, [kpiKey]: num },
-    });
+    updateConfig({ kpiTargets: { ...config.kpiTargets, [kpiKey]: num } });
   };
 
-  /* ---- render helpers -------------------------------------------- */
+  /* ================================================================ */
+  /* RENDER HELPERS                                                   */
+  /* ================================================================ */
+
+  /* ---- generic options list ------------------------------------- */
 
   const renderOptionsList = (
     configKey: keyof ISystemConfig,
+    label?: string,
   ): React.ReactElement => {
+    if (!config) return <></>;
     const list = config[configKey] as IConfigOption[];
+    const displayLabel = label || currentNavItem?.label || "";
     return (
       <div>
         <div className={styles.sectionHeader}>
-          <h3>{currentTabDef?.label}</h3>
+          <h3>{displayLabel}</h3>
           <p>
-            Manage the list of {currentTabDef?.label?.toLowerCase()}. Toggle to
+            Manage the list of {displayLabel.toLowerCase()}. Toggle to
             activate/deactivate.
           </p>
         </div>
-        <div className={styles.addBtnRow}>
-          <button
-            className={`${styles.actionBtn} ${styles.primary}`}
-            onClick={openAddPanel}
-          >
-            + Add {currentTabDef?.label?.replace(/s$/, "")}
-          </button>
-        </div>
+        {canEdit && (
+          <div className={styles.addBtnRow}>
+            <button
+              className={`${styles.actionBtn} ${styles.primary}`}
+              onClick={() => openAddPanel(configKey)}
+            >
+              + Add
+            </button>
+          </div>
+        )}
         <div className={styles.optionsList}>
           {list.map((opt) => (
             <div
@@ -278,33 +437,32 @@ const SystemConfiguration: React.FC = () => {
               )}
               <div className={styles.optionInfo}>
                 <span className={styles.optionLabel}>{opt.label}</span>
-                {opt.value !== opt.label && (
-                  <span className={styles.optionValue}>{opt.value}</span>
-                )}
                 {!opt.isActive && (
                   <span className={styles.inactiveTag}>Inactive</span>
                 )}
               </div>
-              <div className={styles.optionActions}>
-                <button
-                  className={styles.actionBtn}
-                  onClick={() => openEditPanel(opt)}
-                >
-                  Edit
-                </button>
-                <button
-                  className={styles.actionBtn}
-                  onClick={() => handleOptionToggle(configKey, opt.id)}
-                >
-                  {opt.isActive ? "Disable" : "Enable"}
-                </button>
-                <button
-                  className={`${styles.actionBtn} ${styles.danger}`}
-                  onClick={() => handleDeleteOption(configKey, opt.id)}
-                >
-                  ✕
-                </button>
-              </div>
+              {canEdit && (
+                <div className={styles.optionActions}>
+                  <button
+                    className={styles.actionBtn}
+                    onClick={() => openEditPanel(configKey, opt)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className={styles.actionBtn}
+                    onClick={() => handleOptionToggle(configKey, opt.id)}
+                  >
+                    {opt.isActive ? "Disable" : "Enable"}
+                  </button>
+                  <button
+                    className={`${styles.actionBtn} ${styles.danger}`}
+                    onClick={() => handleDeleteOption(configKey, opt.id)}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -312,7 +470,88 @@ const SystemConfiguration: React.FC = () => {
     );
   };
 
+  /* ---- job functions (grouped by team) -------------------------- */
+
+  const renderJobFunctions = (): React.ReactElement => {
+    if (!config) return <></>;
+    const all = config.jobFunctions;
+
+    return (
+      <div>
+        <div className={styles.sectionHeader}>
+          <h3>Job Functions</h3>
+          <p>
+            Organized by team. &quot;General&quot; functions apply to all teams.
+          </p>
+        </div>
+        {JOB_CATEGORIES.map((cat) => {
+          const items = all.filter((j) => (j.category || "General") === cat);
+          if (items.length === 0 && !canEdit) return null;
+          return (
+            <div key={cat} className={styles.groupedSection}>
+              <div className={styles.groupLabel}>{cat}</div>
+              {canEdit && (
+                <div className={styles.addBtnRow}>
+                  <button
+                    className={`${styles.actionBtn} ${styles.primary}`}
+                    onClick={() => openAddPanel("jobFunctions", cat)}
+                  >
+                    + Add to {cat}
+                  </button>
+                </div>
+              )}
+              <div className={styles.optionsList}>
+                {items.map((opt) => (
+                  <div
+                    key={opt.id}
+                    className={`${styles.optionCard} ${!opt.isActive ? styles.inactive : ""}`}
+                  >
+                    <div className={styles.optionInfo}>
+                      <span className={styles.optionLabel}>{opt.label}</span>
+                      {!opt.isActive && (
+                        <span className={styles.inactiveTag}>Inactive</span>
+                      )}
+                    </div>
+                    {canEdit && (
+                      <div className={styles.optionActions}>
+                        <button
+                          className={styles.actionBtn}
+                          onClick={() => openEditPanel("jobFunctions", opt)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className={styles.actionBtn}
+                          onClick={() =>
+                            handleOptionToggle("jobFunctions", opt.id)
+                          }
+                        >
+                          {opt.isActive ? "Disable" : "Enable"}
+                        </button>
+                        <button
+                          className={`${styles.actionBtn} ${styles.danger}`}
+                          onClick={() =>
+                            handleDeleteOption("jobFunctions", opt.id)
+                          }
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  /* ---- KPI targets ---------------------------------------------- */
+
   const renderKPITargets = (): React.ReactElement => {
+    if (!config) return <></>;
     return (
       <div>
         <div className={styles.sectionHeader}>
@@ -332,6 +571,7 @@ const SystemConfiguration: React.FC = () => {
                   className={styles.kpiInput}
                   value={config.kpiTargets[k]}
                   onChange={(e) => handleKPIChange(k, e.currentTarget.value)}
+                  readOnly={!canEdit}
                 />
                 <span className={styles.kpiUnit}>{KPI_META[k].unit}</span>
               </div>
@@ -342,46 +582,289 @@ const SystemConfiguration: React.FC = () => {
     );
   };
 
-  const renderCurrencySettings = (): React.ReactElement => {
-    const cs = config.currencySettings;
+  /* ---- Results + Loss Reasons (merged) -------------------------- */
+
+  const renderResultsAndLoss = (): React.ReactElement => {
+    if (!config) return <></>;
     return (
       <div>
         <div className={styles.sectionHeader}>
-          <h3>Currency Settings</h3>
+          <h3>BID Results & Loss Reasons</h3>
           <p>
-            Manage default currency and PTAX exchange rate used across BID cost
-            calculations.
+            Manage result outcomes. Loss reasons are shown when a BID is marked
+            as lost.
           </p>
         </div>
-        <div className={styles.currencyRow}>
-          {[
-            { label: "Default Currency", value: cs.defaultCurrency },
-            { label: "PTAX Rate (BRL/USD)", value: String(cs.ptax) },
-            { label: "Last PTAX Update", value: cs.ptaxLastUpdate },
-            { label: "Update Frequency", value: cs.ptaxUpdateFrequency },
-          ].map((item) => (
-            <div key={item.label} className={styles.kpiCard}>
-              <div className={styles.kpiLabel}>{item.label}</div>
-              <input className={styles.kpiInput} value={item.value} readOnly />
+
+        <div className={styles.groupedSection}>
+          <div className={styles.groupLabel}>Result Options</div>
+          {canEdit && (
+            <div className={styles.addBtnRow}>
+              <button
+                className={`${styles.actionBtn} ${styles.primary}`}
+                onClick={() => openAddPanel("bidResultOptions")}
+              >
+                + Add Result
+              </button>
             </div>
-          ))}
+          )}
+          <div className={styles.optionsList}>
+            {config.bidResultOptions.map((opt) => (
+              <div
+                key={opt.id}
+                className={`${styles.optionCard} ${!opt.isActive ? styles.inactive : ""}`}
+              >
+                {opt.color && (
+                  <span
+                    className={styles.optionColor}
+                    style={{ background: opt.color }}
+                  />
+                )}
+                <div className={styles.optionInfo}>
+                  <span className={styles.optionLabel}>{opt.label}</span>
+                  {!opt.isActive && (
+                    <span className={styles.inactiveTag}>Inactive</span>
+                  )}
+                </div>
+                {canEdit && (
+                  <div className={styles.optionActions}>
+                    <button
+                      className={styles.actionBtn}
+                      onClick={() => openEditPanel("bidResultOptions", opt)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className={styles.actionBtn}
+                      onClick={() =>
+                        handleOptionToggle("bidResultOptions", opt.id)
+                      }
+                    >
+                      {opt.isActive ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      className={`${styles.actionBtn} ${styles.danger}`}
+                      onClick={() =>
+                        handleDeleteOption("bidResultOptions", opt.id)
+                      }
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.groupedSection}>
+          <div className={styles.groupLabel}>Loss Reasons</div>
+          {canEdit && (
+            <div className={styles.addBtnRow}>
+              <button
+                className={`${styles.actionBtn} ${styles.primary}`}
+                onClick={() => openAddPanel("lossReasons")}
+              >
+                + Add Loss Reason
+              </button>
+            </div>
+          )}
+          <div className={styles.optionsList}>
+            {config.lossReasons.map((opt) => (
+              <div
+                key={opt.id}
+                className={`${styles.optionCard} ${!opt.isActive ? styles.inactive : ""}`}
+              >
+                <div className={styles.optionInfo}>
+                  <span className={styles.optionLabel}>{opt.label}</span>
+                  {!opt.isActive && (
+                    <span className={styles.inactiveTag}>Inactive</span>
+                  )}
+                </div>
+                {canEdit && (
+                  <div className={styles.optionActions}>
+                    <button
+                      className={styles.actionBtn}
+                      onClick={() => openEditPanel("lossReasons", opt)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className={styles.actionBtn}
+                      onClick={() => handleOptionToggle("lossReasons", opt.id)}
+                    >
+                      {opt.isActive ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      className={`${styles.actionBtn} ${styles.danger}`}
+                      onClick={() => handleDeleteOption("lossReasons", opt.id)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
   };
 
+  /* ---- Currency ------------------------------------------------- */
+
+  const renderCurrency = (): React.ReactElement => {
+    if (!config) return <></>;
+    const cs = config.currencySettings;
+
+    const updateRate = (idx: number, newRate: string): void => {
+      if (!canEdit) return;
+      const num = Number(newRate);
+      if (isNaN(num)) return;
+      const rates = [...cs.exchangeRates];
+      rates[idx] = {
+        ...rates[idx],
+        rate: num,
+        lastUpdate: new Date().toISOString(),
+      };
+      updateConfig({ currencySettings: { ...cs, exchangeRates: rates } });
+    };
+
+    const removeRate = (idx: number): void => {
+      if (!canEdit) return;
+      const rates = cs.exchangeRates.filter((_, i) => i !== idx);
+      updateConfig({ currencySettings: { ...cs, exchangeRates: rates } });
+    };
+
+    const addRate = (): void => {
+      if (!canEdit) return;
+      const code = prompt("Currency code (e.g. GBP, EUR):");
+      if (!code) return;
+      const rateStr = prompt(
+        `Exchange rate (1 ${cs.defaultCurrency} = ? ${code.toUpperCase()}):`,
+      );
+      if (!rateStr) return;
+      const rate = Number(rateStr);
+      if (isNaN(rate)) return;
+      const newEntry: IExchangeRate = {
+        currency: code.toUpperCase(),
+        rate,
+        lastUpdate: new Date().toISOString(),
+      };
+      updateConfig({
+        currencySettings: {
+          ...cs,
+          exchangeRates: [...cs.exchangeRates, newEntry],
+        },
+      });
+    };
+
+    return (
+      <div>
+        <div className={styles.sectionHeader}>
+          <h3>Currency Settings</h3>
+          <p>
+            Default currency: <strong>{cs.defaultCurrency}</strong>. Exchange
+            rates update <strong>{cs.updateFrequency}</strong> (beginning of
+            each month).
+          </p>
+        </div>
+        <div className={styles.currencyGrid}>
+          {cs.exchangeRates.map((er, idx) => {
+            const lastDate = new Date(er.lastUpdate);
+            const formatted = `${lastDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+            return (
+              <div key={er.currency} className={styles.currencyCard}>
+                <div className={styles.currencyHeader}>
+                  <span className={styles.currencyCode}>{er.currency}</span>
+                  <span className={styles.currencyLabel}>
+                    1 {cs.defaultCurrency} =
+                  </span>
+                </div>
+                <div className={styles.currencyRate}>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={er.rate}
+                    onChange={(e) => updateRate(idx, e.currentTarget.value)}
+                    readOnly={!canEdit}
+                  />
+                  <span>{er.currency}</span>
+                </div>
+                <div className={styles.currencyMeta}>
+                  Last update: {formatted}
+                  {canEdit && (
+                    <button
+                      className={`${styles.actionBtn} ${styles.danger}`}
+                      onClick={() => removeRate(idx)}
+                      style={{ marginLeft: 8 }}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {canEdit && (
+          <div className={styles.addBtnRow} style={{ marginTop: 16 }}>
+            <button
+              className={`${styles.actionBtn} ${styles.primary}`}
+              onClick={addRate}
+            >
+              + Add Currency
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  /* ---- Access Levels (clickable badges to cycle) ---------------- */
+
   const renderAccessLevels = (): React.ReactElement => {
+    if (!config) return <></>;
+
+    const cyclePerm = (role: string, area: string): void => {
+      if (!canEdit) return;
+      const current =
+        config.accessLevels[role as keyof typeof config.accessLevels]?.[
+          area as keyof typeof config.accessLevels.commercial
+        ] || "none";
+      const nextIdx = (PERM_CYCLE.indexOf(current) + 1) % PERM_CYCLE.length;
+      const next = PERM_CYCLE[nextIdx];
+      updateConfig({
+        accessLevels: {
+          ...config.accessLevels,
+          [role]: {
+            ...config.accessLevels[role as keyof typeof config.accessLevels],
+            [area]: next,
+          },
+        },
+      });
+    };
+
+    const roleCount = ROLES.length;
+
     return (
       <div>
         <div className={styles.sectionHeader}>
           <h3>Access Levels</h3>
-          <p>Define what each role can access. Values: Edit, View, or None.</p>
+          <p>
+            {canEdit
+              ? "Click on a badge to cycle between None → View → Edit."
+              : "View permissions per role. Only engineering can edit."}
+          </p>
         </div>
-        <div className={styles.accessGrid}>
+        <div
+          className={styles.accessGrid}
+          style={{ "--role-count": roleCount } as React.CSSProperties}
+        >
           <div className={styles.accessGridHeader}>
             <div>Area</div>
             {ROLES.map((r) => (
-              <div key={r}>{r}</div>
+              <div key={r}>{ROLE_LABELS[r]}</div>
             ))}
           </div>
           {ACCESS_AREAS.map((area) => (
@@ -390,14 +873,16 @@ const SystemConfiguration: React.FC = () => {
               {ROLES.map((role) => {
                 const perm =
                   config.accessLevels[role]?.[
-                    area.key as keyof typeof config.accessLevels.manager
-                  ];
+                    area.key as keyof typeof config.accessLevels.commercial
+                  ] || "none";
                 return (
                   <div key={role}>
                     <span
-                      className={`${styles.accessBadge} ${perm === "edit" ? styles.edit : perm === "view" ? styles.view : styles.none}`}
+                      className={`${styles.accessBadge} ${perm === "edit" ? styles.edit : perm === "view" ? styles.view : styles.none} ${!canEdit ? styles.readonly : ""}`}
+                      onClick={() => cyclePerm(role, area.key)}
+                      title={canEdit ? "Click to change" : perm}
                     >
-                      {perm || "none"}
+                      {perm}
                     </span>
                   </div>
                 );
@@ -409,29 +894,62 @@ const SystemConfiguration: React.FC = () => {
     );
   };
 
+  /* ---- Notifications (toggle matrix) ---------------------------- */
+
   const renderNotifications = (): React.ReactElement => {
+    if (!config) return <></>;
     const notifs = config.notifications;
+    const events = Object.keys(notifs);
+
+    const toggleNotif = (event: string, role: string): void => {
+      if (!canEdit) return;
+      const current = notifs[event] || [];
+      const updated = current.includes(role)
+        ? current.filter((r) => r !== role)
+        : [...current, role];
+      updateConfig({ notifications: { ...notifs, [event]: updated } });
+    };
+
+    const roleCount = ROLES.length;
+
     return (
       <div>
         <div className={styles.sectionHeader}>
           <h3>Notification Rules</h3>
-          <p>Which roles receive notifications for each event type.</p>
+          <p>
+            {canEdit
+              ? "Toggle which roles receive notifications for each event."
+              : "View notification settings. Only engineering can edit."}
+          </p>
         </div>
-        <div className={styles.notificationsGrid}>
-          {Object.keys(notifs).map((event: string) => (
-            <div key={event} className={styles.notificationRow}>
-              <span className={styles.notifLabel}>
-                {event.replace(/_/g, " ")}
-              </span>
-              <div className={styles.notifRoles}>
-                {(notifs as Record<string, string[]>)[event].map(
-                  (role: string) => (
-                    <span key={role} className={styles.rolePill}>
-                      {role}
-                    </span>
-                  ),
-                )}
+        <div
+          className={styles.notifGrid}
+          style={{ "--role-count": roleCount } as React.CSSProperties}
+        >
+          <div className={styles.notifGridHeader}>
+            <div>Event</div>
+            {ROLES.map((r) => (
+              <div key={r}>{ROLE_LABELS[r]}</div>
+            ))}
+          </div>
+          {events.map((event) => (
+            <div key={event} className={styles.notifGridRow}>
+              <div>
+                {NOTIFICATION_LABELS[event] || event.replace(/_/g, " ")}
               </div>
+              {ROLES.map((role) => {
+                const isOn = (notifs[event] || []).includes(role);
+                return (
+                  <div key={role}>
+                    <button
+                      className={`${styles.notifToggle} ${isOn ? styles.on : styles.off} ${!canEdit ? styles.readonly : ""}`}
+                      onClick={() => toggleNotif(event, role)}
+                      disabled={!canEdit}
+                      title={isOn ? "Enabled" : "Disabled"}
+                    />
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
@@ -439,96 +957,37 @@ const SystemConfiguration: React.FC = () => {
     );
   };
 
-  const renderApprovalRules = (): React.ReactElement => {
-    const ar = config.approvalRules;
-    return (
-      <div>
-        <div className={styles.sectionHeader}>
-          <h3>Approval Rules</h3>
-          <p>
-            Configure the BID approval workflow, escalation, and thresholds.
-          </p>
-        </div>
-        <div className={styles.kpiGrid}>
-          <div className={styles.kpiCard}>
-            <div className={styles.kpiLabel}>Reminder Interval</div>
-            <div className={styles.kpiInputRow}>
-              <input
-                className={styles.kpiInput}
-                value={ar.reminderIntervalHours}
-                readOnly
-              />
-              <span className={styles.kpiUnit}>hours</span>
-            </div>
-          </div>
-          <div className={styles.kpiCard}>
-            <div className={styles.kpiLabel}>Max Reminders</div>
-            <input
-              className={styles.kpiInput}
-              value={ar.maxReminders}
-              readOnly
-            />
-          </div>
-          <div className={styles.kpiCard}>
-            <div className={styles.kpiLabel}>Auto-Escalate After</div>
-            <div className={styles.kpiInputRow}>
-              <input
-                className={styles.kpiInput}
-                value={ar.autoEscalateAfterHours}
-                readOnly
-              />
-              <span className={styles.kpiUnit}>hours</span>
-            </div>
-          </div>
-          <div className={styles.kpiCard}>
-            <div className={styles.kpiLabel}>High-Value Threshold</div>
-            <div className={styles.kpiInputRow}>
-              <input
-                className={styles.kpiInput}
-                value={ar.thresholds.highValueThreshold.toLocaleString()}
-                readOnly
-              />
-              <span className={styles.kpiUnit}>USD</span>
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.approversSection}>
-          <div className={styles.sectionHeader}>
-            <h3>Default Approvers</h3>
-          </div>
-          <div className={styles.optionsList}>
-            {ar.defaultApprovers.map((a, i) => (
-              <div key={i} className={styles.optionCard}>
-                <div className={styles.optionInfo}>
-                  <span className={styles.optionLabel}>{a.role}</span>
-                  <span className={styles.optionValue}>
-                    Order: {a.order} · {a.required ? "Required" : "Optional"}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  /* ---- main render ----------------------------------------------- */
+  /* ================================================================ */
+  /* TAB ROUTER                                                       */
+  /* ================================================================ */
 
   const renderTabContent = (): React.ReactElement | null => {
-    if (activeTab === "kpi") return renderKPITargets();
-    if (activeTab === "currency") return renderCurrencySettings();
-    if (activeTab === "access") return renderAccessLevels();
-    if (activeTab === "notifications") return renderNotifications();
-    if (activeTab === "approvalRules") return renderApprovalRules();
-
-    if (currentTabDef?.configKey) {
-      return renderOptionsList(currentTabDef.configKey);
+    if (!config) return null;
+    switch (activeTab) {
+      case "kpi":
+        return renderKPITargets();
+      case "jobFunctions":
+        return renderJobFunctions();
+      case "resultsAndLoss":
+        return renderResultsAndLoss();
+      case "currency":
+        return renderCurrency();
+      case "access":
+        return renderAccessLevels();
+      case "notifications":
+        return renderNotifications();
+      default: {
+        if (currentNavItem?.configKey) {
+          return renderOptionsList(currentNavItem.configKey);
+        }
+        return null;
+      }
     }
-
-    return null;
   };
+
+  /* ================================================================ */
+  /* MAIN RENDER                                                      */
+  /* ================================================================ */
 
   return (
     <div className={styles.container}>
@@ -553,12 +1012,19 @@ const SystemConfiguration: React.FC = () => {
           <div className={styles.headerText}>
             <h2 className={styles.title}>System Configuration</h2>
             <p className={styles.subtitle}>
-              Manage BID system settings, KPIs, access levels, and approval
-              workflows
+              Manage BID system settings, KPIs, access levels, and workflows
             </p>
           </div>
         </div>
       </div>
+
+      {/* Read-only banner */}
+      {!canEdit && (
+        <div className={styles.readOnlyBanner}>
+          🔒 You have read-only access. Only the Engineering team can edit
+          system configuration.
+        </div>
+      )}
 
       {/* Message bar */}
       {message && (
@@ -569,82 +1035,138 @@ const SystemConfiguration: React.FC = () => {
         </div>
       )}
 
-      {/* Tab strip */}
-      <div className={styles.tabs}>
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            className={`${styles.tab} ${activeTab === t.key ? styles.active : ""}`}
-            onClick={() => setActiveTab(t.key)}
-          >
-            <span>{t.icon}</span>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {loading ? (
+        <div className={styles.loadingContainer}>
+          <div className={styles.spinner} />
+          Loading configuration...
+        </div>
+      ) : (
+        <div className={styles.body}>
+          {/* Sidebar */}
+          <nav className={styles.sidebar}>
+            {NAV_GROUPS.map((group) => (
+              <div key={group.group} className={styles.navGroup}>
+                <div className={styles.navGroupLabel}>{group.group}</div>
+                {group.items.map((item) => (
+                  <button
+                    key={item.key}
+                    className={`${styles.navItem} ${activeTab === item.key ? styles.active : ""}`}
+                    onClick={() => setActiveTab(item.key)}
+                  >
+                    <span className={styles.navIcon}>{item.icon}</span>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </nav>
 
-      {/* Tab body */}
-      <div className={styles.tabContent}>{renderTabContent()}</div>
+          {/* Content */}
+          <div className={styles.content}>
+            <div className={styles.tabContent}>{renderTabContent()}</div>
 
-      {/* Edit/Add slide-over panel */}
-      {showPanel && (
-        <div className={styles.panelOverlay}>
-          <div className={styles.panelHeader}>
-            <h3>{editItem ? "Edit Option" : "Add Option"}</h3>
-            <button
-              className={styles.actionBtn}
-              onClick={() => setShowPanel(false)}
-            >
-              ✕
-            </button>
-          </div>
-          <div className={styles.panelBody}>
-            <div className={styles.fieldGroup}>
-              <label>Label</label>
-              <input
-                value={panelForm.label}
-                onChange={(e) =>
-                  setPanelForm({ ...panelForm, label: e.currentTarget.value })
-                }
-                placeholder="Display label"
-              />
-            </div>
-            <div className={styles.fieldGroup}>
-              <label>Value</label>
-              <input
-                value={panelForm.value}
-                onChange={(e) =>
-                  setPanelForm({ ...panelForm, value: e.currentTarget.value })
-                }
-                placeholder="Internal value (optional)"
-              />
-            </div>
-            <div className={styles.fieldGroup}>
-              <label>Color</label>
-              <input
-                type="color"
-                value={panelForm.color}
-                onChange={(e) =>
-                  setPanelForm({ ...panelForm, color: e.currentTarget.value })
-                }
-              />
-            </div>
-          </div>
-          <div className={styles.panelFooter}>
-            <button
-              className={styles.actionBtn}
-              onClick={() => setShowPanel(false)}
-            >
-              Cancel
-            </button>
-            <button
-              className={`${styles.actionBtn} ${styles.primary}`}
-              onClick={handlePanelSave}
-            >
-              {editItem ? "Update" : "Add"}
-            </button>
+            {/* Save bar */}
+            {dirty && canEdit && (
+              <div className={styles.saveBar}>
+                <button
+                  className={styles.actionBtn}
+                  onClick={() => {
+                    setConfig(null);
+                    setDirty(false);
+                    loadConfig().catch(() => undefined);
+                  }}
+                >
+                  Discard
+                </button>
+                <button
+                  className={`${styles.actionBtn} ${styles.primary}`}
+                  onClick={() => config && saveConfig(config)}
+                  disabled={saving}
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
+      )}
+
+      {/* Slide-over panel (Add / Edit) */}
+      {showPanel && (
+        <>
+          <div
+            className={styles.panelBackdrop}
+            onClick={() => setShowPanel(false)}
+          />
+          <div className={styles.panelOverlay}>
+            <div className={styles.panelHeader}>
+              <h3>{editItem ? "Edit" : "Add"}</h3>
+              <button
+                className={styles.actionBtn}
+                onClick={() => setShowPanel(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className={styles.panelBody}>
+              <div className={styles.fieldGroup}>
+                <label>Label</label>
+                <input
+                  value={panelForm.label}
+                  onChange={(e) =>
+                    setPanelForm({ ...panelForm, label: e.currentTarget.value })
+                  }
+                  placeholder="Display label"
+                  autoFocus
+                />
+              </div>
+              <div className={styles.fieldGroup}>
+                <label>Color</label>
+                <input
+                  type="color"
+                  value={panelForm.color}
+                  onChange={(e) =>
+                    setPanelForm({ ...panelForm, color: e.currentTarget.value })
+                  }
+                />
+              </div>
+              {panelConfigKey === "jobFunctions" && (
+                <div className={styles.fieldGroup}>
+                  <label>Team</label>
+                  <select
+                    value={panelForm.category}
+                    onChange={(e) =>
+                      setPanelForm({
+                        ...panelForm,
+                        category: e.currentTarget.value,
+                      })
+                    }
+                  >
+                    {JOB_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+            <div className={styles.panelFooter}>
+              <button
+                className={styles.actionBtn}
+                onClick={() => setShowPanel(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className={`${styles.actionBtn} ${styles.primary}`}
+                onClick={handlePanelSave}
+              >
+                {editItem ? "Update" : "Add"}
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

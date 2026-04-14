@@ -10,12 +10,20 @@ export interface AccessRule {
 }
 
 const ACCESS_MAP: Record<UserRole, AccessRule> = {
-  manager: {
+  commercial: {
     workspace: "edit",
     insights: "edit",
     reports: "edit",
     settings: "edit",
     approvals: "edit",
+    templates: "edit",
+  },
+  engineering: {
+    workspace: "edit",
+    insights: "view",
+    reports: "view",
+    settings: "none",
+    approvals: "view",
     templates: "edit",
   },
   project: {
@@ -26,21 +34,13 @@ const ACCESS_MAP: Record<UserRole, AccessRule> = {
     approvals: "edit",
     templates: "view",
   },
-  operations: {
+  operation: {
     workspace: "edit",
     insights: "view",
     reports: "view",
     settings: "none",
     approvals: "view",
     templates: "view",
-  },
-  equipment: {
-    workspace: "view",
-    insights: "view",
-    reports: "view",
-    settings: "none",
-    approvals: "view",
-    templates: "none",
   },
   dataCenter: {
     workspace: "view",
@@ -50,13 +50,21 @@ const ACCESS_MAP: Record<UserRole, AccessRule> = {
     approvals: "view",
     templates: "none",
   },
-  engineering: {
-    workspace: "edit",
+  equipmentInstallation: {
+    workspace: "view",
     insights: "view",
     reports: "view",
     settings: "none",
     approvals: "view",
-    templates: "edit",
+    templates: "none",
+  },
+  supplyChain: {
+    workspace: "view",
+    insights: "view",
+    reports: "view",
+    settings: "none",
+    approvals: "view",
+    templates: "none",
   },
   guest: {
     workspace: "view",

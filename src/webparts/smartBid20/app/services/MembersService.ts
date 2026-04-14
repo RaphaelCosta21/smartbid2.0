@@ -11,27 +11,42 @@ export class MembersService {
     return SPService.sp.web.lists.getByTitle(SHAREPOINT_CONFIG.lists.config);
   }
 
+  private static readonly EMPTY: IMembersData = { members: [] };
+
   public static async getAll(): Promise<IMembersData> {
     const items = await MembersService._list.items
       .filter(`Title eq '${SHAREPOINT_CONFIG.configKeys.teamMembers}'`)
       .select("ConfigValue")
       .top(1)();
     if (items.length === 0) {
-      return {
-        manager: [],
-        project: [],
-        operations: [],
-        equipment: [],
-        dataCenter: [],
-        engineering: [],
-      };
+      return { ...MembersService.EMPTY };
     }
-    return JSON.parse(
-      (items[0] as { ConfigValue: string }).ConfigValue,
-    ) as IMembersData;
+    const raw = (items[0] as { ConfigValue: string }).ConfigValue;
+    if (!raw) {
+      return { ...MembersService.EMPTY };
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      // Migration: if old format (keyed by role), flatten to new format
+      if (parsed && !Array.isArray(parsed.members) && !Array.isArray(parsed)) {
+        const migrated: ITeamMember[] = [];
+        for (const key of Object.keys(parsed)) {
+          if (Array.isArray(parsed[key])) {
+            migrated.push(...parsed[key]);
+          }
+        }
+        return { members: migrated };
+      }
+      if (Array.isArray(parsed)) {
+        return { members: parsed };
+      }
+      return (parsed as IMembersData) || { ...MembersService.EMPTY };
+    } catch {
+      return { ...MembersService.EMPTY };
+    }
   }
 
-  public static async save(members: IMembersData): Promise<void> {
+  public static async save(data: IMembersData): Promise<void> {
     const items = await MembersService._list.items
       .filter(`Title eq '${SHAREPOINT_CONFIG.configKeys.teamMembers}'`)
       .select("Id")
@@ -39,41 +54,33 @@ export class MembersService {
     if (items.length > 0) {
       await MembersService._list.items
         .getById((items[0] as { Id: number }).Id)
-        .update({ ConfigValue: JSON.stringify(members) });
+        .update({ ConfigValue: JSON.stringify(data) });
     } else {
       await MembersService._list.items.add({
         Title: SHAREPOINT_CONFIG.configKeys.teamMembers,
-        ConfigValue: JSON.stringify(members),
+        ConfigValue: JSON.stringify(data),
       });
     }
   }
 
-  public static async addMember(
-    member: ITeamMember,
-    category: keyof IMembersData,
-  ): Promise<void> {
-    const members = await MembersService.getAll();
-    members[category].push(member);
-    await MembersService.save(members);
+  public static async addMember(member: ITeamMember): Promise<void> {
+    const data = await MembersService.getAll();
+    data.members.push(member);
+    await MembersService.save(data);
   }
 
   public static async updateMember(member: ITeamMember): Promise<void> {
-    const members = await MembersService.getAll();
-    for (const category of Object.keys(members) as (keyof IMembersData)[]) {
-      const idx = members[category].findIndex((m) => m.id === member.id);
-      if (idx >= 0) {
-        members[category][idx] = member;
-        await MembersService.save(members);
-        return;
-      }
+    const data = await MembersService.getAll();
+    const idx = data.members.findIndex((m) => m.id === member.id);
+    if (idx >= 0) {
+      data.members[idx] = member;
+      await MembersService.save(data);
     }
   }
 
   public static async removeMember(memberId: string): Promise<void> {
-    const members = await MembersService.getAll();
-    for (const category of Object.keys(members) as (keyof IMembersData)[]) {
-      members[category] = members[category].filter((m) => m.id !== memberId);
-    }
-    await MembersService.save(members);
+    const data = await MembersService.getAll();
+    data.members = data.members.filter((m) => m.id !== memberId);
+    await MembersService.save(data);
   }
 }

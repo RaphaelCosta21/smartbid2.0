@@ -1,8 +1,7 @@
 /**
  * MembersManagement Component — SMART BID 2.0
  * Manages team members with real SharePoint data and Graph API people picker.
- * Roles: Manager, Project, Operations, Equipment, Data Center, Engineering
- * Divisions: ROV, SURVEY, OPG, ENGINEERING, COMMERCIAL
+ * Model: Sector + Business Lines[] + Bid Role
  */
 
 import * as React from "react";
@@ -10,8 +9,9 @@ import styles from "./MembersManagement.module.scss";
 import {
   ITeamMember,
   IMembersData,
-  MemberDivision,
-  UserRole,
+  Sector,
+  BusinessLine,
+  BidRole,
 } from "../../models";
 import { MembersService } from "../../services/MembersService";
 import { useSpfxContext } from "../../config/SpfxContext";
@@ -20,81 +20,101 @@ import { useSpfxContext } from "../../config/SpfxContext";
 /* CONSTANTS                                                          */
 /* ------------------------------------------------------------------ */
 
-interface IRoleMeta {
-  key: UserRole;
+interface ISectorMeta {
+  key: Sector;
   label: string;
-  plural: string;
   color: string;
   bg: string;
   icon: string;
 }
 
-const ROLE_META: IRoleMeta[] = [
+const SECTOR_META: ISectorMeta[] = [
   {
-    key: "manager",
-    label: "Manager",
-    plural: "Managers",
+    key: "commercial",
+    label: "Commercial",
     color: "#3b82f6",
     bg: "rgba(59,130,246,0.12)",
-    icon: "👔",
+    icon: "💼",
+  },
+  {
+    key: "engineering",
+    label: "Engineering",
+    color: "#ec4899",
+    bg: "rgba(236,72,153,0.12)",
+    icon: "🛠️",
   },
   {
     key: "project",
     label: "Project",
-    plural: "Project",
     color: "#f59e0b",
     bg: "rgba(245,158,11,0.12)",
     icon: "📋",
   },
   {
-    key: "operations",
-    label: "Operations",
-    plural: "Operations",
+    key: "operation",
+    label: "Operation",
     color: "#10b981",
     bg: "rgba(16,185,129,0.12)",
     icon: "⚙️",
   },
   {
-    key: "equipment",
-    label: "Equipment",
-    plural: "Equipment",
-    color: "#8b5cf6",
-    bg: "rgba(139,92,246,0.12)",
-    icon: "🔧",
-  },
-  {
     key: "dataCenter",
     label: "Data Center",
-    plural: "Data Center",
     color: "#06b6d4",
     bg: "rgba(6,182,212,0.12)",
     icon: "📡",
   },
   {
-    key: "engineering",
-    label: "Engineering",
-    plural: "Engineering",
-    color: "#ec4899",
-    bg: "rgba(236,72,153,0.12)",
-    icon: "🛠️",
+    key: "equipmentInstallation",
+    label: "Equipment & Installation",
+    color: "#8b5cf6",
+    bg: "rgba(139,92,246,0.12)",
+    icon: "🔧",
+  },
+  {
+    key: "supplyChain",
+    label: "Supply Chain",
+    color: "#f97316",
+    bg: "rgba(249,115,22,0.12)",
+    icon: "📦",
   },
 ];
 
-const DIVISIONS: MemberDivision[] = [
-  "ROV",
-  "SURVEY",
-  "OPG",
-  "ENGINEERING",
-  "COMMERCIAL",
-];
+const BUSINESS_LINES: BusinessLine[] = ["ROV", "OPG", "SURVEY"];
 
-const DIVISION_COLORS: Record<MemberDivision, { color: string; bg: string }> = {
-  ROV: { color: "#3b82f6", bg: "rgba(59,130,246,0.12)" },
-  SURVEY: { color: "#10b981", bg: "rgba(16,185,129,0.12)" },
-  OPG: { color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
-  ENGINEERING: { color: "#8b5cf6", bg: "rgba(139,92,246,0.12)" },
-  COMMERCIAL: { color: "#ec4899", bg: "rgba(236,72,153,0.12)" },
+const BL_COLORS: Record<BusinessLine, { color: string; bg: string }> = {
+  ROV: { color: "#0369a1", bg: "rgba(3,105,161,0.14)" },
+  OPG: { color: "#b45309", bg: "rgba(180,83,9,0.14)" },
+  SURVEY: { color: "#047857", bg: "rgba(4,120,87,0.14)" },
 };
+
+interface IBidRoleMeta {
+  key: BidRole;
+  label: string;
+  color: string;
+  bg: string;
+}
+
+const BID_ROLE_META: IBidRoleMeta[] = [
+  {
+    key: "contributor",
+    label: "Contributor",
+    color: "#6d28d9",
+    bg: "rgba(109,40,217,0.12)",
+  },
+  {
+    key: "manager",
+    label: "Manager",
+    color: "#be123c",
+    bg: "rgba(190,18,60,0.12)",
+  },
+  {
+    key: "coordinator",
+    label: "Coordinator",
+    color: "#0f766e",
+    bg: "rgba(15,118,110,0.12)",
+  },
+];
 
 function getInitials(name: string): string {
   return name
@@ -131,6 +151,7 @@ interface IPeopleResult {
   jobTitle: string;
   department: string;
   id: string;
+  photoUrl: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -141,16 +162,12 @@ const MembersManagement: React.FC = () => {
   const spfxContext = useSpfxContext();
 
   const [membersData, setMembersData] = React.useState<IMembersData>({
-    manager: [],
-    project: [],
-    operations: [],
-    equipment: [],
-    dataCenter: [],
-    engineering: [],
+    members: [],
   });
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
-  const [roleFilter, setRoleFilter] = React.useState<string>("all");
+  const [sectorFilter, setSectorFilter] = React.useState<string>("all");
+  const [blFilter, setBlFilter] = React.useState<string>("all");
   const [showPanel, setShowPanel] = React.useState(false);
   const [editMember, setEditMember] = React.useState<ITeamMember | null>(null);
   const [message, setMessage] = React.useState<{
@@ -165,8 +182,10 @@ const MembersManagement: React.FC = () => {
     email: "",
     jobTitle: "",
     department: "",
-    division: "ROV" as MemberDivision,
-    role: "engineering" as UserRole,
+    sector: "engineering" as Sector,
+    businessLines: [] as BusinessLine[],
+    bidRole: "contributor" as BidRole,
+    photoUrl: "",
   });
 
   // People picker state
@@ -202,13 +221,7 @@ const MembersManagement: React.FC = () => {
     loadMembers().catch(console.error);
   }, [loadMembers]);
 
-  const allMembers = React.useMemo(() => {
-    const all: ITeamMember[] = [];
-    for (const key of Object.keys(membersData) as (keyof IMembersData)[]) {
-      all.push(...membersData[key]);
-    }
-    return all;
-  }, [membersData]);
+  const allMembers = membersData.members || [];
 
   const filteredMembers = React.useMemo(() => {
     let list = allMembers;
@@ -219,27 +232,33 @@ const MembersManagement: React.FC = () => {
           m.name.toLowerCase().includes(q) ||
           m.email.toLowerCase().includes(q) ||
           m.jobTitle.toLowerCase().includes(q) ||
-          m.division.toLowerCase().includes(q),
+          m.sector.toLowerCase().includes(q) ||
+          m.businessLines.some((bl) => bl.toLowerCase().includes(q)),
       );
     }
-    if (roleFilter !== "all") {
-      list = list.filter((m) => m.role === roleFilter);
+    if (sectorFilter !== "all") {
+      list = list.filter((m) => m.sector === sectorFilter);
+    }
+    if (blFilter !== "all") {
+      list = list.filter((m) =>
+        m.businessLines.includes(blFilter as BusinessLine),
+      );
     }
     return list;
-  }, [allMembers, search, roleFilter]);
+  }, [allMembers, search, sectorFilter, blFilter]);
 
-  const membersByRole = React.useMemo(() => {
+  const membersBySector = React.useMemo(() => {
     const grouped: Record<string, ITeamMember[]> = {};
-    ROLE_META.forEach((r) => {
-      grouped[r.key] = filteredMembers.filter((m) => m.role === r.key);
+    SECTOR_META.forEach((s) => {
+      grouped[s.key] = filteredMembers.filter((m) => m.sector === s.key);
     });
     return grouped;
   }, [filteredMembers]);
 
-  const roleCounts = React.useMemo(() => {
+  const sectorCounts = React.useMemo(() => {
     const counts: Record<string, number> = {};
-    ROLE_META.forEach((r) => {
-      counts[r.key] = allMembers.filter((m) => m.role === r.key).length;
+    SECTOR_META.forEach((s) => {
+      counts[s.key] = allMembers.filter((m) => m.sector === s.key).length;
     });
     return counts;
   }, [allMembers]);
@@ -281,11 +300,38 @@ const MembersManagement: React.FC = () => {
             email: u.mail || u.userPrincipalName || "",
             jobTitle: u.jobTitle || "",
             department: u.department || "",
+            photoUrl: "",
           }),
         );
 
         setPeopleResults(results);
         setShowPeopleDropdown(results.length > 0);
+
+        // Fetch photos in background for each result
+        results.forEach((person, idx) => {
+          graphClient
+            .api(`/users/${person.id}/photo/$value`)
+            .get()
+            .then(async (photoBlob: Blob) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const base64String = reader.result as string;
+                const base64 = base64String.split(",")[1];
+                const url = `data:image/jpeg;base64,${base64}`;
+                setPeopleResults((prev) => {
+                  const updated = [...prev];
+                  if (updated[idx] && updated[idx].id === person.id) {
+                    updated[idx] = { ...updated[idx], photoUrl: url };
+                  }
+                  return updated;
+                });
+              };
+              reader.readAsDataURL(photoBlob);
+            })
+            .catch(() => {
+              /* no photo available */
+            });
+        });
       } catch (error) {
         console.error("Error searching people:", error);
         setPeopleResults([]);
@@ -311,18 +357,55 @@ const MembersManagement: React.FC = () => {
     [searchPeople],
   );
 
-  const selectPerson = React.useCallback((person: IPeopleResult) => {
-    setPanelForm((prev) => ({
-      ...prev,
-      name: person.displayName,
-      email: person.email,
-      jobTitle: person.jobTitle,
-      department: person.department,
-    }));
-    setPeopleQuery(person.displayName);
-    setShowPeopleDropdown(false);
-    setPeopleResults([]);
-  }, []);
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        const base64 = base64String.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  const selectPerson = React.useCallback(
+    async (person: IPeopleResult) => {
+      setPanelForm((prev) => ({
+        ...prev,
+        name: person.displayName,
+        email: person.email,
+        jobTitle: person.jobTitle,
+        department: person.department,
+        photoUrl: person.photoUrl || "",
+      }));
+      setPeopleQuery(person.displayName);
+      setShowPeopleDropdown(false);
+      setPeopleResults([]);
+
+      // If photo was not loaded in the dropdown, fetch it now
+      if (!person.photoUrl) {
+        try {
+          const graphClient =
+            await spfxContext.msGraphClientFactory.getClient("3");
+          const photoBlob = await graphClient
+            .api(`/users/${person.id}/photo/$value`)
+            .get();
+          if (photoBlob) {
+            const base64Photo = await blobToBase64(photoBlob);
+            const photoUrl = `data:image/jpeg;base64,${base64Photo}`;
+            if (photoUrl.startsWith("data:image")) {
+              setPanelForm((prev) => ({ ...prev, photoUrl }));
+            }
+          }
+        } catch (photoError) {
+          console.warn("Could not fetch user photo:", photoError);
+        }
+      }
+    },
+    [spfxContext],
+  );
 
   // Close dropdown on outside click
   React.useEffect(() => {
@@ -347,8 +430,10 @@ const MembersManagement: React.FC = () => {
       email: "",
       jobTitle: "",
       department: "",
-      division: "ROV",
-      role: "engineering",
+      sector: "engineering",
+      businessLines: [],
+      bidRole: "contributor",
+      photoUrl: "",
     });
     setPeopleQuery("");
     setPeopleResults([]);
@@ -363,8 +448,10 @@ const MembersManagement: React.FC = () => {
       email: m.email,
       jobTitle: m.jobTitle,
       department: m.department,
-      division: m.division,
-      role: m.role,
+      sector: m.sector,
+      businessLines: m.businessLines || [],
+      bidRole: m.bidRole,
+      photoUrl: m.photoUrl || "",
     });
     setPeopleQuery(m.name);
     setShowPanel(true);
@@ -379,27 +466,13 @@ const MembersManagement: React.FC = () => {
     setSaving(true);
     try {
       if (editMember) {
-        // Update existing member
         const updated: ITeamMember = {
           ...editMember,
-          name: panelForm.name,
-          email: panelForm.email,
-          jobTitle: panelForm.jobTitle,
-          department: panelForm.department,
-          division: panelForm.division,
-          role: panelForm.role,
+          sector: panelForm.sector,
+          businessLines: panelForm.businessLines,
+          bidRole: panelForm.bidRole,
         };
-
-        // If role changed, we need to move member to new category
-        if (editMember.role !== panelForm.role) {
-          await MembersService.removeMember(editMember.id);
-          await MembersService.addMember(
-            updated,
-            panelForm.role as keyof IMembersData,
-          );
-        } else {
-          await MembersService.updateMember(updated);
-        }
+        await MembersService.updateMember(updated);
         showMsg("success", `${panelForm.name} updated`);
       } else {
         // Check for duplicate
@@ -419,15 +492,14 @@ const MembersManagement: React.FC = () => {
           email: panelForm.email,
           jobTitle: panelForm.jobTitle,
           department: panelForm.department,
-          division: panelForm.division,
-          role: panelForm.role,
+          sector: panelForm.sector,
+          businessLines: panelForm.businessLines,
+          bidRole: panelForm.bidRole,
           isActive: true,
           joinedDate: new Date().toISOString().split("T")[0],
+          photoUrl: panelForm.photoUrl || "",
         };
-        await MembersService.addMember(
-          newMember,
-          panelForm.role as keyof IMembersData,
-        );
+        await MembersService.addMember(newMember);
         showMsg("success", `${panelForm.name} added`);
       }
       setShowPanel(false);
@@ -502,8 +574,11 @@ const MembersManagement: React.FC = () => {
             <h2 className={styles.title}>Members Management</h2>
             <p className={styles.subtitle}>
               {allMembers.length} team members across{" "}
-              {Object.keys(roleCounts).filter((k) => roleCounts[k] > 0).length}{" "}
-              roles
+              {
+                Object.keys(sectorCounts).filter((k) => sectorCounts[k] > 0)
+                  .length
+              }{" "}
+              sectors
             </p>
           </div>
         </div>
@@ -520,17 +595,19 @@ const MembersManagement: React.FC = () => {
 
       {/* Stat Cards */}
       <div className={styles.statRow}>
-        {ROLE_META.map((r) => (
-          <div key={r.key} className={styles.statCard}>
+        {SECTOR_META.map((s) => (
+          <div key={s.key} className={styles.statCard}>
             <div
               className={styles.statIcon}
-              style={{ background: r.bg, color: r.color }}
+              style={{ background: s.bg, color: s.color }}
             >
-              {r.icon}
+              {s.icon}
             </div>
             <div className={styles.statInfo}>
-              <span className={styles.statValue}>{roleCounts[r.key] || 0}</span>
-              <span className={styles.statLabel}>{r.plural}</span>
+              <span className={styles.statValue}>
+                {sectorCounts[s.key] || 0}
+              </span>
+              <span className={styles.statLabel}>{s.label}</span>
             </div>
           </div>
         ))}
@@ -557,23 +634,47 @@ const MembersManagement: React.FC = () => {
       <div className={styles.toolbar}>
         <input
           className={styles.searchInput}
-          placeholder="Search members by name, email, title, or division..."
+          placeholder="Search members by name, email, sector, or business line..."
           value={search}
           onChange={(e) => setSearch(e.currentTarget.value)}
         />
         <button
-          className={`${styles.filterBtn} ${roleFilter === "all" ? styles.active : ""}`}
-          onClick={() => setRoleFilter("all")}
+          className={`${styles.filterBtn} ${sectorFilter === "all" ? styles.active : ""}`}
+          onClick={() => setSectorFilter("all")}
         >
           All
         </button>
-        {ROLE_META.map((r) => (
+        {SECTOR_META.map((s) => (
           <button
-            key={r.key}
-            className={`${styles.filterBtn} ${roleFilter === r.key ? styles.active : ""}`}
-            onClick={() => setRoleFilter(r.key)}
+            key={s.key}
+            className={`${styles.filterBtn} ${sectorFilter === s.key ? styles.active : ""}`}
+            onClick={() => setSectorFilter(s.key)}
           >
-            {r.plural}
+            {s.label}
+          </button>
+        ))}
+        <span className={styles.filterSeparator}>|</span>
+        <button
+          className={`${styles.filterBtn} ${blFilter === "all" ? styles.active : ""}`}
+          onClick={() => setBlFilter("all")}
+        >
+          All BLs
+        </button>
+        {BUSINESS_LINES.map((bl) => (
+          <button
+            key={bl}
+            className={`${styles.filterBtn} ${blFilter === bl ? styles.active : ""}`}
+            style={
+              blFilter === bl
+                ? {
+                    borderColor: BL_COLORS[bl].color,
+                    color: BL_COLORS[bl].color,
+                  }
+                : {}
+            }
+            onClick={() => setBlFilter(bl)}
+          >
+            {bl}
           </button>
         ))}
         <button className={styles.addBtn} onClick={openAddPanel}>
@@ -581,85 +682,117 @@ const MembersManagement: React.FC = () => {
         </button>
       </div>
 
-      {/* Members grouped by role */}
-      {ROLE_META.filter((r) => membersByRole[r.key]?.length > 0).map((r) => (
-        <div key={r.key} className={styles.roleSection}>
-          <div className={styles.roleSectionHeader}>
-            <span
-              className={styles.roleBadge}
-              style={{ background: r.bg, color: r.color }}
-            >
-              {r.icon} {r.plural}
-            </span>
-            <span className={styles.roleCount}>
-              {membersByRole[r.key].length} members
-            </span>
-          </div>
-          <div className={styles.membersGrid}>
-            {membersByRole[r.key].map((m) => {
-              const divColor = DIVISION_COLORS[m.division] || {
-                color: "#64748b",
-                bg: "rgba(100,116,139,0.12)",
-              };
-              return (
-                <div
-                  key={m.id}
-                  className={styles.memberCard}
-                  style={{ opacity: m.isActive ? 1 : 0.5 }}
-                >
+      {/* Members grouped by sector */}
+      {SECTOR_META.filter((s) => membersBySector[s.key]?.length > 0).map(
+        (s) => (
+          <div key={s.key} className={styles.roleSection}>
+            <div className={styles.roleSectionHeader}>
+              <span
+                className={styles.roleBadge}
+                style={{ background: s.bg, color: s.color }}
+              >
+                {s.icon} {s.label}
+              </span>
+              <span className={styles.roleCount}>
+                {membersBySector[s.key].length} members
+              </span>
+            </div>
+            <div className={styles.membersGrid}>
+              {membersBySector[s.key].map((m) => {
+                const bidRoleMeta = BID_ROLE_META.find(
+                  (br) => br.key === m.bidRole,
+                );
+                return (
                   <div
-                    className={styles.avatar}
-                    style={{ background: getAvatarColor(m.name) }}
+                    key={m.id}
+                    className={styles.memberCard}
+                    style={{ opacity: m.isActive ? 1 : 0.5 }}
                   >
-                    {getInitials(m.name)}
-                  </div>
-                  <div className={styles.memberInfo}>
-                    <span className={styles.memberName}>{m.name}</span>
-                    <span className={styles.memberEmail}>{m.email}</span>
-                    <div className={styles.memberMeta}>
-                      <span
-                        className={`${styles.tag} ${styles.divisionTag}`}
-                        style={{
-                          background: divColor.bg,
-                          color: divColor.color,
-                        }}
+                    {m.photoUrl ? (
+                      <img
+                        className={styles.avatar}
+                        src={m.photoUrl}
+                        alt={m.name}
+                        style={{ objectFit: "cover" }}
+                      />
+                    ) : (
+                      <div
+                        className={styles.avatar}
+                        style={{ background: getAvatarColor(m.name) }}
                       >
-                        {m.division}
-                      </span>
-                      <span className={`${styles.tag} ${styles.roleTag}`}>
-                        {m.jobTitle}
-                      </span>
+                        {getInitials(m.name)}
+                      </div>
+                    )}
+                    <div className={styles.memberInfo}>
+                      <span className={styles.memberName}>{m.name}</span>
+                      <span className={styles.memberEmail}>{m.email}</span>
+                      <div className={styles.memberMeta}>
+                        {/* Business Lines */}
+                        {m.businessLines.map((bl) => {
+                          const blColor = BL_COLORS[bl];
+                          return (
+                            <span
+                              key={bl}
+                              className={`${styles.tag} ${styles.divisionTag}`}
+                              style={{
+                                background: blColor.bg,
+                                color: blColor.color,
+                              }}
+                            >
+                              {bl}
+                            </span>
+                          );
+                        })}
+                        {/* Bid Role */}
+                        {bidRoleMeta && (
+                          <span
+                            className={`${styles.tag} ${styles.roleTag}`}
+                            style={{
+                              background: bidRoleMeta.bg,
+                              color: bidRoleMeta.color,
+                            }}
+                          >
+                            {bidRoleMeta.label}
+                          </span>
+                        )}
+                        {/* Job Title — plain text, no badge */}
+                        {m.jobTitle && (
+                          <span className={styles.memberJobTitle}>
+                            {m.jobTitle}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className={styles.memberActions}>
+                      <button
+                        className={styles.iconBtn}
+                        title="Edit"
+                        onClick={() => openEditPanel(m)}
+                      >
+                        ✎
+                      </button>
+                      <button
+                        className={styles.iconBtn}
+                        title={m.isActive ? "Deactivate" : "Activate"}
+                        onClick={() => toggleActive(m)}
+                      >
+                        {m.isActive ? "⏸" : "▶"}
+                      </button>
+                      <button
+                        className={`${styles.iconBtn} ${styles.danger}`}
+                        title="Remove"
+                        onClick={() => handleDelete(m)}
+                      >
+                        ✕
+                      </button>
                     </div>
                   </div>
-                  <div className={styles.memberActions}>
-                    <button
-                      className={styles.iconBtn}
-                      title="Edit"
-                      onClick={() => openEditPanel(m)}
-                    >
-                      ✎
-                    </button>
-                    <button
-                      className={styles.iconBtn}
-                      title={m.isActive ? "Deactivate" : "Activate"}
-                      onClick={() => toggleActive(m)}
-                    >
-                      {m.isActive ? "⏸" : "▶"}
-                    </button>
-                    <button
-                      className={`${styles.iconBtn} ${styles.danger}`}
-                      title="Remove"
-                      onClick={() => handleDelete(m)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        ),
+      )}
 
       {filteredMembers.length === 0 && !loading && (
         <div className={styles.emptyState}>
@@ -710,14 +843,23 @@ const MembersManagement: React.FC = () => {
                           className={styles.peopleItem}
                           onClick={() => selectPerson(p)}
                         >
-                          <div
-                            className={styles.peopleItemAvatar}
-                            style={{
-                              background: getAvatarColor(p.displayName),
-                            }}
-                          >
-                            {getInitials(p.displayName)}
-                          </div>
+                          {p.photoUrl ? (
+                            <img
+                              className={styles.peopleItemAvatar}
+                              src={p.photoUrl}
+                              alt={p.displayName}
+                              style={{ objectFit: "cover" }}
+                            />
+                          ) : (
+                            <div
+                              className={styles.peopleItemAvatar}
+                              style={{
+                                background: getAvatarColor(p.displayName),
+                              }}
+                            >
+                              {getInitials(p.displayName)}
+                            </div>
+                          )}
                           <div className={styles.peopleItemInfo}>
                             <span className={styles.peopleItemName}>
                               {p.displayName}
@@ -744,11 +886,9 @@ const MembersManagement: React.FC = () => {
               <label>Full Name</label>
               <input
                 value={panelForm.name}
-                onChange={(e) =>
-                  setPanelForm({ ...panelForm, name: e.currentTarget.value })
-                }
-                placeholder="e.g. John Silva"
-                readOnly={!editMember && !!panelForm.email}
+                placeholder="Selected from Search Person"
+                readOnly
+                style={{ opacity: 0.7, cursor: "not-allowed" }}
               />
             </div>
             <div className={styles.fieldGroup}>
@@ -756,71 +896,144 @@ const MembersManagement: React.FC = () => {
               <input
                 type="email"
                 value={panelForm.email}
-                onChange={(e) =>
-                  setPanelForm({ ...panelForm, email: e.currentTarget.value })
-                }
-                placeholder="jsilva@oceaneering.com"
-                readOnly={!editMember && !!panelForm.email}
+                placeholder="Selected from Search Person"
+                readOnly
+                style={{ opacity: 0.7, cursor: "not-allowed" }}
               />
             </div>
             <div className={styles.fieldGroup}>
               <label>Job Title</label>
               <input
                 value={panelForm.jobTitle}
-                onChange={(e) =>
-                  setPanelForm({
-                    ...panelForm,
-                    jobTitle: e.currentTarget.value,
-                  })
-                }
-                placeholder="e.g. Senior Engineer"
+                placeholder="Selected from Search Person"
+                readOnly
+                style={{ opacity: 0.7, cursor: "not-allowed" }}
               />
             </div>
             <div className={styles.fieldGroup}>
               <label>Department</label>
               <input
                 value={panelForm.department}
-                onChange={(e) =>
-                  setPanelForm({
-                    ...panelForm,
-                    department: e.currentTarget.value,
-                  })
-                }
-                placeholder="e.g. Engineering"
+                placeholder="Selected from Search Person"
+                readOnly
+                style={{ opacity: 0.7, cursor: "not-allowed" }}
               />
             </div>
+            {/* Sector */}
             <div className={styles.fieldGroup}>
-              <label>Division</label>
+              <label>Sector</label>
               <select
-                value={panelForm.division}
+                value={panelForm.sector}
                 onChange={(e) =>
                   setPanelForm({
                     ...panelForm,
-                    division: e.currentTarget.value as MemberDivision,
+                    sector: e.currentTarget.value as Sector,
                   })
                 }
               >
-                {DIVISIONS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
+                {SECTOR_META.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.label}
                   </option>
                 ))}
               </select>
             </div>
+
+            {/* Business Lines — badge bucket */}
             <div className={styles.fieldGroup}>
-              <label>Role</label>
+              <label>Business Lines</label>
+              <div className={styles.divisionBadgesSection}>
+                {/* Assigned business lines */}
+                {panelForm.businessLines.length > 0 && (
+                  <div className={styles.assignedDivisionsArea}>
+                    <span className={styles.divisionSectionLabel}>
+                      Assigned Business Lines
+                    </span>
+                    <div className={styles.divisionBadgesRow}>
+                      {panelForm.businessLines.map((bl) => {
+                        const blColor = BL_COLORS[bl];
+                        return (
+                          <button
+                            key={bl}
+                            type="button"
+                            className={styles.divisionBadgeClickable}
+                            style={{
+                              background: blColor.bg,
+                              color: blColor.color,
+                            }}
+                            onClick={() =>
+                              setPanelForm((prev) => ({
+                                ...prev,
+                                businessLines: prev.businessLines.filter(
+                                  (b) => b !== bl,
+                                ),
+                              }))
+                            }
+                            title="Click to remove"
+                          >
+                            {bl} ✕
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Available business lines */}
+                {BUSINESS_LINES.filter(
+                  (bl) => !panelForm.businessLines.includes(bl),
+                ).length > 0 && (
+                  <div className={styles.availableDivisionsArea}>
+                    <span className={styles.divisionSectionLabel}>
+                      Available Business Lines
+                    </span>
+                    <div className={styles.divisionBadgesRow}>
+                      {BUSINESS_LINES.filter(
+                        (bl) => !panelForm.businessLines.includes(bl),
+                      ).map((bl) => {
+                        const blColor = BL_COLORS[bl];
+                        return (
+                          <button
+                            key={bl}
+                            type="button"
+                            className={`${styles.divisionBadgeClickable} ${styles.divisionBadgeFaded}`}
+                            style={{
+                              background: blColor.bg,
+                              color: blColor.color,
+                            }}
+                            onClick={() =>
+                              setPanelForm((prev) => ({
+                                ...prev,
+                                businessLines: [...prev.businessLines, bl],
+                              }))
+                            }
+                            title="Click to assign"
+                          >
+                            + {bl}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Bid Role */}
+            <div className={styles.fieldGroup}>
+              <label>Bid Role</label>
               <select
-                value={panelForm.role}
+                value={panelForm.bidRole}
                 onChange={(e) =>
                   setPanelForm({
                     ...panelForm,
-                    role: e.currentTarget.value as UserRole,
+                    bidRole: e.currentTarget.value as BidRole,
                   })
                 }
               >
-                {ROLE_META.map((r) => (
-                  <option key={r.key} value={r.key}>
-                    {r.label}
+                {BID_ROLE_META.map((br) => (
+                  <option key={br.key} value={br.key}>
+                    {br.label}
                   </option>
                 ))}
               </select>
