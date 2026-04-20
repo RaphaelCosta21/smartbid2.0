@@ -12,6 +12,8 @@ export {
   type BidStatusId,
   type IBidStatusDef,
   type IPhaseDef,
+  type SubStatusId,
+  type ISubStatusDef,
   type BidPriority,
   type BidType,
   type BidSize,
@@ -21,10 +23,20 @@ export {
 } from "./IBidStatus";
 export {
   type IBid,
+  type IQuickNote,
   type IOpportunityInfo,
   type IBidStep,
   type IBidTask,
   type IEquipmentItem,
+  type IScopeItem,
+  type IAssetBreakdownItem,
+  type ILogisticsItem,
+  type ICertificationItem,
+  type IRTSItem,
+  type RTSCostType,
+  type IMobilizationItem,
+  type MobilizationCostType,
+  type IConsumableItem,
   type IHoursItem,
   type IHoursSection,
   type IHoursSummary,
@@ -37,7 +49,23 @@ export {
   type IActivityLogEntry,
   type IBidKPIs,
   type IBidMetadata,
+  type IBidRevision,
+  type IAssetSubCost,
+  type IQualificationTable,
+  type IQualificationItem,
+  type IClarificationItem,
+  type IHoursSectionGroup,
 } from "./IBid";
+export {
+  type IConfigOption,
+  type IKPITargets,
+  type ISystemConfig,
+  type IResourceTypeConfig,
+  type IAccessLevelDef,
+  type ICurrencySettings,
+  type IExchangeRate,
+  type AccessPermission,
+} from "./ISystemConfig";
 export {
   type IBidRequest,
   type IRequestAttachment,
@@ -79,15 +107,6 @@ export {
   type IBidNotesMap,
 } from "./IBidNotes";
 export { type INotification } from "./INotification";
-export {
-  type ISystemConfig,
-  type IConfigOption,
-  type IKPITargets,
-  type ICurrencySettings,
-  type IExchangeRate,
-  type IAccessLevelDef,
-  type AccessPermission,
-} from "./ISystemConfig";
 export { type ITeamMember, type IMembersData } from "./ITeamMember";
 export {
   type IActivityLogEntry as IActivityLogEntryDef,

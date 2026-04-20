@@ -32,11 +32,19 @@ export const NAVIGATION_ITEMS: INavItem[] = [
 
   // WORKSPACE
   {
-    key: "dashboard",
+    key: "tracker",
     label: "BID Tracker",
     icon: "ClipboardList",
     route: "/",
     section: "workspace",
+  },
+  {
+    key: "dashboard",
+    label: "Engineering Dashboard",
+    icon: "BarChart3",
+    route: "/dashboard",
+    section: "workspace",
+    requiredAccess: "engineering",
   },
   {
     key: "unassigned",
@@ -46,13 +54,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     section: "workspace",
     badge: 3,
     badgePulsing: true,
-  },
-  {
-    key: "my-dashboard",
-    label: "My Dashboard",
-    icon: "BarChart3",
-    route: "/my-dashboard",
-    section: "workspace",
   },
   {
     key: "timeline",
@@ -78,44 +79,18 @@ export const NAVIGATION_ITEMS: INavItem[] = [
 
   // KNOWLEDGE BASE
   {
-    key: "datasheets",
-    label: "Datasheets",
-    icon: "FileText",
-    route: "/knowledge/datasheets",
+    key: "knowledge-base",
+    label: "Knowledge Base",
+    icon: "BookOpen",
+    route: "/knowledge",
     section: "knowledge",
-    badge: 86,
   },
   {
-    key: "past-bids",
-    label: "Past Bids",
-    icon: "FolderArchive",
-    route: "/knowledge/past-bids",
+    key: "templates",
+    label: "Scope Templates",
+    icon: "LayoutTemplate",
+    route: "/templates",
     section: "knowledge",
-    badge: 200,
-  },
-  {
-    key: "qualifications",
-    label: "Qualifications",
-    icon: "HelpCircle",
-    route: "/knowledge/qualifications",
-    section: "knowledge",
-    badge: 143,
-  },
-  {
-    key: "manuals",
-    label: "Manuals",
-    icon: "Wrench",
-    route: "/knowledge/manuals",
-    section: "knowledge",
-    badge: 57,
-  },
-  {
-    key: "op-alerts",
-    label: "Op. Alerts",
-    icon: "AlertTriangle",
-    route: "/knowledge/alerts",
-    section: "knowledge",
-    badge: 29,
   },
 
   // INSIGHTS

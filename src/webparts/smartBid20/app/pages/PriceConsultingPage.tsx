@@ -4,122 +4,28 @@ import { DataTable } from "../components/common/DataTable";
 import { DivisionBadge } from "../components/common/DivisionBadge";
 import { useDebounce } from "../hooks/useDebounce";
 import { formatCurrency, formatDate } from "../utils/formatters";
+import { PricingService, IPriceEntry } from "../services/PricingService";
 import styles from "./PriceConsultingPage.module.scss";
-
-interface IPriceEntry {
-  id: string;
-  category: string;
-  item: string;
-  division: string;
-  unitRate: number;
-  currency: string;
-  unit: string;
-  source: string;
-  lastUpdated: string;
-}
-
-const MOCK_PRICES: IPriceEntry[] = [
-  {
-    id: "PR-001",
-    category: "Day Rates",
-    item: "WROV System (Work Class)",
-    division: "SSR-ROV",
-    unitRate: 35000,
-    currency: "USD",
-    unit: "/day",
-    source: "Petrobras Contract 2026",
-    lastUpdated: "2026-01-15T00:00:00Z",
-  },
-  {
-    id: "PR-002",
-    category: "Day Rates",
-    item: "Observation ROV",
-    division: "SSR-ROV",
-    unitRate: 12000,
-    currency: "USD",
-    unit: "/day",
-    source: "Petrobras Contract 2026",
-    lastUpdated: "2026-01-15T00:00:00Z",
-  },
-  {
-    id: "PR-003",
-    category: "Personnel",
-    item: "ROV Pilot/Tech (12h shift)",
-    division: "SSR-ROV",
-    unitRate: 1800,
-    currency: "USD",
-    unit: "/day",
-    source: "Internal Rate Card",
-    lastUpdated: "2026-02-01T00:00:00Z",
-  },
-  {
-    id: "PR-004",
-    category: "Personnel",
-    item: "Survey Engineer",
-    division: "SSR-Survey",
-    unitRate: 2200,
-    currency: "USD",
-    unit: "/day",
-    source: "Internal Rate Card",
-    lastUpdated: "2026-02-01T00:00:00Z",
-  },
-  {
-    id: "PR-005",
-    category: "Vessel",
-    item: "DSV Charter (DP2)",
-    division: "SSR-Integrated",
-    unitRate: 85000,
-    currency: "USD",
-    unit: "/day",
-    source: "DOF Subsea Quote",
-    lastUpdated: "2026-03-10T00:00:00Z",
-  },
-  {
-    id: "PR-006",
-    category: "Vessel",
-    item: "RSV Charter (Survey)",
-    division: "SSR-Survey",
-    unitRate: 45000,
-    currency: "USD",
-    unit: "/day",
-    source: "Fugro Quote",
-    lastUpdated: "2026-03-15T00:00:00Z",
-  },
-  {
-    id: "PR-007",
-    category: "Mob/Demob",
-    item: "Standard Mobilization",
-    division: "OPG",
-    unitRate: 150000,
-    currency: "USD",
-    unit: "/event",
-    source: "Historical Average",
-    lastUpdated: "2025-12-01T00:00:00Z",
-  },
-  {
-    id: "PR-008",
-    category: "Tooling",
-    item: "UT Inspection Tool Rental",
-    division: "OPG",
-    unitRate: 5500,
-    currency: "USD",
-    unit: "/day",
-    source: "Oceaneering DTS",
-    lastUpdated: "2026-01-20T00:00:00Z",
-  },
-];
 
 export const PriceConsultingPage: React.FC = () => {
   const [search, setSearch] = React.useState("");
+  const [prices, setPrices] = React.useState<IPriceEntry[]>([]);
   const debouncedSearch = useDebounce(search, 300);
   const [categoryFilter, setCategoryFilter] = React.useState<string>("all");
-  const categories = [
-    "all",
-    ...Array.from(new Set(MOCK_PRICES.map((p) => p.category))),
-  ];
+
+  React.useEffect(() => {
+    PricingService.getAll()
+      .then((data) => setPrices(data))
+      .catch((err) => console.error("Failed to load pricing data:", err));
+  }, []);
+
+  const categories = React.useMemo(
+    () => ["all", ...Array.from(new Set(prices.map((p) => p.category)))],
+    [prices],
+  );
 
   const filtered = React.useMemo(() => {
-    let items = MOCK_PRICES;
+    let items = prices;
     if (categoryFilter !== "all")
       items = items.filter((p) => p.category === categoryFilter);
     if (debouncedSearch) {
@@ -131,7 +37,7 @@ export const PriceConsultingPage: React.FC = () => {
       );
     }
     return items;
-  }, [debouncedSearch, categoryFilter]);
+  }, [debouncedSearch, categoryFilter, prices]);
 
   const columns = [
     {

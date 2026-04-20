@@ -2,10 +2,11 @@ import * as React from "react";
 import { PageHeader } from "../components/common/PageHeader";
 import { GlassCard } from "../components/common/GlassCard";
 import { StatusBadge } from "../components/common/StatusBadge";
-import { mockApprovals } from "../data/mockApprovals";
 import { useApprovals } from "../hooks/useApprovals";
 import { useAccessLevel } from "../hooks/useAccessLevel";
-import { format } from "date-fns";
+import { useStatusColors } from "../hooks/useStatusColors";
+import { formatDateTime } from "../utils/formatters";
+import { IBid } from "../models";
 import styles from "./ApprovalsPage.module.scss";
 
 type ApprovalTab = "pending" | "approved" | "rejected" | "all";
@@ -14,21 +15,23 @@ export const ApprovalsPage: React.FC = () => {
   const [tab, setTab] = React.useState<ApprovalTab>("pending");
   const approvalSummary = useApprovals();
   const { canEdit } = useAccessLevel();
+  const { getStatusColor } = useStatusColors();
   const canManageApprovals = canEdit("approvals");
 
-  const filtered = React.useMemo(() => {
-    if (tab === "all") return mockApprovals;
-    return mockApprovals.filter((a) => a.status === tab);
-  }, [tab]);
+  const allBids = [
+    ...approvalSummary.pending,
+    ...approvalSummary.approved,
+    ...approvalSummary.rejected,
+  ];
 
-  const statusColor = (s: string): string =>
-    s === "approved"
-      ? "#10b981"
-      : s === "rejected"
-        ? "#ef4444"
-        : s === "pending"
-          ? "#f59e0b"
-          : "#94a3b8";
+  const filtered = React.useMemo(() => {
+    if (tab === "all") return allBids;
+    return tab === "pending"
+      ? approvalSummary.pending
+      : tab === "approved"
+        ? approvalSummary.approved
+        : approvalSummary.rejected;
+  }, [tab, allBids, approvalSummary]);
 
   return (
     <div className={styles.page}>
@@ -60,11 +63,13 @@ export const ApprovalsPage: React.FC = () => {
               className={`${styles.tabBtn} ${tab === t ? styles.tabBtnActive : ""}`}
             >
               {t} (
-              {
-                mockApprovals.filter((a) =>
-                  t === "all" ? true : a.status === t,
-                ).length
-              }
+              {t === "all"
+                ? allBids.length
+                : t === "pending"
+                  ? approvalSummary.pending.length
+                  : t === "approved"
+                    ? approvalSummary.approved.length
+                    : approvalSummary.rejected.length}
               )
             </button>
           ),
@@ -80,66 +85,59 @@ export const ApprovalsPage: React.FC = () => {
         </GlassCard>
       ) : (
         <div className={styles.approvalCards}>
-          {filtered.map((approval) => (
-            <GlassCard key={approval.bidNumber}>
+          {filtered.map((bid: IBid) => (
+            <GlassCard key={bid.bidNumber}>
               <div className={styles.approvalHeader}>
                 <div>
-                  <span className={styles.bidNumber}>{approval.bidNumber}</span>
-                  <StatusBadge status={approval.type.replace("-", " ")} />
+                  <span className={styles.bidNumber}>{bid.bidNumber}</span>
+                  <StatusBadge status={bid.currentStatus} />
                 </div>
                 <StatusBadge
-                  status={approval.status}
-                  color={statusColor(approval.status)}
+                  status={bid.approvalStatus || "pending"}
+                  color={getStatusColor(bid.approvalStatus || "pending")}
                 />
               </div>
 
               <div className={styles.requestInfo}>
-                Requested by <strong>{approval.requestedBy.name}</strong> (
-                {approval.requestedBy.role}) on{" "}
-                {format(new Date(approval.requestedDate), "MMM d, yyyy HH:mm")}
+                Requested by <strong>{bid.creator?.name || "—"}</strong> (
+                {bid.creator?.role || ""}) on {formatDateTime(bid.createdDate)}
               </div>
 
               {/* Approval Chain */}
-              {approval.chains.map((chain) => (
-                <div key={chain.chainId} className={styles.chainContainer}>
+              {(bid.approvals || []).map((approval, aIdx) => (
+                <div key={aIdx} className={styles.chainContainer}>
                   <div className={styles.chainName}>
-                    {chain.chainName} <StatusBadge status={chain.division} />
+                    {approval.stakeholderRole}{" "}
+                    <StatusBadge status={bid.division} />
                   </div>
                   <div className={styles.stepsRow}>
-                    {chain.steps.map((step, idx) => (
-                      <React.Fragment key={idx}>
-                        <div className={styles.stepNode}>
-                          <div
-                            className={`${styles.stepCircle} ${step.decision === "approved" ? styles.stepApproved : step.decision === "rejected" ? styles.stepRejected : styles.stepPending}`}
-                          >
-                            {step.decision === "approved"
-                              ? "✓"
-                              : step.decision === "rejected"
-                                ? "✕"
-                                : idx + 1}
-                          </div>
-                          <div className={styles.stepName}>
-                            {step.approver.name.split(" ")[0]}
-                          </div>
-                          <div className={styles.stepRole}>{step.role}</div>
-                          {step.comments && (
-                            <div className={styles.stepComment}>
-                              &quot;{step.comments.substring(0, 40)}…&quot;
-                            </div>
-                          )}
+                    <div className={styles.stepNode}>
+                      <div
+                        className={`${styles.stepCircle} ${approval.decision === "approved" ? styles.stepApproved : approval.decision === "rejected" ? styles.stepRejected : styles.stepPending}`}
+                      >
+                        {approval.decision === "approved"
+                          ? "✓"
+                          : approval.decision === "rejected"
+                            ? "✕"
+                            : "1"}
+                      </div>
+                      <div className={styles.stepName}>
+                        {approval.stakeholder?.name?.split(" ")[0] || "—"}
+                      </div>
+                      <div className={styles.stepRole}>
+                        {approval.stakeholder?.role || ""}
+                      </div>
+                      {approval.comments && (
+                        <div className={styles.stepComment}>
+                          &quot;{approval.comments.substring(0, 40)}…&quot;
                         </div>
-                        {idx < chain.steps.length - 1 && (
-                          <div
-                            className={`${styles.stepConnector} ${chain.steps[idx].decision === "approved" ? styles.stepConnectorApproved : styles.stepConnectorDefault}`}
-                          />
-                        )}
-                      </React.Fragment>
-                    ))}
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
 
-              {canManageApprovals && approval.status === "pending" && (
+              {canManageApprovals && bid.approvalStatus === "pending" && (
                 <div className={styles.actionButtons}>
                   <button className={styles.btnApprove}>Approve</button>
                   <button className={styles.btnReject}>Reject</button>

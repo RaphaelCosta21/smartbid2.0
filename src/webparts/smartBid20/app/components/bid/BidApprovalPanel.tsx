@@ -1,5 +1,6 @@
 import * as React from "react";
 import { IBidApproval } from "../../models";
+import { formatDate } from "../../utils/formatters";
 import styles from "./BidApprovalPanel.module.scss";
 
 interface BidApprovalPanelProps {
@@ -9,7 +10,7 @@ interface BidApprovalPanelProps {
 }
 
 export const BidApprovalPanel: React.FC<BidApprovalPanelProps> = ({
-  approvals,
+  approvals = [],
   onRequestApproval,
   className,
 }) => {
@@ -62,7 +63,7 @@ export const BidApprovalPanel: React.FC<BidApprovalPanelProps> = ({
                   </div>
                   {approval.respondedDate && (
                     <div className={styles.itemDate}>
-                      {new Date(approval.respondedDate).toLocaleDateString()}
+                      {formatDate(approval.respondedDate)}
                     </div>
                   )}
                 </div>

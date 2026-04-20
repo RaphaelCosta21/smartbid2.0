@@ -1,6 +1,7 @@
 import * as React from "react";
 import { IBidComment } from "../../models";
 import { PersonaCard } from "../common/PersonaCard";
+import { formatDateTime } from "../../utils/formatters";
 import styles from "./BidComments.module.scss";
 
 interface BidCommentsProps {
@@ -10,7 +11,7 @@ interface BidCommentsProps {
 }
 
 export const BidComments: React.FC<BidCommentsProps> = ({
-  comments,
+  comments = [],
   onAdd,
   className,
 }) => {
@@ -53,7 +54,7 @@ export const BidComments: React.FC<BidCommentsProps> = ({
                 size="small"
               />
               <span className={styles.commentTime}>
-                {new Date(comment.timestamp).toLocaleString()}
+                {formatDateTime(comment.timestamp)}
               </span>
             </div>
             <p className={styles.commentText}>{comment.text}</p>

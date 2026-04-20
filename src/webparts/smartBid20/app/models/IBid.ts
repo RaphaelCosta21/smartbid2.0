@@ -38,6 +38,8 @@ export interface IBidStep {
   durationFormatted: string;
   actor: string;
   comments: string;
+  /** Division tag for Integrated BIDs (ROV/SURVEY) */
+  integratedDivision?: "ROV" | "SURVEY" | "";
 }
 
 export interface IBidTask {
@@ -81,9 +83,218 @@ export interface IEquipmentItem {
   notes: string;
 }
 
+/* ─── Scope of Supply ─── */
+export interface IScopeItem {
+  id: string;
+  lineNumber: number;
+  /** true = this row is a section header (only sectionTitle is meaningful) */
+  isSection: boolean;
+  /** ID of the parent section header (null = unsectioned) */
+  sectionId: string | null;
+  /** Section header display name (only when isSection = true) */
+  sectionTitle: string;
+  clientDocRef: string;
+  description: string;
+  compliance: "yes" | "no" | null;
+  /** Parent resource type from systemConfig.resourceTypes (e.g. "ROV Asset") */
+  resourceType: string;
+  /** Sub-type from systemConfig.resourceTypes[].subTypes (e.g. "Camera") */
+  resourceSubType: string;
+  equipmentOffer: string;
+  oiiPartNumber: string;
+  mfgReference: string;
+  qtyOperational: number;
+  qtySpare: number;
+  /** Flag: this item needs certification (auto-populates Certifications tab) */
+  needsCertification: boolean;
+  comments: string;
+  importedFromTemplate: string | null;
+  /** Division tag for Integrated BIDs (ROV/SURVEY) */
+  integratedDivision?: "ROV" | "SURVEY" | "";
+}
+
+/* ─── Assets Breakdown (cost layer for Scope items) ─── */
+export interface IAssetBreakdownItem {
+  id: string;
+  /** FK to IScopeItem.id — live sync link */
+  scopeItemId: string;
+  /** Gap Analysis status */
+  availabilityStatus:
+    | "In House"
+    | "Onboard"
+    | "Purchase"
+    | "Rental"
+    | "Not Available"
+    | "";
+  /** From systemConfig.acquisitionTypes */
+  acquisitionType: string;
+  unitCostUSD: number;
+  /** Auto-calc: unitCostUSD × (scope.qtyOper + scope.qtySpare) */
+  totalCostUSD: number;
+  /** From systemConfig.costReferences (BUMBL, BUABO, etc.) */
+  costReference: string;
+  costCalcMethod: "auto" | "manual";
+  originalCost: number;
+  originalCurrency: string;
+  costDate: string;
+  leadTimeDays: number;
+  /** For rental items */
+  dailyRate: number | null;
+  /** Number of rental days */
+  rentalDays: number | null;
+  transitCost: number;
+  costCategory: "CAPEX" | "OPEX" | "";
+  supplier: string;
+  quoteReference: string | null;
+  statusIndicator: string | null;
+  notes: string;
+  subCosts?: IAssetSubCost[];
+  /** Division tag for Integrated BIDs (ROV/SURVEY) */
+  integratedDivision?: "ROV" | "SURVEY" | "";
+}
+
+/* ─── Logistics Breakdown ─── */
+export interface ILogisticsItem {
+  id: string;
+  lineNumber: number;
+  item: string;
+  description: string;
+  originalCurrency: string;
+  qty: number;
+  unitCost: number;
+  /** Auto-calc: unitCost × qty */
+  totalCost: number;
+  notes: string;
+  /** Division tag for Integrated BIDs (ROV/SURVEY) */
+  integratedDivision?: "ROV" | "SURVEY" | "";
+}
+
+/* ─── Certifications Breakdown ─── */
+export interface ICertificationItem {
+  id: string;
+  lineNumber: number;
+  /** Optional FK to IScopeItem (items flagged needsCertification) */
+  scopeItemId: string | null;
+  /** Display reference (auto-filled from Scope or manual) */
+  itemRef: string;
+  qty: number;
+  /** Free text, e.g. "12 months", "2 years" */
+  expiryPeriod: string;
+  unitCost: number;
+  /** Auto-calc: unitCost × qty */
+  totalCost: number;
+  originalCurrency: string;
+  notes: string;
+  /** Division tag for Integrated BIDs (ROV/SURVEY) */
+  integratedDivision?: "ROV" | "SURVEY" | "";
+}
+
+/* ─── Preparation & Mobilization ─── */
+
+export type RTSCostType =
+  | "maintenance"
+  | "refurbishment"
+  | "upgrade"
+  | "rts-inspection"
+  | "";
+
+export interface IRTSItem {
+  id: string;
+  lineNumber: number;
+  sectionId?: string | null;
+  /** FK to IScopeItem.id — which asset needs RTS */
+  scopeItemId: string | null;
+  description: string;
+  costType: RTSCostType;
+  originalCurrency: string;
+  unitCost: number;
+  qty: number;
+  totalCost: number;
+  costReference: string;
+  notes: string;
+  /** Division tag for Integrated BIDs (ROV/SURVEY) */
+  integratedDivision?: "ROV" | "SURVEY" | "";
+}
+
+export type MobilizationCostType =
+  | "mobilization"
+  | "demobilization"
+  | "transit"
+  | "";
+
+export interface IMobilizationItem {
+  id: string;
+  lineNumber: number;
+  sectionId?: string | null;
+  description: string;
+  costType: MobilizationCostType;
+  originalCurrency: string;
+  unitCost: number;
+  qty: number;
+  totalCost: number;
+  notes: string;
+  /** Division tag for Integrated BIDs (ROV/SURVEY) */
+  integratedDivision?: "ROV" | "SURVEY" | "";
+}
+
+export interface IConsumableItem {
+  id: string;
+  lineNumber: number;
+  sectionId?: string | null;
+  item: string;
+  description: string;
+  originalCurrency: string;
+  qty: number;
+  unitCost: number;
+  totalCost: number;
+  notes: string;
+  /** Division tag for Integrated BIDs (ROV/SURVEY) */
+  integratedDivision?: "ROV" | "SURVEY" | "";
+}
+
+/* ─── Asset Sub-Costs ─── */
+export interface IAssetSubCost {
+  id: string;
+  description: string;
+  costUSD: number;
+  costReference?: string;
+  leadTimeDays?: number;
+  notes: string;
+  /** Transit Rate sub-cost (auto-created for Rental items) */
+  isTransitRate?: boolean;
+  importDays?: number;
+  exportDays?: number;
+  transitDiscount?: number;
+}
+
+/* ─── Qualifications & Clarifications ─── */
+export interface IQualificationTable {
+  id: string;
+  title: string;
+  items: IQualificationItem[];
+}
+
+export interface IQualificationItem {
+  id: string;
+  item: number;
+  description: string;
+  comments: string;
+}
+
+export interface IClarificationItem {
+  id: string;
+  scopeItemId: string | null;
+  item: string;
+  description: string;
+  clarification: string;
+  clientResponse: string;
+  isAutoImported: boolean;
+}
+
 export interface IHoursItem {
   id: string;
   lineNumber: number;
+  sectionId?: string | null;
   resourceGroup?: number;
   requirementName: string;
   engStudy?: string;
@@ -95,12 +306,20 @@ export interface IHoursItem {
   utilizationPercent: number;
   totalHours: number;
   costBRL: number;
+  /** Division tag for Integrated BIDs (ROV/SURVEY) */
+  integratedDivision?: "ROV" | "SURVEY" | "";
+}
+
+export interface IHoursSectionGroup {
+  id: string;
+  title: string;
 }
 
 export interface IHoursSection {
   totalHours: number;
   totalCostBRL: number;
   items: IHoursItem[];
+  sections?: IHoursSectionGroup[];
 }
 
 export interface IDivisionHoursTotals {
@@ -138,11 +357,23 @@ export interface IAssetsCostSummary {
 export interface ICostSummary {
   assetsCostUSD: number;
   assetsCostBRL: number;
+  assetsCapexUSD: number;
+  assetsOpexUSD: number;
   onshoreHoursCostBRL: number;
   offshoreHoursCostBRL: number;
   engineeringHoursCostBRL: number;
   totalHoursCostBRL: number;
   totalHoursCostUSD: number;
+  logisticsCostUSD: number;
+  logisticsCostBRL: number;
+  certificationsCostUSD: number;
+  certificationsCostBRL: number;
+  rtsCostUSD: number;
+  rtsCostBRL: number;
+  mobilizationCostUSD: number;
+  mobilizationCostBRL: number;
+  consumablesCostUSD: number;
+  consumablesCostBRL: number;
   totalCostUSD: number;
   totalCostBRL: number;
   currency: string;
@@ -173,6 +404,13 @@ export interface IBidAttachment {
   uploadedBy: string;
   uploadedDate: string;
   category: string;
+}
+
+export interface IQuickNote {
+  id: string;
+  text: string;
+  author: { name: string; email: string };
+  createdAt: string;
 }
 
 export interface IBidComment {
@@ -222,6 +460,15 @@ export interface IBidKPIs {
   templateMatchScore: number | null;
 }
 
+export interface IBidRevision {
+  revision: number;
+  openedBy: { name: string; email: string };
+  openedDate: string;
+  reason: string;
+  returnToPhase: string;
+  closedDate: string | null;
+}
+
 export interface IBidMetadata {
   version: string;
   createdBy: string;
@@ -246,6 +493,7 @@ export interface IBid {
   owner: IPersonRef;
   engineerResponsible: IPersonRef[];
   analyst: IPersonRef[];
+  projectManager: IPersonRef[];
   reviewers: IPersonRef[];
   createdDate: string;
   /** @deprecated Use desiredDueDate instead */
@@ -260,6 +508,16 @@ export interface IBid {
   tasks: IBidTask[];
   assetsCostSummary: IAssetsCostSummary;
   equipmentList: IEquipmentItem[];
+  scopeItems: IScopeItem[];
+  assetBreakdown: IAssetBreakdownItem[];
+  logisticsBreakdown: ILogisticsItem[];
+  certificationsBreakdown: ICertificationItem[];
+  rtsItems: IRTSItem[];
+  mobilizationItems: IMobilizationItem[];
+  consumableItems: IConsumableItem[];
+  rtsSections?: IHoursSectionGroup[];
+  mobSections?: IHoursSectionGroup[];
+  consSections?: IHoursSectionGroup[];
   hoursSummary: IHoursSummary;
   costSummary: ICostSummary;
   bidResult: IBidResult;
@@ -272,6 +530,11 @@ export interface IBid {
   bidFolderUrl: string | null;
   commercialFolderUrl: string | null;
   bidNotes: Record<string, string>;
+  quickNotes: IQuickNote[];
+  engineerBidOverview: string;
+  revisions: IBidRevision[];
   metadata: IBidMetadata;
   kpis: IBidKPIs;
+  qualificationTables: IQualificationTable[];
+  clarifications: IClarificationItem[];
 }

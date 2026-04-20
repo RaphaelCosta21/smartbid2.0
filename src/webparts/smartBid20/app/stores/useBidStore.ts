@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { IBid, Division, BidPriority } from "../models";
+import { IBid, IQuickNote, Division, BidPriority } from "../models";
 
 export type ViewMode = "kanban" | "list" | "table";
 
@@ -36,6 +36,7 @@ interface BidState {
   resetFilters: () => void;
   setViewMode: (mode: ViewMode) => void;
   setLoading: (loading: boolean) => void;
+  updateBidNotes: (bidNumber: string, notes: IQuickNote[]) => void;
   getFilteredBids: () => IBid[];
 }
 
@@ -54,6 +55,13 @@ export const useBidStore = create<BidState>((set, get) => ({
   setViewMode: (mode) => set({ viewMode: mode }),
   setLoading: (loading) => set({ isLoading: loading }),
 
+  updateBidNotes: (bidNumber, notes) =>
+    set((state) => ({
+      bids: state.bids.map((b) =>
+        b.bidNumber === bidNumber ? { ...b, quickNotes: notes } : b,
+      ),
+    })),
+
   getFilteredBids: () => {
     const { bids, filters } = get();
     let result = [...bids];
@@ -62,11 +70,11 @@ export const useBidStore = create<BidState>((set, get) => ({
       const q = filters.search.toLowerCase();
       result = result.filter(
         (b) =>
-          b.bidNumber.toLowerCase().includes(q) ||
-          b.crmNumber.toLowerCase().includes(q) ||
-          b.opportunityInfo.client.toLowerCase().includes(q) ||
-          b.opportunityInfo.projectName.toLowerCase().includes(q) ||
-          b.owner.name.toLowerCase().includes(q),
+          (b.bidNumber || "").toLowerCase().includes(q) ||
+          (b.crmNumber || "").toLowerCase().includes(q) ||
+          (b.opportunityInfo?.client || "").toLowerCase().includes(q) ||
+          (b.opportunityInfo?.projectName || "").toLowerCase().includes(q) ||
+          (b.creator?.name || "").toLowerCase().includes(q),
       );
     }
 
@@ -84,12 +92,12 @@ export const useBidStore = create<BidState>((set, get) => ({
 
     if (filters.clients.length > 0) {
       result = result.filter((b) =>
-        filters.clients.includes(b.opportunityInfo.client),
+        filters.clients.includes(b.opportunityInfo?.client),
       );
     }
 
     if (filters.owners.length > 0) {
-      result = result.filter((b) => filters.owners.includes(b.owner.email));
+      result = result.filter((b) => filters.owners.includes(b.creator?.email));
     }
 
     return result;

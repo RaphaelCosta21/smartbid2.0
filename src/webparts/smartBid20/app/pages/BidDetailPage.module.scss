@@ -4,19 +4,53 @@
   gap: 24px;
 }
 
-.tabBar {
-  display: flex;
-  gap: 2px;
-  background: var(--card-bg);
-  border-radius: 12px;
-  padding: 4px;
-  border: 1px solid var(--border-subtle);
-  overflow-x: auto;
-  flex-wrap: nowrap;
+/* ─── Sidebar + Content Layout ─── */
+
+.detailLayout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 20px;
+  min-height: 0;
 }
 
-.tab {
-  padding: 8px 16px;
+.sideNav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 12px 8px;
+  border: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 16px;
+  align-self: start;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.navGroup {
+  &:not(:first-child) {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+.navGroupLabel {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 4px 10px 6px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
   border-radius: 8px;
   font-size: 12px;
   font-weight: 500;
@@ -24,19 +58,32 @@
   background: none;
   border: none;
   cursor: pointer;
-  white-space: nowrap;
-  transition: all 200ms ease;
+  text-align: left;
+  transition: all 150ms ease;
 
   &:hover {
     background: var(--card-bg-elevated);
     color: var(--text-primary);
   }
+}
 
-  &.active {
-    background: var(--primary-accent);
-    color: white;
-    font-weight: 600;
-  }
+.navItemActive {
+  background: var(--primary-accent) !important;
+  color: white !important;
+  font-weight: 600;
+}
+
+.navIcon {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.navLabel {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .overviewGrid {

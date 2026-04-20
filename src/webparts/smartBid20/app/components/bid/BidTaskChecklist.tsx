@@ -10,28 +10,29 @@ interface BidTaskChecklistProps {
 }
 
 export const BidTaskChecklist: React.FC<BidTaskChecklistProps> = ({
-  tasks,
+  tasks = [],
   onToggle,
   readOnly = false,
   className,
 }) => {
-  const completedCount = tasks.filter((t) => t.status === "completed").length;
+  const safeItems = tasks || [];
+  const completedCount = safeItems.filter((t) => t.status === "completed").length;
 
   return (
     <div className={`${styles.container} ${className || ""}`}>
       <div className={styles.header}>
         <h4 className={styles.title}>
-          Tasks ({completedCount}/{tasks.length})
+          Tasks ({completedCount}/{safeItems.length})
         </h4>
         <span className={styles.progressText}>
-          {tasks.length > 0
-            ? Math.round((completedCount / tasks.length) * 100)
+          {safeItems.length > 0
+            ? Math.round((completedCount / safeItems.length) * 100)
             : 0}
           % complete
         </span>
       </div>
       <div className={styles.taskList}>
-        {tasks.map((task) => {
+        {safeItems.map((task) => {
           const isCompleted = task.status === "completed";
           const isSkipped = task.status === "skipped";
           return (

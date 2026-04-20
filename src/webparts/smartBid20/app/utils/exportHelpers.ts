@@ -25,7 +25,7 @@ export function bidToExportRow(bid: IBid): IExportRow {
     Type: bid.bidType,
     Size: bid.bidSize,
     Priority: bid.priority,
-    Bidder: bid.bidder.name,
+    "Engineer Responsible": bid.engineerResponsible?.[0]?.name || "",
     "Due Date": formatDate(bid.dueDate),
     "Created Date": formatDate(bid.createdDate),
     Region: bid.opportunityInfo.region,

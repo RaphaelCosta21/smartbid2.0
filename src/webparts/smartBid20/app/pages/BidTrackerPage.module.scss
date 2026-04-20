@@ -105,6 +105,29 @@
   overflow-x: auto;
 }
 
+/* On Hold separator */
+.onHoldDivider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 12px;
+}
+
+.onHoldDividerLine {
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
+}
+
+.onHoldDividerLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  white-space: nowrap;
+}
+
 .kanbanBoard {
   display: flex;
   gap: 16px;

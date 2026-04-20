@@ -51,9 +51,34 @@ export class BidService {
 
   public static async update(id: number, bid: IBid): Promise<void> {
     await BidService._list.items.getById(id).update({
+      Title: bid.bidNumber,
       jsondata: JSON.stringify(bid),
       Status: bid.currentStatus,
       DueDate: bid.desiredDueDate || bid.dueDate,
+    });
+  }
+
+  /**
+   * Update a BID after initial creation (set real bidNumber + attachment paths).
+   */
+  public static async updateAfterCreate(
+    spItemId: number,
+    newBidNumber: string,
+    attachmentUpdates?: import("../models").IBidAttachment[],
+  ): Promise<void> {
+    const item = await BidService._list.items
+      .getById(spItemId)
+      .select("jsondata")();
+    const bid = JSON.parse((item as { jsondata: string }).jsondata) as IBid;
+
+    bid.bidNumber = newBidNumber;
+    if (attachmentUpdates && attachmentUpdates.length > 0) {
+      bid.attachments = attachmentUpdates;
+    }
+
+    await BidService._list.items.getById(spItemId).update({
+      Title: newBidNumber,
+      jsondata: JSON.stringify(bid),
     });
   }
 
@@ -82,5 +107,26 @@ export class BidService {
     return items.map(
       (item: { jsondata: string }) => JSON.parse(item.jsondata) as IBid,
     );
+  }
+
+  /**
+   * Patch a BID by its bidNumber (Title field). Merges the given partial
+   * into the existing JSON blob and persists back to SharePoint.
+   */
+  public static async patchByBidNumber(
+    bidNumber: string,
+    patch: Partial<IBid>,
+  ): Promise<void> {
+    const items = await BidService._list.items
+      .filter(`Title eq '${bidNumber}'`)
+      .select("Id", "jsondata")
+      .top(1)();
+    if (items.length === 0) return;
+    const row = items[0] as { Id: number; jsondata: string };
+    const bid = JSON.parse(row.jsondata) as IBid;
+    const merged = { ...bid, ...patch };
+    await BidService._list.items.getById(row.Id).update({
+      jsondata: JSON.stringify(merged),
+    });
   }
 }

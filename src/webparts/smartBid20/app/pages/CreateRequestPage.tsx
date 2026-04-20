@@ -22,6 +22,7 @@ import { BidPriority } from "../models/IBidStatus";
 import { MembersService } from "../services/MembersService";
 import { RequestService } from "../services/RequestService";
 import { AttachmentService } from "../services/AttachmentService";
+import { BidService } from "../services/BidService";
 import styles from "./CreateRequestPage.module.scss";
 
 interface FormData {
@@ -269,18 +270,13 @@ export const CreateRequestPage: React.FC = () => {
   const handleSubmit = async (): Promise<void> => {
     setSubmitting(true);
     try {
-      // Sequential request number: REQ-YYYY-NNNN
-      const currentYear = new Date().getFullYear();
-      const sameYearRequests = requests.filter((r) =>
-        r.requestNumber?.startsWith(`REQ-${currentYear}-`),
-      );
-      const nextSeq = sameYearRequests.length + 1;
-      const padded = String(nextSeq).padStart(4, "0");
-      const requestNumber = `REQ-${currentYear}-${padded}`;
-
       const now = new Date().toISOString();
+      const currentYear = new Date().getFullYear();
 
-      // Build attachments metadata from uploaded files
+      // Use a temporary request number; real one comes from SP item ID
+      const tempNumber = `TEMP-${Date.now()}`;
+
+      // Build attachments metadata from uploaded files (paths empty initially)
       const attachmentsMeta = uploadedFiles.map((f) => ({
         fileName: f.name,
         fileType: f.name.split(".").pop() || "",
@@ -291,12 +287,13 @@ export const CreateRequestPage: React.FC = () => {
       }));
 
       const newReq = {
-        id: `REQ-${Date.now()}`,
-        requestNumber,
+        id: tempNumber,
+        requestNumber: tempNumber,
         requestedBy: {
           name: currentUser.displayName,
           email: currentUser.email,
           role: currentUser.role,
+          photoUrl: currentUserPhoto || currentUser.photoUrl,
         },
         requestDate: now,
         client: form.client,
@@ -351,6 +348,19 @@ export const CreateRequestPage: React.FC = () => {
           durationFormatted: string;
         }>,
         notes: form.notes,
+        revisions: [
+          {
+            revision: 0,
+            openedBy: {
+              name: currentUser.displayName,
+              email: currentUser.email,
+            },
+            openedDate: now,
+            reason: "Initial submission",
+            returnToPhase: "",
+            closedDate: null,
+          },
+        ],
         status: "submitted" as const,
         assignedTo: null,
         assignedDate: null,
@@ -361,7 +371,12 @@ export const CreateRequestPage: React.FC = () => {
       // 1. Save to SharePoint smartbid-tracker list (returns the SP item ID)
       const spItemId = await RequestService.createRequest(newReq as any);
 
-      // 2. Upload attachments to SmartBidAttachments/{ID}-{CRM}-{CreatedBy}/
+      // 2. Build real request number from SP item ID
+      const padded = String(spItemId).padStart(4, "0");
+      const requestNumber = `REQ-${currentYear}-${padded}`;
+
+      // 3. Upload attachments to SmartBidAttachments/{ID}-{CRM}-{CreatedBy}/
+      let uploadedAttachments: any[] | undefined;
       if (uploadedFiles.length > 0) {
         const uploadedResults = await AttachmentService.uploadRequestFiles(
           spItemId,
@@ -369,8 +384,9 @@ export const CreateRequestPage: React.FC = () => {
           currentUser.displayName,
           uploadedFiles,
         );
-        // Update attachment paths with actual SP paths
+        // Update local attachment paths with actual SP paths
         if (uploadedResults && Array.isArray(uploadedResults)) {
+          uploadedAttachments = uploadedResults;
           uploadedResults.forEach((result, idx) => {
             if (newReq.attachments[idx]) {
               newReq.attachments[idx].path = result.fileUrl || "";
@@ -379,7 +395,16 @@ export const CreateRequestPage: React.FC = () => {
         }
       }
 
-      // 3. Update local store
+      // 4. Update SP item with real request number and attachment paths
+      await BidService.updateAfterCreate(
+        spItemId,
+        requestNumber,
+        uploadedAttachments,
+      );
+
+      // 5. Update local store with correct request number
+      newReq.requestNumber = requestNumber;
+      newReq.id = requestNumber;
       addRequest([...requests, newReq as any]);
       navigate("/requests");
     } catch (err) {

@@ -1,0 +1,398 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ─── Summary cards ─── */
+.summaryRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.summaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-subtle);
+  min-width: 120px;
+}
+
+.summaryLabel {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summaryValue {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* ─── Toolbar ─── */
+.toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbarBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: var(--accent-color);
+    background: var(--accent-color-10, rgba(20, 184, 166, 0.1));
+  }
+
+  &.primary {
+    background: var(--accent-color);
+    color: #fff;
+    border-color: var(--accent-color);
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+}
+
+/* ─── Table ─── */
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-subtle);
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 6px 10px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+  }
+
+  tr:hover td {
+    background: var(--glass-bg, rgba(255, 255, 255, 0.03));
+  }
+}
+
+.cellCenter {
+  text-align: center;
+}
+
+.cellRight {
+  text-align: right;
+}
+
+.cellMono {
+  font-family: monospace;
+  font-size: 12px;
+}
+
+/* ─── Section header row ─── */
+.sectionRow {
+  td {
+    background: var(--accent-color-10, rgba(20, 184, 166, 0.08));
+    padding: 10px;
+    border-bottom: 2px solid var(--accent-color);
+  }
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--accent-color);
+  cursor: pointer;
+  user-select: none;
+}
+
+.chevron {
+  transition: transform 0.2s;
+  font-size: 12px;
+
+  &.collapsed {
+    transform: rotate(-90deg);
+  }
+}
+
+.sectionActions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* ─── Inline editing ─── */
+.editInput {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary);
+  font-size: 13px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-color);
+  }
+}
+
+.editInputSmall {
+  @extend .editInput;
+  width: 70px;
+  text-align: center;
+}
+
+.editSelect {
+  @extend .editInput;
+  cursor: pointer;
+}
+
+/* ─── Compliance toggle ─── */
+.complianceToggle {
+  display: flex;
+  gap: 2px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.complianceBtn {
+  padding: 2px 10px;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+
+  &.active {
+    color: #fff;
+  }
+
+  &.yes {
+    &.active {
+      background: #10b981;
+    }
+  }
+
+  &.no {
+    &.active {
+      background: #ef4444;
+    }
+  }
+}
+
+/* ─── Checkbox ─── */
+.checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent-color);
+}
+
+/* ─── Action buttons ─── */
+.actionBtn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 4px;
+
+  &.delete {
+    color: #ef4444;
+
+    &:hover {
+      background: rgba(239, 68, 68, 0.1);
+    }
+  }
+
+  &.edit {
+    color: var(--accent-color);
+
+    &:hover {
+      background: var(--accent-color-10, rgba(20, 184, 166, 0.1));
+    }
+  }
+}
+
+.actionsCell {
+  display: flex;
+  gap: 4px;
+}
+
+.empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-secondary);
+
+  p {
+    margin-top: 8px;
+    font-size: 13px;
+  }
+}
+
+.emptyIcon {
+  font-size: 36px;
+  margin-bottom: 8px;
+}
+
+/* ─── Reorder buttons ─── */
+.reorderBtns {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  align-items: center;
+}
+
+.reorderBtn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 8px;
+  padding: 0 2px;
+  line-height: 1;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
+
+  &:hover {
+    opacity: 1;
+    color: var(--accent-color);
+  }
+}
+
+.actionBtn.reorder {
+  font-size: 10px;
+  padding: 1px 4px;
+  color: var(--text-secondary);
+  opacity: 0.6;
+
+  &:hover {
+    opacity: 1;
+    color: var(--accent-color);
+    background: var(--accent-color-10, rgba(20, 184, 166, 0.1));
+  }
+}
+
+/* ─── Truncated / collapsible cells ─── */
+.truncatedCell {
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+  font-size: 13px;
+  transition: all 0.2s;
+
+  &.expanded {
+    white-space: normal;
+    max-width: none;
+    overflow: visible;
+    word-break: break-word;
+  }
+}
+
+/* ─── Compliance clarification indicator ─── */
+.clarIndicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(234, 179, 8, 0.3);
+  }
+}
+
+/* ─── Clarification popup ─── */
+.clarPopupOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: transparent;
+}
+
+.clarPopup {
+  position: fixed;
+  z-index: 10000;
+  min-width: 240px;
+  max-width: 320px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--card-bg, #1e1e2e);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.clarPopupTitle {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.clarPopupText {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.clarPopupClose {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  }
+}

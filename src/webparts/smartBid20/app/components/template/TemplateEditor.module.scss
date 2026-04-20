@@ -1,54 +1,249 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ─── Steps ─── */
+.steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.stepBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary-accent);
+    color: var(--text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.stepActive {
+  border-color: var(--primary-accent);
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--primary-accent);
+  font-weight: 600;
+}
+
+.stepNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--card-bg-elevated);
+  font-size: 11px;
+  font-weight: 700;
+
+  .stepActive & {
+    background: var(--primary-accent);
+    color: #fff;
+  }
+}
+
+.stepDivider {
+  width: 24px;
+  height: 1px;
+  background: var(--border-subtle);
+}
+
+/* ─── Form ─── */
 .form {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .label {
   font-size: 13px;
   font-weight: 600;
-  display: block;
-  margin-bottom: 4px;
+  color: var(--text-primary);
 }
 
-.input {
+.required {
+  color: #ef4444;
+}
+
+.hint {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.input,
+.select {
   width: 100%;
-  padding: 10px;
+  padding: 10px 12px;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   font-size: 14px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 200ms ease;
+
+  &:focus {
+    border-color: var(--primary-accent);
+  }
+}
+
+.select {
+  cursor: pointer;
+  appearance: auto;
 }
 
 .textarea {
   width: 100%;
-  padding: 10px;
+  padding: 10px 12px;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   font-size: 14px;
-  min-height: 60px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  outline: none;
   resize: vertical;
+  min-height: 60px;
+  transition: border-color 200ms ease;
+  font-family: inherit;
+
+  &:focus {
+    border-color: var(--primary-accent);
+  }
 }
 
+.checkLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* ─── Actions ─── */
 .actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .cancelBtn {
-  padding: 8px 20px;
+  padding: 10px 20px;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   background: transparent;
+  color: var(--text-secondary);
   cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 200ms;
+
+  &:hover {
+    border-color: var(--text-muted);
+    color: var(--text-primary);
+  }
 }
 
+.nextBtn,
 .saveBtn {
-  padding: 8px 20px;
-  background: var(--accent-color, #3b82f6);
+  padding: 10px 24px;
+  background: var(--primary-accent);
   color: #fff;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 13px;
+  transition: opacity 200ms;
+
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.saveBtn {
+  background: #10b981;
+}
+
+/* ─── Scope Step ─── */
+.scopeStep {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.scopeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.scopeTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.scopeSubtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.scopeContainer {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--card-bg);
+  overflow: auto;
 }

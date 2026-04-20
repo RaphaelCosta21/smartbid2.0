@@ -13,6 +13,10 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
   onClose,
   className,
 }) => {
+  const scopeItems = template.scopeItems || [];
+  const dataItems = scopeItems.filter((i) => !i.isSection);
+  const sections = scopeItems.filter((i) => i.isSection);
+
   return (
     <div className={`${styles.container} ${className || ""}`}>
       <div className={styles.header}>
@@ -23,36 +27,42 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
       </div>
       <p className={styles.description}>{template.description}</p>
       <div className={styles.info}>
-        <strong>Division:</strong> {template.division} · <strong>Items:</strong>{" "}
-        {template.equipmentItems.length}
+        <strong>Division:</strong> {template.division} ·{" "}
+        <strong>Service Line:</strong> {template.serviceLine} ·{" "}
+        <strong>Items:</strong> {dataItems.length} · <strong>Sections:</strong>{" "}
+        {sections.length}
       </div>
-      {template.equipmentItems.length > 0 && (
+      {dataItems.length > 0 && (
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>Part #</th>
+              <th>#</th>
               <th>Description</th>
-              <th className={styles.thRight}>Qty</th>
-              <th className={styles.thRight}>Cost</th>
+              <th>Resource Type</th>
+              <th>Sub-Type</th>
+              <th className={styles.thRight}>Qty Op</th>
+              <th className={styles.thRight}>Qty Spare</th>
+              <th>Compliance</th>
             </tr>
           </thead>
           <tbody>
-            {template.equipmentItems.slice(0, 10).map((item) => (
+            {dataItems.slice(0, 15).map((item, idx) => (
               <tr key={item.id}>
-                <td className={styles.cellMono}>{item.partNumber}</td>
-                <td>{item.toolDescription}</td>
+                <td>{idx + 1}</td>
+                <td>{item.description || "—"}</td>
+                <td>{item.resourceType || "—"}</td>
+                <td>{item.resourceSubType || "—"}</td>
                 <td className={styles.cellRight}>{item.qtyOperational}</td>
-                <td className={styles.cellRight}>
-                  ${item.unitCostUSD.toLocaleString()}
-                </td>
+                <td className={styles.cellRight}>{item.qtySpare}</td>
+                <td>{item.compliance || "—"}</td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
-      {template.equipmentItems.length > 10 && (
+      {dataItems.length > 15 && (
         <div className={styles.moreItems}>
-          ...and {template.equipmentItems.length - 10} more items
+          ...and {dataItems.length - 15} more items
         </div>
       )}
     </div>

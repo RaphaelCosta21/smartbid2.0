@@ -1,7 +1,9 @@
 /**
- * IBidTemplate — Templates de equipamento.
+ * IBidTemplate — Templates de Scope of Supply.
+ * A estrutura de scopeItems é idêntica à IScopeItem do BidDetailPage,
+ * permitindo importação direta no Scope of Supply de um BID.
  */
-import { IEquipmentItem } from "./IBid";
+import { IScopeItem } from "./IBid";
 
 export interface IBidTemplate {
   id: string;
@@ -10,7 +12,8 @@ export interface IBidTemplate {
   division: string;
   serviceLine: string;
   category: string;
-  equipmentItems: IEquipmentItem[];
+  /** Scope of Supply items — same structure as IBid.scopeItems */
+  scopeItems: IScopeItem[];
   createdBy: string;
   createdDate: string;
   lastModified: string;

@@ -1,50 +1,109 @@
 .wrapper {
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--border-subtle);
-}
-
-.body {
-  padding: 16px 20px;
-  background: var(--card-bg);
-}
-
-.row {
   display: flex;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border-subtle);
+  flex-direction: column;
+  gap: 20px;
+}
+
+.kpiRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.kpiCard {
+  padding: 14px 20px;
+  border-radius: 10px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-subtle);
+  min-width: 160px;
+  flex: 1;
+}
+
+.kpiAccent {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.12),
+    rgba(139, 92, 246, 0.12)
+  );
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.kpiLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.kpiValue {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.breakdownSection {
+  background: var(--card-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  padding: 16px 20px;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.breakdownTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+  }
+
+  td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+  }
+
+  tfoot td {
+    border-top: 2px solid var(--border-subtle);
+    border-bottom: none;
+  }
+}
+
+.totalRow {
+  font-weight: 700;
   font-size: 14px;
 }
 
-.rowBold {
-  font-weight: 600;
-}
-
-.rowLabel {
-  color: var(--text-secondary);
-}
-
-.totalBar {
-  padding: 16px 20px;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  display: flex;
-  justify-content: space-between;
-  color: #fff;
-}
-
-.totalLabel {
-  font-size: 12px;
-  opacity: 0.8;
-}
-
-.totalValue {
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.totalRight {
+.cellRight {
   text-align: right;
+}
+
+.barWrapper {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.08));
+  overflow: hidden;
+}
+
+.bar {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  min-width: 2px;
+  transition: width 0.3s ease;
 }
 
 .notes {
@@ -52,4 +111,6 @@
   font-size: 13px;
   color: var(--text-secondary);
   background: var(--card-bg);
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
 }

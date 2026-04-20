@@ -54,7 +54,12 @@ const NAV_GROUPS: INavGroup[] = [
         icon: "📋",
         configKey: "bidTypes",
       },
-      { key: "phases", label: "Phases", icon: "📐", configKey: "phases" },
+      {
+        key: "phases",
+        label: "Phases & Status",
+        icon: "📐",
+        configKey: "phases",
+      },
       { key: "regions", label: "Regions", icon: "🌎", configKey: "regions" },
     ],
   },
@@ -80,8 +85,8 @@ const NAV_GROUPS: INavGroup[] = [
         configKey: "hoursPhases",
       },
       {
-        key: "acquisitionTypes",
-        label: "Acquisition",
+        key: "availabilityAcquisition",
+        label: "Avail. & Acq. Type",
         icon: "📥",
         configKey: "acquisitionTypes",
       },
@@ -90,6 +95,12 @@ const NAV_GROUPS: INavGroup[] = [
         label: "Cost References",
         icon: "💰",
         configKey: "costReferences",
+      },
+      {
+        key: "resourceTypes",
+        label: "Resource Types",
+        icon: "🏷️",
+        configKey: "resourceTypes",
       },
     ],
   },
@@ -201,6 +212,124 @@ const NOTIFICATION_LABELS: Record<string, string> = {
 const JOB_CATEGORIES = ["ROV", "Survey", "Engineer", "General"] as const;
 
 /* ------------------------------------------------------------------ */
+/* SUB-COMPONENTS for Phases & Status (need useState per row)          */
+/* ------------------------------------------------------------------ */
+
+const PhaseColorRow: React.FC<{
+  item: IConfigOption;
+  canEdit: boolean;
+  onEdit: (item: IConfigOption) => void;
+}> = ({ item, canEdit, onEdit }) => {
+  return (
+    <div className={styles.optionCard}>
+      <span
+        className={styles.optionColor}
+        style={{ background: item.color || "#94a3b8" }}
+      />
+      <div className={styles.optionInfo}>
+        <span className={styles.optionLabel}>{item.label}</span>
+      </div>
+      {canEdit && (
+        <div className={styles.optionActions}>
+          <button className={styles.actionBtn} onClick={() => onEdit(item)}>
+            Edit
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const SubStatusColorRow: React.FC<{
+  item: IConfigOption;
+  canEdit: boolean;
+  phasesList: IConfigOption[];
+  isPhaseChecked: (ss: IConfigOption, phaseValue: string) => boolean;
+  onEdit: (item: IConfigOption) => void;
+}> = ({ item, canEdit, phasesList, isPhaseChecked, onEdit }) => {
+  const cat = (item.category as string) || "all";
+  const isAll = cat === "all";
+  return (
+    <div
+      className={styles.optionCard}
+      style={{ flexDirection: "column", alignItems: "stretch" }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span
+          className={styles.optionColor}
+          style={{ background: item.color || "#94a3b8" }}
+        />
+        <div className={styles.optionInfo}>
+          <span className={styles.optionLabel}>{item.label}</span>
+          {isAll && (
+            <span
+              style={{
+                fontSize: 10,
+                color: "var(--primary-accent)",
+                marginLeft: 6,
+                fontWeight: 600,
+              }}
+            >
+              ALL PHASES
+            </span>
+          )}
+        </div>
+        {canEdit && (
+          <div className={styles.optionActions}>
+            <button className={styles.actionBtn} onClick={() => onEdit(item)}>
+              Edit
+            </button>
+          </div>
+        )}
+      </div>
+      {/* Phase applicability chips (read-only) */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 6,
+          marginTop: 8,
+          paddingLeft: 38,
+        }}
+      >
+        {phasesList
+          .filter((p) => p.isActive)
+          .map((phase) => {
+            const checked = isPhaseChecked(item, phase.value);
+            return (
+              <span
+                key={phase.id}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "2px 10px",
+                  borderRadius: 12,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  border: checked
+                    ? `1.5px solid ${phase.color || "var(--border)"}`
+                    : "1.5px solid var(--border-subtle)",
+                  background: checked
+                    ? `${phase.color || "#3b82f6"}18`
+                    : "transparent",
+                  color: checked
+                    ? phase.color || "var(--text-primary)"
+                    : "var(--text-muted)",
+                  opacity: checked ? 1 : 0.35,
+                }}
+              >
+                <span style={{ fontSize: 10 }}>{checked ? "✓" : "○"}</span>
+                {phase.label}
+              </span>
+            );
+          })}
+      </div>
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
 /* COMPONENT                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -252,6 +381,14 @@ const SystemConfiguration: React.FC = () => {
     setLoading(true);
     try {
       const data = await SystemConfigService.get();
+      // Merge subStatuses from defaults if not present in SP data
+      if (!data.subStatuses || data.subStatuses.length === 0) {
+        data.subStatuses = [...DEFAULT_SYSTEM_CONFIG.subStatuses];
+      }
+      // Merge terminalStatuses from defaults if not present
+      if (!data.terminalStatuses || data.terminalStatuses.length === 0) {
+        data.terminalStatuses = [...DEFAULT_SYSTEM_CONFIG.terminalStatuses];
+      }
       setConfig(data);
     } catch {
       // No config in SP yet — seed with defaults
@@ -298,7 +435,7 @@ const SystemConfiguration: React.FC = () => {
     optionId: string,
   ): void => {
     if (!config || !canEdit) return;
-    const list = config[configKey] as IConfigOption[];
+    const list = (config[configKey] as IConfigOption[] | undefined) || [];
     const updated = list.map((o) =>
       o.id === optionId ? { ...o, isActive: !o.isActive } : o,
     );
@@ -310,7 +447,7 @@ const SystemConfiguration: React.FC = () => {
     optionId: string,
   ): void => {
     if (!config || !canEdit) return;
-    const list = config[configKey] as IConfigOption[];
+    const list = (config[configKey] as IConfigOption[] | undefined) || [];
     updateConfig({ [configKey]: list.filter((o) => o.id !== optionId) });
   };
 
@@ -339,9 +476,28 @@ const SystemConfiguration: React.FC = () => {
   };
 
   const handlePanelSave = (): void => {
-    if (!config || !panelConfigKey || !panelForm.label.trim()) return;
+    if (!config || !panelConfigKey) return;
     const key = panelConfigKey;
-    const list = config[key] as IConfigOption[];
+    const list = (config[key] as IConfigOption[] | undefined) || [];
+    const isColorOnly =
+      key === "phases" || key === "subStatuses" || key === "terminalStatuses";
+
+    // For phases we only allow color edits; for subStatuses allow color + phase applicability
+    if (isColorOnly && editItem) {
+      const patch: Partial<IConfigOption> = { color: panelForm.color };
+      if (key === "subStatuses") {
+        patch.category = panelForm.category || "all";
+      }
+      const updated = list.map((o) =>
+        o.id === editItem.id ? { ...o, ...patch } : o,
+      );
+      updateConfig({ [key]: updated });
+      showMsg("success", `Updated "${editItem.label}"`);
+      setShowPanel(false);
+      return;
+    }
+
+    if (!panelForm.label.trim()) return;
 
     if (editItem) {
       const updated = list.map((o) =>
@@ -436,7 +592,7 @@ const SystemConfiguration: React.FC = () => {
     label?: string,
   ): React.ReactElement => {
     if (!config) return <></>;
-    const list = config[configKey] as IConfigOption[];
+    const list = (config[configKey] as IConfigOption[] | undefined) || [];
     const displayLabel = label || currentNavItem?.label || "";
     return (
       <div>
@@ -1145,6 +1301,667 @@ const SystemConfiguration: React.FC = () => {
     );
   };
 
+  /* ---- Phases & Sub-Statuses ------------------------------------ */
+
+  const renderPhasesAndSubStatuses = (): React.ReactElement => {
+    if (!config) return <></>;
+    const phasesList = config.phases;
+    const subStatusList = config.subStatuses || [];
+
+    const isPhaseChecked = (ss: IConfigOption, phaseValue: string): boolean => {
+      const cat = (ss.category as string) || "all";
+      if (cat === "all") return true;
+      return cat
+        .split(",")
+        .map((s) => s.trim())
+        .includes(phaseValue);
+    };
+
+    return (
+      <div>
+        {/* Phases section */}
+        <div className={styles.sectionHeader}>
+          <h3>Phases</h3>
+          <p>
+            Main workflow phases of a BID. You can customize the color used
+            across all badges, charts, and tables.
+          </p>
+        </div>
+        <div className={styles.optionsList}>
+          {phasesList.map((opt) => (
+            <PhaseColorRow
+              key={opt.id}
+              item={opt}
+              canEdit={canEdit}
+              onEdit={(item) => openEditPanel("phases", item)}
+            />
+          ))}
+        </div>
+
+        {/* Sub-Statuses section */}
+        <div className={styles.sectionHeader} style={{ marginTop: 32 }}>
+          <h3>Status</h3>
+          <p>
+            Workflow statuses that can appear within multiple phases. You can
+            customize the color. The phase applicability is shown as read-only
+            chips below each status.
+          </p>
+        </div>
+        <div className={styles.optionsList}>
+          {subStatusList.map((ss) => (
+            <SubStatusColorRow
+              key={ss.id}
+              item={ss}
+              canEdit={canEdit}
+              phasesList={phasesList}
+              isPhaseChecked={isPhaseChecked}
+              onEdit={(item) => openEditPanel("subStatuses", item)}
+            />
+          ))}
+        </div>
+
+        {/* Terminal Statuses section */}
+        <div className={styles.sectionHeader} style={{ marginTop: 32 }}>
+          <h3>Terminal Statuses</h3>
+          <p>
+            Final statuses that close a BID. Only available when the phase is
+            &quot;Close Out&quot;. These are pre-configured and cannot be added
+            or removed.
+          </p>
+        </div>
+        <div className={styles.optionsList}>
+          {(config.terminalStatuses || []).map((ts) => (
+            <div key={ts.id} className={styles.optionCard}>
+              <span
+                className={styles.optionColor}
+                style={{ background: ts.color || "#94a3b8" }}
+              />
+              <div className={styles.optionInfo}>
+                <span className={styles.optionLabel}>{ts.label}</span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: "var(--text-muted)",
+                    marginLeft: 6,
+                  }}
+                >
+                  Close Out only
+                </span>
+              </div>
+              {canEdit && (
+                <div className={styles.optionActions}>
+                  <button
+                    className={styles.actionBtn}
+                    onClick={() => openEditPanel("terminalStatuses", ts)}
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  /* ================================================================ */
+  /* RESOURCE TYPES (grouped with sub-types)                          */
+  /* ================================================================ */
+
+  const renderResourceTypes = (): React.ReactElement => {
+    const resourceTypes = config?.resourceTypes || [];
+
+    const addResourceType = (): void => {
+      const newType = {
+        id: `rt-${Date.now()}`,
+        label: "New Resource Type",
+        isActive: true,
+        order: resourceTypes.length,
+        subTypes: [],
+      };
+      updateConfig({ resourceTypes: [...resourceTypes, newType] });
+    };
+
+    const updateResourceType = (
+      id: string,
+      patch: Record<string, unknown>,
+    ): void => {
+      updateConfig({
+        resourceTypes: resourceTypes.map((rt) =>
+          rt.id === id ? { ...rt, ...patch } : rt,
+        ),
+      });
+    };
+
+    const deleteResourceType = (id: string): void => {
+      updateConfig({
+        resourceTypes: resourceTypes.filter((rt) => rt.id !== id),
+      });
+    };
+
+    const addSubType = (parentId: string): void => {
+      updateConfig({
+        resourceTypes: resourceTypes.map((rt) =>
+          rt.id === parentId
+            ? {
+                ...rt,
+                subTypes: [
+                  ...rt.subTypes,
+                  {
+                    id: `st-${Date.now()}`,
+                    value: `subtype-${Date.now()}`,
+                    label: "New Sub-Type",
+                    isActive: true,
+                  },
+                ],
+              }
+            : rt,
+        ),
+      });
+    };
+
+    const updateSubType = (
+      parentId: string,
+      subId: string,
+      patch: Record<string, unknown>,
+    ): void => {
+      updateConfig({
+        resourceTypes: resourceTypes.map((rt) =>
+          rt.id === parentId
+            ? {
+                ...rt,
+                subTypes: rt.subTypes.map((st) =>
+                  st.id === subId ? { ...st, ...patch } : st,
+                ),
+              }
+            : rt,
+        ),
+      });
+    };
+
+    const deleteSubType = (parentId: string, subId: string): void => {
+      updateConfig({
+        resourceTypes: resourceTypes.map((rt) =>
+          rt.id === parentId
+            ? { ...rt, subTypes: rt.subTypes.filter((st) => st.id !== subId) }
+            : rt,
+        ),
+      });
+    };
+
+    return (
+      <div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginBottom: 16,
+          }}
+        >
+          <h3 style={{ margin: 0 }}>Resource Types</h3>
+          <button
+            style={{
+              padding: "6px 14px",
+              borderRadius: 8,
+              border: "1px solid var(--border-subtle)",
+              background: "var(--accent-color)",
+              color: "#fff",
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+            onClick={addResourceType}
+          >
+            + Add Resource Type
+          </button>
+        </div>
+        {resourceTypes.length === 0 && (
+          <p style={{ color: "var(--text-secondary)" }}>
+            No resource types configured.
+          </p>
+        )}
+        {resourceTypes.map((rt) => (
+          <div
+            key={rt.id}
+            style={{
+              marginBottom: 16,
+              padding: 16,
+              borderRadius: 10,
+              border: "1px solid var(--border-subtle)",
+              background: "var(--glass-bg, rgba(255,255,255,0.04))",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                marginBottom: 12,
+              }}
+            >
+              <input
+                style={{
+                  flex: 1,
+                  fontWeight: 600,
+                  fontSize: 14,
+                  padding: "6px 10px",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: 6,
+                  background: "var(--input-bg, rgba(255,255,255,0.08))",
+                  color: "var(--text-primary)",
+                }}
+                value={rt.label}
+                onChange={(e) =>
+                  updateResourceType(rt.id, { label: e.target.value })
+                }
+              />
+              <label
+                style={{
+                  fontSize: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={rt.isActive}
+                  onChange={(e) =>
+                    updateResourceType(rt.id, { isActive: e.target.checked })
+                  }
+                />
+                Active
+              </label>
+              <button
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  color: "#ef4444",
+                  fontSize: 16,
+                  padding: "2px 6px",
+                }}
+                onClick={() => deleteResourceType(rt.id)}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ paddingLeft: 16 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 8,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  Sub-Types ({rt.subTypes.length})
+                </span>
+                <button
+                  style={{
+                    fontSize: 11,
+                    background: "transparent",
+                    border: "1px solid var(--border-subtle)",
+                    borderRadius: 4,
+                    padding: "2px 8px",
+                    cursor: "pointer",
+                    color: "var(--accent-color)",
+                  }}
+                  onClick={() => addSubType(rt.id)}
+                >
+                  + Sub-Type
+                </button>
+              </div>
+              {rt.subTypes.map((st) => (
+                <div
+                  key={st.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    marginBottom: 6,
+                  }}
+                >
+                  <input
+                    style={{
+                      flex: 1,
+                      fontSize: 13,
+                      padding: "4px 8px",
+                      border: "1px solid var(--border-subtle)",
+                      borderRadius: 4,
+                      background: "var(--input-bg, rgba(255,255,255,0.08))",
+                      color: "var(--text-primary)",
+                    }}
+                    value={st.label}
+                    onChange={(e) => {
+                      updateSubType(rt.id, st.id, {
+                        label: e.target.value,
+                        value: e.target.value,
+                      });
+                    }}
+                  />
+                  <label
+                    style={{
+                      fontSize: 11,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={st.isActive !== false}
+                      onChange={(e) =>
+                        updateSubType(rt.id, st.id, {
+                          isActive: e.target.checked,
+                        })
+                      }
+                    />
+                    Active
+                  </label>
+                  <button
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      color: "#ef4444",
+                      fontSize: 14,
+                    }}
+                    onClick={() => deleteSubType(rt.id, st.id)}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  /* ---- Availability & Acquisition Type (combined) --------------- */
+
+  const renderAvailabilityAndAcquisition = (): React.ReactElement => {
+    if (!config) return <></>;
+    const availList = config.availabilityStatuses || [];
+    const acqList = config.acquisitionTypes || [];
+
+    const sectionHeaderStyle: React.CSSProperties = {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 12,
+      paddingBottom: 8,
+      borderBottom: "1px solid var(--border-subtle)",
+    };
+    const sectionTitleStyle: React.CSSProperties = {
+      fontSize: 15,
+      fontWeight: 600,
+      color: "var(--text-primary)",
+      margin: 0,
+    };
+    const sectionDescStyle: React.CSSProperties = {
+      fontSize: 12,
+      color: "var(--text-muted)",
+      margin: "0 0 16px",
+    };
+    const catBadgeStyle = (cat: string): React.CSSProperties => ({
+      fontSize: 10,
+      padding: "2px 8px",
+      borderRadius: 4,
+      fontWeight: 600,
+      marginLeft: 8,
+      background:
+        cat === "CAPEX"
+          ? "rgba(0,201,167,0.15)"
+          : cat === "OPEX"
+            ? "rgba(99,102,241,0.15)"
+            : "rgba(150,150,150,0.15)",
+      color:
+        cat === "CAPEX"
+          ? "var(--success, #00c9a7)"
+          : cat === "OPEX"
+            ? "var(--primary-accent, #6366f1)"
+            : "var(--text-muted)",
+    });
+
+    return (
+      <div>
+        <div style={sectionHeaderStyle}>
+          <h3 style={sectionTitleStyle}>
+            📦 Availability &amp; Acquisition Types
+          </h3>
+        </div>
+        <p style={sectionDescStyle}>
+          Each Availability Status has its own set of applicable Acquisition
+          Types. Manage availability statuses and their acquisition sub-types
+          below.
+        </p>
+
+        {/* Add Availability Status */}
+        {canEdit && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginBottom: 12,
+            }}
+          >
+            <button
+              className={`${styles.actionBtn} ${styles.primary}`}
+              onClick={() =>
+                openAddPanel("availabilityStatuses" as keyof ISystemConfig)
+              }
+            >
+              + Add Availability Status
+            </button>
+          </div>
+        )}
+
+        {availList.length === 0 && (
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+            No availability statuses configured.
+          </p>
+        )}
+
+        {availList.map((avail) => {
+          const childAcqs = acqList.filter(
+            (at) =>
+              at.category === avail.value ||
+              at.category === `${avail.value}|CAPEX` ||
+              at.category === `${avail.value}|OPEX`,
+          );
+          // Parse cost type from category: "AvailValue" or "AvailValue|CAPEX"
+          const getCostType = (at: IConfigOption): string => {
+            const cat = at.category || "";
+            const parts = cat.split("|");
+            return parts.length > 1 ? parts[1] : "";
+          };
+
+          return (
+            <div key={avail.id} className={styles.groupedSection}>
+              <div className={styles.divisionHeader}>
+                <div className={styles.divisionTitleRow}>
+                  <span className={styles.divisionName}>{avail.label}</span>
+                  {avail.isActive === false && (
+                    <span className={styles.inactiveTag}>Inactive</span>
+                  )}
+                </div>
+                {canEdit && (
+                  <div className={styles.optionActions}>
+                    <button
+                      className={styles.actionBtn}
+                      onClick={() =>
+                        openEditPanel(
+                          "availabilityStatuses" as keyof ISystemConfig,
+                          avail,
+                        )
+                      }
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className={styles.actionBtn}
+                      onClick={() =>
+                        handleOptionToggle(
+                          "availabilityStatuses" as keyof ISystemConfig,
+                          avail.id,
+                        )
+                      }
+                    >
+                      {avail.isActive !== false ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      className={`${styles.actionBtn} ${styles.danger}`}
+                      onClick={() =>
+                        handleDeleteOption(
+                          "availabilityStatuses" as keyof ISystemConfig,
+                          avail.id,
+                        )
+                      }
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {canEdit && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    marginBottom: 8,
+                  }}
+                >
+                  <button
+                    className={`${styles.actionBtn} ${styles.primary}`}
+                    onClick={() =>
+                      openAddPanel("acquisitionTypes", avail.value)
+                    }
+                  >
+                    + Add Acq. Type to {avail.label}
+                  </button>
+                </div>
+              )}
+
+              <div className={styles.optionsList}>
+                {childAcqs.length === 0 && (
+                  <div className={styles.emptyHint}>
+                    No acquisition types for this availability status yet.
+                  </div>
+                )}
+                {childAcqs.map((opt) => (
+                  <div
+                    key={opt.id}
+                    className={`${styles.optionCard} ${opt.isActive === false ? styles.inactive : ""}`}
+                  >
+                    <div className={styles.optionInfo}>
+                      <span className={styles.optionLabel}>{opt.label}</span>
+                      {getCostType(opt) && (
+                        <span style={catBadgeStyle(getCostType(opt))}>
+                          {getCostType(opt)}
+                        </span>
+                      )}
+                      {opt.isActive === false && (
+                        <span className={styles.inactiveTag}>Inactive</span>
+                      )}
+                    </div>
+                    {canEdit && (
+                      <div className={styles.optionActions}>
+                        <button
+                          className={styles.actionBtn}
+                          onClick={() => openEditPanel("acquisitionTypes", opt)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className={styles.actionBtn}
+                          onClick={() =>
+                            handleOptionToggle("acquisitionTypes", opt.id)
+                          }
+                        >
+                          {opt.isActive !== false ? "Disable" : "Enable"}
+                        </button>
+                        <button
+                          className={`${styles.actionBtn} ${styles.danger}`}
+                          onClick={() =>
+                            handleDeleteOption("acquisitionTypes", opt.id)
+                          }
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Uncategorized acquisition types */}
+        {(() => {
+          const availValues = new Set(availList.map((a) => a.value));
+          const uncategorized = acqList.filter((at) => {
+            const parentVal = (at.category || "").split("|")[0];
+            return !parentVal || !availValues.has(parentVal);
+          });
+          if (uncategorized.length === 0) return null;
+          return (
+            <div className={styles.groupedSection}>
+              <div className={styles.groupLabel}>
+                Uncategorized Acquisition Types
+              </div>
+              <div className={styles.optionsList}>
+                {uncategorized.map((opt) => (
+                  <div
+                    key={opt.id}
+                    className={`${styles.optionCard} ${opt.isActive === false ? styles.inactive : ""}`}
+                  >
+                    <div className={styles.optionInfo}>
+                      <span className={styles.optionLabel}>{opt.label}</span>
+                      {opt.category && (
+                        <span style={catBadgeStyle(opt.category)}>
+                          {opt.category}
+                        </span>
+                      )}
+                    </div>
+                    {canEdit && (
+                      <div className={styles.optionActions}>
+                        <button
+                          className={styles.actionBtn}
+                          onClick={() => openEditPanel("acquisitionTypes", opt)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className={`${styles.actionBtn} ${styles.danger}`}
+                          onClick={() =>
+                            handleDeleteOption("acquisitionTypes", opt.id)
+                          }
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+    );
+  };
+
   /* ================================================================ */
   /* TAB ROUTER                                                       */
   /* ================================================================ */
@@ -1166,6 +1983,12 @@ const SystemConfiguration: React.FC = () => {
         return renderAccessLevels();
       case "notifications":
         return renderNotifications();
+      case "phases":
+        return renderPhasesAndSubStatuses();
+      case "resourceTypes":
+        return renderResourceTypes();
+      case "availabilityAcquisition":
+        return renderAvailabilityAndAcquisition();
       default: {
         if (currentNavItem?.configKey) {
           return renderOptionsList(currentNavItem.configKey);
@@ -1299,17 +2122,41 @@ const SystemConfiguration: React.FC = () => {
               </button>
             </div>
             <div className={styles.panelBody}>
-              <div className={styles.fieldGroup}>
-                <label>Label</label>
-                <input
-                  value={panelForm.label}
-                  onChange={(e) =>
-                    setPanelForm({ ...panelForm, label: e.currentTarget.value })
-                  }
-                  placeholder="Display label"
-                  autoFocus
-                />
-              </div>
+              {panelConfigKey !== "phases" &&
+                panelConfigKey !== "subStatuses" &&
+                panelConfigKey !== "terminalStatuses" && (
+                  <div className={styles.fieldGroup}>
+                    <label>Label</label>
+                    <input
+                      value={panelForm.label}
+                      onChange={(e) =>
+                        setPanelForm({
+                          ...panelForm,
+                          label: e.currentTarget.value,
+                        })
+                      }
+                      placeholder="Display label"
+                      autoFocus
+                    />
+                  </div>
+                )}
+              {(panelConfigKey === "phases" ||
+                panelConfigKey === "subStatuses" ||
+                panelConfigKey === "terminalStatuses") &&
+                editItem && (
+                  <div className={styles.fieldGroup}>
+                    <label>Item</label>
+                    <span
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      {editItem.label}
+                    </span>
+                  </div>
+                )}
               <div className={styles.fieldGroup}>
                 <label>Color</label>
                 <input
@@ -1362,6 +2209,180 @@ const SystemConfiguration: React.FC = () => {
                       ))}
                   </select>
                 </div>
+              )}
+              {panelConfigKey === "subStatuses" && editItem && config && (
+                <div className={styles.fieldGroup}>
+                  <label>Applicable Phases</label>
+                  <p
+                    style={{
+                      fontSize: 12,
+                      color: "var(--text-muted)",
+                      margin: "0 0 8px",
+                    }}
+                  >
+                    Select which phases this status applies to. Leave all
+                    unchecked for &quot;All Phases&quot;.
+                  </p>
+                  {(() => {
+                    const cat =
+                      panelForm.category === undefined ||
+                      panelForm.category === null
+                        ? "all"
+                        : panelForm.category;
+                    const selectedPhases =
+                      cat === "all"
+                        ? []
+                        : cat === ""
+                          ? []
+                          : cat
+                              .split(",")
+                              .map((s) => s.trim())
+                              .filter(Boolean);
+                    const allChecked = cat === "all";
+                    return (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 6,
+                        }}
+                      >
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            fontSize: 13,
+                            fontWeight: allChecked ? 600 : 400,
+                            color: allChecked
+                              ? "var(--primary-accent)"
+                              : "var(--text-primary)",
+                            padding: "4px 0",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={allChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setPanelForm({ ...panelForm, category: "all" });
+                              } else {
+                                setPanelForm({ ...panelForm, category: "" });
+                              }
+                            }}
+                          />
+                          All Phases
+                        </label>
+                        <div
+                          style={{
+                            borderTop: "1px solid var(--border-subtle)",
+                            margin: "4px 0",
+                          }}
+                        />
+                        {config.phases
+                          .filter((p) => p.isActive)
+                          .map((phase) => {
+                            return (
+                              <label
+                                key={phase.id}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  fontSize: 13,
+                                  color: "var(--text-primary)",
+                                  padding: "4px 0",
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    allChecked ||
+                                    selectedPhases.includes(phase.value)
+                                  }
+                                  disabled={allChecked}
+                                  onChange={(e) => {
+                                    let newPhases: string[];
+                                    if (e.target.checked) {
+                                      newPhases = [
+                                        ...selectedPhases,
+                                        phase.value,
+                                      ];
+                                    } else {
+                                      newPhases = selectedPhases.filter(
+                                        (p) => p !== phase.value,
+                                      );
+                                    }
+                                    setPanelForm({
+                                      ...panelForm,
+                                      category:
+                                        newPhases.length > 0
+                                          ? newPhases.join(",")
+                                          : "",
+                                    });
+                                  }}
+                                />
+                                <span
+                                  style={{
+                                    width: 10,
+                                    height: 10,
+                                    borderRadius: "50%",
+                                    background: phase.color || "#94a3b8",
+                                    flexShrink: 0,
+                                  }}
+                                />
+                                {phase.label}
+                              </label>
+                            );
+                          })}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+              {panelConfigKey === "acquisitionTypes" && config && (
+                <>
+                  {editItem && (
+                    <div className={styles.fieldGroup}>
+                      <label>Availability Status (Parent)</label>
+                      <select
+                        value={(panelForm.category || "").split("|")[0]}
+                        onChange={(e) => {
+                          const availVal = e.currentTarget.value;
+                          setPanelForm({
+                            ...panelForm,
+                            category: availVal,
+                          });
+                        }}
+                      >
+                        <option value="">— Select —</option>
+                        {(config.availabilityStatuses || [])
+                          .filter((a) => a.isActive !== false)
+                          .map((a) => (
+                            <option key={a.id} value={a.value}>
+                              {a.label}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
+                  {!editItem && panelForm.category && (
+                    <div className={styles.fieldGroup}>
+                      <label>Parent Availability</label>
+                      <span
+                        style={{
+                          fontSize: 13,
+                          color: "var(--text-primary)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {(config.availabilityStatuses || []).find(
+                          (a) => a.value === panelForm.category,
+                        )?.label || panelForm.category}
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
             </div>
             <div className={styles.panelFooter}>

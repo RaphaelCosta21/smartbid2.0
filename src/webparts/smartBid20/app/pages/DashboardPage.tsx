@@ -18,6 +18,8 @@ import { DashboardService } from "../services/DashboardService";
 import { differenceInDays, format } from "date-fns";
 import { isActiveBid } from "../utils/bidHelpers";
 import { DIVISION_COLORS } from "../utils/constants";
+import { useStatusColors } from "../hooks/useStatusColors";
+import { getPhaseDef } from "../config/status.config";
 import styles from "./DashboardPage.module.scss";
 
 export const DashboardPage: React.FC = () => {
@@ -26,6 +28,7 @@ export const DashboardPage: React.FC = () => {
   const currentUser = useCurrentUser();
   const notifications = useNotificationStore((s) => s.notifications);
   const kpis = useKPIs();
+  const { getPhaseColor, getStatusColor, getPriorityColor } = useStatusColors();
 
   const now = new Date();
   const greeting =
@@ -75,7 +78,7 @@ export const DashboardPage: React.FC = () => {
     .filter((b) => b.approvalStatus === "pending")
     .map((b) => ({
       bidNumber: b.bidNumber,
-      requester: b.owner.name,
+      requester: b.creator?.name || "—",
       days: Math.abs(differenceInDays(new Date(b.lastModified), now)),
     }));
 
@@ -188,22 +191,24 @@ export const DashboardPage: React.FC = () => {
                 <thead>
                   <tr>
                     <th>BID #</th>
+                    <th>CRM #</th>
                     <th>Client</th>
                     <th>Project</th>
                     <th>Division</th>
-                    <th>Owner</th>
-                    <th>Hours</th>
+                    <th>Creator</th>
                     <th>Due Date</th>
                     <th>Priority</th>
+                    <th>Phase</th>
                     <th>Status</th>
+                    <th>Progress</th>
                   </tr>
                 </thead>
                 <tbody>
                   {bids.map((bid) => {
-                    const daysLeft = differenceInDays(
-                      new Date(bid.dueDate),
-                      now,
-                    );
+                    const daysLeft = bid.dueDate
+                      ? differenceInDays(new Date(bid.dueDate), now)
+                      : 0;
+                    const phaseDef = getPhaseDef(bid.currentPhase);
                     return (
                       <tr
                         key={bid.bidNumber}
@@ -211,7 +216,8 @@ export const DashboardPage: React.FC = () => {
                         onClick={() => navigate(`/bid/${bid.bidNumber}`)}
                       >
                         <td className={styles.mono}>{bid.bidNumber}</td>
-                        <td>{bid.opportunityInfo.client}</td>
+                        <td className={styles.mono}>{bid.crmNumber || "—"}</td>
+                        <td>{bid.opportunityInfo?.client || ""}</td>
                         <td
                           style={{
                             maxWidth: 200,
@@ -220,42 +226,60 @@ export const DashboardPage: React.FC = () => {
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {bid.opportunityInfo.projectName}
+                          {bid.opportunityInfo?.projectName || ""}
                         </td>
                         <td>
                           <StatusBadge
                             status={bid.division}
-                            color={
-                              bid.division === "OPG"
-                                ? "#3b82f6"
-                                : bid.division === "SSR-ROV"
-                                  ? "#f59e0b"
-                                  : bid.division === "SSR-Survey"
-                                    ? "#10b981"
-                                    : "#8b5cf6"
-                            }
+                            color={DIVISION_COLORS[bid.division]}
                           />
                         </td>
-                        <td>{bid.owner.name}</td>
-                        <td>
-                          {(
-                            bid.hoursSummary?.grandTotalHours || 0
-                          ).toLocaleString()}
-                        </td>
+                        <td>{bid.creator?.name || "—"}</td>
                         <td
                           className={daysLeft < 0 ? styles.overdue : undefined}
                         >
-                          {format(new Date(bid.dueDate), "MMM d, yyyy")}
+                          {bid.dueDate
+                            ? format(new Date(bid.dueDate), "MMM d")
+                            : "—"}
                         </td>
                         <td>
-                          <span
-                            className={`${styles.priorityBadge} ${(styles as Record<string, string>)[bid.priority.toLowerCase()]}`}
+                          <StatusBadge
+                            status={bid.priority}
+                            color={getPriorityColor(bid.priority)}
+                          />
+                        </td>
+                        <td>
+                          {phaseDef ? (
+                            <StatusBadge
+                              status={phaseDef.label}
+                              color={getPhaseColor(bid.currentPhase)}
+                            />
+                          ) : null}
+                        </td>
+                        <td>
+                          <StatusBadge
+                            status={bid.currentStatus}
+                            color={getStatusColor(bid.currentStatus)}
+                          />
+                        </td>
+                        <td>
+                          <div
+                            style={{
+                              width: 80,
+                              height: 6,
+                              background: "var(--border-subtle)",
+                              borderRadius: 3,
+                            }}
                           >
-                            {bid.priority}
-                          </span>
-                        </td>
-                        <td>
-                          <StatusBadge status={bid.currentStatus} />
+                            <div
+                              style={{
+                                height: "100%",
+                                width: `${bid.kpis?.phaseCompletionPercentage || 0}%`,
+                                background: "var(--primary-accent)",
+                                borderRadius: 3,
+                              }}
+                            />
+                          </div>
                         </td>
                       </tr>
                     );

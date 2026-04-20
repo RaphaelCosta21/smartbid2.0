@@ -15,6 +15,7 @@ export function useBids(): {
   getBidByNumber: (bidNumber: string) => IBid | undefined;
 } {
   const bids = useBidStore((s) => s.bids);
+  const filters = useBidStore((s) => s.filters);
   const getFilteredBids = useBidStore((s) => s.getFilteredBids);
   const isLoading = useBidStore((s) => s.isLoading);
   const selectedBid = useBidStore((s) => s.selectedBid);
@@ -22,7 +23,7 @@ export function useBids(): {
 
   const filteredBids = React.useMemo(
     () => getFilteredBids(),
-    [bids, getFilteredBids],
+    [bids, filters, getFilteredBids],
   );
 
   const getBidByNumber = React.useCallback(

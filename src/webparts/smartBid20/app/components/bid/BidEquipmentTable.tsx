@@ -1,5 +1,6 @@
 import * as React from "react";
 import { IEquipmentItem } from "../../models";
+import { formatCurrency } from "../../utils/formatters";
 import styles from "./BidEquipmentTable.module.scss";
 
 interface BidEquipmentTableProps {
@@ -10,12 +11,12 @@ interface BidEquipmentTableProps {
 }
 
 export const BidEquipmentTable: React.FC<BidEquipmentTableProps> = ({
-  items,
+  items = [],
   onEdit,
   onDelete,
   readOnly = false,
 }) => {
-  if (items.length === 0) {
+  if (!items || items.length === 0) {
     return <div className={styles.empty}>No equipment items added yet</div>;
   }
 
@@ -50,19 +51,23 @@ export const BidEquipmentTable: React.FC<BidEquipmentTableProps> = ({
               <td className={styles.cellCenter}>{item.qtySpare}</td>
               <td className={styles.cellCenter}>{item.qtyToBuy}</td>
               <td className={styles.cellRight}>
-                ${item.unitCostUSD.toLocaleString()}
+                {formatCurrency(item.unitCostUSD)}
               </td>
               <td className={`${styles.cellRight} ${styles.cellBold}`}>
-                ${item.totalCostUSD.toLocaleString()}
+                {formatCurrency(item.totalCostUSD)}
               </td>
               <td>
                 <span
                   className={styles.categoryBadge}
                   style={{
                     background:
-                      item.costCategory === "CAPEX" ? "#3B82F620" : "#10B98120",
+                      item.costCategory === "CAPEX"
+                        ? "rgba(59, 130, 246, 0.12)"
+                        : "rgba(16, 185, 129, 0.12)",
                     color:
-                      item.costCategory === "CAPEX" ? "#3B82F6" : "#10B981",
+                      item.costCategory === "CAPEX"
+                        ? "var(--primary-accent, #3B82F6)"
+                        : "var(--success-color, #10B981)",
                   }}
                 >
                   {item.costCategory}

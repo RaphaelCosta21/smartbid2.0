@@ -1,6 +1,7 @@
 import * as React from "react";
 import { IActivityLogEntry } from "../../models";
 import { Timeline } from "../common/Timeline";
+import { formatDateTime } from "../../utils/formatters";
 import styles from "./BidActivityLog.module.scss";
 
 interface BidActivityLogProps {
@@ -9,14 +10,15 @@ interface BidActivityLogProps {
 }
 
 export const BidActivityLog: React.FC<BidActivityLogProps> = ({
-  entries,
+  entries = [],
   className,
 }) => {
-  const items = entries.map((entry) => ({
+  const safeEntries = entries || [];
+  const items = safeEntries.map((entry) => ({
     id: entry.id,
     title: entry.description,
     description: `by ${entry.actorName}`,
-    timestamp: new Date(entry.timestamp).toLocaleString(),
+    timestamp: formatDateTime(entry.timestamp),
     color: getActivityColor(entry.type),
   }));
 
@@ -34,12 +36,12 @@ export const BidActivityLog: React.FC<BidActivityLogProps> = ({
 
 function getActivityColor(type: string): string {
   const colors: Record<string, string> = {
-    STATUS_CHANGED: "#3B82F6",
-    PHASE_CHANGED: "#8B5CF6",
-    APPROVAL_REQUESTED: "#F59E0B",
-    APPROVAL_RESPONSE: "#10B981",
-    COMMENT_ADDED: "#06B6D4",
-    BID_CREATED: "#22C55E",
+    STATUS_CHANGED: "var(--primary-accent, #3B82F6)",
+    PHASE_CHANGED: "var(--accent-purple, #8B5CF6)",
+    APPROVAL_REQUESTED: "var(--warning-color, #F59E0B)",
+    APPROVAL_RESPONSE: "var(--success-color, #10B981)",
+    COMMENT_ADDED: "var(--accent-cyan, #06B6D4)",
+    BID_CREATED: "var(--success-color, #22C55E)",
   };
-  return colors[type] || "#94A3B8";
+  return colors[type] || "var(--text-tertiary, #94A3B8)";
 }

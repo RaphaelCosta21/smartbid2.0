@@ -4,7 +4,9 @@
 export type KBCategory =
   | "datasheets"
   | "past-bids"
+  | "qualifications"
   | "manuals"
+  | "op-alerts"
   | "lessons-learned"
   | "templates"
   | "procedures";

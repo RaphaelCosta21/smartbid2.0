@@ -6,6 +6,8 @@ interface TemplateCardProps {
   template: IBidTemplate;
   onSelect?: () => void;
   onEdit?: () => void;
+  onDelete?: () => void;
+  onDuplicate?: () => void;
   className?: string;
 }
 
@@ -13,8 +15,17 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
   template,
   onSelect,
   onEdit,
+  onDelete,
+  onDuplicate,
   className,
 }) => {
+  const scopeDataItems = (template.scopeItems || []).filter(
+    (i) => !i.isSection,
+  );
+  const sectionCount = (template.scopeItems || []).filter(
+    (i) => i.isSection,
+  ).length;
+
   return (
     <div
       className={`${styles.card} ${className || ""}`}
@@ -22,27 +33,50 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
       onClick={onSelect}
     >
       <div className={styles.header}>
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <h4 className={styles.title}>{template.name}</h4>
-          <p className={styles.description}>{template.description}</p>
+          <div className={styles.badges}>
+            {template.division && (
+              <span className={styles.divBadge}>{template.division}</span>
+            )}
+            {template.serviceLine && (
+              <span className={styles.slBadge}>{template.serviceLine}</span>
+            )}
+            {template.category && (
+              <span className={styles.catBadge}>{template.category}</span>
+            )}
+          </div>
         </div>
-        {onEdit && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit();
-            }}
-            className={styles.editBtn}
-          >
-            Edit
-          </button>
-        )}
+        <span
+          className={`${styles.statusBadge} ${template.isActive ? styles.active : styles.inactive}`}
+        >
+          {template.isActive ? "Active" : "Inactive"}
+        </span>
       </div>
-      <div className={styles.meta}>
-        <span>{template.division}</span>
-        <span>{template.equipmentItems.length} items</span>
-        <span>Used {template.usageCount}x</span>
+
+      {template.description && (
+        <p className={styles.description}>{template.description}</p>
+      )}
+
+      <div className={styles.stats}>
+        <div className={styles.stat}>
+          <span className={styles.statValue}>{scopeDataItems.length}</span>
+          <span className={styles.statLabel}>Items</span>
+        </div>
+        <div className={styles.stat}>
+          <span className={styles.statValue}>{sectionCount}</span>
+          <span className={styles.statLabel}>Sections</span>
+        </div>
+        <div className={styles.stat}>
+          <span className={styles.statValue}>{template.usageCount}</span>
+          <span className={styles.statLabel}>Used</span>
+        </div>
+        <div className={styles.stat}>
+          <span className={styles.statValue}>v{template.version}</span>
+          <span className={styles.statLabel}>Version</span>
+        </div>
       </div>
+
       {template.tags.length > 0 && (
         <div className={styles.tags}>
           {template.tags.map((tag) => (
@@ -52,6 +86,35 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
           ))}
         </div>
       )}
+
+      <div className={styles.footer}>
+        <span className={styles.creator}>By {template.createdBy || "—"}</span>
+        <div className={styles.actions} onClick={(e) => e.stopPropagation()}>
+          {onDuplicate && (
+            <button
+              className={styles.actionBtn}
+              onClick={onDuplicate}
+              title="Duplicate"
+            >
+              📋
+            </button>
+          )}
+          {onEdit && (
+            <button className={styles.actionBtn} onClick={onEdit} title="Edit">
+              ✏️
+            </button>
+          )}
+          {onDelete && (
+            <button
+              className={`${styles.actionBtn} ${styles.deleteBtn}`}
+              onClick={onDelete}
+              title="Delete"
+            >
+              🗑️
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

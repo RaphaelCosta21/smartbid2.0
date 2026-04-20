@@ -46,6 +46,14 @@ export interface IAccessLevelDef {
   templates: AccessPermission;
 }
 
+export interface IResourceTypeConfig {
+  id: string;
+  label: string;
+  isActive: boolean;
+  order: number;
+  subTypes: IConfigOption[];
+}
+
 export interface ISystemConfig {
   kpiTargets: IKPITargets;
   regions: IConfigOption[];
@@ -55,6 +63,7 @@ export interface ISystemConfig {
   clientList: IConfigOption[];
   jobFunctions: IConfigOption[];
   hoursPhases: IConfigOption[];
+  availabilityStatuses: IConfigOption[];
   acquisitionTypes: IConfigOption[];
   deliverableTypes: IConfigOption[];
   engineerDeliverables: IConfigOption[];
@@ -62,6 +71,9 @@ export interface ISystemConfig {
   lossReasons: IConfigOption[];
   costReferences: IConfigOption[];
   phases: IConfigOption[];
+  subStatuses: IConfigOption[];
+  terminalStatuses: IConfigOption[];
+  resourceTypes: IResourceTypeConfig[];
   currencySettings: ICurrencySettings;
   notifications: Record<string, string[]>;
   accessLevels: Record<UserRole, IAccessLevelDef>;

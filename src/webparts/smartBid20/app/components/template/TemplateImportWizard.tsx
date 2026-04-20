@@ -52,7 +52,9 @@ export const TemplateImportWizard: React.FC<TemplateImportWizardProps> = ({
               >
                 <div className={styles.templateBtnName}>{t.name}</div>
                 <div className={styles.templateBtnMeta}>
-                  {t.division} · {t.equipmentItems.length} items
+                  {t.division} ·{" "}
+                  {(t.scopeItems || []).filter((i) => !i.isSection).length}{" "}
+                  items
                 </div>
               </button>
             ))}
@@ -63,7 +65,8 @@ export const TemplateImportWizard: React.FC<TemplateImportWizardProps> = ({
           <div>
             <p className={styles.confirmText}>
               Import <strong>{selected.name}</strong> with{" "}
-              {selected.equipmentItems.length} equipment items?
+              {(selected.scopeItems || []).filter((i) => !i.isSection).length}{" "}
+              scope items?
             </p>
             <div className={styles.confirmActions}>
               <button onClick={() => setStep(0)} className={styles.backBtn}>

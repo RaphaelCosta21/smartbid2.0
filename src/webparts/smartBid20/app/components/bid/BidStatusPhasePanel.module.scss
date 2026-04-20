@@ -1,0 +1,582 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ─── Phase Stepper ─── */
+
+.phaseStepper {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  padding: 20px 0 12px;
+  overflow-x: auto;
+}
+
+.phaseStep {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 100px;
+  position: relative;
+  cursor: default;
+}
+
+.phaseStepClickable {
+  cursor: pointer;
+
+  &:hover .phaseCircle {
+    transform: scale(1.1);
+  }
+
+  &:hover .phaseStepLabel {
+    color: var(--text-primary);
+  }
+}
+
+.phaseCircle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  transition: all 250ms ease;
+  flex-shrink: 0;
+}
+
+.phaseCircleCompleted {
+  color: white;
+}
+
+.phaseCircleCurrent {
+  border: 3px solid var(--primary-accent);
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.phaseCirclePending {
+  background: var(--border-subtle);
+  color: var(--text-muted);
+  border: 2px solid transparent;
+}
+
+.phaseStepLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-top: 8px;
+  text-align: center;
+  max-width: 100px;
+  line-height: 1.3;
+  transition: color 200ms;
+}
+
+.phaseCurrentBadge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-top: 4px;
+}
+
+.phaseConnector {
+  flex: 1;
+  height: 3px;
+  min-width: 24px;
+  margin-top: 18px;
+  border-radius: 2px;
+  transition: background 300ms;
+}
+
+.phaseConnectorDone {
+  opacity: 0.7;
+}
+
+.phaseConnectorPending {
+  background: var(--border-subtle);
+}
+
+/* Phase Nav Buttons */
+
+.phaseNavRow {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 8px;
+}
+
+.phaseNavBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 200ms;
+
+  &:hover:not(:disabled) {
+    background: var(--border-subtle);
+    color: var(--text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+.phaseNavBtnPrimary {
+  background: var(--primary-accent);
+  color: white;
+  border: none;
+
+  &:hover:not(:disabled) {
+    background: var(--primary-accent);
+    filter: brightness(1.15);
+    color: white;
+  }
+}
+
+/* ─── KPI Stats ─── */
+
+.kpiRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.kpiCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+.kpiIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpiContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpiValue {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.kpiLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ─── Status Section ─── */
+
+.statusSection {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 16px;
+}
+
+/* Current Status Display */
+
+.currentStatusDisplay {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.statusIndicator {
+  width: 6px;
+  min-height: 60px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.currentStatusInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.currentStatusLabel {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.currentPhaseBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.phaseDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.lastChangeInfo {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Status Selector */
+
+.statusSelectorWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.statusGroupLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+}
+
+.statusGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.statusCard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg-elevated);
+  cursor: pointer;
+  transition: all 200ms;
+  text-align: left;
+
+  &:hover:not(:disabled) {
+    border-color: var(--border);
+    background: var(--card-bg);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+.statusCardActive {
+  font-weight: 600;
+}
+
+.statusCardTerminal {
+  opacity: 0.8;
+
+  &:hover:not(:disabled) {
+    opacity: 1;
+  }
+}
+
+.statusCardDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.statusCardLabel {
+  font-size: 12px;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.statusCardCheck {
+  flex-shrink: 0;
+}
+
+.readOnlyMsg {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 20px 0;
+  text-align: center;
+}
+
+/* Terminal Section */
+
+.terminalSection {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+}
+
+.terminalToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 6px 0;
+
+  &:hover {
+    color: var(--text-secondary);
+  }
+}
+
+.terminalHint {
+  font-weight: 400;
+  font-size: 10px;
+}
+
+/* ─── Recent Steps ─── */
+
+.recentSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.recentStepItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.recentStepDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.recentStepContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.recentStepTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recentStepPhase {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.recentStepMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.recentStepDuration {
+  color: var(--accent-purple, #8b5cf6);
+  font-weight: 600;
+}
+
+/* ─── Confirmation Dialog ─── */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 200ms ease;
+}
+
+.confirmDialog {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 32px;
+  max-width: 440px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  animation: scaleIn 200ms ease;
+}
+
+.confirmIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--primary-accent-10, rgba(59, 130, 246, 0.08));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirmTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.confirmChanges {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--card-bg-elevated);
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+}
+
+.confirmChangeRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.confirmLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  min-width: 48px;
+}
+
+.confirmFrom {
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.confirmTo {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.confirmMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.confirmActions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.confirmCancel {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-bg-elevated);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms;
+
+  &:hover {
+    background: var(--border-subtle);
+  }
+}
+
+.confirmSubmit {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  background: var(--primary-accent);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms;
+
+  &:hover {
+    filter: brightness(1.12);
+  }
+}
+
+/* ─── Animations ─── */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

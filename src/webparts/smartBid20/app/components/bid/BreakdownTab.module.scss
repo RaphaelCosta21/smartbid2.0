@@ -1,0 +1,151 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.toolbar {
+  display: flex;
+  gap: 8px;
+}
+.addBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--accent-color);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+.addBtn:hover {
+  opacity: 0.9;
+}
+.summaryRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.summaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-subtle);
+  min-width: 120px;
+}
+.summaryLabel {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.summaryValue {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.tableWrapper {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.table th {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.table td {
+  padding: 6px 10px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.table tr:hover td {
+  background: var(--glass-bg, rgba(255, 255, 255, 0.03));
+}
+.cellCenter {
+  text-align: center;
+}
+.cellRight {
+  text-align: right;
+}
+.cellBold {
+  font-weight: 600;
+}
+.editInput {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary);
+  font-size: 12px;
+}
+.editInput:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+.numInput {
+  width: 80px;
+  padding: 4px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary);
+  font-size: 12px;
+  text-align: right;
+}
+.numInput:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+.selectCell {
+  padding: 4px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.selectCell:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+.deleteBtn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #ef4444;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.deleteBtn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+.totalBar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 10px;
+  font-weight: 700;
+  font-size: 14px;
+  gap: 24px;
+  border-top: 2px solid var(--border-subtle);
+}
+.empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-secondary);
+}

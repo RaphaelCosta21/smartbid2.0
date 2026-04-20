@@ -114,6 +114,12 @@ const BID_ROLE_META: IBidRoleMeta[] = [
     color: "#0f766e",
     bg: "rgba(15,118,110,0.12)",
   },
+  {
+    key: "analyst",
+    label: "Analyst",
+    color: "#0284c7",
+    bg: "rgba(2,132,199,0.12)",
+  },
 ];
 
 function getInitials(name: string): string {
@@ -924,12 +930,18 @@ const MembersManagement: React.FC = () => {
               <label>Sector</label>
               <select
                 value={panelForm.sector}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const newSector = e.currentTarget.value as Sector;
                   setPanelForm({
                     ...panelForm,
-                    sector: e.currentTarget.value as Sector,
-                  })
-                }
+                    sector: newSector,
+                    bidRole:
+                      panelForm.bidRole === "analyst" &&
+                      newSector !== "engineering"
+                        ? "contributor"
+                        : panelForm.bidRole,
+                  });
+                }}
               >
                 {SECTOR_META.map((s) => (
                   <option key={s.key} value={s.key}>
@@ -1031,7 +1043,10 @@ const MembersManagement: React.FC = () => {
                   })
                 }
               >
-                {BID_ROLE_META.map((br) => (
+                {BID_ROLE_META.filter(
+                  (br) =>
+                    br.key !== "analyst" || panelForm.sector === "engineering",
+                ).map((br) => (
                   <option key={br.key} value={br.key}>
                     {br.label}
                   </option>

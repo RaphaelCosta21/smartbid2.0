@@ -24,6 +24,11 @@
 
   tr {
     border-bottom: 1px solid var(--border-subtle);
+    transition: background 150ms ease;
+
+    &:hover {
+      background: rgba(59, 130, 246, 0.04);
+    }
   }
 
   td {

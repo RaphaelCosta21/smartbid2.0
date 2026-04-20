@@ -4,92 +4,26 @@ import { DataTable } from "../components/common/DataTable";
 import { EmptyState } from "../components/common/EmptyState";
 import { DivisionBadge } from "../components/common/DivisionBadge";
 import { useDebounce } from "../hooks/useDebounce";
+import { useStatusColors } from "../hooks/useStatusColors";
 import { formatCurrency, formatDate } from "../utils/formatters";
+import { QuotationService, IQuotation } from "../services/QuotationService";
 import styles from "./QuotationsPage.module.scss";
-
-interface IQuotation {
-  id: string;
-  vendor: string;
-  description: string;
-  division: string;
-  amount: number;
-  currency: string;
-  validUntil: string;
-  status: "active" | "expired" | "used";
-  relatedBid: string | null;
-}
-
-const MOCK_QUOTATIONS: IQuotation[] = [
-  {
-    id: "QT-001",
-    vendor: "SubC Imaging",
-    description: "ROV Camera System x2",
-    division: "SSR-ROV",
-    amount: 185000,
-    currency: "USD",
-    validUntil: "2026-06-30T00:00:00Z",
-    status: "active",
-    relatedBid: "BID-2026-042",
-  },
-  {
-    id: "QT-002",
-    vendor: "Sonardyne",
-    description: "USBL Positioning System",
-    division: "SSR-Survey",
-    amount: 320000,
-    currency: "USD",
-    validUntil: "2026-05-15T00:00:00Z",
-    status: "active",
-    relatedBid: null,
-  },
-  {
-    id: "QT-003",
-    vendor: "Oceaneering DTS",
-    description: "Tooling Rental — 30 days",
-    division: "OPG",
-    amount: 95000,
-    currency: "USD",
-    validUntil: "2026-04-01T00:00:00Z",
-    status: "expired",
-    relatedBid: "BID-2026-015",
-  },
-  {
-    id: "QT-004",
-    vendor: "DOF Subsea",
-    description: "Vessel Charter — 45 days",
-    division: "SSR-ROV",
-    amount: 2700000,
-    currency: "USD",
-    validUntil: "2026-07-31T00:00:00Z",
-    status: "active",
-    relatedBid: null,
-  },
-  {
-    id: "QT-005",
-    vendor: "Forum Energy",
-    description: "Intervention Tooling Package",
-    division: "SSR-Integrated",
-    amount: 540000,
-    currency: "USD",
-    validUntil: "2026-03-15T00:00:00Z",
-    status: "used",
-    relatedBid: "BID-2026-005",
-  },
-];
-
-const STATUS_COLORS: Record<string, string> = {
-  active: "#10B981",
-  expired: "#94A3B8",
-  used: "#3B82F6",
-};
 
 export const QuotationsPage: React.FC = () => {
   const [search, setSearch] = React.useState("");
+  const [quotations, setQuotations] = React.useState<IQuotation[]>([]);
   const debouncedSearch = useDebounce(search, 300);
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
+  const { getStatusColor } = useStatusColors();
+
+  React.useEffect(() => {
+    QuotationService.getAll()
+      .then((data) => setQuotations(data))
+      .catch((err) => console.error("Failed to load quotations:", err));
+  }, []);
 
   const filtered = React.useMemo(() => {
-    let items = MOCK_QUOTATIONS;
+    let items = quotations;
     if (statusFilter !== "all")
       items = items.filter((q) => q.status === statusFilter);
     if (debouncedSearch) {
@@ -101,7 +35,7 @@ export const QuotationsPage: React.FC = () => {
       );
     }
     return items;
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, quotations]);
 
   const columns = [
     {
@@ -136,7 +70,7 @@ export const QuotationsPage: React.FC = () => {
       render: (q: IQuotation) => (
         <span
           className={styles.statusText}
-          style={{ color: STATUS_COLORS[q.status] }}
+          style={{ color: getStatusColor(q.status) }}
         >
           {q.status}
         </span>

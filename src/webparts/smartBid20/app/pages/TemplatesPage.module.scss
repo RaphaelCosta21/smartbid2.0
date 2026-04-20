@@ -4,14 +4,31 @@
   gap: 24px;
 }
 
+/* ─── Toolbar ─── */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
 .searchInput {
-  padding: 10px 16px;
+  padding: 9px 14px;
   border-radius: 10px;
   border: 1px solid var(--border-subtle);
   background: var(--card-bg);
   color: var(--text-primary);
-  font-size: 14px;
-  max-width: 400px;
+  font-size: 13px;
+  min-width: 200px;
   outline: none;
   transition: border-color 200ms ease;
 
@@ -20,80 +37,333 @@
   }
 }
 
+.filterSelect {
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  appearance: auto;
+
+  &:focus {
+    border-color: var(--primary-accent);
+  }
+}
+
+.clearBtn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 200ms;
+
+  &:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+  }
+}
+
+.toolbarRight {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.viewToggle {
+  display: flex;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.viewBtn {
+  padding: 7px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 150ms;
+
+  &:hover {
+    background: var(--card-bg-elevated);
+  }
+}
+
+.viewActive {
+  background: var(--primary-accent);
+  color: #fff;
+
+  &:hover {
+    background: var(--primary-accent);
+  }
+}
+
+.refreshBtn {
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 200ms;
+
+  &:hover {
+    border-color: var(--primary-accent);
+    color: var(--primary-accent);
+  }
+}
+
+.createBtn {
+  padding: 9px 20px;
+  border-radius: 10px;
+  border: none;
+  background: var(--primary-accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 200ms;
+  white-space: nowrap;
+
+  &:hover {
+    opacity: 0.9;
+  }
+}
+
+/* ─── Loading ─── */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--primary-accent);
+  border-radius: 50%;
+  animation: spin 600ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ─── Empty State ─── */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.emptyTitle {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.emptyText {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  max-width: 400px;
+}
+
+/* ─── Grid View ─── */
 .cardGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
 }
 
-.tplHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
+/* ─── List View ─── */
+.listView {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: auto;
+  background: var(--card-bg);
 }
 
-.tplName {
-  font-size: 15px;
+.listTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    background: var(--card-bg-elevated);
+    border-bottom: 1px solid var(--border-subtle);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+  }
+
+  tbody tr:hover {
+    background: var(--card-bg-elevated);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+}
+
+.linkBtn {
+  background: none;
+  border: none;
+  color: var(--primary-accent);
+  cursor: pointer;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 4px;
+  padding: 0;
+  text-align: left;
+
+  &:hover {
+    text-decoration: underline;
+  }
 }
 
-.tplBadges {
-  display: flex;
-  gap: 6px;
-}
-
-.tplStatusBadge {
+.statusBadge {
   font-size: 11px;
-  padding: 2px 8px;
+  padding: 2px 10px;
   border-radius: 999px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
-.tplActive {
+.statusActive {
   background: rgba(16, 185, 129, 0.12);
   color: #10b981;
 }
 
-.tplInactive {
+.statusInactive {
   background: rgba(239, 68, 68, 0.12);
   color: #ef4444;
 }
 
-.tplDescription {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-  margin: 0 0 12px;
-}
-
-.tplTags {
+.rowActions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 12px;
+  gap: 4px;
 }
 
-.tplTag {
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  background: var(--card-bg-elevated);
-  color: var(--text-secondary);
+.rowActionBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 14px;
+  opacity: 0.7;
+  transition:
+    opacity 150ms,
+    background 150ms;
+
+  &:hover {
+    opacity: 1;
+    background: var(--card-bg-elevated);
+  }
+}
+
+.rowDeleteBtn {
+  &:hover {
+    background: rgba(239, 68, 68, 0.12);
+  }
+}
+
+/* ─── Preview Modal ─── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 24px;
+}
+
+.modal {
+  background: var(--card-bg);
+  border-radius: 16px;
   border: 1px solid var(--border-subtle);
+  max-width: 800px;
+  width: 100%;
+  max-height: 80vh;
+  overflow: auto;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
-.tplMeta {
+.modalActions {
   display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--text-muted);
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
 }
 
-.tplDate {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-top: 4px;
+.modalEditBtn {
+  padding: 9px 20px;
+  border-radius: 8px;
+  border: none;
+  background: var(--primary-accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 200ms;
+
+  &:hover {
+    opacity: 0.9;
+  }
+}
+
+.modalCloseBtn {
+  padding: 9px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 200ms;
+
+  &:hover {
+    border-color: var(--text-muted);
+    color: var(--text-primary);
+  }
 }

@@ -21,9 +21,9 @@ export class DashboardService {
     const activeBids = bids.filter(
       (b) => !["Completed", "Canceled", "No Bid"].includes(b.currentStatus),
     );
-    const overdueBids = activeBids.filter((b) => b.kpis.isOverdue);
+    const overdueBids = activeBids.filter((b) => b.kpis?.isOverdue);
 
-    const onTimeCount = completedBids.filter((b) => !b.kpis.isOverdue).length;
+    const onTimeCount = completedBids.filter((b) => !b.kpis?.isOverdue).length;
     const onTimeRate =
       completedBids.length > 0
         ? Math.round((onTimeCount / completedBids.length) * 100)
@@ -32,8 +32,10 @@ export class DashboardService {
     const avgDays =
       completedBids.length > 0
         ? Math.round(
-            completedBids.reduce((sum, b) => sum + b.kpis.totalDaysElapsed, 0) /
-              completedBids.length,
+            completedBids.reduce(
+              (sum, b) => sum + (b.kpis?.totalDaysElapsed || 0),
+              0,
+            ) / completedBids.length,
           )
         : 0;
 
@@ -122,7 +124,7 @@ export class DashboardService {
       divisions[div].activeBids++;
       if (bid.currentStatus === "Pending Approval")
         divisions[div].pendingApprovals++;
-      if (bid.kpis.isOverdue) divisions[div].overdueBids++;
+      if (bid.kpis?.isOverdue) divisions[div].overdueBids++;
     }
     return Object.values(divisions);
   }

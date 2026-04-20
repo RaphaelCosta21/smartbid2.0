@@ -1,11 +1,11 @@
-import { IBidStatusDef, IPhaseDef } from "../models/IBidStatus";
+import { IBidStatusDef, IPhaseDef, ISubStatusDef } from "../models/IBidStatus";
 
 export const BID_STATUSES: IBidStatusDef[] = [
   {
     id: "request-submitted",
     label: "Request Submitted",
     value: "Request Submitted",
-    phase: "PHASE_0",
+    phase: "Request Submitted",
     color: "#94A3B8",
     order: 1,
     isTerminal: false,
@@ -14,7 +14,7 @@ export const BID_STATUSES: IBidStatusDef[] = [
     id: "pending-assignment",
     label: "Pending Assignment",
     value: "Pending Assignment",
-    phase: "PHASE_0",
+    phase: "Request Submitted",
     color: "#F59E0B",
     order: 2,
     isTerminal: false,
@@ -23,7 +23,7 @@ export const BID_STATUSES: IBidStatusDef[] = [
     id: "kick-off",
     label: "Kick Off",
     value: "Kick Off",
-    phase: "PHASE_1",
+    phase: "Bid Kick Off",
     color: "#3B82F6",
     order: 3,
     isTerminal: false,
@@ -32,7 +32,7 @@ export const BID_STATUSES: IBidStatusDef[] = [
     id: "technical-analysis",
     label: "Technical Analysis",
     value: "Technical Analysis",
-    phase: "PHASE_2",
+    phase: "Technical Analysis",
     color: "#06B6D4",
     order: 4,
     isTerminal: false,
@@ -41,7 +41,7 @@ export const BID_STATUSES: IBidStatusDef[] = [
     id: "awaiting-clarification",
     label: "Awaiting Clarification",
     value: "Awaiting Clarification",
-    phase: "PHASE_2",
+    phase: "Technical Analysis",
     color: "#F97316",
     order: 5,
     isTerminal: false,
@@ -50,7 +50,7 @@ export const BID_STATUSES: IBidStatusDef[] = [
     id: "cost-gathering",
     label: "Cost Gathering",
     value: "Cost Gathering",
-    phase: "PHASE_3",
+    phase: "Cost & Resources",
     color: "#8B5CF6",
     order: 6,
     isTerminal: false,
@@ -59,7 +59,7 @@ export const BID_STATUSES: IBidStatusDef[] = [
     id: "bid-elaboration",
     label: "BID Elaboration",
     value: "BID Elaboration",
-    phase: "PHASE_3",
+    phase: "Cost & Resources",
     color: "#A855F7",
     order: 7,
     isTerminal: false,
@@ -68,7 +68,7 @@ export const BID_STATUSES: IBidStatusDef[] = [
     id: "under-review",
     label: "Under Review",
     value: "Under Review",
-    phase: "PHASE_3",
+    phase: "Cost & Resources",
     color: "#EC4899",
     order: 8,
     isTerminal: false,
@@ -77,7 +77,7 @@ export const BID_STATUSES: IBidStatusDef[] = [
     id: "pending-approval",
     label: "Pending Approval",
     value: "Pending Approval",
-    phase: "PHASE_3",
+    phase: "Cost & Resources",
     color: "#F59E0B",
     order: 9,
     isTerminal: false,
@@ -86,7 +86,7 @@ export const BID_STATUSES: IBidStatusDef[] = [
     id: "technical-proposal",
     label: "Technical Proposal",
     value: "Technical Proposal",
-    phase: "PHASE_4",
+    phase: "Technical Proposal",
     color: "#14B8A6",
     order: 10,
     isTerminal: false,
@@ -95,7 +95,7 @@ export const BID_STATUSES: IBidStatusDef[] = [
     id: "proposal-review",
     label: "Proposal Review",
     value: "Proposal Review",
-    phase: "PHASE_4",
+    phase: "Technical Proposal",
     color: "#0EA5E9",
     order: 11,
     isTerminal: false,
@@ -104,7 +104,7 @@ export const BID_STATUSES: IBidStatusDef[] = [
     id: "proposal-approval",
     label: "Proposal Approval",
     value: "Proposal Approval",
-    phase: "PHASE_4",
+    phase: "Technical Proposal",
     color: "#F59E0B",
     order: 12,
     isTerminal: false,
@@ -113,18 +113,9 @@ export const BID_STATUSES: IBidStatusDef[] = [
     id: "completed",
     label: "Completed",
     value: "Completed",
-    phase: "PHASE_5",
+    phase: "Close Out",
     color: "#10B981",
     order: 13,
-    isTerminal: true,
-  },
-  {
-    id: "returned-commercial",
-    label: "Returned to Commercial",
-    value: "Returned to Commercial",
-    phase: "PHASE_5",
-    color: "#10B981",
-    order: 14,
     isTerminal: true,
   },
   {
@@ -140,7 +131,7 @@ export const BID_STATUSES: IBidStatusDef[] = [
     id: "canceled",
     label: "Canceled",
     value: "Canceled",
-    phase: null,
+    phase: "Close Out",
     color: "#EF4444",
     order: 16,
     isTerminal: true,
@@ -149,7 +140,7 @@ export const BID_STATUSES: IBidStatusDef[] = [
     id: "no-bid",
     label: "No Bid",
     value: "No Bid",
-    phase: null,
+    phase: "Close Out",
     color: "#94A3B8",
     order: 17,
     isTerminal: true,
@@ -168,43 +159,43 @@ export const BID_STATUSES: IBidStatusDef[] = [
 export const BID_PHASES: IPhaseDef[] = [
   {
     id: "phase-0",
-    label: "Request",
-    value: "PHASE_0",
+    label: "Request Submitted",
+    value: "Request Submitted",
     order: 0,
     color: "#94A3B8",
   },
   {
     id: "phase-1",
     label: "Bid Kick Off",
-    value: "PHASE_1",
+    value: "Bid Kick Off",
     order: 1,
     color: "#3B82F6",
   },
   {
     id: "phase-2",
     label: "Technical Analysis",
-    value: "PHASE_2",
+    value: "Technical Analysis",
     order: 2,
     color: "#06B6D4",
   },
   {
     id: "phase-3",
     label: "Cost & Resources",
-    value: "PHASE_3",
+    value: "Cost & Resources",
     order: 3,
     color: "#8B5CF6",
   },
   {
     id: "phase-4",
     label: "Technical Proposal",
-    value: "PHASE_4",
+    value: "Technical Proposal",
     order: 4,
     color: "#14B8A6",
   },
   {
     id: "phase-5",
     label: "Close Out",
-    value: "PHASE_5",
+    value: "Close Out",
     order: 5,
     color: "#10B981",
   },
@@ -224,4 +215,96 @@ export function getStatusColor(statusValue: string): string {
 
 export function getPhaseColor(phaseValue: string): string {
   return getPhaseDef(phaseValue)?.color ?? "#94A3B8";
+}
+
+/* ------------------------------------------------------------------ */
+/* SUB-STATUSES — Phase-independent workflow statuses                  */
+/* ------------------------------------------------------------------ */
+
+export const SUB_STATUSES: ISubStatusDef[] = [
+  {
+    id: "pending-assignment",
+    label: "Pending Assignment",
+    value: "Pending Assignment",
+    color: "#F59E0B",
+    icon: "⏳",
+    order: 1,
+    applicablePhases: ["Request Submitted", "Bid Kick Off"],
+  },
+  {
+    id: "awaiting-clarification",
+    label: "Awaiting Clarification",
+    value: "Awaiting Clarification",
+    color: "#F97316",
+    icon: "❓",
+    order: 2,
+    applicablePhases: "all",
+  },
+  {
+    id: "cost-gathering",
+    label: "Cost Gathering",
+    value: "Cost Gathering",
+    color: "#8B5CF6",
+    icon: "💰",
+    order: 3,
+    applicablePhases: [
+      "Technical Analysis",
+      "Cost & Resources",
+      "Technical Proposal",
+    ],
+  },
+  {
+    id: "bid-elaboration",
+    label: "BID Elaboration",
+    value: "BID Elaboration",
+    color: "#A855F7",
+    icon: "📝",
+    order: 4,
+    applicablePhases: ["Cost & Resources"],
+  },
+  {
+    id: "under-review",
+    label: "Under Review",
+    value: "Under Review",
+    color: "#EC4899",
+    icon: "🔍",
+    order: 5,
+    applicablePhases: "all",
+  },
+  {
+    id: "pending-approval",
+    label: "Pending Approval",
+    value: "Pending Approval",
+    color: "#F59E0B",
+    icon: "✋",
+    order: 6,
+    applicablePhases: ["Cost & Resources", "Technical Proposal", "Close Out"],
+  },
+  {
+    id: "on-hold",
+    label: "On Hold",
+    value: "On Hold",
+    color: "#64748B",
+    icon: "⏸",
+    order: 7,
+    applicablePhases: "all",
+    isBlocking: true,
+  },
+];
+
+export function getSubStatusDef(
+  subStatusValue: string,
+): ISubStatusDef | undefined {
+  return SUB_STATUSES.find((s) => s.value === subStatusValue);
+}
+
+export function getSubStatusColor(subStatusValue: string): string {
+  return getSubStatusDef(subStatusValue)?.color ?? "#94A3B8";
+}
+
+export function getSubStatusesForPhase(phase: string): ISubStatusDef[] {
+  return SUB_STATUSES.filter(
+    (s) =>
+      s.applicablePhases === "all" || s.applicablePhases.includes(phase as any),
+  );
 }

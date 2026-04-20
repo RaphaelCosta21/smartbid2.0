@@ -34,7 +34,12 @@ export const BidTemplateImport: React.FC<BidTemplateImportProps> = ({
                 <div>
                   <div className={styles.templateName}>{template.name}</div>
                   <div className={styles.templateMeta}>
-                    {template.division} · {template.equipmentItems.length} items
+                    {template.division} ·{" "}
+                    {
+                      (template.scopeItems || []).filter((i) => !i.isSection)
+                        .length
+                    }{" "}
+                    items
                   </div>
                 </div>
                 <svg

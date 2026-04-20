@@ -56,10 +56,11 @@ export function getUniqueOwners(
 ): { name: string; email: string }[] {
   const seen: Record<string, { name: string; email: string }> = {};
   for (const bid of bids) {
-    if (!seen[bid.owner.email]) {
-      seen[bid.owner.email] = {
-        name: bid.owner.name,
-        email: bid.owner.email,
+    const creator = bid.creator;
+    if (creator && !seen[creator.email]) {
+      seen[creator.email] = {
+        name: creator.name,
+        email: creator.email,
       };
     }
   }

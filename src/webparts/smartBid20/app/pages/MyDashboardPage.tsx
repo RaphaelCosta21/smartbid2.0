@@ -19,7 +19,9 @@ export const MyDashboardPage: React.FC = () => {
   const myBids = React.useMemo(
     () =>
       bids.filter(
-        (b) => b.owner.email === userEmail || b.bidder.email === userEmail,
+        (b) =>
+          b.creator?.email === userEmail ||
+          (b.engineerResponsible || []).some((e) => e.email === userEmail),
       ),
     [bids, userEmail],
   );

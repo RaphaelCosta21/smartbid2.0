@@ -3,11 +3,8 @@ import { HashRouter, Routes, Route } from "react-router-dom";
 import { useUIStore } from "../../stores/useUIStore";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useBidStore } from "../../stores/useBidStore";
-import { useNotificationStore } from "../../stores/useNotificationStore";
-import { useRequestStore } from "../../stores/useRequestStore";
-import { useTemplateStore } from "../../stores/useTemplateStore";
 import { useConfigStore } from "../../stores/useConfigStore";
-import { MockDataService } from "../../services/MockDataService";
+import { BidService } from "../../services/BidService";
 import { SystemConfigService } from "../../services/SystemConfigService";
 import { ROUTES } from "../../config/routes.config";
 import darkTheme from "../../styles/themes/dark.module.scss";
@@ -27,7 +24,7 @@ import { MembersPage } from "../../pages/MembersPage";
 import { NotificationsPage } from "../../pages/NotificationsPage";
 import { UnassignedRequestsPage } from "../../pages/UnassignedRequestsPage";
 import { CreateRequestPage } from "../../pages/CreateRequestPage";
-import { MyDashboardPage } from "../../pages/MyDashboardPage";
+
 import { FlowBoardPage } from "../../pages/FlowBoardPage";
 import { TimelinePage } from "../../pages/TimelinePage";
 import { ApprovalsPage } from "../../pages/ApprovalsPage";
@@ -50,22 +47,39 @@ export const AppLayout: React.FC = () => {
   const sidebarExpanded = useUIStore((s) => s.sidebarExpanded);
   const isGuestUser = useAuthStore((s) => s.isGuestUser);
   const setBids = useBidStore((s) => s.setBids);
-  const setNotifications = useNotificationStore((s) => s.setNotifications);
   const toasts = useUIStore((s) => s.toasts);
   const dismissToast = useUIStore((s) => s.dismissToast);
-  const setRequests = useRequestStore((s) => s.setRequests);
-  const setTemplates = useTemplateStore((s) => s.setTemplates);
   const setConfig = useConfigStore((s) => s.setConfig);
 
   React.useEffect(() => {
-    setBids(MockDataService.getBids());
-    setNotifications(MockDataService.getNotifications());
-    setRequests(MockDataService.getRequests());
-    setTemplates(MockDataService.getTemplates() as any);
+    BidService.getAll()
+      .then((bids) => setBids(bids))
+      .catch((err) => console.error("Failed to load bids:", err));
 
     // Load system config from SharePoint into global store
     SystemConfigService.get()
-      .then((cfg) => setConfig(cfg))
+      .then((cfg) => {
+        // Ensure "Approved" sub-status exists (added in v2)
+        const subs = cfg.subStatuses || [];
+        const hasApproved = subs.some(
+          (s) => s.value === "Approved" || s.label === "Approved",
+        );
+        if (!hasApproved) {
+          const maxOrder = subs.reduce((m, s) => Math.max(m, s.order || 0), 0);
+          subs.push({
+            id: "ss-8",
+            label: "Approved",
+            value: "Approved",
+            isActive: true,
+            order: maxOrder + 1,
+            color: "#10B981",
+            category: "Close Out",
+          });
+          cfg.subStatuses = subs;
+          SystemConfigService.update(cfg).catch(() => {});
+        }
+        setConfig(cfg);
+      })
       .catch((err) => console.error("Failed to load system config:", err));
   }, []);
 
@@ -95,8 +109,8 @@ export const AppLayout: React.FC = () => {
 
           <div className={styles.contentArea}>
             <Routes>
-              <Route path={ROUTES.dashboard} element={<DashboardPage />} />
               <Route path={ROUTES.tracker} element={<BidTrackerPage />} />
+              <Route path={ROUTES.dashboard} element={<DashboardPage />} />
               <Route path={ROUTES.bidDetail} element={<BidDetailPage />} />
               <Route
                 path={ROUTES.requests}
@@ -106,7 +120,6 @@ export const AppLayout: React.FC = () => {
                 path={ROUTES.createRequest}
                 element={<CreateRequestPage />}
               />
-              <Route path={ROUTES.myDashboard} element={<MyDashboardPage />} />
               <Route path={ROUTES.flowboard} element={<FlowBoardPage />} />
               <Route path={ROUTES.timeline} element={<TimelinePage />} />
               <Route

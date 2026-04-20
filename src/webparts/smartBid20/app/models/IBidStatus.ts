@@ -1,10 +1,10 @@
 export type BidPhase =
-  | "PHASE_0"
-  | "PHASE_1"
-  | "PHASE_2"
-  | "PHASE_3"
-  | "PHASE_4"
-  | "PHASE_5";
+  | "Request Submitted"
+  | "Bid Kick Off"
+  | "Technical Analysis"
+  | "Cost & Resources"
+  | "Technical Proposal"
+  | "Close Out";
 
 export type BidStatusId =
   | "request-submitted"
@@ -43,6 +43,36 @@ export interface IPhaseDef {
   order: number;
   color: string;
 }
+
+/* ------------------------------------------------------------------ */
+/* SUB-STATUS — Phase-independent workflow statuses                    */
+/* ------------------------------------------------------------------ */
+
+export type SubStatusId =
+  | "pending-assignment"
+  | "awaiting-clarification"
+  | "cost-gathering"
+  | "bid-elaboration"
+  | "under-review"
+  | "pending-approval"
+  | "on-hold";
+
+export interface ISubStatusDef {
+  id: SubStatusId;
+  label: string;
+  value: string;
+  color: string;
+  icon?: string;
+  order: number;
+  /** Phases where this sub-status can appear. Use "all" for universal. */
+  applicablePhases: BidPhase[] | "all";
+  /** If true, blocks phase progression (e.g. On Hold) */
+  isBlocking?: boolean;
+}
+
+/* ------------------------------------------------------------------ */
+/* OTHER TYPES                                                        */
+/* ------------------------------------------------------------------ */
 
 export type BidPriority = "Urgent" | "Normal" | "Low";
 export type BidType = "Firm" | "Budgetary" | "RFI" | "Extension" | "Amendment";

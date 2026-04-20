@@ -1,10 +1,8 @@
 import * as React from "react";
-import { useParams } from "react-router-dom";
 import { PageHeader } from "../components/common/PageHeader";
 import { EmptyState } from "../components/common/EmptyState";
-import { mockKnowledgeBase } from "../data/mockKnowledgeBase";
 import { KnowledgeBaseService } from "../services/KnowledgeBaseService";
-import { SPService } from "../services/SPService";
+import { IKnowledgeBaseItem } from "../models/IKnowledgeBase";
 import { formatFileSize, formatRelativeTime } from "../utils/formatters";
 import { useDebounce } from "../hooks/useDebounce";
 import styles from "./KnowledgeBasePage.module.scss";
@@ -12,31 +10,28 @@ import styles from "./KnowledgeBasePage.module.scss";
 const CATEGORY_LABELS: Record<string, { label: string; icon: string }> = {
   datasheets: { label: "Datasheets", icon: "📄" },
   "past-bids": { label: "Past Bids", icon: "📋" },
+  qualifications: { label: "Qualifications", icon: "🏅" },
   manuals: { label: "Manuals", icon: "📘" },
+  "op-alerts": { label: "Op. Alerts", icon: "⚠️" },
   "lessons-learned": { label: "Lessons Learned", icon: "💡" },
   templates: { label: "Templates", icon: "📦" },
   procedures: { label: "Procedures", icon: "📝" },
 };
 
 export const KnowledgeBasePage: React.FC = () => {
-  const { category } = useParams<{ category: string }>();
-  const [activeCategory, setActiveCategory] = React.useState<string>(
-    category || "all",
-  );
+  const [activeCategory, setActiveCategory] = React.useState<string>("all");
   const [searchTerm, setSearchTerm] = React.useState("");
-  const [items, setItems] = React.useState(mockKnowledgeBase);
+  const [items, setItems] = React.useState<IKnowledgeBaseItem[]>([]);
   const debouncedSearch = useDebounce(searchTerm, 300);
 
   React.useEffect(() => {
-    if (SPService.isInitialized) {
-      KnowledgeBaseService.getAll()
-        .then((data) => {
-          if (data.length > 0) setItems(data);
-        })
-        .catch(() => {
-          /* fall back to mock data */
-        });
-    }
+    KnowledgeBaseService.getAll()
+      .then((data) => {
+        setItems(data);
+      })
+      .catch((err) => {
+        console.error("Failed to load knowledge base:", err);
+      });
   }, []);
 
   const categories = ["all", ...Object.keys(CATEGORY_LABELS)];
