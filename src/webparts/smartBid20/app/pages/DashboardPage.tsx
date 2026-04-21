@@ -2,6 +2,7 @@ import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useBidStore } from "../stores/useBidStore";
 import { useNotificationStore } from "../stores/useNotificationStore";
+import { useConfigStore } from "../stores/useConfigStore";
 import { useKPIs } from "../hooks/useKPIs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { PageHeader } from "../components/common/PageHeader";
@@ -13,11 +14,9 @@ import { UpcomingDeadlines } from "../components/dashboard/UpcomingDeadlines";
 import { BidsByStatusChart } from "../components/dashboard/BidsByStatusChart";
 import { BidsByDivisionChart } from "../components/dashboard/BidsByDivisionChart";
 import { ApprovalsPending } from "../components/dashboard/ApprovalsPending";
-import { BID_STATUSES } from "../config/status.config";
 import { DashboardService } from "../services/DashboardService";
 import { differenceInDays, format } from "date-fns";
 import { isActiveBid } from "../utils/bidHelpers";
-import { DIVISION_COLORS } from "../utils/constants";
 import { useStatusColors } from "../hooks/useStatusColors";
 import { getPhaseDef } from "../config/status.config";
 import styles from "./DashboardPage.module.scss";
@@ -25,10 +24,12 @@ import styles from "./DashboardPage.module.scss";
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const bids = useBidStore((s) => s.bids);
+  const config = useConfigStore((s) => s.config);
   const currentUser = useCurrentUser();
   const notifications = useNotificationStore((s) => s.notifications);
   const kpis = useKPIs();
-  const { getPhaseColor, getStatusColor, getPriorityColor } = useStatusColors();
+  const { getPhaseColor, getStatusColor, getPriorityColor, getDivisionColor } =
+    useStatusColors();
 
   const now = new Date();
   const greeting =
@@ -55,23 +56,35 @@ export const DashboardPage: React.FC = () => {
       ? Math.round((onTimeCount / completedBids.length) * 100)
       : 100;
 
-  // Status chart data
-  const statusChartData = BID_STATUSES.filter((s) => !s.isTerminal)
-    .map((status) => ({
-      status: status.label,
-      count: activeBids.filter((b) => b.currentStatus === status.value).length,
-      color: status.color,
-    }))
-    .filter((d) => d.count > 0);
+  // Status chart data — from config subStatuses
+  const statusChartData = React.useMemo(() => {
+    const statuses = (config?.subStatuses || [])
+      .filter((s) => s.isActive !== false)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    return statuses
+      .map((status) => ({
+        status: status.label,
+        count: activeBids.filter((b) => b.currentStatus === status.value)
+          .length,
+        color: status.color || "#94A3B8",
+      }))
+      .filter((d) => d.count > 0);
+  }, [config, activeBids]);
 
-  // Division chart data
+  // Division chart data — from config divisions
   const divisionWorkloads = DashboardService.calculateDivisionWorkloads(bids);
-  const divisions = ["OPG", "SSR-ROV", "SSR-Survey", "SSR-Integrated"] as const;
-  const divisionChartData = divisions.map((div) => ({
-    division: div,
-    count: divisionWorkloads.find((w) => w.division === div)?.activeBids || 0,
-    color: (DIVISION_COLORS as Record<string, string>)[div] || "#64748b",
-  }));
+  const divisionChartData = React.useMemo(() => {
+    const divs = (config?.divisions || [])
+      .filter((d) => d.isActive !== false)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    return divs.map((div) => ({
+      division: div.value,
+      count:
+        divisionWorkloads.find((w) => w.division === div.value)?.activeBids ||
+        0,
+      color: div.color || "#94a3b8",
+    }));
+  }, [config, divisionWorkloads]);
 
   // Pending approvals
   const pendingApprovals = activeBids
@@ -231,7 +244,7 @@ export const DashboardPage: React.FC = () => {
                         <td>
                           <StatusBadge
                             status={bid.division}
-                            color={DIVISION_COLORS[bid.division]}
+                            color={getDivisionColor(bid.division)}
                           />
                         </td>
                         <td>{bid.creator?.name || "—"}</td>

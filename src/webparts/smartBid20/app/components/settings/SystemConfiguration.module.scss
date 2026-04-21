@@ -847,6 +847,31 @@
       border-color: var(--primary-accent);
     }
   }
+
+  input[type="color"] {
+    width: 48px;
+    height: 36px;
+    padding: 2px;
+    border-radius: 8px;
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+
+    &::-webkit-color-swatch-wrapper {
+      padding: 2px;
+    }
+
+    &::-webkit-color-swatch {
+      border: none;
+      border-radius: 6px;
+    }
+
+    &::-moz-color-swatch {
+      border: none;
+      border-radius: 6px;
+    }
+  }
 }
 
 /* ================================================================ */

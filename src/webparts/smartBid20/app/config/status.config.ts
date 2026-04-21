@@ -1,4 +1,10 @@
-import { IBidStatusDef, IPhaseDef, ISubStatusDef } from "../models/IBidStatus";
+import {
+  IBidStatusDef,
+  IPhaseDef,
+  ISubStatusDef,
+  BidPhase,
+} from "../models/IBidStatus";
+import { useConfigStore } from "../stores/useConfigStore";
 
 export const BID_STATUSES: IBidStatusDef[] = [
   {
@@ -202,10 +208,52 @@ export const BID_PHASES: IPhaseDef[] = [
 ];
 
 export function getStatusDef(statusValue: string): IBidStatusDef | undefined {
+  const cfg = useConfigStore.getState().config;
+  if (cfg) {
+    const sub = (cfg.subStatuses || []).find((s) => s.value === statusValue);
+    if (sub) {
+      return {
+        id: sub.id as any,
+        label: sub.label,
+        value: sub.value,
+        color: sub.color || "#94A3B8",
+        order: sub.order || 0,
+        phase: null,
+        isTerminal: false,
+      };
+    }
+    const term = ((cfg as any).terminalStatuses || []).find(
+      (t: any) => t.value === statusValue,
+    );
+    if (term) {
+      return {
+        id: term.id as any,
+        label: term.label,
+        value: term.value,
+        color: term.color || "#94A3B8",
+        order: term.order || 0,
+        phase: "Close Out" as BidPhase,
+        isTerminal: true,
+      };
+    }
+  }
   return BID_STATUSES.find((s) => s.value === statusValue);
 }
 
 export function getPhaseDef(phaseValue: string): IPhaseDef | undefined {
+  const cfg = useConfigStore.getState().config;
+  if (cfg) {
+    const phase = (cfg.phases || []).find((p) => p.value === phaseValue);
+    if (phase) {
+      return {
+        id: phase.id,
+        label: phase.label,
+        value: phase.value as BidPhase,
+        color: phase.color || "#94A3B8",
+        order: phase.order || 0,
+      };
+    }
+  }
   return BID_PHASES.find((p) => p.value === phaseValue);
 }
 
@@ -290,11 +338,44 @@ export const SUB_STATUSES: ISubStatusDef[] = [
     applicablePhases: "all",
     isBlocking: true,
   },
+  {
+    id: "awaiting-kick-off",
+    label: "Awaiting Kick Off",
+    value: "Awaiting Kick Off",
+    color: "#06B6D4",
+    icon: "🚀",
+    order: 8,
+    applicablePhases: ["Bid Kick Off"],
+  },
+  {
+    id: "eng-study",
+    label: "Eng. Study",
+    value: "Eng. Study",
+    color: "#2563EB",
+    icon: "🔬",
+    order: 9,
+    applicablePhases: ["Technical Analysis", "Cost & Resources"],
+  },
 ];
 
 export function getSubStatusDef(
   subStatusValue: string,
 ): ISubStatusDef | undefined {
+  const cfg = useConfigStore.getState().config;
+  if (cfg) {
+    const sub = (cfg.subStatuses || []).find((s) => s.value === subStatusValue);
+    if (sub) {
+      return {
+        id: sub.id as any,
+        label: sub.label,
+        value: sub.value,
+        color: sub.color || "#94A3B8",
+        icon: "",
+        order: sub.order || 0,
+        applicablePhases: (sub.category || "all") as any,
+      };
+    }
+  }
   return SUB_STATUSES.find((s) => s.value === subStatusValue);
 }
 
@@ -303,6 +384,25 @@ export function getSubStatusColor(subStatusValue: string): string {
 }
 
 export function getSubStatusesForPhase(phase: string): ISubStatusDef[] {
+  const cfg = useConfigStore.getState().config;
+  if (cfg && cfg.subStatuses && cfg.subStatuses.length > 0) {
+    return cfg.subStatuses
+      .filter((s) => s.isActive !== false)
+      .filter((s) => {
+        const cat = s.category || "all";
+        return cat === "all" || cat.split(",").indexOf(phase) >= 0;
+      })
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .map((s) => ({
+        id: s.id as any,
+        label: s.label,
+        value: s.value,
+        color: s.color || "#94A3B8",
+        icon: "",
+        order: s.order || 0,
+        applicablePhases: (s.category || "all") as any,
+      }));
+  }
   return SUB_STATUSES.filter(
     (s) =>
       s.applicablePhases === "all" || s.applicablePhases.includes(phase as any),

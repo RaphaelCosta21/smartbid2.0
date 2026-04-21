@@ -21,6 +21,7 @@ declare module "@pnp/sp" {
   export interface SPItems {
     filter(query: string): SPItems;
     select(...fields: string[]): SPItems;
+    expand(...fields: string[]): SPItems;
     orderBy(field: string, ascending?: boolean): SPItems;
     top(count: number): SPItems;
     getById(id: number): SPItem;
@@ -31,6 +32,9 @@ declare module "@pnp/sp" {
     select(...fields: string[]): SPItem;
     update(item: Record<string, unknown>): Promise<unknown>;
     delete(): Promise<void>;
+    attachmentFiles(): Promise<
+      { FileName: string; ServerRelativeUrl: string }[]
+    >;
     (): Promise<unknown>;
   }
   export interface SPFolder {

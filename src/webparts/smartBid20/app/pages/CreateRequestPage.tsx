@@ -5,6 +5,7 @@ import { RichTextEditor } from "../components/common/RichTextEditor";
 import { FileUpload } from "../components/common/FileUpload";
 import { PersonaCard } from "../components/common/PersonaCard";
 import { useRequestStore } from "../stores/useRequestStore";
+import { useBidStore } from "../stores/useBidStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useSpfxContext } from "../config/SpfxContext";
@@ -406,6 +407,10 @@ export const CreateRequestPage: React.FC = () => {
       newReq.requestNumber = requestNumber;
       newReq.id = requestNumber;
       addRequest([...requests, newReq as any]);
+
+      // 6. Refresh bid store so other pages see the new bid
+      await useBidStore.getState().refreshBids();
+
       navigate("/requests");
     } catch (err) {
       console.error("Failed to submit request:", err);

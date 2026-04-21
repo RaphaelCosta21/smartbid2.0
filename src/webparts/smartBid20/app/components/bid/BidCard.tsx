@@ -107,12 +107,7 @@ export const BidCard: React.FC<BidCardProps> = ({
       <div className={styles.cardFooter}>
         <div className={styles.badgeRow}>
           {phaseDef && (
-            <span
-              className={styles.phaseBadge}
-              style={{ background: phaseColor }}
-            >
-              {phaseDef.label}
-            </span>
+            <StatusBadge status={phaseDef.label} color={phaseColor} />
           )}
           <StatusBadge status={bid.currentStatus} color={statusColor} />
         </div>

@@ -8,6 +8,7 @@ import "@pnp/sp/lists";
 import "@pnp/sp/items";
 import "@pnp/sp/folders";
 import "@pnp/sp/files";
+import "@pnp/sp/attachments";
 import "@pnp/sp/site-users/web";
 
 export class SPService {

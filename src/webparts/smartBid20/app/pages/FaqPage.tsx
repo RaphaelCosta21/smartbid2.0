@@ -19,7 +19,7 @@ const FAQ_ITEMS: IFaqItem[] = [
     category: "General",
     question: "Who can access the system?",
     answer:
-      "All members of the Engineering and Commercial teams with an Oceaneering account. Access levels depend on your role (Manager, Engineer, Bidder, Project Team, Viewer).",
+      "All members of the Engineering and Commercial teams with an Oceaneering account. Access levels depend on your role (Manager, Engineer, Contributor, Project Team, Viewer).",
   },
   {
     category: "BID Process",

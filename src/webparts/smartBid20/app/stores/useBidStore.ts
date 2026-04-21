@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { IBid, IQuickNote, Division, BidPriority } from "../models";
+import { BidService } from "../services/BidService";
 
 export type ViewMode = "kanban" | "list" | "table";
 
@@ -9,7 +10,7 @@ interface BidFilters {
   statuses: string[];
   priorities: BidPriority[];
   clients: string[];
-  owners: string[];
+  creators: string[];
   dateRange: { from: string | null; to: string | null };
 }
 
@@ -19,7 +20,7 @@ const DEFAULT_FILTERS: BidFilters = {
   statuses: [],
   priorities: [],
   clients: [],
-  owners: [],
+  creators: [],
   dateRange: { from: null, to: null },
 };
 
@@ -38,6 +39,7 @@ interface BidState {
   setLoading: (loading: boolean) => void;
   updateBidNotes: (bidNumber: string, notes: IQuickNote[]) => void;
   getFilteredBids: () => IBid[];
+  refreshBids: () => Promise<void>;
 }
 
 export const useBidStore = create<BidState>((set, get) => ({
@@ -96,10 +98,23 @@ export const useBidStore = create<BidState>((set, get) => ({
       );
     }
 
-    if (filters.owners.length > 0) {
-      result = result.filter((b) => filters.owners.includes(b.creator?.email));
+    if (filters.creators.length > 0) {
+      result = result.filter((b) =>
+        filters.creators.includes(b.creator?.email),
+      );
     }
 
     return result;
+  },
+
+  refreshBids: async () => {
+    set({ isLoading: true });
+    try {
+      const bids = await BidService.getAll();
+      set({ bids, isLoading: false });
+    } catch (err) {
+      console.error("Failed to refresh bids:", err);
+      set({ isLoading: false });
+    }
   },
 }));

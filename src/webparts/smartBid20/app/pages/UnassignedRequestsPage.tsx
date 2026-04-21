@@ -9,13 +9,16 @@ import { PageHeader } from "../components/common/PageHeader";
 import { DataTable } from "../components/common/DataTable";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useConfigStore } from "../stores/useConfigStore";
 import { MembersService } from "../services/MembersService";
 import { RequestService } from "../services/RequestService";
 import { BidService } from "../services/BidService";
+import { useBidStore } from "../stores/useBidStore";
 import { IBidRequest } from "../models/IBidRequest";
 import { IPersonRef } from "../models";
 import { ITeamMember } from "../models/ITeamMember";
 import { PRIORITY_COLORS } from "../utils/constants";
+import { useStatusColors } from "../hooks/useStatusColors";
 import { format } from "date-fns";
 import styles from "./UnassignedRequestsPage.module.scss";
 
@@ -56,6 +59,8 @@ type ViewMode = "list" | "cards";
 
 export const UnassignedRequestsPage: React.FC = () => {
   const currentUser = useCurrentUser();
+  const sysConfig = useConfigStore((s) => s.config);
+  const statusColors = useStatusColors();
 
   // Real requests fetched from SharePoint smartbid-tracker list
   const [requests, setRequests] = React.useState<IBidRequest[]>([]);
@@ -66,6 +71,7 @@ export const UnassignedRequestsPage: React.FC = () => {
   const [viewMode, setViewMode] = React.useState<ViewMode>("list");
   const [search, setSearch] = React.useState("");
   const [priorityFilter, setPriorityFilter] = React.useState<string>("all");
+  const [divisionFilter, setDivisionFilter] = React.useState<string>("all");
   const [selectedRequest, setSelectedRequest] =
     React.useState<IBidRequest | null>(null);
   const [showAssignPanel, setShowAssignPanel] = React.useState(false);
@@ -139,8 +145,11 @@ export const UnassignedRequestsPage: React.FC = () => {
     if (priorityFilter !== "all") {
       list = list.filter((r) => r.priority === priorityFilter);
     }
+    if (divisionFilter !== "all") {
+      list = list.filter((r) => r.division === divisionFilter);
+    }
     return list;
-  }, [unassignedRequests, search, priorityFilter]);
+  }, [unassignedRequests, search, priorityFilter, divisionFilter]);
 
   // ---- Engineering contributors & analysts
   const engineeringContributors = React.useMemo(() => {
@@ -268,6 +277,7 @@ export const UnassignedRequestsPage: React.FC = () => {
       bid.analyst = analysts;
       bid.currentStatus = "Pending Assignment";
       bid.lastModified = new Date().toISOString();
+      bid.startDate = new Date().toISOString();
 
       // Find SP item ID for update
       const spItems = await (BidService as any)._list.items
@@ -286,6 +296,8 @@ export const UnassignedRequestsPage: React.FC = () => {
       closeAll();
       // Reload requests from SP to reflect changes
       await loadRequests();
+      // Refresh global bid store so other pages (BidTracker, Dashboard) see the update
+      await useBidStore.getState().refreshBids();
     } catch (err) {
       console.error("Error assigning request:", err);
       showMsg("error", "Failed to assign request.");
@@ -710,9 +722,41 @@ export const UnassignedRequestsPage: React.FC = () => {
                   </span>
                 </div>
                 <div className={styles.modalField}>
+                  <span className={styles.modalFieldLabel}>Phase</span>
+                  <span className={styles.modalFieldValue}>
+                    {r.currentPhase ? (
+                      <StatusBadge
+                        status={r.currentPhase}
+                        color={
+                          sysConfig?.phases?.find(
+                            (p) =>
+                              p.value === r.currentPhase ||
+                              p.label === r.currentPhase,
+                          )?.color
+                        }
+                      />
+                    ) : (
+                      "—"
+                    )}
+                  </span>
+                </div>
+                <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>Status</span>
                   <span className={styles.modalFieldValue}>
-                    <StatusBadge status={r.status} />
+                    {r.currentStatus ? (
+                      <StatusBadge
+                        status={r.currentStatus}
+                        color={
+                          sysConfig?.subStatuses?.find(
+                            (s) =>
+                              s.value === r.currentStatus ||
+                              s.label === r.currentStatus,
+                          )?.color
+                        }
+                      />
+                    ) : (
+                      "—"
+                    )}
                   </span>
                 </div>
               </div>
@@ -880,7 +924,14 @@ export const UnassignedRequestsPage: React.FC = () => {
                 <span className={styles.cardReqNum}>{r.requestNumber}</span>
                 <div className={styles.cardBadges}>
                   <StatusBadge status={r.priority} color={prColor} />
-                  <StatusBadge status={r.division} />
+                  <StatusBadge
+                    status={r.division}
+                    color={
+                      sysConfig?.divisions?.find(
+                        (d) => d.value === r.division || d.label === r.division,
+                      )?.color
+                    }
+                  />
                 </div>
               </div>
               <div className={styles.cardProject}>{r.projectName}</div>
@@ -895,7 +946,20 @@ export const UnassignedRequestsPage: React.FC = () => {
                 <div className={styles.cardMetaItem}>
                   <span className={styles.cardMetaLabel}>Service Line</span>
                   <span className={styles.cardMetaValue}>
-                    {r.serviceLine || "—"}
+                    {r.serviceLine ? (
+                      <StatusBadge
+                        status={r.serviceLine}
+                        color={
+                          sysConfig?.serviceLines?.find(
+                            (sl) =>
+                              sl.value === r.serviceLine ||
+                              sl.label === r.serviceLine,
+                          )?.color
+                        }
+                      />
+                    ) : (
+                      "—"
+                    )}
                   </span>
                 </div>
                 <div className={styles.cardMetaItem}>
@@ -908,6 +972,32 @@ export const UnassignedRequestsPage: React.FC = () => {
                     {r.desiredDueDate
                       ? format(new Date(r.desiredDueDate), "MMM d")
                       : "—"}
+                  </span>
+                </div>
+                <div className={styles.cardMetaItem}>
+                  <span className={styles.cardMetaLabel}>Phase</span>
+                  <span className={styles.cardMetaValue}>
+                    {r.currentPhase ? (
+                      <StatusBadge
+                        status={r.currentPhase}
+                        color={statusColors.getPhaseColor(r.currentPhase)}
+                      />
+                    ) : (
+                      "—"
+                    )}
+                  </span>
+                </div>
+                <div className={styles.cardMetaItem}>
+                  <span className={styles.cardMetaLabel}>Status</span>
+                  <span className={styles.cardMetaValue}>
+                    {r.currentStatus ? (
+                      <StatusBadge
+                        status={r.currentStatus}
+                        color={statusColors.getStatusColor(r.currentStatus)}
+                      />
+                    ) : (
+                      "—"
+                    )}
                   </span>
                 </div>
               </div>
@@ -959,7 +1049,7 @@ export const UnassignedRequestsPage: React.FC = () => {
   const columns = [
     {
       key: "requestNumber",
-      header: "Request #",
+      header: "BID #",
       sortable: true,
       width: 130,
       render: (r: IBidRequest) => (
@@ -993,22 +1083,29 @@ export const UnassignedRequestsPage: React.FC = () => {
       key: "division",
       header: "Div / Service Line",
       sortable: true,
-      render: (r: IBidRequest) => (
-        <span>
-          <StatusBadge status={r.division} />
-          {r.serviceLine && (
-            <span
-              style={{
-                fontSize: 11,
-                color: "var(--text-tertiary)",
-                marginLeft: 4,
-              }}
-            >
-              {r.serviceLine}
-            </span>
-          )}
-        </span>
-      ),
+      render: (r: IBidRequest) => {
+        const divColor = sysConfig?.divisions?.find(
+          (d) => d.value === r.division || d.label === r.division,
+        )?.color;
+        const slColor = sysConfig?.serviceLines?.find(
+          (sl) => sl.value === r.serviceLine || sl.label === r.serviceLine,
+        )?.color;
+        return (
+          <span
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 4,
+              alignItems: "center",
+            }}
+          >
+            <StatusBadge status={r.division} color={divColor} />
+            {r.serviceLine && (
+              <StatusBadge status={r.serviceLine} color={slColor} />
+            )}
+          </span>
+        );
+      },
     },
     {
       key: "priority",
@@ -1064,9 +1161,41 @@ export const UnassignedRequestsPage: React.FC = () => {
         r.requestDate ? format(new Date(r.requestDate), "MMM d, yyyy") : "—",
     },
     {
-      key: "status",
+      key: "desiredDueDate",
+      header: "Due Date",
+      sortable: true,
+      render: (r: IBidRequest) =>
+        r.desiredDueDate
+          ? format(new Date(r.desiredDueDate), "MMM d, yyyy")
+          : "—",
+    },
+    {
+      key: "currentPhase",
+      header: "Phase",
+      render: (r: IBidRequest) => {
+        const phaseColor = sysConfig?.phases?.find(
+          (p) => p.value === r.currentPhase || p.label === r.currentPhase,
+        )?.color;
+        return r.currentPhase ? (
+          <StatusBadge status={r.currentPhase} color={phaseColor} />
+        ) : (
+          "—"
+        );
+      },
+    },
+    {
+      key: "currentStatus",
       header: "Status",
-      render: (r: IBidRequest) => <StatusBadge status={r.status} />,
+      render: (r: IBidRequest) => {
+        const statusColor = sysConfig?.subStatuses?.find(
+          (s) => s.value === r.currentStatus || s.label === r.currentStatus,
+        )?.color;
+        return r.currentStatus ? (
+          <StatusBadge status={r.currentStatus} color={statusColor} />
+        ) : (
+          "—"
+        );
+      },
     },
     ...(canAssign
       ? [
@@ -1209,6 +1338,22 @@ export const UnassignedRequestsPage: React.FC = () => {
             onChange={(e) => setSearch(e.currentTarget.value)}
           />
         </div>
+
+        {/* Division filter */}
+        <select
+          className={styles.filterSelect}
+          value={divisionFilter}
+          onChange={(e) => setDivisionFilter(e.currentTarget.value)}
+        >
+          <option value="all">All Divisions</option>
+          {(sysConfig?.divisions || [])
+            .filter((d) => d.isActive !== false)
+            .map((d) => (
+              <option key={d.id} value={d.value}>
+                {d.label}
+              </option>
+            ))}
+        </select>
 
         {/* Priority filter */}
         <button

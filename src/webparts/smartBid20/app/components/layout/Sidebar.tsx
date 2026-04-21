@@ -6,6 +6,7 @@ import {
   SECTION_LABELS,
   INavItem,
 } from "../../config/navigation.config";
+import { RequestService } from "../../services/RequestService";
 import styles from "./Sidebar.module.scss";
 import { SidebarItem } from "./SidebarItem";
 import { SidebarSubmenu } from "./SidebarSubmenu";
@@ -451,6 +452,21 @@ const Icon: React.FC<{ name: string; size?: number }> = ({
         <line x1="21" y1="21" x2="16.65" y2="16.65" />
       </svg>
     ),
+    Package: (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path d="M16.5 9.4l-9-5.19" />
+        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0022 16z" />
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+        <line x1="12" y1="22.08" x2="12" y2="12" />
+      </svg>
+    ),
   };
   return <>{icons[name] || null}</>;
 };
@@ -462,14 +478,28 @@ export const Sidebar: React.FC = () => {
 
   const currentPath = location.pathname;
 
+  // Fetch real unassigned request count
+  const [unassignedCount, setUnassignedCount] = React.useState<number>(0);
+  React.useEffect(() => {
+    RequestService.getUnassignedFromSP()
+      .then((data) => setUnassignedCount(data.length))
+      .catch(() => setUnassignedCount(0));
+  }, []);
+
   const groupedItems = React.useMemo(() => {
     const grouped: Record<string, INavItem[]> = {};
     NAVIGATION_ITEMS.forEach((item) => {
-      if (!grouped[item.section]) grouped[item.section] = [];
-      grouped[item.section].push(item);
+      const navItem = { ...item };
+      // Override hardcoded badge for unassigned requests
+      if (navItem.key === "unassigned") {
+        navItem.badge = unassignedCount;
+        navItem.badgePulsing = unassignedCount > 0;
+      }
+      if (!grouped[navItem.section]) grouped[navItem.section] = [];
+      grouped[navItem.section].push(navItem);
     });
     return grouped;
-  }, []);
+  }, [unassignedCount]);
 
   return (
     <nav className={styles.sidebar}>

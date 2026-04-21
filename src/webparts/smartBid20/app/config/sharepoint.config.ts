@@ -9,6 +9,7 @@ export const SHAREPOINT_CONFIG = {
     config: "smartbid-config",
     statusTracker: "smartbid-status-tracker",
     approvals: "smartbid-approvals",
+    assetsCatalog: "Assets Catalog_",
   },
 
   libraries: {

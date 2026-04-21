@@ -11,6 +11,7 @@ export const ROUTES = {
   templates: "/templates",
   notifications: "/notifications",
   knowledge: "/knowledge",
+  assetsCatalog: "/knowledge/assets-catalog",
   analytics: "/analytics/:view",
   reports: "/reports/:type",
   favorites: "/tools/favorites",

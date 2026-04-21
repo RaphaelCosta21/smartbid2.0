@@ -1,6 +1,14 @@
 import * as React from "react";
-import { IBid, IBidStep, IActivityLogEntry, BidPhase } from "../../models";
+import { useNavigate } from "react-router-dom";
+import {
+  IBid,
+  IActivityLogEntry,
+  IPhaseHistoryEntry,
+  IStatusHistoryEntry,
+  BidPhase,
+} from "../../models";
 import { BID_STATUSES, BID_PHASES } from "../../config/status.config";
+import { ROUTES } from "../../config/routes.config";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { StatusBadge } from "../common/StatusBadge";
@@ -28,7 +36,7 @@ function formatDurationHours(hours: number | null): string {
 
 function calcDurationHours(start: string, end: string): number {
   const ms = new Date(end).getTime() - new Date(start).getTime();
-  return Math.round((ms / (1000 * 60 * 60)) * 10) / 10;
+  return Math.round((ms / (1000 * 60 * 60)) * 10000) / 10000;
 }
 
 function calcElapsedDays(iso: string): number {
@@ -51,6 +59,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
 }) => {
   const config = useConfigStore((s) => s.config);
   const currentUser = useCurrentUser();
+  const navigate = useNavigate();
   const [confirmAction, setConfirmAction] = React.useState<{
     type: "phase" | "status";
     phase: BidPhase;
@@ -58,6 +67,22 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
     phaseLabel: string;
     statusLabel: string;
   } | null>(null);
+
+  /** Unassigned block: shows error when trying to advance to restricted phases */
+  const [unassignedBlock, setUnassignedBlock] = React.useState(false);
+
+  /** Phases that require an engineer to be assigned */
+  const RESTRICTED_PHASES: BidPhase[] = [
+    "Technical Analysis" as BidPhase,
+    "Cost & Resources" as BidPhase,
+    "Technical Proposal" as BidPhase,
+    "Close Out" as BidPhase,
+  ];
+
+  const isUnassigned =
+    !bid.engineerResponsible ||
+    (Array.isArray(bid.engineerResponsible) &&
+      bid.engineerResponsible.length === 0);
 
   /** Phase-change picker: choose a status before confirming */
   const [phasePickerTarget, setPhasePickerTarget] = React.useState<{
@@ -169,16 +194,16 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
 
   /* ─── Duration in current phase ─── */
   const currentStepDuration = React.useMemo(() => {
-    const currentSteps = bid.steps || [];
-    if (currentSteps.length === 0) {
+    const ph = bid.phaseHistory || [];
+    if (ph.length === 0) {
       return calcElapsedDays(bid.createdDate);
     }
-    const lastStep = currentSteps[currentSteps.length - 1];
-    if (!lastStep.end) {
-      return calcElapsedDays(lastStep.start);
+    const lastEntry = ph[ph.length - 1];
+    if (!lastEntry.end) {
+      return calcElapsedDays(lastEntry.start);
     }
     return 0;
-  }, [bid.steps, bid.createdDate]);
+  }, [bid.phaseHistory, bid.createdDate]);
 
   const totalElapsedDays = calcElapsedDays(bid.createdDate);
 
@@ -199,34 +224,63 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
   const executeChange = React.useCallback(
     (newPhase: BidPhase, newStatus: string) => {
       const now = new Date().toISOString();
-      const currentSteps = bid.steps || [];
 
-      // Close previous step
-      const updatedSteps: IBidStep[] = currentSteps.map((step, idx) => {
-        if (idx === currentSteps.length - 1 && !step.end) {
-          const dur = calcDurationHours(step.start, now);
-          return {
-            ...step,
-            end: now,
-            duration: dur,
-            durationFormatted: formatDurationHours(dur),
-          };
-        }
-        return step;
-      });
+      // ─── Phase History ───
+      const currentPhaseHistory = bid.phaseHistory || [];
+      const updatedPhaseHistory: IPhaseHistoryEntry[] =
+        newPhase !== bid.currentPhase
+          ? currentPhaseHistory.map((entry, idx) => {
+              if (idx === currentPhaseHistory.length - 1 && !entry.end) {
+                const dur = calcDurationHours(entry.start, now);
+                return { ...entry, end: now, durationHours: dur };
+              }
+              return entry;
+            })
+          : [...currentPhaseHistory];
 
-      // Create new step
-      const newStep: IBidStep = {
-        idStep: updatedSteps.length + 1,
-        status: newStatus,
-        phase: newPhase,
-        start: now,
-        end: null,
-        duration: null,
-        durationFormatted: "",
-        actor: currentUser.displayName,
-        comments: "",
-      };
+      const newPhaseHistory: IPhaseHistoryEntry[] =
+        newPhase !== bid.currentPhase
+          ? [
+              ...updatedPhaseHistory,
+              {
+                id: updatedPhaseHistory.length + 1,
+                phase: newPhase,
+                start: now,
+                end: null,
+                durationHours: null,
+                actor: currentUser.displayName,
+              },
+            ]
+          : updatedPhaseHistory;
+
+      // ─── Status History ───
+      const currentStatusHistory = bid.statusHistory || [];
+      const updatedStatusHistory: IStatusHistoryEntry[] =
+        newStatus !== bid.currentStatus
+          ? currentStatusHistory.map((entry, idx) => {
+              if (idx === currentStatusHistory.length - 1 && !entry.end) {
+                const dur = calcDurationHours(entry.start, now);
+                return { ...entry, end: now, durationHours: dur };
+              }
+              return entry;
+            })
+          : [...currentStatusHistory];
+
+      const newStatusHistory: IStatusHistoryEntry[] =
+        newStatus !== bid.currentStatus
+          ? [
+              ...updatedStatusHistory,
+              {
+                id: updatedStatusHistory.length + 1,
+                status: newStatus,
+                phase: newPhase,
+                start: now,
+                end: null,
+                durationHours: null,
+                actor: currentUser.displayName,
+              },
+            ]
+          : updatedStatusHistory;
 
       // Activity log entries
       const logs: IActivityLogEntry[] = [];
@@ -261,7 +315,8 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
       onSave({
         currentPhase: newPhase,
         currentStatus: newStatus,
-        steps: [...updatedSteps, newStep],
+        phaseHistory: newPhaseHistory,
+        statusHistory: newStatusHistory,
         activityLog: [...(bid.activityLog || []), ...logs],
       });
 
@@ -287,6 +342,13 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
     const targetPhase: BidPhase = isTerminal
       ? ("Close Out" as BidPhase)
       : statusDef.phase || bid.currentPhase;
+
+    // Block restricted phases when no engineer assigned
+    if (isUnassigned && RESTRICTED_PHASES.indexOf(targetPhase) >= 0) {
+      setUnassignedBlock(true);
+      return;
+    }
+
     const phaseLabel =
       phases.find((p) => p.value === targetPhase)?.label || targetPhase;
 
@@ -302,6 +364,12 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
   const handlePhaseClick = (phase: (typeof phases)[0]) => {
     if (readOnly) return;
     if (phase.value === bid.currentPhase) return;
+
+    // Block restricted phases when no engineer assigned
+    if (isUnassigned && RESTRICTED_PHASES.indexOf(phase.value) >= 0) {
+      setUnassignedBlock(true);
+      return;
+    }
 
     // Open status picker for target phase
     setPhasePickerTarget({ phase: phase.value, phaseLabel: phase.label });
@@ -373,8 +441,10 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
     phases.find((p) => p.value === bid.currentPhase)?.color || "#94A3B8";
 
   /* ─── Last change info ─── */
-  const lastStep =
-    (bid.steps || []).length > 0 ? bid.steps[bid.steps.length - 1] : null;
+  const lastStatusEntry =
+    (bid.statusHistory || []).length > 0
+      ? bid.statusHistory[bid.statusHistory.length - 1]
+      : null;
 
   return (
     <div className={styles.container}>
@@ -596,8 +666,10 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
             </svg>
           </div>
           <div className={styles.kpiContent}>
-            <div className={styles.kpiValue}>{(bid.steps || []).length}</div>
-            <div className={styles.kpiLabel}>Total Steps</div>
+            <div className={styles.kpiValue}>
+              {(bid.statusHistory || []).length}
+            </div>
+            <div className={styles.kpiLabel}>Total Transitions</div>
           </div>
         </div>
       </div>
@@ -623,10 +695,11 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                 {phases.find((p) => p.value === bid.currentPhase)?.label ||
                   bid.currentPhase}
               </div>
-              {lastStep && (
+              {lastStatusEntry && (
                 <div className={styles.lastChangeInfo}>
-                  Last changed by <strong>{lastStep.actor || "—"}</strong> on{" "}
-                  {formatDateTime(lastStep.start)}
+                  Last changed by{" "}
+                  <strong>{lastStatusEntry.actor || "—"}</strong> on{" "}
+                  {formatDateTime(lastStatusEntry.start)}
                 </div>
               )}
             </div>
@@ -776,18 +849,18 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
         </GlassCard>
       )}
 
-      {/* ─── Recent Step History (mini) ─── */}
-      {(bid.steps || []).length > 0 && (
+      {/* ─── Recent Status History (mini) ─── */}
+      {(bid.statusHistory || []).length > 0 && (
         <GlassCard title="Recent Changes">
           <div className={styles.recentSteps}>
-            {(bid.steps || [])
+            {(bid.statusHistory || [])
               .slice(-5)
               .reverse()
-              .map((step) => {
-                const pDef = phases.find((p) => p.value === step.phase);
-                const sDef = BID_STATUSES.find((s) => s.value === step.status);
+              .map((entry) => {
+                const pDef = phases.find((p) => p.value === entry.phase);
+                const sDef = BID_STATUSES.find((s) => s.value === entry.status);
                 return (
-                  <div key={step.idStep} className={styles.recentStepItem}>
+                  <div key={entry.id} className={styles.recentStepItem}>
                     <div
                       className={styles.recentStepDot}
                       style={{
@@ -796,17 +869,18 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                     />
                     <div className={styles.recentStepContent}>
                       <div className={styles.recentStepTitle}>
-                        <StatusBadge status={step.status} />
+                        <StatusBadge status={entry.status} />
                         <span className={styles.recentStepPhase}>
-                          {pDef?.label || step.phase}
+                          {pDef?.label || entry.phase}
                         </span>
                       </div>
                       <div className={styles.recentStepMeta}>
-                        {step.actor || "—"} · {formatDateTime(step.start)}
-                        {step.duration !== null && (
+                        {entry.actor || "—"} · {formatDateTime(entry.start)}
+                        {entry.durationHours !== null && (
                           <span className={styles.recentStepDuration}>
                             {" "}
-                            · Duration: {formatDurationHours(step.duration)}
+                            · Duration:{" "}
+                            {formatDurationHours(entry.durationHours)}
                           </span>
                         )}
                       </div>
@@ -816,6 +890,56 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
               })}
           </div>
         </GlassCard>
+      )}
+
+      {/* ─── Unassigned Block Dialog ─── */}
+      {unassignedBlock && (
+        <div
+          className={styles.overlay}
+          onClick={() => setUnassignedBlock(false)}
+        >
+          <div
+            className={styles.confirmDialog}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.confirmIcon}>
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#EF4444"
+                strokeWidth="2"
+              >
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+            <h3 className={styles.confirmTitle}>Engineer Required</h3>
+            <div className={styles.confirmMeta} style={{ textAlign: "center" }}>
+              This BID does not have an Engineer Responsible assigned yet. You
+              must assign an engineer before advancing to this phase.
+            </div>
+            <div className={styles.confirmActions}>
+              <button
+                className={styles.confirmCancel}
+                onClick={() => setUnassignedBlock(false)}
+              >
+                Close
+              </button>
+              <button
+                className={styles.confirmSubmit}
+                onClick={() => {
+                  setUnassignedBlock(false);
+                  navigate(ROUTES.requests);
+                }}
+              >
+                Go to Unassigned Requests
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ─── Confirmation Dialog ─── */}

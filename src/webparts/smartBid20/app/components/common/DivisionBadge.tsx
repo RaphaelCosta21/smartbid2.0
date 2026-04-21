@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useConfigStore } from "../../stores/useConfigStore";
 import styles from "./DivisionBadge.module.scss";
 
 interface DivisionBadgeProps {
@@ -10,14 +11,17 @@ export const DivisionBadge: React.FC<DivisionBadgeProps> = ({
   division,
   className,
 }) => {
-  const colors: Record<string, string> = {
-    OPG: "#F59E0B",
-    "SSR-Survey": "#06B6D4",
-    "SSR-ROV": "#8B5CF6",
-    "SSR-Integrated": "#EC4899",
-  };
+  const config = useConfigStore((s) => s.config);
 
-  const color = colors[division] || "#94A3B8";
+  const color = React.useMemo(() => {
+    if (config?.divisions) {
+      const div = config.divisions.find(
+        (d) => d.value === division || d.label === division,
+      );
+      if (div?.color) return div.color;
+    }
+    return "#94A3B8";
+  }, [config, division]);
 
   return (
     <span

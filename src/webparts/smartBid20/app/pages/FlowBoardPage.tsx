@@ -4,18 +4,41 @@ import { PageHeader } from "../components/common/PageHeader";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { useBids } from "../hooks/useBids";
 import { isActiveBid } from "../utils/bidHelpers";
-import { DIVISION_COLORS } from "../utils/constants";
-import { BID_STATUSES } from "../config/status.config";
+import { useConfigStore } from "../stores/useConfigStore";
+import { getActiveStatuses, getDivisionColor } from "../utils/statusHelpers";
 import { differenceInDays } from "date-fns";
 import styles from "./FlowBoardPage.module.scss";
-
-const FLOW_COLUMNS = BID_STATUSES.filter((s) => !s.isTerminal).slice(0, 8);
 
 export const FlowBoardPage: React.FC = () => {
   const navigate = useNavigate();
   const { bids } = useBids();
+  const config = useConfigStore((s) => s.config);
   const activeBids = React.useMemo(() => bids.filter(isActiveBid), [bids]);
   const now = new Date();
+
+  // Flow columns from config subStatuses (non-terminal)
+  const FLOW_COLUMNS = React.useMemo(() => {
+    if (config?.subStatuses && config.subStatuses.length > 0) {
+      return config.subStatuses
+        .filter((s) => s.isActive !== false)
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .slice(0, 8)
+        .map((s) => ({
+          id: s.id,
+          label: s.label,
+          value: s.value,
+          color: s.color || "#94A3B8",
+        }));
+    }
+    return getActiveStatuses()
+      .slice(0, 8)
+      .map((s) => ({
+        id: s.id,
+        label: s.label,
+        value: s.value,
+        color: s.color || "#94A3B8",
+      }));
+  }, [config]);
 
   return (
     <div className={styles.page}>
@@ -73,7 +96,7 @@ export const FlowBoardPage: React.FC = () => {
                     onClick={() => navigate(`/bid/${bid.bidNumber}`)}
                     className={styles.card}
                     style={{
-                      borderLeft: `3px solid ${DIVISION_COLORS[bid.division] || "#94a3b8"}`,
+                      borderLeft: `3px solid ${getDivisionColor(bid.division)}`,
                     }}
                   >
                     <div className={styles.cardHeader}>

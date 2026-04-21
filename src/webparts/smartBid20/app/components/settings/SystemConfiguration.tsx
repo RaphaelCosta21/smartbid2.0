@@ -17,6 +17,7 @@ import {
 import { SystemConfigService } from "../../services/SystemConfigService";
 import { DEFAULT_SYSTEM_CONFIG } from "../../data/defaultSystemConfig";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { useConfigStore } from "../../stores/useConfigStore";
 import { APP_CONFIG } from "../../config/app.config";
 
 /* ------------------------------------------------------------------ */
@@ -409,7 +410,10 @@ const SystemConfiguration: React.FC = () => {
       setSaving(true);
       try {
         await SystemConfigService.update(updatedConfig);
+        SystemConfigService.clearCache();
         setConfig(updatedConfig);
+        // Update global store so other pages see the new config immediately
+        useConfigStore.getState().setConfig(updatedConfig);
         setDirty(false);
         showMsg("success", "Configuration saved to SharePoint");
       } catch (err) {
@@ -831,6 +835,12 @@ const SystemConfiguration: React.FC = () => {
                     className={`${styles.optionCard} ${!opt.isActive ? styles.inactive : ""}`}
                   >
                     <div className={styles.optionInfo}>
+                      {opt.color && (
+                        <span
+                          className={styles.optionColor}
+                          style={{ background: opt.color }}
+                        />
+                      )}
                       <span className={styles.optionLabel}>{opt.label}</span>
                       {!opt.isActive && (
                         <span className={styles.inactiveTag}>Inactive</span>

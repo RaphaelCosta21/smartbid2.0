@@ -4,7 +4,7 @@ import { useBidStore, ViewMode } from "../stores/useBidStore";
 import { useBids } from "../hooks/useBids";
 import { useStatusColors } from "../hooks/useStatusColors";
 import { isActiveBid } from "../utils/bidHelpers";
-import { DIVISION_COLORS, DIVISIONS, PRIORITIES } from "../utils/constants";
+import { useConfigStore } from "../stores/useConfigStore";
 import { getPhaseDef } from "../config/status.config";
 import { PageHeader } from "../components/common/PageHeader";
 import { DataTable } from "../components/common/DataTable";
@@ -16,6 +16,31 @@ import { BidService } from "../services/BidService";
 import { useDebounce } from "../hooks/useDebounce";
 import { differenceInDays, format } from "date-fns";
 import styles from "./BidTrackerPage.module.scss";
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+function getAvatarColor(name: string): string {
+  const colors = [
+    "#3b82f6",
+    "#10b981",
+    "#f59e0b",
+    "#ef4444",
+    "#8b5cf6",
+    "#ec4899",
+    "#06b6d4",
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++)
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
 
 export const BidTrackerPage: React.FC = () => {
   const navigate = useNavigate();
@@ -40,19 +65,31 @@ export const BidTrackerPage: React.FC = () => {
     [filteredBids],
   );
 
-  /* Kanban columns: group by top-level division (OPG, SSR) */
+  /* Kanban columns: group by top-level division from config */
   const kanbanGroups = React.useMemo(() => {
-    const groups: {
-      key: string;
-      label: string;
-      color: string;
-      bids: IBid[];
-      onHoldBids: IBid[];
-    }[] = [
+    const cfg = useConfigStore.getState().config;
+    const divs = (cfg?.divisions || [])
+      .filter((d) => d.isActive !== false)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    if (divs.length > 0) {
+      return divs.map((div) => ({
+        key: div.value,
+        label: div.label,
+        color: div.color || "#94a3b8",
+        bids: activeBids.filter(
+          (b) => b.division === div.value && b.currentStatus !== "On Hold",
+        ),
+        onHoldBids: activeBids.filter(
+          (b) => b.division === div.value && b.currentStatus === "On Hold",
+        ),
+      }));
+    }
+    // Fallback
+    return [
       {
         key: "OPG",
         label: "OPG",
-        color: DIVISION_COLORS["OPG"] || "#3b82f6",
+        color: "#3b82f6",
         bids: activeBids.filter(
           (b) => b.division === "OPG" && b.currentStatus !== "On Hold",
         ),
@@ -63,7 +100,7 @@ export const BidTrackerPage: React.FC = () => {
       {
         key: "SSR",
         label: "SSR",
-        color: "#f59e0b",
+        color: "#10b981",
         bids: activeBids.filter(
           (b) => b.division.startsWith("SSR") && b.currentStatus !== "On Hold",
         ),
@@ -72,7 +109,6 @@ export const BidTrackerPage: React.FC = () => {
         ),
       },
     ];
-    return groups;
   }, [activeBids]);
 
   const handleBidClick = (bid: IBid): void => {
@@ -132,18 +168,58 @@ export const BidTrackerPage: React.FC = () => {
       key: "division",
       header: "Division",
       sortable: true,
-      render: (bid: IBid) => (
-        <StatusBadge
-          status={bid.division}
-          color={DIVISION_COLORS[bid.division]}
-        />
-      ),
+      render: (bid: IBid) => {
+        const cfg = useConfigStore.getState().config;
+        const divColor =
+          (cfg?.divisions || []).find((d) => d.value === bid.division)?.color ||
+          "#94a3b8";
+        return <StatusBadge status={bid.division} color={divColor} />;
+      },
     },
     {
       key: "creatorName",
       header: "Creator",
       sortable: true,
-      render: (bid: IBid) => bid.creator?.name || "",
+      render: (bid: IBid) => {
+        const name = bid.creator?.name || "";
+        const photo = bid.creator?.photoUrl;
+        return (
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {photo ? (
+              <img
+                src={photo}
+                alt={name}
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  flexShrink: 0,
+                }}
+              />
+            ) : name ? (
+              <span
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  background: getAvatarColor(name),
+                  color: "#fff",
+                  fontSize: 9,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {getInitials(name)}
+              </span>
+            ) : null}
+            <span>{name || "\u2014"}</span>
+          </span>
+        );
+      },
     },
     {
       key: "dueDate",
@@ -274,11 +350,13 @@ export const BidTrackerPage: React.FC = () => {
             className={styles.filterInput}
           >
             <option value="">All</option>
-            {DIVISIONS.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
+            {(useConfigStore.getState().config?.divisions || [])
+              .filter((d) => d.isActive !== false)
+              .map((d) => (
+                <option key={d.value} value={d.value}>
+                  {d.label}
+                </option>
+              ))}
           </select>
         </div>
         <div className={styles.filterGroup}>
@@ -293,7 +371,7 @@ export const BidTrackerPage: React.FC = () => {
             className={styles.filterInput}
           >
             <option value="">All</option>
-            {PRIORITIES.map((p) => (
+            {["Urgent", "Normal", "Low"].map((p) => (
               <option key={p} value={p}>
                 {p}
               </option>
@@ -442,9 +520,53 @@ export const BidTrackerPage: React.FC = () => {
               </span>
               <StatusBadge
                 status={bid.division}
-                color={DIVISION_COLORS[bid.division]}
+                color={(() => {
+                  const cfg = useConfigStore.getState().config;
+                  return (
+                    (cfg?.divisions || []).find((d) => d.value === bid.division)
+                      ?.color || "#94a3b8"
+                  );
+                })()}
               />
-              <span style={{ width: 80 }}>
+              <span
+                style={{
+                  width: 80,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                {bid.creator?.photoUrl ? (
+                  <img
+                    src={bid.creator.photoUrl}
+                    alt=""
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      flexShrink: 0,
+                    }}
+                  />
+                ) : bid.creator?.name || "" ? (
+                  <span
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: "50%",
+                      background: getAvatarColor(bid.creator?.name || ""),
+                      color: "#fff",
+                      fontSize: 8,
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {getInitials(bid.creator?.name || "")}
+                  </span>
+                ) : null}
                 {(bid.creator?.name || "").split(" ")[0]}
               </span>
               {(() => {

@@ -86,6 +86,13 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     section: "knowledge",
   },
   {
+    key: "assets-catalog",
+    label: "Assets Catalog",
+    icon: "Package",
+    route: "/knowledge/assets-catalog",
+    section: "knowledge",
+  },
+  {
     key: "templates",
     label: "Scope Templates",
     icon: "LayoutTemplate",

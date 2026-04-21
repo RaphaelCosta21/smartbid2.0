@@ -51,7 +51,7 @@ export function getUniqueClients(bids: IBid[]): string[] {
   return result.sort();
 }
 
-export function getUniqueOwners(
+export function getUniqueCreators(
   bids: IBid[],
 ): { name: string; email: string }[] {
   const seen: Record<string, { name: string; email: string }> = {};

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { IScopeItem, ICertificationItem } from "../../models";
+import { useConfigStore } from "../../stores/useConfigStore";
 import styles from "./BreakdownTab.module.scss";
 
 interface CertificationsBreakdownTabProps {
@@ -28,7 +29,18 @@ const blankItem = (
   notes: "",
 });
 
-const CURRENCIES = ["USD", "BRL", "EUR", "GBP", "NOK"];
+function getCurrencies(): string[] {
+  const cfg = useConfigStore.getState().config;
+  const rates = cfg?.currencySettings?.exchangeRates;
+  if (rates && rates.length > 0) {
+    const list = [cfg.currencySettings.defaultCurrency || "USD"];
+    rates.forEach((r: any) => {
+      if (list.indexOf(r.currency) < 0) list.push(r.currency);
+    });
+    return list;
+  }
+  return ["USD", "BRL", "EUR", "GBP", "NOK"];
+}
 
 export const CertificationsBreakdownTab: React.FC<
   CertificationsBreakdownTabProps
@@ -196,7 +208,7 @@ export const CertificationsBreakdownTab: React.FC<
                           )
                         }
                       >
-                        {CURRENCIES.map((c) => (
+                        {getCurrencies().map((c) => (
                           <option key={c} value={c}>
                             {c}
                           </option>

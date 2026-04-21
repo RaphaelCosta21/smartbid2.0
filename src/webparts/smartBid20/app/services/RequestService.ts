@@ -69,16 +69,21 @@ export class RequestService {
         uploadedDate: a.uploadedDate || "",
         size: a.fileSize || 0,
       })),
-      phases: (bid.steps || []).map((s) => ({
-        idPhase: s.idStep,
+      phases: (bid.statusHistory || []).map((s) => ({
+        idPhase: s.id,
         status: s.status,
         start: s.start,
-        duration: s.duration || 0,
-        durationFormatted: s.durationFormatted || "",
+        duration: s.durationHours || 0,
+        durationFormatted:
+          s.durationHours !== null
+            ? `${Math.round(s.durationHours * 60)} min`
+            : "",
       })),
       notes: bid.bidNotes ? Object.values(bid.bidNotes).join("\n") : "",
       status:
         bid.currentStatus === "Request Submitted" ? "submitted" : "assigned",
+      currentPhase: bid.currentPhase || "",
+      currentStatus: bid.currentStatus || "",
       assignedTo: bid.engineerResponsible?.[0] || null,
       assignedDate: null,
       rejectionReason: null,
@@ -116,9 +121,7 @@ export class RequestService {
         ptaxDate: "",
         qualifications: [],
       },
-      bidder: creatorRef,
       creator: creatorRef,
-      owner: creatorRef,
       engineerResponsible: [],
       analyst: [],
       projectManager: request.projectManager || [],
@@ -129,9 +132,29 @@ export class RequestService {
       startDate: null,
       completedDate: null,
       lastModified: now,
-      currentStatus: "Pending Assignment",
+      currentStatus: "Awaiting Kick Off",
       currentPhase: "Request Submitted",
-      steps: [],
+      phaseHistory: [
+        {
+          id: 1,
+          phase: "Request Submitted" as any,
+          start: now,
+          end: null,
+          durationHours: null,
+          actor: request.requestedBy?.name || "",
+        },
+      ],
+      statusHistory: [
+        {
+          id: 1,
+          status: "Awaiting Kick Off",
+          phase: "Request Submitted" as any,
+          start: now,
+          end: null,
+          durationHours: null,
+          actor: request.requestedBy?.name || "",
+        },
+      ],
       tasks: [],
       assetsCostSummary: {
         capexTotal: 0,

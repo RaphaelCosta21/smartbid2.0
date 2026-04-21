@@ -31,7 +31,18 @@ interface PreparationMobilizationTabProps {
 const makeId = (prefix: string): string =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-const CURRENCIES = ["USD", "BRL", "EUR", "GBP", "NOK"];
+function getCurrencies(): string[] {
+  const cfg = useConfigStore.getState().config;
+  const rates = cfg?.currencySettings?.exchangeRates;
+  if (rates && rates.length > 0) {
+    const list = [cfg.currencySettings.defaultCurrency || "USD"];
+    rates.forEach((r: any) => {
+      if (list.indexOf(r.currency) < 0) list.push(r.currency);
+    });
+    return list;
+  }
+  return ["USD", "BRL", "EUR", "GBP", "NOK"];
+}
 
 const RTS_TYPES: { value: RTSCostType; label: string }[] = [
   { value: "maintenance", label: "Maintenance" },
@@ -612,7 +623,7 @@ export const PreparationMobilizationTab: React.FC<
               updateRTS(item.id, "originalCurrency", e.target.value)
             }
           >
-            {CURRENCIES.map((c) => (
+            {getCurrencies().map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
@@ -752,7 +763,7 @@ export const PreparationMobilizationTab: React.FC<
               updateMob(item.id, "originalCurrency", e.target.value)
             }
           >
-            {CURRENCIES.map((c) => (
+            {getCurrencies().map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
@@ -861,7 +872,7 @@ export const PreparationMobilizationTab: React.FC<
               updateCons(item.id, "originalCurrency", e.target.value)
             }
           >
-            {CURRENCIES.map((c) => (
+            {getCurrencies().map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>

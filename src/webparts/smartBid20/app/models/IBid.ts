@@ -28,18 +28,25 @@ export interface IOpportunityInfo {
   qualifications: string[];
 }
 
-export interface IBidStep {
-  idStep: number;
+/** Tracks time spent in each phase independently */
+export interface IPhaseHistoryEntry {
+  id: number;
+  phase: BidPhase;
+  start: string;
+  end: string | null;
+  durationHours: number | null;
+  actor: string;
+}
+
+/** Tracks time spent in each status independently */
+export interface IStatusHistoryEntry {
+  id: number;
   status: string;
   phase: BidPhase;
   start: string;
   end: string | null;
-  duration: number | null;
-  durationFormatted: string;
+  durationHours: number | null;
   actor: string;
-  comments: string;
-  /** Division tag for Integrated BIDs (ROV/SURVEY) */
-  integratedDivision?: "ROV" | "SURVEY" | "";
 }
 
 export interface IBidTask {
@@ -486,11 +493,7 @@ export interface IBid {
   bidSize: BidSize;
   priority: BidPriority;
   opportunityInfo: IOpportunityInfo;
-  bidder: IPersonRef;
-  /** @deprecated Use creator instead */
   creator: IPersonRef;
-  /** @deprecated Use engineerResponsible instead */
-  owner: IPersonRef;
   engineerResponsible: IPersonRef[];
   analyst: IPersonRef[];
   projectManager: IPersonRef[];
@@ -504,7 +507,8 @@ export interface IBid {
   lastModified: string;
   currentStatus: string;
   currentPhase: BidPhase;
-  steps: IBidStep[];
+  phaseHistory: IPhaseHistoryEntry[];
+  statusHistory: IStatusHistoryEntry[];
   tasks: IBidTask[];
   assetsCostSummary: IAssetsCostSummary;
   equipmentList: IEquipmentItem[];

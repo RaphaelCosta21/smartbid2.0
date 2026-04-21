@@ -15,6 +15,7 @@ import { BidApprovalPanel } from "../components/bid/BidApprovalPanel";
 import { BidComments } from "../components/bid/BidComments";
 import { BidActivityLog } from "../components/bid/BidActivityLog";
 import { BidExportButton } from "../components/bid/BidExportButton";
+import { BidTimeline } from "../components/bid/BidTimeline";
 import { IntegratedDivisionTabs } from "../components/common/IntegratedDivisionTabs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useUIStore } from "../stores/useUIStore";
@@ -42,6 +43,7 @@ import {
 } from "../utils/exportHelpers";
 import { getPhaseLabelForBid } from "../utils/phaseHelpers";
 import { isTerminalStatus } from "../utils/statusHelpers";
+import { PRIORITY_COLORS } from "../utils/constants";
 import {
   formatDate,
   formatDateTime,
@@ -163,6 +165,30 @@ export const BidDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const bids = useBidStore((s) => s.bids);
   const config = useConfigStore((s) => s.config);
+
+  // Config-aware phases
+  const configPhases = React.useMemo(() => {
+    if (config?.phases && config.phases.length > 0) {
+      return config.phases
+        .filter((p) => p.isActive !== false)
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .map((p) => ({
+          id: p.id,
+          label: p.label,
+          value: p.value,
+          color: p.color || "#94A3B8",
+          order: p.order || 0,
+        }));
+    }
+    return BID_PHASES.map((p) => ({
+      id: p.id,
+      label: p.label,
+      value: p.value,
+      color: p.color,
+      order: p.order,
+    }));
+  }, [config]);
+
   const [activeTab, setActiveTab] = React.useState<BidTab>("overview");
   const currentUser = useCurrentUser();
   const setSidebarExpanded = useUIStore((s) => s.setSidebarExpanded);
@@ -236,7 +262,7 @@ export const BidDetailPage: React.FC = () => {
 
   const daysLeftInfo = formatDaysLeft(bid.dueDate);
   const daysLeft = daysLeftInfo.days;
-  const currentPhaseIndex = BID_PHASES.findIndex(
+  const currentPhaseIndex = configPhases.findIndex(
     (p) => p.value === bid.currentPhase,
   );
 
@@ -292,7 +318,13 @@ export const BidDetailPage: React.FC = () => {
           </div>
         </div>
         <div className={styles.bidHeaderActions}>
-          <StatusBadge status={bid.division} />
+          <StatusBadge
+            status={bid.division}
+            color={
+              (config?.divisions || []).find((d) => d.value === bid.division)
+                ?.color
+            }
+          />
           <StatusBadge
             status={bid.serviceLine}
             color={
@@ -301,7 +333,10 @@ export const BidDetailPage: React.FC = () => {
               )?.color
             }
           />
-          <StatusBadge status={bid.priority} />
+          <StatusBadge
+            status={bid.priority}
+            color={PRIORITY_COLORS[bid.priority] || PRIORITY_COLORS.Normal}
+          />
         </div>
       </div>
 
@@ -633,7 +668,7 @@ export const BidDetailPage: React.FC = () => {
             />
           )}
           {activeTab === "timeline" && (
-            <TimelineTab bid={bid} currentPhaseIndex={currentPhaseIndex} />
+            <BidTimeline bid={bid} currentPhaseIndex={currentPhaseIndex} />
           )}
           {activeTab === "approval" && (
             <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
@@ -755,6 +790,28 @@ const OverviewTab: React.FC<{
   onSave?: (patch: Partial<IBid>) => void;
   currentUser?: { displayName: string; email: string };
 }> = ({ bid, currentPhaseIndex, canEdit, onSave, currentUser }) => {
+  const overviewConfig = useConfigStore((s) => s.config);
+  const configPhases = React.useMemo(() => {
+    if (overviewConfig?.phases && overviewConfig.phases.length > 0) {
+      return overviewConfig.phases
+        .filter((p) => p.isActive !== false)
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .map((p) => ({
+          id: p.id,
+          label: p.label,
+          value: p.value,
+          color: p.color || "#94A3B8",
+          order: p.order || 0,
+        }));
+    }
+    return BID_PHASES.map((p) => ({
+      id: p.id,
+      label: p.label,
+      value: p.value,
+      color: p.color,
+      order: p.order,
+    }));
+  }, [overviewConfig]);
   const config = useConfigStore((s) => s.config);
   const isClosed = isTerminalStatus(bid.currentStatus);
   const spfxContext = useSpfxContext();
@@ -905,7 +962,10 @@ const OverviewTab: React.FC<{
   // Currency & PTAX edit
   const [editingCurrency, setEditingCurrency] = React.useState(false);
   const [currDraft, setCurrDraft] = React.useState({
-    currency: bid.opportunityInfo?.currency || "USD",
+    currency:
+      bid.opportunityInfo?.currency ||
+      config?.currencySettings?.defaultCurrency ||
+      "USD",
     ptax: bid.opportunityInfo?.ptax || 0,
     ptaxDate: bid.opportunityInfo?.ptaxDate || "",
   });
@@ -1131,12 +1191,20 @@ const OverviewTab: React.FC<{
                   value={
                     <select
                       value={genDraft.division}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const newDiv = e.target.value as Division;
+                        const matchingSL = (config?.serviceLines || []).filter(
+                          (sl) =>
+                            sl.isActive !== false && sl.category === newDiv,
+                        );
+                        const firstSL =
+                          matchingSL.length > 0 ? matchingSL[0].value : "";
                         setGenDraft((d) => ({
                           ...d,
-                          division: e.target.value as Division,
-                        }))
-                      }
+                          division: newDiv,
+                          serviceLine: firstSL,
+                        }));
+                      }}
                       style={{
                         width: "100%",
                         padding: "4px 8px",
@@ -1179,7 +1247,12 @@ const OverviewTab: React.FC<{
                       }}
                     >
                       {(config?.serviceLines || [])
-                        .filter((sl) => sl.isActive !== false)
+                        .filter(
+                          (sl) =>
+                            sl.isActive !== false &&
+                            (!genDraft.division ||
+                              sl.category === genDraft.division),
+                        )
                         .map((sl) => (
                           <option key={sl.id} value={sl.value}>
                             {sl.label}
@@ -1241,7 +1314,16 @@ const OverviewTab: React.FC<{
                 />
                 <InfoRow
                   label="Division"
-                  value={<StatusBadge status={bid.division} />}
+                  value={
+                    <StatusBadge
+                      status={bid.division}
+                      color={
+                        (config?.divisions || []).find(
+                          (d) => d.value === bid.division,
+                        )?.color
+                      }
+                    />
+                  }
                 />
                 <InfoRow
                   label="Service Line"
@@ -1255,7 +1337,14 @@ const OverviewTab: React.FC<{
             )}
             <InfoRow
               label="Priority"
-              value={<StatusBadge status={bid.priority} />}
+              value={
+                <StatusBadge
+                  status={bid.priority}
+                  color={
+                    PRIORITY_COLORS[bid.priority] || PRIORITY_COLORS.Normal
+                  }
+                />
+              }
             />
             <InfoRow
               label="Status"
@@ -1309,10 +1398,30 @@ const OverviewTab: React.FC<{
               <InfoRow
                 label="Client"
                 value={
-                  <EditInput
+                  <select
                     value={opsDraft.client || ""}
-                    onChange={(v) => setOpsDraft((d) => ({ ...d, client: v }))}
-                  />
+                    onChange={(e) =>
+                      setOpsDraft((d) => ({ ...d, client: e.target.value }))
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "4px 8px",
+                      border: "1px solid var(--border)",
+                      borderRadius: 6,
+                      background: "var(--card-bg-elevated)",
+                      color: "var(--text-primary)",
+                      fontSize: 13,
+                    }}
+                  >
+                    <option value="">— Select —</option>
+                    {(config?.clientList || [])
+                      .filter((c) => c.isActive !== false)
+                      .map((c) => (
+                        <option key={c.id} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                  </select>
                 }
               />
               <InfoRow
@@ -1329,10 +1438,30 @@ const OverviewTab: React.FC<{
               <InfoRow
                 label="Region"
                 value={
-                  <EditInput
+                  <select
                     value={opsDraft.region || ""}
-                    onChange={(v) => setOpsDraft((d) => ({ ...d, region: v }))}
-                  />
+                    onChange={(e) =>
+                      setOpsDraft((d) => ({ ...d, region: e.target.value }))
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "4px 8px",
+                      border: "1px solid var(--border)",
+                      borderRadius: 6,
+                      background: "var(--card-bg-elevated)",
+                      color: "var(--text-primary)",
+                      fontSize: 13,
+                    }}
+                  >
+                    <option value="">— Select —</option>
+                    {(config?.regions || [])
+                      .filter((r) => r.isActive !== false)
+                      .map((r) => (
+                        <option key={r.id} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
+                  </select>
                 }
               />
               <InfoRow
@@ -1451,7 +1580,10 @@ const OverviewTab: React.FC<{
                 style={editBtnStyle}
                 onClick={() => {
                   setCurrDraft({
-                    currency: bid.opportunityInfo?.currency || "USD",
+                    currency:
+                      bid.opportunityInfo?.currency ||
+                      config?.currencySettings?.defaultCurrency ||
+                      "USD",
                     ptax: bid.opportunityInfo?.ptax || 0,
                     ptaxDate: bid.opportunityInfo?.ptaxDate || "",
                   });
@@ -1482,9 +1614,21 @@ const OverviewTab: React.FC<{
                 value={
                   <select
                     value={currDraft.currency}
-                    onChange={(e) =>
-                      setCurrDraft((d) => ({ ...d, currency: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      const newCurr = e.target.value;
+                      const rateEntry = (
+                        config?.currencySettings?.exchangeRates || []
+                      ).find((r) => r.currency === newCurr);
+                      setCurrDraft((d) => ({
+                        ...d,
+                        currency: newCurr,
+                        ptax: rateEntry ? rateEntry.rate : d.ptax,
+                        ptaxDate:
+                          rateEntry && rateEntry.lastUpdate
+                            ? rateEntry.lastUpdate.split("T")[0]
+                            : d.ptaxDate,
+                      }));
+                    }}
                     style={{
                       width: "100%",
                       padding: "4px 8px",
@@ -1495,11 +1639,24 @@ const OverviewTab: React.FC<{
                       fontSize: 13,
                     }}
                   >
-                    {["USD", "BRL", "EUR", "GBP", "NOK"].map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
+                    {(() => {
+                      const rates =
+                        config?.currencySettings?.exchangeRates || [];
+                      const currencies = [
+                        config?.currencySettings?.defaultCurrency || "USD",
+                        ...rates.map((r) => r.currency),
+                      ];
+                      // deduplicate
+                      const unique: string[] = [];
+                      currencies.forEach((c) => {
+                        if (unique.indexOf(c) < 0) unique.push(c);
+                      });
+                      return unique.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ));
+                    })()}
                   </select>
                 }
               />
@@ -1532,7 +1689,11 @@ const OverviewTab: React.FC<{
             <div className={styles.infoGrid}>
               <InfoRow
                 label="Currency"
-                value={bid.opportunityInfo?.currency || "USD"}
+                value={
+                  bid.opportunityInfo?.currency ||
+                  config?.currencySettings?.defaultCurrency ||
+                  "USD"
+                }
               />
               <InfoRow
                 label="PTAX Rate"
@@ -1950,7 +2111,7 @@ const OverviewTab: React.FC<{
           <h4 className={styles.infoTitle}>
             Phase Progress — {getPhaseLabelForBid(bid)}
           </h4>
-          {BID_PHASES.map((phase, idx) => {
+          {configPhases.map((phase, idx) => {
             const isCompleted = idx < currentPhaseIndex;
             const isCurrent = idx === currentPhaseIndex;
             const stateClass = isCompleted
@@ -2036,192 +2197,7 @@ const OverviewTab: React.FC<{
 
 /* Scope, Hours, Cost, Tasks tabs now use sub-components: BidEquipmentTable, BidHoursTable, BidCostSummary, BidTaskChecklist */
 
-/* ─── Tab: Timeline ─── */
-const TimelineTab: React.FC<{ bid: IBid; currentPhaseIndex: number }> = ({
-  bid,
-  currentPhaseIndex,
-}) => (
-  <div className={styles.flexColumn}>
-    <GlassCard title="BID Timeline">
-      {/* Horizontal step circles */}
-      <div className={styles.timelineStepRow}>
-        {BID_PHASES.map((phase, idx) => {
-          const isCompleted = idx < currentPhaseIndex;
-          const isCurrent = idx === currentPhaseIndex;
-
-          // Calculate elapsed time for this phase from steps
-          let phaseElapsed = "";
-          if (isCurrent) {
-            // Find the last open step for this phase
-            const openStep = (bid.steps || []).filter(
-              (s) => s.phase === phase.value && !s.end,
-            );
-            if (openStep.length > 0) {
-              const ms =
-                Date.now() -
-                new Date(openStep[openStep.length - 1].start).getTime();
-              const hrs = ms / (1000 * 60 * 60);
-              if (hrs < 1) phaseElapsed = `${Math.round(hrs * 60)} min`;
-              else if (hrs < 24) phaseElapsed = `${Math.round(hrs * 10) / 10}h`;
-              else {
-                const d = Math.floor(hrs / 24);
-                const rh = Math.round((hrs % 24) * 10) / 10;
-                phaseElapsed = rh === 0 ? `${d}d` : `${d}d ${rh}h`;
-              }
-            }
-          } else if (isCompleted) {
-            // Sum durations of all steps in this phase
-            let totalHrs = 0;
-            (bid.steps || []).forEach((s) => {
-              if (
-                s.phase === phase.value &&
-                s.duration !== null &&
-                s.duration !== undefined
-              ) {
-                totalHrs += s.duration;
-              }
-            });
-            if (totalHrs > 0) {
-              if (totalHrs < 1)
-                phaseElapsed = `${Math.round(totalHrs * 60)} min`;
-              else if (totalHrs < 24)
-                phaseElapsed = `${Math.round(totalHrs * 10) / 10}h`;
-              else {
-                const d = Math.floor(totalHrs / 24);
-                const rh = Math.round((totalHrs % 24) * 10) / 10;
-                phaseElapsed = rh === 0 ? `${d}d` : `${d}d ${rh}h`;
-              }
-            }
-          }
-
-          return (
-            <React.Fragment key={phase.id}>
-              <div className={styles.timelineStepItem}>
-                <div
-                  className={`${styles.phaseCircle} ${styles.timelinePhaseCircle} ${isCompleted ? styles.completed : isCurrent ? styles.current : styles.pending}`}
-                >
-                  {isCompleted ? "✓" : idx}
-                </div>
-                <div className={styles.timelineStepLabel}>{phase.label}</div>
-                {isCurrent && (
-                  <div
-                    style={{
-                      marginTop: 4,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: 3,
-                    }}
-                  >
-                    <StatusBadge status={bid.currentStatus} />
-                    {phaseElapsed && (
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 600,
-                          color: "#8B5CF6",
-                          background: "rgba(139,92,246,0.08)",
-                          padding: "1px 8px",
-                          borderRadius: 4,
-                        }}
-                      >
-                        ⏱ {phaseElapsed}
-                      </span>
-                    )}
-                  </div>
-                )}
-                {isCompleted && phaseElapsed && (
-                  <span
-                    style={{
-                      marginTop: 4,
-                      fontSize: 10,
-                      fontWeight: 600,
-                      color: "#10B981",
-                      background: "rgba(16,185,129,0.08)",
-                      padding: "1px 8px",
-                      borderRadius: 4,
-                    }}
-                  >
-                    ✓ {phaseElapsed}
-                  </span>
-                )}
-              </div>
-              {idx < BID_PHASES.length - 1 && (
-                <div
-                  className={`${styles.timelineConnector} ${isCompleted ? styles.timelineConnectorCompleted : styles.timelineConnectorPending}`}
-                />
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
-    </GlassCard>
-
-    <GlassCard title="Step History">
-      {(bid.steps || []).length === 0 ? (
-        <EmptySection message='No step history recorded. Change the status or phase in the "Status &amp; Phases" tab to start tracking.' />
-      ) : (
-        (bid.steps || [])
-          .slice()
-          .reverse()
-          .map((step, idx) => {
-            const phaseDef = BID_PHASES.find((p) => p.value === step.phase);
-            const phaseColor = phaseDef?.color || "#94A3B8";
-            const durationText =
-              step.duration !== null && step.duration !== undefined
-                ? step.duration < 1
-                  ? `${Math.round(step.duration * 60)} min`
-                  : step.duration < 24
-                    ? `${Math.round(step.duration * 10) / 10}h`
-                    : `${Math.floor(step.duration / 24)}d ${Math.round((step.duration % 24) * 10) / 10}h`
-                : null;
-            return (
-              <div key={idx} className={styles.stepHistoryItem}>
-                <div
-                  className={styles.stepDot}
-                  style={{ background: phaseColor }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div className={styles.stepText}>
-                    <StatusBadge status={step.status} />
-                    <span
-                      style={{
-                        fontSize: 11,
-                        color: phaseColor,
-                        fontWeight: 600,
-                        marginLeft: 6,
-                      }}
-                    >
-                      {phaseDef?.label || step.phase}
-                    </span>
-                  </div>
-                  <div className={styles.stepMeta}>
-                    {step.actor || "—"} · {formatDateTime(step.start)}
-                    {step.end && <span> → {formatDateTime(step.end)}</span>}
-                    {durationText && (
-                      <span
-                        style={{
-                          marginLeft: 8,
-                          padding: "1px 8px",
-                          borderRadius: 4,
-                          background: "rgba(139,92,246,0.08)",
-                          color: "#8B5CF6",
-                          fontWeight: 600,
-                          fontSize: 10,
-                        }}
-                      >
-                        ⏱ {durationText}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })
-      )}
-    </GlassCard>
-  </div>
-);
+/* TimelineTab is now BidTimeline component in components/bid/BidTimeline.tsx */
 
 /* Approval tab now uses BidApprovalPanel sub-component */
 

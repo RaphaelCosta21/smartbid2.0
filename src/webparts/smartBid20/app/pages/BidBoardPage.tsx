@@ -2,7 +2,8 @@ import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useBids } from "../hooks/useBids";
 import { isActiveBid } from "../utils/bidHelpers";
-import { DIVISION_COLORS, DIVISIONS } from "../utils/constants";
+import { getDivisionColor } from "../utils/statusHelpers";
+import { useConfigStore } from "../stores/useConfigStore";
 import { PageHeader } from "../components/common/PageHeader";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { IBid } from "../models";
@@ -14,14 +15,27 @@ import styles from "./BidBoardPage.module.scss";
 export const BidBoardPage: React.FC = () => {
   const navigate = useNavigate();
   const { bids } = useBids();
+  const config = useConfigStore((s) => s.config);
 
   const activeBids = React.useMemo(() => bids.filter(isActiveBid), [bids]);
 
-  const divisionGroups = DIVISIONS.map((div) => ({
-    division: div,
-    bids: activeBids.filter((b) => b.division === div),
-    color: DIVISION_COLORS[div] || "#94a3b8",
-  }));
+  const divisionGroups = React.useMemo(() => {
+    const divs = (config?.divisions || [])
+      .filter((d) => d.isActive !== false)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    if (divs.length > 0) {
+      return divs.map((div) => ({
+        division: div.value,
+        bids: activeBids.filter((b) => b.division === div.value),
+        color: div.color || "#94a3b8",
+      }));
+    }
+    return ["OPG", "SSR"].map((div) => ({
+      division: div,
+      bids: activeBids.filter((b) => b.division === div),
+      color: getDivisionColor(div),
+    }));
+  }, [config, activeBids]);
 
   const handleBidClick = (bid: IBid): void => {
     navigate(`/bid/${bid.bidNumber}`);
@@ -120,8 +134,8 @@ export const BidBoardPage: React.FC = () => {
                       <span
                         className={styles.phaseBadge}
                         style={{
-                          background: `${DIVISION_COLORS[bid.division] || "#3b82f6"}18`,
-                          color: DIVISION_COLORS[bid.division] || "#3b82f6",
+                          background: `${getDivisionColor(bid.division)}18`,
+                          color: getDivisionColor(bid.division),
                         }}
                       >
                         {phaseLabel}
@@ -153,15 +167,15 @@ export const BidBoardPage: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Meta: owner, bidder, CRM */}
+                    {/* Meta: creator, engineer, CRM */}
                     <div className={styles.cardMeta}>
                       <span>
-                        <span className={styles.metaLabel}>Owner</span>{" "}
-                        {bid.owner.name}
+                        <span className={styles.metaLabel}>Creator</span>{" "}
+                        {bid.creator?.name || "—"}
                       </span>
                       <span>
-                        <span className={styles.metaLabel}>Bidder</span>{" "}
-                        {bid.bidder.name}
+                        <span className={styles.metaLabel}>Engineer</span>{" "}
+                        {bid.engineerResponsible?.[0]?.name || "Unassigned"}
                       </span>
                       <span>
                         <span className={styles.metaLabel}>CRM</span>{" "}
@@ -196,7 +210,7 @@ export const BidBoardPage: React.FC = () => {
                         {format(new Date(bid.dueDate), "MMM d")}
                       </span>
                       <span className={styles.ownerName}>
-                        {bid.owner.name.split(" ")[0]}
+                        {(bid.creator?.name || "").split(" ")[0]}
                       </span>
                     </div>
                   </div>

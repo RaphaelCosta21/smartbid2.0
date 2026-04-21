@@ -25,7 +25,8 @@ export {
   type IBid,
   type IQuickNote,
   type IOpportunityInfo,
-  type IBidStep,
+  type IPhaseHistoryEntry,
+  type IStatusHistoryEntry,
   type IBidTask,
   type IEquipmentItem,
   type IScopeItem,
@@ -124,3 +125,4 @@ export {
   type IApprovalFlowStep,
 } from "./IApprovalFlow";
 export { type IKnowledgeBaseItem, type KBCategory } from "./IKnowledgeBase";
+export { type IAssetCatalogItem } from "./IAssetCatalog";

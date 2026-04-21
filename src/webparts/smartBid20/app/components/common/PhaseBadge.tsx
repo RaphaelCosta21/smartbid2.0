@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useConfigStore } from "../../stores/useConfigStore";
 import styles from "./PhaseBadge.module.scss";
 
 interface PhaseBadgeProps {
@@ -14,16 +15,18 @@ export const PhaseBadge: React.FC<PhaseBadgeProps> = ({
   color,
   className,
 }) => {
-  const phaseColors: Record<string, string> = {
-    PHASE_0: "#94A3B8",
-    PHASE_1: "#3B82F6",
-    PHASE_2: "#06B6D4",
-    PHASE_3: "#8B5CF6",
-    PHASE_4: "#EC4899",
-    PHASE_5: "#10B981",
-  };
+  const config = useConfigStore((s) => s.config);
 
-  const bgColor = color || phaseColors[phase] || "#94A3B8";
+  const bgColor = React.useMemo(() => {
+    if (color) return color;
+    if (config?.phases) {
+      const p = config.phases.find(
+        (p) => p.value === phase || p.label === phase,
+      );
+      if (p?.color) return p.color;
+    }
+    return "#94A3B8";
+  }, [color, phase, config]);
 
   return (
     <span

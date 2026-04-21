@@ -31,6 +31,7 @@ import { ApprovalsPage } from "../../pages/ApprovalsPage";
 import { BidResultsPage } from "../../pages/BidResultsPage";
 import { TemplatesPage } from "../../pages/TemplatesPage";
 import { KnowledgeBasePage } from "../../pages/KnowledgeBasePage";
+import { AssetsCatalogPage } from "../../pages/AssetsCatalogPage";
 import { AnalyticsPage } from "../../pages/AnalyticsPage";
 import { ReportsPage } from "../../pages/ReportsPage";
 import { FavoritesPage } from "../../pages/FavoritesPage";
@@ -59,25 +60,6 @@ export const AppLayout: React.FC = () => {
     // Load system config from SharePoint into global store
     SystemConfigService.get()
       .then((cfg) => {
-        // Ensure "Approved" sub-status exists (added in v2)
-        const subs = cfg.subStatuses || [];
-        const hasApproved = subs.some(
-          (s) => s.value === "Approved" || s.label === "Approved",
-        );
-        if (!hasApproved) {
-          const maxOrder = subs.reduce((m, s) => Math.max(m, s.order || 0), 0);
-          subs.push({
-            id: "ss-8",
-            label: "Approved",
-            value: "Approved",
-            isActive: true,
-            order: maxOrder + 1,
-            color: "#10B981",
-            category: "Close Out",
-          });
-          cfg.subStatuses = subs;
-          SystemConfigService.update(cfg).catch(() => {});
-        }
         setConfig(cfg);
       })
       .catch((err) => console.error("Failed to load system config:", err));
@@ -128,6 +110,10 @@ export const AppLayout: React.FC = () => {
               />
               <Route path={ROUTES.faq} element={<FaqPage />} />
               <Route path={ROUTES.knowledge} element={<KnowledgeBasePage />} />
+              <Route
+                path={ROUTES.assetsCatalog}
+                element={<AssetsCatalogPage />}
+              />
               <Route path={ROUTES.analytics} element={<AnalyticsPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path={ROUTES.reports} element={<ReportsPage />} />

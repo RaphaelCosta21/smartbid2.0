@@ -4,6 +4,7 @@
 
 import * as React from "react";
 import { useBidStore } from "../stores/useBidStore";
+import { useConfigStore } from "../stores/useConfigStore";
 
 export interface BidKPIs {
   totalBids: number;
@@ -18,16 +19,27 @@ export interface BidKPIs {
   totalPipelineValueUSD: number;
 }
 
-const TERMINAL_STATUSES = ["Completed", "Cancelled", "On Hold"];
-
-function isTerminal(status: string): boolean {
-  return TERMINAL_STATUSES.indexOf(status) >= 0;
-}
-
 export function useKPIs(): BidKPIs {
   const bids = useBidStore((s) => s.bids);
+  const config = useConfigStore((s) => s.config);
 
   return React.useMemo(() => {
+    // Build terminal status list from config
+    const terminalValues: string[] = [];
+    if (config) {
+      const terms = (config as any).terminalStatuses || [];
+      terms.forEach((t: any) => {
+        if (t.value && t.isActive !== false) terminalValues.push(t.value);
+      });
+    }
+    if (terminalValues.length === 0) {
+      terminalValues.push("Completed", "Canceled", "No Bid");
+    }
+
+    function isTerminal(status: string): boolean {
+      return terminalValues.indexOf(status) >= 0;
+    }
+
     const totalBids = bids.length;
     const activeBids = bids.filter((b) => !isTerminal(b.currentStatus)).length;
     const wonBids = bids.filter((b) => b.bidResult?.outcome === "Won").length;
@@ -78,5 +90,5 @@ export function useKPIs(): BidKPIs {
       overdueRate: Math.round(overdueRate * 10) / 10,
       totalPipelineValueUSD,
     };
-  }, [bids]);
+  }, [bids, config]);
 }

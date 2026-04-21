@@ -50,6 +50,8 @@ export interface IBidRequest {
   phases: IRequestPhase[];
   notes: string;
   status: "submitted" | "assigned" | "rejected" | "converted";
+  currentPhase: string;
+  currentStatus: string;
   assignedTo: IPersonRef | null;
   assignedDate: string | null;
   rejectionReason: string | null;

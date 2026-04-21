@@ -14,8 +14,8 @@ export function getPhaseProgress(bid: IBid): number {
   if (!phaseConfig) return 0;
   const totalTasks = phaseConfig.tasks.length;
   if (totalTasks === 0) return 0;
-  const completedTasks = (bid.steps || []).filter(
-    (s) => s.phase === bid.currentPhase && s.status === "Completed",
+  const completedTasks = (bid.tasks || []).filter(
+    (t) => t.phase === bid.currentPhase && t.status === "completed",
   ).length;
   return Math.round((completedTasks / totalTasks) * 100);
 }
@@ -23,10 +23,10 @@ export function getPhaseProgress(bid: IBid): number {
 export function getOverallProgress(bid: IBid): number {
   const allTasks = getAllTasks();
   if (allTasks.length === 0) return 0;
-  const completedSteps = (bid.steps || []).filter(
-    (s) => s.status === "Completed",
+  const completedCount = (bid.tasks || []).filter(
+    (t) => t.status === "completed",
   ).length;
-  return Math.round((completedSteps / allTasks.length) * 100);
+  return Math.round((completedCount / allTasks.length) * 100);
 }
 
 export function getPhaseIndex(phase: string): number {
@@ -37,9 +37,9 @@ export function getPhaseIndex(phase: string): number {
 export function isPhaseCompleted(bid: IBid, phaseKey: string): boolean {
   const config = getPhaseConfig(phaseKey as BidPhase);
   if (!config) return false;
-  const phaseSteps = (bid.steps || []).filter((s) => s.phase === phaseKey);
+  const phaseTasks = (bid.tasks || []).filter((t) => t.phase === phaseKey);
   return (
-    phaseSteps.length > 0 && phaseSteps.every((s) => s.status === "Completed")
+    phaseTasks.length > 0 && phaseTasks.every((t) => t.status === "completed")
   );
 }
 

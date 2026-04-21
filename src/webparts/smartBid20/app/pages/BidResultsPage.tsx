@@ -5,22 +5,44 @@ import { DivisionBadge } from "../components/common/DivisionBadge";
 import { DataTable } from "../components/common/DataTable";
 import { EmptyState } from "../components/common/EmptyState";
 import { useBids } from "../hooks/useBids";
+import { useConfigStore } from "../stores/useConfigStore";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { getTerminalStatuses } from "../utils/statusHelpers";
 import { IBid } from "../models";
 import styles from "./BidResultsPage.module.scss";
 
-const OUTCOME_COLORS: Record<string, string> = {
-  Won: "#10B981",
-  Lost: "#EF4444",
-  "Client Canceled": "#F59E0B",
-  Renegotiation: "#8B5CF6",
-  "No Response": "#94A3B8",
-};
-
 export const BidResultsPage: React.FC = () => {
   const { filteredBids } = useBids();
+  const config = useConfigStore((s) => s.config);
   const [outcomeFilter, setOutcomeFilter] = React.useState<string>("all");
+
+  // Outcome colors & options from config bidResultOptions
+  const bidResultOptions = React.useMemo(() => {
+    if (config?.bidResultOptions && config.bidResultOptions.length > 0) {
+      return config.bidResultOptions
+        .filter((o) => o.isActive !== false)
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+    }
+    return [
+      { value: "Won", label: "Won", color: "#10B981" },
+      { value: "Lost", label: "Lost", color: "#EF4444" },
+      { value: "Client Canceled", label: "Client Canceled", color: "#F59E0B" },
+      { value: "Renegotiation", label: "Renegotiation", color: "#8B5CF6" },
+      { value: "No Response", label: "No Response", color: "#94A3B8" },
+    ] as any[];
+  }, [config]);
+
+  const outcomeColors = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    bidResultOptions.forEach((o: any) => {
+      map[o.value] = o.color || "#94A3B8";
+    });
+    return map;
+  }, [bidResultOptions]);
+
+  const outcomes = React.useMemo(() => {
+    return ["all"].concat(bidResultOptions.map((o: any) => o.value));
+  }, [bidResultOptions]);
 
   const terminalBids = React.useMemo(() => {
     const terminalStatuses = getTerminalStatuses().map((s) => s.value || s.id);
@@ -34,15 +56,6 @@ export const BidResultsPage: React.FC = () => {
     if (outcomeFilter === "all") return terminalBids;
     return terminalBids.filter((b) => b.bidResult?.outcome === outcomeFilter);
   }, [terminalBids, outcomeFilter]);
-
-  const outcomes = [
-    "all",
-    "Won",
-    "Lost",
-    "Client Canceled",
-    "Renegotiation",
-    "No Response",
-  ];
 
   const stats = React.useMemo(() => {
     const won = terminalBids.filter(
@@ -88,7 +101,7 @@ export const BidResultsPage: React.FC = () => {
       header: "Outcome",
       render: (bid: IBid) => {
         const outcome = bid.bidResult?.outcome || "N/A";
-        const color = OUTCOME_COLORS[outcome] || "#94A3B8";
+        const color = outcomeColors[outcome] || "#94A3B8";
         return (
           <span className={styles.outcomeText} style={{ color }}>
             {outcome}

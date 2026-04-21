@@ -55,7 +55,9 @@ export type SubStatusId =
   | "bid-elaboration"
   | "under-review"
   | "pending-approval"
-  | "on-hold";
+  | "on-hold"
+  | "awaiting-kick-off"
+  | "eng-study";
 
 export interface ISubStatusDef {
   id: SubStatusId;
