@@ -3,10 +3,13 @@ import { PageHeader } from "../components/common/PageHeader";
 import { TemplateCard } from "../components/template/TemplateCard";
 import { TemplateEditor } from "../components/template/TemplateEditor";
 import { TemplatePreview } from "../components/template/TemplatePreview";
+import { AIDocumentAnalyzer } from "../components/common/AIDocumentAnalyzer";
 import { useTemplates } from "../hooks/useTemplates";
 import { useConfigStore } from "../stores/useConfigStore";
 import { IBidTemplate } from "../models/IBidTemplate";
+import { IScopeItem } from "../models";
 import { DIVISIONS, SERVICE_LINES } from "../utils/constants";
+import { makeId } from "../utils/idGenerator";
 import styles from "./TemplatesPage.module.scss";
 
 type ViewMode = "grid" | "list";
@@ -36,6 +39,7 @@ export const TemplatesPage: React.FC = () => {
   >(undefined);
   const [previewTemplate, setPreviewTemplate] =
     React.useState<IBidTemplate | null>(null);
+  const [showAIAnalyzer, setShowAIAnalyzer] = React.useState(false);
 
   const divisionOptions = React.useMemo(() => {
     if (config?.divisions) {
@@ -95,6 +99,30 @@ export const TemplatesPage: React.FC = () => {
     setShowEditor(true);
   };
 
+  const handleAIImport = (items: IScopeItem[]): void => {
+    // Create a new template pre-populated with AI-generated scope items
+    const tpl: IBidTemplate = {
+      id: makeId("tpl"),
+      name: "",
+      description: "Generated from AI document analysis",
+      division: "",
+      serviceLine: "",
+      category: "",
+      scopeItems: items,
+      createdBy: "",
+      createdDate: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+      lastModifiedBy: "",
+      version: 1,
+      usageCount: 0,
+      isActive: true,
+      tags: ["ai-generated"],
+    };
+    setEditingTemplate(tpl);
+    setShowAIAnalyzer(false);
+    setShowEditor(true);
+  };
+
   const handleEdit = (tpl: IBidTemplate): void => {
     setEditingTemplate(tpl);
     setShowEditor(true);
@@ -103,7 +131,7 @@ export const TemplatesPage: React.FC = () => {
   const handleDuplicate = (tpl: IBidTemplate): void => {
     const dup: IBidTemplate = {
       ...tpl,
-      id: `tpl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: makeId("tpl"),
       name: `${tpl.name} (Copy)`,
       createdDate: new Date().toISOString(),
       lastModified: new Date().toISOString(),
@@ -282,6 +310,14 @@ export const TemplatesPage: React.FC = () => {
           <button onClick={handleCreate} className={styles.createBtn}>
             + New Template
           </button>
+
+          <button
+            onClick={() => setShowAIAnalyzer(true)}
+            className={styles.aiGenerateBtn}
+            title="Generate a template from a client document using AI"
+          >
+            🤖 Generate from AI
+          </button>
         </div>
       </div>
 
@@ -433,6 +469,39 @@ export const TemplatesPage: React.FC = () => {
                 onClick={() => setPreviewTemplate(null)}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* AI Analyzer modal */}
+      {showAIAnalyzer && (
+        <div
+          className={styles.overlay}
+          onClick={() => setShowAIAnalyzer(false)}
+        >
+          <div
+            className={`${styles.modal} ${styles.aiModal}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.aiModalHeader}>
+              <h3>🤖 Generate Template from Document</h3>
+              <p>
+                Upload a client document (PDF or Word) and AI will extract scope
+                items to create a new template.
+              </p>
+            </div>
+            <AIDocumentAnalyzer
+              onImport={handleAIImport}
+              importLabel="Create Template with These Items"
+              compact
+            />
+            <div className={styles.modalActions}>
+              <button
+                className={styles.modalCloseBtn}
+                onClick={() => setShowAIAnalyzer(false)}
+              >
+                Cancel
               </button>
             </div>
           </div>

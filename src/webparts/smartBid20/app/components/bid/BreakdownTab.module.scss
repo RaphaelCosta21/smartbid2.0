@@ -118,6 +118,11 @@
   color: var(--text-primary);
   font-size: 12px;
   cursor: pointer;
+
+  option {
+    background: var(--card-bg, #fff);
+    color: var(--text-primary);
+  }
 }
 .selectCell:focus {
   outline: none;

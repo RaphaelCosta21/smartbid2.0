@@ -30,6 +30,7 @@ export {
   type IBidTask,
   type IEquipmentItem,
   type IScopeItem,
+  type IScopeSubItem,
   type IAssetBreakdownItem,
   type ILogisticsItem,
   type ICertificationItem,
@@ -52,6 +53,7 @@ export {
   type IBidMetadata,
   type IBidRevision,
   type IAssetSubCost,
+  type ISubItemCost,
   type IQualificationTable,
   type IQualificationItem,
   type IClarificationItem,
@@ -126,3 +128,9 @@ export {
 } from "./IApprovalFlow";
 export { type IKnowledgeBaseItem, type KBCategory } from "./IKnowledgeBase";
 export { type IAssetCatalogItem } from "./IAssetCatalog";
+export { type IEditLock } from "./IEditLock";
+export {
+  type IAIAnalysisRequest,
+  type IAIAnalysisResult,
+  type IAIAnalysisError,
+} from "./IAIAnalysis";

@@ -1,6 +1,9 @@
 import * as React from "react";
 import { IBid } from "../../models";
-import { buildCostSummary } from "../../utils/costCalculations";
+import {
+  buildCostSummary,
+  calculateAssetsByResourceType,
+} from "../../utils/costCalculations";
 import { formatCurrency } from "../../utils/formatters";
 import styles from "./BidCostSummary.module.scss";
 
@@ -14,6 +17,15 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
   className,
 }) => {
   const s = React.useMemo(() => buildCostSummary(bid), [bid]);
+  const assetsByType = React.useMemo(
+    () =>
+      calculateAssetsByResourceType(
+        bid.assetBreakdown || [],
+        bid.scopeItems || [],
+      ),
+    [bid],
+  );
+  const hasMultipleAssetTypes = assetsByType.length > 1;
 
   const kpis = [
     {
@@ -30,17 +42,60 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
     { label: "Currency", value: s.currency },
   ];
 
-  const breakdown = [
-    {
+  const breakdown: {
+    label: string;
+    usd: number;
+    brl: number;
+    indent?: boolean;
+  }[] = [];
+
+  // Assets rows — split by resource type when multiple types exist
+  if (hasMultipleAssetTypes) {
+    // Totals header
+    breakdown.push({
       label: "Assets (CAPEX)",
       usd: s.assetsCapexUSD,
       brl: s.assetsCapexUSD * s.ptaxUsed,
-    },
-    {
+    });
+    assetsByType.forEach((rt) => {
+      if (rt.capexUSD > 0) {
+        breakdown.push({
+          label: `↳ ${rt.resourceType}`,
+          usd: rt.capexUSD,
+          brl: rt.capexUSD * s.ptaxUsed,
+          indent: true,
+        });
+      }
+    });
+    breakdown.push({
       label: "Assets (OPEX)",
       usd: s.assetsOpexUSD,
       brl: s.assetsOpexUSD * s.ptaxUsed,
-    },
+    });
+    assetsByType.forEach((rt) => {
+      if (rt.opexUSD > 0) {
+        breakdown.push({
+          label: `↳ ${rt.resourceType}`,
+          usd: rt.opexUSD,
+          brl: rt.opexUSD * s.ptaxUsed,
+          indent: true,
+        });
+      }
+    });
+  } else {
+    breakdown.push({
+      label: "Assets (CAPEX)",
+      usd: s.assetsCapexUSD,
+      brl: s.assetsCapexUSD * s.ptaxUsed,
+    });
+    breakdown.push({
+      label: "Assets (OPEX)",
+      usd: s.assetsOpexUSD,
+      brl: s.assetsOpexUSD * s.ptaxUsed,
+    });
+  }
+
+  breakdown.push(
     {
       label: "Engineering Hours",
       usd: s.ptaxUsed > 0 ? s.engineeringHoursCostBRL / s.ptaxUsed : 0,
@@ -73,7 +128,7 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
       usd: s.consumablesCostUSD,
       brl: s.consumablesCostBRL,
     },
-  ];
+  );
 
   // Simple horizontal bar percentages
   const maxUSD = Math.max(...breakdown.map((b) => b.usd), 1);
@@ -111,7 +166,10 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
               const pct =
                 s.totalCostUSD > 0 ? (row.usd / s.totalCostUSD) * 100 : 0;
               return (
-                <tr key={row.label}>
+                <tr
+                  key={row.label}
+                  className={row.indent ? styles.indentRow : ""}
+                >
                   <td>{row.label}</td>
                   <td className={styles.cellRight}>
                     {formatCurrency(row.usd)}

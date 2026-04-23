@@ -37,6 +37,60 @@
   color: #f59e0b;
   font-size: 13px;
 }
+.toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.toolbarBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: var(--accent-color);
+    background: var(--accent-color-10, rgba(20, 184, 166, 0.1));
+  }
+}
+
+/* ─── Resource Type Sub-Tabs ─── */
+.subTabBar {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border-subtle);
+}
+.subTab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+.subTabActive {
+  font-weight: 700;
+  color: var(--accent-color);
+  border-bottom-color: var(--accent-color);
+}
+
 .tableWrapper {
   overflow-x: auto;
 }
@@ -62,6 +116,23 @@
 }
 .table tr:hover td {
   background: var(--glass-bg, rgba(255, 255, 255, 0.03));
+}
+
+/* ─── Main item row (primary visual weight) ─── */
+.mainItemRow {
+  td {
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--glass-bg, rgba(255, 255, 255, 0.025));
+    font-weight: 600;
+  }
+
+  td:first-child {
+    border-left: 3px solid var(--accent-color);
+  }
+
+  &:hover td {
+    background: var(--accent-color-10, rgba(20, 184, 166, 0.06));
+  }
 }
 .readOnlyCell {
   background: var(--glass-bg, rgba(255, 255, 255, 0.04));
@@ -113,11 +184,56 @@
   color: var(--text-primary);
   font-size: 12px;
   cursor: pointer;
+
+  option {
+    background: var(--card-bg, #fff);
+    color: var(--text-primary);
+  }
 }
 .selectCell:focus {
   outline: none;
   border-color: var(--accent-color);
 }
+
+/* ─── Empty field indicator ─── */
+.fieldEmpty {
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  background: rgba(245, 158, 11, 0.04) !important;
+}
+
+/* ─── Subtotal rows ─── */
+.subtotalRow {
+  td {
+    background: transparent;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 3px 10px;
+  }
+}
+.subtotalLabel {
+  text-align: right;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  letter-spacing: 0.2px;
+}
+.subtotalValue {
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-family: "Cascadia Code", "Consolas", monospace;
+}
+
+/* ─── Main row total cost (prominent) ─── */
+.mainTotalCost {
+  text-align: right;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+  font-family: "Cascadia Code", "Consolas", monospace;
+}
+
 .badge {
   padding: 2px 8px;
   border-radius: 8px;
@@ -170,20 +286,31 @@
   transform: rotate(-90deg);
 }
 
-/* ─── Sub-cost rows ─── */
+/* ─── Sub-cost rows (💲 service/maintenance costs) ─── */
 .subCostRow {
   td {
-    background: var(--glass-bg, rgba(255, 255, 255, 0.02));
-    border-bottom: 1px dashed var(--border-subtle);
-    font-size: 12px;
+    background: rgba(139, 92, 246, 0.03);
+    border-bottom: 1px dashed rgba(139, 92, 246, 0.15);
+    font-size: 11px;
     padding: 4px 10px;
+    color: var(--text-secondary);
+  }
+
+  td:first-child {
+    border-left: 3px solid rgba(139, 92, 246, 0.25);
+    padding-left: 24px;
+  }
+
+  &:hover td {
+    background: rgba(139, 92, 246, 0.06);
   }
 }
 
 .subCostLabel {
-  color: var(--text-secondary);
+  color: #8b5cf6;
   font-style: italic;
   font-size: 12px;
+  white-space: nowrap;
 }
 
 .subCostToggle {
@@ -234,4 +361,165 @@
   &:hover {
     background: rgba(239, 68, 68, 0.1);
   }
+}
+
+/* ─── Cost Completeness Banner ─── */
+.costBannerPending {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #f59e0b;
+  font-size: 13px;
+  font-weight: 500;
+}
+.costBannerComplete {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 500;
+}
+.costBannerIcon {
+  font-size: 16px;
+}
+.costBannerText {
+  flex: 1;
+}
+.costBannerSub {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* ─── Sub-Items (📦 physical items with costs) ─── */
+.subItemHeaderRow {
+  td {
+    padding: 0 !important;
+    border-bottom: none !important;
+  }
+}
+.subItemSectionBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px 6px 24px;
+  background: linear-gradient(
+    90deg,
+    rgba(59, 130, 246, 0.08),
+    rgba(59, 130, 246, 0.02)
+  );
+  font-size: 11px;
+  border-left: 3px solid rgba(59, 130, 246, 0.3);
+}
+.subItemSectionTitle {
+  font-size: 12px;
+}
+.subItemSectionHint {
+  color: var(--text-secondary);
+  font-size: 11px;
+  flex: 1;
+  font-style: italic;
+}
+.subItemSectionTotal {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 13px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.1);
+}
+.subItemsPanelClose {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+  }
+}
+.subItemRow {
+  td {
+    background: rgba(59, 130, 246, 0.02);
+    border-bottom: 1px dashed rgba(59, 130, 246, 0.08);
+    font-size: 11px;
+    padding: 5px 10px;
+    color: var(--text-secondary);
+  }
+
+  td:first-child {
+    border-left: 3px solid rgba(59, 130, 246, 0.25);
+    padding-left: 24px;
+  }
+
+  &:hover td {
+    background: rgba(59, 130, 246, 0.05);
+  }
+}
+.subItemReadOnly {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.subItemInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+.subItemIcon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.subItemNum {
+  font-size: 11px;
+  font-weight: 700;
+  color: #3b82f6;
+  min-width: 22px;
+  flex-shrink: 0;
+}
+.subItemName {
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.subItemMeta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 2px;
+}
+.subItemTag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.subItemPN {
+  font-family: "Cascadia Code", "Consolas", monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.04));
+}
+.cellMono {
+  font-family: "Cascadia Code", "Consolas", monospace;
+  font-size: 11px;
 }

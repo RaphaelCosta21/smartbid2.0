@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ILogisticsItem } from "../../models";
-import { useConfigStore } from "../../stores/useConfigStore";
+import { makeId } from "../../utils/idGenerator";
+import { getCurrencies } from "../../utils/currencyHelpers";
 import styles from "./BreakdownTab.module.scss";
 
 interface LogisticsBreakdownTabProps {
@@ -9,11 +10,8 @@ interface LogisticsBreakdownTabProps {
   readOnly?: boolean;
 }
 
-const makeId = (): string =>
-  `log-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
 const blankItem = (lineNumber: number): ILogisticsItem => ({
-  id: makeId(),
+  id: makeId("log"),
   lineNumber,
   item: "",
   description: "",
@@ -23,19 +21,6 @@ const blankItem = (lineNumber: number): ILogisticsItem => ({
   totalCost: 0,
   notes: "",
 });
-
-function getCurrencies(): string[] {
-  const cfg = useConfigStore.getState().config;
-  const rates = cfg?.currencySettings?.exchangeRates;
-  if (rates && rates.length > 0) {
-    const list = [cfg.currencySettings.defaultCurrency || "USD"];
-    rates.forEach((r: any) => {
-      if (list.indexOf(r.currency) < 0) list.push(r.currency);
-    });
-    return list;
-  }
-  return ["BRL", "USD", "EUR", "GBP", "NOK"];
-}
 
 export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
   logisticsBreakdown,

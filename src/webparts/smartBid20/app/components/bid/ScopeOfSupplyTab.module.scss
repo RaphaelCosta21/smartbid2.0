@@ -42,6 +42,36 @@
   flex-wrap: wrap;
 }
 
+/* ─── Resource Type Sub-Tabs ─── */
+.subTabBar {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border-subtle);
+}
+.subTab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+.subTabActive {
+  font-weight: 700;
+  color: var(--accent-color);
+  border-bottom-color: var(--accent-color);
+}
+
 .toolbarBtn {
   display: flex;
   align-items: center;
@@ -74,6 +104,7 @@
 /* ─── Table ─── */
 .tableWrapper {
   overflow-x: auto;
+  overflow-y: visible;
 }
 
 .table {
@@ -102,6 +133,21 @@
 
   tr:hover td {
     background: var(--glass-bg, rgba(255, 255, 255, 0.03));
+  }
+}
+
+/* ─── Main item row (primary visual weight) ─── */
+.mainItemRow {
+  td {
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  td:first-child {
+    border-left: 3px solid var(--accent-color);
+  }
+
+  &:hover td {
+    background: var(--accent-color-10, rgba(20, 184, 166, 0.05));
   }
 }
 
@@ -178,6 +224,17 @@
 .editSelect {
   @extend .editInput;
   cursor: pointer;
+
+  option {
+    background: var(--card-bg, #fff);
+    color: var(--text-primary);
+  }
+}
+
+/* ─── Empty field indicator ─── */
+.fieldEmpty {
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  background: rgba(245, 158, 11, 0.04) !important;
 }
 
 /* ─── Compliance toggle ─── */
@@ -394,5 +451,681 @@
 
   &:hover {
     background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  }
+}
+
+/* ─── Client Technical Specs ─── */
+
+/* Description cell wrapper with badge */
+.descriptionCell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.specsCountBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: #3b82f6;
+  opacity: 0.8;
+  cursor: pointer;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.08);
+  width: fit-content;
+  transition:
+    opacity 0.15s,
+    background 0.15s;
+
+  &:hover {
+    opacity: 1;
+    background: rgba(59, 130, 246, 0.15);
+  }
+}
+
+/* Row that has its specs panel open */
+.specsOpenRow {
+  td {
+    border-bottom-color: rgba(59, 130, 246, 0.3);
+  }
+}
+
+/* Specs toggle button in actions */
+.specsToggle {
+  font-size: 11px !important;
+  color: var(--text-secondary) !important;
+  opacity: 0.6;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
+  white-space: nowrap;
+
+  &:hover {
+    opacity: 1;
+    color: #3b82f6 !important;
+    background: rgba(59, 130, 246, 0.08) !important;
+  }
+
+  &.hasSpecs {
+    opacity: 1;
+    color: #3b82f6 !important;
+  }
+}
+
+/* Detail row below data row */
+.specsDetailRow {
+  td {
+    padding: 0 !important;
+    border-bottom: 2px solid rgba(59, 130, 246, 0.25);
+    background: transparent;
+  }
+}
+
+/* The expandable panel */
+.specsPanel {
+  margin: 0 12px 8px 36px;
+  padding: 16px 20px;
+  border-radius: 0 0 10px 10px;
+  border-left: 3px solid #3b82f6;
+  background: rgba(59, 130, 246, 0.04);
+  animation: specsFadeIn 0.2s ease-out;
+}
+
+@keyframes specsFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.specsPanelHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.specsPanelIcon {
+  font-size: 16px;
+  margin-top: 1px;
+}
+
+.specsPanelTitleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.specsPanelTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #3b82f6;
+  letter-spacing: 0.3px;
+}
+
+.specsPanelSubtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  font-weight: 400;
+  font-style: italic;
+}
+
+.specsPanelClose {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+  }
+}
+
+/* Sections inside the panel */
+.specsSection {
+  margin-bottom: 14px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.specsLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.specsBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.specsRequirementText {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-subtle);
+}
+
+.specsTextarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  font-family: inherit;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+  }
+
+  &::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.5;
+  }
+}
+
+.specsEmpty {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* Specifications numbered list */
+.specsList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.specsItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle);
+  transition: border-color 0.15s;
+
+  &:hover {
+    border-color: rgba(59, 130, 246, 0.3);
+  }
+}
+
+.specsItemNumber {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.specsItemText {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.specsItemInput {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+  font-family: inherit;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    background: var(--input-bg, rgba(255, 255, 255, 0.06));
+  }
+}
+
+.specsItemDelete {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
+  flex-shrink: 0;
+
+  .specsItem:hover & {
+    opacity: 1;
+  }
+
+  &:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+  }
+}
+
+/* Add controls */
+.specsAddControls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.specsAddBtn {
+  align-self: flex-start;
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px dashed rgba(59, 130, 246, 0.4);
+  background: transparent;
+  color: #3b82f6;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: rgba(59, 130, 246, 0.08);
+    border-color: #3b82f6;
+  }
+}
+
+.specsBulkImport {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--glass-bg, rgba(255, 255, 255, 0.02));
+}
+
+.specsBulkLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.specsBulkBtn {
+  align-self: flex-end;
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: none;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+
+  &:hover {
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+/* ─── Section Color Picker ─── */
+.colorPicker {
+  position: relative;
+  display: inline-flex;
+}
+
+.colorPickerBtn {
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  background: transparent;
+  transition: border-color 0.15s;
+
+  &:hover {
+    border-color: var(--accent-color);
+  }
+}
+
+.colorPickerDropdown {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  padding: 6px;
+  border-radius: 8px;
+  background: var(--card-bg, #1e1e2e);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+  gap: 4px;
+  flex-wrap: wrap;
+  width: 120px;
+  margin-bottom: 4px;
+
+  .colorPicker:hover & {
+    display: flex;
+  }
+}
+
+.colorSwatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    border-color 0.15s;
+
+  &:hover {
+    transform: scale(1.2);
+  }
+
+  &.colorSwatchActive {
+    border-color: #fff;
+    box-shadow: 0 0 0 2px var(--accent-color);
+  }
+}
+
+/* ─── Move to Section Select ─── */
+.moveSectionSelect {
+  max-width: 90px;
+  padding: 2px 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-secondary);
+  font-size: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+
+  option {
+    background: var(--card-bg, #fff);
+    color: var(--text-primary);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    color: var(--text-primary);
+  }
+}
+
+/* ─── Sub-Items Panel ─── */
+.subItemsToggle {
+  font-size: 11px !important;
+  color: var(--text-secondary) !important;
+  opacity: 0.6;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
+  white-space: nowrap;
+
+  &:hover {
+    opacity: 1;
+    color: #3b82f6 !important;
+    background: rgba(59, 130, 246, 0.08) !important;
+  }
+
+  &.hasSubItems {
+    opacity: 1;
+    color: #3b82f6 !important;
+  }
+}
+.subItemsBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent-color);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 3px;
+}
+.subItemsCountBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+  font-size: 10px;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(59, 130, 246, 0.2);
+  }
+}
+.subItemsDetailRow {
+  td {
+    padding: 0 !important;
+    background: var(--card-bg);
+    border-left: 3px solid rgba(59, 130, 246, 0.3);
+  }
+}
+.subItemsPanel {
+  padding: 14px 20px 14px 24px;
+  border-top: 2px solid rgba(59, 130, 246, 0.3);
+  background: linear-gradient(
+    180deg,
+    rgba(59, 130, 246, 0.04),
+    transparent 60px
+  );
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-left: 8px;
+}
+.subItemsPanelHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.subItemsPanelIcon {
+  font-size: 18px;
+}
+.subItemsPanelTitleGroup {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.subItemsPanelTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.subItemsPanelSubtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.subItemsCount {
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  font-size: 11px;
+  font-weight: 600;
+}
+.subItemsPanelClose {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+
+  &:hover {
+    background: var(--glass-bg, rgba(255, 255, 255, 0.1));
+    color: var(--text-primary);
+  }
+}
+.subItemsTableWrap {
+  overflow-x: auto;
+}
+.subItemsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+
+  th {
+    padding: 6px 8px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-bottom: 1px solid var(--border-subtle);
+    opacity: 0.7;
+  }
+
+  td {
+    padding: 4px 8px !important;
+    border-bottom: 1px dashed var(--border-subtle);
+    background: transparent !important;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+}
+.subItemNum {
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-align: center;
+}
+.subItemInput {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-primary);
+  font-size: 12px;
+  transition: border-color 0.15s;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-color);
+  }
+}
+.subItemInputNum {
+  width: 50px;
+  padding: 4px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-primary);
+  font-size: 12px;
+  text-align: center;
+  transition: border-color 0.15s;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-color);
+  }
+}
+.subItemDelete {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: all 0.15s;
+
+  &:hover {
+    color: #ef4444;
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+  }
+}
+.subItemsEmpty {
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 8px 0;
+  font-style: italic;
+}
+.subItemsAddRow {
+  display: flex;
+  gap: 8px;
+}
+.subItemsAddBtn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.08);
+  color: #3b82f6;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: #3b82f6;
   }
 }

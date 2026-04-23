@@ -1,6 +1,7 @@
 import * as React from "react";
 import { IScopeItem, ICertificationItem } from "../../models";
-import { useConfigStore } from "../../stores/useConfigStore";
+import { makeId } from "../../utils/idGenerator";
+import { getCurrencies } from "../../utils/currencyHelpers";
 import styles from "./BreakdownTab.module.scss";
 
 interface CertificationsBreakdownTabProps {
@@ -10,14 +11,11 @@ interface CertificationsBreakdownTabProps {
   readOnly?: boolean;
 }
 
-const makeId = (): string =>
-  `cert-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
 const blankItem = (
   lineNumber: number,
   scopeItemId?: string,
 ): ICertificationItem => ({
-  id: makeId(),
+  id: makeId("cert"),
   lineNumber,
   scopeItemId: scopeItemId || null,
   itemRef: "",
@@ -28,19 +26,6 @@ const blankItem = (
   originalCurrency: "USD",
   notes: "",
 });
-
-function getCurrencies(): string[] {
-  const cfg = useConfigStore.getState().config;
-  const rates = cfg?.currencySettings?.exchangeRates;
-  if (rates && rates.length > 0) {
-    const list = [cfg.currencySettings.defaultCurrency || "USD"];
-    rates.forEach((r: any) => {
-      if (list.indexOf(r.currency) < 0) list.push(r.currency);
-    });
-    return list;
-  }
-  return ["USD", "BRL", "EUR", "GBP", "NOK"];
-}
 
 export const CertificationsBreakdownTab: React.FC<
   CertificationsBreakdownTabProps
@@ -95,7 +80,7 @@ export const CertificationsBreakdownTab: React.FC<
     if (!scopeItemId) return "";
     const si = (scopeItems || []).find((s) => s.id === scopeItemId);
     return si
-      ? si.equipmentOffer || si.description || si.oiiPartNumber || "Scope Item"
+      ? si.equipmentOffer || si.description || si.partNumber || "Scope Item"
       : "";
   };
 

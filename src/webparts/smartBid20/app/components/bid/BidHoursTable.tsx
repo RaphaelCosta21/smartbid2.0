@@ -7,21 +7,19 @@ import {
 } from "../../models";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { formatHours, formatCurrency } from "../../utils/formatters";
+import { makeId } from "../../utils/idGenerator";
 import styles from "./BidHoursTable.module.scss";
 
 interface BidHoursTableProps {
   hoursSummary: IHoursSummary;
   readOnly?: boolean;
   onSave?: (updated: IHoursSummary) => void;
-  /** For Integrated BIDs — when set, shows only Onshore/Offshore sections */
-  integratedDivision?: "ROV" | "SURVEY" | null;
+  /** For division-aware BIDs — when set, shows only Onshore/Offshore sections */
+  integratedDivision?: "ROV" | "SURVEY" | "OPG" | null;
 }
 
-const makeId = (): string =>
-  `hrs-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
 const blankHoursItem = (sectionId?: string): IHoursItem => ({
-  id: makeId(),
+  id: makeId("hrs"),
   lineNumber: 0,
   sectionId: sectionId || null,
   requirementName: "",
@@ -136,7 +134,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     const sections = section.sections || [];
     persistChange(sectionKey, {
       ...section,
-      sections: [...sections, { id: makeId(), title: "New Section" }],
+      sections: [...sections, { id: makeId("hrs"), title: "New Section" }],
     });
   };
 
@@ -153,6 +151,48 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
       ),
     });
   };
+
+  const updateSectionGroupColor = (
+    sectionKey: SectionKey,
+    groupId: string,
+    color: string,
+  ): void => {
+    const section = hoursSummary?.[sectionKey] || emptySection;
+    persistChange(sectionKey, {
+      ...section,
+      sections: (section.sections || []).map((s) =>
+        s.id === groupId ? { ...s, color } : s,
+      ),
+    });
+  };
+
+  const moveItemToSection = (
+    sectionKey: SectionKey,
+    itemId: string,
+    targetSectionId: string | null,
+  ): void => {
+    const section = hoursSummary?.[sectionKey] || emptySection;
+    persistChange(sectionKey, {
+      ...section,
+      items: section.items.map((i) =>
+        i.id === itemId ? { ...i, sectionId: targetSectionId } : i,
+      ),
+    });
+  };
+
+  // Section color presets
+  const SECTION_COLORS = [
+    "",
+    "#3b82f6",
+    "#8b5cf6",
+    "#06b6d4",
+    "#10b981",
+    "#f59e0b",
+    "#ef4444",
+    "#ec4899",
+    "#6366f1",
+    "#84cc16",
+  ];
 
   const deleteSectionGroup = (
     sectionKey: SectionKey,
@@ -239,12 +279,41 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
       return next;
     });
   };
+
+  const allGroupIds = React.useMemo(() => {
+    const ids: string[] = [];
+    sectionDefs.forEach(({ key }) => {
+      const section = hoursSummary?.[key] || emptySection;
+      const groups: IHoursSectionGroup[] = section.sections || [];
+      groups.forEach((g) => ids.push(g.id));
+    });
+    return ids;
+  }, [hoursSummary]);
+
+  const allSectionsCollapsed =
+    allGroupIds.length > 0 &&
+    allGroupIds.every((id) => collapsedSections.has(id));
+
+  const toggleAllSections = (): void => {
+    if (allSectionsCollapsed) {
+      setCollapsedSections(new Set());
+    } else {
+      setCollapsedSections(new Set(allGroupIds));
+    }
+  };
   const [editingSection, setEditingSection] = React.useState<string | null>(
     null,
   );
 
   return (
     <div className={styles.container}>
+      {allGroupIds.length > 0 && (
+        <div className={styles.collapseToolbar}>
+          <button className={styles.collapseBtn} onClick={toggleAllSections}>
+            {allSectionsCollapsed ? "▶ Expand All" : "▼ Collapse All"}
+          </button>
+        </div>
+      )}
       {sectionDefs.map(({ key, label }) => {
         const section = hoursSummary?.[key] || emptySection;
         const sectionGroups: IHoursSectionGroup[] = section.sections || [];
@@ -305,6 +374,8 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
                       updateItem={updateItem}
                       deleteRow={deleteRow}
                       moveItem={moveHoursItem}
+                      sectionGroups={sectionGroups}
+                      moveToSection={moveItemToSection}
                     />
                   ))}
                   {/* Section groups */}
@@ -317,13 +388,32 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
                       (s, i) => s + i.totalHours,
                       0,
                     );
+                    const gColor = group.color || "";
                     return (
                       <React.Fragment key={group.id}>
-                        <tr className={styles.sectionGroupRow}>
-                          <td colSpan={!readOnly && onSave ? 10 : 8}>
+                        <tr
+                          className={styles.sectionGroupRow}
+                          style={
+                            gColor ? { background: `${gColor}15` } : undefined
+                          }
+                        >
+                          <td
+                            colSpan={!readOnly && onSave ? 10 : 8}
+                            style={
+                              gColor
+                                ? {
+                                    borderBottomColor: gColor,
+                                    borderBottomWidth: 2,
+                                    borderBottomStyle: "solid" as const,
+                                    background: `${gColor}15`,
+                                  }
+                                : undefined
+                            }
+                          >
                             <div
                               className={styles.sectionGroupHeader}
                               onClick={() => toggleCollapse(group.id)}
+                              style={gColor ? { color: gColor } : undefined}
                             >
                               <span
                                 className={`${styles.chevron} ${isCollapsed ? styles.chevronCollapsed : ""}`}
@@ -393,6 +483,13 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
                                   >
                                     + Row
                                   </button>
+                                  <ColorPickerInline
+                                    currentColor={gColor}
+                                    colors={SECTION_COLORS}
+                                    onChange={(c) =>
+                                      updateSectionGroupColor(key, group.id, c)
+                                    }
+                                  />
                                   <button
                                     className={styles.deleteBtn}
                                     onClick={() => {
@@ -424,6 +521,8 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
                               updateItem={updateItem}
                               deleteRow={deleteRow}
                               moveItem={moveHoursItem}
+                              sectionGroups={sectionGroups}
+                              moveToSection={moveItemToSection}
                             />
                           ))}
                       </React.Fragment>
@@ -488,6 +587,12 @@ interface HoursRowProps {
     itemId: string,
     direction: "up" | "down",
   ) => void;
+  sectionGroups: IHoursSectionGroup[];
+  moveToSection: (
+    sectionKey: SectionKey,
+    itemId: string,
+    targetSectionId: string | null,
+  ) => void;
 }
 
 const HoursRow: React.FC<HoursRowProps> = ({
@@ -500,6 +605,8 @@ const HoursRow: React.FC<HoursRowProps> = ({
   updateItem,
   deleteRow,
   moveItem,
+  sectionGroups,
+  moveToSection,
 }) => (
   <tr>
     {!readOnly && onSave && (
@@ -691,13 +798,125 @@ const HoursRow: React.FC<HoursRowProps> = ({
     </td>
     {!readOnly && onSave && (
       <td>
-        <button
-          className={styles.deleteBtn}
-          onClick={() => deleteRow(sectionKey, item.id)}
-        >
-          ✕
-        </button>
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          {sectionGroups.length > 0 && (
+            <select
+              value={item.sectionId || ""}
+              onChange={(e) =>
+                moveToSection(
+                  sectionKey as SectionKey,
+                  item.id,
+                  e.target.value || null,
+                )
+              }
+              title="Move to section"
+              style={{
+                maxWidth: 80,
+                padding: "2px 4px",
+                border: "1px solid var(--border-subtle, #444)",
+                borderRadius: 4,
+                background: "var(--input-bg, rgba(255,255,255,0.06))",
+                color: "var(--text-secondary, #aaa)",
+                fontSize: 10,
+                cursor: "pointer",
+              }}
+            >
+              <option value="">— None —</option>
+              {sectionGroups.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title || "Untitled"}
+                </option>
+              ))}
+            </select>
+          )}
+          <button
+            className={styles.deleteBtn}
+            onClick={() => deleteRow(sectionKey, item.id)}
+          >
+            ✕
+          </button>
+        </div>
       </td>
     )}
   </tr>
 );
+
+/* ─── Inline Color Picker (reusable) ─── */
+const ColorPickerInline: React.FC<{
+  currentColor: string;
+  colors: string[];
+  onChange: (c: string) => void;
+}> = ({ currentColor, colors, onChange }) => {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div style={{ position: "relative", display: "inline-flex" }}>
+      <button
+        style={{
+          border: "1px solid var(--border-subtle, #444)",
+          borderRadius: 4,
+          padding: "2px 6px",
+          fontSize: 11,
+          cursor: "pointer",
+          background: currentColor || "transparent",
+          color: currentColor ? "#fff" : "var(--text-secondary, #aaa)",
+        }}
+        onClick={() => setOpen(!open)}
+        title="Section color"
+      >
+        🎨
+      </button>
+      {open && (
+        <>
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 99 }}
+            onClick={() => setOpen(false)}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 100,
+              padding: 6,
+              borderRadius: 8,
+              background: "var(--card-bg, #1e1e2e)",
+              border: "1px solid var(--border-subtle, #444)",
+              boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
+              display: "flex",
+              gap: 4,
+              flexWrap: "wrap" as const,
+              width: 120,
+            }}
+          >
+            {colors.map((c) => (
+              <button
+                key={c || "default"}
+                onClick={() => {
+                  onChange(c);
+                  setOpen(false);
+                }}
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: "50%",
+                  border:
+                    (c || "") === (currentColor || "")
+                      ? "2px solid #fff"
+                      : "2px solid transparent",
+                  background: c || "var(--accent-color, #14b8a6)",
+                  cursor: "pointer",
+                  boxShadow:
+                    (c || "") === (currentColor || "")
+                      ? "0 0 0 2px var(--accent-color, #14b8a6)"
+                      : "none",
+                }}
+                title={c || "Default"}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};

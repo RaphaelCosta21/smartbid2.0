@@ -1,4 +1,4 @@
-import { IPersonRef } from "./IUser";
+﻿import { IPersonRef } from "./IUser";
 import {
   BidPhase,
   BidPriority,
@@ -90,7 +90,7 @@ export interface IEquipmentItem {
   notes: string;
 }
 
-/* ─── Scope of Supply ─── */
+/* â”€â”€â”€ Scope of Supply â”€â”€â”€ */
 export interface IScopeItem {
   id: string;
   lineNumber: number;
@@ -108,8 +108,8 @@ export interface IScopeItem {
   /** Sub-type from systemConfig.resourceTypes[].subTypes (e.g. "Camera") */
   resourceSubType: string;
   equipmentOffer: string;
-  oiiPartNumber: string;
-  mfgReference: string;
+  /** OII or Manufacturer part number */
+  partNumber: string;
   qtyOperational: number;
   qtySpare: number;
   /** Flag: this item needs certification (auto-populates Certifications tab) */
@@ -117,13 +117,33 @@ export interface IScopeItem {
   comments: string;
   importedFromTemplate: string | null;
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
-  integratedDivision?: "ROV" | "SURVEY" | "";
+  integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
+  /** Main client requirement / solicitation text */
+  clientRequirement?: string;
+  /** Detailed technical specification lines from the client document */
+  clientSpecs?: string[];
+  /** Custom color for section header (only used when isSection = true) */
+  sectionColor?: string; /** Sub-items: consumables, spare parts, accessories tied to this scope item */
+  subItems?: IScopeSubItem[];
 }
 
-/* ─── Assets Breakdown (cost layer for Scope items) ─── */
+/** A sub-item within a scope item (e.g. consumable brush, spare blade) */
+export interface IScopeSubItem {
+  id: string;
+  description: string;
+  /** Sub-type classification (e.g. Consumable, Spare Part) */
+  subType: string;
+  equipmentOffer: string;
+  /** OII or Manufacturer part number */
+  partNumber: string;
+  qty: number;
+  comments: string;
+}
+
+/* â”€â”€â”€ Assets Breakdown (cost layer for Scope items) â”€â”€â”€ */
 export interface IAssetBreakdownItem {
   id: string;
-  /** FK to IScopeItem.id — live sync link */
+  /** FK to IScopeItem.id â€” live sync link */
   scopeItemId: string;
   /** Gap Analysis status */
   availabilityStatus:
@@ -136,7 +156,7 @@ export interface IAssetBreakdownItem {
   /** From systemConfig.acquisitionTypes */
   acquisitionType: string;
   unitCostUSD: number;
-  /** Auto-calc: unitCostUSD × (scope.qtyOper + scope.qtySpare) */
+  /** Auto-calc: unitCostUSD Ã— (scope.qtyOper + scope.qtySpare) */
   totalCostUSD: number;
   /** From systemConfig.costReferences (BUMBL, BUABO, etc.) */
   costReference: string;
@@ -156,11 +176,13 @@ export interface IAssetBreakdownItem {
   statusIndicator: string | null;
   notes: string;
   subCosts?: IAssetSubCost[];
+  /** Cost entries for scope sub-items (consumables, spares) */
+  subItemCosts?: ISubItemCost[];
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
-  integratedDivision?: "ROV" | "SURVEY" | "";
+  integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
 }
 
-/* ─── Logistics Breakdown ─── */
+/* â”€â”€â”€ Logistics Breakdown â”€â”€â”€ */
 export interface ILogisticsItem {
   id: string;
   lineNumber: number;
@@ -169,14 +191,14 @@ export interface ILogisticsItem {
   originalCurrency: string;
   qty: number;
   unitCost: number;
-  /** Auto-calc: unitCost × qty */
+  /** Auto-calc: unitCost Ã— qty */
   totalCost: number;
   notes: string;
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
-  integratedDivision?: "ROV" | "SURVEY" | "";
+  integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
 }
 
-/* ─── Certifications Breakdown ─── */
+/* â”€â”€â”€ Certifications Breakdown â”€â”€â”€ */
 export interface ICertificationItem {
   id: string;
   lineNumber: number;
@@ -188,15 +210,15 @@ export interface ICertificationItem {
   /** Free text, e.g. "12 months", "2 years" */
   expiryPeriod: string;
   unitCost: number;
-  /** Auto-calc: unitCost × qty */
+  /** Auto-calc: unitCost Ã— qty */
   totalCost: number;
   originalCurrency: string;
   notes: string;
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
-  integratedDivision?: "ROV" | "SURVEY" | "";
+  integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
 }
 
-/* ─── Preparation & Mobilization ─── */
+/* â”€â”€â”€ Preparation & Mobilization â”€â”€â”€ */
 
 export type RTSCostType =
   | "maintenance"
@@ -209,7 +231,7 @@ export interface IRTSItem {
   id: string;
   lineNumber: number;
   sectionId?: string | null;
-  /** FK to IScopeItem.id — which asset needs RTS */
+  /** FK to IScopeItem.id â€” which asset needs RTS */
   scopeItemId: string | null;
   description: string;
   costType: RTSCostType;
@@ -220,7 +242,7 @@ export interface IRTSItem {
   costReference: string;
   notes: string;
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
-  integratedDivision?: "ROV" | "SURVEY" | "";
+  integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
 }
 
 export type MobilizationCostType =
@@ -241,7 +263,7 @@ export interface IMobilizationItem {
   totalCost: number;
   notes: string;
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
-  integratedDivision?: "ROV" | "SURVEY" | "";
+  integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
 }
 
 export interface IConsumableItem {
@@ -256,10 +278,25 @@ export interface IConsumableItem {
   totalCost: number;
   notes: string;
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
-  integratedDivision?: "ROV" | "SURVEY" | "";
+  integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
 }
 
-/* ─── Asset Sub-Costs ─── */
+/* ——— Sub-Item Cost (cost layer for IScopeSubItem) ——— */
+export interface ISubItemCost {
+  id: string;
+  /** FK to IScopeSubItem.id */
+  subItemId: string;
+  availabilityStatus: string;
+  acquisitionType: string;
+  unitCostUSD: number;
+  totalCostUSD: number;
+  costReference: string;
+  costCategory: "CAPEX" | "OPEX" | "";
+  supplier: string;
+  leadTimeDays: number;
+  notes: string;
+}
+
 export interface IAssetSubCost {
   id: string;
   description: string;
@@ -274,7 +311,7 @@ export interface IAssetSubCost {
   transitDiscount?: number;
 }
 
-/* ─── Qualifications & Clarifications ─── */
+/* â”€â”€â”€ Qualifications & Clarifications â”€â”€â”€ */
 export interface IQualificationTable {
   id: string;
   title: string;
@@ -314,12 +351,14 @@ export interface IHoursItem {
   totalHours: number;
   costBRL: number;
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
-  integratedDivision?: "ROV" | "SURVEY" | "";
+  integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
 }
 
 export interface IHoursSectionGroup {
   id: string;
   title: string;
+  /** Optional custom color for the section header */
+  color?: string;
 }
 
 export interface IHoursSection {

@@ -34,6 +34,7 @@ export const SHAREPOINT_CONFIG = {
     approvalRules: "APPROVAL_RULES",
     quotationDatabase: "QUOTATION_DATABASE",
     patchNotes: "PATCH_NOTES",
+    editControl: "EDIT_CONTROL",
   },
 
   fields: {

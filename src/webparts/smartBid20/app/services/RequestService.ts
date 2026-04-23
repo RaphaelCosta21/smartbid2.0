@@ -5,6 +5,7 @@
 import { IBidRequest } from "../models/IBidRequest";
 import { IBid, IPersonRef } from "../models";
 import { BidService } from "./BidService";
+import { makeId } from "../utils/idGenerator";
 
 export class RequestService {
   /**
@@ -226,7 +227,7 @@ export class RequestService {
       approvals: [],
       approvalStatus: "not-started",
       attachments: (request.attachments || []).map((a) => ({
-        id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        id: makeId("att"),
         fileName: a.fileName,
         fileUrl: a.path,
         fileSize: a.size,

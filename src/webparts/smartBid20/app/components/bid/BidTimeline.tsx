@@ -11,39 +11,13 @@ import { useConfigStore } from "../../stores/useConfigStore";
 import { StatusBadge } from "../common/StatusBadge";
 import { GlassCard } from "../common/GlassCard";
 import { formatDateTime } from "../../utils/formatters";
+import {
+  formatDurationFromHours,
+  formatLiveElapsed,
+} from "../../utils/durationHelpers";
 import styles from "./BidTimeline.module.scss";
 
 /* ─── Helpers ─── */
-
-function formatDurationFromHours(hours: number): string {
-  if (hours < 1 / 60) return "< 1 min";
-  if (hours < 1) {
-    const mins = Math.round(hours * 60);
-    return `${mins} min`;
-  }
-  if (hours < 24) {
-    const h = Math.floor(hours);
-    const m = Math.round((hours - h) * 60);
-    return m > 0 ? `${h}h ${m}min` : `${h}h`;
-  }
-  const d = Math.floor(hours / 24);
-  const rh = Math.round((hours % 24) * 10) / 10;
-  return rh === 0 ? `${d}d` : `${d}d ${rh}h`;
-}
-
-function formatLiveElapsed(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  if (totalSeconds < 60) return `${totalSeconds}s`;
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  const secs = totalSeconds % 60;
-  if (totalMinutes < 60) return `${totalMinutes}m ${secs}s`;
-  const hours = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  if (hours < 24) return `${hours}h ${mins}m`;
-  const days = Math.floor(hours / 24);
-  const rh = hours % 24;
-  return `${days}d ${rh}h ${mins}m`;
-}
 
 /** Compute total phase duration (sum of all completed phase entries + live for current) */
 function getPhaseTotalHours(

@@ -7,7 +7,16 @@ import {
   IRTSItem,
   IMobilizationItem,
   IConsumableItem,
+  IScopeItem,
 } from "../models";
+
+/** Per-resource-type asset cost breakdown */
+export interface IAssetResourceTypeCost {
+  resourceType: string;
+  capexUSD: number;
+  opexUSD: number;
+  totalUSD: number;
+}
 
 /** Calculate assets totals from breakdown array */
 export function calculateAssetsTotals(
@@ -26,6 +35,38 @@ export function calculateAssetsTotals(
 
   const totalUSD = capexUSD + opexUSD;
   return { totalUSD, capexUSD, opexUSD, totalBRL: totalUSD * (ptax || 1) };
+}
+
+/** Calculate assets totals broken down by resource type (via scope item lookup) */
+export function calculateAssetsByResourceType(
+  assets: IAssetBreakdownItem[],
+  scopeItems: IScopeItem[],
+): IAssetResourceTypeCost[] {
+  const scopeMap = new Map<string, IScopeItem>();
+  (scopeItems || []).forEach((si) => scopeMap.set(si.id, si));
+
+  const byType: Record<string, { capex: number; opex: number }> = {};
+
+  (assets || []).forEach((a) => {
+    const si = scopeMap.get(a.scopeItemId);
+    const rt = (si && si.resourceType) || "Other";
+    if (!byType[rt]) byType[rt] = { capex: 0, opex: 0 };
+    const cost = a.totalCostUSD || 0;
+    if (a.costCategory === "OPEX") byType[rt].opex += cost;
+    else byType[rt].capex += cost;
+  });
+
+  const result: IAssetResourceTypeCost[] = [];
+  Object.keys(byType).forEach((rt) => {
+    const entry = byType[rt];
+    result.push({
+      resourceType: rt,
+      capexUSD: entry.capex,
+      opexUSD: entry.opex,
+      totalUSD: entry.capex + entry.opex,
+    });
+  });
+  return result;
 }
 
 /** Calculate hours totals from hoursSummary sections */

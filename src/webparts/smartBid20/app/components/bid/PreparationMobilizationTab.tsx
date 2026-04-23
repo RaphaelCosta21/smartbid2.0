@@ -9,6 +9,8 @@ import {
   MobilizationCostType,
 } from "../../models";
 import { useConfigStore } from "../../stores/useConfigStore";
+import { makeId } from "../../utils/idGenerator";
+import { getCurrencies } from "../../utils/currencyHelpers";
 import styles from "./PreparationMobilizationTab.module.scss";
 
 interface PreparationMobilizationTabProps {
@@ -26,22 +28,6 @@ interface PreparationMobilizationTabProps {
   onSaveMobSections: (sections: IHoursSectionGroup[]) => void;
   onSaveConsSections: (sections: IHoursSectionGroup[]) => void;
   readOnly?: boolean;
-}
-
-const makeId = (prefix: string): string =>
-  `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
-function getCurrencies(): string[] {
-  const cfg = useConfigStore.getState().config;
-  const rates = cfg?.currencySettings?.exchangeRates;
-  if (rates && rates.length > 0) {
-    const list = [cfg.currencySettings.defaultCurrency || "USD"];
-    rates.forEach((r: any) => {
-      if (list.indexOf(r.currency) < 0) list.push(r.currency);
-    });
-    return list;
-  }
-  return ["USD", "BRL", "EUR", "GBP", "NOK"];
 }
 
 const RTS_TYPES: { value: RTSCostType; label: string }[] = [
@@ -131,6 +117,35 @@ export const PreparationMobilizationTab: React.FC<
   const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(
     new Set(),
   );
+
+  const MAIN_SECTIONS = ["rts", "mob", "cons"];
+
+  const allGroupIds = React.useMemo(() => {
+    const ids: string[] = [];
+    (rtsSections || []).forEach((g) => ids.push(g.id));
+    (mobSections || []).forEach((g) => ids.push(g.id));
+    (consSections || []).forEach((g) => ids.push(g.id));
+    return ids;
+  }, [rtsSections, mobSections, consSections]);
+
+  const allCollapsed =
+    MAIN_SECTIONS.every((k) => collapsed[k]) &&
+    (allGroupIds.length === 0 ||
+      allGroupIds.every((id) => collapsedGroups.has(id)));
+
+  const toggleAllSections = (): void => {
+    if (allCollapsed) {
+      setCollapsed({});
+      setCollapsedGroups(new Set());
+    } else {
+      const allMainCollapsed: Record<string, boolean> = {};
+      MAIN_SECTIONS.forEach((k) => {
+        allMainCollapsed[k] = true;
+      });
+      setCollapsed(allMainCollapsed);
+      setCollapsedGroups(new Set(allGroupIds));
+    }
+  };
   const [editingSectionId, setEditingSectionId] = React.useState<string | null>(
     null,
   );
@@ -150,7 +165,7 @@ export const PreparationMobilizationTab: React.FC<
     if (!id) return "";
     const si = scopeDataItems.find((s) => s.id === id);
     return si
-      ? si.equipmentOffer || si.description || si.oiiPartNumber || "Scope Item"
+      ? si.equipmentOffer || si.description || si.partNumber || "Scope Item"
       : "";
   };
 
@@ -189,6 +204,60 @@ export const PreparationMobilizationTab: React.FC<
       getSections(target).map((s) => (s.id === id ? { ...s, title } : s)),
     );
   };
+
+  const updatePrepSectionColor = (
+    target: PrepTarget,
+    id: string,
+    color: string,
+  ): void => {
+    saveSections(
+      target,
+      getSections(target).map((s) => (s.id === id ? { ...s, color } : s)),
+    );
+  };
+
+  const movePrepItemToSection = (
+    target: PrepTarget,
+    itemId: string,
+    targetSectionId: string | null,
+  ): void => {
+    if (target === "rts")
+      onSaveRTS(
+        (rtsItems || []).map((i) =>
+          i.id === itemId ? { ...i, sectionId: targetSectionId } : i,
+        ),
+      );
+    else if (target === "mob")
+      onSaveMob(
+        (mobilizationItems || []).map((i) =>
+          i.id === itemId ? { ...i, sectionId: targetSectionId } : i,
+        ),
+      );
+    else
+      onSaveConsumables(
+        (consumableItems || []).map((i) =>
+          i.id === itemId ? { ...i, sectionId: targetSectionId } : i,
+        ),
+      );
+  };
+
+  // Section color presets
+  const SECTION_COLORS = [
+    "",
+    "#3b82f6",
+    "#8b5cf6",
+    "#06b6d4",
+    "#10b981",
+    "#f59e0b",
+    "#ef4444",
+    "#ec4899",
+    "#6366f1",
+    "#84cc16",
+  ];
+
+  const [colorPickerOpen, setColorPickerOpen] = React.useState<string | null>(
+    null,
+  );
 
   const deletePrepSection = (target: PrepTarget, id: string): void => {
     if (
@@ -373,9 +442,27 @@ export const PreparationMobilizationTab: React.FC<
   ): React.ReactNode => {
     const isCollapsed = collapsedGroups.has(group.id);
     const isEditing = editingSectionId === group.id;
+    const gColor = group.color || "";
     return (
-      <tr key={group.id} style={{ background: "var(--card-bg-elevated)" }}>
-        <td colSpan={colSpan}>
+      <tr
+        key={group.id}
+        style={
+          gColor
+            ? { background: `${gColor}15` }
+            : { background: "var(--card-bg-elevated)" }
+        }
+      >
+        <td
+          colSpan={colSpan}
+          style={
+            gColor
+              ? {
+                  borderBottom: `2px solid ${gColor}`,
+                  background: `${gColor}15`,
+                }
+              : undefined
+          }
+        >
           <div
             style={{
               display: "flex",
@@ -385,6 +472,7 @@ export const PreparationMobilizationTab: React.FC<
               fontWeight: 600,
               fontSize: 13,
               cursor: "pointer",
+              color: gColor || undefined,
             }}
             onClick={() => toggleGroup(group.id)}
           >
@@ -488,6 +576,79 @@ export const PreparationMobilizationTab: React.FC<
                 >
                   + Item
                 </button>
+                <div style={{ position: "relative", display: "inline-flex" }}>
+                  <button
+                    style={{
+                      border: "1px solid var(--border-subtle, #444)",
+                      borderRadius: 4,
+                      padding: "2px 6px",
+                      fontSize: 11,
+                      cursor: "pointer",
+                      background: gColor || "transparent",
+                      color: gColor ? "#fff" : "var(--text-secondary, #aaa)",
+                    }}
+                    onClick={() =>
+                      setColorPickerOpen(
+                        colorPickerOpen === group.id ? null : group.id,
+                      )
+                    }
+                    title="Section color"
+                  >
+                    🎨
+                  </button>
+                  {colorPickerOpen === group.id && (
+                    <>
+                      <div
+                        style={{ position: "fixed", inset: 0, zIndex: 99 }}
+                        onClick={() => setColorPickerOpen(null)}
+                      />
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: "50%",
+                          transform: "translateX(-50%)",
+                          zIndex: 100,
+                          padding: 6,
+                          borderRadius: 8,
+                          background: "var(--card-bg, #1e1e2e)",
+                          border: "1px solid var(--border-subtle, #444)",
+                          boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
+                          display: "flex",
+                          gap: 4,
+                          flexWrap: "wrap" as const,
+                          width: 120,
+                        }}
+                      >
+                        {SECTION_COLORS.map((c) => (
+                          <button
+                            key={c || "default"}
+                            onClick={() => {
+                              updatePrepSectionColor(target, group.id, c);
+                              setColorPickerOpen(null);
+                            }}
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: "50%",
+                              border:
+                                (c || "") === (gColor || "")
+                                  ? "2px solid #fff"
+                                  : "2px solid transparent",
+                              background: c || "var(--accent-color, #14b8a6)",
+                              cursor: "pointer",
+                              boxShadow:
+                                (c || "") === (gColor || "")
+                                  ? "0 0 0 2px var(--accent-color, #14b8a6)"
+                                  : "none",
+                            }}
+                            title={c || "Default"}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
                 <button
                   style={{
                     background: "none",
@@ -574,7 +735,7 @@ export const PreparationMobilizationTab: React.FC<
               <option key={si.id} value={si.id}>
                 {si.equipmentOffer ||
                   si.description ||
-                  si.oiiPartNumber ||
+                  si.partNumber ||
                   `Item #${si.lineNumber}`}
               </option>
             ))}
@@ -701,12 +862,40 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       {!readOnly && (
         <td>
-          <button
-            className={styles.deleteBtn}
-            onClick={() => deleteRTS(item.id)}
-          >
-            ✕
-          </button>
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            {(rtsSections || []).length > 0 && (
+              <select
+                value={item.sectionId || ""}
+                onChange={(e) =>
+                  movePrepItemToSection("rts", item.id, e.target.value || null)
+                }
+                title="Move to section"
+                style={{
+                  maxWidth: 80,
+                  padding: "2px 4px",
+                  border: "1px solid var(--border-subtle, #444)",
+                  borderRadius: 4,
+                  background: "var(--input-bg, rgba(255,255,255,0.06))",
+                  color: "var(--text-secondary, #aaa)",
+                  fontSize: 10,
+                  cursor: "pointer",
+                }}
+              >
+                <option value="">— None —</option>
+                {(rtsSections || []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title || "Untitled"}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              className={styles.deleteBtn}
+              onClick={() => deleteRTS(item.id)}
+            >
+              ✕
+            </button>
+          </div>
         </td>
       )}
     </tr>
@@ -819,12 +1008,40 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       {!readOnly && (
         <td>
-          <button
-            className={styles.deleteBtn}
-            onClick={() => deleteMob(item.id)}
-          >
-            ✕
-          </button>
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            {(mobSections || []).length > 0 && (
+              <select
+                value={item.sectionId || ""}
+                onChange={(e) =>
+                  movePrepItemToSection("mob", item.id, e.target.value || null)
+                }
+                title="Move to section"
+                style={{
+                  maxWidth: 80,
+                  padding: "2px 4px",
+                  border: "1px solid var(--border-subtle, #444)",
+                  borderRadius: 4,
+                  background: "var(--input-bg, rgba(255,255,255,0.06))",
+                  color: "var(--text-secondary, #aaa)",
+                  fontSize: 10,
+                  cursor: "pointer",
+                }}
+              >
+                <option value="">— None —</option>
+                {(mobSections || []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title || "Untitled"}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              className={styles.deleteBtn}
+              onClick={() => deleteMob(item.id)}
+            >
+              ✕
+            </button>
+          </div>
         </td>
       )}
     </tr>
@@ -928,12 +1145,40 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       {!readOnly && (
         <td>
-          <button
-            className={styles.deleteBtn}
-            onClick={() => deleteCons(item.id)}
-          >
-            ✕
-          </button>
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            {(consSections || []).length > 0 && (
+              <select
+                value={item.sectionId || ""}
+                onChange={(e) =>
+                  movePrepItemToSection("cons", item.id, e.target.value || null)
+                }
+                title="Move to section"
+                style={{
+                  maxWidth: 80,
+                  padding: "2px 4px",
+                  border: "1px solid var(--border-subtle, #444)",
+                  borderRadius: 4,
+                  background: "var(--input-bg, rgba(255,255,255,0.06))",
+                  color: "var(--text-secondary, #aaa)",
+                  fontSize: 10,
+                  cursor: "pointer",
+                }}
+              >
+                <option value="">— None —</option>
+                {(consSections || []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title || "Untitled"}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              className={styles.deleteBtn}
+              onClick={() => deleteCons(item.id)}
+            >
+              ✕
+            </button>
+          </div>
         </td>
       )}
     </tr>
@@ -941,6 +1186,13 @@ export const PreparationMobilizationTab: React.FC<
 
   return (
     <div className={styles.container}>
+      {/* Collapse All / Expand All */}
+      <div className={styles.collapseToolbar}>
+        <button className={styles.collapseBtn} onClick={toggleAllSections}>
+          {allCollapsed ? "▶ Expand All" : "▼ Collapse All"}
+        </button>
+      </div>
+
       {/* KPI Cards */}
       <div className={styles.kpiRow}>
         <div className={styles.kpiCard}>

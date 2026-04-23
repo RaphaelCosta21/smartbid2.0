@@ -4,6 +4,29 @@
   gap: 20px;
 }
 
+.collapseToolbar {
+  display: flex;
+  gap: 8px;
+}
+.collapseBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: var(--accent-color);
+    background: var(--accent-color-10, rgba(20, 184, 166, 0.1));
+  }
+}
+
 .kpiRow {
   display: flex;
   gap: 12px;
@@ -172,6 +195,11 @@
   color: var(--text-primary);
   font-size: 12px;
   cursor: pointer;
+
+  option {
+    background: var(--card-bg, #fff);
+    color: var(--text-primary);
+  }
 }
 .selectCell:focus {
   outline: none;

@@ -1,10 +1,12 @@
 import * as React from "react";
 import { IBidTemplate } from "../../models/IBidTemplate";
-import { IScopeItem } from "../../models";
+import { IScopeItem, IHoursSummary } from "../../models";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { ScopeOfSupplyTab } from "../bid/ScopeOfSupplyTab";
+import { BidHoursTable } from "../bid/BidHoursTable";
 import { DIVISIONS, SERVICE_LINES } from "../../utils/constants";
+import { makeId } from "../../utils/idGenerator";
 import styles from "./TemplateEditor.module.scss";
 
 interface TemplateEditorProps {
@@ -13,9 +15,6 @@ interface TemplateEditorProps {
   onCancel: () => void;
   className?: string;
 }
-
-const makeId = (): string =>
-  `tpl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   template,
@@ -41,17 +40,43 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
     template?.scopeItems || [],
   );
 
-  // Step: 0 = metadata, 1 = scope items
+  const EMPTY_HOURS: IHoursSummary = {
+    engineeringHours: { totalHours: 0, totalCostBRL: 0, items: [] },
+    onshoreHours: { totalHours: 0, totalCostBRL: 0, items: [] },
+    offshoreHours: { totalHours: 0, totalCostBRL: 0, items: [] },
+    totalsByDivision: {},
+    grandTotalHours: 0,
+    grandTotalCostBRL: 0,
+    grandTotalCostUSD: 0,
+  };
+
+  const [hoursSummary, setHoursSummary] = React.useState<IHoursSummary>(
+    template?.hoursSummary || EMPTY_HOURS,
+  );
+
+  // Step: 0 = metadata, 1 = scope items, 2 = hours & personnel
   const [step, setStep] = React.useState(0);
 
   const serviceLineOptions = React.useMemo(() => {
-    if (config?.serviceLines) {
-      return config.serviceLines
-        .filter((sl) => sl.isActive)
+    const allLines = config?.serviceLines
+      ? config.serviceLines.filter((sl) => sl.isActive)
+      : (
+          SERVICE_LINES as unknown as { value: string; category?: string }[]
+        ).map((v) => (typeof v === "string" ? { value: v } : v));
+
+    // Filter by selected division's category mapping
+    if (division) {
+      const divUpper = division.toUpperCase();
+      return allLines
+        .filter((sl) => {
+          const cat =
+            ((sl as Record<string, unknown>).category as string) || "";
+          return cat.toUpperCase() === divUpper;
+        })
         .map((sl) => sl.value);
     }
-    return SERVICE_LINES as unknown as string[];
-  }, [config]);
+    return allLines.map((sl) => sl.value);
+  }, [config, division]);
 
   const divisionOptions = React.useMemo(() => {
     if (config?.divisions) {
@@ -60,15 +85,27 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
     return DIVISIONS as unknown as string[];
   }, [config]);
 
+  // Clear service line when division changes and current value is no longer valid
+  React.useEffect(() => {
+    if (
+      serviceLine &&
+      serviceLineOptions.length > 0 &&
+      !serviceLineOptions.includes(serviceLine)
+    ) {
+      setServiceLine("");
+    }
+  }, [division, serviceLineOptions, serviceLine]);
+
   const handleSave = (): void => {
     const saved: IBidTemplate = {
-      id: template?.id || makeId(),
+      id: template?.id || makeId("tpl"),
       name,
       description,
       division,
       serviceLine,
       category,
       scopeItems,
+      hoursSummary,
       createdBy: template?.createdBy || currentUser?.displayName || "",
       createdDate: template?.createdDate || new Date().toISOString(),
       lastModified: new Date().toISOString(),
@@ -105,6 +142,15 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
         >
           <span className={styles.stepNum}>2</span>
           Scope of Supply
+        </button>
+        <div className={styles.stepDivider} />
+        <button
+          className={`${styles.stepBtn} ${step === 2 ? styles.stepActive : ""}`}
+          onClick={() => canProceed && setStep(2)}
+          disabled={!canProceed}
+        >
+          <span className={styles.stepNum}>3</span>
+          Hours &amp; Personnel
         </button>
       </div>
 
@@ -213,7 +259,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
               disabled={!canProceed}
               className={styles.nextBtn}
             >
-              Next: Scope Items →
+              Next: Scope of Supply →
             </button>
           </div>
         </div>
@@ -243,6 +289,47 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 
           <div className={styles.actions}>
             <button onClick={() => setStep(0)} className={styles.cancelBtn}>
+              ← Back
+            </button>
+            <button onClick={onCancel} className={styles.cancelBtn}>
+              Cancel
+            </button>
+            <button
+              onClick={() => setStep(2)}
+              disabled={!canProceed}
+              className={styles.nextBtn}
+            >
+              Next: Hours &amp; Personnel →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className={styles.scopeStep}>
+          <div className={styles.scopeHeader}>
+            <div>
+              <h3 className={styles.scopeTitle}>
+                Hours &amp; Personnel — {name || "Template"}
+              </h3>
+              <p className={styles.scopeSubtitle}>
+                Define the hours and personnel structure for this template.
+                These will be imported directly into a BID&apos;s Hours &amp;
+                Personnel tab.
+              </p>
+            </div>
+          </div>
+
+          <div className={styles.scopeContainer}>
+            <BidHoursTable
+              hoursSummary={hoursSummary}
+              readOnly={false}
+              onSave={setHoursSummary}
+            />
+          </div>
+
+          <div className={styles.actions}>
+            <button onClick={() => setStep(1)} className={styles.cancelBtn}>
               ← Back
             </button>
             <button onClick={onCancel} className={styles.cancelBtn}>

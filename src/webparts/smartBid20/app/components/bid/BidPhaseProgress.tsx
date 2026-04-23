@@ -1,6 +1,5 @@
 import * as React from "react";
-import { BID_PHASES } from "../../config/status.config";
-import { useConfigStore } from "../../stores/useConfigStore";
+import { useConfigPhases } from "../../hooks/useConfigPhases";
 import styles from "./BidPhaseProgress.module.scss";
 
 interface BidPhaseProgressProps {
@@ -10,27 +9,7 @@ interface BidPhaseProgressProps {
 export const BidPhaseProgress: React.FC<BidPhaseProgressProps> = ({
   currentPhase,
 }) => {
-  const config = useConfigStore((s) => s.config);
-
-  const phases = React.useMemo(() => {
-    if (config?.phases && config.phases.length > 0) {
-      return config.phases
-        .filter((p) => p.isActive !== false)
-        .sort((a, b) => (a.order || 0) - (b.order || 0))
-        .map((p) => ({
-          id: p.id,
-          label: p.label,
-          value: p.value,
-          color: p.color || "#94A3B8",
-        }));
-    }
-    return BID_PHASES.map((p) => ({
-      id: p.id,
-      label: p.label,
-      value: p.value,
-      color: p.color,
-    }));
-  }, [config]);
+  const phases = useConfigPhases();
 
   const currentIndex = phases.findIndex((p) => p.value === currentPhase);
 

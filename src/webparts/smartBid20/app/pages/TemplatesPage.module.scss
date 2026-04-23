@@ -367,3 +367,45 @@
     color: var(--text-primary);
   }
 }
+
+/* ─── AI Generate Button ─── */
+.aiGenerateBtn {
+  padding: 9px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--primary-accent, #60a5fa);
+  background: rgba(96, 165, 250, 0.1);
+  color: var(--primary-accent, #60a5fa);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 200ms;
+
+  &:hover {
+    background: rgba(96, 165, 250, 0.2);
+    transform: translateY(-1px);
+  }
+}
+
+/* ─── AI Modal ─── */
+.aiModal {
+  max-width: 900px;
+  max-height: 85vh;
+}
+
+.aiModalHeader {
+  margin-bottom: 16px;
+
+  h3 {
+    margin: 0 0 4px 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+}

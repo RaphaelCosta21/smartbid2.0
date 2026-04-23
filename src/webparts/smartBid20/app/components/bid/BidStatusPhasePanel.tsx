@@ -15,34 +15,12 @@ import { StatusBadge } from "../common/StatusBadge";
 import { GlassCard } from "../common/GlassCard";
 import { BidTaskChecklist } from "./BidTaskChecklist";
 import { formatDateTime } from "../../utils/formatters";
+import {
+  formatDurationHours,
+  calcDurationHours,
+  calcElapsedDays,
+} from "../../utils/durationHelpers";
 import styles from "./BidStatusPhasePanel.module.scss";
-
-/* ─── Helpers ─── */
-
-function formatDurationHours(hours: number | null): string {
-  if (hours === null || hours === undefined) return "—";
-  if (hours < 1) {
-    const mins = Math.round(hours * 60);
-    return mins <= 1 ? "< 1 min" : `${mins} min`;
-  }
-  if (hours < 24) {
-    return `${Math.round(hours * 10) / 10}h`;
-  }
-  const days = Math.floor(hours / 24);
-  const remainHours = Math.round((hours % 24) * 10) / 10;
-  if (remainHours === 0) return `${days}d`;
-  return `${days}d ${remainHours}h`;
-}
-
-function calcDurationHours(start: string, end: string): number {
-  const ms = new Date(end).getTime() - new Date(start).getTime();
-  return Math.round((ms / (1000 * 60 * 60)) * 10000) / 10000;
-}
-
-function calcElapsedDays(iso: string): number {
-  const ms = Date.now() - new Date(iso).getTime();
-  return Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24)));
-}
 
 /* ─── Props ─── */
 
