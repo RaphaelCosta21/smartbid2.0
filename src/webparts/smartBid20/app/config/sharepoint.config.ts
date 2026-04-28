@@ -10,11 +10,15 @@ export const SHAREPOINT_CONFIG = {
     statusTracker: "smartbid-status-tracker",
     approvals: "smartbid-approvals",
     assetsCatalog: "Assets Catalog_",
+    templates: "smartbid-templates",
   },
 
   libraries: {
     attachments: "SmartBidAttachments",
   },
+
+  /** Base URL for equipment photos (format: {partNumber}.jpg) — relative to siteUrl */
+  photosBaseUrl: "/smartBidDocs/photos",
 
   folders: {
     clientDocuments: "Client-Documents",
@@ -24,6 +28,7 @@ export const SHAREPOINT_CONFIG = {
     approvalsFolder: "Approvals",
     exports: "Exports",
     templates: "Templates",
+    aiAnalysis: "AI-Analysis",
   },
 
   configKeys: {
@@ -35,7 +40,13 @@ export const SHAREPOINT_CONFIG = {
     quotationDatabase: "QUOTATION_DATABASE",
     patchNotes: "PATCH_NOTES",
     editControl: "EDIT_CONTROL",
+    favorites: "FAVORITES",
+    bomCosts: "BOM_COSTS",
   },
+
+  /** Path to the Queries.xlsx Excel catalog in SharePoint */
+  queriesExcelPath:
+    "/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Queries/Queries.xlsx",
 
   fields: {
     title: "Title",
@@ -44,5 +55,6 @@ export const SHAREPOINT_CONFIG = {
     dueDate: "DueDate",
     configValue: "ConfigValue",
     changeType: "ChangeType",
+    aiResponse: "AIResponse",
   },
 } as const;

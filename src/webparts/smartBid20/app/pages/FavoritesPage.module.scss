@@ -1,9 +1,596 @@
+/* FavoritesPage — BID Favorites + Equipment Catalog */
+
 .page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
+.loadingState {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+/* ─── Tab bar ─── */
+.tabBar {
+  display: flex;
+  gap: 2px;
+  background: var(--card-bg, rgba(255, 255, 255, 0.04));
+  border-radius: 10px;
+  padding: 3px;
+  width: fit-content;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.06));
+  }
+}
+
+.tabActive {
+  background: var(--accent-color, #3b82f6) !important;
+  color: #fff !important;
+}
+
+.tabCount {
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 1px 6px;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* ─── BID Favorites ─── */
+.bidContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.bidCardWrap {
+  position: relative;
+}
+
+.removeBidBtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error-color, #ef4444);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 2;
+
+  .bidCardWrap:hover & {
+    opacity: 1;
+  }
+}
+
+/* ─── Equipment Catalog ─── */
+.equipContent {
+  display: flex;
+  gap: 16px;
+  min-height: 500px;
+}
+
+/* ─── Group sidebar ─── */
+.groupSidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--card-bg, rgba(255, 255, 255, 0.04));
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  overflow: hidden;
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sidebarTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.addGroupBtn {
+  width: 22px;
+  height: 22px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+  }
+}
+
+.groupItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.1s;
+
+  &:hover {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.04));
+  }
+}
+
+.groupActive {
+  background: var(--accent-color-subtle, rgba(59, 130, 246, 0.1)) !important;
+  color: var(--accent-color, #3b82f6) !important;
+  font-weight: 500;
+}
+
+.groupExpander {
+  width: 14px;
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: center;
+}
+
+.groupName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.groupCount {
+  font-size: 10px;
+  background: var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  padding: 1px 5px;
+  color: var(--text-muted);
+}
+
+.groupAction {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .groupItem:hover & {
+    opacity: 0.7;
+  }
+
+  &:hover {
+    opacity: 1 !important;
+    background: var(--hover-bg);
+  }
+}
+
+.subGroupItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 5px 32px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.1s;
+
+  &:hover {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.04));
+  }
+}
+
+/* ─── Main area ─── */
+.mainArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.searchInput {
+  flex: 1;
+  max-width: 300px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-primary);
+  font-size: 13px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-color);
+  }
+}
+
+.toolBtn {
+  padding: 7px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+}
+
+.viewToggle {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.viewBtn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:first-child {
+    border-radius: 6px 0 0 6px;
+  }
+  &:last-child {
+    border-radius: 0 6px 6px 0;
+  }
+}
+
+.viewActive {
+  background: var(--accent-color, #3b82f6) !important;
+  color: #fff !important;
+  border-color: var(--accent-color, #3b82f6) !important;
+}
+
+/* ─── Equipment Grid ─── */
+.equipGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.equipCard {
+  background: var(--card-bg, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  border-radius: 10px;
+  padding: 14px;
+  transition: border-color 0.15s;
+
+  &:hover {
+    border-color: var(--accent-color, #3b82f6);
+  }
+}
+
+.equipCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.equipPN {
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-color, #3b82f6);
+}
+
+.srcBadge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.srcBid {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.srcQuery {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+}
+
+.srcManual {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.equipDesc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.equipGroupInfo {
+  font-size: 10px;
+  color: var(--text-muted, #999);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.equipNotes {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-bottom: 4px;
+}
+
+.equipMfg {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  opacity: 0.8;
+}
+
+/* ───── Sub-items in grid card ───── */
+.subItemsList {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.subItemsLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.subItemRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 11px;
+}
+
+.subItemPN {
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 11px;
+  color: var(--accent-color, #4fc3f7);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.subItemDesc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.subItemBtn {
+  background: none;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+  transition: all 0.15s;
+
+  &:hover {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.06));
+    color: var(--accent-color, #4fc3f7);
+    border-color: var(--accent-color, #4fc3f7);
+  }
+}
+
+.equipCost {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--success-color, #10b981);
+  margin-bottom: 4px;
+}
+
+.costRef {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+.equipCardFooter {
+  display: flex;
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.15s;
+
+  .equipCard:hover & {
+    opacity: 1;
+  }
+}
+
+.removeBtn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--error-color, #ef4444);
+  }
+}
+
+/* ─── Equipment List ─── */
+.equipList {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.listHeader {
+  display: grid;
+  grid-template-columns: 44px 140px 1fr 150px 80px 70px;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--card-bg-elevated, rgba(255, 255, 255, 0.06));
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+}
+
+.listRow {
+  display: grid;
+  grid-template-columns: 44px 140px 1fr 150px 80px 70px;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.04));
+  align-items: center;
+
+  &:hover {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.03));
+  }
+}
+
+.listColPN {
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 12px;
+  color: var(--accent-color);
+}
+
+.listColDesc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.listColSrc {
+  text-align: center;
+}
+
+.listColNotes {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.listColCost {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.listColAct {
+  text-align: center;
+}
+
+.listRowChild {
+  background: var(--card-bg-elevated, rgba(255, 255, 255, 0.02));
+  border-left: 3px solid var(--accent-color, #4fc3f7);
+}
+
+.listRowToggle {
+  background: var(--card-bg-elevated, rgba(255, 255, 255, 0.02));
+  border-left: 3px solid transparent;
+  font-size: 11px;
+  color: var(--text-muted);
+
+  &:hover {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.05));
+  }
+}
+
+.listMfg {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: inherit;
+  opacity: 0.8;
+}
+
+/* ─── Empty states ─── */
 .emptyState {
   text-align: center;
   padding: 40px;
@@ -12,10 +599,11 @@
   p {
     margin: 0 0 4px;
   }
+}
 
-  .emptyHint {
-    font-size: 12px;
-  }
+.emptyHint {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .emptyIcon {
@@ -23,8 +611,455 @@
   opacity: 0.4;
 }
 
-.cardGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+.emptyEquip {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: 13px;
+
+  p {
+    margin-bottom: 12px;
+  }
+}
+
+/* ─── Modal ─── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  background: var(--card-bg-elevated, #1e1e28);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  width: 480px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--text-primary);
+  }
+}
+
+.closeBtn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+}
+
+.modalBody {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.modeToggle {
+  display: flex;
+  gap: 2px;
+  background: var(--card-bg);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.modeBtn {
+  flex: 1;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.modeActive {
+  background: var(--accent-color, #3b82f6) !important;
+  color: #fff !important;
+}
+
+.formRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.formLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.formInput,
+.formSelect,
+.formTextarea {
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-primary);
+  font-size: 13px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-color);
+  }
+}
+
+.formSelect {
+  cursor: pointer;
+
+  option {
+    background: var(--card-bg, #1e1e28);
+    color: var(--text-primary);
+  }
+}
+
+.formTextarea {
+  resize: vertical;
+  min-height: 40px;
+}
+
+.selectedDesc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 6px 8px;
+  background: var(--card-bg, rgba(255, 255, 255, 0.03));
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+.cancelBtn {
+  padding: 7px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+}
+
+.saveBtn {
+  padding: 7px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent-color, #3b82f6);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+}
+
+/* ─── Manage Groups Button ─── */
+.manageGroupsBtn {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #888);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.15s;
+
+  &:hover {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.08));
+  }
+}
+
+/* ─── Advanced Search Button ─── */
+.advancedSearchBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--accent, #4fc3f7);
+  background: none;
+  color: var(--accent, #4fc3f7);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: var(--accent, #4fc3f7);
+    color: #000;
+  }
+}
+
+/* ─── Manage Groups Modal ─── */
+.manageModal {
+  max-width: 640px;
+  max-height: 80vh;
+}
+
+.manageBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.manageError {
+  background: rgba(244, 67, 54, 0.15);
+  border: 1px solid rgba(244, 67, 54, 0.4);
+  color: #f44336;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.manageAddRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.manageList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.manageGroupBlock {
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: 6px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.manageGroupRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--card-bg, rgba(255, 255, 255, 0.04));
+}
+
+.manageSubGroupRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px 6px 28px;
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.04));
+}
+
+.manageGroupName {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary, #e0e0e0);
+}
+
+.manageSubGroupName {
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+}
+
+.manageCount {
+  margin-left: 6px;
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+}
+
+.manageActions {
+  display: flex;
+  gap: 4px;
+}
+
+.manageActionBtn {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #888);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+
+  &:hover {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.08));
+  }
+}
+
+.manageDeleteBtn:hover {
+  background: rgba(244, 67, 54, 0.15);
+  color: #f44336;
+}
+
+.manageEditInput {
+  flex: 1;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--accent, #4fc3f7);
+  background: var(--input-bg, rgba(255, 255, 255, 0.05));
+  color: var(--text-primary, #e0e0e0);
+  font-size: 12px;
+  outline: none;
+}
+
+/* ─── Equipment Photo ─── */
+.equipPhotoWrap {
+  width: 100%;
+  height: 120px;
+  overflow: hidden;
+  border-radius: 8px 8px 0 0;
+  background: var(--hover-bg, rgba(255, 255, 255, 0.03));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.equipPhoto {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photoPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 32px;
+  color: var(--text-muted, #666);
+  opacity: 0.35;
+  user-select: none;
+}
+
+.listColImg {
+  width: 40px;
+  flex: 0 0 40px;
+}
+
+.listThumb {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--hover-bg, rgba(255, 255, 255, 0.04));
+}
+
+.listThumbPlaceholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background: var(--hover-bg, rgba(255, 255, 255, 0.04));
+  font-size: 14px;
+  opacity: 0.35;
+}
+
+/* ─── Catalog loading banner inside Add Equipment modal ─── */
+.catalogLoadingBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  background: var(--card-bg-elevated, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  color: var(--text-secondary, #aaa);
+  font-size: 13px;
+}
+
+.inlineSpinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color, rgba(255, 255, 255, 0.15));
+  border-top-color: var(--accent, #4fc3f7);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ───── Add modal extras ───── */
+.parentBanner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  background: rgba(79, 195, 247, 0.08);
+  border: 1px solid rgba(79, 195, 247, 0.25);
+  color: var(--text-primary, #e0e0e0);
+  font-size: 13px;
+}
+
+.duplicateWarning {
+  padding: 10px 14px;
+  margin-top: 8px;
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: var(--warning-text, #fbbf24);
+  font-size: 12px;
+}
+
+.mfgInfoRow {
+  display: flex;
   gap: 16px;
+  padding: 6px 0;
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
 }

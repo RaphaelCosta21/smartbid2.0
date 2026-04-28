@@ -10,6 +10,9 @@
 
 .resultsMode {
   gap: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* ─── Drop Zone ─── */
@@ -348,7 +351,9 @@
 .previewContainer {
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   border-radius: 8px;
-  overflow: hidden;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 /* ─── Result Actions ─── */

@@ -1,59 +1,27 @@
 /**
- * AIAnalysisService — Calls Power Automate flow to analyze client documents.
+ * AIAnalysisService — Uploads document to SharePoint AI-Analysis folder,
+ * Power Automate flow triggers on file creation, processes with AI Builder,
+ * and writes the result to the AIResponse column.
+ * Supports both BIDs (smartbid-tracker) and Templates (smartbid-templates).
  * Static singleton pattern.
  */
-import { APP_CONFIG } from "../config/app.config";
-import { IScopeItem, ISystemConfig } from "../models";
-import {
-  IAIAnalysisRequest,
-  IAIAnalysisResult,
-  IAIAnalysisError,
-} from "../models/IAIAnalysis";
+import { SPService } from "./SPService";
+import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
+import { IScopeItem } from "../models";
+import { IAIAnalysisResult } from "../models/IAIAnalysis";
 import { makeId } from "../utils/idGenerator";
 
-/** Timeout for the analysis request (120 seconds) */
-const ANALYSIS_TIMEOUT_MS = 120000;
+/** Polling interval in ms */
+const POLL_INTERVAL_MS = 8000;
+/** Maximum polling time before timeout (5 minutes) */
+const MAX_POLL_TIME_MS = 300000;
+
+/** Where to poll for the AI response */
+type TargetType = "bid" | "template";
 
 export class AIAnalysisService {
   /**
-   * Convert a File to a base64 string.
-   */
-  private static fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        // Remove data URL prefix (e.g. "data:application/pdf;base64,")
-        const base64 =
-          result.indexOf(",") >= 0
-            ? result.substring(result.indexOf(",") + 1)
-            : result;
-        resolve(base64);
-      };
-      reader.onerror = () => reject(new Error("Failed to read file"));
-      reader.readAsDataURL(file);
-    });
-  }
-
-  /**
-   * Build resource type list from system config.
-   */
-  private static getResourceTypes(config: ISystemConfig | null): string[] {
-    if (!config || !config.resourceTypes) return [];
-    const result: string[] = [];
-    config.resourceTypes.forEach((rt) => {
-      result.push(rt.id || rt.label || "");
-      if (rt.subTypes) {
-        rt.subTypes.forEach((st) => {
-          result.push(st.value || st.label || "");
-        });
-      }
-    });
-    return result.filter(Boolean);
-  }
-
-  /**
-   * Validate and normalize the raw response from Power Automate.
+   * Validate and normalize the raw response from Power Automate (stored in AIResponse column).
    */
   private static validateResponse(
     data: unknown,
@@ -63,17 +31,22 @@ export class AIAnalysisService {
 
     // Check if it's an error response
     if (raw.error) {
-      const err = raw as unknown as IAIAnalysisError;
-      throw new Error(err.details ? `${err.error}: ${err.details}` : err.error);
+      const errMsg = raw.details
+        ? `${raw.error}: ${raw.details}`
+        : String(raw.error);
+      throw new Error(errMsg);
     }
 
-    // Validate scopeItems is an array
-    const scopeItems = Array.isArray(raw.scopeItems) ? raw.scopeItems : [];
+    // Validate scopeItems is an array (accept both "scopeItems" and "items" keys)
+    const rawItems = raw.scopeItems || raw.items;
+    const scopeItems = Array.isArray(rawItems) ? rawItems : [];
     const warnings = Array.isArray(raw.warnings) ? raw.warnings : [];
     const chunksProcessed =
       typeof raw.chunksProcessed === "number" ? raw.chunksProcessed : 1;
-    const isComplete =
-      typeof raw.isComplete === "boolean" ? raw.isComplete : true;
+    // Accept both "isComplete" and "complete" keys
+    const rawComplete =
+      raw.isComplete !== undefined ? raw.isComplete : raw.complete;
+    const isComplete = typeof rawComplete === "boolean" ? rawComplete : true;
 
     // Normalize each scope item — assign IDs and lineNumbers
     let lineNum = 1;
@@ -151,7 +124,9 @@ export class AIAnalysisService {
     }
     if (chunksProcessed > 1) {
       warnings.push(
-        `Document was analyzed in ${chunksProcessed} parts. Some items may be duplicated across section boundaries.`,
+        "Document was analyzed in " +
+          chunksProcessed +
+          " parts. Some items may be duplicated across section boundaries.",
       );
     }
 
@@ -160,115 +135,212 @@ export class AIAnalysisService {
       warnings: warnings.map(String),
       chunksProcessed,
       isComplete,
-      sourceDocument: fileName,
-      analyzedAt: new Date().toISOString(),
+      sourceDocument: raw.sourceDocument
+        ? String(raw.sourceDocument)
+        : fileName,
+      analyzedAt: raw.analyzedAt
+        ? String(raw.analyzedAt)
+        : new Date().toISOString(),
     };
   }
 
   /**
-   * Analyze a client document and return structured scope items.
+   * Upload file to AI-Analysis folder with naming convention: {bidNumber}___{fileName}
+   */
+  private static async uploadFileToAIFolder(
+    file: File,
+    bidNumber: string,
+  ): Promise<void> {
+    const folderPath =
+      SHAREPOINT_CONFIG.libraries.attachments +
+      "/" +
+      SHAREPOINT_CONFIG.folders.aiAnalysis;
+
+    // Ensure AI-Analysis folder exists
+    try {
+      await SPService.sp.web
+        .getFolderByServerRelativePath(SHAREPOINT_CONFIG.libraries.attachments)
+        .addSubFolderUsingPath(SHAREPOINT_CONFIG.folders.aiAnalysis);
+    } catch {
+      // Folder may already exist
+    }
+
+    const uploadName = bidNumber + "___" + file.name;
+
+    await SPService.sp.web
+      .getFolderByServerRelativePath(folderPath)
+      .files.addUsingPath(uploadName, file, { Overwrite: true });
+  }
+
+  /**
+   * Get the list name based on target type.
+   */
+  private static getListName(target: TargetType): string {
+    return target === "bid"
+      ? SHAREPOINT_CONFIG.lists.bidTracker
+      : SHAREPOINT_CONFIG.lists.templates;
+  }
+
+  /**
+   * Clear the AIResponse column before starting analysis.
+   */
+  private static async clearAIResponse(
+    identifier: string,
+    target: TargetType,
+  ): Promise<void> {
+    const listName = AIAnalysisService.getListName(target);
+    const items = await SPService.sp.web.lists
+      .getByTitle(listName)
+      .items.filter("Title eq '" + identifier + "'")
+      .select("Id")
+      .top(1)();
+
+    if (items.length > 0) {
+      await SPService.sp.web.lists
+        .getByTitle(listName)
+        .items.getById((items[0] as { Id: number }).Id)
+        .update({ AIResponse: "" });
+    }
+  }
+
+  /**
+   * Poll the AIResponse column until it has a non-empty value.
+   */
+  private static async pollForResult(
+    identifier: string,
+    target: TargetType,
+    abortSignal?: AbortSignal,
+  ): Promise<string> {
+    const listName = AIAnalysisService.getListName(target);
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < MAX_POLL_TIME_MS) {
+      if (abortSignal && abortSignal.aborted) {
+        throw new Error("Analysis was cancelled.");
+      }
+
+      // Wait before polling
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(resolve, POLL_INTERVAL_MS);
+        if (abortSignal) {
+          const onAbort = (): void => {
+            clearTimeout(timer);
+            reject(new Error("Analysis was cancelled."));
+          };
+          if (abortSignal.aborted) {
+            clearTimeout(timer);
+            reject(new Error("Analysis was cancelled."));
+            return;
+          }
+          abortSignal.addEventListener("abort", onAbort, { once: true });
+        }
+      });
+
+      // Check AIResponse column
+      const items = await SPService.sp.web.lists
+        .getByTitle(listName)
+        .items.filter("Title eq '" + identifier + "'")
+        .select("AIResponse")
+        .top(1)();
+
+      if (items.length > 0 && (items[0] as { AIResponse: string }).AIResponse) {
+        const val = String(
+          (items[0] as { AIResponse: string }).AIResponse,
+        ).trim();
+        if (val.length > 0) {
+          return val;
+        }
+      }
+    }
+
+    throw new Error(
+      "Analysis timed out after 5 minutes. The Power Automate flow may still be processing. Check back later.",
+    );
+  }
+
+  /**
+   * Analyze a client document for a BID:
+   * 1. Clear AIResponse column on smartbid-tracker
+   * 2. Upload file to AI-Analysis folder (triggers Power Automate)
+   * 3. Poll AIResponse column until result appears
+   * 4. Parse and return the result
+   *
    * @param file - The PDF or Word file to analyze
-   * @param division - BID division
-   * @param serviceLine - BID service line
-   * @param config - System configuration (for resource types)
+   * @param bidNumber - BID number (e.g. "REQ-2026-0007")
    * @param abortSignal - Optional AbortSignal for cancellation
    */
   public static async analyzeDocument(
     file: File,
-    division: string,
-    serviceLine: string,
-    config: ISystemConfig | null,
+    bidNumber: string,
     abortSignal?: AbortSignal,
   ): Promise<IAIAnalysisResult> {
-    const flowUrl = APP_CONFIG.aiFlowUrl;
-
-    if (!flowUrl) {
+    if (!bidNumber) {
       throw new Error(
-        "AI Analysis is not configured. Please contact your administrator to set up the Power Automate flow URL.",
+        "BID number is required for AI analysis. Please save the BID first.",
       );
     }
 
-    // Convert file to base64
-    const fileContent = await AIAnalysisService.fileToBase64(file);
+    await AIAnalysisService.clearAIResponse(bidNumber, "bid");
+    await AIAnalysisService.uploadFileToAIFolder(file, bidNumber);
 
-    // Build request
-    const request: IAIAnalysisRequest = {
-      fileContent,
-      fileName: file.name,
-      division: division || "",
-      serviceLine: serviceLine || "",
-      resourceTypes: AIAnalysisService.getResourceTypes(config),
-      contextSummary: "",
-    };
+    const responseJson = await AIAnalysisService.pollForResult(
+      bidNumber,
+      "bid",
+      abortSignal,
+    );
 
-    // Set up timeout via AbortController
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), ANALYSIS_TIMEOUT_MS);
-
-    // If caller provides an abort signal, listen to it
-    if (abortSignal) {
-      if (abortSignal.aborted) {
-        clearTimeout(timeoutId);
-        throw new Error("Analysis was cancelled.");
-      }
-      abortSignal.addEventListener("abort", () => {
-        controller.abort();
-        clearTimeout(timeoutId);
-      });
-    }
-
+    let data: unknown;
     try {
-      const response = await fetch(flowUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        let errorMsg = `Analysis service returned status ${response.status}`;
-        try {
-          const errBody = await response.json();
-          if (errBody && errBody.error) {
-            errorMsg = errBody.details
-              ? `${errBody.error}: ${errBody.details}`
-              : errBody.error;
-          }
-        } catch {
-          // ignore JSON parse failure for error body
-        }
-        throw new Error(errorMsg);
-      }
-
-      let data: unknown;
-      try {
-        data = await response.json();
-      } catch {
-        throw new Error(
-          "The AI returned an invalid response. The output may have been truncated. Please try again with a smaller document.",
-        );
-      }
-
-      return AIAnalysisService.validateResponse(data, file.name);
-    } catch (err) {
-      clearTimeout(timeoutId);
-
-      if (err instanceof Error) {
-        if (err.name === "AbortError") {
-          if (abortSignal && abortSignal.aborted) {
-            throw new Error("Analysis was cancelled.");
-          }
-          throw new Error(
-            "Analysis timed out. The document may be too large. Try with a smaller document or fewer pages.",
-          );
-        }
-        throw err;
-      }
-      throw new Error(
-        "Could not reach the analysis service. Check your network connection.",
-      );
+      data = JSON.parse(responseJson);
+    } catch {
+      throw new Error("The AI returned an invalid response. Please try again.");
     }
+
+    await AIAnalysisService.clearAIResponse(bidNumber, "bid").catch(() => {});
+
+    return AIAnalysisService.validateResponse(data, file.name);
+  }
+
+  /**
+   * Analyze a client document for a Template:
+   * 1. Clear AIResponse column on smartbid-templates
+   * 2. Upload file to AI-Analysis folder with TEMPLATE-{id} prefix
+   * 3. Poll AIResponse column on smartbid-templates until result appears
+   * 4. Parse and return the result
+   *
+   * @param file - The PDF or Word file to analyze
+   * @param templateId - Template ID (Title in smartbid-templates)
+   * @param abortSignal - Optional AbortSignal for cancellation
+   */
+  public static async analyzeDocumentForTemplate(
+    file: File,
+    templateId: string,
+    abortSignal?: AbortSignal,
+  ): Promise<IAIAnalysisResult> {
+    if (!templateId) {
+      throw new Error("Template ID is required for AI analysis.");
+    }
+
+    await AIAnalysisService.clearAIResponse(templateId, "template");
+    await AIAnalysisService.uploadFileToAIFolder(file, "TPL-" + templateId);
+
+    const responseJson = await AIAnalysisService.pollForResult(
+      templateId,
+      "template",
+      abortSignal,
+    );
+
+    let data: unknown;
+    try {
+      data = JSON.parse(responseJson);
+    } catch {
+      throw new Error("The AI returned an invalid response. Please try again.");
+    }
+
+    await AIAnalysisService.clearAIResponse(templateId, "template").catch(
+      () => {},
+    );
+
+    return AIAnalysisService.validateResponse(data, file.name);
   }
 }

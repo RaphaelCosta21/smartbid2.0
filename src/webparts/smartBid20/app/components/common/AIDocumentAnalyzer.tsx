@@ -1,6 +1,5 @@
 import * as React from "react";
 import { IScopeItem } from "../../models";
-import { useConfigStore } from "../../stores/useConfigStore";
 import { AIAnalysisService } from "../../services/AIAnalysisService";
 import { IAIAnalysisResult } from "../../models/IAIAnalysis";
 import { ScopeOfSupplyTab } from "../bid/ScopeOfSupplyTab";
@@ -8,9 +7,13 @@ import { formatFileSize } from "../../utils/formatters";
 import styles from "./AIDocumentAnalyzer.module.scss";
 
 interface AIDocumentAnalyzerProps {
-  /** BID division for context */
+  /** BID number for file naming and polling (e.g. "REQ-2026-0007") */
+  bidNumber?: string;
+  /** Template ID for polling on smartbid-templates (alternative to bidNumber) */
+  templateId?: string;
+  /** BID division for context display */
   division?: string;
-  /** BID service line for context */
+  /** BID service line for context display */
   serviceLine?: string;
   /** Callback when user imports items */
   onImport: (items: IScopeItem[]) => void;
@@ -30,14 +33,14 @@ const ACCEPTED_TYPES = [
 const ACCEPTED_EXTENSIONS = ".pdf,.docx,.doc";
 
 export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
+  bidNumber,
+  templateId,
   division,
   serviceLine,
   onImport,
   importLabel = "Import All to Scope",
   compact = false,
 }) => {
-  const config = useConfigStore((s) => s.config);
-
   const [state, setState] = React.useState<AnalyzerState>("upload");
   const [file, setFile] = React.useState<File | null>(null);
   const [result, setResult] = React.useState<IAIAnalysisResult | null>(null);
@@ -93,19 +96,31 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
 
   const handleAnalyze = async (): Promise<void> => {
     if (!file) return;
+    if (!bidNumber && !templateId) {
+      setErrorMsg("A BID number or Template is required for AI analysis.");
+      setState("error");
+      return;
+    }
 
     setState("analyzing");
     setErrorMsg("");
     abortRef.current = new AbortController();
 
     try {
-      const analysisResult = await AIAnalysisService.analyzeDocument(
-        file,
-        division || "",
-        serviceLine || "",
-        config,
-        abortRef.current.signal,
-      );
+      let analysisResult: IAIAnalysisResult;
+      if (templateId) {
+        analysisResult = await AIAnalysisService.analyzeDocumentForTemplate(
+          file,
+          templateId,
+          abortRef.current.signal,
+        );
+      } else {
+        analysisResult = await AIAnalysisService.analyzeDocument(
+          file,
+          bidNumber || "",
+          abortRef.current.signal,
+        );
+      }
 
       setResult(analysisResult);
       setPreviewItems(analysisResult.scopeItems);
@@ -287,8 +302,9 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
           <h3 className={styles.analyzingTitle}>Analyzing Document...</h3>
           <p className={styles.analyzingFile}>{file?.name}</p>
           <p className={styles.analyzingHint}>
-            The AI is reading the document and extracting scope items. This may
-            take up to 2 minutes for large documents.
+            The document was uploaded to SharePoint. The AI is reading and
+            extracting scope items via Power Automate. This may take up to 5
+            minutes for large documents.
           </p>
           <button className={styles.cancelBtn} onClick={handleCancel}>
             Cancel

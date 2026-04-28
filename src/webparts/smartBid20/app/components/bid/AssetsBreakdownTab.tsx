@@ -8,6 +8,7 @@ import {
 } from "../../models";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { makeId } from "../../utils/idGenerator";
+import { CostSearchModal, CostSearchImportItem } from "./CostSearchModal";
 import styles from "./AssetsBreakdownTab.module.scss";
 
 interface AssetsBreakdownTabProps {
@@ -108,6 +109,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   const [collapsedSections, setCollapsedSections] = React.useState<Set<string>>(
     new Set(),
   );
+  const [showCostSearch, setShowCostSearch] = React.useState(false);
 
   // ─── Auto-sync: ensure every non-section scope item has an asset entry ───
   const syncedAssets = React.useMemo(() => {
@@ -617,6 +619,29 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     costCompleteness.itemsTotal + costCompleteness.subItemsTotal;
   const allCostsFilled = totalMissing === 0 && totalItems > 0;
 
+  // ─── Cost Search import handler ───
+  const handleCostSearchImport = (items: CostSearchImportItem[]): void => {
+    const updated = localAssets.map((a) => {
+      const match = items.find((i) => i.assetId === a.id);
+      if (!match) return a;
+      const scopeItem = getScopeItem(a.scopeItemId);
+      const qty =
+        (scopeItem?.qtyOperational || 0) + (scopeItem?.qtySpare || 0) || 1;
+      return {
+        ...a,
+        unitCostUSD: match.unitCostUSD,
+        totalCostUSD: match.unitCostUSD * qty,
+        costReference: match.costReference,
+        leadTimeDays: match.leadTimeDays,
+        originalCost: match.originalCost,
+        originalCurrency: match.originalCurrency,
+        costDate: match.costDate,
+        costCalcMethod: "auto" as const,
+      };
+    });
+    persist(updated);
+  };
+
   const COLS = 16;
 
   return (
@@ -695,13 +720,21 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         </div>
       )}
 
-      {sections.length > 0 && (
-        <div className={styles.toolbar}>
+      <div className={styles.toolbar}>
+        {sections.length > 0 && (
           <button className={styles.toolbarBtn} onClick={toggleAllSections}>
             {allSectionsCollapsed ? "▶ Expand All" : "▼ Collapse All"}
           </button>
-        </div>
-      )}
+        )}
+        {!readOnly && (
+          <button
+            className={styles.toolbarBtn}
+            onClick={() => setShowCostSearch(true)}
+          >
+            🔍 Search Costs
+          </button>
+        )}
+      </div>
 
       {/* Resource Type Sub-Tabs */}
       {showResourceTypeFilter && (
@@ -2359,6 +2392,15 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             </tbody>
           </table>
         </div>
+      )}
+
+      {showCostSearch && (
+        <CostSearchModal
+          scopeItems={scopeItems}
+          assetBreakdown={localAssets}
+          onImport={handleCostSearchImport}
+          onClose={() => setShowCostSearch(false)}
+        />
       )}
     </div>
   );

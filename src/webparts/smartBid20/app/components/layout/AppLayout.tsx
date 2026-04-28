@@ -1,5 +1,5 @@
 import * as React from "react";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useUIStore } from "../../stores/useUIStore";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useBidStore } from "../../stores/useBidStore";
@@ -35,9 +35,10 @@ import { AssetsCatalogPage } from "../../pages/AssetsCatalogPage";
 import { AnalyticsPage } from "../../pages/AnalyticsPage";
 import { ReportsPage } from "../../pages/ReportsPage";
 import { FavoritesPage } from "../../pages/FavoritesPage";
+import { BomCostsPage } from "../../pages/BomCostsPage";
 import { QuotationsPage } from "../../pages/QuotationsPage";
 import { ToolingReportPage } from "../../pages/ToolingReportPage";
-import { PriceConsultingPage } from "../../pages/PriceConsultingPage";
+import { QueryConsultingPage } from "../../pages/QueryConsultingPage";
 import { PatchNotesPage } from "../../pages/PatchNotesPage";
 import { FaqPage } from "../../pages/FaqPage";
 import { CommandPalette } from "./CommandPalette";
@@ -70,75 +71,119 @@ export const AppLayout: React.FC = () => {
 
   return (
     <HashRouter>
+      <AppLayoutInner
+        themeClass={themeClass}
+        sidebarExpanded={sidebarExpanded}
+        isGuestUser={isGuestUser}
+        toasts={toasts}
+        dismissToast={dismissToast}
+      />
+    </HashRouter>
+  );
+};
+
+/** Inner component that can use useLocation (inside HashRouter) */
+const AppLayoutInner: React.FC<{
+  themeClass: string;
+  sidebarExpanded: boolean;
+  isGuestUser: boolean;
+  toasts: any[];
+  dismissToast: (id: string) => void;
+}> = ({ themeClass, sidebarExpanded, isGuestUser, toasts, dismissToast }) => {
+  const location = useLocation();
+  const isExternal = location.pathname === ROUTES.queryConsultingExternal;
+
+  if (isExternal) {
+    return (
       <div
-        className={`${themeClass} ${globalStyles.smartBidRoot} ${styles.appLayout}`}
+        className={`${themeClass} ${globalStyles.smartBidRoot}`}
+        style={{
+          padding: "16px 24px",
+          minHeight: "100vh",
+          background: "var(--main-bg)",
+          color: "var(--text-primary)",
+        }}
       >
-        <CommandPalette />
-        <div
-          className={`${styles.sidebarArea} ${!sidebarExpanded ? styles.collapsed : ""}`}
-        >
-          <Sidebar />
+        <Routes>
+          <Route
+            path={ROUTES.queryConsultingExternal}
+            element={<QueryConsultingPage />}
+          />
+        </Routes>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`${themeClass} ${globalStyles.smartBidRoot} ${styles.appLayout}`}
+    >
+      <CommandPalette />
+      <div
+        className={`${styles.sidebarArea} ${!sidebarExpanded ? styles.collapsed : ""}`}
+      >
+        <Sidebar />
+      </div>
+
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+      <div className={styles.mainArea}>
+        <div className={styles.headerArea}>
+          <Header />
         </div>
 
-        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+        {isGuestUser && <GuestModeBanner />}
 
-        <div className={styles.mainArea}>
-          <div className={styles.headerArea}>
-            <Header />
-          </div>
+        <div className={styles.contentArea}>
+          <Routes>
+            <Route path={ROUTES.tracker} element={<BidTrackerPage />} />
+            <Route path={ROUTES.dashboard} element={<DashboardPage />} />
+            <Route path={ROUTES.bidDetail} element={<BidDetailPage />} />
+            <Route
+              path={ROUTES.requests}
+              element={<UnassignedRequestsPage />}
+            />
+            <Route
+              path={ROUTES.createRequest}
+              element={<CreateRequestPage />}
+            />
+            <Route path={ROUTES.flowboard} element={<FlowBoardPage />} />
+            <Route path={ROUTES.timeline} element={<TimelinePage />} />
+            <Route
+              path={ROUTES.notifications}
+              element={<NotificationsPage />}
+            />
+            <Route path={ROUTES.faq} element={<FaqPage />} />
+            <Route path={ROUTES.knowledge} element={<KnowledgeBasePage />} />
+            <Route
+              path={ROUTES.assetsCatalog}
+              element={<AssetsCatalogPage />}
+            />
+            <Route path={ROUTES.analytics} element={<AnalyticsPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path={ROUTES.reports} element={<ReportsPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route path={ROUTES.approvals} element={<ApprovalsPage />} />
+            <Route path={ROUTES.results} element={<BidResultsPage />} />
+            <Route path={ROUTES.templates} element={<TemplatesPage />} />
+            <Route path={ROUTES.favorites} element={<FavoritesPage />} />
+            <Route path={ROUTES.bomCosts} element={<BomCostsPage />} />
+            <Route path={ROUTES.quotations} element={<QuotationsPage />} />
+            <Route path={ROUTES.tooling} element={<ToolingReportPage />} />
+            <Route
+              path={ROUTES.queryConsulting}
+              element={<QueryConsultingPage />}
+            />
+            <Route path={ROUTES.systemConfig} element={<SystemConfigPage />} />
+            <Route path={ROUTES.members} element={<MembersPage />} />
+            <Route path={ROUTES.patchNotes} element={<PatchNotesPage />} />
+          </Routes>
+        </div>
 
-          {isGuestUser && <GuestModeBanner />}
-
-          <div className={styles.contentArea}>
-            <Routes>
-              <Route path={ROUTES.tracker} element={<BidTrackerPage />} />
-              <Route path={ROUTES.dashboard} element={<DashboardPage />} />
-              <Route path={ROUTES.bidDetail} element={<BidDetailPage />} />
-              <Route
-                path={ROUTES.requests}
-                element={<UnassignedRequestsPage />}
-              />
-              <Route
-                path={ROUTES.createRequest}
-                element={<CreateRequestPage />}
-              />
-              <Route path={ROUTES.flowboard} element={<FlowBoardPage />} />
-              <Route path={ROUTES.timeline} element={<TimelinePage />} />
-              <Route
-                path={ROUTES.notifications}
-                element={<NotificationsPage />}
-              />
-              <Route path={ROUTES.faq} element={<FaqPage />} />
-              <Route path={ROUTES.knowledge} element={<KnowledgeBasePage />} />
-              <Route
-                path={ROUTES.assetsCatalog}
-                element={<AssetsCatalogPage />}
-              />
-              <Route path={ROUTES.analytics} element={<AnalyticsPage />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path={ROUTES.reports} element={<ReportsPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
-              <Route path={ROUTES.approvals} element={<ApprovalsPage />} />
-              <Route path={ROUTES.results} element={<BidResultsPage />} />
-              <Route path={ROUTES.templates} element={<TemplatesPage />} />
-              <Route path={ROUTES.favorites} element={<FavoritesPage />} />
-              <Route path={ROUTES.quotations} element={<QuotationsPage />} />
-              <Route path={ROUTES.tooling} element={<ToolingReportPage />} />
-              <Route path={ROUTES.pricing} element={<PriceConsultingPage />} />
-              <Route
-                path={ROUTES.systemConfig}
-                element={<SystemConfigPage />}
-              />
-              <Route path={ROUTES.members} element={<MembersPage />} />
-              <Route path={ROUTES.patchNotes} element={<PatchNotesPage />} />
-            </Routes>
-          </div>
-
-          <div className={styles.footerArea}>
-            <Footer />
-          </div>
+        <div className={styles.footerArea}>
+          <Footer />
         </div>
       </div>
-    </HashRouter>
+    </div>
   );
 };

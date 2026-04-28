@@ -8,6 +8,7 @@ import {
   IMobilizationItem,
   IConsumableItem,
   IScopeItem,
+  IExchangeRate,
 } from "../models";
 
 /** Per-resource-type asset cost breakdown */
@@ -268,4 +269,29 @@ export function buildCostSummary(bid: IBid): ICostSummary {
     ptaxUsed: ptax,
     notes: bid.costSummary?.notes || "",
   };
+}
+
+/**
+ * Convert an amount from a given currency to USD using exchange rates
+ * from SystemConfiguration. Rates are stored as units-per-USD
+ * (e.g., BRL rate 5.65 means 5.65 BRL = 1 USD).
+ * If currency is already USD or rate not found, returns the original amount.
+ */
+export function convertToUSD(
+  amount: number,
+  fromCurrency: string,
+  exchangeRates: IExchangeRate[],
+): number {
+  if (!amount || !fromCurrency) return amount || 0;
+  const cur = fromCurrency.toUpperCase().trim();
+  if (cur === "USD") return amount;
+
+  const rate = (exchangeRates || []).find(
+    (r) => r.currency.toUpperCase() === cur,
+  );
+  if (rate && rate.rate > 0) {
+    return amount / rate.rate;
+  }
+  // If no rate found, return original (cannot convert)
+  return amount;
 }

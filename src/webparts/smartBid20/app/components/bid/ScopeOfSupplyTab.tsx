@@ -1,7 +1,11 @@
 import * as React from "react";
-import { IScopeItem, IScopeSubItem, IClarificationItem } from "../../models";
+import { IScopeItem, IScopeSubItem, IClarificationItem, IFavoriteEquipment } from "../../models";
 import { useConfigStore } from "../../stores/useConfigStore";
+import { useFavoritesStore } from "../../stores/useFavoritesStore";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { makeId } from "../../utils/idGenerator";
+import { AIDocumentAnalyzer } from "../common/AIDocumentAnalyzer";
+import { PartNumberAutocomplete } from "../common/PartNumberAutocomplete";
 import styles from "./ScopeOfSupplyTab.module.scss";
 
 interface ScopeOfSupplyTabProps {
@@ -9,6 +13,8 @@ interface ScopeOfSupplyTabProps {
   onSave: (items: IScopeItem[]) => void;
   readOnly?: boolean;
   clarifications?: IClarificationItem[];
+  /** BID number for AI analysis (enables the AI Generate button) */
+  bidNumber?: string;
 }
 
 const blankItem = (
@@ -75,6 +81,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   onSave,
   readOnly = false,
   clarifications = [],
+  bidNumber,
 }) => {
   // Helper: append fieldEmpty class when value is empty/falsy
   const emptyIf = (base: string, value: unknown): string =>
@@ -82,6 +89,33 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
 
   const config = useConfigStore((s) => s.config);
   const resourceTypes = config?.resourceTypes || [];
+
+  const addFavEquipment = useFavoritesStore((s) => s.addEquipment);
+  const favIsLoaded = useFavoritesStore((s) => s.isLoaded);
+  const loadFavorites = useFavoritesStore((s) => s.loadFavorites);
+  const currentUser = useCurrentUser();
+
+  React.useEffect(() => {
+    if (!favIsLoaded) loadFavorites();
+  }, []);
+
+  const handleAddToFavorites = (item: IScopeItem): void => {
+    if (!item.partNumber && !item.equipmentOffer) return;
+    const fav: IFavoriteEquipment = {
+      id: makeId("fav"),
+      groupId: "",
+      subGroupId: "",
+      partNumber: item.partNumber || "",
+      description: item.equipmentOffer || "",
+      pictureUrl: "",
+      notes: "",
+      dataSource: "bid",
+      createdBy: currentUser?.displayName || "",
+      createdDate: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+    };
+    addFavEquipment(fav);
+  };
 
   const [items, setItems] = React.useState<IScopeItem[]>(scopeItems || []);
   const [collapsedSections, setCollapsedSections] = React.useState<Set<string>>(
@@ -103,6 +137,19 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     new Set(),
   );
   const [specsBulkText, setSpecsBulkText] = React.useState<string>("");
+
+  // ─── Drawer state (combined sub-items + specs per item) ───
+  const [openDrawers, setOpenDrawers] = React.useState<Set<string>>(new Set());
+  const [drawerActiveTab, setDrawerActiveTab] = React.useState<
+    Record<string, "subs" | "specs">
+  >({});
+
+  // ─── Drag-and-drop state ───
+  const [draggedId, setDraggedId] = React.useState<string | null>(null);
+  const [dragOverId, setDragOverId] = React.useState<string | null>(null);
+
+  // ─── AI Analyzer modal state ───
+  const [showAIModal, setShowAIModal] = React.useState(false);
 
   // Debounced save to prevent input lag
   const saveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -357,59 +404,6 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     });
   }, [orderedItems, collapsedSections, resourceTypeFilter, dataItems]);
 
-  // ─── Reorder (uses visual ordering) ───
-  const moveItem = (id: string, direction: "up" | "down"): void => {
-    const item = orderedItems.find((i) => i.id === id);
-    if (!item) return;
-
-    if (item.isSection) {
-      // Move entire section block (section + children) among other blocks
-      // Build blocks: each block is either a single unsectioned item or a section + its children
-      const blocks: IScopeItem[][] = [];
-      for (let i = 0; i < orderedItems.length; ) {
-        const cur = orderedItems[i];
-        if (cur.isSection) {
-          const block = [cur];
-          let j = i + 1;
-          while (
-            j < orderedItems.length &&
-            !orderedItems[j].isSection &&
-            orderedItems[j].sectionId === cur.id
-          ) {
-            block.push(orderedItems[j]);
-            j++;
-          }
-          blocks.push(block);
-          i = j;
-        } else {
-          blocks.push([cur]);
-          i++;
-        }
-      }
-      const blockIdx = blocks.findIndex((b) => b[0].id === id);
-      if (blockIdx < 0) return;
-      const targetIdx = direction === "up" ? blockIdx - 1 : blockIdx + 1;
-      if (targetIdx < 0 || targetIdx >= blocks.length) return;
-      const temp = blocks[blockIdx];
-      blocks[blockIdx] = blocks[targetIdx];
-      blocks[targetIdx] = temp;
-      persist(([] as IScopeItem[]).concat(...blocks));
-    } else {
-      // Move individual item within the ordered list
-      const ordered = [...orderedItems];
-      const idx = ordered.findIndex((i) => i.id === id);
-      if (idx < 0) return;
-      const targetIdx = direction === "up" ? idx - 1 : idx + 1;
-      if (targetIdx < 0 || targetIdx >= ordered.length) return;
-      // Don't swap an item with a section header
-      if (ordered[targetIdx].isSection) return;
-      const temp = ordered[idx];
-      ordered[idx] = ordered[targetIdx];
-      ordered[targetIdx] = temp;
-      persist(ordered);
-    }
-  };
-
   // ─── Toggle expanded cells ───
   const toggleCellExpand = (cellKey: string): void => {
     setExpandedCells((prev) => {
@@ -465,35 +459,71 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     setSpecsBulkText("");
   };
 
-  // ─── Sub-items panel ───
-  // Map<itemId, boolean>: true=open, false=closed, absent=default (open if has sub-items)
-  const [subItemsToggleState, setSubItemsToggleState] = React.useState<
-    Record<string, boolean>
-  >({});
-
-  const toggleSubItemsExpand = (itemId: string): void => {
-    setSubItemsToggleState((prev) => {
-      const current = prev[itemId];
-      const copy = { ...prev };
-      if (current === undefined) {
-        // First toggle: if it had sub-items it was open, close it; otherwise open it
-        copy[itemId] = !hasSubItems(
-          items.find((i) => i.id === itemId) || ({} as IScopeItem),
-        );
-      } else {
-        copy[itemId] = !current;
-      }
-      return copy;
+  // ─── Drawer toggle (combined sub-items + specs) ───
+  const toggleDrawer = (itemId: string): void => {
+    setOpenDrawers((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
     });
   };
 
-  const isSubItemsPanelOpen = (
-    itemId: string,
-    itemHasSubs: boolean,
-  ): boolean => {
-    const explicit = subItemsToggleState[itemId];
-    if (explicit !== undefined) return explicit;
-    return itemHasSubs; // default: open if has sub-items
+  const setDrawerTab = (itemId: string, tab: "subs" | "specs"): void => {
+    setDrawerActiveTab((prev) => ({ ...prev, [itemId]: tab }));
+  };
+
+  // ─── Drag-and-drop handlers ───
+  const handleDragStart = (e: React.DragEvent, id: string): void => {
+    setDraggedId(id);
+    e.dataTransfer.effectAllowed = "move";
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "0.4";
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string): void => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (id !== draggedId) {
+      setDragOverId(id);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string): void => {
+    e.preventDefault();
+    if (!draggedId || draggedId === targetId) {
+      setDraggedId(null);
+      setDragOverId(null);
+      return;
+    }
+    const ordered = [...orderedItems];
+    const fromIdx = ordered.findIndex((i) => i.id === draggedId);
+    const toIdx = ordered.findIndex((i) => i.id === targetId);
+    if (fromIdx < 0 || toIdx < 0) {
+      setDraggedId(null);
+      setDragOverId(null);
+      return;
+    }
+    const draggedItem = ordered[fromIdx];
+    if (ordered[toIdx].isSection && !draggedItem.isSection) {
+      setDraggedId(null);
+      setDragOverId(null);
+      return;
+    }
+    ordered.splice(fromIdx, 1);
+    ordered.splice(toIdx, 0, draggedItem);
+    persist(ordered);
+    setDraggedId(null);
+    setDragOverId(null);
+  };
+
+  const handleDragEnd = (e: React.DragEvent): void => {
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "1";
+    }
+    setDraggedId(null);
+    setDragOverId(null);
   };
 
   const hasSubItems = (item: IScopeItem): boolean => {
@@ -548,6 +578,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   // ─── Column headers ───
   const columns = [
     "",
+    "",
     "#",
     "Client Doc Ref",
     "Item Description",
@@ -597,6 +628,15 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
           {sections.length > 0 && (
             <button className={styles.toolbarBtn} onClick={toggleAllSections}>
               {allSectionsCollapsed ? "▶ Expand All" : "▼ Collapse All"}
+            </button>
+          )}
+          {bidNumber && (
+            <button
+              className={`${styles.toolbarBtn} ${styles.aiBtn}`}
+              onClick={() => setShowAIModal(true)}
+              title="Generate scope items from a client document using AI"
+            >
+              🤖 Generate from AI
             </button>
           )}
         </div>
@@ -690,7 +730,38 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                             className={styles.sectionHeader}
                             onClick={() => toggleSection(item.id)}
                             style={titleStyle}
+                            draggable={!readOnly}
+                            onDragStart={(e) => {
+                              e.stopPropagation();
+                              handleDragStart(e, item.id);
+                            }}
+                            onDragOver={(e) => handleDragOver(e, item.id)}
+                            onDrop={(e) => handleDrop(e, item.id)}
+                            onDragEnd={handleDragEnd}
                           >
+                            {!readOnly && (
+                              <span
+                                className={styles.dragHandle}
+                                onClick={(e) => e.stopPropagation()}
+                                title="Drag to reorder"
+                              >
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  width="12"
+                                  height="12"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <circle cx="9" cy="5" r="1" />
+                                  <circle cx="9" cy="12" r="1" />
+                                  <circle cx="9" cy="19" r="1" />
+                                  <circle cx="15" cy="5" r="1" />
+                                  <circle cx="15" cy="12" r="1" />
+                                  <circle cx="15" cy="19" r="1" />
+                                </svg>
+                              </span>
+                            )}
                             <span
                               className={`${styles.chevron} ${isCollapsed ? styles.collapsed : ""}`}
                             >
@@ -743,20 +814,6 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                 className={styles.sectionActions}
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <button
-                                  className={`${styles.actionBtn} ${styles.reorder}`}
-                                  onClick={() => moveItem(item.id, "up")}
-                                  title="Move section up"
-                                >
-                                  ▲
-                                </button>
-                                <button
-                                  className={`${styles.actionBtn} ${styles.reorder}`}
-                                  onClick={() => moveItem(item.id, "down")}
-                                  title="Move section down"
-                                >
-                                  ▼
-                                </button>
                                 <button
                                   className={`${styles.actionBtn} ${styles.edit}`}
                                   onClick={() => addItem(item.id)}
@@ -1022,79 +1079,72 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                 const clientDocKey = `clientDoc-${item.id}`;
                 const isCommentsExpanded = expandedCells.has(commentsKey);
                 const isClientDocExpanded = expandedCells.has(clientDocKey);
-                const isSpecsOpen = expandedSpecs.has(item.id);
                 const itemHasSpecs = hasSpecs(item);
                 const itemHasSubItems = hasSubItems(item);
-                const isSubItemsOpen = isSubItemsPanelOpen(
-                  item.id,
-                  itemHasSubItems,
-                );
+                const isDrawerOpen = openDrawers.has(item.id);
+                const activeTab = drawerActiveTab[item.id] || "subs";
                 const totalCols = columns.length + (!readOnly ? 1 : 0);
+                const isDragged = draggedId === item.id;
+                const isDragOver = dragOverId === item.id;
                 return (
                   <React.Fragment key={item.id}>
                     <tr
-                      className={`${styles.mainItemRow}${isSpecsOpen ? ` ${styles.specsOpenRow}` : ""}`}
+                      className={`${styles.mainItemRow}${isDrawerOpen ? ` ${styles.drawerOpenRow}` : ""}${isDragOver ? ` ${styles.dragOverRow}` : ""}${isDragged ? ` ${styles.draggedRow}` : ""}`}
+                      draggable={!readOnly}
+                      onDragStart={(e) => handleDragStart(e, item.id)}
+                      onDragOver={(e) => handleDragOver(e, item.id)}
+                      onDrop={(e) => handleDrop(e, item.id)}
+                      onDragEnd={handleDragEnd}
                     >
-                      {/* Reorder */}
+                      {/* Drag handle */}
+                      <td
+                        className={styles.cellCenter}
+                        style={{ width: 32, padding: "0 2px" }}
+                      >
+                        {!readOnly && (
+                          <div
+                            className={styles.dragHandle}
+                            title="Drag to reorder"
+                          >
+                            <svg
+                              viewBox="0 0 24 24"
+                              width="12"
+                              height="12"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <circle cx="9" cy="5" r="1" />
+                              <circle cx="9" cy="12" r="1" />
+                              <circle cx="9" cy="19" r="1" />
+                              <circle cx="15" cy="5" r="1" />
+                              <circle cx="15" cy="12" r="1" />
+                              <circle cx="15" cy="19" r="1" />
+                            </svg>
+                          </div>
+                        )}
+                      </td>
+                      {/* Expand/collapse drawer */}
                       <td
                         className={styles.cellCenter}
                         style={{ width: 28, padding: "0 2px" }}
                       >
-                        {!readOnly ? (
-                          <div className={styles.reorderBtns}>
-                            <button
-                              className={styles.reorderBtn}
-                              onClick={() => moveItem(item.id, "up")}
-                              title="Move up"
-                            >
-                              ▲
-                            </button>
-                            <button
-                              className={styles.reorderBtn}
-                              onClick={() => moveItem(item.id, "down")}
-                              title="Move down"
-                            >
-                              ▼
-                            </button>
-                          </div>
-                        ) : itemHasSpecs || itemHasSubItems ? (
-                          <div
-                            style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 2,
-                            }}
+                        <div
+                          className={`${styles.cellExpand}${isDrawerOpen ? ` ${styles.cellExpandOpen}` : ""}${itemHasSubItems || itemHasSpecs ? ` ${styles.cellExpandHasContent}` : ""}`}
+                          onClick={() => toggleDrawer(item.id)}
+                          title="Expand / Collapse details"
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            width="13"
+                            height="13"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
                           >
-                            {itemHasSpecs && (
-                              <button
-                                className={`${styles.actionBtn} ${styles.specsToggle} ${styles.hasSpecs}`}
-                                onClick={() => toggleSpecsExpand(item.id)}
-                                title={
-                                  isSpecsOpen
-                                    ? "Collapse client specs"
-                                    : "View client specs"
-                                }
-                                style={{ padding: 0, fontSize: 10 }}
-                              >
-                                {isSpecsOpen ? "▼" : "▶"} 📋
-                              </button>
-                            )}
-                            {itemHasSubItems && (
-                              <button
-                                className={`${styles.actionBtn} ${styles.subItemsToggle} ${styles.hasSubItems}`}
-                                onClick={() => toggleSubItemsExpand(item.id)}
-                                title={
-                                  isSubItemsOpen
-                                    ? "Collapse sub-items"
-                                    : "View sub-items"
-                                }
-                                style={{ padding: 0, fontSize: 10 }}
-                              >
-                                {isSubItemsOpen ? "▼" : "▶"} 📦
-                              </button>
-                            )}
-                          </div>
-                        ) : null}
+                            <polyline points="9 18 15 12 9 6" />
+                          </svg>
+                        </div>
                       </td>
                       <td className={styles.cellCenter}>{item.lineNumber}</td>
                       {/* Client Doc Ref - collapsible */}
@@ -1140,48 +1190,24 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                         )}
                       </td>
                       <td>
-                        <div className={styles.descriptionCell}>
-                          <EditableCell
-                            value={item.description}
-                            readOnly={readOnly}
-                            isEditing={
-                              editingCell?.id === item.id &&
-                              editingCell?.field === "description"
-                            }
-                            onStartEdit={() =>
-                              setEditingCell({
-                                id: item.id,
-                                field: "description",
-                              })
-                            }
-                            onEndEdit={() => setEditingCell(null)}
-                            onChange={(v) =>
-                              updateField(item.id, "description", v)
-                            }
-                          />
-                          {itemHasSpecs && !isSpecsOpen && (
-                            <span
-                              className={styles.specsCountBadge}
-                              onClick={() => toggleSpecsExpand(item.id)}
-                              title="Click to view client specs"
-                            >
-                              📋{" "}
-                              {(item.clientSpecs || []).length > 0
-                                ? `${(item.clientSpecs || []).length} spec${(item.clientSpecs || []).length !== 1 ? "s" : ""}`
-                                : "specs"}
-                            </span>
-                          )}
-                          {itemHasSubItems && !isSubItemsOpen && (
-                            <span
-                              className={styles.subItemsCountBadge}
-                              onClick={() => toggleSubItemsExpand(item.id)}
-                              title="Click to view sub-items"
-                            >
-                              📦 {(item.subItems || []).length} sub-item
-                              {(item.subItems || []).length !== 1 ? "s" : ""}
-                            </span>
-                          )}
-                        </div>
+                        <EditableCell
+                          value={item.description}
+                          readOnly={readOnly}
+                          isEditing={
+                            editingCell?.id === item.id &&
+                            editingCell?.field === "description"
+                          }
+                          onStartEdit={() =>
+                            setEditingCell({
+                              id: item.id,
+                              field: "description",
+                            })
+                          }
+                          onEndEdit={() => setEditingCell(null)}
+                          onChange={(v) =>
+                            updateField(item.id, "description", v)
+                          }
+                        />
                       </td>
                       <td className={styles.cellCenter}>
                         {readOnly ? (
@@ -1301,44 +1327,46 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                         )}
                       </td>
                       <td>
-                        <EditableCell
+                        <PartNumberAutocomplete
                           value={item.equipmentOffer}
+                          searchField="description"
                           readOnly={readOnly}
-                          isEditing={
+                          placeholder="Equipment offer…"
+                          autoFocus={
                             editingCell?.id === item.id &&
                             editingCell?.field === "equipmentOffer"
                           }
-                          onStartEdit={() =>
-                            setEditingCell({
-                              id: item.id,
-                              field: "equipmentOffer",
-                            })
-                          }
-                          onEndEdit={() => setEditingCell(null)}
                           onChange={(v) =>
                             updateField(item.id, "equipmentOffer", v)
                           }
+                          onSelect={(pn, desc) => {
+                            updateField(item.id, "equipmentOffer", desc);
+                            updateField(item.id, "partNumber", pn);
+                            setEditingCell(null);
+                          }}
+                          onBlur={() => setEditingCell(null)}
                         />
                       </td>
                       <td>
-                        <EditableCell
+                        <PartNumberAutocomplete
                           value={item.partNumber}
+                          searchField="pn"
                           readOnly={readOnly}
                           mono
-                          isEditing={
+                          placeholder="PN…"
+                          autoFocus={
                             editingCell?.id === item.id &&
                             editingCell?.field === "partNumber"
                           }
-                          onStartEdit={() =>
-                            setEditingCell({
-                              id: item.id,
-                              field: "partNumber",
-                            })
-                          }
-                          onEndEdit={() => setEditingCell(null)}
                           onChange={(v) =>
                             updateField(item.id, "partNumber", v)
                           }
+                          onSelect={(pn, desc) => {
+                            updateField(item.id, "partNumber", pn);
+                            updateField(item.id, "equipmentOffer", desc);
+                            setEditingCell(null);
+                          }}
+                          onBlur={() => setEditingCell(null)}
                         />
                       </td>
                       <td className={styles.cellCenter}>
@@ -1431,33 +1459,28 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                       </td>
                       {!readOnly && (
                         <td>
-                          <div className={styles.actionsCell}>
+                          <div className={styles.rowActions}>
                             <button
-                              className={`${styles.actionBtn} ${styles.specsToggle} ${itemHasSpecs ? styles.hasSpecs : ""}`}
-                              onClick={() => toggleSpecsExpand(item.id)}
-                              title={
-                                isSpecsOpen
-                                  ? "Collapse client specs"
-                                  : "Client technical specs"
-                              }
+                              className={styles.rowActionBtn}
+                              onClick={() => {
+                                if (!openDrawers.has(item.id))
+                                  toggleDrawer(item.id);
+                                setDrawerTab(item.id, "subs");
+                                addSubItem(item.id);
+                              }}
+                              title="Add sub-item"
                             >
-                              {isSpecsOpen ? "▼" : "▶"} 📋
-                            </button>
-                            <button
-                              className={`${styles.actionBtn} ${styles.subItemsToggle} ${itemHasSubItems ? styles.hasSubItems : ""}`}
-                              onClick={() => toggleSubItemsExpand(item.id)}
-                              title={
-                                isSubItemsOpen
-                                  ? "Collapse sub-items"
-                                  : "Sub-items (consumables, spares)"
-                              }
-                            >
-                              {isSubItemsOpen ? "▼" : "▶"} 📦
-                              {itemHasSubItems && (
-                                <span className={styles.subItemsBadge}>
-                                  {(item.subItems || []).length}
-                                </span>
-                              )}
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="11"
+                                height="11"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <polyline points="9 17 4 12 9 7" />
+                                <path d="M20 18v-2a4 4 0 00-4-4H4" />
+                              </svg>
                             </button>
                             {sections.length > 0 && (
                               <select
@@ -1480,410 +1503,615 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                               </select>
                             )}
                             <button
-                              className={`${styles.actionBtn} ${styles.delete}`}
-                              onClick={() => deleteItem(item.id)}
+                              className={styles.rowActionBtn}
+                              onClick={() => handleAddToFavorites(item)}
+                              title="Add to Favorites"
                             >
-                              ✕
+                              ⭐
+                            </button>
+                            <button
+                              className={`${styles.rowActionBtn} ${styles.rowActionDanger}`}
+                              onClick={() => deleteItem(item.id)}
+                              title="Delete"
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="11"
+                                height="11"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                              </svg>
                             </button>
                           </div>
                         </td>
                       )}
                     </tr>
-                    {/* Expandable specs detail row */}
-                    {isSpecsOpen && (
-                      <tr className={styles.specsDetailRow}>
+                    {/* Combined drawer (sub-items + specs) */}
+                    {isDrawerOpen && (
+                      <tr className={styles.drawerRow}>
                         <td colSpan={totalCols}>
-                          <div className={styles.specsPanel}>
-                            <div className={styles.specsPanelHeader}>
-                              <span className={styles.specsPanelIcon}>📎</span>
-                              <div className={styles.specsPanelTitleGroup}>
-                                <span className={styles.specsPanelTitle}>
-                                  Client Technical Specifications
-                                </span>
-                                <span className={styles.specsPanelSubtitle}>
-                                  Optional — fill in when the client provides
-                                  detailed requirements in the ET
+                          <div className={styles.drawerInner}>
+                            {/* Drawer tabs */}
+                            <div className={styles.drawerTabs}>
+                              <div
+                                className={`${styles.drawerTab}${activeTab === "subs" ? ` ${styles.drawerTabActive}` : ""}`}
+                                onClick={() => setDrawerTab(item.id, "subs")}
+                              >
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  width="13"
+                                  height="13"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <polyline points="9 17 4 12 9 7" />
+                                  <path d="M20 18v-2a4 4 0 00-4-4H4" />
+                                </svg>
+                                Sub-Items
+                                <span className={styles.drawerTabCount}>
+                                  {(item.subItems || []).length}
                                 </span>
                               </div>
-                              <button
-                                className={styles.specsPanelClose}
-                                onClick={() => toggleSpecsExpand(item.id)}
+                              <div
+                                className={`${styles.drawerTab}${activeTab === "specs" ? ` ${styles.drawerTabActive}` : ""}`}
+                                onClick={() => setDrawerTab(item.id, "specs")}
                               >
-                                ✕
-                              </button>
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  width="13"
+                                  height="13"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                                  <polyline points="14 2 14 8 20 8" />
+                                  <line x1="16" y1="13" x2="8" y2="13" />
+                                  <line x1="16" y1="17" x2="8" y2="17" />
+                                </svg>
+                                Client Tech Specs
+                                <span className={styles.drawerTabCount}>
+                                  {(item.clientSpecs || []).length}
+                                </span>
+                              </div>
                             </div>
 
-                            {/* Client Requirement (main solicitation) */}
-                            <div className={styles.specsSection}>
-                              <label className={styles.specsLabel}>
-                                Client Requirement
-                              </label>
-                              {readOnly ? (
-                                <p className={styles.specsRequirementText}>
-                                  {item.clientRequirement || (
-                                    <span className={styles.specsEmpty}>
-                                      No client requirement defined.
-                                    </span>
-                                  )}
-                                </p>
-                              ) : (
-                                <textarea
-                                  className={styles.specsTextarea}
-                                  value={item.clientRequirement || ""}
-                                  placeholder="Full text of the client's request from the ET document. E.g.: 'CONTRATADA deve disponibilizar ferramentas de torque com os seguintes requisitos:'"
-                                  rows={3}
-                                  onChange={(e) =>
-                                    updateSpecs(
-                                      item.id,
-                                      e.target.value,
-                                      item.clientSpecs || [],
-                                    )
-                                  }
-                                />
-                              )}
-                            </div>
-
-                            {/* Technical Specifications List */}
-                            <div className={styles.specsSection}>
-                              <label className={styles.specsLabel}>
-                                Technical Specifications
-                                {(item.clientSpecs || []).length > 0 && (
-                                  <span className={styles.specsBadge}>
-                                    {(item.clientSpecs || []).length}
-                                  </span>
-                                )}
-                              </label>
-
-                              {(item.clientSpecs || []).length > 0 ? (
-                                <div className={styles.specsList}>
-                                  {(item.clientSpecs || []).map((spec, idx) => (
-                                    <div key={idx} className={styles.specsItem}>
-                                      <span className={styles.specsItemNumber}>
-                                        {idx + 1}
-                                      </span>
-                                      {readOnly ? (
-                                        <span className={styles.specsItemText}>
-                                          {spec}
-                                        </span>
-                                      ) : (
-                                        <input
-                                          className={styles.specsItemInput}
-                                          value={spec}
-                                          onChange={(e) => {
-                                            const updated = [
-                                              ...(item.clientSpecs || []),
-                                            ];
-                                            updated[idx] = e.target.value;
-                                            updateSpecs(
-                                              item.id,
-                                              item.clientRequirement || "",
-                                              updated,
-                                            );
-                                          }}
-                                        />
-                                      )}
+                            {/* Sub-Items panel */}
+                            {activeTab === "subs" && (
+                              <div className={styles.drawerTabPanel}>
+                                {(item.subItems || []).length > 0 ? (
+                                  <div className={styles.subTblWrap}>
+                                    <div className={styles.subTblHead}>
+                                      <div className={styles.subTh}>#</div>
+                                      <div className={styles.subTh}>
+                                        Description
+                                      </div>
+                                      <div className={styles.subTh}>
+                                        Sub-Type
+                                      </div>
+                                      <div className={styles.subTh}>
+                                        Equipment Offer
+                                      </div>
+                                      <div className={styles.subTh}>
+                                        OII / MFG PN
+                                      </div>
+                                      <div className={styles.subTh}>Qty</div>
+                                      <div className={styles.subTh}>
+                                        Comments
+                                      </div>
                                       {!readOnly && (
-                                        <button
-                                          className={styles.specsItemDelete}
-                                          onClick={() => {
-                                            const updated = (
-                                              item.clientSpecs || []
-                                            ).filter((_, i) => i !== idx);
-                                            updateSpecs(
-                                              item.id,
-                                              item.clientRequirement || "",
-                                              updated,
-                                            );
-                                          }}
-                                          title="Remove spec"
-                                        >
-                                          ✕
-                                        </button>
+                                        <div className={styles.subTh}>
+                                          &times;
+                                        </div>
                                       )}
                                     </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className={styles.specsEmpty}>
-                                  No technical specifications added yet.
-                                </p>
-                              )}
-
-                              {/* Add specs controls (edit mode only) */}
-                              {!readOnly && (
-                                <div className={styles.specsAddControls}>
-                                  <button
-                                    className={styles.specsAddBtn}
-                                    onClick={() => {
-                                      const updated = [
-                                        ...(item.clientSpecs || []),
-                                        "",
-                                      ];
-                                      updateSpecs(
-                                        item.id,
-                                        item.clientRequirement || "",
-                                        updated,
-                                      );
-                                    }}
-                                  >
-                                    + Add Specification
-                                  </button>
-                                  <div className={styles.specsBulkImport}>
-                                    <label className={styles.specsBulkLabel}>
-                                      Bulk Import (one spec per line):
-                                    </label>
-                                    <textarea
-                                      className={styles.specsTextarea}
-                                      value={specsBulkText}
-                                      placeholder={
-                                        "Paste specifications here, one per line...\nE.g.:\nPossuir reservatório de fluido com volume mínimo de 80 L;\nOperar em circuito fechado, com retorno de fluido..."
-                                      }
-                                      rows={4}
-                                      onChange={(e) =>
-                                        setSpecsBulkText(e.target.value)
-                                      }
-                                    />
-                                    <button
-                                      className={styles.specsBulkBtn}
-                                      onClick={() =>
-                                        handleBulkImportSpecs(item.id)
-                                      }
-                                      disabled={!specsBulkText.trim()}
-                                    >
-                                      Import Lines
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                    {/* Expandable sub-items panel */}
-                    {isSubItemsOpen && (
-                      <tr className={styles.subItemsDetailRow}>
-                        <td colSpan={totalCols}>
-                          <div className={styles.subItemsPanel}>
-                            <div className={styles.subItemsPanelHeader}>
-                              <span className={styles.subItemsPanelIcon}>
-                                📦
-                              </span>
-                              <div className={styles.subItemsPanelTitleGroup}>
-                                <span className={styles.subItemsPanelTitle}>
-                                  Sub-Items —{" "}
-                                  {item.equipmentOffer ||
-                                    item.description ||
-                                    "Item"}
-                                </span>
-                                <span className={styles.subItemsPanelSubtitle}>
-                                  Consumables, spare parts, accessories, or
-                                  multiple items tied to this scope line
-                                </span>
-                              </div>
-                              {itemHasSubItems && (
-                                <span className={styles.subItemsCount}>
-                                  {(item.subItems || []).length} item
-                                  {(item.subItems || []).length !== 1
-                                    ? "s"
-                                    : ""}
-                                </span>
-                              )}
-                              <button
-                                className={styles.subItemsPanelClose}
-                                onClick={() => toggleSubItemsExpand(item.id)}
-                              >
-                                ✕
-                              </button>
-                            </div>
-
-                            {(item.subItems || []).length > 0 ? (
-                              <div className={styles.subItemsTableWrap}>
-                                <table className={styles.subItemsTable}>
-                                  <thead>
-                                    <tr>
-                                      <th style={{ width: 30 }}>#</th>
-                                      <th>Description</th>
-                                      <th>Sub-Type</th>
-                                      <th>Equipment Offer</th>
-                                      <th>OII/MFG PN</th>
-                                      <th style={{ width: 60 }}>Qty</th>
-                                      <th>Comments</th>
-                                      {!readOnly && (
-                                        <th style={{ width: 36 }} />
-                                      )}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {(item.subItems || []).map((sub, idx) => (
-                                      <tr key={sub.id}>
-                                        <td className={styles.subItemNum}>
-                                          {idx + 1}
-                                        </td>
-                                        <td>
-                                          {readOnly ? (
-                                            sub.description || "—"
-                                          ) : (
-                                            <input
-                                              className={styles.subItemInput}
-                                              value={sub.description}
-                                              placeholder='e.g. Brush 2" Nylon'
-                                              onChange={(e) =>
-                                                updateSubItem(
-                                                  item.id,
-                                                  sub.id,
-                                                  "description",
-                                                  e.target.value,
-                                                )
-                                              }
-                                            />
-                                          )}
-                                        </td>
-                                        <td>
-                                          {readOnly ? (
-                                            sub.subType || "—"
-                                          ) : (
-                                            <select
-                                              className={styles.subItemInput}
-                                              value={
-                                                sub.subType || "Consumable"
-                                              }
-                                              onChange={(e) =>
-                                                updateSubItem(
-                                                  item.id,
-                                                  sub.id,
-                                                  "subType",
-                                                  e.target.value,
-                                                )
-                                              }
-                                            >
-                                              <option value="Consumable">
-                                                Consumable
-                                              </option>
-                                              <option value="Spare Part">
-                                                Spare Part
-                                              </option>
-                                              <option value="Accessory">
-                                                Accessory
-                                              </option>
-                                              <option value="Other">
-                                                Other
-                                              </option>
-                                            </select>
-                                          )}
-                                        </td>
-                                        <td>
-                                          {readOnly ? (
-                                            sub.equipmentOffer || "—"
-                                          ) : (
-                                            <input
-                                              className={styles.subItemInput}
-                                              value={sub.equipmentOffer}
-                                              placeholder="Offer..."
-                                              onChange={(e) =>
-                                                updateSubItem(
-                                                  item.id,
-                                                  sub.id,
-                                                  "equipmentOffer",
-                                                  e.target.value,
-                                                )
-                                              }
-                                            />
-                                          )}
-                                        </td>
-                                        <td>
-                                          {readOnly ? (
-                                            <span className={styles.cellMono}>
-                                              {sub.partNumber || "—"}
-                                            </span>
-                                          ) : (
-                                            <input
-                                              className={`${styles.subItemInput} ${styles.cellMono}`}
-                                              value={sub.partNumber}
-                                              placeholder="PN..."
-                                              onChange={(e) =>
-                                                updateSubItem(
-                                                  item.id,
-                                                  sub.id,
-                                                  "partNumber",
-                                                  e.target.value,
-                                                )
-                                              }
-                                            />
-                                          )}
-                                        </td>
-                                        <td>
-                                          {readOnly ? (
-                                            sub.qty
-                                          ) : (
-                                            <input
-                                              type="number"
-                                              className={styles.subItemInputNum}
-                                              value={sub.qty}
-                                              min={0}
-                                              onChange={(e) =>
-                                                updateSubItem(
-                                                  item.id,
-                                                  sub.id,
-                                                  "qty",
-                                                  Number(e.target.value) || 0,
-                                                )
-                                              }
-                                            />
-                                          )}
-                                        </td>
-                                        <td>
-                                          {readOnly ? (
-                                            sub.comments || "—"
-                                          ) : (
-                                            <input
-                                              className={styles.subItemInput}
-                                              value={sub.comments}
-                                              placeholder="Notes..."
-                                              onChange={(e) =>
-                                                updateSubItem(
-                                                  item.id,
-                                                  sub.id,
-                                                  "comments",
-                                                  e.target.value,
-                                                )
-                                              }
-                                            />
-                                          )}
-                                        </td>
-                                        {!readOnly && (
-                                          <td>
-                                            <button
-                                              className={styles.subItemDelete}
+                                    <div className={styles.subRows}>
+                                      {(item.subItems || []).map((sub, idx) => (
+                                        <div
+                                          key={sub.id}
+                                          className={styles.subRow}
+                                        >
+                                          <div
+                                            className={`${styles.subCell} ${styles.subNum}`}
+                                          >
+                                            {idx + 1}
+                                          </div>
+                                          <div className={styles.subCell}>
+                                            {readOnly ? (
+                                              sub.description || "—"
+                                            ) : (
+                                              <input
+                                                className={styles.subInp}
+                                                value={sub.description}
+                                                placeholder="Description…"
+                                                onChange={(e) =>
+                                                  updateSubItem(
+                                                    item.id,
+                                                    sub.id,
+                                                    "description",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              />
+                                            )}
+                                          </div>
+                                          <div className={styles.subCell}>
+                                            {readOnly ? (
+                                              sub.subType || "—"
+                                            ) : (
+                                              <select
+                                                className={styles.subSel}
+                                                value={
+                                                  sub.subType || "Consumable"
+                                                }
+                                                onChange={(e) =>
+                                                  updateSubItem(
+                                                    item.id,
+                                                    sub.id,
+                                                    "subType",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              >
+                                                <option value="Consumable">
+                                                  Consumable
+                                                </option>
+                                                <option value="Spare Part">
+                                                  Spare Part
+                                                </option>
+                                                <option value="Accessory">
+                                                  Accessory
+                                                </option>
+                                                <option value="Other">
+                                                  Other
+                                                </option>
+                                              </select>
+                                            )}
+                                          </div>
+                                          <div className={styles.subCell}>
+                                            {readOnly ? (
+                                              sub.equipmentOffer || "—"
+                                            ) : (
+                                              <PartNumberAutocomplete
+                                                value={sub.equipmentOffer}
+                                                searchField="description"
+                                                placeholder="Offer…"
+                                                onChange={(v) =>
+                                                  updateSubItem(
+                                                    item.id,
+                                                    sub.id,
+                                                    "equipmentOffer",
+                                                    v,
+                                                  )
+                                                }
+                                                onSelect={(pn, desc) => {
+                                                  updateSubItem(
+                                                    item.id,
+                                                    sub.id,
+                                                    "equipmentOffer",
+                                                    desc,
+                                                  );
+                                                  updateSubItem(
+                                                    item.id,
+                                                    sub.id,
+                                                    "partNumber",
+                                                    pn,
+                                                  );
+                                                }}
+                                              />
+                                            )}
+                                          </div>
+                                          <div className={styles.subCell}>
+                                            {readOnly ? (
+                                              <span className={styles.cellMono}>
+                                                {sub.partNumber || "—"}
+                                              </span>
+                                            ) : (
+                                              <PartNumberAutocomplete
+                                                value={sub.partNumber}
+                                                searchField="pn"
+                                                mono
+                                                placeholder="PN…"
+                                                onChange={(v) =>
+                                                  updateSubItem(
+                                                    item.id,
+                                                    sub.id,
+                                                    "partNumber",
+                                                    v,
+                                                  )
+                                                }
+                                                onSelect={(pn, desc) => {
+                                                  updateSubItem(
+                                                    item.id,
+                                                    sub.id,
+                                                    "partNumber",
+                                                    pn,
+                                                  );
+                                                  updateSubItem(
+                                                    item.id,
+                                                    sub.id,
+                                                    "equipmentOffer",
+                                                    desc,
+                                                  );
+                                                }}
+                                              />
+                                            )}
+                                          </div>
+                                          <div className={styles.subCell}>
+                                            {readOnly ? (
+                                              sub.qty
+                                            ) : (
+                                              <input
+                                                type="number"
+                                                className={`${styles.subInp} ${styles.subInpCenter}`}
+                                                value={sub.qty}
+                                                min={0}
+                                                onChange={(e) =>
+                                                  updateSubItem(
+                                                    item.id,
+                                                    sub.id,
+                                                    "qty",
+                                                    Number(e.target.value) || 0,
+                                                  )
+                                                }
+                                              />
+                                            )}
+                                          </div>
+                                          <div className={styles.subCell}>
+                                            {readOnly ? (
+                                              sub.comments || "—"
+                                            ) : (
+                                              <input
+                                                className={styles.subInp}
+                                                value={sub.comments}
+                                                placeholder="Notes…"
+                                                onChange={(e) =>
+                                                  updateSubItem(
+                                                    item.id,
+                                                    sub.id,
+                                                    "comments",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              />
+                                            )}
+                                          </div>
+                                          {!readOnly && (
+                                            <div
+                                              className={`${styles.subCell} ${styles.subDel}`}
                                               onClick={() =>
                                                 deleteSubItem(item.id, sub.id)
                                               }
-                                              title="Remove sub-item"
+                                              title="Delete sub-item"
                                             >
-                                              ✕
-                                            </button>
-                                          </td>
-                                        )}
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
+                                              <svg
+                                                viewBox="0 0 24 24"
+                                                width="13"
+                                                height="13"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                              >
+                                                <line
+                                                  x1="18"
+                                                  y1="6"
+                                                  x2="6"
+                                                  y2="18"
+                                                />
+                                                <line
+                                                  x1="6"
+                                                  y1="6"
+                                                  x2="18"
+                                                  y2="18"
+                                                />
+                                              </svg>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {!readOnly && (
+                                      <div className={styles.subFooter}>
+                                        <button
+                                          className={styles.addSubBtn}
+                                          onClick={() => addSubItem(item.id)}
+                                        >
+                                          <svg
+                                            viewBox="0 0 24 24"
+                                            width="11"
+                                            height="11"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                          >
+                                            <line
+                                              x1="12"
+                                              y1="5"
+                                              x2="12"
+                                              y2="19"
+                                            />
+                                            <line
+                                              x1="5"
+                                              y1="12"
+                                              x2="19"
+                                              y2="12"
+                                            />
+                                          </svg>
+                                          + Add Sub-Item
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className={styles.drawerEmpty}>
+                                    <p>
+                                      No sub-items yet. Add consumables, spare
+                                      parts, or accessories below.
+                                    </p>
+                                    {!readOnly && (
+                                      <button
+                                        className={styles.addSubBtn}
+                                        onClick={() => addSubItem(item.id)}
+                                      >
+                                        <svg
+                                          viewBox="0 0 24 24"
+                                          width="11"
+                                          height="11"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          strokeWidth="2"
+                                        >
+                                          <line
+                                            x1="12"
+                                            y1="5"
+                                            x2="12"
+                                            y2="19"
+                                          />
+                                          <line
+                                            x1="5"
+                                            y1="12"
+                                            x2="19"
+                                            y2="12"
+                                          />
+                                        </svg>
+                                        + Add Sub-Item
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
                               </div>
-                            ) : (
-                              <p className={styles.subItemsEmpty}>
-                                No sub-items yet. Add consumables, spare parts,
-                                or multiple equipment items below.
-                              </p>
                             )}
 
-                            {!readOnly && (
-                              <div className={styles.subItemsAddRow}>
-                                <button
-                                  className={styles.subItemsAddBtn}
-                                  onClick={() => addSubItem(item.id)}
-                                >
-                                  + Add Sub-Item
-                                </button>
+                            {/* Client Tech Specs panel */}
+                            {activeTab === "specs" && (
+                              <div className={styles.drawerTabPanel}>
+                                <div className={styles.specsGrid}>
+                                  {/* Left: Client Requirement */}
+                                  <div className={styles.specSection}>
+                                    <div className={styles.specSectionLabel}>
+                                      Client Requirement
+                                    </div>
+                                    {readOnly ? (
+                                      <p
+                                        className={styles.specsRequirementText}
+                                      >
+                                        {item.clientRequirement || (
+                                          <span className={styles.specsEmpty}>
+                                            No client requirement defined.
+                                          </span>
+                                        )}
+                                      </p>
+                                    ) : (
+                                      <textarea
+                                        className={styles.reqTextarea}
+                                        value={item.clientRequirement || ""}
+                                        placeholder="Optional — fill in when the client provides detailed requirements in the ET…"
+                                        rows={4}
+                                        onChange={(e) =>
+                                          updateSpecs(
+                                            item.id,
+                                            e.target.value,
+                                            item.clientSpecs || [],
+                                          )
+                                        }
+                                      />
+                                    )}
+                                  </div>
+                                  {/* Right: Technical Specifications */}
+                                  <div className={styles.specSection}>
+                                    <div className={styles.specSectionLabel}>
+                                      Technical Specifications
+                                      {(item.clientSpecs || []).length > 0 && (
+                                        <span className={styles.specBadge}>
+                                          {(item.clientSpecs || []).length}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {(item.clientSpecs || []).length > 0 ? (
+                                      <div className={styles.specList}>
+                                        {(item.clientSpecs || []).map(
+                                          (spec, idx) => (
+                                            <div
+                                              key={idx}
+                                              className={styles.specItem}
+                                            >
+                                              <div
+                                                className={styles.specItemNum}
+                                              >
+                                                {idx + 1}
+                                              </div>
+                                              {readOnly ? (
+                                                <span
+                                                  className={
+                                                    styles.specsItemText
+                                                  }
+                                                >
+                                                  {spec}
+                                                </span>
+                                              ) : (
+                                                <input
+                                                  className={styles.specItemInp}
+                                                  value={spec}
+                                                  placeholder="Technical specification…"
+                                                  onChange={(e) => {
+                                                    const updated = [
+                                                      ...(item.clientSpecs ||
+                                                        []),
+                                                    ];
+                                                    updated[idx] =
+                                                      e.target.value;
+                                                    updateSpecs(
+                                                      item.id,
+                                                      item.clientRequirement ||
+                                                        "",
+                                                      updated,
+                                                    );
+                                                  }}
+                                                />
+                                              )}
+                                              {!readOnly && (
+                                                <button
+                                                  className={styles.specItemDel}
+                                                  onClick={() => {
+                                                    const updated = (
+                                                      item.clientSpecs || []
+                                                    ).filter(
+                                                      (_, i) => i !== idx,
+                                                    );
+                                                    updateSpecs(
+                                                      item.id,
+                                                      item.clientRequirement ||
+                                                        "",
+                                                      updated,
+                                                    );
+                                                  }}
+                                                  title="Remove"
+                                                >
+                                                  <svg
+                                                    viewBox="0 0 24 24"
+                                                    width="11"
+                                                    height="11"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                  >
+                                                    <line
+                                                      x1="18"
+                                                      y1="6"
+                                                      x2="6"
+                                                      y2="18"
+                                                    />
+                                                    <line
+                                                      x1="6"
+                                                      y1="6"
+                                                      x2="18"
+                                                      y2="18"
+                                                    />
+                                                  </svg>
+                                                </button>
+                                              )}
+                                            </div>
+                                          ),
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <p className={styles.specsEmpty}>
+                                        No technical specifications added yet.
+                                      </p>
+                                    )}
+                                    {!readOnly && (
+                                      <div className={styles.specActions}>
+                                        <button
+                                          className={styles.specAddBtn}
+                                          onClick={() => {
+                                            const updated = [
+                                              ...(item.clientSpecs || []),
+                                              "",
+                                            ];
+                                            updateSpecs(
+                                              item.id,
+                                              item.clientRequirement || "",
+                                              updated,
+                                            );
+                                          }}
+                                        >
+                                          <svg
+                                            viewBox="0 0 24 24"
+                                            width="10"
+                                            height="10"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                          >
+                                            <line
+                                              x1="12"
+                                              y1="5"
+                                              x2="12"
+                                              y2="19"
+                                            />
+                                            <line
+                                              x1="5"
+                                              y1="12"
+                                              x2="19"
+                                              y2="12"
+                                            />
+                                          </svg>
+                                          + Add Specification
+                                        </button>
+                                      </div>
+                                    )}
+                                    {!readOnly && (
+                                      <div className={styles.bulkWrap}>
+                                        <span className={styles.bulkLabel}>
+                                          Bulk Import (one specification per
+                                          line):
+                                        </span>
+                                        <textarea
+                                          className={styles.bulkTextarea}
+                                          value={specsBulkText}
+                                          placeholder={
+                                            "Paste specifications here, one per line…"
+                                          }
+                                          rows={3}
+                                          onChange={(e) =>
+                                            setSpecsBulkText(e.target.value)
+                                          }
+                                        />
+                                        <button
+                                          className={styles.bulkImportBtn}
+                                          onClick={() =>
+                                            handleBulkImportSpecs(item.id)
+                                          }
+                                          disabled={!specsBulkText.trim()}
+                                        >
+                                          <svg
+                                            viewBox="0 0 24 24"
+                                            width="11"
+                                            height="11"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                          >
+                                            <polyline points="16 16 12 12 8 16" />
+                                            <line
+                                              x1="12"
+                                              y1="12"
+                                              x2="12"
+                                              y2="21"
+                                            />
+                                            <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" />
+                                          </svg>
+                                          Import Lines
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -1981,6 +2209,37 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* AI Analyzer Modal */}
+      {showAIModal && bidNumber && (
+        <div className={styles.aiOverlay}>
+          <div
+            className={styles.aiModal}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.aiModalHeader}>
+              <h3>🤖 AI Document Analysis</h3>
+              <button
+                className={styles.aiModalClose}
+                onClick={() => setShowAIModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <AIDocumentAnalyzer
+              bidNumber={bidNumber}
+              onImport={(aiItems: IScopeItem[]) => {
+                const merged = [...items, ...aiItems];
+                setItems(merged);
+                persist(merged);
+                setShowAIModal(false);
+              }}
+              importLabel="Import AI Items to Scope"
+              compact
+            />
           </div>
         </div>
       )}

@@ -363,6 +363,12 @@ const SystemConfiguration: React.FC = () => {
   } | null>(null);
   const [dirty, setDirty] = React.useState(false);
   const [fetchingRates, setFetchingRates] = React.useState(false);
+  const [showAddCurrency, setShowAddCurrency] = React.useState(false);
+  const [availableCurrencies, setAvailableCurrencies] = React.useState<
+    Array<{ code: string; rate: number }>
+  >([]);
+  const [addCurrencyLoading, setAddCurrencyLoading] = React.useState(false);
+  const [addCurrencySearch, setAddCurrencySearch] = React.useState("");
 
   const currentNavItem = ALL_NAV_ITEMS.find((n) => n.key === activeTab);
 
@@ -554,17 +560,36 @@ const SystemConfiguration: React.FC = () => {
       const now = new Date().toISOString();
       const updatedRates = cs.exchangeRates.map((er) => {
         const newRate = data.rates[er.currency];
-        return newRate !== null && newRate !== undefined
-          ? { ...er, rate: Math.round(newRate * 100) / 100, lastUpdate: now }
-          : er;
+        if (newRate !== null && newRate !== undefined) {
+          return {
+            ...er,
+            rate: Math.round(newRate * 100) / 100,
+            lastUpdate: now,
+          };
+        }
+        return er;
       });
+      const notFound = cs.exchangeRates.filter(
+        (er) =>
+          data.rates[er.currency] === null ||
+          data.rates[er.currency] === undefined,
+      );
       updateConfig({
         currencySettings: { ...cs, exchangeRates: updatedRates },
       });
-      showMsg(
-        "success",
-        `Rates updated from Open Exchange Rates API (${codes.join(", ")})`,
-      );
+      // Clear cached available currencies so list refreshes
+      setAvailableCurrencies([]);
+      if (notFound.length > 0) {
+        showMsg(
+          "error",
+          `Updated ${codes.length - notFound.length}/${codes.length}. Not found in API: ${notFound.map((e) => e.currency).join(", ")}`,
+        );
+      } else {
+        showMsg(
+          "success",
+          `Rates updated from Open Exchange Rates API (${codes.join(", ")})`,
+        );
+      }
     } catch (err) {
       console.error("Failed to fetch rates:", err);
       showMsg("error", "Failed to fetch exchange rates — check console");
@@ -1072,17 +1097,42 @@ const SystemConfiguration: React.FC = () => {
 
     const addRate = (): void => {
       if (!canEdit) return;
-      const code = prompt("Currency code (e.g. GBP, EUR):");
-      if (!code) return;
-      const rateStr = prompt(
-        `Exchange rate (1 ${cs.defaultCurrency} = ? ${code.toUpperCase()}):`,
-      );
-      if (!rateStr) return;
-      const rate = Number(rateStr);
-      if (isNaN(rate)) return;
+      // Fetch available currencies from the API
+      setShowAddCurrency(true);
+      setAddCurrencySearch("");
+      if (availableCurrencies.length === 0) {
+        setAddCurrencyLoading(true);
+        fetch(`https://open.er-api.com/v6/latest/${cs.defaultCurrency}`)
+          .then((resp) => {
+            if (!resp.ok) throw new Error("API error");
+            return resp.json();
+          })
+          .then((data: { result: string; rates: Record<string, number> }) => {
+            if (data.result !== "success") throw new Error("API error");
+            const existing = new Set(cs.exchangeRates.map((r) => r.currency));
+            existing.add(cs.defaultCurrency);
+            const list: Array<{ code: string; rate: number }> = [];
+            Object.keys(data.rates).forEach((code) => {
+              if (!existing.has(code)) {
+                list.push({ code, rate: data.rates[code] });
+              }
+            });
+            list.sort((a, b) => a.code.localeCompare(b.code));
+            setAvailableCurrencies(list);
+            setAddCurrencyLoading(false);
+          })
+          .catch(() => {
+            showMsg("error", "Failed to load currencies from API");
+            setShowAddCurrency(false);
+            setAddCurrencyLoading(false);
+          });
+      }
+    };
+
+    const handleSelectCurrency = (code: string, rate: number): void => {
       const newEntry: IExchangeRate = {
-        currency: code.toUpperCase(),
-        rate,
+        currency: code,
+        rate: Math.round(rate * 100) / 100,
         lastUpdate: new Date().toISOString(),
       };
       updateConfig({
@@ -1091,6 +1141,13 @@ const SystemConfiguration: React.FC = () => {
           exchangeRates: [...cs.exchangeRates, newEntry],
         },
       });
+      // Remove from available list
+      setAvailableCurrencies((prev) => prev.filter((c) => c.code !== code));
+      setShowAddCurrency(false);
+      showMsg(
+        "success",
+        `${code} added with rate ${Math.round(rate * 100) / 100}`,
+      );
     };
 
     return (
@@ -1166,9 +1223,72 @@ const SystemConfiguration: React.FC = () => {
             <button
               className={`${styles.actionBtn} ${styles.primary}`}
               onClick={addRate}
+              disabled={showAddCurrency && addCurrencyLoading}
             >
               + Add Currency
             </button>
+          </div>
+        )}
+        {showAddCurrency && (
+          <div className={styles.addCurrencyPanel}>
+            <div className={styles.addCurrencyHeader}>
+              <span>Select currency to add</span>
+              <button
+                className={styles.actionBtn}
+                onClick={() => setShowAddCurrency(false)}
+              >
+                ✕
+              </button>
+            </div>
+            {addCurrencyLoading ? (
+              <div className={styles.addCurrencyLoading}>
+                Loading currencies from API…
+              </div>
+            ) : (
+              <>
+                <input
+                  className={styles.addCurrencySearch}
+                  type="text"
+                  placeholder="Search currency code (e.g. AUD, JPY, CHF)…"
+                  value={addCurrencySearch}
+                  onChange={(e) =>
+                    setAddCurrencySearch(e.target.value.toUpperCase())
+                  }
+                  autoFocus
+                />
+                <div className={styles.addCurrencyList}>
+                  {availableCurrencies
+                    .filter((c) =>
+                      addCurrencySearch
+                        ? c.code.indexOf(addCurrencySearch) >= 0
+                        : true,
+                    )
+                    .slice(0, 50)
+                    .map((c) => (
+                      <button
+                        key={c.code}
+                        className={styles.addCurrencyItem}
+                        onClick={() => handleSelectCurrency(c.code, c.rate)}
+                      >
+                        <span className={styles.addCurrencyCode}>{c.code}</span>
+                        <span className={styles.addCurrencyRate}>
+                          1 {cs.defaultCurrency} ={" "}
+                          {Math.round(c.rate * 100) / 100}
+                        </span>
+                      </button>
+                    ))}
+                  {availableCurrencies.filter((c) =>
+                    addCurrencySearch
+                      ? c.code.indexOf(addCurrencySearch) >= 0
+                      : true,
+                  ).length === 0 && (
+                    <div className={styles.addCurrencyEmpty}>
+                      No currencies match &quot;{addCurrencySearch}&quot;
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

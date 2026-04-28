@@ -1203,6 +1203,7 @@ export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
       { currency: "GBP", rate: 0.79, lastUpdate: "2026-04-01T00:00:00Z" },
       { currency: "EUR", rate: 0.92, lastUpdate: "2026-04-01T00:00:00Z" },
       { currency: "NOK", rate: 10.85, lastUpdate: "2026-04-01T00:00:00Z" },
+      { currency: "AUD", rate: 1.55, lastUpdate: "2026-04-01T00:00:00Z" },
     ],
     updateFrequency: "monthly",
   },

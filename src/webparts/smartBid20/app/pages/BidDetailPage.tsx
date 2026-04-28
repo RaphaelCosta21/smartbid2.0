@@ -402,6 +402,7 @@ export const BidDetailPage: React.FC = () => {
                       <ScopeOfSupplyTab
                         scopeItems={filtered}
                         readOnly={!isEditing}
+                        bidNumber={bid.bidNumber}
                         onSave={(items) => {
                           if (div) {
                             const others = (bid.scopeItems || []).filter(

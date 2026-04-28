@@ -10,6 +10,7 @@ import { IBidTemplate } from "../models/IBidTemplate";
 import { IScopeItem } from "../models";
 import { DIVISIONS, SERVICE_LINES } from "../utils/constants";
 import { makeId } from "../utils/idGenerator";
+import { TemplateService } from "../services/TemplateService";
 import styles from "./TemplatesPage.module.scss";
 
 type ViewMode = "grid" | "list";
@@ -40,6 +41,7 @@ export const TemplatesPage: React.FC = () => {
   const [previewTemplate, setPreviewTemplate] =
     React.useState<IBidTemplate | null>(null);
   const [showAIAnalyzer, setShowAIAnalyzer] = React.useState(false);
+  const [aiTemplateId, setAiTemplateId] = React.useState("");
 
   const divisionOptions = React.useMemo(() => {
     if (config?.divisions) {
@@ -100,6 +102,10 @@ export const TemplatesPage: React.FC = () => {
   };
 
   const handleAIImport = (items: IScopeItem[]): void => {
+    // Delete the placeholder row (it was only used for AI polling)
+    if (aiTemplateId) {
+      TemplateService.deleteTemplate(aiTemplateId).catch(() => {});
+    }
     // Create a new template pre-populated with AI-generated scope items
     const tpl: IBidTemplate = {
       id: makeId("tpl"),
@@ -120,6 +126,7 @@ export const TemplatesPage: React.FC = () => {
     };
     setEditingTemplate(tpl);
     setShowAIAnalyzer(false);
+    setAiTemplateId("");
     setShowEditor(true);
   };
 
@@ -312,7 +319,29 @@ export const TemplatesPage: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setShowAIAnalyzer(true)}
+            onClick={async () => {
+              const tempId = makeId("tpl");
+              // Create placeholder row in smartbid-templates so the flow can write AIResponse
+              await TemplateService.create({
+                id: tempId,
+                name: "AI Placeholder",
+                description: "",
+                division: "",
+                serviceLine: "",
+                category: "",
+                scopeItems: [],
+                createdBy: "",
+                createdDate: new Date().toISOString(),
+                lastModified: new Date().toISOString(),
+                lastModifiedBy: "",
+                version: 0,
+                usageCount: 0,
+                isActive: false,
+                tags: ["ai-pending"],
+              }).catch(() => {});
+              setAiTemplateId(tempId);
+              setShowAIAnalyzer(true);
+            }}
             className={styles.aiGenerateBtn}
             title="Generate a template from a client document using AI"
           >
@@ -476,10 +505,7 @@ export const TemplatesPage: React.FC = () => {
       )}
       {/* AI Analyzer modal */}
       {showAIAnalyzer && (
-        <div
-          className={styles.overlay}
-          onClick={() => setShowAIAnalyzer(false)}
-        >
+        <div className={styles.overlay}>
           <div
             className={`${styles.modal} ${styles.aiModal}`}
             onClick={(e) => e.stopPropagation()}
@@ -492,6 +518,7 @@ export const TemplatesPage: React.FC = () => {
               </p>
             </div>
             <AIDocumentAnalyzer
+              templateId={aiTemplateId}
               onImport={handleAIImport}
               importLabel="Create Template with These Items"
               compact
@@ -499,7 +526,15 @@ export const TemplatesPage: React.FC = () => {
             <div className={styles.modalActions}>
               <button
                 className={styles.modalCloseBtn}
-                onClick={() => setShowAIAnalyzer(false)}
+                onClick={() => {
+                  if (aiTemplateId) {
+                    TemplateService.deleteTemplate(aiTemplateId).catch(
+                      () => {},
+                    );
+                  }
+                  setShowAIAnalyzer(false);
+                  setAiTemplateId("");
+                }}
               >
                 Cancel
               </button>

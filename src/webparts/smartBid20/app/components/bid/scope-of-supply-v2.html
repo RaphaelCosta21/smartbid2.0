@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Scope of Supply — Oceaneering BID</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+<style>
+/* ─── RESET & TOKENS ─── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#eef1f7;
+  --surface:#ffffff;
+  --surface2:#f6f8fc;
+  --surface3:#edf1f8;
+  --surface4:#e4eaf5;
+  --navy:#0d1e3f;
+  --navy2:#162d5a;
+  --navy3:#1e3d7a;
+  --accent:#1a6fd4;
+  --accent-light:#e8f0fb;
+  --accent-mid:rgba(26,111,212,.12);
+  --border:#dde3ee;
+  --border2:#c8d3e6;
+  --text:#0f1729;
+  --text2:#374151;
+  --text3:#6b7280;
+  --text4:#9ca3af;
+  --green:#15803d;
+  --green-bg:#dcfce7;
+  --green-b:#86efac;
+  --red:#b91c1c;
+  --red-bg:#fee2e2;
+  --red-b:#fca5a5;
+  --amber:#92400e;
+  --amber-bg:#fef3c7;
+  --amber-b:#fcd34d;
+  --slate-bg:#f1f5fb;
+  --font:'Plus Jakarta Sans',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --r:6px;
+  --r2:10px;
+  --sh:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.06);
+  --sh2:0 2px 8px rgba(0,0,0,.1),0 8px 32px rgba(0,0,0,.08);
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px}
+body{display:flex;flex-direction:column;min-height:100vh}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+button{font-family:var(--font)}
+input,select,textarea{font-family:var(--font)}
+
+/* ─── TOPBAR ─── */
+.topbar{
+  background:var(--navy);
+  display:flex;align-items:stretch;
+  position:sticky;top:0;z-index:200;
+  box-shadow:0 2px 12px rgba(0,0,0,.3);
+}
+.topbar-brand{
+  display:flex;align-items:center;gap:12px;
+  padding:0 24px;border-right:1px solid rgba(255,255,255,.1);
+  min-width:200px;
+}
+.brand-badge{
+  width:34px;height:34px;border-radius:8px;flex-shrink:0;
+  background:linear-gradient(135deg,#2d85e8,#1a5db5);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;font-weight:500;color:#fff;letter-spacing:.5px;
+}
+.brand-name{font-size:13px;font-weight:700;color:#fff;letter-spacing:.5px}
+.brand-sub{font-size:10px;color:rgba(255,255,255,.45);font-weight:400;margin-top:1px}
+.topbar-meta{
+  display:flex;align-items:center;gap:0;flex:1;overflow-x:auto;
+  padding:0 8px;
+}
+.meta-sep{width:1px;background:rgba(255,255,255,.08);height:40px;margin:0 8px;flex-shrink:0}
+.meta-field{display:flex;flex-direction:column;gap:2px;padding:12px 12px}
+.meta-label{font-size:8.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.35)}
+.meta-input{
+  background:transparent;border:none;color:rgba(255,255,255,.9);
+  font-family:var(--font);font-size:12px;font-weight:500;
+  outline:none;min-width:80px;padding:0;
+  border-bottom:1px solid transparent;transition:border-color .2s;
+}
+.meta-input:focus{border-color:rgba(255,255,255,.3)}
+.meta-input::placeholder{color:rgba(255,255,255,.25)}
+.topbar-actions{display:flex;align-items:center;gap:8px;padding:0 16px;border-left:1px solid rgba(255,255,255,.1)}
+.tbtn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:var(--r);border:1px solid rgba(255,255,255,.15);
+  background:rgba(255,255,255,.08);color:rgba(255,255,255,.85);
+  font-size:11.5px;font-weight:500;cursor:pointer;letter-spacing:.2px;
+  transition:all .2s;white-space:nowrap;
+}
+.tbtn:hover{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.25)}
+.tbtn-primary{background:var(--accent);border-color:transparent;color:#fff}
+.tbtn-primary:hover{background:#1a5db5;border-color:transparent}
+.tbtn svg{width:13px;height:13px;flex-shrink:0}
+
+/* ─── TOOLBAR ─── */
+.toolbar{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding:0 24px;
+  display:flex;align-items:center;gap:8px;height:46px;
+  box-shadow:0 1px 4px rgba(0,0,0,.04);
+}
+.tb-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+.btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 12px;border-radius:var(--r);border:1px solid var(--border);
+  background:var(--surface2);color:var(--text2);
+  font-size:11.5px;font-weight:500;cursor:pointer;letter-spacing:.1px;
+  transition:all .18s;white-space:nowrap;
+}
+.btn:hover{background:var(--surface3);border-color:var(--border2);color:var(--text)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:#1a5db5;border-color:#1a5db5;color:#fff}
+.btn svg{width:12px;height:12px;flex-shrink:0}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--text3)}
+.btn-ghost:hover{background:var(--surface3);border-color:var(--border);color:var(--text2)}
+.stats-wrap{display:flex;align-items:center;gap:10px;margin-left:auto}
+.stat-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--surface3);border:1px solid var(--border);
+  border-radius:20px;padding:3px 10px;font-size:11px;color:var(--text3);font-weight:500;
+}
+.stat-dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.search-wrap{
+  display:flex;align-items:center;gap:7px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--r);padding:5px 10px;
+  transition:border-color .2s;
+}
+.search-wrap:focus-within{border-color:var(--accent)}
+.search-wrap svg{width:12px;height:12px;color:var(--text4);flex-shrink:0}
+.search-wrap input{background:transparent;border:none;color:var(--text);font-size:12px;outline:none;width:150px}
+.search-wrap input::placeholder{color:var(--text4)}
+
+/* ─── MAIN ─── */
+.main{flex:1;padding:20px 24px 40px;overflow-x:auto}
+.sos-wrap{min-width:1280px}
+
+/* ─── TABLE HEADER ─── */
+.tbl-head-wrap{position:sticky;top:57px;z-index:100;padding-bottom:1px}
+.tbl-head{
+  display:grid;
+  grid-template-columns:32px 28px 52px 100px 1fr 112px 134px 118px 146px 112px 68px 68px 58px 1fr 72px;
+  background:var(--navy);
+  border-radius:var(--r2) var(--r2) 0 0;
+  overflow:hidden;
+}
+.th{
+  padding:10px 8px;font-size:8.5px;font-weight:600;letter-spacing:1px;
+  text-transform:uppercase;color:rgba(255,255,255,.5);
+  border-right:1px solid rgba(255,255,255,.07);
+  display:flex;align-items:center;white-space:nowrap;overflow:hidden;
+}
+.th:last-child{border-right:none;justify-content:center}
+.th.center{justify-content:center;text-align:center}
+.th.accent-col{color:rgba(255,255,255,.8)}
+
+/* ─── SECTIONS LIST ─── */
+.sections-list{
+  border:1px solid var(--border);border-top:none;
+  border-radius:0 0 var(--r2) var(--r2);
+  overflow:visible;
+  background:var(--surface);
+  box-shadow:var(--sh);
+}
+.section-block{border-bottom:2px solid var(--border)}
+.section-block:last-child{border-bottom:none}
+
+/* ─── SECTION HEADER ─── */
+.sec-hdr{
+  display:flex;align-items:center;gap:0;
+  background:var(--slate-bg);
+  border-bottom:1px solid var(--border);
+  min-height:42px;cursor:default;
+  position:relative;
+  transition:background .15s;
+}
+.sec-hdr::after{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:var(--accent);border-radius:0 2px 2px 0;
+}
+.sec-hdr:hover{background:var(--surface4)}
+.sec-drag-handle{
+  width:32px;height:42px;display:flex;align-items:center;justify-content:center;
+  color:var(--text4);cursor:grab;flex-shrink:0;
+}
+.sec-drag-handle:active{cursor:grabbing}
+.sec-toggle{
+  width:26px;height:42px;display:flex;align-items:center;justify-content:center;
+  color:var(--text3);cursor:pointer;flex-shrink:0;
+}
+.sec-toggle svg{transition:transform .22s}
+.section-block.collapsed .sec-toggle svg{transform:rotate(-90deg)}
+.sec-badge{
+  font-size:10px;font-weight:700;color:var(--accent);
+  background:var(--accent-mid);border:1px solid rgba(26,111,212,.2);
+  border-radius:4px;padding:2px 8px;margin:0 8px 0 4px;flex-shrink:0;
+  font-family:var(--mono);letter-spacing:.3px;
+}
+.sec-title-input{
+  flex:1;background:transparent;border:none;color:var(--text);
+  font-size:13px;font-weight:600;letter-spacing:.2px;
+  padding:0 8px;outline:none;height:42px;
+}
+.sec-title-input::placeholder{color:var(--text4)}
+.sec-info{font-size:11px;color:var(--text4);padding:0 10px;flex-shrink:0;font-family:var(--mono)}
+.sec-actions{display:flex;align-items:center;gap:3px;padding-right:12px;flex-shrink:0}
+.ico-btn{
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  border-radius:5px;border:1px solid transparent;background:transparent;
+  cursor:pointer;color:var(--text3);transition:all .18s;
+}
+.ico-btn:hover{background:var(--surface);border-color:var(--border);color:var(--text2)}
+.ico-btn.danger:hover{background:var(--red-bg);border-color:var(--red-b);color:var(--red)}
+.ico-btn svg{width:13px;height:13px}
+.sec-add-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 11px;border-radius:5px;border:1px solid var(--border2);
+  background:var(--surface);color:var(--accent);
+  font-size:11px;font-weight:600;cursor:pointer;
+  transition:all .18s;margin-right:4px;
+}
+.sec-add-btn:hover{background:var(--accent-light);border-color:var(--accent)}
+.sec-add-btn svg{width:11px;height:11px}
+
+/* ─── ITEMS ─── */
+.items-body{transition:.2s}
+.section-block.collapsed .items-body{display:none}
+.item-group{border-bottom:1px solid var(--border)}
+.item-group:last-child{border-bottom:none}
+
+/* ─── MAIN ITEM ROW ─── */
+.item-row{
+  display:grid;
+  grid-template-columns:32px 28px 52px 100px 1fr 112px 134px 118px 146px 112px 68px 68px 58px 1fr 72px;
+  min-height:42px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  transition:background .12s;
+  position:relative;
+}
+.item-row:hover{background:#fafcff}
+.item-row.is-active{background:var(--accent-light)!important}
+.item-row.is-active .cell-expand svg{color:var(--accent)}
+
+/* ─── CELLS ─── */
+.cell{
+  padding:6px 8px;
+  border-right:1px solid var(--border);
+  display:flex;align-items:center;
+  position:relative;overflow:hidden;
+}
+.cell:last-child{border-right:none;justify-content:center}
+.cell.center{justify-content:center}
+
+.cell-handle{cursor:grab;color:var(--text4);justify-content:center;flex-shrink:0}
+.cell-handle:active{cursor:grabbing}
+.cell-handle svg{width:12px;height:12px}
+
+.cell-expand{
+  cursor:pointer;color:var(--text4);justify-content:center;flex-shrink:0;
+  transition:color .15s;
+}
+.cell-expand:hover{color:var(--accent)}
+.cell-expand svg{width:13px;height:13px;transition:transform .22s}
+.item-group.open .item-row .cell-expand svg{transform:rotate(90deg);color:var(--accent)}
+
+.cell-num{
+  justify-content:center;font-family:var(--mono);font-size:11px;
+  font-weight:500;color:var(--text3);
+}
+
+.c-input{
+  background:transparent;border:none;color:var(--text);
+  font-size:12.5px;width:100%;outline:none;padding:0;
+}
+.c-input::placeholder{color:var(--text4);font-size:11.5px}
+.c-input:focus{color:var(--text)}
+.c-input.mono{font-family:var(--mono);font-size:11px}
+.c-input.center{text-align:center}
+.c-select{
+  background:transparent;border:none;color:var(--text);
+  font-size:12px;width:100%;outline:none;cursor:pointer;
+  appearance:none;-webkit-appearance:none;
+}
+.c-select option{background:var(--surface);color:var(--text)}
+.c-select:focus{color:var(--text)}
+
+/* COMPLIANCE */
+.comp-wrap{display:flex;gap:3px;align-items:center;justify-content:center;width:100%}
+.comp-btn{
+  padding:2px 7px;border-radius:4px;border:1px solid var(--border);
+  background:transparent;font-size:10px;font-weight:600;cursor:pointer;
+  color:var(--text3);transition:all .15s;letter-spacing:.3px;white-space:nowrap;
+}
+.comp-btn:hover{border-color:var(--border2);color:var(--text2)}
+.comp-btn.yes.active{background:var(--green-bg);border-color:var(--green-b);color:var(--green)}
+.comp-btn.no.active{background:var(--red-bg);border-color:var(--red-b);color:var(--red)}
+.comp-btn.partial.active{background:var(--amber-bg);border-color:var(--amber-b);color:var(--amber)}
+.comp-btn.na.active{background:#f3f4f6;border-color:#d1d5db;color:var(--text3)}
+/* small compliance display */
+.comp-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.3px;
+  white-space:nowrap;
+}
+.cb-yes{background:var(--green-bg);border:1px solid var(--green-b);color:var(--green)}
+.cb-no{background:var(--red-bg);border:1px solid var(--red-b);color:var(--red)}
+.cb-partial{background:var(--amber-bg);border:1px solid var(--amber-b);color:var(--amber)}
+.cb-na{background:#f3f4f6;border:1px solid #d1d5db;color:var(--text3)}
+
+/* CERT CHECKBOX */
+.cert-chk{
+  width:15px;height:15px;border-radius:4px;cursor:pointer;
+  appearance:none;-webkit-appearance:none;
+  border:1.5px solid var(--border2);background:var(--surface2);
+  transition:all .15s;position:relative;flex-shrink:0;
+}
+.cert-chk:checked{background:var(--accent);border-color:var(--accent)}
+.cert-chk:checked::after{
+  content:'';position:absolute;left:4px;top:2px;
+  width:5px;height:8px;border:2px solid #fff;border-top:none;border-left:none;
+  transform:rotate(45deg);
+}
+
+/* ROW ACTIONS */
+.cell-actions{padding:4px;gap:2px}
+.row-acts{display:flex;align-items:center;justify-content:center;gap:2px;opacity:0;transition:opacity .15s}
+.item-row:hover .row-acts{opacity:1}
+.item-group.open .item-row .row-acts{opacity:1}
+.ra-btn{
+  width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+  border-radius:4px;border:1px solid transparent;background:transparent;
+  cursor:pointer;color:var(--text3);transition:all .15s;
+}
+.ra-btn:hover{background:var(--surface3);border-color:var(--border);color:var(--text2)}
+.ra-btn.danger:hover{background:var(--red-bg);border-color:var(--red-b);color:var(--red)}
+.ra-btn svg{width:11px;height:11px}
+
+/* ─── DETAIL DRAWER ─── */
+.detail-drawer{display:none;background:var(--surface2);border-bottom:1px solid var(--border)}
+.item-group.open .detail-drawer{display:block}
+
+.drawer-inner{padding:16px 20px 16px 60px}
+
+/* DRAWER TABS */
+.drawer-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:0}
+.dtab{
+  display:flex;align-items:center;gap:6px;
+  padding:10px 18px;font-size:12px;font-weight:600;
+  color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .18s;margin-bottom:-1px;
+}
+.dtab:hover{color:var(--text2)}
+.dtab.active{color:var(--accent);border-bottom-color:var(--accent);background:var(--surface)}
+.dtab svg{width:13px;height:13px}
+.dtab-count{
+  background:var(--accent-mid);color:var(--accent);border:1px solid rgba(26,111,212,.15);
+  border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;font-family:var(--mono);
+}
+.dtab.active .dtab-count{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tab-panel{display:none;padding:16px 0 4px}
+.tab-panel.active{display:block}
+
+/* ─── SUB-ITEMS TABLE ─── */
+.sub-tbl-wrap{border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;box-shadow:var(--sh)}
+.sub-tbl-head{
+  display:grid;
+  grid-template-columns:40px 1fr 128px 160px 115px 70px 1fr 36px;
+  background:var(--navy2);
+}
+.sub-th{
+  padding:8px 8px;font-size:8px;font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;color:rgba(255,255,255,.55);
+  border-right:1px solid rgba(255,255,255,.07);
+}
+.sub-th:last-child{border-right:none;text-align:center}
+.sub-rows{}
+.sub-row{
+  display:grid;
+  grid-template-columns:40px 1fr 128px 160px 115px 70px 1fr 36px;
+  min-height:38px;background:var(--surface);
+  border-bottom:1px solid var(--border);
+  transition:background .12s;
+}
+.sub-row:last-child{border-bottom:none}
+.sub-row:hover{background:#f5f8ff}
+.sub-cell{
+  padding:5px 8px;border-right:1px solid var(--border);
+  display:flex;align-items:center;font-size:12px;
+}
+.sub-cell:last-child{border-right:none;justify-content:center}
+.sub-num{
+  justify-content:center;font-family:var(--mono);font-size:11px;
+  color:var(--text3);font-weight:500;
+}
+.sub-handle{cursor:grab;color:var(--text4);justify-content:center}
+.sub-del{cursor:pointer;color:var(--text4);justify-content:center;transition:color .15s}
+.sub-del:hover{color:var(--red)}
+.sub-del svg{width:13px;height:13px}
+.sub-sel{background:transparent;border:none;color:var(--text);font-size:12px;width:100%;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none}
+.sub-sel option{background:var(--surface);color:var(--text)}
+.sub-inp{background:transparent;border:none;color:var(--text);font-size:12px;width:100%;outline:none}
+.sub-inp.mono{font-family:var(--mono);font-size:11px}
+.sub-inp.center{text-align:center}
+.sub-inp::placeholder{color:var(--text4);font-size:11px}
+
+.sub-footer{
+  padding:10px;display:flex;align-items:center;gap:10px;
+  background:var(--surface2);border-top:1px solid var(--border);
+}
+.add-sub-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 12px;border-radius:5px;border:1.5px dashed var(--border2);
+  background:transparent;color:var(--text3);font-size:11px;font-weight:500;
+  cursor:pointer;transition:all .18s;
+}
+.add-sub-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.add-sub-btn svg{width:11px;height:11px}
+
+/* ─── TECH SPECS PANEL ─── */
+.specs-panel{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.spec-section{display:flex;flex-direction:column;gap:10px}
+.spec-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3)}
+.req-textarea{
+  width:100%;min-height:90px;padding:10px 12px;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  color:var(--text);font-family:var(--font);font-size:12.5px;
+  line-height:1.5;resize:vertical;outline:none;transition:border-color .2s;
+}
+.req-textarea:focus{border-color:var(--accent)}
+.req-textarea::placeholder{color:var(--text4)}
+
+/* Tech spec list */
+.spec-list{display:flex;flex-direction:column;gap:4px}
+.spec-item{display:flex;align-items:flex-start;gap:8px}
+.spec-item-num{
+  min-width:22px;height:22px;border-radius:50%;
+  background:var(--accent-mid);color:var(--accent);
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:5px;
+  border:1px solid rgba(26,111,212,.15);
+}
+.spec-item-inp{
+  flex:1;padding:6px 10px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--r);
+  color:var(--text);font-family:var(--font);font-size:12px;
+  outline:none;transition:border-color .2s;
+}
+.spec-item-inp:focus{border-color:var(--accent)}
+.spec-item-del{
+  width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+  border-radius:4px;border:1px solid transparent;background:transparent;
+  cursor:pointer;color:var(--text4);transition:all .15s;margin-top:4px;
+}
+.spec-item-del:hover{background:var(--red-bg);border-color:var(--red-b);color:var(--red)}
+.spec-item-del svg{width:11px;height:11px}
+.spec-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.spec-add-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 11px;border-radius:5px;border:1.5px dashed var(--border2);
+  background:transparent;color:var(--text3);font-size:11px;font-weight:500;
+  cursor:pointer;transition:all .18s;
+}
+.spec-add-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.spec-add-btn svg{width:10px;height:10px}
+
+/* Bulk import */
+.bulk-wrap{margin-top:8px}
+.bulk-label{font-size:10px;color:var(--text4);margin-bottom:5px;display:block}
+.bulk-textarea{
+  width:100%;min-height:70px;padding:8px 10px;
+  background:var(--surface3);border:1px solid var(--border);border-radius:var(--r);
+  color:var(--text2);font-family:var(--mono);font-size:11px;
+  line-height:1.5;resize:vertical;outline:none;transition:border-color .2s;
+}
+.bulk-textarea:focus{border-color:var(--accent)}
+.bulk-textarea::placeholder{color:var(--text4)}
+.bulk-import-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 12px;border-radius:5px;border:1px solid var(--border2);
+  background:var(--surface);color:var(--text2);font-size:11.5px;font-weight:500;
+  cursor:pointer;transition:all .18s;margin-top:6px;
+}
+.bulk-import-btn:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+.bulk-import-btn svg{width:11px;height:11px}
+
+/* ─── SECTION FOOTER — ADD ITEM ─── */
+.sec-footer{
+  padding:8px 12px;background:var(--surface2);
+  display:flex;align-items:center;gap:8px;
+  border-top:1px solid var(--border);
+}
+.add-item-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 13px;border-radius:var(--r);border:1.5px dashed var(--border2);
+  background:transparent;color:var(--text3);font-size:11.5px;font-weight:500;
+  cursor:pointer;transition:all .18s;
+}
+.add-item-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.add-item-btn svg{width:11px;height:11px}
+
+/* ─── ADD SECTION CTA ─── */
+.add-sec-wrap{margin-top:16px;display:flex;gap:10px}
+.add-sec-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:11px 20px;border-radius:var(--r2);
+  border:2px dashed var(--border2);background:transparent;
+  color:var(--text3);font-size:12.5px;font-weight:500;cursor:pointer;
+  transition:all .22s;letter-spacing:.2px;
+}
+.add-sec-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.add-sec-btn svg{width:15px;height:15px}
+
+/* ─── EMPTY STATE ─── */
+.empty{
+  text-align:center;padding:64px 20px;background:var(--surface);
+}
+.empty svg{width:48px;height:48px;margin:0 auto 16px;color:var(--text4)}
+.empty h3{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:6px}
+.empty p{font-size:12px;color:var(--text3)}
+
+/* ─── STATUS BAR ─── */
+.statusbar{
+  background:var(--navy);color:rgba(255,255,255,.4);
+  padding:5px 24px;display:flex;align-items:center;gap:20px;
+  font-size:10px;font-family:var(--mono);letter-spacing:.3px;
+  border-top:1px solid rgba(255,255,255,.05);
+}
+.sb-item{display:flex;align-items:center;gap:5px}
+.sb-dot{width:5px;height:5px;border-radius:50%;background:var(--green);flex-shrink:0}
+.sb-dot.blue{background:#2d85e8}
+.sb-ml{margin-left:auto}
+
+/* ─── MODAL ─── */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.45);
+  z-index:500;display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r2);padding:28px;width:460px;max-width:90vw;
+  box-shadow:var(--sh2);transform:translateY(10px);transition:transform .22s;
+}
+.overlay.open .modal{transform:translateY(0)}
+.modal-title{font-size:15px;font-weight:700;margin-bottom:20px;color:var(--text);letter-spacing:.2px}
+.modal-field{margin-bottom:14px}
+.modal-lbl{font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;display:block}
+.modal-inp{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--r);color:var(--text);font-size:13px;
+  padding:9px 12px;outline:none;transition:border-color .2s;
+}
+.modal-inp:focus{border-color:var(--accent)}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+
+/* ─── TOAST ─── */
+.toast-tray{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:7px}
+.toast{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:10px 14px;font-size:12px;box-shadow:var(--sh2);
+  display:flex;align-items:center;gap:8px;min-width:200px;
+  animation:tsIn .25s ease;
+}
+.toast.success{border-left:3px solid var(--green)}
+.toast.info{border-left:3px solid var(--accent)}
+.toast svg{width:13px;height:13px;flex-shrink:0;color:var(--accent)}
+.toast.success svg{color:var(--green)}
+@keyframes tsIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+
+/* ─── CONTEXT MENU ─── */
+.ctx{
+  position:fixed;background:var(--surface);border:1px solid var(--border2);
+  border-radius:var(--r2);box-shadow:var(--sh2);z-index:700;
+  min-width:175px;padding:4px;display:none;
+}
+.ctx.open{display:block}
+.ctx-it{
+  display:flex;align-items:center;gap:8px;padding:8px 11px;
+  border-radius:5px;font-size:12px;cursor:pointer;color:var(--text2);
+  transition:background .12s;
+}
+.ctx-it:hover{background:var(--surface3)}
+.ctx-it.danger{color:var(--red)}
+.ctx-it.danger:hover{background:var(--red-bg)}
+.ctx-it svg{width:12px;height:12px;color:var(--text4);flex-shrink:0}
+.ctx-it.danger svg{color:var(--red)}
+.ctx-sep{height:1px;background:var(--border);margin:4px 0}
+
+/* Sortable */
+.sortable-ghost{opacity:.3;outline:2px dashed var(--accent)}
+.sortable-chosen{background:var(--accent-light)!important}
+</style>
+</head>
+<body>
+
+<!-- ─── TOPBAR ─── -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-badge">OII</div>
+    <div>
+      <div class="brand-name">OCEANEERING</div>
+      <div class="brand-sub">Scope of Supply</div>
+    </div>
+  </div>
+  <div class="topbar-meta">
+    <div class="meta-field">
+      <span class="meta-label">Project / Bid No.</span>
+      <input class="meta-input" id="mProject" value="PRJ-2025-001" placeholder="PRJ-XXXX"/>
+    </div>
+    <div class="meta-sep"></div>
+    <div class="meta-field">
+      <span class="meta-label">Client</span>
+      <input class="meta-input" id="mClient" value="Petrobras S.A." placeholder="Client Name" style="min-width:120px"/>
+    </div>
+    <div class="meta-sep"></div>
+    <div class="meta-field">
+      <span class="meta-label">Document Title</span>
+      <input class="meta-input" id="mTitle" value="Scope of Supply — ROV Intervention Campaign" placeholder="Title" style="min-width:220px"/>
+    </div>
+    <div class="meta-sep"></div>
+    <div class="meta-field">
+      <span class="meta-label">Rev.</span>
+      <input class="meta-input" id="mRev" value="A" placeholder="A" style="min-width:30px;max-width:40px"/>
+    </div>
+    <div class="meta-sep"></div>
+    <div class="meta-field">
+      <span class="meta-label">Date</span>
+      <input class="meta-input" id="mDate" type="date" value="2025-04-24"/>
+    </div>
+    <div class="meta-sep"></div>
+    <div class="meta-field">
+      <span class="meta-label">Prepared By</span>
+      <input class="meta-input" id="mAuthor" value="J. Silva" placeholder="Name"/>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button class="tbtn" onclick="exportJSON()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export
+    </button>
+    <button class="tbtn tbtn-primary" onclick="window.print()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Print / PDF
+    </button>
+  </div>
+</header>
+
+<!-- ─── TOOLBAR ─── -->
+<div class="toolbar">
+  <button class="btn btn-primary" onclick="openAddSection()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    New Section
+  </button>
+  <button class="btn" onclick="addLooseItem()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    New Item
+  </button>
+  <div class="tb-sep"></div>
+  <button class="btn btn-ghost" onclick="collapseAll()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+    Collapse All
+  </button>
+  <button class="btn btn-ghost" onclick="expandAll()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    Expand All
+  </button>
+  <div class="stats-wrap">
+    <div class="stat-pill"><div class="stat-dot"></div><span id="statTxt">0 items</span></div>
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input placeholder="Search…" oninput="filterRows(this.value)"/>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MAIN ─── -->
+<main class="main">
+  <div class="sos-wrap">
+    <!-- Column Header -->
+    <div class="tbl-head-wrap">
+      <div class="tbl-head">
+        <div class="th center"></div>
+        <div class="th center"></div>
+        <div class="th center accent-col">#</div>
+        <div class="th">Client Doc Ref</div>
+        <div class="th accent-col">Item Description</div>
+        <div class="th center">Compliance</div>
+        <div class="th">Resource Type</div>
+        <div class="th">Sub-Type</div>
+        <div class="th">Equipment Offer</div>
+        <div class="th">OII / MFG PN</div>
+        <div class="th center">Qty Oper.</div>
+        <div class="th center">Qty Spare</div>
+        <div class="th center">Cert.?</div>
+        <div class="th">Comments</div>
+        <div class="th center">···</div>
+      </div>
+    </div>
+
+    <!-- Sections List -->
+    <div class="sections-list" id="secList"></div>
+  </div>
+
+  <div class="add-sec-wrap">
+    <button class="add-sec-btn" onclick="openAddSection()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Add New Section
+    </button>
+  </div>
+</main>
+
+<!-- ─── STATUS BAR ─── -->
+<div class="statusbar">
+  <div class="sb-item"><div class="sb-dot"></div>Ready</div>
+  <div class="sb-item"><div class="sb-dot blue"></div><span id="sb1">0</span> sections</div>
+  <div class="sb-item"><span id="sb2">0</span> items</div>
+  <div class="sb-item"><span id="sb3">0</span> sub-items</div>
+  <div class="sb-ml">Auto-save enabled · localStorage</div>
+</div>
+
+<!-- ─── SECTION MODAL ─── -->
+<div class="overlay" id="secModal">
+  <div class="modal">
+    <div class="modal-title">Add New Section</div>
+    <div class="modal-field">
+      <label class="modal-lbl">Section Title</label>
+      <input class="modal-inp" id="secTitleInp" placeholder="e.g. ROV Asset, Personnel, Survey Asset…"
+        onkeydown="if(event.key==='Enter')doAddSection()"/>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeSecModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="doAddSection()">Create Section</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── CONTEXT MENU ─── -->
+<div class="ctx" id="ctx">
+  <div class="ctx-it" onclick="ctxDo('add-item')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Item Below
+  </div>
+  <div class="ctx-it" onclick="ctxDo('add-sub')" id="ctx-add-sub">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 00-4-4H4"/></svg>
+    Add Sub-Item
+  </div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-it" onclick="ctxDo('dup')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+    Duplicate
+  </div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-it danger" onclick="ctxDo('del')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+    Delete
+  </div>
+</div>
+
+<!-- ─── TOAST ─── -->
+<div class="toast-tray" id="toastTray"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// RESOURCE TYPES (from spec images)
+// ═══════════════════════════════════════════════════════
+const RT = {
+  'ROV Asset':      ['Camera','Manipulator','Maintenance','Record/Transmission System','Sensor',"System's Asset",'Tether/Umbilical','Installation','Consumable','Mobilization'],
+  'Survey Asset':   ['Surface Navigation','Subsea Sensor','Installation','Consumable','Mobilization','License','Software'],
+  'Tooling':        ['Engineering Solutions','Development','Catalog','Consumable']
+};
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let S = { sections:[], _id:1 };
+
+function uid(){ return S._id++; }
+function blankItem(o={}){
+  return { id:uid(), clientDocRef:'', description:'', compliance:'',
+    resourceType:'', subType:'', equipmentOffer:'', oiiPN:'',
+    qtyOper:'', qtySpare:'', certificate:false, comments:'',
+    subItems:[], clientReq:'', techSpecs:[], ...o };
+}
+function blankSub(o={}){
+  return { id:uid(), description:'', subType:'', equipmentOffer:'', oiiPN:'', qty:'1', comments:'', ...o };
+}
+function blankSection(title=''){
+  return { id:uid(), title, items:[] };
+}
+function save(){ try{ localStorage.setItem('sos2', JSON.stringify(S)); }catch(e){} updateStats(); }
+function load(){ try{ const d=localStorage.getItem('sos2'); if(d){ S=JSON.parse(d); if(!S._id) S._id=9000; } }catch(e){} }
+
+function updateStats(){
+  let items=0, subs=0;
+  S.sections.forEach(s=>{ items+=s.items.length; s.items.forEach(i=>subs+=i.subItems.length); });
+  document.getElementById('sb1').textContent = S.sections.length;
+  document.getElementById('sb2').textContent = items;
+  document.getElementById('sb3').textContent = subs;
+  document.getElementById('statTxt').textContent = (items+subs)+' items';
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+function render(){
+  const list = document.getElementById('secList');
+  list.innerHTML = '';
+  if(!S.sections.length){
+    list.innerHTML = `<div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+      <h3>No sections yet</h3>
+      <p>Click "New Section" to get started.</p>
+    </div>`;
+    updateStats(); return;
+  }
+  S.sections.forEach((sec, si)=>{ list.appendChild(mkSection(sec, si)); });
+  initSecSort();
+  updateStats();
+}
+
+// ─── SECTION ────────────────────────────────────────
+function mkSection(sec, si){
+  const block = el('div', 'section-block');
+  block.dataset.secId = sec.id;
+
+  // Header
+  const hdr = el('div','sec-hdr');
+  hdr.innerHTML = `
+    <div class="sec-drag-handle" title="Drag section">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+    </div>
+    <div class="sec-toggle" onclick="toggleSec('${sec.id}')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <span class="sec-badge">§${si+1}</span>
+    <input class="sec-title-input" value="${esc(sec.title)}" placeholder="Section title…" oninput="updateSec('${sec.id}','title',this.value)"/>
+    <span class="sec-info">${sec.items.length} item${sec.items.length!==1?'s':''}</span>
+    <div class="sec-actions">
+      <button class="sec-add-btn" onclick="addItemToSec('${sec.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        + Item
+      </button>
+      <button class="ico-btn" title="Duplicate section" onclick="dupSec('${sec.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+      </button>
+      <button class="ico-btn danger" title="Delete section" onclick="delSec('${sec.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+      </button>
+    </div>`;
+  block.appendChild(hdr);
+
+  // Items body
+  const body = el('div','items-body');
+  const groups = el('div','item-groups');
+  groups.dataset.secId = sec.id;
+
+  let num=0;
+  sec.items.forEach((item, ii)=>{
+    num++;
+    groups.appendChild(mkItemGroup(item, si, num, sec.id));
+  });
+  body.appendChild(groups);
+
+  // Footer add
+  const foot = el('div','sec-footer');
+  foot.innerHTML = `
+    <button class="add-item-btn" onclick="addItemToSec('${sec.id}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Item
+    </button>`;
+  body.appendChild(foot);
+  block.appendChild(body);
+
+  initItemSort(groups, sec.id);
+  return block;
+}
+
+// ─── ITEM GROUP (row + drawer) ────────────────────────
+function mkItemGroup(item, si, num, secId){
+  const grp = el('div','item-group');
+  grp.dataset.itemId = item.id;
+  grp.dataset.secId = secId;
+
+  // Main row
+  grp.appendChild(mkItemRow(item, si, num, secId));
+  // Detail drawer
+  grp.appendChild(mkDrawer(item, secId));
+
+  return grp;
+}
+
+function mkItemRow(item, si, num, secId){
+  const row = el('div','item-row');
+  row.dataset.itemId = item.id;
+  row.dataset.secId = secId;
+  row.oncontextmenu = e=>{ e.preventDefault(); openCtx(e, item.id, secId); };
+
+  const rtOpts = Object.keys(RT).map(k=>`<option value="${k}" ${item.resourceType===k?'selected':''}>${k}</option>`).join('');
+  const stOpts = (RT[item.resourceType]||[]).map(v=>`<option value="${v}" ${item.subType===v?'selected':''}>${v}</option>`).join('');
+
+  const hasSubs = item.subItems.length > 0;
+  const hasSpecs = item.techSpecs.length > 0 || item.clientReq;
+  const totalDetails = item.subItems.length + (hasSpecs ? 1 : 0);
+
+  row.innerHTML = `
+    <div class="cell cell-handle" title="Drag to reorder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+    </div>
+    <div class="cell cell-expand" onclick="toggleDrawer('${item.id}')" title="Expand / Collapse details">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="cell cell-num">${num}</div>
+    <div class="cell"><input class="c-input" placeholder="Doc ref…" value="${esc(item.clientDocRef)}" onchange="setField('${item.id}','${secId}','clientDocRef',this.value)"/></div>
+    <div class="cell"><input class="c-input" placeholder="Item description…" value="${esc(item.description)}" onchange="setField('${item.id}','${secId}','description',this.value)" style="font-weight:500"/></div>
+    <div class="cell center" id="comp_${item.id}">
+      ${mkCompWidget(item)}
+    </div>
+    <div class="cell" style="overflow:visible" id="rt_cell_${item.id}">
+      <select class="c-select" onchange="setField('${item.id}','${secId}','resourceType',this.value);refreshSubType('${item.id}','${secId}',this.value)">
+        <option value="">— Type —</option>
+        ${rtOpts}
+      </select>
+    </div>
+    <div class="cell" style="overflow:visible" id="st_cell_${item.id}">
+      <select class="c-select" onchange="setField('${item.id}','${secId}','subType',this.value)">
+        <option value="">— Sub-Type —</option>
+        ${stOpts}
+      </select>
+    </div>
+    <div class="cell"><input class="c-input" placeholder="Equipment offer…" value="${esc(item.equipmentOffer)}" onchange="setField('${item.id}','${secId}','equipmentOffer',this.value)"/></div>
+    <div class="cell"><input class="c-input mono" placeholder="PN…" value="${esc(item.oiiPN)}" onchange="setField('${item.id}','${secId}','oiiPN',this.value)"/></div>
+    <div class="cell center"><input class="c-input center" type="number" min="0" placeholder="0" value="${item.qtyOper}" onchange="setField('${item.id}','${secId}','qtyOper',this.value)" style="width:50px"/></div>
+    <div class="cell center"><input class="c-input center" type="number" min="0" placeholder="0" value="${item.qtySpare}" onchange="setField('${item.id}','${secId}','qtySpare',this.value)" style="width:50px"/></div>
+    <div class="cell center"><input type="checkbox" class="cert-chk" ${item.certificate?'checked':''} onchange="setField('${item.id}','${secId}','certificate',this.checked)"/></div>
+    <div class="cell"><input class="c-input" placeholder="Comments…" value="${esc(item.comments)}" onchange="setField('${item.id}','${secId}','comments',this.value)"/></div>
+    <div class="cell cell-actions">
+      <div class="row-acts">
+        <button class="ra-btn" title="Add sub-item" onclick="addSubItem('${item.id}','${secId}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 00-4-4H4"/></svg>
+        </button>
+        <button class="ra-btn" title="Duplicate" onclick="dupItem('${item.id}','${secId}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        </button>
+        <button class="ra-btn danger" title="Delete" onclick="delItem('${item.id}','${secId}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        </button>
+      </div>
+    </div>`;
+  return row;
+}
+
+function mkCompWidget(item){
+  const vals = ['YES','NO','PARTIAL','N/A'];
+  const c = item.compliance||'';
+  return vals.map(v=>{
+    const k = v==='YES'?'yes':v==='NO'?'no':v==='PARTIAL'?'partial':'na';
+    return `<button class="comp-btn ${k}${c===v?' active':''}" 
+      onclick="setCompliance('${item.id}','${item._secId||''}','${v}',this.closest('.cell'))">
+      ${v}</button>`;
+  }).join('');
+}
+
+// ─── DETAIL DRAWER ──────────────────────────────────
+function mkDrawer(item, secId){
+  const drawer = el('div','detail-drawer');
+  drawer.dataset.drawerId = item.id;
+
+  const inner = el('div','drawer-inner');
+
+  // Tabs
+  const tabs = el('div','drawer-tabs');
+  const subCount = item.subItems.length;
+  const specCount = item.techSpecs.length;
+  tabs.innerHTML = `
+    <div class="dtab active" onclick="switchTab('${item.id}','subs',this)" data-tab="subs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 00-4-4H4"/></svg>
+      Sub-Items
+      <span class="dtab-count">${subCount}</span>
+    </div>
+    <div class="dtab" onclick="switchTab('${item.id}','specs',this)" data-tab="specs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Client Tech Specs
+      <span class="dtab-count">${specCount}</span>
+    </div>`;
+  inner.appendChild(tabs);
+
+  // Sub-items panel
+  const panelSubs = el('div','tab-panel active');
+  panelSubs.dataset.panel = 'subs';
+  panelSubs.dataset.panelFor = item.id;
+  panelSubs.appendChild(mkSubTable(item, secId));
+  inner.appendChild(panelSubs);
+
+  // Tech specs panel
+  const panelSpecs = el('div','tab-panel');
+  panelSpecs.dataset.panel = 'specs';
+  panelSpecs.dataset.panelFor = item.id;
+  panelSpecs.appendChild(mkSpecsPanel(item, secId));
+  inner.appendChild(panelSpecs);
+
+  drawer.appendChild(inner);
+  return drawer;
+}
+
+function switchTab(itemId, tab, tabEl){
+  const drawer = document.querySelector(`[data-drawer-id="${itemId}"]`);
+  if(!drawer) return;
+  drawer.querySelectorAll('.dtab').forEach(t=>t.classList.remove('active'));
+  drawer.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  tabEl.classList.add('active');
+  drawer.querySelector(`[data-panel="${tab}"]`).classList.add('active');
+}
+
+// ─── SUB-ITEMS TABLE ─────────────────────────────────
+function mkSubTable(item, secId){
+  const wrap = el('div','sub-tbl-wrap');
+
+  // Header
+  const thead = el('div','sub-tbl-head');
+  thead.innerHTML = `
+    <div class="sub-th center">#</div>
+    <div class="sub-th">Description</div>
+    <div class="sub-th">Sub-Type</div>
+    <div class="sub-th">Equipment Offer</div>
+    <div class="sub-th">OII / MFG PN</div>
+    <div class="sub-th center">Qty</div>
+    <div class="sub-th">Comments</div>
+    <div class="sub-th center">×</div>`;
+  wrap.appendChild(thead);
+
+  // Rows
+  const rowsEl = el('div','sub-rows');
+  rowsEl.id = `subrows_${item.id}`;
+  rowsEl.dataset.parentId = item.id;
+  rowsEl.dataset.secId = secId;
+  item.subItems.forEach((sub, i)=>{
+    rowsEl.appendChild(mkSubRow(sub, i+1, item.id, secId));
+  });
+  wrap.appendChild(rowsEl);
+
+  // Footer
+  const foot = el('div','sub-footer');
+  foot.innerHTML = `
+    <button class="add-sub-btn" onclick="addSubItem('${item.id}','${secId}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      + Add Sub-Item
+    </button>`;
+  wrap.appendChild(foot);
+
+  initSubSort(rowsEl, item.id, secId);
+  return wrap;
+}
+
+function mkSubRow(sub, num, parentId, secId){
+  const row = el('div','sub-row');
+  row.dataset.subId = sub.id;
+
+  // Sub-type options (all sub-types across all resource types for sub-items)
+  const allSubTypes = [...new Set(Object.values(RT).flat())].sort();
+  const stOpts = allSubTypes.map(v=>`<option value="${v}" ${sub.subType===v?'selected':''}>${v}</option>`).join('');
+
+  row.innerHTML = `
+    <div class="sub-cell sub-num">${num}</div>
+    <div class="sub-cell"><input class="sub-inp" placeholder="Description…" value="${esc(sub.description)}" onchange="setSubField('${sub.id}','${parentId}','${secId}','description',this.value)"/></div>
+    <div class="sub-cell" style="overflow:visible">
+      <select class="sub-sel" onchange="setSubField('${sub.id}','${parentId}','${secId}','subType',this.value)">
+        <option value="">— Sub-Type —</option>
+        ${stOpts}
+      </select>
+    </div>
+    <div class="sub-cell"><input class="sub-inp" placeholder="Equipment offer…" value="${esc(sub.equipmentOffer)}" onchange="setSubField('${sub.id}','${parentId}','${secId}','equipmentOffer',this.value)"/></div>
+    <div class="sub-cell"><input class="sub-inp mono" placeholder="PN…" value="${esc(sub.oiiPN)}" onchange="setSubField('${sub.id}','${parentId}','${secId}','oiiPN',this.value)"/></div>
+    <div class="sub-cell"><input class="sub-inp center" type="number" min="0" placeholder="1" value="${sub.qty}" onchange="setSubField('${sub.id}','${parentId}','${secId}','qty',this.value)" style="width:55px"/></div>
+    <div class="sub-cell"><input class="sub-inp" placeholder="Notes…" value="${esc(sub.comments)}" onchange="setSubField('${sub.id}','${parentId}','${secId}','comments',this.value)"/></div>
+    <div class="sub-cell sub-del" onclick="delSubItem('${sub.id}','${parentId}','${secId}')" title="Delete sub-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </div>`;
+  return row;
+}
+
+// ─── TECH SPECS PANEL ────────────────────────────────
+function mkSpecsPanel(item, secId){
+  const panel = el('div','specs-panel');
+  panel.id = `specs_${item.id}`;
+
+  // Left: Client Requirement
+  const left = el('div','spec-section');
+  left.innerHTML = `
+    <div class="spec-label">Client Requirement</div>
+    <textarea class="req-textarea" placeholder="Optional — fill in when the client provides detailed requirements in the ET…" 
+      onchange="setField('${item.id}','${secId}','clientReq',this.value)">${esc(item.clientReq||'')}</textarea>`;
+  panel.appendChild(left);
+
+  // Right: Technical Specifications
+  const right = el('div','spec-section');
+  const specListEl = el('div','spec-list');
+  specListEl.id = `speclist_${item.id}`;
+
+  (item.techSpecs||[]).forEach((spec, i)=>{
+    specListEl.appendChild(mkSpecRow(spec, i+1, item.id, secId));
+  });
+
+  right.innerHTML = `<div class="spec-label">Technical Specifications <span style="color:var(--accent);background:var(--accent-mid);border:1px solid rgba(26,111,212,.15);border-radius:10px;padding:1px 7px;font-size:10px;font-family:var(--mono);margin-left:4px">${(item.techSpecs||[]).length}</span></div>`;
+  right.appendChild(specListEl);
+
+  // Actions
+  const acts = el('div','spec-actions');
+  acts.innerHTML = `
+    <button class="spec-add-btn" onclick="addSpec('${item.id}','${secId}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      + Add Specification
+    </button>`;
+  right.appendChild(acts);
+
+  // Bulk import
+  const bulkWrap = el('div','bulk-wrap');
+  bulkWrap.innerHTML = `
+    <span class="bulk-label">Bulk Import (one specification per line):</span>
+    <textarea class="bulk-textarea" id="bulk_${item.id}" placeholder="Paste specifications here, one per line...\ne.g.:\nMust have a minimum fluid reservoir volume of 80 L;\nOperate in closed circuit, with fluid return…"></textarea>
+    <br/>
+    <button class="bulk-import-btn" onclick="bulkImport('${item.id}','${secId}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
+      Import Lines
+    </button>`;
+  right.appendChild(bulkWrap);
+
+  panel.appendChild(right);
+  return panel;
+}
+
+function mkSpecRow(spec, num, itemId, secId){
+  const row = el('div','spec-item');
+  row.dataset.specId = spec.id;
+  row.innerHTML = `
+    <div class="spec-item-num">${num}</div>
+    <input class="spec-item-inp" value="${esc(spec.text)}" placeholder="Technical specification…" 
+      onchange="updateSpec('${spec.id}','${itemId}','${secId}',this.value)"/>
+    <button class="spec-item-del" onclick="delSpec('${spec.id}','${itemId}','${secId}')" title="Remove">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>`;
+  return row;
+}
+
+// ═══════════════════════════════════════════════════════
+// SORTABLE
+// ═══════════════════════════════════════════════════════
+let secSort=null;
+function initSecSort(){
+  if(secSort) secSort.destroy();
+  const el2 = document.getElementById('secList');
+  if(!el2.querySelector('.section-block')) return;
+  secSort = Sortable.create(el2,{
+    animation:150, handle:'.sec-drag-handle', draggable:'.section-block',
+    ghostClass:'sortable-ghost', chosenClass:'sortable-chosen',
+    onEnd(e){
+      const m = S.sections.splice(e.oldIndex,1)[0];
+      S.sections.splice(e.newIndex,0,m);
+      save(); render();
+    }
+  });
+}
+
+function initItemSort(el2, secId){
+  Sortable.create(el2,{
+    animation:150, handle:'.cell-handle', draggable:'.item-group',
+    ghostClass:'sortable-ghost', chosenClass:'sortable-chosen',
+    onEnd(e){
+      const fSec = S.sections.find(s=>s.id==e.from.dataset.secId);
+      const tSec = S.sections.find(s=>s.id==e.to.dataset.secId);
+      if(!fSec||!tSec) return;
+      const m = fSec.items.splice(e.oldIndex,1)[0];
+      tSec.items.splice(e.newIndex,0,m);
+      save(); render();
+    }
+  });
+}
+
+function initSubSort(el2, parentId, secId){
+  Sortable.create(el2,{
+    animation:150, handle:'.sub-handle', draggable:'.sub-row',
+    ghostClass:'sortable-ghost',
+    onEnd(e){
+      const sec = S.sections.find(s=>s.id==secId);
+      if(!sec) return;
+      const parent = sec.items.find(i=>i.id==parentId);
+      if(!parent) return;
+      const m = parent.subItems.splice(e.oldIndex,1)[0];
+      parent.subItems.splice(e.newIndex,0,m);
+      save();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// DRAWER TOGGLE
+// ═══════════════════════════════════════════════════════
+function toggleDrawer(itemId){
+  const grp = document.querySelector(`.item-group[data-item-id="${itemId}"]`);
+  if(grp) grp.classList.toggle('open');
+}
+function openDrawer(itemId){
+  const grp = document.querySelector(`.item-group[data-item-id="${itemId}"]`);
+  if(grp && !grp.classList.contains('open')) grp.classList.add('open');
+}
+
+// ═══════════════════════════════════════════════════════
+// SECTION ACTIONS
+// ═══════════════════════════════════════════════════════
+function openAddSection(){
+  document.getElementById('secModal').classList.add('open');
+  setTimeout(()=>document.getElementById('secTitleInp').focus(),80);
+}
+function closeSecModal(){
+  document.getElementById('secModal').classList.remove('open');
+  document.getElementById('secTitleInp').value='';
+}
+function doAddSection(){
+  const t = document.getElementById('secTitleInp').value.trim()||'New Section';
+  S.sections.push(blankSection(t));
+  save(); render(); closeSecModal();
+  toast(`Section "${t}" created`,'success');
+}
+function toggleSec(secId){
+  document.querySelector(`.section-block[data-sec-id="${secId}"]`)?.classList.toggle('collapsed');
+}
+function updateSec(secId, field, val){
+  const s=S.sections.find(s=>s.id==secId);
+  if(s){ s[field]=val; save(); }
+}
+function delSec(secId){
+  const s=S.sections.find(s=>s.id==secId);
+  if(!confirm(`Delete section "${s?.title||''}" and all ${s?.items?.length||0} item(s)?`)) return;
+  S.sections=S.sections.filter(s=>s.id!=secId);
+  save(); render(); toast('Section deleted');
+}
+function dupSec(secId){
+  const s=S.sections.find(s=>s.id==secId);
+  if(!s) return;
+  const c=JSON.parse(JSON.stringify(s));
+  c.id=uid(); c.title+=' (Copy)';
+  c.items.forEach(i=>{ i.id=uid(); i.subItems.forEach(s=>s.id=uid()); i.techSpecs=(i.techSpecs||[]).map(ts=>({...ts,id:uid()})); });
+  const idx=S.sections.findIndex(s=>s.id==secId);
+  S.sections.splice(idx+1,0,c);
+  save(); render(); toast('Section duplicated','info');
+}
+function collapseAll(){ document.querySelectorAll('.section-block').forEach(b=>b.classList.add('collapsed')); }
+function expandAll(){ document.querySelectorAll('.section-block').forEach(b=>b.classList.remove('collapsed')); }
+
+// ═══════════════════════════════════════════════════════
+// ITEM ACTIONS
+// ═══════════════════════════════════════════════════════
+function addItemToSec(secId){
+  const sec=S.sections.find(s=>s.id==secId);
+  if(!sec) return;
+  sec.items.push(blankItem());
+  save(); render();
+  toast('Item added','success');
+}
+function addLooseItem(){
+  if(!S.sections.length){ openAddSection(); toast('Create a section first','info'); return; }
+  addItemToSec(S.sections[S.sections.length-1].id);
+}
+function delItem(itemId, secId){
+  const sec=S.sections.find(s=>s.id==secId);
+  if(!sec) return;
+  sec.items=sec.items.filter(i=>i.id!=itemId);
+  save(); render(); toast('Item deleted');
+}
+function dupItem(itemId, secId){
+  const sec=S.sections.find(s=>s.id==secId);
+  if(!sec) return;
+  const idx=sec.items.findIndex(i=>i.id==itemId);
+  if(idx<0) return;
+  const c=JSON.parse(JSON.stringify(sec.items[idx]));
+  c.id=uid(); c.subItems.forEach(s=>s.id=uid()); c.techSpecs=(c.techSpecs||[]).map(ts=>({...ts,id:uid()}));
+  sec.items.splice(idx+1,0,c);
+  save(); render(); toast('Item duplicated','info');
+}
+function setField(itemId, secId, field, val){
+  const sec=S.sections.find(s=>s.id==secId);
+  if(!sec) return;
+  const item=sec.items.find(i=>i.id==itemId);
+  if(item){ item[field]=val; save(); }
+}
+function setCompliance(itemId, secId, val, cell){
+  setField(itemId, secId, 'compliance', val);
+  // refresh compliance buttons
+  const btns = cell.querySelectorAll('.comp-btn');
+  btns.forEach(b=>b.classList.remove('active'));
+  const k = val==='YES'?'yes':val==='NO'?'no':val==='PARTIAL'?'partial':'na';
+  cell.querySelector('.comp-btn.'+k)?.classList.add('active');
+}
+function refreshSubType(itemId, secId, rt){
+  const stCell = document.getElementById(`st_cell_${itemId}`);
+  if(!stCell) return;
+  setField(itemId, secId, 'subType','');
+  const opts = (RT[rt]||[]).map(v=>`<option value="${v}">${v}</option>`).join('');
+  stCell.querySelector('select').innerHTML = `<option value="">— Sub-Type —</option>${opts}`;
+}
+
+// ═══════════════════════════════════════════════════════
+// SUB-ITEM ACTIONS
+// ═══════════════════════════════════════════════════════
+function addSubItem(parentId, secId){
+  const sec=S.sections.find(s=>s.id==secId);
+  if(!sec) return;
+  const parent=sec.items.find(i=>i.id==parentId);
+  if(!parent) return;
+  parent.subItems.push(blankSub());
+  save(); render();
+  // Re-open drawer on Sub-Items tab
+  setTimeout(()=>{ openDrawer(parentId); },50);
+  toast('Sub-item added','info');
+}
+function delSubItem(subId, parentId, secId){
+  const sec=S.sections.find(s=>s.id==secId);
+  if(!sec) return;
+  const parent=sec.items.find(i=>i.id==parentId);
+  if(!parent) return;
+  parent.subItems=parent.subItems.filter(s=>s.id!=subId);
+  save(); render();
+  setTimeout(()=>openDrawer(parentId),50);
+}
+function setSubField(subId, parentId, secId, field, val){
+  const sec=S.sections.find(s=>s.id==secId);
+  if(!sec) return;
+  const parent=sec.items.find(i=>i.id==parentId);
+  if(!parent) return;
+  const sub=parent.subItems.find(s=>s.id==subId);
+  if(sub){ sub[field]=val; save(); }
+}
+
+// ═══════════════════════════════════════════════════════
+// TECH SPECS ACTIONS
+// ═══════════════════════════════════════════════════════
+function addSpec(itemId, secId){
+  const sec=S.sections.find(s=>s.id==secId);
+  if(!sec) return;
+  const item=sec.items.find(i=>i.id==itemId);
+  if(!item) return;
+  if(!item.techSpecs) item.techSpecs=[];
+  const spec={id:uid(),text:''};
+  item.techSpecs.push(spec);
+  save(); render();
+  setTimeout(()=>{
+    openDrawer(itemId);
+    // Switch to specs tab
+    const drawer = document.querySelector(`[data-drawer-id="${itemId}"]`);
+    if(drawer){
+      const specTab = Array.from(drawer.querySelectorAll('.dtab')).find(t=>t.dataset.tab==='specs');
+      if(specTab) specTab.click();
+    }
+  },50);
+}
+function updateSpec(specId, itemId, secId, val){
+  const sec=S.sections.find(s=>s.id==secId);
+  if(!sec) return;
+  const item=sec.items.find(i=>i.id==itemId);
+  if(!item||!item.techSpecs) return;
+  const spec=item.techSpecs.find(s=>s.id==specId);
+  if(spec){ spec.text=val; save(); }
+}
+function delSpec(specId, itemId, secId){
+  const sec=S.sections.find(s=>s.id==secId);
+  if(!sec) return;
+  const item=sec.items.find(i=>i.id==itemId);
+  if(!item) return;
+  item.techSpecs=item.techSpecs.filter(s=>s.id!=specId);
+  save(); render();
+  setTimeout(()=>openDrawer(itemId),50);
+}
+function bulkImport(itemId, secId){
+  const ta = document.getElementById(`bulk_${itemId}`);
+  if(!ta) return;
+  const lines = ta.value.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+  if(!lines.length){ toast('No lines to import','info'); return; }
+  const sec=S.sections.find(s=>s.id==secId);
+  if(!sec) return;
+  const item=sec.items.find(i=>i.id==itemId);
+  if(!item) return;
+  if(!item.techSpecs) item.techSpecs=[];
+  lines.forEach(t=>item.techSpecs.push({id:uid(),text:t}));
+  ta.value='';
+  save(); render();
+  setTimeout(()=>{
+    openDrawer(itemId);
+    const drawer = document.querySelector(`[data-drawer-id="${itemId}"]`);
+    if(drawer){
+      const specTab = Array.from(drawer.querySelectorAll('.dtab')).find(t=>t.dataset.tab==='specs');
+      if(specTab) specTab.click();
+    }
+  },50);
+  toast(`${lines.length} spec(s) imported`,'success');
+}
+
+// ═══════════════════════════════════════════════════════
+// CONTEXT MENU
+// ═══════════════════════════════════════════════════════
+let _cxItem=null,_cxSec=null;
+function openCtx(e, itemId, secId){
+  _cxItem=itemId; _cxSec=secId;
+  const m=document.getElementById('ctx');
+  m.style.left=e.clientX+'px'; m.style.top=e.clientY+'px';
+  m.classList.add('open');
+  e.stopPropagation();
+}
+function closeCtx(){ document.getElementById('ctx').classList.remove('open'); }
+function ctxDo(action){
+  closeCtx();
+  if(action==='add-item'){
+    const sec=S.sections.find(s=>s.id==_cxSec);
+    if(!sec) return;
+    const idx=sec.items.findIndex(i=>i.id==_cxItem);
+    sec.items.splice(idx+1,0,blankItem());
+    save(); render();
+  } else if(action==='add-sub'){
+    addSubItem(_cxItem,_cxSec);
+  } else if(action==='dup'){
+    dupItem(_cxItem,_cxSec);
+  } else if(action==='del'){
+    delItem(_cxItem,_cxSec);
+  }
+}
+document.addEventListener('click', closeCtx);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeCtx(); closeSecModal(); } });
+document.getElementById('secModal').addEventListener('click', function(e){ if(e.target===this) closeSecModal(); });
+
+// ═══════════════════════════════════════════════════════
+// SEARCH
+// ═══════════════════════════════════════════════════════
+function filterRows(q){
+  q=q.toLowerCase().trim();
+  document.querySelectorAll('.item-group').forEach(g=>{
+    g.style.display=(!q||g.textContent.toLowerCase().includes(q))?'':'none';
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════════
+function exportJSON(){
+  const data={
+    meta:{
+      project:document.getElementById('mProject').value,
+      client:document.getElementById('mClient').value,
+      title:document.getElementById('mTitle').value,
+      rev:document.getElementById('mRev').value,
+      date:document.getElementById('mDate').value,
+      author:document.getElementById('mAuthor').value,
+      exported:new Date().toISOString()
+    },
+    sections:S.sections
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`SOS_${data.meta.project}_Rev${data.meta.rev}.json`;
+  a.click();
+  toast('Exported successfully','success');
+}
+
+// ═══════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════
+function toast(msg, type='info'){
+  const d=document.createElement('div');
+  d.className='toast '+type;
+  const icon=type==='success'
+    ?'<polyline points="20 6 9 17 4 12"/>'
+    :'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>';
+  d.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${icon}</svg>${msg}`;
+  document.getElementById('toastTray').appendChild(d);
+  setTimeout(()=>d.remove(),2800);
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════
+function el(tag,cls){ const e=document.createElement(tag); if(cls) e.className=cls; return e; }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ═══════════════════════════════════════════════════════
+// SEED DATA
+// ═══════════════════════════════════════════════════════
+function seed(){
+  S={sections:[],_id:1};
+  const s1=blankSection('ROV Asset');
+  const i1=blankItem({
+    clientDocRef:'P-DF-1234-ROV-001',
+    description:'Workclass ROV System — Millennium Plus (200HP)',
+    compliance:'YES', resourceType:'ROV Asset', subType:"System's Asset",
+    equipmentOffer:'Millennium Plus ROV', oiiPN:'OII-ROV-MP200',
+    qtyOper:1, qtySpare:0, certificate:true,
+    clientReq:'ROV must be rated for 3000m water depth.',
+    techSpecs:[{id:uid(),text:'WD rating: 3000m'},{id:uid(),text:'200HP hydraulic power'},{id:uid(),text:'Dual manipulator configuration'}]
+  });
+  const i2=blankItem({
+    clientDocRef:'P-DF-1234-ROV-010',
+    description:'Rotary Brush Cleaning Tool — RBC-300',
+    compliance:'YES', resourceType:'Tooling', subType:'Catalog',
+    equipmentOffer:'OII RBC-300', oiiPN:'OII-RBC-300',
+    qtyOper:1, qtySpare:1, certificate:false,
+    subItems:[
+      blankSub({description:'Nylon Brush 12"',subType:'Consumable',equipmentOffer:'OII Nylon Brush',oiiPN:'OII-BSH-NYL-12',qty:'4',comments:'Standard cleaning'}),
+      blankSub({description:'Steel Wire Brush 12"',subType:'Consumable',equipmentOffer:'OII Steel Brush',oiiPN:'OII-BSH-STL-12',qty:'2',comments:'Hard deposits'}),
+      blankSub({description:'Polypropylene Brush 12"',subType:'Consumable',equipmentOffer:'OII PPL Brush',oiiPN:'OII-BSH-PPL-12',qty:'2',comments:'TBC — pending approval'}),
+    ]
+  });
+  const i3=blankItem({
+    clientDocRef:'P-DF-1234-ROV-020',
+    description:'LARS A-Frame — 15T SWL',
+    compliance:'YES', resourceType:'ROV Asset', subType:'Installation',
+    equipmentOffer:'LARS A-Frame 15T', oiiPN:'OII-LARS-AF15',
+    qtyOper:1, qtySpare:0, certificate:true, comments:'DNV certified'
+  });
+  s1.items=[i1,i2,i3];
+
+  const s2=blankSection('Survey Asset');
+  s2.items=[
+    blankItem({clientDocRef:'P-DF-1234-SRV-001',description:'Multibeam Echosounder — ROV Mounted',compliance:'YES',resourceType:'Survey Asset',subType:'Subsea Sensor',equipmentOffer:'Kongsberg M3',oiiPN:'OII-MBE-003',qtyOper:1,qtySpare:0,certificate:false}),
+    blankItem({clientDocRef:'P-DF-1234-SRV-002',description:'CP Inspection Probe',compliance:'PARTIAL',resourceType:'Survey Asset',subType:'Subsea Sensor',equipmentOffer:'TBC',oiiPN:'TBC',qtyOper:1,qtySpare:1,certificate:false,comments:'Client to confirm spec'}),
+    blankItem({clientDocRef:'P-DF-1234-SRV-003',description:'Survey Software License — Qinsy',compliance:'YES',resourceType:'Survey Asset',subType:'Software',equipmentOffer:'Qinsy v9',oiiPN:'QNS-LIC-001',qtyOper:1,qtySpare:0,certificate:false}),
+  ];
+
+  const s3=blankSection('Tooling');
+  s3.items=[
+    blankItem({clientDocRef:'P-DF-1234-TL-001',description:'Hot Stab Tool — 1" HP',compliance:'YES',resourceType:'Tooling',subType:'Engineering Solutions',equipmentOffer:'OII HST-100HP',oiiPN:'OII-HST-HP1',qtyOper:2,qtySpare:1,certificate:true}),
+    blankItem({clientDocRef:'P-DF-1234-TL-002',description:'Torque Tool — 0-500 Nm',compliance:'YES',resourceType:'Tooling',subType:'Catalog',equipmentOffer:'OII TRQ-500',oiiPN:'OII-TRQ-500',qtyOper:1,qtySpare:1,certificate:false}),
+  ];
+
+  S.sections=[s1,s2,s3];
+  save();
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+(function init(){
+  load();
+  if(!S.sections.length) seed();
+  render();
+  toast('Scope of Supply loaded','info');
+})();
+</script>
+</body>
+</html>

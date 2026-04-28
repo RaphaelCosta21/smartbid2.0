@@ -11,7 +11,6 @@ interface AITabProps {
 export const AITab: React.FC<AITabProps> = ({ bid, onImportItems }) => {
   const handleImport = React.useCallback(
     (items: IScopeItem[]) => {
-      // Extract source document name from the first item's importedFromTemplate or fallback
       const sourceDoc = "AI Analysis";
       onImportItems(items, sourceDoc);
     },
@@ -21,6 +20,7 @@ export const AITab: React.FC<AITabProps> = ({ bid, onImportItems }) => {
   return (
     <GlassCard title="AI Document Analysis">
       <AIDocumentAnalyzer
+        bidNumber={bid.bidNumber}
         division={bid.division}
         serviceLine={bid.serviceLine}
         onImport={handleImport}

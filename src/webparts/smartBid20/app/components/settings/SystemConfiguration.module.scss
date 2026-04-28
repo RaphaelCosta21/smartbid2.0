@@ -534,6 +534,96 @@
 }
 
 /* ================================================================ */
+/* ADD CURRENCY PANEL                                               */
+/* ================================================================ */
+
+.addCurrencyPanel {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+.addCurrencyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.addCurrencyLoading {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.addCurrencySearch {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  margin-bottom: 12px;
+
+  &:focus {
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 0 2px rgba(0, 201, 167, 0.15);
+  }
+}
+
+.addCurrencyList {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.addCurrencyItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 150ms ease;
+  text-align: left;
+  color: var(--text-primary);
+
+  &:hover {
+    background: var(--card-bg-elevated);
+    border-color: var(--primary-accent);
+  }
+}
+
+.addCurrencyCode {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.addCurrencyRate {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.addCurrencyEmpty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ================================================================ */
 /* ACCESS LEVELS GRID                                               */
 /* ================================================================ */
 

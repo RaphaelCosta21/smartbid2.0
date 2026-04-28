@@ -389,8 +389,13 @@
 
 /* ─── AI Modal ─── */
 .aiModal {
-  max-width: 900px;
-  max-height: 85vh;
+  max-width: 95vw;
+  width: 95vw;
+  max-height: 92vh;
+  height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .aiModalHeader {

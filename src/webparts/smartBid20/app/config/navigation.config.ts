@@ -173,6 +173,13 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     section: "tools",
   },
   {
+    key: "bom-costs",
+    label: "BOM Costs",
+    icon: "Calculator",
+    route: "/tools/bom-costs",
+    section: "tools",
+  },
+  {
     key: "quotations",
     label: "Quotations",
     icon: "DollarSign",
@@ -187,10 +194,10 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     section: "tools",
   },
   {
-    key: "price-consulting",
-    label: "Price Consulting",
+    key: "query-consulting",
+    label: "Query Consulting",
     icon: "CircleDollarSign",
-    route: "/tools/pricing",
+    route: "/tools/query-consulting",
     section: "tools",
   },
 

@@ -134,3 +134,26 @@ export {
   type IAIAnalysisResult,
   type IAIAnalysisError,
 } from "./IAIAnalysis";
+export {
+  type IActiveRegisteredItem,
+  type IPeopleSoftFinancialsItem,
+  type IBomSheetItem,
+  type ISearchResultItem,
+  type IMultiSourceResults,
+  type IQueryCatalogData,
+  type IBomCostResult,
+  type IRawTabData,
+} from "./IQueryCatalog";
+export {
+  type IFavoriteGroup,
+  type IFavoriteSubGroup,
+  type FavoriteDataSource,
+  type IFavoriteEquipment,
+  type IFavoriteBid,
+  type IFavoritesData,
+} from "./IFavoriteItem";
+export {
+  type IBomCostAnalysis,
+  type IBomCostItem,
+  type BomCostSource,
+} from "./IBomCostAnalysis";
