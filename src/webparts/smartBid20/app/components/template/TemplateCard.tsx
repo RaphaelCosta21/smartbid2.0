@@ -5,7 +5,7 @@ import styles from "./TemplateCard.module.scss";
 interface TemplateCardProps {
   template: IBidTemplate;
   onSelect?: () => void;
-  onEdit?: () => void;
+  onView?: () => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
   className?: string;
@@ -14,7 +14,7 @@ interface TemplateCardProps {
 export const TemplateCard: React.FC<TemplateCardProps> = ({
   template,
   onSelect,
-  onEdit,
+  onView,
   onDelete,
   onDuplicate,
   className,
@@ -99,9 +99,9 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
               📋
             </button>
           )}
-          {onEdit && (
-            <button className={styles.actionBtn} onClick={onEdit} title="Edit">
-              ✏️
+          {onView && (
+            <button className={styles.actionBtn} onClick={onView} title="View">
+              👁️
             </button>
           )}
           {onDelete && (

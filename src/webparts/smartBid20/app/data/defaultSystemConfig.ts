@@ -3,6 +3,7 @@
  * NOT mock data. This is the real initial state of the system.
  */
 import { ISystemConfig } from "../models";
+import { getDefaultFavoriteGroups } from "../config/defaultFavoriteGroups";
 
 export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
   kpiTargets: {
@@ -1283,4 +1284,5 @@ export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
       templates: "none",
     },
   },
+  favoriteGroups: getDefaultFavoriteGroups(),
 };

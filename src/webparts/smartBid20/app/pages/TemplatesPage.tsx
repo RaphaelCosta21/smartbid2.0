@@ -6,6 +6,7 @@ import { TemplatePreview } from "../components/template/TemplatePreview";
 import { AIDocumentAnalyzer } from "../components/common/AIDocumentAnalyzer";
 import { useTemplates } from "../hooks/useTemplates";
 import { useConfigStore } from "../stores/useConfigStore";
+import { useUIStore } from "../stores/useUIStore";
 import { IBidTemplate } from "../models/IBidTemplate";
 import { IScopeItem } from "../models";
 import { DIVISIONS, SERVICE_LINES } from "../utils/constants";
@@ -35,6 +36,7 @@ export const TemplatesPage: React.FC = () => {
   >("");
   const [viewMode, setViewMode] = React.useState<ViewMode>("grid");
   const [showEditor, setShowEditor] = React.useState(false);
+  const [editorViewOnly, setEditorViewOnly] = React.useState(false);
   const [editingTemplate, setEditingTemplate] = React.useState<
     IBidTemplate | undefined
   >(undefined);
@@ -42,6 +44,18 @@ export const TemplatesPage: React.FC = () => {
     React.useState<IBidTemplate | null>(null);
   const [showAIAnalyzer, setShowAIAnalyzer] = React.useState(false);
   const [aiTemplateId, setAiTemplateId] = React.useState("");
+
+  // Collapse sidebar when editor is open, restore on close
+  const setSidebarExpanded = useUIStore((s) => s.setSidebarExpanded);
+  React.useEffect(() => {
+    if (showEditor) {
+      const wasExpanded = useUIStore.getState().sidebarExpanded;
+      setSidebarExpanded(false);
+      return () => {
+        setSidebarExpanded(wasExpanded);
+      };
+    }
+  }, [showEditor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const divisionOptions = React.useMemo(() => {
     if (config?.divisions) {
@@ -98,6 +112,7 @@ export const TemplatesPage: React.FC = () => {
 
   const handleCreate = (): void => {
     setEditingTemplate(undefined);
+    setEditorViewOnly(false);
     setShowEditor(true);
   };
 
@@ -127,11 +142,13 @@ export const TemplatesPage: React.FC = () => {
     setEditingTemplate(tpl);
     setShowAIAnalyzer(false);
     setAiTemplateId("");
+    setEditorViewOnly(false);
     setShowEditor(true);
   };
 
   const handleEdit = (tpl: IBidTemplate): void => {
     setEditingTemplate(tpl);
+    setEditorViewOnly(true);
     setShowEditor(true);
   };
 
@@ -146,6 +163,7 @@ export const TemplatesPage: React.FC = () => {
       version: 1,
     };
     setEditingTemplate(dup);
+    setEditorViewOnly(false);
     setShowEditor(true);
   };
 
@@ -167,11 +185,13 @@ export const TemplatesPage: React.FC = () => {
     }
     setShowEditor(false);
     setEditingTemplate(undefined);
+    setEditorViewOnly(false);
   };
 
   const handleCancelEditor = (): void => {
     setShowEditor(false);
     setEditingTemplate(undefined);
+    setEditorViewOnly(false);
   };
 
   const clearFilters = (): void => {
@@ -186,11 +206,20 @@ export const TemplatesPage: React.FC = () => {
 
   // Full-screen editor mode
   if (showEditor) {
+    const editorTitle = !editingTemplate
+      ? "New Template"
+      : editorViewOnly
+        ? "View Template"
+        : "Edit Template";
     return (
       <div className={styles.page}>
         <PageHeader
-          title={editingTemplate ? "Edit Template" : "New Template"}
-          subtitle="Define template metadata and scope of supply items"
+          title={editorTitle}
+          subtitle={
+            editorViewOnly
+              ? "Click Edit on each section to make changes"
+              : "Define template metadata and scope of supply items"
+          }
           icon={
             <svg
               width="28"
@@ -210,6 +239,7 @@ export const TemplatesPage: React.FC = () => {
           template={editingTemplate}
           onSave={handleSave}
           onCancel={handleCancelEditor}
+          viewOnly={editorViewOnly}
         />
       </div>
     );
@@ -388,7 +418,7 @@ export const TemplatesPage: React.FC = () => {
               key={tpl.id}
               template={tpl}
               onSelect={() => setPreviewTemplate(tpl)}
-              onEdit={() => handleEdit(tpl)}
+              onView={() => handleEdit(tpl)}
               onDelete={() => handleDelete(tpl)}
               onDuplicate={() => handleDuplicate(tpl)}
             />
@@ -444,9 +474,9 @@ export const TemplatesPage: React.FC = () => {
                         <button
                           className={styles.rowActionBtn}
                           onClick={() => handleEdit(tpl)}
-                          title="Edit"
+                          title="View"
                         >
-                          ✏️
+                          👁️
                         </button>
                         <button
                           className={styles.rowActionBtn}
@@ -491,7 +521,7 @@ export const TemplatesPage: React.FC = () => {
                   setPreviewTemplate(null);
                 }}
               >
-                ✏️ Edit Template
+                👁️ View Template
               </button>
               <button
                 className={styles.modalCloseBtn}

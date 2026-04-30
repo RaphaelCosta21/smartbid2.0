@@ -3,6 +3,11 @@
 .container {
   position: relative;
   width: 100%;
+  z-index: 1;
+
+  &:focus-within {
+    z-index: 9999;
+  }
 }
 
 .input {
@@ -41,14 +46,11 @@
 
 /* ─── Dropdown ─── */
 .dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
+  position: fixed;
   min-width: 360px;
   max-height: 340px;
   overflow-y: auto;
-  z-index: 9999;
+  z-index: 99999;
   background: var(--card-bg-elevated, rgba(30, 30, 40, 0.96));
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   border-radius: 8px;

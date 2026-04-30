@@ -4,7 +4,6 @@
  */
 import { create } from "zustand";
 import { FavoritesService } from "../services/FavoritesService";
-import { getDefaultFavoriteGroups } from "../config/defaultFavoriteGroups";
 import {
   IFavoritesData,
   IFavoriteEquipment,
@@ -75,23 +74,10 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
     set({ isLoading: true });
     try {
       const data = await FavoritesService.getAll();
-      // Seed default groups on first load if no groups exist
-      if (data.groups.length === 0) {
-        data.groups = getDefaultFavoriteGroups();
-        await FavoritesService.save(data);
-      }
       set({ data, isLoaded: true, isLoading: false });
-    } catch {
-      const seeded: IFavoritesData = {
-        groups: getDefaultFavoriteGroups(),
-        equipment: [],
-        bids: [],
-      };
-      set({
-        data: seeded,
-        isLoaded: true,
-        isLoading: false,
-      });
+    } catch (err) {
+      console.error("Failed to load favorites:", err);
+      set({ isLoading: false });
     }
   },
 

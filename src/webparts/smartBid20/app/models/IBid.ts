@@ -123,8 +123,11 @@ export interface IScopeItem {
   /** Detailed technical specification lines from the client document */
   clientSpecs?: string[];
   /** Custom color for section header (only used when isSection = true) */
-  sectionColor?: string; /** Sub-items: consumables, spare parts, accessories tied to this scope item */
+  sectionColor?: string;
+  /** Sub-items: consumables, spare parts, accessories tied to this scope item */
   subItems?: IScopeSubItem[];
+  /** Attachments for this scope item or section */
+  attachments?: IBidAttachment[];
 }
 
 /** A sub-item within a scope item (e.g. consumable brush, spare blade) */

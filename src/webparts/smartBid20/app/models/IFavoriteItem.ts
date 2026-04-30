@@ -18,7 +18,7 @@ export interface IFavoriteSubGroup {
 }
 
 /** Data source for how a favorite equipment item was added */
-export type FavoriteDataSource = "manual" | "bid" | "query";
+export type FavoriteDataSource = "manual" | "bid" | "query" | "quotation";
 
 /** A favorited equipment item in the catalog */
 export interface IFavoriteEquipment {

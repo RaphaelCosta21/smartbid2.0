@@ -245,5 +245,95 @@
   border-radius: 12px;
   padding: 16px;
   background: var(--card-bg);
-  overflow: auto;
+  overflow: visible;
+}
+
+/* ─── Attachments ─── */
+.attachList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.attachItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-subtle);
+  transition: border-color 0.15s;
+
+  &:hover {
+    border-color: var(--accent-color);
+  }
+}
+
+.attachIcon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.attachName {
+  flex: 1;
+  font-size: 12px;
+  color: var(--accent-color);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.attachSize {
+  font-size: 10px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.attachDelete {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s;
+
+  &:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+  }
+}
+
+.attachBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1.5px dashed var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s;
+
+  &:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    background: var(--accent-color-10, rgba(20, 184, 166, 0.08));
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }

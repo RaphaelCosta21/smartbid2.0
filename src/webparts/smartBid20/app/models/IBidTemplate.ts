@@ -3,7 +3,7 @@
  * A estrutura de scopeItems é idêntica à IScopeItem do BidDetailPage,
  * permitindo importação direta no Scope of Supply de um BID.
  */
-import { IScopeItem, IHoursSummary } from "./IBid";
+import { IScopeItem, IHoursSummary, IBidAttachment } from "./IBid";
 
 export interface IBidTemplate {
   id: string;
@@ -24,4 +24,6 @@ export interface IBidTemplate {
   isActive: boolean;
   tags: string[];
   version: number;
+  /** Template-level attachments (e.g. client specification PDFs) */
+  attachments?: IBidAttachment[];
 }

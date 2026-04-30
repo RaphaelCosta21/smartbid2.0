@@ -72,6 +72,7 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
     searchField,
     debounceMs: 300,
     limitPerSource: 5,
+    skipLoad: readOnly,
   });
 
   // Filter sections to display based on sourcesFilter prop
@@ -94,6 +95,11 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
 
   const [showDropdown, setShowDropdown] = React.useState(false);
   const [highlightIndex, setHighlightIndex] = React.useState(-1);
+  const [dropdownPos, setDropdownPos] = React.useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -116,12 +122,26 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
     setQuery(v);
     setShowDropdown(true);
     setHighlightIndex(-1);
+    updateDropdownPos();
   };
 
   const handleFocus = (): void => {
     if (value && value.length >= 2) {
       setQuery(value);
       setShowDropdown(true);
+      updateDropdownPos();
+    }
+  };
+
+  /** Calculate fixed position for dropdown based on input rect */
+  const updateDropdownPos = (): void => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: Math.max(rect.width, 360),
+      });
     }
   };
 
@@ -165,6 +185,16 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Close/reposition dropdown on scroll
+  React.useEffect(() => {
+    if (!showDropdown) return;
+    const handleScroll = (): void => {
+      updateDropdownPos();
+    };
+    window.addEventListener("scroll", handleScroll, true);
+    return () => window.removeEventListener("scroll", handleScroll, true);
+  }, [showDropdown]);
+
   // Auto-focus
   React.useEffect(() => {
     if (autoFocus && inputRef.current) {
@@ -199,7 +229,19 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
 
       {showDropdown &&
         (filteredTotalResults > 0 || isSearching || isCatalogLoading) && (
-          <div className={styles.dropdown}>
+          <div
+            className={styles.dropdown}
+            style={
+              dropdownPos
+                ? {
+                    position: "fixed",
+                    top: dropdownPos.top,
+                    left: dropdownPos.left,
+                    width: dropdownPos.width,
+                  }
+                : undefined
+            }
+          >
             {isCatalogLoading && (
               <div className={styles.loadingRow}>
                 <span className={styles.spinner} />

@@ -5,7 +5,13 @@
  */
 
 /** Source tab where the cost was found */
-export type BomCostSource = "BUMBL" | "BUMBR" | "Financials" | "manual" | "";
+export type BomCostSource =
+  | "BUMBL"
+  | "BUMBR"
+  | "Financials"
+  | "manual"
+  | "QUOTATION"
+  | "";
 
 /** A single line item in the BOM hierarchy */
 export interface IBomCostItem {
@@ -49,6 +55,8 @@ export interface IBomCostItem {
   isManual: boolean;
   /** Whether the cost was rolled up (summed) from children */
   isRolledUp: boolean;
+  /** Quotation item ID reference (when source is QUOTATION) */
+  quotationItemId?: string;
 }
 
 /** A complete BOM Cost Analysis (saved entity) */

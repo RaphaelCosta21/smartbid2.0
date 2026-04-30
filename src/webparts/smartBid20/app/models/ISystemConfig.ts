@@ -1,4 +1,5 @@
 import { UserRole } from "./IUser";
+import { IFavoriteGroup } from "./IFavoriteItem";
 
 export interface IConfigOption {
   id: string;
@@ -77,4 +78,5 @@ export interface ISystemConfig {
   currencySettings: ICurrencySettings;
   notifications: Record<string, string[]>;
   accessLevels: Record<UserRole, IAccessLevelDef>;
+  favoriteGroups: IFavoriteGroup[];
 }

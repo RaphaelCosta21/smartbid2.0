@@ -60,9 +60,7 @@ export const AppLayout: React.FC = () => {
 
     // Load system config from SharePoint into global store
     SystemConfigService.get()
-      .then((cfg) => {
-        setConfig(cfg);
-      })
+      .then((cfg) => setConfig(cfg))
       .catch((err) => console.error("Failed to load system config:", err));
   }, []);
 

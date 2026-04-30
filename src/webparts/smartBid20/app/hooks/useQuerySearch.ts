@@ -23,6 +23,8 @@ interface UseQuerySearchOptions {
   limitPerSource?: number;
   /** Minimum characters before searching (default 2 for PN, 3 for description) */
   minChars?: number;
+  /** Skip catalog/favorites loading (e.g. when in read-only mode) */
+  skipLoad?: boolean;
 }
 
 interface UseQuerySearchReturn {
@@ -63,15 +65,17 @@ export function useQuerySearch(
   const searchFavByPN = useFavoritesStore((s) => s.searchByPN);
   const searchFavByDesc = useFavoritesStore((s) => s.searchByDescription);
 
-  // Trigger lazy load on mount
+  // Trigger lazy load on mount (skip if readOnly / skipLoad)
+  const skipLoad = options.skipLoad || false;
   React.useEffect(() => {
+    if (skipLoad) return;
     if (!catalogLoaded && !catalogLoading) {
       loadCatalog();
     }
     if (!favLoaded) {
       loadFavorites();
     }
-  }, []);
+  }, [skipLoad]);
 
   // Debounced search
   React.useEffect(() => {

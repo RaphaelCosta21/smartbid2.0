@@ -7,10 +7,17 @@ import { PageHeader } from "../components/common/PageHeader";
 import { useQueryCatalogStore } from "../stores/useQueryCatalogStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-import { IBomCostAnalysis, IBomCostItem, BomCostSource } from "../models";
+import {
+  IBomCostAnalysis,
+  IBomCostItem,
+  BomCostSource,
+  IQuotationItem,
+} from "../models";
 import { BomCostAnalysisService } from "../services/BomCostAnalysisService";
+import { QuotationService } from "../services/QuotationService";
+import { useQuotationStore } from "../stores/useQuotationStore";
 import { convertToUSD } from "../utils/costCalculations";
-import { formatCurrency } from "../utils/formatters";
+import { formatCurrency, formatDate } from "../utils/formatters";
 import { parseBomCSV, parseBomExcel, emptyItem } from "../utils/bomParser";
 import styles from "./BomCostsPage.module.scss";
 
@@ -137,6 +144,8 @@ function srcClass(src: BomCostSource): string {
       return styles.srcFIN;
     case "manual":
       return styles.srcManual;
+    case "QUOTATION":
+      return styles.srcQuotation;
     default:
       return styles.srcNone;
   }
@@ -148,6 +157,7 @@ function srcLabel(src: BomCostSource, costRef: string): string {
   if (src === "BUMBR") return "BUMBR";
   if (src === "Financials") return costRef || "FIN";
   if (src === "manual") return "Manual";
+  if (src === "QUOTATION") return "Quotation";
   return "—";
 }
 
@@ -222,21 +232,30 @@ function rollUpParentCosts(items: IBomCostItem[]): IBomCostItem[] {
 /**
  * Compute total cost avoiding double counting.
  * For rolled-up parents: skip them (children already counted).
- * For parents with direct query cost: include parent, skip children.
+ * For parents with direct query cost: include parent, skip ALL descendants.
  */
 function computeSmartTotal(items: IBomCostItem[]): number {
   // Build set of IDs whose cost is already accounted for
   const skip = new Set<string>();
 
+  // Helper: recursively skip all descendants
+  function skipDescendants(parentId: string): void {
+    items.forEach((c) => {
+      if (c.parentId === parentId && !skip.has(c.id)) {
+        skip.add(c.id);
+        skipDescendants(c.id);
+      }
+    });
+  }
+
   items.forEach((item) => {
-    // If parent has direct query cost (not rolled up), skip its children
+    // If parent has direct query cost (not rolled up), skip ALL descendants
     if (
       item.costPerItemUSD > 0 &&
       !item.isRolledUp &&
       hasChildren(item, items)
     ) {
-      const children = getDirectChildren(item.id, items);
-      children.forEach((c) => skip.add(c.id));
+      skipDescendants(item.id);
     }
     // If parent is rolled up, skip the parent itself (children are the source)
     if (item.isRolledUp) {
@@ -333,6 +352,23 @@ export const BomCostsPage: React.FC = () => {
   const [editingRows, setEditingRows] = React.useState<Set<string>>(new Set());
   const [showPasteModal, setShowPasteModal] = React.useState(false);
   const [pasteText, setPasteText] = React.useState("");
+
+  // Quotation import state
+  const quotationItems = useQuotationStore((s) => s.items);
+  const quotationsLoaded = useQuotationStore((s) => s.isLoaded);
+  const loadQuotations = useQuotationStore((s) => s.loadQuotations);
+  const [showQuotationModal, setShowQuotationModal] = React.useState(false);
+  const [quotationTargetItemId, setQuotationTargetItemId] =
+    React.useState<string>("");
+  const [quotationSearch, setQuotationSearch] = React.useState("");
+  const [quotationTypeFilter, setQuotationTypeFilter] = React.useState<
+    "all" | "acquisition" | "rental"
+  >("all");
+  const [quotationSupplierFilter, setQuotationSupplierFilter] =
+    React.useState("");
+  // Quotation viewer state
+  const [viewingQuotation, setViewingQuotation] =
+    React.useState<IQuotationItem | null>(null);
 
   // Load saved analyses on mount
   React.useEffect(() => {
@@ -456,14 +492,26 @@ export const BomCostsPage: React.FC = () => {
           resetItem.comments = "";
         }
 
-        // Skip items that already have manual costs
+        // Skip items that already have manual costs (not quotation — those get overwritten by query)
         if (resetItem.isManual && resetItem.costPerItemUSD > 0)
           return resetItem;
 
-        // Skip parent items that have children — they get cost via roll-up only
-        if (hasChildren(resetItem, items)) return resetItem;
+        // Reset quotation items so they can be re-evaluated from query
+        if (resetItem.sourceTab === "QUOTATION") {
+          resetItem.costPerItemUSD = 0;
+          resetItem.totalCostInclCont = 0;
+          resetItem.sourceTab = "" as BomCostSource;
+          resetItem.costReference = "";
+          resetItem.quotationItemId = undefined;
+        }
+
+        // For parent items: search in Query first; if found use parent cost directly,
+        // if NOT found skip (will get cost via roll-up from children)
+        const isParent = hasChildren(resetItem, items);
 
         const result = searchBomCosts(resetItem.partNumber, exchangeRates);
+
+        if (isParent && !result.found) return resetItem; // Not found → roll up later
         if (!result.found) return resetItem;
 
         let costUSD = result.costPerItemUSD;
@@ -568,6 +616,17 @@ export const BomCostsPage: React.FC = () => {
     let updated = items.map((item) => {
       if (item.id !== id) return item;
       const u = { ...item, ...patch };
+      // When user manually edits cost on a QUOTATION item, switch source to manual
+      if (
+        "costPerItemUSD" in patch &&
+        !("sourceTab" in patch) &&
+        item.sourceTab === "QUOTATION"
+      ) {
+        u.sourceTab = "manual";
+        u.costReference = "Manual";
+        u.isManual = true;
+        u.quotationItemId = undefined;
+      }
       if (
         "costPerItemUSD" in patch ||
         "qty" in patch ||
@@ -744,6 +803,106 @@ export const BomCostsPage: React.FC = () => {
     setShowPasteModal(false);
     setPasteText("");
   };
+
+  // ─── Open quotation import modal for a specific BOM item ───
+  const handleOpenQuotationModal = (bomItemId: string): void => {
+    if (!quotationsLoaded) loadQuotations();
+    setQuotationTargetItemId(bomItemId);
+    setQuotationSearch("");
+    setQuotationTypeFilter("all");
+    setQuotationSupplierFilter("");
+    setShowQuotationModal(true);
+  };
+
+  // ─── Select a quotation and apply to the target BOM item ───
+  const handleSelectQuotation = (q: IQuotationItem): void => {
+    const costUSD =
+      q.costUSD > 0
+        ? q.costUSD
+        : convertToUSD(q.cost, q.currency, exchangeRates);
+    updateItem(quotationTargetItemId, {
+      costPerItemUSD: costUSD,
+      originalCost: q.cost,
+      originalCurrency: q.currency,
+      leadTimeDays: q.leadTimeDays,
+      costReference: "QUOTATION",
+      dateReference: q.quotationDate
+        ? new Date(q.quotationDate).toISOString()
+        : "",
+      sourceTab: "QUOTATION" as BomCostSource,
+      isManual: false,
+      isRolledUp: false,
+      quotationItemId: q.id,
+      comments: `Quotation: ${q.supplier}${q.partNumber ? " — " + q.partNumber : ""}`,
+    });
+    setShowQuotationModal(false);
+    setQuotationTargetItemId("");
+  };
+
+  // ─── View quotation details ───
+  const handleViewQuotation = (quotationItemId: string): void => {
+    const q = quotationItems.find((qi) => qi.id === quotationItemId);
+    if (q) setViewingQuotation(q);
+  };
+
+  // ─── Remove quotation from a BOM item (reset to no cost) ───
+  const handleRemoveQuotation = (bomItemId: string): void => {
+    updateItem(bomItemId, {
+      costPerItemUSD: 0,
+      totalCostInclCont: 0,
+      originalCost: 0,
+      originalCurrency: "",
+      leadTimeDays: 0,
+      costReference: "",
+      dateReference: "",
+      sourceTab: "" as BomCostSource,
+      isManual: false,
+      isRolledUp: false,
+      quotationItemId: undefined,
+      comments: "",
+    });
+  };
+
+  // ─── Filtered quotation items for the modal ───
+  const filteredQuotations = React.useMemo(() => {
+    let result = quotationItems;
+    if (quotationSearch.trim()) {
+      const terms = quotationSearch.trim().toLowerCase().split(/\s+/);
+      result = result.filter((q) => {
+        const searchable =
+          `${q.partNumber} ${q.description} ${q.supplier} ${q.notes}`.toLowerCase();
+        return terms.every((t) => searchable.indexOf(t) !== -1);
+      });
+    }
+    if (quotationTypeFilter !== "all") {
+      result = result.filter((q) => q.type === quotationTypeFilter);
+    }
+    if (quotationSupplierFilter) {
+      result = result.filter(
+        (q) =>
+          q.supplier
+            .toLowerCase()
+            .indexOf(quotationSupplierFilter.toLowerCase()) !== -1,
+      );
+    }
+    return result;
+  }, [
+    quotationItems,
+    quotationSearch,
+    quotationTypeFilter,
+    quotationSupplierFilter,
+  ]);
+
+  // ─── Unique suppliers for filter dropdown ───
+  const uniqueSuppliers = React.useMemo(() => {
+    const set = new Set<string>();
+    quotationItems.forEach((q) => {
+      if (q.supplier) set.add(q.supplier);
+    });
+    const arr: string[] = [];
+    set.forEach((s) => arr.push(s));
+    return arr.sort();
+  }, [quotationItems]);
 
   // ─── Toggle expand ───
   const toggleExpand = (id: string): void => {
@@ -1437,7 +1596,7 @@ export const BomCostsPage: React.FC = () => {
                       <th>Comments</th>
                     </>
                   )}
-                  <th style={{ width: 80, textAlign: "center" }}>Actions</th>
+                  <th style={{ width: 110, textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1448,30 +1607,45 @@ export const BomCostsPage: React.FC = () => {
                   const hasCost = item.sourceTab !== "" || item.isManual;
                   const isRolled = item.isRolledUp;
 
-                  // Check if parent has direct cost and this is a child
-                  const parentHasDirectCost =
-                    item.parentId &&
-                    (() => {
-                      const p = items.find((x) => x.id === item.parentId);
-                      return (
-                        p &&
+                  // Check if this parent has direct cost from query (not rolled up)
+                  const parentWithDirectQueryCost =
+                    isParent &&
+                    item.costPerItemUSD > 0 &&
+                    !item.isRolledUp &&
+                    item.sourceTab !== "" &&
+                    item.sourceTab !== "manual";
+
+                  // Check if any ancestor has direct cost (child should be greyed/dimmed)
+                  const ancestorHasDirectCost = (() => {
+                    let pid = item.parentId;
+                    while (pid) {
+                      const p = items.find((x) => x.id === pid);
+                      if (!p) break;
+                      if (
                         p.costPerItemUSD > 0 &&
                         !p.isRolledUp &&
-                        (p.sourceTab !== "" || p.isManual)
-                      );
-                    })();
+                        p.sourceTab !== "" &&
+                        p.sourceTab !== "manual"
+                      )
+                        return true;
+                      pid = p.parentId;
+                    }
+                    return false;
+                  })();
 
                   // For rolled-up parents: green if no child is partial, orange if any child is partial
                   const rolledUpComplete =
                     isRolled && !isRolledUpPartial(item.id, items);
 
                   let rowClass = "";
-                  if (isRolled && rolledUpComplete) {
+                  if (parentWithDirectQueryCost) {
+                    rowClass = styles.rowRolledUpComplete; // green — parent found in query
+                  } else if (ancestorHasDirectCost) {
+                    rowClass = styles.rowChildOfCosted; // dimmed — ancestor has own cost
+                  } else if (isRolled && rolledUpComplete) {
                     rowClass = styles.rowRolledUpComplete;
                   } else if (isRolled) {
                     rowClass = styles.rowRolledUpPartial;
-                  } else if (parentHasDirectCost && hasCost) {
-                    rowClass = styles.rowChildOfCosted;
                   } else if (!hasCost && hasSearchedCosts) {
                     rowClass = styles.rowNotFound;
                   } else if (item.level === 1) {
@@ -1565,16 +1739,9 @@ export const BomCostsPage: React.FC = () => {
 
                       {hasSearchedCosts && (
                         <>
-                          {/* Cost Per Item (USD) — editable only in edit mode */}
+                          {/* Cost Per Item (USD) — editable in edit mode for all items */}
                           <td className={styles.tdCost}>
-                            {isRolled ? (
-                              <span className={styles.rolledUpValue}>
-                                {item.costPerItemUSD.toFixed(2)}
-                                <span className={styles.rolledUpTag}>
-                                  Σ children
-                                </span>
-                              </span>
-                            ) : isEditing ? (
+                            {isEditing ? (
                               <>
                                 <input
                                   className={styles.editInputCost}
@@ -1584,9 +1751,8 @@ export const BomCostsPage: React.FC = () => {
                                     updateItem(item.id, {
                                       costPerItemUSD:
                                         parseFloat(e.target.value) || 0,
-                                      isManual:
-                                        item.sourceTab === "" ||
-                                        item.sourceTab === "manual",
+                                      isManual: true,
+                                      isRolledUp: false,
                                     })
                                   }
                                   step={0.01}
@@ -1599,6 +1765,13 @@ export const BomCostsPage: React.FC = () => {
                                     </div>
                                   )}
                               </>
+                            ) : isRolled ? (
+                              <span className={styles.rolledUpValue}>
+                                {item.costPerItemUSD.toFixed(2)}
+                                <span className={styles.rolledUpTag}>
+                                  Σ children
+                                </span>
+                              </span>
                             ) : item.costPerItemUSD > 0 ? (
                               <>
                                 {item.costPerItemUSD.toFixed(2)}
@@ -1615,11 +1788,9 @@ export const BomCostsPage: React.FC = () => {
                             )}
                           </td>
 
-                          {/* Contingency % — editable only in edit mode */}
+                          {/* Contingency % — editable in edit mode for all items */}
                           <td className={styles.tdRight}>
-                            {isRolled ? (
-                              <span className={styles.rolledUpMuted}>—</span>
-                            ) : isEditing ? (
+                            {isEditing ? (
                               <input
                                 className={styles.editInputSmall}
                                 type="number"
@@ -1632,6 +1803,8 @@ export const BomCostsPage: React.FC = () => {
                                 }
                                 step={0.5}
                               />
+                            ) : isRolled ? (
+                              <span className={styles.rolledUpMuted}>—</span>
                             ) : item.contingencyPercent > 0 ? (
                               item.contingencyPercent
                             ) : (
@@ -1652,24 +1825,16 @@ export const BomCostsPage: React.FC = () => {
                             ) : (
                               "—"
                             )}
-                            {parentHasDirectCost && hasCost && (
+                            {ancestorHasDirectCost && (
                               <div className={styles.childOfCostedNote}>
                                 parent has own cost
                               </div>
                             )}
                           </td>
 
-                          {/* Lead Time — editable only in edit mode */}
+                          {/* Lead Time — editable in edit mode for all items */}
                           <td className={styles.tdRight}>
-                            {isRolled ? (
-                              item.leadTimeDays > 0 ? (
-                                <span className={styles.rolledUpMuted}>
-                                  {item.leadTimeDays}d
-                                </span>
-                              ) : (
-                                "—"
-                              )
-                            ) : isEditing ? (
+                            {isEditing ? (
                               <input
                                 className={styles.editInputSmall}
                                 type="number"
@@ -1682,6 +1847,14 @@ export const BomCostsPage: React.FC = () => {
                                   })
                                 }
                               />
+                            ) : isRolled ? (
+                              item.leadTimeDays > 0 ? (
+                                <span className={styles.rolledUpMuted}>
+                                  {item.leadTimeDays}d
+                                </span>
+                              ) : (
+                                "—"
+                              )
                             ) : item.leadTimeDays > 0 ? (
                               `${item.leadTimeDays}d`
                             ) : (
@@ -1691,7 +1864,7 @@ export const BomCostsPage: React.FC = () => {
 
                           {/* Cost Reference */}
                           <td>
-                            {isRolled ? (
+                            {isRolled && !isEditing ? (
                               <span
                                 className={`${styles.srcBadge} ${styles.srcRolledUp}`}
                               >
@@ -1710,9 +1883,7 @@ export const BomCostsPage: React.FC = () => {
 
                           {/* Date Reference — with age badge + editable */}
                           <td>
-                            {isRolled ? (
-                              "—"
-                            ) : isEditing ? (
+                            {isEditing ? (
                               <div
                                 style={{
                                   display: "flex",
@@ -1737,6 +1908,8 @@ export const BomCostsPage: React.FC = () => {
                                   }
                                 />
                               </div>
+                            ) : isRolled ? (
+                              "—"
                             ) : item.dateReference ? (
                               <span
                                 className={`${styles.dateBadge} ${dateAgeClass(item.dateReference)}`}
@@ -1786,6 +1959,36 @@ export const BomCostsPage: React.FC = () => {
                         >
                           {isEditing ? "✓" : "✏️"}
                         </button>
+                        {isEditing && hasSearchedCosts && (
+                          <button
+                            className={`${styles.rowActionBtn} ${styles.rowActionBtnQuotation}`}
+                            onClick={() => handleOpenQuotationModal(item.id)}
+                            title="Import from Quotation"
+                          >
+                            📄
+                          </button>
+                        )}
+                        {item.sourceTab === "QUOTATION" &&
+                          item.quotationItemId && (
+                            <>
+                              <button
+                                className={`${styles.rowActionBtn} ${styles.rowActionBtnView}`}
+                                onClick={() =>
+                                  handleViewQuotation(item.quotationItemId!)
+                                }
+                                title="View Quotation"
+                              >
+                                👁
+                              </button>
+                              <button
+                                className={`${styles.rowActionBtn} ${styles.rowActionBtnDanger}`}
+                                onClick={() => handleRemoveQuotation(item.id)}
+                                title="Remove Quotation"
+                              >
+                                ✕
+                              </button>
+                            </>
+                          )}
                         <button
                           className={styles.rowActionBtn}
                           onClick={() => handleAddRow(item.id, false)}
@@ -1906,6 +2109,265 @@ export const BomCostsPage: React.FC = () => {
                   : 0}{" "}
                 Items
               </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Quotation Import Modal */}
+      {showQuotationModal && (
+        <>
+          <div
+            className={styles.pasteBackdrop}
+            onClick={() => setShowQuotationModal(false)}
+          />
+          <div className={styles.quotationModal}>
+            <div className={styles.quotationModalHeader}>
+              <h3>Import from Quotation</h3>
+              <button
+                className={styles.actionBtnSecondary}
+                onClick={() => setShowQuotationModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className={styles.quotationFilters}>
+              <input
+                className={styles.listSearchInput}
+                type="text"
+                placeholder="Search by PN, description, supplier..."
+                value={quotationSearch}
+                onChange={(e) => setQuotationSearch(e.target.value)}
+                autoFocus
+              />
+              <div className={styles.quotationFilterRow}>
+                <select
+                  className={styles.quotationSelect}
+                  value={quotationTypeFilter}
+                  onChange={(e) =>
+                    setQuotationTypeFilter(
+                      e.target.value as "all" | "acquisition" | "rental",
+                    )
+                  }
+                >
+                  <option value="all">All Types</option>
+                  <option value="acquisition">Acquisition</option>
+                  <option value="rental">Rental</option>
+                </select>
+                <select
+                  className={styles.quotationSelect}
+                  value={quotationSupplierFilter}
+                  onChange={(e) => setQuotationSupplierFilter(e.target.value)}
+                >
+                  <option value="">All Suppliers</option>
+                  {uniqueSuppliers.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className={styles.quotationListWrap}>
+              {!quotationsLoaded ? (
+                <div className={styles.loadingOverlay}>
+                  <div className={styles.spinner} />
+                  <span>Loading quotations...</span>
+                </div>
+              ) : filteredQuotations.length === 0 ? (
+                <div className={styles.quotationEmpty}>
+                  No quotations found matching your criteria
+                </div>
+              ) : (
+                <table className={styles.quotationTable}>
+                  <thead>
+                    <tr>
+                      <th>Part Number</th>
+                      <th>Description</th>
+                      <th>Supplier</th>
+                      <th>Type</th>
+                      <th style={{ textAlign: "right" }}>Cost</th>
+                      <th style={{ textAlign: "right" }}>Cost (USD)</th>
+                      <th style={{ textAlign: "right" }}>Lead Time</th>
+                      <th>Date</th>
+                      <th style={{ width: 70 }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredQuotations.slice(0, 50).map((q) => (
+                      <tr key={q.id} className={styles.quotationRow}>
+                        <td className={styles.quotationPN}>
+                          {q.partNumber || "—"}
+                        </td>
+                        <td
+                          className={styles.quotationDesc}
+                          title={q.description}
+                        >
+                          {q.description || "—"}
+                        </td>
+                        <td>{q.supplier || "—"}</td>
+                        <td>
+                          <span
+                            className={`${styles.quotationTypeBadge} ${q.type === "rental" ? styles.quotationTypeRental : styles.quotationTypeAcq}`}
+                          >
+                            {q.type === "rental" ? "Rental" : "Purchase"}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          {q.currency} {q.cost.toFixed(2)}
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          {formatCurrency(
+                            q.costUSD > 0
+                              ? q.costUSD
+                              : convertToUSD(q.cost, q.currency, exchangeRates),
+                            "USD",
+                          )}
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          {q.leadTimeDays > 0 ? `${q.leadTimeDays}d` : "—"}
+                        </td>
+                        <td>
+                          {q.quotationDate ? formatDate(q.quotationDate) : "—"}
+                        </td>
+                        <td>
+                          <button
+                            className={styles.quotationSelectBtn}
+                            onClick={() => handleSelectQuotation(q)}
+                            title="Use this quotation"
+                          >
+                            Select
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {filteredQuotations.length > 50 && (
+                <div className={styles.quotationMore}>
+                  Showing 50 of {filteredQuotations.length} results. Refine your
+                  search.
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Quotation Viewer Popup */}
+      {viewingQuotation && (
+        <>
+          <div
+            className={styles.pasteBackdrop}
+            onClick={() => setViewingQuotation(null)}
+          />
+          <div className={styles.quotationViewerModal}>
+            <div className={styles.quotationModalHeader}>
+              <h3>Quotation Details</h3>
+              <button
+                className={styles.actionBtnSecondary}
+                onClick={() => setViewingQuotation(null)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className={styles.quotationViewerBody}>
+              <div className={styles.viewerRow}>
+                <span className={styles.viewerLabel}>Part Number</span>
+                <span className={styles.viewerValue}>
+                  {viewingQuotation.partNumber || "—"}
+                </span>
+              </div>
+              <div className={styles.viewerRow}>
+                <span className={styles.viewerLabel}>Description</span>
+                <span className={styles.viewerValue}>
+                  {viewingQuotation.description || "—"}
+                </span>
+              </div>
+              <div className={styles.viewerRow}>
+                <span className={styles.viewerLabel}>Supplier</span>
+                <span className={styles.viewerValue}>
+                  {viewingQuotation.supplier || "—"}
+                </span>
+              </div>
+              <div className={styles.viewerRow}>
+                <span className={styles.viewerLabel}>Type</span>
+                <span className={styles.viewerValue}>
+                  {viewingQuotation.type === "rental"
+                    ? "Rental (Day Rate)"
+                    : "Acquisition (Purchase)"}
+                </span>
+              </div>
+              <div className={styles.viewerRow}>
+                <span className={styles.viewerLabel}>Cost</span>
+                <span className={styles.viewerValue}>
+                  {viewingQuotation.currency} {viewingQuotation.cost.toFixed(2)}
+                  {viewingQuotation.currency !== "USD" && (
+                    <span className={styles.viewerSub}>
+                      {" "}
+                      ≈{" "}
+                      {formatCurrency(
+                        viewingQuotation.costUSD > 0
+                          ? viewingQuotation.costUSD
+                          : convertToUSD(
+                              viewingQuotation.cost,
+                              viewingQuotation.currency,
+                              exchangeRates,
+                            ),
+                        "USD",
+                      )}
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className={styles.viewerRow}>
+                <span className={styles.viewerLabel}>Lead Time</span>
+                <span className={styles.viewerValue}>
+                  {viewingQuotation.leadTimeDays > 0
+                    ? `${viewingQuotation.leadTimeDays} days`
+                    : "—"}
+                </span>
+              </div>
+              <div className={styles.viewerRow}>
+                <span className={styles.viewerLabel}>Quotation Date</span>
+                <span className={styles.viewerValue}>
+                  {viewingQuotation.quotationDate
+                    ? formatDate(viewingQuotation.quotationDate)
+                    : "—"}
+                </span>
+              </div>
+              <div className={styles.viewerRow}>
+                <span className={styles.viewerLabel}>Created By</span>
+                <span className={styles.viewerValue}>
+                  {viewingQuotation.createdBy || "—"}
+                </span>
+              </div>
+              {viewingQuotation.notes && (
+                <div className={styles.viewerRow}>
+                  <span className={styles.viewerLabel}>Notes</span>
+                  <span className={styles.viewerValue}>
+                    {viewingQuotation.notes}
+                  </span>
+                </div>
+              )}
+              {viewingQuotation.fileUrl && (
+                <div className={styles.viewerRow}>
+                  <span className={styles.viewerLabel}>File</span>
+                  <span className={styles.viewerValue}>
+                    <a
+                      href={QuotationService.getFileOpenUrl(
+                        viewingQuotation.fileUrl,
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.quotationFileLink}
+                    >
+                      📎 {viewingQuotation.fileName || "Open File"}
+                    </a>
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </>

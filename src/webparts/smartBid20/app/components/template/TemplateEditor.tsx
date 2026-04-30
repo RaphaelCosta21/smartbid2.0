@@ -1,18 +1,24 @@
 import * as React from "react";
 import { IBidTemplate } from "../../models/IBidTemplate";
-import { IScopeItem, IHoursSummary } from "../../models";
+import { IScopeItem, IHoursSummary, IBidAttachment } from "../../models";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { ScopeOfSupplyTab } from "../bid/ScopeOfSupplyTab";
 import { BidHoursTable } from "../bid/BidHoursTable";
+import { EditToolbar } from "../common/EditLockBanner";
+import { useEditControl } from "../../hooks/useEditControl";
+import { useAccessLevel } from "../../hooks/useAccessLevel";
 import { DIVISIONS, SERVICE_LINES } from "../../utils/constants";
 import { makeId } from "../../utils/idGenerator";
+import { AttachmentService } from "../../services/AttachmentService";
 import styles from "./TemplateEditor.module.scss";
 
 interface TemplateEditorProps {
   template?: IBidTemplate;
   onSave: (template: IBidTemplate) => void;
   onCancel: () => void;
+  /** When true, opens in read-only mode with Edit buttons per section */
+  viewOnly?: boolean;
   className?: string;
 }
 
@@ -20,10 +26,26 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   template,
   onSave,
   onCancel,
+  viewOnly = false,
   className,
 }) => {
   const currentUser = useCurrentUser();
   const config = useConfigStore((s) => s.config);
+  const { canEdit: canEditSection, isSuperAdmin } = useAccessLevel();
+  const canEditTemplates = canEditSection("templates") || isSuperAdmin;
+
+  // Stable ID for this template (existing or new)
+  const [stableId] = React.useState(() => template?.id || makeId("tpl"));
+
+  // Edit control per step (only used in viewOnly mode)
+  const editControlInfo = useEditControl(stableId, "template-info");
+  const editControlScope = useEditControl(stableId, "template-scope");
+  const editControlHours = useEditControl(stableId, "template-hours");
+
+  // In viewOnly mode, steps are read-only unless user acquires the lock
+  const isInfoEditing = viewOnly ? editControlInfo.isEditing : true;
+  const isScopeEditing = viewOnly ? editControlScope.isEditing : true;
+  const isHoursEditing = viewOnly ? editControlHours.isEditing : true;
 
   const [name, setName] = React.useState(template?.name || "");
   const [description, setDescription] = React.useState(
@@ -53,6 +75,13 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   const [hoursSummary, setHoursSummary] = React.useState<IHoursSummary>(
     template?.hoursSummary || EMPTY_HOURS,
   );
+
+  // Attachments state
+  const [attachments, setAttachments] = React.useState<IBidAttachment[]>(
+    template?.attachments || [],
+  );
+  const [isUploading, setIsUploading] = React.useState(false);
+  const templateFileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Step: 0 = metadata, 1 = scope items, 2 = hours & personnel
   const [step, setStep] = React.useState(0);
@@ -98,7 +127,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 
   const handleSave = (): void => {
     const saved: IBidTemplate = {
-      id: template?.id || makeId("tpl"),
+      id: stableId,
       name,
       description,
       division,
@@ -117,8 +146,44 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean),
+      attachments,
     };
     onSave(saved);
+  };
+
+  const handleTemplateFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ): Promise<void> => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    setIsUploading(true);
+    try {
+      const uploaded = await AttachmentService.uploadTemplateFile(
+        stableId,
+        file,
+      );
+      setAttachments((prev) => [...prev, uploaded]);
+    } catch (err) {
+      console.error("Failed to upload template attachment:", err);
+      // Fallback: store as local reference
+      const localAtt: IBidAttachment = {
+        id: makeId("att"),
+        fileName: file.name,
+        fileUrl: URL.createObjectURL(file),
+        fileSize: file.size,
+        fileType: file.type,
+        uploadedBy: currentUser?.displayName || "",
+        uploadedDate: new Date().toISOString(),
+        category: "template",
+      };
+      setAttachments((prev) => [...prev, localAtt]);
+    }
+    setIsUploading(false);
+  };
+
+  const removeTemplateAttachment = (attId: string): void => {
+    setAttachments((prev) => prev.filter((a) => a.id !== attId));
   };
 
   const canProceed = name.trim().length > 0;
@@ -156,6 +221,13 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 
       {step === 0 && (
         <div className={styles.form}>
+          {viewOnly && (
+            <EditToolbar
+              editControl={editControlInfo}
+              canEdit={canEditTemplates}
+              label="Template Info"
+            />
+          )}
           <div className={styles.formGrid}>
             <div className={styles.formGroup}>
               <label className={styles.label}>
@@ -167,6 +239,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
                 onChange={(e) => setName(e.target.value)}
                 className={styles.input}
                 placeholder="e.g., Multibeam Survey Standard"
+                disabled={!isInfoEditing}
               />
             </div>
 
@@ -178,6 +251,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
                 onChange={(e) => setCategory(e.target.value)}
                 className={styles.input}
                 placeholder="e.g., Survey, ROV Inspection"
+                disabled={!isInfoEditing}
               />
             </div>
 
@@ -187,6 +261,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
                 value={division}
                 onChange={(e) => setDivision(e.target.value)}
                 className={styles.select}
+                disabled={!isInfoEditing}
               >
                 <option value="">Select division...</option>
                 {divisionOptions.map((d) => (
@@ -203,6 +278,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
                 value={serviceLine}
                 onChange={(e) => setServiceLine(e.target.value)}
                 className={styles.select}
+                disabled={!isInfoEditing}
               >
                 <option value="">Select service line...</option>
                 {serviceLineOptions.map((sl) => (
@@ -222,6 +298,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
               className={styles.textarea}
               placeholder="Brief description of when to use this template..."
               rows={3}
+              disabled={!isInfoEditing}
             />
           </div>
 
@@ -235,6 +312,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
               onChange={(e) => setTags(e.target.value)}
               className={styles.input}
               placeholder="e.g., multibeam, survey, pipeline"
+              disabled={!isInfoEditing}
             />
           </div>
 
@@ -245,15 +323,82 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
                 checked={isActive}
                 onChange={(e) => setIsActive(e.target.checked)}
                 className={styles.checkbox}
+                disabled={!isInfoEditing}
               />
               Template is active and available for import
             </label>
           </div>
 
+          {/* Template Attachments Section */}
+          <div className={styles.formGroup}>
+            <label className={styles.label}>
+              Attachments{" "}
+              <span className={styles.hint}>
+                (client specifications, PDFs, etc.)
+              </span>
+            </label>
+            <input
+              ref={templateFileInputRef}
+              type="file"
+              style={{ display: "none" }}
+              onChange={handleTemplateFileUpload}
+            />
+            {attachments.length > 0 && (
+              <div className={styles.attachList}>
+                {attachments.map((att) => (
+                  <div key={att.id} className={styles.attachItem}>
+                    <span className={styles.attachIcon}>📄</span>
+                    <a
+                      href={att.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.attachName}
+                      title={att.fileName}
+                    >
+                      {att.fileName}
+                    </a>
+                    <span className={styles.attachSize}>
+                      {att.fileSize > 1024 * 1024
+                        ? `${(att.fileSize / (1024 * 1024)).toFixed(1)} MB`
+                        : `${Math.round(att.fileSize / 1024)} KB`}
+                    </span>
+                    {isInfoEditing && (
+                      <button
+                        className={styles.attachDelete}
+                        onClick={() => removeTemplateAttachment(att.id)}
+                        title="Remove attachment"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {isInfoEditing && (
+              <button
+                className={styles.attachBtn}
+                onClick={() => templateFileInputRef.current?.click()}
+                disabled={isUploading}
+              >
+                {isUploading ? "Uploading..." : "📎 Attach File"}
+              </button>
+            )}
+          </div>
+
           <div className={styles.actions}>
             <button onClick={onCancel} className={styles.cancelBtn}>
-              Cancel
+              {viewOnly ? "Close" : "Cancel"}
             </button>
+            {isInfoEditing && (
+              <button
+                onClick={handleSave}
+                disabled={!canProceed}
+                className={styles.saveBtn}
+              >
+                Save
+              </button>
+            )}
             <button
               onClick={() => setStep(1)}
               disabled={!canProceed}
@@ -267,14 +412,22 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 
       {step === 1 && (
         <div className={styles.scopeStep}>
+          {viewOnly && (
+            <EditToolbar
+              editControl={editControlScope}
+              canEdit={canEditTemplates}
+              label="Scope of Supply"
+            />
+          )}
           <div className={styles.scopeHeader}>
             <div>
               <h3 className={styles.scopeTitle}>
                 Scope of Supply — {name || "Template"}
               </h3>
               <p className={styles.scopeSubtitle}>
-                Build the scope items for this template. These items will be
-                imported directly into a BID&apos;s Scope of Supply.
+                {isScopeEditing
+                  ? "Build the scope items for this template. These items will be imported directly into a BID's Scope of Supply."
+                  : "Viewing scope items. Click Edit to make changes."}
               </p>
             </div>
           </div>
@@ -283,7 +436,8 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             <ScopeOfSupplyTab
               scopeItems={scopeItems}
               onSave={setScopeItems}
-              readOnly={false}
+              readOnly={!isScopeEditing}
+              templateId={stableId}
             />
           </div>
 
@@ -292,8 +446,17 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
               ← Back
             </button>
             <button onClick={onCancel} className={styles.cancelBtn}>
-              Cancel
+              {viewOnly ? "Close" : "Cancel"}
             </button>
+            {isScopeEditing && (
+              <button
+                onClick={handleSave}
+                disabled={!canProceed}
+                className={styles.saveBtn}
+              >
+                Save
+              </button>
+            )}
             <button
               onClick={() => setStep(2)}
               disabled={!canProceed}
@@ -307,15 +470,22 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 
       {step === 2 && (
         <div className={styles.scopeStep}>
+          {viewOnly && (
+            <EditToolbar
+              editControl={editControlHours}
+              canEdit={canEditTemplates}
+              label="Hours & Personnel"
+            />
+          )}
           <div className={styles.scopeHeader}>
             <div>
               <h3 className={styles.scopeTitle}>
                 Hours &amp; Personnel — {name || "Template"}
               </h3>
               <p className={styles.scopeSubtitle}>
-                Define the hours and personnel structure for this template.
-                These will be imported directly into a BID&apos;s Hours &amp;
-                Personnel tab.
+                {isHoursEditing
+                  ? "Define the hours and personnel structure for this template. These will be imported directly into a BID's Hours & Personnel tab."
+                  : "Viewing hours & personnel. Click Edit to make changes."}
               </p>
             </div>
           </div>
@@ -323,7 +493,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
           <div className={styles.scopeContainer}>
             <BidHoursTable
               hoursSummary={hoursSummary}
-              readOnly={false}
+              readOnly={!isHoursEditing}
               onSave={setHoursSummary}
             />
           </div>
@@ -333,15 +503,17 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
               ← Back
             </button>
             <button onClick={onCancel} className={styles.cancelBtn}>
-              Cancel
+              {viewOnly ? "Close" : "Cancel"}
             </button>
-            <button
-              onClick={handleSave}
-              disabled={!canProceed}
-              className={styles.saveBtn}
-            >
-              {template ? "Update Template" : "Create Template"}
-            </button>
+            {isHoursEditing && (
+              <button
+                onClick={handleSave}
+                disabled={!canProceed}
+                className={styles.saveBtn}
+              >
+                Save
+              </button>
+            )}
           </div>
         </div>
       )}

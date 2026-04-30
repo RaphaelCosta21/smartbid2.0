@@ -8,6 +8,7 @@ import { AdvancedCatalogSearch } from "../components/common/AdvancedCatalogSearc
 import { PhotoLightbox } from "../components/common/PhotoLightbox";
 import { useBids } from "../hooks/useBids";
 import { useFavoritesStore } from "../stores/useFavoritesStore";
+import { useConfigStore } from "../stores/useConfigStore";
 import { useQueryCatalogStore } from "../stores/useQueryCatalogStore";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { IBid, IFavoriteEquipment } from "../models";
@@ -39,12 +40,12 @@ export const FavoritesPage: React.FC = () => {
   const addEquipment = useFavoritesStore((s) => s.addEquipment);
   const updateEquipment = useFavoritesStore((s) => s.updateEquipment);
   const removeEquipment = useFavoritesStore((s) => s.removeEquipment);
-  const addGroup = useFavoritesStore((s) => s.addGroup);
-  const addSubGroup = useFavoritesStore((s) => s.addSubGroup);
-  const removeGroup = useFavoritesStore((s) => s.removeGroup);
-  const removeSubGroup = useFavoritesStore((s) => s.removeSubGroup);
-  const renameGroup = useFavoritesStore((s) => s.renameGroup);
-  const renameSubGroup = useFavoritesStore((s) => s.renameSubGroup);
+
+  // Groups now come from System Configuration (read-only here)
+  // Fall back to favorites data groups during migration
+  const sysConfig = useConfigStore((s) => s.config);
+  const configGroups = sysConfig?.favoriteGroups || [];
+  const favGroups = favData?.groups || [];
 
   const [activeTab, setActiveTab] = React.useState<TabKey>("equipment");
   const [viewMode, setViewMode] = React.useState<ViewMode>("grid");
@@ -57,7 +58,6 @@ export const FavoritesPage: React.FC = () => {
   const [addingParentId, setAddingParentId] = React.useState<string | null>(
     null,
   );
-  const [showManageGroups, setShowManageGroups] = React.useState(false);
   const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(
     new Set(),
   );
@@ -75,13 +75,13 @@ export const FavoritesPage: React.FC = () => {
     if (!isLoaded) loadFavorites();
   }, []);
 
-  const rawGroups = favData?.groups || [];
   const equipment = favData?.equipment || [];
   const favBids = favData?.bids || [];
 
-  // Sort groups and subGroups alphabetically
+  // Groups come from System Configuration; fall back to favorites data during migration
   const groups = React.useMemo(() => {
-    return rawGroups
+    const source = configGroups.length > 0 ? configGroups : favGroups;
+    return source
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((g) => ({
@@ -90,7 +90,7 @@ export const FavoritesPage: React.FC = () => {
           .slice()
           .sort((a, b) => a.name.localeCompare(b.name)),
       }));
-  }, [rawGroups]);
+  }, [configGroups, favGroups]);
 
   // Resolve BID favorites to full IBid objects
   const favBidNumbers = React.useMemo(
@@ -190,32 +190,14 @@ export const FavoritesPage: React.FC = () => {
     removeEquipment(id);
   };
 
-  const handleAddGroupPrompt = (): void => {
-    const name = prompt("New group name:");
-    if (name && name.trim()) addGroup(name.trim());
-  };
-
-  const handleAddSubGroupPrompt = (groupId: string): void => {
-    const name = prompt("New sub-group name:");
-    if (name && name.trim()) addSubGroup(groupId, name.trim());
-  };
-
-  const handleRemoveGroup = async (groupId: string): Promise<void> => {
-    const g = groups.find((gr) => gr.id === groupId);
-    if (!g) return;
-    try {
-      await removeGroup(groupId);
-    } catch (err: any) {
-      alert(err.message || "Cannot delete group.");
-    }
-  };
-
   const sourceLabel = (src: string): { text: string; cls: string } => {
     switch (src) {
       case "bid":
         return { text: "BID", cls: styles.srcBid };
       case "query":
         return { text: "Query", cls: styles.srcQuery };
+      case "quotation":
+        return { text: "Quotation", cls: styles.srcQuotation };
       default:
         return { text: "Manual", cls: styles.srcManual };
     }
@@ -564,283 +546,6 @@ export const FavoritesPage: React.FC = () => {
     );
   };
 
-  // ─── Manage Groups Modal ───
-  const ManageGroupsModal: React.FC = () => {
-    const [editingId, setEditingId] = React.useState<string | null>(null);
-    const [editValue, setEditValue] = React.useState("");
-    const [errorMsg, setErrorMsg] = React.useState("");
-    const [newGroupName, setNewGroupName] = React.useState("");
-    const [addingSubGroupTo, setAddingSubGroupTo] = React.useState<
-      string | null
-    >(null);
-    const [newSubGroupName, setNewSubGroupName] = React.useState("");
-
-    const handleStartEdit = (id: string, currentName: string): void => {
-      setEditingId(id);
-      setEditValue(currentName);
-      setErrorMsg("");
-    };
-
-    const handleSaveGroupRename = async (groupId: string): Promise<void> => {
-      if (!editValue.trim()) return;
-      await renameGroup(groupId, editValue.trim());
-      setEditingId(null);
-    };
-
-    const handleSaveSubGroupRename = async (
-      groupId: string,
-      subGroupId: string,
-    ): Promise<void> => {
-      if (!editValue.trim()) return;
-      await renameSubGroup(groupId, subGroupId, editValue.trim());
-      setEditingId(null);
-    };
-
-    const handleDeleteGroup = async (groupId: string): Promise<void> => {
-      setErrorMsg("");
-      const g = groups.find((gr) => gr.id === groupId);
-      const label = g ? g.name : groupId;
-      const itemCount = equipment.filter((e) => e.groupId === groupId).length;
-      const subCount = g ? g.subGroups.length : 0;
-      const msg =
-        itemCount > 0
-          ? `Cannot delete "${label}" — it still contains ${itemCount} equipment item(s). Move or remove them first.`
-          : `Delete group "${label}"${subCount > 0 ? ` and its ${subCount} sub-group(s)` : ""}? This cannot be undone.`;
-      if (itemCount > 0) {
-        alert(msg);
-        return;
-      }
-      if (!confirm(msg)) return;
-      try {
-        await removeGroup(groupId);
-      } catch (err: any) {
-        setErrorMsg(err.message || "Cannot delete group.");
-      }
-    };
-
-    const handleDeleteSubGroup = async (
-      groupId: string,
-      subGroupId: string,
-    ): Promise<void> => {
-      setErrorMsg("");
-      const g = groups.find((gr) => gr.id === groupId);
-      const sg = g ? g.subGroups.find((s) => s.id === subGroupId) : null;
-      const label = sg ? sg.name : subGroupId;
-      const itemCount = equipment.filter(
-        (e) => e.subGroupId === subGroupId,
-      ).length;
-      const msg =
-        itemCount > 0
-          ? `Cannot delete sub-group "${label}" — it still contains ${itemCount} equipment item(s). Move or remove them first.`
-          : `Delete sub-group "${label}"? This cannot be undone.`;
-      if (itemCount > 0) {
-        alert(msg);
-        return;
-      }
-      if (!confirm(msg)) return;
-      try {
-        await removeSubGroup(groupId, subGroupId);
-      } catch (err: any) {
-        setErrorMsg(err.message || "Cannot delete sub-group.");
-      }
-    };
-
-    const handleAddGroup = (): void => {
-      if (!newGroupName.trim()) return;
-      addGroup(newGroupName.trim());
-      setNewGroupName("");
-    };
-
-    const handleAddSubGroup = (groupId: string): void => {
-      if (!newSubGroupName.trim()) return;
-      addSubGroup(groupId, newSubGroupName.trim());
-      setNewSubGroupName("");
-      setAddingSubGroupTo(null);
-    };
-
-    return (
-      <div
-        className={styles.modalOverlay}
-        onClick={() => setShowManageGroups(false)}
-      >
-        <div
-          className={`${styles.modal} ${styles.manageModal}`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className={styles.modalHeader}>
-            <h3>Manage Groups & Sub-Groups</h3>
-            <button
-              className={styles.closeBtn}
-              onClick={() => setShowManageGroups(false)}
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className={styles.manageBody}>
-            {errorMsg && <div className={styles.manageError}>{errorMsg}</div>}
-
-            {/* Add new group */}
-            <div className={styles.manageAddRow}>
-              <input
-                className={styles.formInput}
-                value={newGroupName}
-                onChange={(e) => setNewGroupName(e.target.value)}
-                placeholder="New group name..."
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAddGroup();
-                }}
-              />
-              <button className={styles.saveBtn} onClick={handleAddGroup}>
-                + Add Group
-              </button>
-            </div>
-
-            <div className={styles.manageList}>
-              {groups.map((g) => {
-                const gCount = equipment.filter(
-                  (e) => e.groupId === g.id,
-                ).length;
-                return (
-                  <div key={g.id} className={styles.manageGroupBlock}>
-                    <div className={styles.manageGroupRow}>
-                      {editingId === g.id ? (
-                        <input
-                          className={styles.manageEditInput}
-                          value={editValue}
-                          autoFocus
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleSaveGroupRename(g.id);
-                            if (e.key === "Escape") setEditingId(null);
-                          }}
-                          onBlur={() => handleSaveGroupRename(g.id)}
-                        />
-                      ) : (
-                        <span className={styles.manageGroupName}>
-                          {g.name}
-                          <span className={styles.manageCount}>({gCount})</span>
-                        </span>
-                      )}
-                      <div className={styles.manageActions}>
-                        <button
-                          className={styles.manageActionBtn}
-                          title="Rename"
-                          onClick={() => handleStartEdit(g.id, g.name)}
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          className={styles.manageActionBtn}
-                          title="Add sub-group"
-                          onClick={() => {
-                            setAddingSubGroupTo(g.id);
-                            setNewSubGroupName("");
-                          }}
-                        >
-                          +
-                        </button>
-                        <button
-                          className={`${styles.manageActionBtn} ${styles.manageDeleteBtn}`}
-                          title="Delete group"
-                          onClick={() => handleDeleteGroup(g.id)}
-                        >
-                          🗑
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Sub-groups */}
-                    {g.subGroups.map((sg) => {
-                      const sgCount = equipment.filter(
-                        (e) => e.subGroupId === sg.id,
-                      ).length;
-                      return (
-                        <div key={sg.id} className={styles.manageSubGroupRow}>
-                          {editingId === sg.id ? (
-                            <input
-                              className={styles.manageEditInput}
-                              value={editValue}
-                              autoFocus
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter")
-                                  handleSaveSubGroupRename(g.id, sg.id);
-                                if (e.key === "Escape") setEditingId(null);
-                              }}
-                              onBlur={() =>
-                                handleSaveSubGroupRename(g.id, sg.id)
-                              }
-                            />
-                          ) : (
-                            <span className={styles.manageSubGroupName}>
-                              {sg.name}
-                              <span className={styles.manageCount}>
-                                ({sgCount})
-                              </span>
-                            </span>
-                          )}
-                          <div className={styles.manageActions}>
-                            <button
-                              className={styles.manageActionBtn}
-                              title="Rename"
-                              onClick={() => handleStartEdit(sg.id, sg.name)}
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              className={`${styles.manageActionBtn} ${styles.manageDeleteBtn}`}
-                              title="Delete sub-group"
-                              onClick={() => handleDeleteSubGroup(g.id, sg.id)}
-                            >
-                              🗑
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {/* Add sub-group inline */}
-                    {addingSubGroupTo === g.id && (
-                      <div className={styles.manageSubGroupRow}>
-                        <input
-                          className={styles.manageEditInput}
-                          value={newSubGroupName}
-                          autoFocus
-                          placeholder="Sub-group name..."
-                          onChange={(e) => setNewSubGroupName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleAddSubGroup(g.id);
-                            if (e.key === "Escape") setAddingSubGroupTo(null);
-                          }}
-                        />
-                        <button
-                          className={styles.manageActionBtn}
-                          onClick={() => handleAddSubGroup(g.id)}
-                        >
-                          ✓
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className={styles.modalFooter}>
-            <button
-              className={styles.cancelBtn}
-              onClick={() => setShowManageGroups(false)}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   if (isLoading) {
     return (
       <div className={styles.page}>
@@ -923,20 +628,6 @@ export const FavoritesPage: React.FC = () => {
           <div className={styles.groupSidebar}>
             <div className={styles.sidebarHeader}>
               <span className={styles.sidebarTitle}>Groups</span>
-              <button
-                className={styles.manageGroupsBtn}
-                title="Manage Groups & Sub-Groups"
-                onClick={() => setShowManageGroups(true)}
-              >
-                ⚙
-              </button>
-              <button
-                className={styles.addGroupBtn}
-                title="Add group"
-                onClick={handleAddGroupPrompt}
-              >
-                +
-              </button>
             </div>
             <div
               className={`${styles.groupItem} ${!selectedGroup ? styles.groupActive : ""}`}
@@ -968,27 +659,6 @@ export const FavoritesPage: React.FC = () => {
                   <span className={styles.groupCount}>
                     {getGroupCount(g.id)}
                   </span>
-                  <button
-                    className={styles.groupAction}
-                    title="Add sub-group"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAddSubGroupPrompt(g.id);
-                    }}
-                  >
-                    +
-                  </button>
-                  <button
-                    className={styles.groupAction}
-                    title="Remove group"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (confirm(`Delete group "${g.name}"?`))
-                        handleRemoveGroup(g.id);
-                    }}
-                  >
-                    ✕
-                  </button>
                 </div>
                 {expandedGroups.has(g.id) &&
                   g.subGroups.map((sg) => (
@@ -1392,7 +1062,6 @@ export const FavoritesPage: React.FC = () => {
       )}
 
       {showAddModal && <AddEquipmentModal />}
-      {showManageGroups && <ManageGroupsModal />}
       {editingItem && (
         <EditEquipmentModal
           item={editingItem}

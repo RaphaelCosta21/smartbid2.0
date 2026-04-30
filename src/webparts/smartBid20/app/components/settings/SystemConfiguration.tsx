@@ -1,6 +1,6 @@
 /**
  * SystemConfiguration Component — SMART BID 2.0
- * Real SharePoint data with DEFAULT_SYSTEM_CONFIG as seed.
+ * Real SharePoint data loaded from smartbid-config list.
  * Editable only by engineering sector (or superAdmin).
  * Sidebar navigation with grouped menus.
  */
@@ -13,11 +13,14 @@ import {
   IKPITargets,
   IExchangeRate,
   AccessPermission,
+  IFavoriteGroup,
+  IFavoriteSubGroup,
 } from "../../models";
 import { SystemConfigService } from "../../services/SystemConfigService";
-import { DEFAULT_SYSTEM_CONFIG } from "../../data/defaultSystemConfig";
+// DEFAULT_SYSTEM_CONFIG removed — all data loaded from SharePoint JSON
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useConfigStore } from "../../stores/useConfigStore";
+import { useFavoritesStore } from "../../stores/useFavoritesStore";
 import { APP_CONFIG } from "../../config/app.config";
 
 /* ------------------------------------------------------------------ */
@@ -62,6 +65,11 @@ const NAV_GROUPS: INavGroup[] = [
         configKey: "phases",
       },
       { key: "regions", label: "Regions", icon: "🌎", configKey: "regions" },
+      {
+        key: "groupsAndSubGroups",
+        label: "Groups & SubGroups",
+        icon: "📂",
+      },
     ],
   },
   {
@@ -343,6 +351,9 @@ const SystemConfiguration: React.FC = () => {
       currentUser.email,
     );
 
+  // Subscribe to favorites data for equipment counts (Groups tab)
+  const favEquipment = useFavoritesStore((s) => s.data?.equipment || []);
+
   const [activeTab, setActiveTab] = React.useState<string>("kpi");
   const [config, setConfig] = React.useState<ISystemConfig | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -388,18 +399,9 @@ const SystemConfiguration: React.FC = () => {
     setLoading(true);
     try {
       const data = await SystemConfigService.get();
-      // Merge subStatuses from defaults if not present in SP data
-      if (!data.subStatuses || data.subStatuses.length === 0) {
-        data.subStatuses = [...DEFAULT_SYSTEM_CONFIG.subStatuses];
-      }
-      // Merge terminalStatuses from defaults if not present
-      if (!data.terminalStatuses || data.terminalStatuses.length === 0) {
-        data.terminalStatuses = [...DEFAULT_SYSTEM_CONFIG.terminalStatuses];
-      }
       setConfig(data);
-    } catch {
-      // No config in SP yet — seed with defaults
-      setConfig({ ...DEFAULT_SYSTEM_CONFIG });
+    } catch (err) {
+      console.error("Failed to load system config from SharePoint:", err);
     } finally {
       setLoading(false);
     }
@@ -408,6 +410,14 @@ const SystemConfiguration: React.FC = () => {
   React.useEffect(() => {
     loadConfig().catch(() => undefined);
   }, [loadConfig]);
+
+  // Ensure favorites data is loaded (needed for equipment counts in Groups tab)
+  React.useEffect(() => {
+    const favState = useFavoritesStore.getState();
+    if (!favState.isLoaded && !favState.isLoading) {
+      favState.loadFavorites().catch(() => undefined);
+    }
+  }, []);
 
   /* ---- persist to SharePoint ------------------------------------ */
 
@@ -2093,6 +2103,269 @@ const SystemConfiguration: React.FC = () => {
   };
 
   /* ================================================================ */
+  /* GROUPS & SUB-GROUPS                                              */
+  /* ================================================================ */
+
+  const renderGroupsAndSubGroups = (): React.ReactElement => {
+    if (!config) return <></>;
+
+    const groups = (config.favoriteGroups || [])
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((g) => ({
+        ...g,
+        subGroups: g.subGroups
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+
+    // Access favorites equipment for counts (delete protection)
+    const equipment = favEquipment;
+
+    const getGroupItemCount = (groupId: string): number =>
+      equipment.filter((e) => e.groupId === groupId).length;
+    const getSubGroupItemCount = (subGroupId: string): number =>
+      equipment.filter((e) => e.subGroupId === subGroupId).length;
+
+    const generateId = (): string =>
+      Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
+
+    const handleAddGroup = (): void => {
+      const name = prompt("New group name:");
+      if (!name || !name.trim()) return;
+      const newGroup: IFavoriteGroup = {
+        id: generateId(),
+        name: name.trim(),
+        subGroups: [],
+      };
+      updateConfig({
+        favoriteGroups: [...(config.favoriteGroups || []), newGroup],
+      });
+      showMsg("success", `Group "${name.trim()}" added`);
+    };
+
+    const handleAddSubGroup = (groupId: string): void => {
+      const name = prompt("New sub-group name:");
+      if (!name || !name.trim()) return;
+      const newSub: IFavoriteSubGroup = {
+        id: generateId(),
+        name: name.trim(),
+        groupId,
+      };
+      const updatedGroups = (config.favoriteGroups || []).map((g) => {
+        if (g.id === groupId) {
+          return { ...g, subGroups: [...g.subGroups, newSub] };
+        }
+        return g;
+      });
+      updateConfig({ favoriteGroups: updatedGroups });
+      showMsg("success", `Sub-group "${name.trim()}" added`);
+    };
+
+    const handleRenameGroup = (groupId: string, currentName: string): void => {
+      const newName = prompt("Rename group:", currentName);
+      if (!newName || !newName.trim() || newName.trim() === currentName) return;
+      const updatedGroups = (config.favoriteGroups || []).map((g) =>
+        g.id === groupId ? { ...g, name: newName.trim() } : g,
+      );
+      updateConfig({ favoriteGroups: updatedGroups });
+      showMsg("success", `Group renamed to "${newName.trim()}"`);
+    };
+
+    const handleRenameSubGroup = (
+      groupId: string,
+      subGroupId: string,
+      currentName: string,
+    ): void => {
+      const newName = prompt("Rename sub-group:", currentName);
+      if (!newName || !newName.trim() || newName.trim() === currentName) return;
+      const updatedGroups = (config.favoriteGroups || []).map((g) => {
+        if (g.id !== groupId) return g;
+        return {
+          ...g,
+          subGroups: g.subGroups.map((sg) =>
+            sg.id === subGroupId ? { ...sg, name: newName.trim() } : sg,
+          ),
+        };
+      });
+      updateConfig({ favoriteGroups: updatedGroups });
+      showMsg("success", `Sub-group renamed to "${newName.trim()}"`);
+    };
+
+    const handleDeleteGroup = (groupId: string): void => {
+      const g = groups.find((gr) => gr.id === groupId);
+      if (!g) return;
+      const itemCount = getGroupItemCount(groupId);
+      if (itemCount > 0) {
+        alert(
+          `Cannot delete "${g.name}" — it still contains ${itemCount} equipment item(s) in the Favorites catalog. Remove or move them first.`,
+        );
+        return;
+      }
+      const subCount = g.subGroups.length;
+      if (
+        !confirm(
+          `Delete group "${g.name}"${subCount > 0 ? ` and its ${subCount} sub-group(s)` : ""}? This cannot be undone.`,
+        )
+      )
+        return;
+      updateConfig({
+        favoriteGroups: (config.favoriteGroups || []).filter(
+          (gr) => gr.id !== groupId,
+        ),
+      });
+      showMsg("success", `Group "${g.name}" deleted`);
+    };
+
+    const handleDeleteSubGroup = (
+      groupId: string,
+      subGroupId: string,
+    ): void => {
+      const g = groups.find((gr) => gr.id === groupId);
+      const sg = g ? g.subGroups.find((s) => s.id === subGroupId) : null;
+      if (!sg) return;
+      const itemCount = getSubGroupItemCount(subGroupId);
+      if (itemCount > 0) {
+        alert(
+          `Cannot delete sub-group "${sg.name}" — it still contains ${itemCount} equipment item(s) in the Favorites catalog. Remove or move them first.`,
+        );
+        return;
+      }
+      if (!confirm(`Delete sub-group "${sg.name}"? This cannot be undone.`))
+        return;
+      const updatedGroups = (config.favoriteGroups || []).map((gr) => {
+        if (gr.id !== groupId) return gr;
+        return {
+          ...gr,
+          subGroups: gr.subGroups.filter((s) => s.id !== subGroupId),
+        };
+      });
+      updateConfig({ favoriteGroups: updatedGroups });
+      showMsg("success", `Sub-group "${sg.name}" deleted`);
+    };
+
+    return (
+      <div>
+        <div className={styles.sectionHeader}>
+          <h3>Groups & Sub-Groups</h3>
+          <p>
+            Manage equipment groups and sub-groups used in the Favorites
+            catalog. Groups cannot be deleted while they contain equipment
+            items.
+          </p>
+        </div>
+
+        {canEdit && (
+          <div className={styles.addBtnRow}>
+            <button
+              className={`${styles.actionBtn} ${styles.primary}`}
+              onClick={handleAddGroup}
+            >
+              + Add Group
+            </button>
+          </div>
+        )}
+
+        <div className={styles.groupsList}>
+          {groups.map((g) => {
+            const gCount = getGroupItemCount(g.id);
+            return (
+              <div key={g.id} className={styles.groupBlock}>
+                <div className={styles.groupRow}>
+                  <div className={styles.groupInfo}>
+                    <span className={styles.groupIcon}>📁</span>
+                    <span className={styles.groupLabel}>{g.name}</span>
+                    <span className={styles.groupItemCount}>
+                      {gCount} item{gCount !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  {canEdit && (
+                    <div className={styles.groupActions}>
+                      <button
+                        className={styles.actionBtn}
+                        onClick={() => handleRenameGroup(g.id, g.name)}
+                      >
+                        Rename
+                      </button>
+                      <button
+                        className={styles.actionBtn}
+                        onClick={() => handleAddSubGroup(g.id)}
+                      >
+                        + Sub
+                      </button>
+                      <button
+                        className={`${styles.actionBtn} ${styles.danger}`}
+                        onClick={() => handleDeleteGroup(g.id)}
+                        title={
+                          gCount > 0
+                            ? "Cannot delete — has equipment items"
+                            : "Delete group"
+                        }
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {g.subGroups.length > 0 && (
+                  <div className={styles.subGroupsList}>
+                    {g.subGroups.map((sg) => {
+                      const sgCount = getSubGroupItemCount(sg.id);
+                      return (
+                        <div key={sg.id} className={styles.subGroupRow}>
+                          <div className={styles.groupInfo}>
+                            <span className={styles.subGroupIcon}>└</span>
+                            <span className={styles.subGroupLabel}>
+                              {sg.name}
+                            </span>
+                            <span className={styles.groupItemCount}>
+                              {sgCount} item{sgCount !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          {canEdit && (
+                            <div className={styles.groupActions}>
+                              <button
+                                className={styles.actionBtn}
+                                onClick={() =>
+                                  handleRenameSubGroup(g.id, sg.id, sg.name)
+                                }
+                              >
+                                Rename
+                              </button>
+                              <button
+                                className={`${styles.actionBtn} ${styles.danger}`}
+                                onClick={() =>
+                                  handleDeleteSubGroup(g.id, sg.id)
+                                }
+                                title={
+                                  sgCount > 0
+                                    ? "Cannot delete — has equipment items"
+                                    : "Delete sub-group"
+                                }
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {groups.length === 0 && (
+            <div className={styles.emptyState}>
+              No groups defined yet. Click "+ Add Group" to create one.
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  /* ================================================================ */
   /* TAB ROUTER                                                       */
   /* ================================================================ */
 
@@ -2119,6 +2392,8 @@ const SystemConfiguration: React.FC = () => {
         return renderResourceTypes();
       case "availabilityAcquisition":
         return renderAvailabilityAndAcquisition();
+      case "groupsAndSubGroups":
+        return renderGroupsAndSubGroups();
       default: {
         if (currentNavItem?.configKey) {
           return renderOptionsList(currentNavItem.configKey);

@@ -105,12 +105,14 @@
 .tableWrapper {
   overflow-x: auto;
   overflow-y: visible;
+  position: relative;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  overflow: visible;
 
   th {
     padding: 8px 10px;
@@ -129,6 +131,8 @@
     color: var(--text-primary);
     border-bottom: 1px solid var(--border-subtle);
     vertical-align: middle;
+    position: relative;
+    overflow: visible;
   }
 
   tr:hover td {
@@ -197,6 +201,29 @@
   display: flex;
   gap: 4px;
   margin-left: auto;
+}
+
+/* ─── Section edit button ─── */
+.sectionEditBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  transition: all 0.15s;
+
+  &:hover {
+    opacity: 1;
+    background: var(--glass-bg, rgba(255, 255, 255, 0.08));
+    border-color: var(--border-subtle);
+    color: var(--accent-color);
+  }
 }
 
 /* ─── Inline editing ─── */
@@ -406,6 +433,7 @@
   opacity: 0.4;
   transition: all 0.2s;
   border-radius: 4px;
+  position: relative;
 
   svg {
     transition: transform 0.22s;
@@ -419,6 +447,23 @@
   &.cellExpandHasContent {
     opacity: 0.7;
     color: var(--accent-color);
+  }
+
+  &.cellExpandHasSubs {
+    opacity: 1;
+    color: var(--accent-color);
+
+    &::after {
+      content: "";
+      position: absolute;
+      bottom: 1px;
+      right: 1px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      border: 1.5px solid var(--card-bg, #1a1a2e);
+    }
   }
 
   &.cellExpandOpen {
@@ -501,11 +546,14 @@
     padding: 0 !important;
     border-bottom: 2px solid var(--accent-color);
     background: var(--card-bg-elevated, var(--card-bg, #1a1a2e)) !important;
+    overflow: visible;
   }
 }
 
 .drawerInner {
   padding: 0 20px 16px 60px;
+  overflow: visible;
+  position: relative;
 }
 
 /* Drawer tabs */
@@ -570,6 +618,8 @@
 
 .drawerTabPanel {
   padding: 16px 0 4px;
+  overflow: visible;
+  position: relative;
 }
 
 .drawerEmpty {
@@ -587,7 +637,7 @@
 .subTblWrap {
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
-  overflow: hidden;
+  overflow: visible;
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.08),
     0 4px 16px rgba(0, 0, 0, 0.06);
@@ -595,8 +645,9 @@
 
 .subTblHead {
   display: grid;
-  grid-template-columns: 40px 1fr 128px 160px 115px 70px 1fr 36px;
+  grid-template-columns: 28px 40px 1fr 128px 160px 115px 70px 1fr 36px;
   background: var(--card-bg, #162d5a);
+  border-radius: 10px 10px 0 0;
 }
 
 .subTh {
@@ -617,14 +668,18 @@
 
 .subRows {
   background: var(--card-bg-elevated, var(--card-bg));
+  position: relative;
+  overflow: visible;
 }
 
 .subRow {
   display: grid;
-  grid-template-columns: 40px 1fr 128px 160px 115px 70px 1fr 36px;
+  grid-template-columns: 28px 40px 1fr 128px 160px 115px 70px 1fr 36px;
   min-height: 38px;
   border-bottom: 1px solid var(--border-subtle);
   transition: background 0.12s;
+  position: relative;
+  overflow: visible;
 
   &:last-child {
     border-bottom: none;
@@ -642,6 +697,8 @@
   align-items: center;
   font-size: 12px;
   color: var(--text-primary);
+  position: relative;
+  overflow: visible;
 
   &:last-child {
     border-right: none;
@@ -666,6 +723,64 @@
   &:hover {
     color: #ef4444;
   }
+}
+
+.subActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+}
+
+.subActionBtn {
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 3px;
+  transition:
+    color 0.15s,
+    background 0.15s;
+
+  &:hover {
+    color: var(--accent-color);
+    background: var(--hover-bg, rgba(255, 255, 255, 0.06));
+  }
+}
+
+.subActionDanger {
+  &:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+  }
+}
+
+/* ─── Sub-item drag handle ─── */
+.subDragHandle {
+  cursor: grab;
+  justify-content: center;
+  color: var(--text-secondary);
+  opacity: 0.4;
+  transition: opacity 0.15s;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:hover {
+    opacity: 0.8;
+  }
+}
+
+.subRowDragOver {
+  background: var(--accent-color-10, rgba(20, 184, 166, 0.08)) !important;
+  box-shadow: 0 -2px 0 0 var(--accent-color) inset;
+}
+
+.subRowDragged {
+  opacity: 0.4;
 }
 
 .subInp {
@@ -1752,6 +1867,193 @@
     background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  }
+}
+
+/* ─── Equipment Offer cell (allows text expansion) ─── */
+.equipmentOfferCell {
+  min-width: 160px;
+
+  input {
+    width: 100%;
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
+    text-overflow: unset;
+  }
+
+  // Override PartNumberAutocomplete container for visible overflow
+  > div {
+    overflow: visible;
+  }
+}
+
+/* ─── Sub-item Equipment Offer (wrapping) ─── */
+.subEquipmentCell {
+  min-width: 0;
+
+  input {
+    width: 100%;
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
+    text-overflow: unset;
+  }
+}
+
+/* ─── Attachments panel ─── */
+.attachPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.attachList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.attachItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-subtle);
+  transition: border-color 0.15s;
+
+  &:hover {
+    border-color: var(--accent-color);
+  }
+}
+
+.attachIcon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.attachName {
+  flex: 1;
+  font-size: 12px;
+  color: var(--accent-color);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.attachSize {
+  font-size: 10px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.attachDelete {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s;
+
+  &:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+  }
+}
+
+.attachEmpty {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0;
+}
+
+.attachBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--accent-color, #14b8a6);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  margin-left: 2px;
+  line-height: 1;
+}
+
+/* ─── Section attachments list ─── */
+.sectionAttachRow {
+  td {
+    padding: 0 !important;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--glass-bg, rgba(255, 255, 255, 0.02)) !important;
+  }
+}
+
+.sectionAttachList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 16px 8px 60px;
+  align-items: center;
+}
+
+.sectionAttachItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-subtle);
+  font-size: 11px;
+  transition: border-color 0.15s;
+
+  &:hover {
+    border-color: var(--accent-color);
+  }
+}
+
+.sectionAttachLink {
+  color: var(--accent-color, #14b8a6);
+  text-decoration: none;
+  font-size: 11px;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.sectionAttachDelete {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1;
+  transition: all 0.15s;
+
+  &:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
   }
 }
 

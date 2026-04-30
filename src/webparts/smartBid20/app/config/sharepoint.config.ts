@@ -11,6 +11,7 @@ export const SHAREPOINT_CONFIG = {
     approvals: "smartbid-approvals",
     assetsCatalog: "Assets Catalog_",
     templates: "smartbid-templates",
+    quotations: "smartbid-quotations",
   },
 
   libraries: {
