@@ -73,11 +73,66 @@ const blankSubItemCost = (subItemId: string): ISubItemCost => ({
   unitCostUSD: 0,
   totalCostUSD: 0,
   costReference: "",
-  costCategory: "",
+  costCategory: "OPEX",
   supplier: "",
   leadTimeDays: 0,
   notes: "",
 });
+
+/** Format cost number with 2 decimal places and thousands separator */
+const fmtCost = (n: number): string =>
+  n.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+/** Format date reference as DD/Mon/YYYY */
+const formatDateRef = (isoDate: string): string => {
+  if (!isoDate) return "—";
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return isoDate;
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  return `${d.getDate().toString().padStart(2, "0")}/${months[d.getMonth()]}/${d.getFullYear()}`;
+};
+
+/** Date age class — green (<1y), yellow (1-2y), red (>2y) */
+const dateAgeClass = (dateRef: string): string => {
+  if (!dateRef) return "";
+  const d = new Date(dateRef);
+  if (isNaN(d.getTime())) return "";
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffYears = diffMs / (365.25 * 24 * 60 * 60 * 1000);
+  if (diffYears >= 2) return styles.dateOld;
+  if (diffYears >= 1) return styles.dateWarn;
+  return styles.dateRecent;
+};
+
+/** Source badge class for Cost Ref */
+const costRefBadgeClass = (ref: string): string => {
+  if (!ref) return "";
+  const upper = ref.toUpperCase();
+  if (upper === "BUMBL") return styles.srcBUMBL;
+  if (upper === "BUMBR") return styles.srcBUMBR;
+  if (upper.startsWith("FIN") || upper === "FINANCIALS") return styles.srcFIN;
+  if (upper === "BOM COST") return styles.srcBOM;
+  if (upper === "QUOTE") return styles.srcQuote;
+  if (upper === "MANUAL") return styles.srcManual;
+  return styles.srcOther;
+};
 
 export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   scopeItems,
@@ -171,7 +226,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       if (a.id !== id) return a;
       const patched = { ...a, [field]: value };
 
-      const NO_COST_STATUSES = ["onboard", "call out"];
+      const NO_COST_STATUSES = ["onboard", "call out", "not offered"];
 
       // Auto-set fields when availability changes
       if (field === "availabilityStatus") {
@@ -221,6 +276,13 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         } else {
           patched.dailyRate = null;
           patched.rentalDays = null;
+          if (acqVal === "purchase") {
+            const si = (scopeItems || []).find(
+              (s) => s.id === patched.scopeItemId,
+            );
+            const subType = (si?.resourceSubType || "").toLowerCase();
+            patched.costCategory = subType === "consumable" ? "OPEX" : "CAPEX";
+          }
         }
       }
       // Recalculate total for rental items (rate × days × qty)
@@ -245,7 +307,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             const disc = (sc.transitDiscount || 0) / 100;
             return {
               ...sc,
-              costUSD: rate * disc * totalTransitDays,
+              costUSD: rate * (1 - disc) * totalTransitDays,
               leadTimeDays: totalTransitDays,
             };
           });
@@ -263,6 +325,81 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           patched.totalCostUSD = (patched.unitCostUSD || 0) * qty;
         }
       }
+      return patched;
+    });
+    persist(updated);
+  };
+
+  /** Bulk-update a field for all assets in a given section */
+  const bulkUpdateSectionField = (
+    sectionId: string,
+    field: keyof IAssetBreakdownItem,
+    value: unknown,
+  ): void => {
+    const sectionAssetIds = new Set(
+      localAssets
+        .filter((a) => {
+          const si = getScopeItem(a.scopeItemId);
+          return si && si.sectionId === sectionId;
+        })
+        .map((a) => a.id),
+    );
+    if (sectionAssetIds.size === 0) return;
+
+    // Apply updateField logic to each matching asset
+    const updated = localAssets.map((a) => {
+      if (!sectionAssetIds.has(a.id)) return a;
+      const patched = { ...a, [field]: value };
+      const NO_COST_STATUSES = ["onboard", "call out", "not offered"];
+
+      if (field === "availabilityStatus") {
+        const val = String(value).toLowerCase();
+        if (NO_COST_STATUSES.indexOf(val) >= 0) {
+          patched.acquisitionType = "N/A";
+          patched.costCategory = "";
+          patched.unitCostUSD = 0;
+          patched.totalCostUSD = 0;
+          patched.costReference = "";
+          patched.leadTimeDays = 0;
+          patched.supplier = "";
+          patched.dailyRate = null;
+          patched.rentalDays = null;
+        } else {
+          patched.acquisitionType = "";
+          patched.dailyRate = null;
+          patched.rentalDays = null;
+        }
+      }
+
+      if (field === "acquisitionType") {
+        const acqVal = String(value).toLowerCase();
+        const isRental = acqVal === "rental";
+        const isWorkshop = acqVal === "workshop/refurbishment";
+        if (isRental) {
+          patched.costCategory = "OPEX";
+          patched.unitCostUSD = 0;
+          patched.totalCostUSD = 0;
+          patched.dailyRate = 0;
+          patched.rentalDays = 0;
+        } else if (isWorkshop) {
+          patched.unitCostUSD = 0;
+          patched.totalCostUSD = 0;
+          patched.costCategory = "OPEX";
+          patched.dailyRate = null;
+          patched.rentalDays = null;
+        } else {
+          patched.dailyRate = null;
+          patched.rentalDays = null;
+          if (acqVal === "purchase") {
+            const si = (scopeItems || []).find(
+              (s) => s.id === patched.scopeItemId,
+            );
+            const subType = (si?.resourceSubType || "").toLowerCase();
+            patched.costCategory = subType === "consumable" ? "OPEX" : "CAPEX";
+          }
+        }
+      }
+
       return patched;
     });
     persist(updated);
@@ -301,7 +438,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
               (patched.importDays || 0) + (patched.exportDays || 0);
             const disc = (patched.transitDiscount || 0) / 100;
             const dailyRate = a.dailyRate || 0;
-            patched.costUSD = dailyRate * disc * totalTransitDays;
+            patched.costUSD = dailyRate * (1 - disc) * totalTransitDays;
             patched.leadTimeDays = totalTransitDays;
           }
           return patched;
@@ -354,12 +491,141 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         subItemCosts: (a.subItemCosts || []).map((sic) => {
           if (sic.id !== subItemCostId) return sic;
           const patched = { ...sic, [field]: value };
-          // Auto-calc totalCostUSD = unitCostUSD × qty
-          if (field === "unitCostUSD") {
+
+          // Handle availability status changes for sub-items
+          if (field === "availabilityStatus") {
+            const val = String(value).toLowerCase();
+            const isNoCost =
+              val === "onboard" || val === "call out" || val === "not offered";
+            if (isNoCost) {
+              patched.acquisitionType = "N/A";
+              patched.costCategory = "";
+              patched.unitCostUSD = 0;
+              patched.totalCostUSD = 0;
+              patched.dailyRate = null;
+              patched.rentalDays = null;
+            } else {
+              patched.acquisitionType = "";
+              patched.dailyRate = null;
+              patched.rentalDays = null;
+            }
+          }
+
+          // Handle acquisition type changes for sub-items
+          if (field === "acquisitionType") {
+            const acqVal = String(value).toLowerCase();
+            if (acqVal === "rental") {
+              patched.costCategory = "OPEX";
+              patched.unitCostUSD = 0;
+              patched.totalCostUSD = 0;
+              patched.dailyRate = 0;
+              patched.rentalDays = 0;
+            } else {
+              patched.dailyRate = null;
+              patched.rentalDays = null;
+              if (acqVal === "purchase") {
+                // Check sub-item subType for Consumable → OPEX
+                const si = (scopeItems || []).find(
+                  (s) => s.id === a.scopeItemId,
+                );
+                const scopeSub = (si?.subItems || []).find(
+                  (sub) => sub.id === sic.subItemId,
+                );
+                const subType = (scopeSub?.subType || "").toLowerCase();
+                patched.costCategory =
+                  subType === "consumable" ? "OPEX" : "CAPEX";
+              }
+            }
+          }
+
+          // Auto-calc for rental sub-items
+          if (field === "dailyRate" || field === "rentalDays") {
+            const days =
+              field === "rentalDays"
+                ? Number(value) || 0
+                : patched.rentalDays || 0;
+            const rate =
+              field === "dailyRate"
+                ? Number(value) || 0
+                : patched.dailyRate || 0;
+            const sub = getSubItemForCost(a.scopeItemId, sic.subItemId);
+            const qty = sub?.qty || 1;
+            patched.totalCostUSD = rate * days * qty;
+            patched.unitCostUSD = rate;
+          }
+
+          // Auto-calc totalCostUSD = unitCostUSD × qty (for non-rental)
+          if (
+            field === "unitCostUSD" &&
+            (patched.acquisitionType || "").toLowerCase() !== "rental"
+          ) {
             const sub = getSubItemForCost(a.scopeItemId, sic.subItemId);
             const qty = sub?.qty || 1;
             patched.totalCostUSD = (Number(value) || 0) * qty;
           }
+          return patched;
+        }),
+      };
+    });
+    persist(updated);
+  };
+
+  /** Bulk-update a field for all sub-item costs of a given asset */
+  const bulkUpdateSubItems = (
+    assetId: string,
+    field: keyof ISubItemCost,
+    value: unknown,
+  ): void => {
+    const updated = localAssets.map((a) => {
+      if (a.id !== assetId) return a;
+      return {
+        ...a,
+        subItemCosts: (a.subItemCosts || []).map((sic) => {
+          const patched = { ...sic, [field]: value };
+
+          if (field === "availabilityStatus") {
+            const val = String(value).toLowerCase();
+            const isNoCost =
+              val === "onboard" || val === "call out" || val === "not offered";
+            if (isNoCost) {
+              patched.acquisitionType = "N/A";
+              patched.costCategory = "";
+              patched.unitCostUSD = 0;
+              patched.totalCostUSD = 0;
+              patched.dailyRate = null;
+              patched.rentalDays = null;
+            } else {
+              patched.acquisitionType = "";
+              patched.dailyRate = null;
+              patched.rentalDays = null;
+            }
+          }
+
+          if (field === "acquisitionType") {
+            const acqVal = String(value).toLowerCase();
+            if (acqVal === "rental") {
+              patched.costCategory = "OPEX";
+              patched.unitCostUSD = 0;
+              patched.totalCostUSD = 0;
+              patched.dailyRate = 0;
+              patched.rentalDays = 0;
+            } else {
+              patched.dailyRate = null;
+              patched.rentalDays = null;
+              if (acqVal === "purchase") {
+                const si = (scopeItems || []).find(
+                  (s) => s.id === a.scopeItemId,
+                );
+                const scopeSub = (si?.subItems || []).find(
+                  (sub) => sub.id === sic.subItemId,
+                );
+                const subType = (scopeSub?.subType || "").toLowerCase();
+                patched.costCategory =
+                  subType === "consumable" ? "OPEX" : "CAPEX";
+              }
+            }
+          }
+
           return patched;
         }),
       };
@@ -383,8 +649,13 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     sic: ISubItemCost,
     scopeItemId: string,
   ): number => {
+    const avail = (sic.availabilityStatus || "").toLowerCase();
+    if (avail === "onboard" || avail === "call out" || avail === "not offered")
+      return 0;
     const sub = getSubItemForCost(scopeItemId, sic.subItemId);
     const qty = sub?.qty || 1;
+    const isRental = (sic.acquisitionType || "").toLowerCase() === "rental";
+    if (isRental) return (sic.dailyRate || 0) * (sic.rentalDays || 0) * qty;
     return (sic.unitCostUSD || 0) * qty;
   };
 
@@ -412,7 +683,11 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     const si = getScopeItem(a.scopeItemId);
     const qty = (si?.qtyOperational || 0) + (si?.qtySpare || 0) || 1;
 
-    if (avail === "onboard" || avail === "call out") {
+    if (
+      avail === "onboard" ||
+      avail === "call out" ||
+      avail === "not offered"
+    ) {
       return scSum;
     }
     if (acqType === "workshop") {
@@ -429,9 +704,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   /** Get the total of all sub-item costs for an asset */
   const getSubItemCostsTotal = (a: IAssetBreakdownItem): number => {
     return (a.subItemCosts || []).reduce((sum, sic) => {
-      const sub = getSubItemForCost(a.scopeItemId, sic.subItemId);
-      const qty = sub?.qty || 1;
-      return sum + (sic.unitCostUSD || 0) * qty;
+      return sum + getSubItemCostTotal(sic, a.scopeItemId);
     }, 0);
   };
 
@@ -552,24 +825,47 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     let uncategorized = 0;
     let subCostsTotal = 0;
     let subItemCostsTotal = 0;
+    const byResourceType: Record<string, number> = {};
     localAssets.forEach((a) => {
+      const si = getScopeItem(a.scopeItemId);
+      const resType = si?.resourceType || "";
       const effectiveTotal = getEffectiveTotal(a);
       const assetSubCosts = (a.subCosts || []).reduce(
         (s, sc) => s + (sc.costUSD || 0),
         0,
       );
       const sicTotal = getSubItemCostsTotal(a);
-      // Rental and Workshop are always OPEX regardless of stored costCategory
+
+      // Categorize main item cost (effectiveTotal) by parent's category
       const acqType = (a.acquisitionType || "").toLowerCase();
       const effectiveCategory =
         acqType === "rental" || acqType === "workshop"
           ? "OPEX"
           : a.costCategory;
-      if (effectiveCategory === "CAPEX") capex += effectiveTotal + sicTotal;
-      else if (effectiveCategory === "OPEX") opex += effectiveTotal + sicTotal;
-      else uncategorized += effectiveTotal + sicTotal;
+      if (effectiveCategory === "CAPEX") capex += effectiveTotal;
+      else if (effectiveCategory === "OPEX") opex += effectiveTotal;
+      else uncategorized += effectiveTotal;
+
+      // Categorize each sub-item cost by its OWN costCategory
+      (a.subItemCosts || []).forEach((sic) => {
+        const sicCost = getSubItemCostTotal(sic, a.scopeItemId);
+        const sicAcqType = (sic.acquisitionType || "").toLowerCase();
+        const sicCategory =
+          sicAcqType === "rental" || sicAcqType === "workshop"
+            ? "OPEX"
+            : sic.costCategory;
+        if (sicCategory === "CAPEX") capex += sicCost;
+        else if (sicCategory === "OPEX") opex += sicCost;
+        else uncategorized += sicCost;
+      });
+
+      const itemGrand = effectiveTotal + sicTotal;
       subCostsTotal += assetSubCosts;
       subItemCostsTotal += sicTotal;
+
+      if (resType) {
+        byResourceType[resType] = (byResourceType[resType] || 0) + itemGrand;
+      }
     });
     return {
       capex,
@@ -577,6 +873,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       total: capex + opex + uncategorized,
       subCostsTotal,
       subItemCostsTotal,
+      byResourceType,
     };
   }, [localAssets]);
 
@@ -589,7 +886,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
 
     localAssets.forEach((a) => {
       const avail = (a.availabilityStatus || "").toLowerCase();
-      const isNoCost = avail === "onboard" || avail === "call out";
+      const isNoCost =
+        avail === "onboard" || avail === "call out" || avail === "not offered";
 
       // Count main items (skip no-cost statuses)
       if (!isNoCost) {
@@ -619,57 +917,189 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     costCompleteness.itemsTotal + costCompleteness.subItemsTotal;
   const allCostsFilled = totalMissing === 0 && totalItems > 0;
 
+  // ─── Missing items detail list ───
+  const [showMissingItems, setShowMissingItems] = React.useState(false);
+
+  const missingItemsList = React.useMemo(() => {
+    const items: Array<{
+      type: "main" | "sub";
+      assetId: string;
+      sectionId: string | null;
+      lineNumber: number;
+      equipmentOffer: string;
+      partNumber: string;
+      resourceType: string;
+      resourceSubType: string;
+    }> = [];
+
+    localAssets.forEach((a) => {
+      const avail = (a.availabilityStatus || "").toLowerCase();
+      const isNoCost =
+        avail === "onboard" || avail === "call out" || avail === "not offered";
+      const si = getScopeItem(a.scopeItemId);
+
+      if (!isNoCost) {
+        const effectiveTotal = getEffectiveTotal(a);
+        if (effectiveTotal === 0 && si) {
+          items.push({
+            type: "main",
+            assetId: a.id,
+            sectionId: si.sectionId || null,
+            lineNumber: si.lineNumber,
+            equipmentOffer: si.equipmentOffer || si.description || "—",
+            partNumber: si.partNumber || "—",
+            resourceType: si.resourceType || "—",
+            resourceSubType: si.resourceSubType || "—",
+          });
+        }
+      }
+
+      (a.subItemCosts || []).forEach((sic) => {
+        const sicTotal = getSubItemCostTotal(sic, a.scopeItemId);
+        if (sicTotal === 0 && si) {
+          const sub = (si.subItems || []).find((s) => s.id === sic.subItemId);
+          items.push({
+            type: "sub",
+            assetId: a.id,
+            sectionId: si.sectionId || null,
+            lineNumber: si.lineNumber,
+            equipmentOffer: sub
+              ? sub.equipmentOffer || sub.description || "Sub-item"
+              : "Sub-item",
+            partNumber: sub ? sub.partNumber || "—" : "—",
+            resourceType: si.resourceType || "—",
+            resourceSubType: sub ? sub.subType || "—" : "—",
+          });
+        }
+      });
+    });
+
+    return items;
+  }, [localAssets, scopeItems]);
+
+  const scrollToAsset = React.useCallback(
+    (assetId: string, sectionId: string | null) => {
+      // Uncollapse the section if it's collapsed
+      if (sectionId && collapsedSections.has(sectionId)) {
+        setCollapsedSections((prev) => {
+          const next = new Set(prev);
+          next.delete(sectionId);
+          return next;
+        });
+      }
+      // Wait for DOM update, then scroll
+      setTimeout(() => {
+        const el = document.getElementById(`asset-row-${assetId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add(styles.highlightRow);
+          setTimeout(() => el.classList.remove(styles.highlightRow), 2000);
+        }
+      }, 100);
+    },
+    [collapsedSections],
+  );
+
   // ─── Cost Search import handler ───
   const handleCostSearchImport = (items: CostSearchImportItem[]): void => {
     const updated = localAssets.map((a) => {
-      const match = items.find((i) => i.assetId === a.id);
-      if (!match) return a;
-      const scopeItem = getScopeItem(a.scopeItemId);
-      const qty =
-        (scopeItem?.qtyOperational || 0) + (scopeItem?.qtySpare || 0) || 1;
-      return {
-        ...a,
-        unitCostUSD: match.unitCostUSD,
-        totalCostUSD: match.unitCostUSD * qty,
-        costReference: match.costReference,
-        leadTimeDays: match.leadTimeDays,
-        originalCost: match.originalCost,
-        originalCurrency: match.originalCurrency,
-        costDate: match.costDate,
-        costCalcMethod: "auto" as const,
-      };
+      // Check for main-item matches
+      const mainMatch = items.find(
+        (i) => i.assetId === a.id && !i.subItemCostId,
+      );
+      // Check for sub-item matches
+      const subMatches = items.filter(
+        (i) => i.assetId === a.id && i.subItemCostId,
+      );
+
+      let patched = a;
+
+      if (mainMatch) {
+        const scopeItem = getScopeItem(a.scopeItemId);
+        const qty =
+          (scopeItem?.qtyOperational || 0) + (scopeItem?.qtySpare || 0) || 1;
+        patched = {
+          ...patched,
+          unitCostUSD: mainMatch.unitCostUSD,
+          totalCostUSD: mainMatch.unitCostUSD * qty,
+          costReference: mainMatch.costReference,
+          dateReference: mainMatch.dateReference || mainMatch.costDate,
+          leadTimeDays: mainMatch.leadTimeDays,
+          originalCost: mainMatch.originalCost,
+          originalCurrency: mainMatch.originalCurrency,
+          costDate: mainMatch.costDate,
+          costCalcMethod: "auto" as const,
+        };
+      }
+
+      if (subMatches.length > 0) {
+        const updatedSubCosts = (patched.subItemCosts || []).map((sic) => {
+          const sm = subMatches.find((i) => i.subItemCostId === sic.id);
+          if (!sm) return sic;
+          // Get qty from scope sub-item
+          const scopeItem = getScopeItem(a.scopeItemId);
+          const scopeSub = (scopeItem?.subItems || []).find(
+            (s) => s.id === sic.subItemId,
+          );
+          const qty = scopeSub?.qty || 1;
+          return {
+            ...sic,
+            unitCostUSD: sm.unitCostUSD,
+            totalCostUSD: sm.unitCostUSD * qty,
+            costReference: sm.costReference,
+            dateReference: sm.dateReference || sm.costDate,
+            leadTimeDays: sm.leadTimeDays,
+            originalCost: sm.originalCost,
+            originalCurrency: sm.originalCurrency,
+            costDate: sm.costDate,
+          };
+        });
+        patched = { ...patched, subItemCosts: updatedSubCosts };
+      }
+
+      if (!mainMatch && subMatches.length === 0) return a;
+      return patched;
     });
     persist(updated);
   };
 
-  const COLS = 16;
+  const COLS = 18;
 
   return (
     <div className={styles.container}>
       {/* Summary */}
       <div className={styles.summaryRow}>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Total Assets Cost</span>
-          <span className={styles.summaryValue}>
-            $ {totals.total.toLocaleString()}
-          </span>
+        {/* Dynamic resource type cards */}
+        {Object.keys(totals.byResourceType).length > 1 && (
+          <>
+            {Object.keys(totals.byResourceType).map((rt) => (
+              <div key={rt} className={styles.summaryCard}>
+                <span className={styles.summaryLabel}>{rt}</span>
+                <span className={styles.summaryValue}>
+                  $ {fmtCost(totals.byResourceType[rt])}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+        <div className={`${styles.summaryCard} ${styles.summaryCardTotal}`}>
+          <span className={styles.summaryLabel}>Total</span>
+          <span className={styles.summaryValue}>$ {fmtCost(totals.total)}</span>
         </div>
+      </div>
+      <div className={styles.summaryRow}>
         <div className={styles.summaryCard}>
           <span className={styles.summaryLabel}>CAPEX</span>
-          <span className={styles.summaryValue}>
-            $ {totals.capex.toLocaleString()}
-          </span>
+          <span className={styles.summaryValue}>$ {fmtCost(totals.capex)}</span>
         </div>
         <div className={styles.summaryCard}>
           <span className={styles.summaryLabel}>OPEX</span>
-          <span className={styles.summaryValue}>
-            $ {totals.opex.toLocaleString()}
-          </span>
+          <span className={styles.summaryValue}>$ {fmtCost(totals.opex)}</span>
         </div>
         <div className={styles.summaryCard}>
           <span className={styles.summaryLabel}>Sub-Costs</span>
           <span className={styles.summaryValue}>
-            $ {totals.subCostsTotal.toLocaleString()}
+            $ {fmtCost(totals.subCostsTotal)}
           </span>
         </div>
         <div className={styles.summaryCard}>
@@ -680,36 +1110,106 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
 
       {/* Cost Completeness Banner */}
       {totalItems > 0 && (
-        <div
-          className={
-            allCostsFilled
-              ? styles.costBannerComplete
-              : styles.costBannerPending
-          }
-        >
-          <span className={styles.costBannerIcon}>
-            {allCostsFilled ? "✅" : "⚠️"}
-          </span>
-          <span className={styles.costBannerText}>
-            {allCostsFilled
-              ? `All ${totalItems} items have costs mapped`
-              : `${totalMissing} of ${totalItems} item${totalItems !== 1 ? "s" : ""} still missing cost`}
-            {costCompleteness.itemsMissing > 0 && (
-              <span className={styles.costBannerSub}>
-                {" "}
-                · {costCompleteness.itemsMissing} main item
-                {costCompleteness.itemsMissing !== 1 ? "s" : ""}
+        <>
+          <div
+            className={
+              allCostsFilled
+                ? styles.costBannerComplete
+                : styles.costBannerPending
+            }
+            onClick={
+              !allCostsFilled ? () => setShowMissingItems((v) => !v) : undefined
+            }
+            style={!allCostsFilled ? { cursor: "pointer" } : undefined}
+          >
+            <span className={styles.costBannerIcon}>
+              {allCostsFilled ? "✅" : "⚠️"}
+            </span>
+            <span className={styles.costBannerText}>
+              {allCostsFilled
+                ? `All ${totalItems} items have costs mapped`
+                : `${totalMissing} of ${totalItems} item${totalItems !== 1 ? "s" : ""} still missing cost`}
+              {costCompleteness.itemsMissing > 0 && (
+                <span className={styles.costBannerSub}>
+                  {" "}
+                  · {costCompleteness.itemsMissing} main item
+                  {costCompleteness.itemsMissing !== 1 ? "s" : ""}
+                </span>
+              )}
+              {costCompleteness.subItemsMissing > 0 && (
+                <span className={styles.costBannerSub}>
+                  {" "}
+                  · {costCompleteness.subItemsMissing} sub-item
+                  {costCompleteness.subItemsMissing !== 1 ? "s" : ""}
+                </span>
+              )}
+            </span>
+            {!allCostsFilled && (
+              <span className={styles.costBannerToggle}>
+                {showMissingItems ? "▲ Hide" : "▼ Details"}
               </span>
             )}
-            {costCompleteness.subItemsMissing > 0 && (
-              <span className={styles.costBannerSub}>
-                {" "}
-                · {costCompleteness.subItemsMissing} sub-item
-                {costCompleteness.subItemsMissing !== 1 ? "s" : ""}
-              </span>
+          </div>
+          {showMissingItems &&
+            !allCostsFilled &&
+            missingItemsList.length > 0 && (
+              <div className={styles.missingItemsPanel}>
+                <table className={styles.missingItemsTable}>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Type</th>
+                      <th>Equipment Offer</th>
+                      <th>OII/MFG PN</th>
+                      <th>RES. TYPE</th>
+                      <th>SUB-TYPE</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {missingItemsList.map((item, idx) => (
+                      <tr key={idx}>
+                        <td>{item.lineNumber}</td>
+                        <td>
+                          <span
+                            className={
+                              item.type === "main"
+                                ? styles.missingTypeMain
+                                : styles.missingTypeSub
+                            }
+                          >
+                            {item.type === "main" ? "Main" : "Sub-item"}
+                          </span>
+                        </td>
+                        <td>
+                          {item.type === "sub" && (
+                            <span style={{ marginRight: 4, opacity: 0.5 }}>
+                              ↳
+                            </span>
+                          )}
+                          {item.equipmentOffer}
+                        </td>
+                        <td className={styles.missingPN}>{item.partNumber}</td>
+                        <td>{item.resourceType}</td>
+                        <td>{item.resourceSubType}</td>
+                        <td>
+                          <button
+                            className={styles.goToBtn}
+                            onClick={() =>
+                              scrollToAsset(item.assetId, item.sectionId)
+                            }
+                            title="Go to item"
+                          >
+                            ↗
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </span>
-        </div>
+        </>
       )}
 
       {/* Orphan warning */}
@@ -766,6 +1266,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           <table className={styles.table}>
             <thead>
               <tr>
+                <th style={{ width: 28, padding: "0 2px" }}></th>
                 <th style={{ width: 36 }}>#</th>
                 <th>Equipment Offer</th>
                 <th>OII/MFG PN</th>
@@ -773,11 +1274,12 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 <th>Sub-Type</th>
                 <th>Qty Op</th>
                 <th>Qty Sp</th>
-                <th>Availability</th>
-                <th>Acq. Type</th>
+                <th style={{ minWidth: 120 }}>Availability</th>
+                <th style={{ minWidth: 120 }}>Acq. Type</th>
                 <th>Unit Cost USD</th>
                 <th>Total Cost USD</th>
                 <th>Cost Ref</th>
+                <th>Date Ref</th>
                 <th>Lead Time</th>
                 <th>CAPEX/OPEX</th>
                 <th>Supplier</th>
@@ -806,17 +1308,29 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                   let secOther = 0;
                   sectionAssets.forEach((a) => {
                     const eff = getEffectiveTotal(a);
-                    const sicTotal = getSubItemCostsTotal(a);
                     const acqType = (a.acquisitionType || "").toLowerCase();
                     const effectiveCategory =
                       acqType === "rental" || acqType === "workshop"
                         ? "OPEX"
                         : a.costCategory;
-                    if (effectiveCategory === "CAPEX")
-                      secCapex += eff + sicTotal;
-                    else if (effectiveCategory === "OPEX")
-                      secOpex += eff + sicTotal;
-                    else secOther += eff + sicTotal;
+                    if (effectiveCategory === "CAPEX") secCapex += eff;
+                    else if (effectiveCategory === "OPEX") secOpex += eff;
+                    else secOther += eff;
+
+                    // Categorize each sub-item cost by its own costCategory
+                    (a.subItemCosts || []).forEach((sic) => {
+                      const sicCost = getSubItemCostTotal(sic, a.scopeItemId);
+                      const sicAcqType = (
+                        sic.acquisitionType || ""
+                      ).toLowerCase();
+                      const sicCategory =
+                        sicAcqType === "rental" || sicAcqType === "workshop"
+                          ? "OPEX"
+                          : sic.costCategory;
+                      if (sicCategory === "CAPEX") secCapex += sicCost;
+                      else if (sicCategory === "OPEX") secOpex += sicCost;
+                      else secOther += sicCost;
+                    });
                   });
                   const sectionTotal = secCapex + secOpex + secOther;
                   const sColor = sec.sectionColor || "";
@@ -856,6 +1370,93 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           <span className={styles.sectionBadge}>
                             ({count} items)
                           </span>
+                          {((sec.clientRequirement &&
+                            sec.clientRequirement.trim()) ||
+                            (sec.clientSpecs &&
+                              sec.clientSpecs.length > 0)) && (
+                            <span
+                              className={styles.specsIndicator}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <span className={styles.specsIndicatorIcon}>
+                                📋
+                              </span>
+                              <div className={styles.specsTooltip}>
+                                <div className={styles.specsTooltipTitle}>
+                                  Section Technical Specs
+                                </div>
+                                {sec.clientRequirement &&
+                                  sec.clientRequirement.trim() && (
+                                    <div className={styles.specsTooltipReq}>
+                                      {sec.clientRequirement}
+                                    </div>
+                                  )}
+                                {(sec.clientSpecs || []).length > 0 && (
+                                  <ul className={styles.specsTooltipList}>
+                                    {(sec.clientSpecs || []).map(
+                                      (spec, idx) => (
+                                        <li key={idx}>{spec}</li>
+                                      ),
+                                    )}
+                                  </ul>
+                                )}
+                              </div>
+                            </span>
+                          )}
+                          {!readOnly && (
+                            <span
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                                marginLeft: 12,
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <select
+                                className={styles.setAllSelect}
+                                value=""
+                                onChange={(e) => {
+                                  if (e.target.value)
+                                    bulkUpdateSectionField(
+                                      sec.id,
+                                      "availabilityStatus",
+                                      e.target.value,
+                                    );
+                                  e.target.value = "";
+                                }}
+                                title="Set Availability for all items in section"
+                              >
+                                <option value="">Set All Avail.</option>
+                                {availabilityStatuses.map((as) => (
+                                  <option key={as.id} value={as.value}>
+                                    {as.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <select
+                                className={styles.setAllSelect}
+                                value=""
+                                onChange={(e) => {
+                                  if (e.target.value)
+                                    bulkUpdateSectionField(
+                                      sec.id,
+                                      "acquisitionType",
+                                      e.target.value,
+                                    );
+                                  e.target.value = "";
+                                }}
+                                title="Set Acq. Type for all items in section"
+                              >
+                                <option value="">Set All Acq. Type</option>
+                                {acquisitionTypes.map((at) => (
+                                  <option key={at.id} value={at.value}>
+                                    {at.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </span>
+                          )}
                           <span
                             style={{
                               marginLeft: "auto",
@@ -879,7 +1480,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                     color: "var(--text-primary)",
                                   }}
                                 >
-                                  $ {secCapex.toLocaleString()}
+                                  $ {fmtCost(secCapex)}
                                 </span>
                               </span>
                             )}
@@ -897,7 +1498,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                     color: "var(--text-primary)",
                                   }}
                                 >
-                                  $ {secOpex.toLocaleString()}
+                                  $ {fmtCost(secOpex)}
                                 </span>
                               </span>
                             )}
@@ -908,7 +1509,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 color: "var(--text-primary)",
                               }}
                             >
-                              $ {sectionTotal.toLocaleString()}
+                              $ {fmtCost(sectionTotal)}
                             </span>
                           </span>
                         </div>
@@ -933,7 +1534,38 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
 
                 return (
                   <React.Fragment key={asset.id}>
-                    <tr className={styles.mainItemRow}>
+                    <tr
+                      id={`asset-row-${asset.id}`}
+                      className={`${styles.mainItemRow}${isSubItemsExpanded ? ` ${styles.drawerOpenRow}` : ""}${(asset.availabilityStatus || "").toLowerCase() === "not offered" ? ` ${styles.notOfferedRow}` : ""}`}
+                    >
+                      {/* Expand/collapse sub-items arrow */}
+                      <td
+                        className={styles.cellCenter}
+                        style={{ width: 28, padding: "0 2px" }}
+                      >
+                        {siHasSubItems && (
+                          <div
+                            className={`${styles.cellExpand}${isSubItemsExpanded ? ` ${styles.cellExpandOpen}` : ""}`}
+                            onClick={() => toggleSubItems(asset.id)}
+                            title={
+                              isSubItemsExpanded
+                                ? "Collapse sub-items"
+                                : `${siSubItems.length} sub-item(s) — click to expand`
+                            }
+                          >
+                            <svg
+                              viewBox="0 0 24 24"
+                              width="13"
+                              height="13"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                            >
+                              <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                          </div>
+                        )}
+                      </td>
                       {/* Row number from Scope of Supply */}
                       <td
                         className={`${styles.readOnlyCell} ${styles.cellCenter}`}
@@ -947,7 +1579,46 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                       </td>
                       {/* Read-only from Scope */}
                       <td className={styles.readOnlyCell}>
-                        {si?.equipmentOffer || "—"}
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          {si?.equipmentOffer || "—"}
+                          {si &&
+                            ((si.clientRequirement &&
+                              si.clientRequirement.trim()) ||
+                              (si.clientSpecs &&
+                                si.clientSpecs.length > 0)) && (
+                              <span className={styles.specsIndicator}>
+                                <span className={styles.specsIndicatorIcon}>
+                                  📋
+                                </span>
+                                <div className={styles.specsTooltip}>
+                                  <div className={styles.specsTooltipTitle}>
+                                    Technical Specs
+                                  </div>
+                                  {si.clientRequirement &&
+                                    si.clientRequirement.trim() && (
+                                      <div className={styles.specsTooltipReq}>
+                                        {si.clientRequirement}
+                                      </div>
+                                    )}
+                                  {(si.clientSpecs || []).length > 0 && (
+                                    <ul className={styles.specsTooltipList}>
+                                      {(si.clientSpecs || []).map(
+                                        (spec, idx) => (
+                                          <li key={idx}>{spec}</li>
+                                        ),
+                                      )}
+                                    </ul>
+                                  )}
+                                </div>
+                              </span>
+                            )}
+                        </span>
                       </td>
                       <td className={styles.readOnlyCell}>
                         {si?.partNumber || "—"}
@@ -971,7 +1642,19 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                       {/* Editable */}
                       <td>
                         {readOnly ? (
-                          asset.availabilityStatus || "—"
+                          (asset.availabilityStatus || "").toLowerCase() ===
+                          "not offered" ? (
+                            <span
+                              style={{
+                                color: "var(--status-error, #e74c3c)",
+                                fontWeight: 600,
+                              }}
+                            >
+                              Not Offered
+                            </span>
+                          ) : (
+                            asset.availabilityStatus || "—"
+                          )
                         ) : (
                           <select
                             className={emptyIf(
@@ -1006,17 +1689,22 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 asset.availabilityStatus || ""
                               ).toLowerCase();
                               const isNoCost =
-                                avail === "onboard" || avail === "call out";
+                                avail === "onboard" ||
+                                avail === "call out" ||
+                                avail === "not offered";
                               if (isNoCost) {
+                                const isNotOffered = avail === "not offered";
                                 return (
                                   <span
                                     style={{
                                       fontSize: 12,
                                       fontWeight: 600,
-                                      color: "var(--text-muted)",
+                                      color: isNotOffered
+                                        ? "var(--danger, #ef4444)"
+                                        : "var(--text-muted)",
                                     }}
                                   >
-                                    N/A
+                                    {isNotOffered ? "Not Offered" : "N/A"}
                                   </span>
                                 );
                               }
@@ -1076,7 +1764,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                         ).toLowerCase();
                         const isRental = acqType === "rental";
                         const isNoCost =
-                          avail === "onboard" || avail === "call out";
+                          avail === "onboard" ||
+                          avail === "call out" ||
+                          avail === "not offered";
                         const isWorkshop = acqType === "workshop";
                         const hasAnySubs = (asset.subCosts || []).length > 0;
 
@@ -1104,7 +1794,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   }}
                                 >
                                   {hasAnySubs
-                                    ? `$ ${subCostsSum.toLocaleString()}`
+                                    ? `$ ${fmtCost(subCostsSum)}`
                                     : "$ 0"}
                                 </span>
                               </td>
@@ -1123,7 +1813,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   }}
                                 >
                                   {hasAnySubs
-                                    ? `$ ${subCostsSum.toLocaleString()}`
+                                    ? `$ ${fmtCost(subCostsSum)}`
                                     : "—"}
                                 </span>
                               </td>
@@ -1138,7 +1828,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   }}
                                 >
                                   {hasAnySubs
-                                    ? `$ ${subCostsSum.toLocaleString()}`
+                                    ? `$ ${fmtCost(subCostsSum)}`
                                     : "—"}
                                 </span>
                               </td>
@@ -1162,7 +1852,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                     }}
                                   >
                                     <span style={{ fontSize: 12 }}>
-                                      $ {rate.toLocaleString()}{" "}
+                                      $ {fmtCost(rate)}{" "}
                                       <span
                                         style={{
                                           color: "var(--text-muted)",
@@ -1267,10 +1957,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   }}
                                 >
                                   <span>
-                                    ${" "}
-                                    {(
-                                      rentalTotal + subCostsSum
-                                    ).toLocaleString()}
+                                    $ {fmtCost(rentalTotal + subCostsSum)}
                                   </span>
                                   {rate > 0 && days > 0 && (
                                     <span
@@ -1280,7 +1967,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                         fontWeight: 400,
                                       }}
                                     >
-                                      {rate.toLocaleString()} × {days}d × {qty}
+                                      {fmtCost(rate)} × {days}d × {qty}
                                     </span>
                                   )}
                                 </div>
@@ -1293,7 +1980,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           <>
                             <td>
                               {readOnly ? (
-                                `$ ${asset.unitCostUSD.toLocaleString()}`
+                                `$ ${fmtCost(asset.unitCostUSD)}`
                               ) : (
                                 <input
                                   className={styles.numInput}
@@ -1318,11 +2005,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                               )}
                             </td>
                             <td className={styles.mainTotalCost}>
-                              ${" "}
-                              {(
-                                asset.unitCostUSD * qty +
-                                subCostsSum
-                              ).toLocaleString()}
+                              $ {fmtCost(asset.unitCostUSD * qty + subCostsSum)}
                             </td>
                           </>
                         );
@@ -1339,6 +2022,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           const closed =
                             av === "onboard" ||
                             av === "call out" ||
+                            av === "not offered" ||
                             aq === "workshop";
                           if (closed) {
                             return (
@@ -1358,14 +2042,21 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                               </span>
                             );
                           }
-                          if (readOnly) return asset.costReference || "—";
+                          if (readOnly) {
+                            if (!asset.costReference) return "—";
+                            return (
+                              <span
+                                className={`${styles.srcBadge} ${costRefBadgeClass(asset.costReference)}`}
+                              >
+                                {asset.costReference}
+                              </span>
+                            );
+                          }
                           return (
-                            <select
-                              className={emptyIf(
-                                styles.selectCell,
-                                asset.costReference,
-                              )}
+                            <input
+                              className={styles.editInput}
                               value={asset.costReference}
+                              placeholder="—"
                               onChange={(e) =>
                                 updateField(
                                   asset.id,
@@ -1373,16 +2064,92 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   e.target.value,
                                 )
                               }
+                              style={{ width: "100%", fontSize: 11 }}
+                            />
+                          );
+                        })()}
+                      </td>
+                      {/* Date Ref */}
+                      <td style={{ fontSize: 11 }}>
+                        {(() => {
+                          const av = (
+                            asset.availabilityStatus || ""
+                          ).toLowerCase();
+                          const aq = (
+                            asset.acquisitionType || ""
+                          ).toLowerCase();
+                          const closed =
+                            av === "onboard" ||
+                            av === "call out" ||
+                            av === "not offered" ||
+                            aq === "workshop";
+                          if (closed)
+                            return (
+                              <span
+                                style={{
+                                  fontSize: 12,
+                                  color: "var(--text-muted)",
+                                }}
+                              >
+                                —
+                              </span>
+                            );
+                          if (readOnly) {
+                            if (!asset.dateReference) return "—";
+                            return (
+                              <span
+                                className={`${styles.dateBadge} ${dateAgeClass(asset.dateReference)}`}
+                              >
+                                {formatDateRef(asset.dateReference)}
+                              </span>
+                            );
+                          }
+                          return (
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 2,
+                              }}
                             >
-                              <option value="" disabled hidden>
-                                Select...
-                              </option>
-                              {costReferences.map((cr) => (
-                                <option key={cr.id} value={cr.value}>
-                                  {cr.label}
-                                </option>
-                              ))}
-                            </select>
+                              {asset.dateReference && (
+                                <span
+                                  style={{ fontSize: 10, whiteSpace: "nowrap" }}
+                                >
+                                  {formatDateRef(asset.dateReference)}
+                                </span>
+                              )}
+                              <label
+                                style={{
+                                  cursor: "pointer",
+                                  fontSize: 14,
+                                  lineHeight: 1,
+                                }}
+                                title="Set date"
+                              >
+                                📅
+                                <input
+                                  type="date"
+                                  value={(asset.dateReference || "").slice(
+                                    0,
+                                    10,
+                                  )}
+                                  onChange={(e) =>
+                                    updateField(
+                                      asset.id,
+                                      "dateReference",
+                                      e.target.value,
+                                    )
+                                  }
+                                  style={{
+                                    width: 0,
+                                    height: 0,
+                                    opacity: 0,
+                                    position: "absolute",
+                                  }}
+                                />
+                              </label>
+                            </div>
                           );
                         })()}
                       </td>
@@ -1398,6 +2165,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           const closed =
                             av === "onboard" ||
                             av === "call out" ||
+                            av === "not offered" ||
                             aq === "workshop";
                           if (closed) {
                             if (
@@ -1458,7 +2226,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           const aq = (
                             asset.acquisitionType || ""
                           ).toLowerCase();
-                          const closed = av === "onboard" || av === "call out";
+                          const closed =
+                            av === "onboard" ||
+                            av === "call out" ||
+                            av === "not offered";
                           if (closed)
                             return (
                               <span
@@ -1520,6 +2291,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           const closed =
                             av === "onboard" ||
                             av === "call out" ||
+                            av === "not offered" ||
                             aq === "workshop";
                           if (closed)
                             return (
@@ -1592,19 +2364,6 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                               💲{(asset.subCosts || []).length}
                             </button>
                           )}
-                          {siHasSubItems && (
-                            <button
-                              className={`${styles.subCostToggle} ${styles.hasSubCosts}`}
-                              onClick={() => toggleSubItems(asset.id)}
-                              title={
-                                isSubItemsExpanded
-                                  ? "Hide sub-items"
-                                  : "View sub-items"
-                              }
-                            >
-                              📦{siSubItems.length}
-                            </button>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -1620,14 +2379,14 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                             const disc = sc.transitDiscount ?? 50;
                             const dailyRate = asset.dailyRate || 0;
                             const transitCost =
-                              dailyRate * (disc / 100) * totalDays;
+                              dailyRate * (1 - disc / 100) * totalDays;
                             return (
                               <tr
                                 key={sc.id}
                                 className={styles.subCostRow}
                                 style={{ background: "rgba(99,102,241,0.04)" }}
                               >
-                                <td colSpan={3} />
+                                <td colSpan={4} />
                                 <td colSpan={2} className={styles.subCostLabel}>
                                   <span
                                     style={{
@@ -1795,9 +2554,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                       gap: 1,
                                     }}
                                   >
-                                    <span>
-                                      $ {transitCost.toLocaleString()}
-                                    </span>
+                                    <span>$ {fmtCost(transitCost)}</span>
                                     {dailyRate > 0 && totalDays > 0 && (
                                       <span
                                         style={{
@@ -1806,8 +2563,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                           fontWeight: 400,
                                         }}
                                       >
-                                        {dailyRate.toLocaleString()} × {disc}% ×{" "}
-                                        {totalDays}d
+                                        {fmtCost(dailyRate)} × (100-
+                                        {disc})% × {totalDays}d
                                       </span>
                                     )}
                                   </div>
@@ -1896,7 +2653,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           // ── Normal sub-cost ──
                           return (
                             <tr key={sc.id} className={styles.subCostRow}>
-                              <td colSpan={3} />
+                              <td colSpan={4} />
                               <td colSpan={2} className={styles.subCostLabel}>
                                 💲&nbsp;Sub-Cost
                               </td>
@@ -1922,7 +2679,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                               <td />
                               <td>
                                 {readOnly ? (
-                                  `$ ${(sc.costUSD || 0).toLocaleString()}`
+                                  `$ ${fmtCost(sc.costUSD || 0)}`
                                 ) : (
                                   <input
                                     className={styles.numInput}
@@ -2035,20 +2792,20 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                         })}
                         {(asset.subCosts || []).length > 0 && (
                           <tr className={styles.subtotalRow}>
-                            <td colSpan={3} />
+                            <td colSpan={4} />
                             <td colSpan={7} className={styles.subtotalLabel}>
                               Sub-costs subtotal:
                             </td>
                             <td className={styles.subtotalValue}>
-                              $ {subCostsSum.toLocaleString()}
+                              $ {fmtCost(subCostsSum)}
                             </td>
-                            <td colSpan={COLS - 11} />
+                            <td colSpan={COLS - 12} />
                           </tr>
                         )}
                         {!readOnly && (
                           <tr className={styles.subCostRow}>
-                            <td colSpan={3} />
-                            <td colSpan={COLS - 3}>
+                            <td colSpan={4} />
+                            <td colSpan={COLS - 4}>
                               <button
                                 className={styles.addSubCostBtn}
                                 onClick={() => addSubCost(asset.id)}
@@ -2060,331 +2817,601 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                         )}
                       </>
                     )}
-                    {/* Sub-items with editable cost fields */}
+                    {/* Sub-items drawer (Scope of Supply style) */}
                     {isSubItemsExpanded && siHasSubItems && (
-                      <>
-                        {/* Sub-items section header */}
-                        <tr className={styles.subItemHeaderRow}>
-                          <td colSpan={COLS}>
-                            <div className={styles.subItemSectionBar}>
-                              <span>📦</span>
-                              <span className={styles.subItemSectionTitle}>
+                      <tr className={styles.drawerRow}>
+                        <td colSpan={COLS}>
+                          <div className={styles.drawerInner}>
+                            <div className={styles.drawerHeader}>
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="13"
+                                height="13"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <polyline points="9 17 4 12 9 7" />
+                                <path d="M20 18v-2a4 4 0 00-4-4H4" />
+                              </svg>
+                              <span className={styles.drawerTitle}>
                                 Sub-Items ({siSubItems.length})
                               </span>
-                              <span className={styles.subItemSectionHint}>
+                              <span className={styles.drawerHint}>
                                 Consumables, spare parts &amp; accessories
                               </span>
-                              {getSubItemCostsTotal(asset) > 0 && (
-                                <span className={styles.subItemSectionTotal}>
-                                  ${" "}
-                                  {getSubItemCostsTotal(asset).toLocaleString()}
+                              {!readOnly && (
+                                <span
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    marginLeft: 8,
+                                  }}
+                                >
+                                  <select
+                                    className={styles.setAllSelect}
+                                    value=""
+                                    onChange={(e) => {
+                                      if (e.target.value)
+                                        bulkUpdateSubItems(
+                                          asset.id,
+                                          "availabilityStatus",
+                                          e.target.value,
+                                        );
+                                      e.target.value = "";
+                                    }}
+                                    title="Set Availability for all sub-items"
+                                  >
+                                    <option value="">Set All Avail.</option>
+                                    {availabilityStatuses.map((as) => (
+                                      <option key={as.id} value={as.value}>
+                                        {as.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <select
+                                    className={styles.setAllSelect}
+                                    value=""
+                                    onChange={(e) => {
+                                      if (e.target.value)
+                                        bulkUpdateSubItems(
+                                          asset.id,
+                                          "acquisitionType",
+                                          e.target.value,
+                                        );
+                                      e.target.value = "";
+                                    }}
+                                    title="Set Acq. Type for all sub-items"
+                                  >
+                                    <option value="">Set All Acq. Type</option>
+                                    {acquisitionTypes.map((at) => (
+                                      <option key={at.id} value={at.value}>
+                                        {at.label}
+                                      </option>
+                                    ))}
+                                  </select>
                                 </span>
                               )}
-                              <button
-                                className={styles.subItemsPanelClose}
-                                onClick={() => toggleSubItems(asset.id)}
-                              >
-                                ✕
-                              </button>
                             </div>
-                          </td>
-                        </tr>
-                        {(asset.subItemCosts || []).map((sic) => {
-                          const sub = getSubItemForCost(
-                            asset.scopeItemId,
-                            sic.subItemId,
-                          );
-                          if (!sub) return null;
-                          const sicQty = sub.qty || 1;
-                          const sicTotal = (sic.unitCostUSD || 0) * sicQty;
-                          return (
-                            <tr key={sic.id} className={styles.subItemRow}>
-                              {/* Scope info (read-only) */}
-                              <td className={styles.subItemReadOnly} />
-                              <td className={styles.subItemReadOnly}>
-                                <div className={styles.subItemInfo}>
-                                  <div>
-                                    <div className={styles.subItemName}>
-                                      {sub.description ||
-                                        sub.equipmentOffer ||
-                                        "Sub-item"}
-                                    </div>
-                                    {sub.partNumber && (
-                                      <div className={styles.subItemMeta}>
-                                        <span className={styles.subItemPN}>
-                                          {sub.partNumber}
-                                        </span>
+                            <div className={styles.subTblWrap}>
+                              <div className={styles.subTblHead}>
+                                <div className={styles.subTh}>#</div>
+                                <div className={styles.subTh}>Description</div>
+                                <div className={styles.subTh}>Sub-Type</div>
+                                <div className={styles.subTh}>OII / MFG PN</div>
+                                <div className={styles.subTh}>Qty</div>
+                                <div className={styles.subTh}>Availability</div>
+                                <div className={styles.subTh}>Acq. Type</div>
+                                <div className={styles.subTh}>Unit Cost</div>
+                                <div className={styles.subTh}>Total Cost</div>
+                                <div className={styles.subTh}>Cost Ref</div>
+                                <div className={styles.subTh}>Date Ref</div>
+                                <div className={styles.subTh}>Lead Time</div>
+                                <div className={styles.subTh}>CAPEX/OPEX</div>
+                                <div className={styles.subTh}>Supplier</div>
+                                <div className={styles.subTh}>Notes</div>
+                              </div>
+                              <div className={styles.subRows}>
+                                {(asset.subItemCosts || []).map((sic, idx) => {
+                                  const sub = getSubItemForCost(
+                                    asset.scopeItemId,
+                                    sic.subItemId,
+                                  );
+                                  if (!sub) return null;
+                                  const sicQty = sub.qty || 1;
+                                  const sicAvail = (
+                                    sic.availabilityStatus || ""
+                                  ).toLowerCase();
+                                  const sicAcq = (
+                                    sic.acquisitionType || ""
+                                  ).toLowerCase();
+                                  const sicIsNoCost =
+                                    sicAvail === "onboard" ||
+                                    sicAvail === "call out" ||
+                                    sicAvail === "not offered";
+                                  const sicIsRental = sicAcq === "rental";
+                                  const sicIsNotOffered =
+                                    sicAvail === "not offered";
+                                  const sicTotal = sicIsRental
+                                    ? (sic.dailyRate || 0) *
+                                      (sic.rentalDays || 0) *
+                                      sicQty
+                                    : (sic.unitCostUSD || 0) * sicQty;
+                                  return (
+                                    <div
+                                      key={sic.id}
+                                      className={`${styles.subRow}${sicIsNotOffered ? ` ${styles.notOfferedRow}` : ""}`}
+                                    >
+                                      <div
+                                        className={`${styles.subCell} ${styles.subNum}`}
+                                      >
+                                        {idx + 1}
                                       </div>
-                                    )}
-                                  </div>
+                                      <div className={styles.subCell}>
+                                        {sub.description ||
+                                          sub.equipmentOffer ||
+                                          "—"}
+                                      </div>
+                                      <div className={styles.subCell}>
+                                        {sub.subType || "—"}
+                                      </div>
+                                      <div
+                                        className={`${styles.subCell} ${styles.subCellMono}`}
+                                      >
+                                        {sub.partNumber || "—"}
+                                      </div>
+                                      <div
+                                        className={`${styles.subCell} ${styles.subCellCenter}`}
+                                      >
+                                        {sicQty}
+                                      </div>
+                                      <div className={styles.subCell}>
+                                        {readOnly ? (
+                                          sic.availabilityStatus || "—"
+                                        ) : (
+                                          <select
+                                            className={emptyIf(
+                                              styles.selectCell,
+                                              sic.availabilityStatus,
+                                            )}
+                                            value={sic.availabilityStatus}
+                                            onChange={(e) =>
+                                              updateSubItemCost(
+                                                asset.id,
+                                                sic.id,
+                                                "availabilityStatus",
+                                                e.target.value,
+                                              )
+                                            }
+                                          >
+                                            <option value="" disabled hidden>
+                                              Select...
+                                            </option>
+                                            {availabilityStatuses.map((o) => (
+                                              <option
+                                                key={o.id}
+                                                value={o.value}
+                                              >
+                                                {o.label}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        )}
+                                      </div>
+                                      <div className={styles.subCell}>
+                                        {readOnly ? (
+                                          sic.acquisitionType || "—"
+                                        ) : sicIsNoCost ? (
+                                          <span
+                                            style={{
+                                              fontSize: 12,
+                                              fontWeight: 600,
+                                              color: sicIsNotOffered
+                                                ? "var(--danger, #ef4444)"
+                                                : "var(--text-muted)",
+                                            }}
+                                          >
+                                            {sicIsNotOffered
+                                              ? "Not Offered"
+                                              : "N/A"}
+                                          </span>
+                                        ) : (
+                                          <select
+                                            className={emptyIf(
+                                              styles.selectCell,
+                                              sic.acquisitionType,
+                                            )}
+                                            value={sic.acquisitionType}
+                                            onChange={(e) =>
+                                              updateSubItemCost(
+                                                asset.id,
+                                                sic.id,
+                                                "acquisitionType",
+                                                e.target.value,
+                                              )
+                                            }
+                                          >
+                                            <option value="" disabled hidden>
+                                              Select...
+                                            </option>
+                                            {(() => {
+                                              const filtered =
+                                                sic.availabilityStatus
+                                                  ? acquisitionTypes.filter(
+                                                      (at) => {
+                                                        const parentVal = (
+                                                          at.category || ""
+                                                        ).split("|")[0];
+                                                        return (
+                                                          parentVal ===
+                                                          sic.availabilityStatus
+                                                        );
+                                                      },
+                                                    )
+                                                  : [];
+                                              const options =
+                                                filtered.length > 0
+                                                  ? filtered
+                                                  : acquisitionTypes;
+                                              return options.map((at) => (
+                                                <option
+                                                  key={at.id}
+                                                  value={at.value}
+                                                >
+                                                  {at.label}
+                                                </option>
+                                              ));
+                                            })()}
+                                          </select>
+                                        )}
+                                      </div>
+                                      <div className={styles.subCell}>
+                                        {sicIsNoCost ? (
+                                          <span
+                                            style={{
+                                              fontSize: 12,
+                                              color: sicIsNotOffered
+                                                ? "var(--danger, #ef4444)"
+                                                : "var(--text-muted)",
+                                            }}
+                                          >
+                                            —
+                                          </span>
+                                        ) : sicIsRental ? (
+                                          readOnly ? (
+                                            <span style={{ fontSize: 11 }}>
+                                              $ {fmtCost(sic.dailyRate || 0)}
+                                              /d × {sic.rentalDays || 0}d
+                                            </span>
+                                          ) : (
+                                            <div
+                                              style={{
+                                                display: "flex",
+                                                gap: 3,
+                                                alignItems: "center",
+                                              }}
+                                            >
+                                              <input
+                                                className={styles.numInput}
+                                                type="number"
+                                                min={0}
+                                                step={0.01}
+                                                value={sic.dailyRate || 0}
+                                                onChange={(e) =>
+                                                  updateSubItemCost(
+                                                    asset.id,
+                                                    sic.id,
+                                                    "dailyRate" as any,
+                                                    Number(e.target.value) || 0,
+                                                  )
+                                                }
+                                                style={{ width: 55 }}
+                                                placeholder="Rate"
+                                              />
+                                              <span
+                                                style={{
+                                                  fontSize: 10,
+                                                  color: "var(--text-muted)",
+                                                }}
+                                              >
+                                                ×
+                                              </span>
+                                              <input
+                                                className={styles.numInput}
+                                                type="number"
+                                                min={0}
+                                                value={sic.rentalDays || 0}
+                                                onChange={(e) =>
+                                                  updateSubItemCost(
+                                                    asset.id,
+                                                    sic.id,
+                                                    "rentalDays" as any,
+                                                    Number(e.target.value) || 0,
+                                                  )
+                                                }
+                                                style={{ width: 45 }}
+                                                placeholder="Days"
+                                              />
+                                              <span
+                                                style={{
+                                                  fontSize: 10,
+                                                  color: "var(--text-muted)",
+                                                }}
+                                              >
+                                                d
+                                              </span>
+                                            </div>
+                                          )
+                                        ) : readOnly ? (
+                                          `$ ${fmtCost(sic.unitCostUSD)}`
+                                        ) : (
+                                          <input
+                                            className={styles.numInput}
+                                            type="number"
+                                            min={0}
+                                            step={0.01}
+                                            value={sic.unitCostUSD}
+                                            onChange={(e) =>
+                                              updateSubItemCost(
+                                                asset.id,
+                                                sic.id,
+                                                "unitCostUSD",
+                                                Number(e.target.value) || 0,
+                                              )
+                                            }
+                                          />
+                                        )}
+                                      </div>
+                                      <div
+                                        className={`${styles.subCell} ${styles.subCellBold}`}
+                                      >
+                                        {sicIsNoCost ? (
+                                          <span
+                                            style={{
+                                              fontSize: 12,
+                                              color: sicIsNotOffered
+                                                ? "var(--danger, #ef4444)"
+                                                : "var(--text-muted)",
+                                            }}
+                                          >
+                                            $ 0
+                                          </span>
+                                        ) : (
+                                          <>
+                                            $ {fmtCost(sicTotal)}
+                                            {sicIsRental &&
+                                              (sic.dailyRate || 0) > 0 && (
+                                                <div
+                                                  className={styles.subCellCalc}
+                                                >
+                                                  {fmtCost(sic.dailyRate || 0)}
+                                                  /d × {sic.rentalDays || 0}d
+                                                  {sicQty > 1
+                                                    ? ` × ${sicQty}`
+                                                    : ""}
+                                                </div>
+                                              )}
+                                            {!sicIsRental && sicQty > 1 && (
+                                              <div
+                                                className={styles.subCellCalc}
+                                              >
+                                                {fmtCost(sic.unitCostUSD)} ×{" "}
+                                                {sicQty}
+                                              </div>
+                                            )}
+                                          </>
+                                        )}
+                                      </div>
+                                      <div className={styles.subCell}>
+                                        {readOnly ? (
+                                          sic.costReference ? (
+                                            <span
+                                              className={`${styles.srcBadge} ${costRefBadgeClass(sic.costReference)}`}
+                                            >
+                                              {sic.costReference}
+                                            </span>
+                                          ) : (
+                                            "—"
+                                          )
+                                        ) : (
+                                          <input
+                                            className={styles.editInput}
+                                            value={sic.costReference}
+                                            placeholder="—"
+                                            onChange={(e) =>
+                                              updateSubItemCost(
+                                                asset.id,
+                                                sic.id,
+                                                "costReference",
+                                                e.target.value,
+                                              )
+                                            }
+                                            style={{
+                                              width: "100%",
+                                              fontSize: 11,
+                                            }}
+                                          />
+                                        )}
+                                      </div>
+                                      {/* Date Ref (sub-item) */}
+                                      <div
+                                        className={styles.subCell}
+                                        style={{ fontSize: 11 }}
+                                      >
+                                        {readOnly ? (
+                                          sic.dateReference ? (
+                                            <span
+                                              className={`${styles.dateBadge} ${dateAgeClass(sic.dateReference)}`}
+                                            >
+                                              {formatDateRef(sic.dateReference)}
+                                            </span>
+                                          ) : (
+                                            "—"
+                                          )
+                                        ) : (
+                                          <div
+                                            style={{
+                                              display: "flex",
+                                              alignItems: "center",
+                                              gap: 2,
+                                            }}
+                                          >
+                                            {sic.dateReference && (
+                                              <span
+                                                style={{
+                                                  fontSize: 10,
+                                                  whiteSpace: "nowrap",
+                                                }}
+                                              >
+                                                {formatDateRef(
+                                                  sic.dateReference,
+                                                )}
+                                              </span>
+                                            )}
+                                            <label
+                                              style={{
+                                                cursor: "pointer",
+                                                fontSize: 14,
+                                                lineHeight: 1,
+                                              }}
+                                              title="Set date"
+                                            >
+                                              📅
+                                              <input
+                                                type="date"
+                                                value={(
+                                                  sic.dateReference || ""
+                                                ).slice(0, 10)}
+                                                onChange={(e) =>
+                                                  updateSubItemCost(
+                                                    asset.id,
+                                                    sic.id,
+                                                    "dateReference" as any,
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                style={{
+                                                  width: 0,
+                                                  height: 0,
+                                                  opacity: 0,
+                                                  position: "absolute",
+                                                }}
+                                              />
+                                            </label>
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div
+                                        className={`${styles.subCell} ${styles.subCellCenter}`}
+                                      >
+                                        {readOnly ? (
+                                          sic.leadTimeDays || "—"
+                                        ) : (
+                                          <input
+                                            className={styles.numInput}
+                                            type="number"
+                                            min={0}
+                                            value={sic.leadTimeDays}
+                                            onChange={(e) =>
+                                              updateSubItemCost(
+                                                asset.id,
+                                                sic.id,
+                                                "leadTimeDays",
+                                                Number(e.target.value) || 0,
+                                              )
+                                            }
+                                            style={{ width: 50 }}
+                                          />
+                                        )}
+                                      </div>
+                                      <div className={styles.subCell}>
+                                        {readOnly ? (
+                                          sic.costCategory || "—"
+                                        ) : (
+                                          <select
+                                            className={emptyIf(
+                                              styles.selectCell,
+                                              sic.costCategory,
+                                            )}
+                                            value={sic.costCategory}
+                                            onChange={(e) =>
+                                              updateSubItemCost(
+                                                asset.id,
+                                                sic.id,
+                                                "costCategory",
+                                                e.target.value,
+                                              )
+                                            }
+                                          >
+                                            <option value="" disabled hidden>
+                                              Select...
+                                            </option>
+                                            <option value="CAPEX">CAPEX</option>
+                                            <option value="OPEX">OPEX</option>
+                                          </select>
+                                        )}
+                                      </div>
+                                      <div className={styles.subCell}>
+                                        {readOnly ? (
+                                          sic.supplier || "—"
+                                        ) : (
+                                          <input
+                                            className={styles.editInput}
+                                            value={sic.supplier}
+                                            onChange={(e) =>
+                                              updateSubItemCost(
+                                                asset.id,
+                                                sic.id,
+                                                "supplier",
+                                                e.target.value,
+                                              )
+                                            }
+                                          />
+                                        )}
+                                      </div>
+                                      <div className={styles.subCell}>
+                                        {readOnly ? (
+                                          sic.notes || "—"
+                                        ) : (
+                                          <input
+                                            className={styles.editInput}
+                                            value={sic.notes}
+                                            placeholder="Notes..."
+                                            onChange={(e) =>
+                                              updateSubItemCost(
+                                                asset.id,
+                                                sic.id,
+                                                "notes",
+                                                e.target.value,
+                                              )
+                                            }
+                                            style={{ flex: 1 }}
+                                          />
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              {/* Sub-items subtotal footer */}
+                              {getSubItemCostsTotal(asset) > 0 && (
+                                <div className={styles.subFooter}>
+                                  <span className={styles.subFooterLabel}>
+                                    Sub-items subtotal:
+                                  </span>
+                                  <span className={styles.subFooterValue}>
+                                    ${" "}
+                                    {getSubItemCostsTotal(
+                                      asset,
+                                    ).toLocaleString()}
+                                  </span>
                                 </div>
-                              </td>
-                              <td
-                                className={`${styles.subItemReadOnly} ${styles.cellMono}`}
-                              >
-                                {sub.partNumber || "—"}
-                              </td>
-                              <td className={styles.subItemReadOnly}>
-                                {sub.subType || "—"}
-                              </td>
-                              <td className={styles.subItemReadOnly}>—</td>
-                              <td
-                                className={`${styles.subItemReadOnly} ${styles.cellCenter}`}
-                              >
-                                {sicQty}
-                              </td>
-                              <td
-                                className={`${styles.subItemReadOnly} ${styles.cellCenter}`}
-                              >
-                                —
-                              </td>
-                              {/* Editable cost fields */}
-                              <td>
-                                {readOnly ? (
-                                  sic.availabilityStatus || "—"
-                                ) : (
-                                  <select
-                                    className={emptyIf(
-                                      styles.selectCell,
-                                      sic.availabilityStatus,
-                                    )}
-                                    value={sic.availabilityStatus}
-                                    onChange={(e) =>
-                                      updateSubItemCost(
-                                        asset.id,
-                                        sic.id,
-                                        "availabilityStatus",
-                                        e.target.value,
-                                      )
-                                    }
-                                  >
-                                    <option value="" disabled hidden>
-                                      Select...
-                                    </option>
-                                    {availabilityStatuses.map((o) => (
-                                      <option key={o.id} value={o.value}>
-                                        {o.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                )}
-                              </td>
-                              <td>
-                                {readOnly ? (
-                                  sic.acquisitionType || "—"
-                                ) : (
-                                  <select
-                                    className={emptyIf(
-                                      styles.selectCell,
-                                      sic.acquisitionType,
-                                    )}
-                                    value={sic.acquisitionType}
-                                    onChange={(e) =>
-                                      updateSubItemCost(
-                                        asset.id,
-                                        sic.id,
-                                        "acquisitionType",
-                                        e.target.value,
-                                      )
-                                    }
-                                  >
-                                    <option value="" disabled hidden>
-                                      Select...
-                                    </option>
-                                    {(() => {
-                                      const filtered = sic.availabilityStatus
-                                        ? acquisitionTypes.filter((at) => {
-                                            const parentVal = (
-                                              at.category || ""
-                                            ).split("|")[0];
-                                            return (
-                                              parentVal ===
-                                              sic.availabilityStatus
-                                            );
-                                          })
-                                        : [];
-                                      const options =
-                                        filtered.length > 0
-                                          ? filtered
-                                          : acquisitionTypes;
-                                      return options.map((at) => (
-                                        <option key={at.id} value={at.value}>
-                                          {at.label}
-                                        </option>
-                                      ));
-                                    })()}
-                                  </select>
-                                )}
-                              </td>
-                              <td>
-                                {readOnly ? (
-                                  `$ ${sic.unitCostUSD.toLocaleString()}`
-                                ) : (
-                                  <input
-                                    className={styles.numInput}
-                                    type="number"
-                                    min={0}
-                                    step={0.01}
-                                    value={sic.unitCostUSD}
-                                    onChange={(e) =>
-                                      updateSubItemCost(
-                                        asset.id,
-                                        sic.id,
-                                        "unitCostUSD",
-                                        Number(e.target.value) || 0,
-                                      )
-                                    }
-                                  />
-                                )}
-                              </td>
-                              <td
-                                className={`${styles.cellRight} ${styles.cellBold}`}
-                              >
-                                $ {sicTotal.toLocaleString()}
-                                {sicQty > 1 && (
-                                  <div
-                                    style={{
-                                      fontSize: 9,
-                                      color: "var(--text-muted)",
-                                      fontWeight: 400,
-                                    }}
-                                  >
-                                    {sic.unitCostUSD.toLocaleString()} ×{" "}
-                                    {sicQty}
-                                  </div>
-                                )}
-                              </td>
-                              <td>
-                                {readOnly ? (
-                                  sic.costReference || "—"
-                                ) : (
-                                  <select
-                                    className={emptyIf(
-                                      styles.selectCell,
-                                      sic.costReference,
-                                    )}
-                                    value={sic.costReference}
-                                    onChange={(e) =>
-                                      updateSubItemCost(
-                                        asset.id,
-                                        sic.id,
-                                        "costReference",
-                                        e.target.value,
-                                      )
-                                    }
-                                  >
-                                    <option value="">—</option>
-                                    {costReferences.map((cr) => (
-                                      <option key={cr.id} value={cr.value}>
-                                        {cr.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                )}
-                              </td>
-                              <td className={styles.cellCenter}>
-                                {readOnly ? (
-                                  sic.leadTimeDays || "—"
-                                ) : (
-                                  <input
-                                    className={styles.numInput}
-                                    type="number"
-                                    min={0}
-                                    value={sic.leadTimeDays}
-                                    onChange={(e) =>
-                                      updateSubItemCost(
-                                        asset.id,
-                                        sic.id,
-                                        "leadTimeDays",
-                                        Number(e.target.value) || 0,
-                                      )
-                                    }
-                                    style={{ width: 50 }}
-                                  />
-                                )}
-                              </td>
-                              <td>
-                                {readOnly ? (
-                                  sic.costCategory || "—"
-                                ) : (
-                                  <select
-                                    className={emptyIf(
-                                      styles.selectCell,
-                                      sic.costCategory,
-                                    )}
-                                    value={sic.costCategory}
-                                    onChange={(e) =>
-                                      updateSubItemCost(
-                                        asset.id,
-                                        sic.id,
-                                        "costCategory",
-                                        e.target.value,
-                                      )
-                                    }
-                                  >
-                                    <option value="" disabled hidden>
-                                      Select...
-                                    </option>
-                                    <option value="CAPEX">CAPEX</option>
-                                    <option value="OPEX">OPEX</option>
-                                  </select>
-                                )}
-                              </td>
-                              <td>
-                                {readOnly ? (
-                                  sic.supplier || "—"
-                                ) : (
-                                  <input
-                                    className={styles.editInput}
-                                    value={sic.supplier}
-                                    onChange={(e) =>
-                                      updateSubItemCost(
-                                        asset.id,
-                                        sic.id,
-                                        "supplier",
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                )}
-                              </td>
-                              <td>
-                                {readOnly ? (
-                                  sic.notes || "—"
-                                ) : (
-                                  <input
-                                    className={styles.editInput}
-                                    value={sic.notes}
-                                    placeholder="Notes..."
-                                    onChange={(e) =>
-                                      updateSubItemCost(
-                                        asset.id,
-                                        sic.id,
-                                        "notes",
-                                        e.target.value,
-                                      )
-                                    }
-                                    style={{ flex: 1 }}
-                                  />
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        {/* Sub-items subtotal */}
-                        {getSubItemCostsTotal(asset) > 0 && (
-                          <tr className={styles.subtotalRow}>
-                            <td colSpan={3} />
-                            <td colSpan={7} className={styles.subtotalLabel}>
-                              Sub-items subtotal:
-                            </td>
-                            <td className={styles.subtotalValue}>
-                              $ {getSubItemCostsTotal(asset).toLocaleString()}
-                            </td>
-                            <td colSpan={COLS - 11} />
-                          </tr>
-                        )}
-                      </>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
                     )}
                   </React.Fragment>
                 );

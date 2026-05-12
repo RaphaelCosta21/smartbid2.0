@@ -8,6 +8,8 @@ export interface INavItem {
   section: string;
   children?: INavItem[];
   requiredAccess?: string;
+  /** Route to open in a new tab (external view) */
+  externalRoute?: string;
 }
 
 export const NAVIGATION_SECTIONS = [
@@ -199,6 +201,7 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     icon: "CircleDollarSign",
     route: "/tools/query-consulting",
     section: "tools",
+    externalRoute: "/tools/query-consulting-external",
   },
 
   // SETTINGS

@@ -9,6 +9,7 @@ import {
   IConsumableItem,
   IScopeItem,
   IExchangeRate,
+  ISubItemCost,
 } from "../models";
 
 /** Per-resource-type asset cost breakdown */
@@ -19,19 +20,87 @@ export interface IAssetResourceTypeCost {
   totalUSD: number;
 }
 
-/** Calculate assets totals from breakdown array */
+/**
+ * Compute the effective total for a single asset's main cost (excludes subItemCosts),
+ * matching the logic used in AssetsBreakdownTab.getEffectiveTotal.
+ */
+function getAssetMainCost(
+  a: IAssetBreakdownItem,
+  scopeItems: IScopeItem[],
+): number {
+  const si = scopeItems.find((s) => s.id === a.scopeItemId);
+  const qty = (si ? (si.qtyOperational || 0) + (si.qtySpare || 0) : 0) || 1;
+  const avail = (a.availabilityStatus || "").toLowerCase();
+  const acqType = (a.acquisitionType || "").toLowerCase();
+  const subCostsSum = (a.subCosts || []).reduce(
+    (s, sc) => s + (sc.costUSD || 0),
+    0,
+  );
+
+  if (avail === "onboard" || avail === "call out" || avail === "not offered") {
+    return subCostsSum;
+  }
+  if (acqType === "workshop") {
+    return subCostsSum;
+  }
+  if (acqType === "rental") {
+    return (a.dailyRate || 0) * (a.rentalDays || 0) * qty + subCostsSum;
+  }
+  return (a.unitCostUSD || 0) * qty + subCostsSum;
+}
+
+/** Compute the effective total for a sub-item cost entry */
+function getSubItemCostTotal(
+  sic: ISubItemCost,
+  scopeItem: IScopeItem | undefined,
+): number {
+  const avail = (sic.availabilityStatus || "").toLowerCase();
+  if (avail === "onboard" || avail === "call out" || avail === "not offered")
+    return 0;
+  const sub = scopeItem
+    ? (scopeItem.subItems || []).find((s) => s.id === sic.subItemId)
+    : undefined;
+  const qty = sub?.qty || 1;
+  const isRental = (sic.acquisitionType || "").toLowerCase() === "rental";
+  if (isRental) return (sic.dailyRate || 0) * (sic.rentalDays || 0) * qty;
+  return (sic.unitCostUSD || 0) * qty;
+}
+
+/** Determine effective CAPEX/OPEX category for an asset */
+function getEffectiveCategory(a: {
+  acquisitionType?: string;
+  costCategory?: string;
+}): string {
+  const acqType = (a.acquisitionType || "").toLowerCase();
+  if (acqType === "rental" || acqType === "workshop") return "OPEX";
+  return a.costCategory || "CAPEX";
+}
+
+/** Calculate assets totals from breakdown array, matching AssetsBreakdownTab logic */
 export function calculateAssetsTotals(
   assets: IAssetBreakdownItem[],
   ptax: number,
+  scopeItems?: IScopeItem[],
 ): { totalUSD: number; capexUSD: number; opexUSD: number; totalBRL: number } {
   let capexUSD = 0;
   let opexUSD = 0;
+  const items = scopeItems || [];
 
   (assets || []).forEach((a) => {
-    const cost = a.totalCostUSD || 0;
-    if (a.costCategory === "CAPEX") capexUSD += cost;
-    else if (a.costCategory === "OPEX") opexUSD += cost;
-    else capexUSD += cost; // default to CAPEX
+    const si = items.find((s) => s.id === a.scopeItemId);
+    const mainCost = getAssetMainCost(a, items);
+    const cat = getEffectiveCategory(a);
+
+    if (cat === "CAPEX") capexUSD += mainCost;
+    else opexUSD += mainCost;
+
+    // Categorize sub-item costs by their own category
+    (a.subItemCosts || []).forEach((sic) => {
+      const sicCost = getSubItemCostTotal(sic, si);
+      const sicCat = getEffectiveCategory(sic);
+      if (sicCat === "CAPEX") capexUSD += sicCost;
+      else opexUSD += sicCost;
+    });
   });
 
   const totalUSD = capexUSD + opexUSD;
@@ -45,6 +114,7 @@ export function calculateAssetsByResourceType(
 ): IAssetResourceTypeCost[] {
   const scopeMap = new Map<string, IScopeItem>();
   (scopeItems || []).forEach((si) => scopeMap.set(si.id, si));
+  const items = scopeItems || [];
 
   const byType: Record<string, { capex: number; opex: number }> = {};
 
@@ -52,9 +122,19 @@ export function calculateAssetsByResourceType(
     const si = scopeMap.get(a.scopeItemId);
     const rt = (si && si.resourceType) || "Other";
     if (!byType[rt]) byType[rt] = { capex: 0, opex: 0 };
-    const cost = a.totalCostUSD || 0;
-    if (a.costCategory === "OPEX") byType[rt].opex += cost;
-    else byType[rt].capex += cost;
+
+    const mainCost = getAssetMainCost(a, items);
+    const cat = getEffectiveCategory(a);
+    if (cat === "OPEX") byType[rt].opex += mainCost;
+    else byType[rt].capex += mainCost;
+
+    // Sub-item costs inherit resource type from parent scope item
+    (a.subItemCosts || []).forEach((sic) => {
+      const sicCost = getSubItemCostTotal(sic, si);
+      const sicCat = getEffectiveCategory(sic);
+      if (sicCat === "OPEX") byType[rt].opex += sicCost;
+      else byType[rt].capex += sicCost;
+    });
   });
 
   const result: IAssetResourceTypeCost[] = [];
@@ -75,6 +155,10 @@ export function calculateHoursTotals(bid: IBid): {
   engineeringBRL: number;
   onshoreBRL: number;
   offshoreBRL: number;
+  engineeringHours: number;
+  onshoreHours: number;
+  offshoreHours: number;
+  totalHours: number;
   totalBRL: number;
   totalUSD: number;
 } {
@@ -82,12 +166,19 @@ export function calculateHoursTotals(bid: IBid): {
   const engBRL = hs?.engineeringHours?.totalCostBRL || 0;
   const onBRL = hs?.onshoreHours?.totalCostBRL || 0;
   const offBRL = hs?.offshoreHours?.totalCostBRL || 0;
+  const engH = hs?.engineeringHours?.totalHours || 0;
+  const onH = hs?.onshoreHours?.totalHours || 0;
+  const offH = hs?.offshoreHours?.totalHours || 0;
   const totalBRL = engBRL + onBRL + offBRL;
   const ptax = bid.opportunityInfo?.ptax || 1;
   return {
     engineeringBRL: engBRL,
     onshoreBRL: onBRL,
     offshoreBRL: offBRL,
+    engineeringHours: engH,
+    onshoreHours: onH,
+    offshoreHours: offH,
+    totalHours: engH + onH + offH,
     totalBRL,
     totalUSD: ptax > 0 ? totalBRL / ptax : 0,
   };
@@ -206,7 +297,11 @@ export function calculateConsumablesTotals(
 /** Build full ICostSummary from bid data */
 export function buildCostSummary(bid: IBid): ICostSummary {
   const ptax = bid.opportunityInfo?.ptax || 1;
-  const assets = calculateAssetsTotals(bid.assetBreakdown || [], ptax);
+  const assets = calculateAssetsTotals(
+    bid.assetBreakdown || [],
+    ptax,
+    bid.scopeItems || [],
+  );
   const hours = calculateHoursTotals(bid);
   const logistics = calculateLogisticsTotals(
     bid.logisticsBreakdown || [],

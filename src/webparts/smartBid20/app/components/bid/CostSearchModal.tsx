@@ -1,27 +1,35 @@
 /**
- * CostSearchModal — Searches Query Catalog + Favorites for costs to auto-fill
- * into the Assets Breakdown tab.
+ * CostSearchModal — Searches Query Catalog + BOM Costs + Quotations for costs
+ * to auto-fill into the Assets Breakdown tab.
  *
  * Opens from "🔍 Search Costs" button on AssetsBreakdownTab.
  * Shows scope items missing costs, auto-searches BOM cascade (BUMBL→BUMBR→Financials),
- * lets user select + override costs, then imports.
+ * also checks BOM Cost Analyses and Quotations by Part Number.
+ * Lets user select + override costs, then imports.
  */
 import * as React from "react";
 import {
   IScopeItem,
+  IScopeSubItem,
   IAssetBreakdownItem,
+  ISubItemCost,
   IBomCostResult,
   IExchangeRate,
+  IBomCostAnalysis,
 } from "../../models";
 import { useQueryCatalogStore } from "../../stores/useQueryCatalogStore";
 import { useConfigStore } from "../../stores/useConfigStore";
-import { convertToUSD } from "../../utils/costCalculations";
+import { useQuotationStore } from "../../stores/useQuotationStore";
+import { BomCostAnalysisService } from "../../services/BomCostAnalysisService";
 import styles from "./CostSearchModal.module.scss";
 
 export interface CostSearchImportItem {
   assetId: string;
+  /** If set, this is a sub-item cost import */
+  subItemCostId?: string;
   unitCostUSD: number;
   costReference: string;
+  dateReference: string;
   leadTimeDays: number;
   originalCost: number;
   originalCurrency: string;
@@ -38,9 +46,31 @@ interface CostSearchModalProps {
 interface SearchRow {
   asset: IAssetBreakdownItem;
   scopeItem: IScopeItem;
+  /** Sub-item cost row (null for main items) */
+  subItemCost: ISubItemCost | null;
+  /** Sub-item scope data */
+  subItemScope: IScopeSubItem | null;
   result: IBomCostResult | null;
+  /** BOM Cost Analysis match */
+  bomResult: {
+    totalCostUSD: number;
+    mainPartNumber: string;
+    dateReference: string;
+    leadTimeDays?: number;
+  } | null;
+  /** Quotation match */
+  quoteResult: {
+    costUSD: number;
+    type: "rental" | "acquisition";
+    supplier: string;
+    quotationDate: string;
+  } | null;
   selected: boolean;
   costOverride: number | null;
+  /** Which source to use for import */
+  selectedSource: "catalog" | "bom" | "quote" | null;
+  /** True if this row is a parent context row (not selectable, visual only) */
+  isParentContext?: boolean;
 }
 
 export const CostSearchModal: React.FC<CostSearchModalProps> = ({
@@ -58,6 +88,12 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
   const exchangeRates: IExchangeRate[] =
     config?.currencySettings?.exchangeRates || [];
 
+  // BOM Cost Analyses and Quotations
+  const quotationItems = useQuotationStore((s) => s.items);
+  const quotationsLoaded = useQuotationStore((s) => s.isLoaded);
+  const loadQuotations = useQuotationStore((s) => s.loadQuotations);
+  const [bomAnalyses, setBomAnalyses] = React.useState<IBomCostAnalysis[]>([]);
+
   const [rows, setRows] = React.useState<SearchRow[]>([]);
   const [isSearching, setIsSearching] = React.useState(false);
   const [hasSearched, setHasSearched] = React.useState(false);
@@ -65,33 +101,93 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
     "missing",
   );
 
-  // Load catalog on mount
+  // Load catalog, quotations and BOM analyses on mount
   React.useEffect(() => {
     if (!catalogLoaded && !catalogLoading) loadCatalog();
+    if (!quotationsLoaded) loadQuotations();
+    BomCostAnalysisService.getAll()
+      .then((a) => setBomAnalyses(a))
+      .catch(() => {});
   }, []);
 
-  // Build rows from scope items + assets
+  // Build rows from scope items + assets (including sub-items)
   const buildRows = React.useCallback((): SearchRow[] => {
     const scopeMap = new Map(scopeItems.map((s) => [s.id, s]));
-    return assetBreakdown
-      .filter((a) => {
-        const si = scopeMap.get(a.scopeItemId);
-        if (!si || si.isSection) return false;
-        if (filterMode === "missing") {
-          // Only items with zero cost and not "onboard"/"call out"
-          const avail = (a.availabilityStatus || "").toLowerCase();
-          if (avail === "onboard" || avail === "call out") return false;
-          return a.unitCostUSD === 0;
+    const result: SearchRow[] = [];
+
+    assetBreakdown.forEach((a) => {
+      const si = scopeMap.get(a.scopeItemId);
+      if (!si || si.isSection) return;
+
+      // Main item row
+      const avail = (a.availabilityStatus || "").toLowerCase();
+      const skipMain =
+        avail === "onboard" || avail === "call out" || avail === "not offered";
+      const mainIncluded =
+        filterMode === "all" || (!skipMain && a.unitCostUSD === 0);
+
+      if (mainIncluded) {
+        result.push({
+          asset: a,
+          scopeItem: si,
+          subItemCost: null,
+          subItemScope: null,
+          result: null,
+          bomResult: null,
+          quoteResult: null,
+          selected: false,
+          costOverride: null,
+          selectedSource: null,
+        });
+      }
+
+      // Sub-item rows
+      const subItems = si.subItems || [];
+      const subCosts = a.subItemCosts || [];
+      let parentContextAdded = false;
+      subItems.forEach((sub) => {
+        const sic = subCosts.find((sc) => sc.subItemId === sub.id);
+        if (!sic) return;
+        const sicAvail = (sic.availabilityStatus || "").toLowerCase();
+        const skipSub =
+          sicAvail === "onboard" ||
+          sicAvail === "call out" ||
+          sicAvail === "not offered";
+        if (filterMode === "all" || (!skipSub && sic.unitCostUSD === 0)) {
+          // Insert parent context row if parent was not included (has cost)
+          if (!mainIncluded && !parentContextAdded) {
+            parentContextAdded = true;
+            result.push({
+              asset: a,
+              scopeItem: si,
+              subItemCost: null,
+              subItemScope: null,
+              result: null,
+              bomResult: null,
+              quoteResult: null,
+              selected: false,
+              costOverride: null,
+              selectedSource: null,
+              isParentContext: true,
+            });
+          }
+          result.push({
+            asset: a,
+            scopeItem: si,
+            subItemCost: sic,
+            subItemScope: sub,
+            result: null,
+            bomResult: null,
+            quoteResult: null,
+            selected: false,
+            costOverride: null,
+            selectedSource: null,
+          });
         }
-        return true;
-      })
-      .map((a) => ({
-        asset: a,
-        scopeItem: scopeMap.get(a.scopeItemId)!,
-        result: null,
-        selected: false,
-        costOverride: null,
-      }));
+      });
+    });
+
+    return result;
   }, [scopeItems, assetBreakdown, filterMode]);
 
   // Rebuild rows when filter changes
@@ -111,26 +207,93 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
 
     setTimeout(() => {
       const updated = rows.map((row) => {
-        const pn = row.scopeItem.partNumber || "";
-        if (!pn.trim()) return { ...row, result: null, selected: false };
+        // Skip parent context rows (they're visual only)
+        if (row.isParentContext) return row;
 
+        const pn = row.subItemScope
+          ? row.subItemScope.partNumber || ""
+          : row.scopeItem.partNumber || "";
+        const pnUpper = pn.trim().toUpperCase();
+        if (!pn.trim() || pnUpper === "TBD" || pnUpper === "TBC")
+          return {
+            ...row,
+            result: null,
+            bomResult: null,
+            quoteResult: null,
+            selected: false,
+            selectedSource: null,
+          };
+
+        // 1. Query Catalog (BUMBL → BUMBR → Financials)
         const result = searchBomCosts(pn.trim(), exchangeRates);
-        if (
-          result.found &&
-          result.sourceTab === "Financials" &&
-          result.currency !== "USD"
-        ) {
-          result.costPerItemUSD = convertToUSD(
-            result.costPerItem,
-            result.currency,
-            exchangeRates,
-          );
+
+        // 2. BOM Cost Analyses
+        let bomResult: SearchRow["bomResult"] = null;
+        for (let i = 0; i < bomAnalyses.length; i++) {
+          const analysis = bomAnalyses[i];
+          const items = analysis.items || [];
+          for (let j = 0; j < items.length; j++) {
+            const item = items[j];
+            if (
+              (item.partNumber || "").trim().toUpperCase() ===
+              pn.trim().toUpperCase()
+            ) {
+              bomResult = {
+                totalCostUSD:
+                  item.totalCostInclCont || item.costPerItemUSD || 0,
+                mainPartNumber: item.partNumber,
+                dateReference:
+                  analysis.lastModified ||
+                  analysis.analysisDate ||
+                  item.dateReference ||
+                  "",
+                leadTimeDays: item.leadTimeDays || 0,
+              };
+              break;
+            }
+          }
+          if (bomResult) break;
         }
+
+        // 3. Quotations
+        let quoteResult: SearchRow["quoteResult"] = null;
+        for (let k = 0; k < quotationItems.length; k++) {
+          const qi = quotationItems[k];
+          if (
+            (qi.partNumber || "").trim().toUpperCase() ===
+            pn.trim().toUpperCase()
+          ) {
+            quoteResult = {
+              costUSD: qi.costUSD || 0,
+              type: qi.type === "rental" ? "rental" : "acquisition",
+              supplier: qi.supplier || "",
+              quotationDate: qi.quotationDate || "",
+            };
+            break;
+          }
+        }
+
+        // Determine best source
+        let selectedSource: SearchRow["selectedSource"] = null;
+        if (result.found) selectedSource = "catalog";
+        else if (bomResult) selectedSource = "bom";
+        else if (quoteResult) selectedSource = "quote";
+
         return {
           ...row,
           result,
-          selected: result.found,
-          costOverride: null,
+          bomResult,
+          quoteResult,
+          selected: !!(result.found || bomResult || quoteResult),
+          costOverride:
+            (row.subItemCost
+              ? row.subItemCost.unitCostUSD
+              : row.asset.unitCostUSD) > 0
+              ? row.subItemCost
+                ? row.subItemCost.unitCostUSD
+                : row.asset.unitCostUSD
+              : null,
+          selectedSource,
         };
       });
       setRows(updated);
@@ -139,25 +302,34 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
     }, 50);
   };
 
-  const toggleRow = (assetId: string): void => {
+  const getRowKey = (r: SearchRow): string =>
+    r.subItemCost ? `${r.asset.id}_${r.subItemCost.id}` : r.asset.id;
+
+  const toggleRow = (rowKey: string): void => {
     setRows((prev) =>
       prev.map((r) =>
-        r.asset.id === assetId ? { ...r, selected: !r.selected } : r,
+        getRowKey(r) === rowKey ? { ...r, selected: !r.selected } : r,
       ),
     );
   };
 
-  const setCostOverride = (assetId: string, val: number | null): void => {
+  const setCostOverride = (rowKey: string, val: number | null): void => {
     setRows((prev) =>
       prev.map((r) =>
-        r.asset.id === assetId ? { ...r, costOverride: val } : r,
+        getRowKey(r) === rowKey ? { ...r, costOverride: val } : r,
       ),
     );
   };
 
-  const selectableRows = rows.filter((r) => r.result && r.result.found);
+  const selectableRows = rows.filter(
+    (r) =>
+      !r.isParentContext && (r.result?.found || r.bomResult || r.quoteResult),
+  );
   const selectedCount = rows.filter(
-    (r) => r.selected && r.result?.found,
+    (r) =>
+      !r.isParentContext &&
+      r.selected &&
+      (r.result?.found || r.bomResult || r.quoteResult),
   ).length;
 
   const handleSelectAll = (): void => {
@@ -165,21 +337,63 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
     setRows((prev) =>
       prev.map((r) => ({
         ...r,
-        selected: r.result?.found ? !allSelected : false,
+        selected:
+          r.result?.found || r.bomResult || r.quoteResult
+            ? !allSelected
+            : false,
       })),
     );
   };
 
   const handleImport = (): void => {
     const items: CostSearchImportItem[] = rows
-      .filter((r) => r.selected && r.result?.found)
+      .filter(
+        (r) =>
+          !r.isParentContext &&
+          r.selected &&
+          (r.result?.found || r.bomResult || r.quoteResult),
+      )
       .map((r) => {
+        const src = r.selectedSource;
+        if (src === "bom" && r.bomResult) {
+          const cost =
+            r.costOverride != null ? r.costOverride : r.bomResult.totalCostUSD;
+          return {
+            assetId: r.asset.id,
+            subItemCostId: r.subItemCost ? r.subItemCost.id : undefined,
+            unitCostUSD: cost,
+            costReference: "BOM COST",
+            dateReference: r.bomResult.dateReference,
+            leadTimeDays: r.bomResult.leadTimeDays || 0,
+            originalCost: r.bomResult.totalCostUSD,
+            originalCurrency: "USD",
+            costDate: r.bomResult.dateReference,
+          };
+        }
+        if (src === "quote" && r.quoteResult) {
+          const cost =
+            r.costOverride != null ? r.costOverride : r.quoteResult.costUSD;
+          return {
+            assetId: r.asset.id,
+            subItemCostId: r.subItemCost ? r.subItemCost.id : undefined,
+            unitCostUSD: cost,
+            costReference: "QUOTE",
+            dateReference: r.quoteResult.quotationDate,
+            leadTimeDays: 0,
+            originalCost: r.quoteResult.costUSD,
+            originalCurrency: "USD",
+            costDate: r.quoteResult.quotationDate,
+          };
+        }
+        // Default: catalog
         const cost =
           r.costOverride != null ? r.costOverride : r.result!.costPerItemUSD;
         return {
           assetId: r.asset.id,
+          subItemCostId: r.subItemCost ? r.subItemCost.id : undefined,
           unitCostUSD: cost,
           costReference: r.result!.sourceTab,
+          dateReference: r.result!.dataReference || "",
           leadTimeDays: r.result!.leadTimeDays,
           originalCost: r.result!.costPerItem,
           originalCurrency: r.result!.currency,
@@ -190,25 +404,119 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
     onClose();
   };
 
-  const foundCount = rows.filter((r) => r.result && r.result.found).length;
-  const notFoundCount = hasSearched
-    ? rows.filter((r) => r.result && !r.result.found).length
-    : 0;
-  const noPN = rows.filter(
-    (r) => !(r.scopeItem.partNumber || "").trim(),
+  const foundCount = rows.filter(
+    (r) =>
+      !r.isParentContext && (r.result?.found || r.bomResult || r.quoteResult),
   ).length;
+  const notFoundCount = hasSearched
+    ? rows.filter((r) => {
+        if (r.isParentContext) return false;
+        const pn = (
+          r.subItemScope
+            ? r.subItemScope.partNumber || ""
+            : r.scopeItem.partNumber || ""
+        )
+          .trim()
+          .toUpperCase();
+        return (
+          !r.result?.found &&
+          !r.bomResult &&
+          !r.quoteResult &&
+          pn &&
+          pn !== "TBD" &&
+          pn !== "TBC"
+        );
+      }).length
+    : 0;
+  const noPN = rows.filter((r) => {
+    if (r.isParentContext) return false;
+    const pn = (
+      r.subItemScope
+        ? r.subItemScope.partNumber || ""
+        : r.scopeItem.partNumber || ""
+    )
+      .trim()
+      .toUpperCase();
+    return !pn || pn === "TBD" || pn === "TBC";
+  }).length;
 
-  const sourceClass = (tab: string): string => {
-    switch (tab) {
-      case "BUMBL":
-        return styles.srcBUMBL;
-      case "BUMBR":
-        return styles.srcBUMBR;
-      case "Financials":
-        return styles.srcFIN;
-      default:
-        return "";
+  /** Source badge CSS class */
+  const srcClass = (
+    source: SearchRow["selectedSource"],
+    row: SearchRow,
+  ): string => {
+    if (source === "bom") return styles.srcBOM;
+    if (source === "quote") return styles.srcQuote;
+    if (source === "catalog" && row.result) {
+      switch (row.result.sourceTab) {
+        case "BUMBL":
+          return styles.srcBUMBL;
+        case "BUMBR":
+          return styles.srcBUMBR;
+        case "Financials":
+          return styles.srcFIN;
+        default:
+          return styles.srcManual;
+      }
     }
+    return styles.srcManual;
+  };
+
+  /** Source display label */
+  const srcLabel = (
+    source: SearchRow["selectedSource"],
+    row: SearchRow,
+  ): string => {
+    if (source === "bom") return "BOM COST";
+    if (source === "quote") return `QUOTE`;
+    if (source === "catalog" && row.result) return row.result.sourceTab;
+    return "—";
+  };
+
+  /** Date age class */
+  const dateAgeClass = (dateRef: string): string => {
+    if (!dateRef) return "";
+    const d = new Date(dateRef);
+    if (isNaN(d.getTime())) return "";
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffYears = diffMs / (365.25 * 24 * 60 * 60 * 1000);
+    if (diffYears >= 2) return styles.dateOld;
+    if (diffYears >= 1) return styles.dateWarn;
+    return styles.dateRecent;
+  };
+
+  /** Format date DD/Mon/YYYY */
+  const fmtDate = (dateRef: string): string => {
+    if (!dateRef) return "—";
+    const d = new Date(dateRef);
+    if (isNaN(d.getTime())) return dateRef;
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    return `${d.getDate().toString().padStart(2, "0")}/${months[d.getMonth()]}/${d.getFullYear()}`;
+  };
+
+  /** Get the active date ref for a row based on selected source */
+  const getRowDateRef = (row: SearchRow): string => {
+    if (row.selectedSource === "bom" && row.bomResult)
+      return row.bomResult.dateReference;
+    if (row.selectedSource === "quote" && row.quoteResult)
+      return row.quoteResult.quotationDate;
+    if (row.selectedSource === "catalog" && row.result?.found)
+      return row.result.dataReference || "";
+    return "";
   };
 
   return (
@@ -217,10 +525,10 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
         {/* Header */}
         <div className={styles.header}>
           <div>
-            <h3 className={styles.title}>Search Costs from Catalog</h3>
+            <h3 className={styles.title}>Search Costs</h3>
             <p className={styles.subtitle}>
-              Auto-search BOM costs (BUMBL → BUMBR → Financials) for your scope
-              items
+              Auto-search costs from Query Catalog, BOM Cost Analyses, and
+              Quotations
             </p>
           </div>
           <button className={styles.closeBtn} onClick={onClose}>
@@ -235,7 +543,8 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
               className={`${styles.filterBtn} ${filterMode === "missing" ? styles.filterActive : ""}`}
               onClick={() => setFilterMode("missing")}
             >
-              Missing Costs ({buildRows().length})
+              Missing Costs (
+              {buildRows().filter((r) => !r.isParentContext).length})
             </button>
             <button
               className={`${styles.filterBtn} ${filterMode === "all" ? styles.filterActive : ""}`}
@@ -290,30 +599,77 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                 <th>Status</th>
                 <th>Cost (USD)</th>
                 <th>Source</th>
+                <th>Date Ref</th>
                 <th>Lead Time</th>
                 <th>Override</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
-                const pn = row.scopeItem.partNumber || "";
+                // Parent context row — visual hierarchy only
+                if (row.isParentContext) {
+                  return (
+                    <tr
+                      key={`ctx_${row.asset.id}`}
+                      className={styles.parentContextRow}
+                    >
+                      <td className={styles.tdCheck} />
+                      <td className={styles.tdEquip} colSpan={2}>
+                        <span className={styles.parentContextLabel}>
+                          {row.scopeItem.equipmentOffer || "—"}
+                        </span>
+                        {row.scopeItem.partNumber && (
+                          <span className={styles.parentContextPN}>
+                            {row.scopeItem.partNumber}
+                          </span>
+                        )}
+                      </td>
+                      <td colSpan={6} className={styles.parentContextHint}>
+                        ✅ has cost — sub-items below
+                      </td>
+                    </tr>
+                  );
+                }
+
+                const pn = row.subItemScope
+                  ? row.subItemScope.partNumber || ""
+                  : row.scopeItem.partNumber || "";
                 const found = row.result?.found;
+                const hasAny = found || row.bomResult || row.quoteResult;
+                const rowKey = row.subItemCost
+                  ? `${row.asset.id}_${row.subItemCost.id}`
+                  : row.asset.id;
                 return (
                   <tr
-                    key={row.asset.id}
-                    className={hasSearched && !found ? styles.rowNotFound : ""}
+                    key={rowKey}
+                    className={hasSearched && !hasAny ? styles.rowNotFound : ""}
                   >
                     <td className={styles.tdCheck}>
-                      {found && (
+                      {hasAny && (
                         <input
                           type="checkbox"
                           checked={row.selected}
-                          onChange={() => toggleRow(row.asset.id)}
+                          onChange={() => toggleRow(rowKey)}
                         />
                       )}
                     </td>
                     <td className={styles.tdEquip}>
-                      {row.scopeItem.equipmentOffer || "—"}
+                      {row.subItemScope ? (
+                        <span
+                          style={{
+                            paddingLeft: 12,
+                            fontStyle: "italic",
+                            fontSize: 11,
+                          }}
+                        >
+                          ↳{" "}
+                          {row.subItemScope.equipmentOffer ||
+                            row.subItemScope.description ||
+                            "Sub-item"}
+                        </span>
+                      ) : (
+                        row.scopeItem.equipmentOffer || "—"
+                      )}
                     </td>
                     <td className={styles.tdPN}>{pn || "—"}</td>
                     <td className={styles.tdStatus}>
@@ -321,39 +677,114 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                         <span className={styles.pending}>—</span>
                       ) : !pn.trim() ? (
                         <span className={styles.noPN}>No PN</span>
-                      ) : found ? (
+                      ) : hasAny ? (
                         <span className={styles.found}>✅</span>
                       ) : (
                         <span className={styles.notFound}>❌</span>
                       )}
                     </td>
                     <td className={styles.tdCost}>
-                      {found
-                        ? `$${row.result!.costPerItemUSD.toFixed(2)}`
-                        : "—"}
-                      {found && row.result!.currency !== "USD" && (
-                        <div className={styles.origCost}>
-                          {row.result!.currency}{" "}
-                          {row.result!.costPerItem.toFixed(2)}
-                        </div>
-                      )}
+                      {row.selectedSource === "bom" && row.bomResult
+                        ? `$${row.bomResult.totalCostUSD.toFixed(2)}`
+                        : row.selectedSource === "quote" && row.quoteResult
+                          ? `$${row.quoteResult.costUSD.toFixed(2)}`
+                          : found
+                            ? `$${row.result!.costPerItemUSD.toFixed(2)}`
+                            : "—"}
+                      {found &&
+                        row.selectedSource === "catalog" &&
+                        row.result!.currency !== "USD" && (
+                          <div className={styles.origCost}>
+                            {row.result!.currency}{" "}
+                            {row.result!.costPerItem.toFixed(2)}
+                          </div>
+                        )}
                     </td>
                     <td>
-                      {found && (
+                      {hasAny && (
                         <span
-                          className={`${styles.tabBadge} ${sourceClass(row.result!.sourceTab)}`}
+                          className={`${styles.tabBadge} ${srcClass(row.selectedSource, row)}`}
+                          title={
+                            row.bomResult && row.result?.found
+                              ? "Multiple sources available"
+                              : ""
+                          }
                         >
-                          {row.result!.sourceTab}
+                          {srcLabel(row.selectedSource, row)}
                         </span>
                       )}
+                      {hasAny &&
+                        (row.result?.found ? 1 : 0) +
+                          (row.bomResult ? 1 : 0) +
+                          (row.quoteResult ? 1 : 0) >
+                          1 && (
+                          <select
+                            style={{
+                              fontSize: 10,
+                              padding: "1px 3px",
+                              marginLeft: 4,
+                              verticalAlign: "middle",
+                            }}
+                            value={row.selectedSource || ""}
+                            onChange={(e) => {
+                              const val = e.target
+                                .value as SearchRow["selectedSource"];
+                              setRows((prev) =>
+                                prev.map((r) =>
+                                  getRowKey(r) === rowKey
+                                    ? { ...r, selectedSource: val }
+                                    : r,
+                                ),
+                              );
+                            }}
+                          >
+                            {found && (
+                              <option value="catalog">
+                                {row.result!.sourceTab}
+                              </option>
+                            )}
+                            {row.bomResult && (
+                              <option value="bom">BOM COST</option>
+                            )}
+                            {row.quoteResult && (
+                              <option value="quote">QUOTE</option>
+                            )}
+                          </select>
+                        )}
                     </td>
                     <td>
-                      {found && row.result!.leadTimeDays > 0
-                        ? `${row.result!.leadTimeDays}d`
-                        : "—"}
+                      {(() => {
+                        const dr = getRowDateRef(row);
+                        if (!dr) return "—";
+                        return (
+                          <span
+                            className={`${styles.dateBadge} ${dateAgeClass(dr)}`}
+                          >
+                            {fmtDate(dr)}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td>
+                      {(() => {
+                        if (
+                          found &&
+                          row.selectedSource === "catalog" &&
+                          row.result!.leadTimeDays > 0
+                        )
+                          return `${row.result!.leadTimeDays}d`;
+                        if (
+                          row.selectedSource === "bom" &&
+                          row.bomResult &&
+                          row.bomResult.leadTimeDays &&
+                          row.bomResult.leadTimeDays > 0
+                        )
+                          return `${row.bomResult.leadTimeDays}d`;
+                        return "—";
+                      })()}
                     </td>
                     <td className={styles.tdOverride}>
-                      {found && (
+                      {hasAny && (
                         <input
                           type="number"
                           className={styles.overrideInput}
@@ -363,7 +794,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                           }
                           onChange={(e) =>
                             setCostOverride(
-                              row.asset.id,
+                              rowKey,
                               e.target.value ? Number(e.target.value) : null,
                             )
                           }
@@ -375,7 +806,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className={styles.emptyRow}>
+                  <td colSpan={9} className={styles.emptyRow}>
                     {filterMode === "missing"
                       ? "All items already have costs assigned!"
                       : "No scope items found."}

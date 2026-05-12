@@ -3,8 +3,9 @@
  * Static singleton pattern (padrão SmartFlow).
  */
 import { IBidRequest } from "../models/IBidRequest";
-import { IBid, IPersonRef } from "../models";
+import { IBid, IPersonRef, IExchangeRateSnapshot } from "../models";
 import { BidService } from "./BidService";
+import { SystemConfigService } from "./SystemConfigService";
 import { makeId } from "../utils/idGenerator";
 
 export class RequestService {
@@ -96,6 +97,24 @@ export class RequestService {
     // Requests are stored as BIDs in Phase 0 — initialize ALL fields
     const now = new Date().toISOString();
     const creatorRef = request.creator || { name: "", email: "" };
+
+    // Capture exchange rates snapshot from system config
+    let exchangeRatesSnapshot: IExchangeRateSnapshot[] = [];
+    try {
+      const sysConfig = await SystemConfigService.get();
+      if (sysConfig?.currencySettings?.exchangeRates) {
+        exchangeRatesSnapshot = sysConfig.currencySettings.exchangeRates.map(
+          (er) => ({
+            currency: er.currency,
+            rate: er.rate,
+            capturedDate: now,
+          }),
+        );
+      }
+    } catch {
+      // Continue without snapshot if config fetch fails
+    }
+
     const bid: IBid = {
       bidNumber: request.requestNumber,
       crmNumber: request.crmNumber || "",
@@ -120,6 +139,7 @@ export class RequestService {
         currency: "USD",
         ptax: 0,
         ptaxDate: "",
+        exchangeRatesSnapshot,
         qualifications: [],
       },
       creator: creatorRef,

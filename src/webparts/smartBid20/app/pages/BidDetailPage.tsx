@@ -156,8 +156,17 @@ const DivisionEditWrap: React.FC<{
   sectionPrefix: string;
   div: "ROV" | "SURVEY" | "OPG" | null;
   canEdit: boolean;
+  onEditChange?: (editing: boolean) => void;
   children: (isEditing: boolean) => React.ReactNode;
-}> = ({ bidNumber, tabName, sectionPrefix, div, canEdit, children }) => {
+}> = ({
+  bidNumber,
+  tabName,
+  sectionPrefix,
+  div,
+  canEdit,
+  onEditChange,
+  children,
+}) => {
   const sectionKey = div ? `${sectionPrefix}-${div}` : sectionPrefix;
   const editControl = useEditControl(bidNumber, sectionKey);
   return (
@@ -165,6 +174,7 @@ const DivisionEditWrap: React.FC<{
       editControl={editControl}
       canEdit={canEdit}
       label={div ? `${tabName} (${div})` : tabName}
+      onEditChange={onEditChange}
     >
       {children}
     </EditableTabContent>
@@ -181,6 +191,7 @@ export const BidDetailPage: React.FC = () => {
   const configPhases = useConfigPhases();
 
   const [activeTab, setActiveTab] = React.useState<BidTab>("overview");
+  const [navCollapsed, setNavCollapsed] = React.useState(false);
   const currentUser = useCurrentUser();
   const setSidebarExpanded = useUIStore((s) => s.setSidebarExpanded);
 
@@ -192,6 +203,11 @@ export const BidDetailPage: React.FC = () => {
       setSidebarExpanded(wasExpanded);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-collapse/expand nav when editing state changes
+  const handleEditChange = React.useCallback((editing: boolean) => {
+    setNavCollapsed(editing);
+  }, []);
 
   // Cleanup: release all edit locks for this BID when leaving the page
   React.useEffect(() => {
@@ -343,24 +359,41 @@ export const BidDetailPage: React.FC = () => {
       </div>
 
       {/* Sidebar + Content Layout */}
-      <div className={styles.detailLayout}>
+      <div
+        className={`${styles.detailLayout} ${navCollapsed ? styles.detailLayoutCollapsed : ""}`}
+      >
         {/* Sidebar Nav */}
-        <nav className={styles.sideNav}>
-          {visibleGroups.map((group) => (
-            <div key={group.group} className={styles.navGroup}>
-              <div className={styles.navGroupLabel}>{group.group}</div>
-              {group.items.map((item) => (
-                <button
-                  key={item.key}
-                  className={`${styles.navItem} ${activeTab === item.key ? styles.navItemActive : ""}`}
-                  onClick={() => setActiveTab(item.key)}
-                >
-                  <span className={styles.navIcon}>{item.icon}</span>
-                  <span className={styles.navLabel}>{item.label}</span>
-                </button>
+        <nav
+          className={`${styles.sideNav} ${navCollapsed ? styles.sideNavCollapsed : ""}`}
+        >
+          {navCollapsed
+            ? visibleGroups.map((group) =>
+                group.items.map((item) => (
+                  <button
+                    key={item.key}
+                    className={`${styles.navItem} ${activeTab === item.key ? styles.navItemActive : ""}`}
+                    onClick={() => setActiveTab(item.key)}
+                    title={item.label}
+                  >
+                    <span className={styles.navIcon}>{item.icon}</span>
+                  </button>
+                )),
+              )
+            : visibleGroups.map((group) => (
+                <div key={group.group} className={styles.navGroup}>
+                  <div className={styles.navGroupLabel}>{group.group}</div>
+                  {group.items.map((item) => (
+                    <button
+                      key={item.key}
+                      className={`${styles.navItem} ${activeTab === item.key ? styles.navItemActive : ""}`}
+                      onClick={() => setActiveTab(item.key)}
+                    >
+                      <span className={styles.navIcon}>{item.icon}</span>
+                      <span className={styles.navLabel}>{item.label}</span>
+                    </button>
+                  ))}
+                </div>
               ))}
-            </div>
-          ))}
         </nav>
 
         {/* Main Content */}
@@ -383,6 +416,7 @@ export const BidDetailPage: React.FC = () => {
                   sectionPrefix="scope"
                   div={div}
                   canEdit={canEditBid}
+                  onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
                     const filtered = div
@@ -423,7 +457,52 @@ export const BidDetailPage: React.FC = () => {
                             savePatch({ scopeItems: items });
                           }
                         }}
+                        onImportEngHours={(engItems, resAlloc) => {
+                          const currentHours =
+                            bid.hoursSummary || EMPTY_HOURS_SUMMARY;
+                          const existingEng =
+                            currentHours.engineeringHours?.engineeringItems ||
+                            [];
+                          const existingRes =
+                            currentHours.engineeringHours
+                              ?.resourceAllocations || [];
+                          const mergedEng = [...existingEng, ...engItems];
+                          const mergedRes = resAlloc
+                            ? [...existingRes, ...resAlloc]
+                            : existingRes;
+                          const addedHours = engItems.reduce(
+                            (s, e) => s + (e.totalHours || 0),
+                            0,
+                          );
+                          savePatch({
+                            hoursSummary: {
+                              ...currentHours,
+                              engineeringHours: {
+                                ...currentHours.engineeringHours,
+                                engineeringItems: mergedEng,
+                                resourceAllocations: mergedRes,
+                                totalHours:
+                                  (currentHours.engineeringHours?.totalHours ||
+                                    0) + addedHours,
+                              },
+                              grandTotalHours:
+                                (currentHours.grandTotalHours || 0) +
+                                addedHours,
+                            },
+                          });
+                        }}
                         clarifications={filteredClars}
+                        tabNotes={
+                          (bid.bidNotes as Record<string, string>)?.scope || ""
+                        }
+                        onSaveTabNotes={(notes) =>
+                          savePatch({
+                            bidNotes: {
+                              ...(bid.bidNotes || {}),
+                              scope: notes,
+                            },
+                          })
+                        }
                       />
                     );
                   }}
@@ -440,6 +519,7 @@ export const BidDetailPage: React.FC = () => {
                   sectionPrefix="assets"
                   div={div}
                   canEdit={canEditBid}
+                  onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
                     const filteredScope = div
@@ -486,6 +566,7 @@ export const BidDetailPage: React.FC = () => {
                   sectionPrefix="logistics"
                   div={div}
                   canEdit={canEditBid}
+                  onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
                     const filtered = div
@@ -535,6 +616,7 @@ export const BidDetailPage: React.FC = () => {
                   sectionPrefix="certifications"
                   div={div}
                   canEdit={canEditBid}
+                  onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
                     const filteredScope = div
@@ -552,6 +634,7 @@ export const BidDetailPage: React.FC = () => {
                         scopeItems={filteredScope}
                         certificationsBreakdown={filtered}
                         readOnly={!isEditing}
+                        bidNumber={bid.bidNumber}
                         onSave={(items) => {
                           if (div) {
                             const others = (
@@ -590,6 +673,7 @@ export const BidDetailPage: React.FC = () => {
                   sectionPrefix="preparation"
                   div={div}
                   canEdit={canEditBid}
+                  onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
                     const filteredScope = div
@@ -707,6 +791,7 @@ export const BidDetailPage: React.FC = () => {
                   sectionPrefix="hours"
                   div={_div}
                   canEdit={canEditBid}
+                  onEditChange={handleEditChange}
                 >
                   {(isEditing) => (
                     <BidHoursTable
@@ -714,6 +799,18 @@ export const BidDetailPage: React.FC = () => {
                       readOnly={!isEditing}
                       onSave={(updated) => savePatch({ hoursSummary: updated })}
                       integratedDivision={_div}
+                      scopeItems={bid.scopeItems || []}
+                      tabNotes={
+                        (bid.bidNotes as Record<string, string>)?.hours || ""
+                      }
+                      onSaveTabNotes={(notes) =>
+                        savePatch({
+                          bidNotes: {
+                            ...(bid.bidNotes || {}),
+                            hours: notes,
+                          },
+                        })
+                      }
                     />
                   )}
                 </DivisionEditWrap>

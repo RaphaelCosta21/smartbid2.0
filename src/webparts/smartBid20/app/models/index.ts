@@ -25,6 +25,7 @@ export {
   type IBid,
   type IQuickNote,
   type IOpportunityInfo,
+  type IExchangeRateSnapshot,
   type IPhaseHistoryEntry,
   type IStatusHistoryEntry,
   type IBidTask,
@@ -42,6 +43,11 @@ export {
   type IHoursItem,
   type IHoursSection,
   type IHoursSummary,
+  type IHoursSectionGroup,
+  type IEngineeringHoursSection,
+  type IEngineeringHoursItem,
+  type IEngineeringDeliverable,
+  type IResourceAllocation,
   type IAssetsCostSummary,
   type ICostSummary,
   type IBidApproval,
@@ -57,7 +63,6 @@ export {
   type IQualificationTable,
   type IQualificationItem,
   type IClarificationItem,
-  type IHoursSectionGroup,
 } from "./IBid";
 export {
   type IConfigOption,

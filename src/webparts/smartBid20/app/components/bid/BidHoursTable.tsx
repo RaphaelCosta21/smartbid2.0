@@ -4,10 +4,14 @@ import {
   IHoursItem,
   IHoursSection,
   IHoursSectionGroup,
+  IEngineeringHoursSection,
+  IScopeItem,
 } from "../../models";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { formatHours, formatCurrency } from "../../utils/formatters";
 import { makeId } from "../../utils/idGenerator";
+import { EngineeringHoursSection } from "./EngineeringHoursSection";
+import { ImportSourceModal } from "../common/ImportSourceModal";
 import styles from "./BidHoursTable.module.scss";
 
 interface BidHoursTableProps {
@@ -16,6 +20,12 @@ interface BidHoursTableProps {
   onSave?: (updated: IHoursSummary) => void;
   /** For division-aware BIDs — when set, shows only Onshore/Offshore sections */
   integratedDivision?: "ROV" | "SURVEY" | "OPG" | null;
+  /** Scope items marked as needsEngineering — drives Engineering Hours section */
+  scopeItems?: IScopeItem[];
+  /** Tab-level notes/comments */
+  tabNotes?: string;
+  /** Callback to save tab-level notes */
+  onSaveTabNotes?: (notes: string) => void;
 }
 
 const blankHoursItem = (sectionId?: string): IHoursItem => ({
@@ -39,6 +49,9 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
   hoursSummary,
   readOnly = false,
   onSave,
+  scopeItems = [],
+  tabNotes = "",
+  onSaveTabNotes,
 }) => {
   const config = useConfigStore((s) => s.config);
   const hoursPhases = (config?.hoursPhases || []).filter(
@@ -305,252 +318,541 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     null,
   );
 
+  // Section notes/specs expand state
+  const [expandedNotes, setExpandedNotes] = React.useState<Set<string>>(
+    new Set(),
+  );
+
+  const toggleSectionNotes = (groupId: string): void => {
+    setExpandedNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
+  const updateSectionGroupNotes = (
+    sectionKey: SectionKey,
+    groupId: string,
+    notes: string,
+  ): void => {
+    const section = hoursSummary?.[sectionKey] || emptySection;
+    persistChange(sectionKey, {
+      ...section,
+      sections: (section.sections || []).map((s) =>
+        s.id === groupId ? { ...s, notes } : s,
+      ),
+    });
+  };
+
+  const updateSectionGroupSpecs = (
+    sectionKey: SectionKey,
+    groupId: string,
+    specs: string[],
+  ): void => {
+    const section = hoursSummary?.[sectionKey] || emptySection;
+    persistChange(sectionKey, {
+      ...section,
+      sections: (section.sections || []).map((s) =>
+        s.id === groupId ? { ...s, specs } : s,
+      ),
+    });
+  };
+
+  // Handle engineering section save
+  const handleEngineeringSave = (updated: IEngineeringHoursSection): void => {
+    if (!onSave) return;
+    const newSummary: IHoursSummary = {
+      ...hoursSummary,
+      engineeringHours: updated,
+    };
+    // Recalc grand totals
+    const engTotal = updated.totalHours;
+    const onshoreTotal = (hoursSummary.onshoreHours || emptySection).totalHours;
+    const offshoreTotal = (hoursSummary.offshoreHours || emptySection)
+      .totalHours;
+    newSummary.grandTotalHours = engTotal + onshoreTotal + offshoreTotal;
+    newSummary.grandTotalCostBRL =
+      updated.totalCostBRL +
+      (hoursSummary.onshoreHours || emptySection).totalCostBRL +
+      (hoursSummary.offshoreHours || emptySection).totalCostBRL;
+    onSave(newSummary);
+  };
+
+  // Scope items that are marked for engineering
+  const engineeringScopeItems = React.useMemo(
+    () => scopeItems.filter((si) => !si.isSection && si.needsEngineering),
+    [scopeItems],
+  );
+
+  // ─── Import from BID/Template modal state ───
+  const [showImportModal, setShowImportModal] = React.useState(false);
+
   return (
     <div className={styles.container}>
-      {allGroupIds.length > 0 && (
-        <div className={styles.collapseToolbar}>
+      {/* Top toolbar: collapse + import */}
+      <div className={styles.collapseToolbar}>
+        {allGroupIds.length > 0 && (
           <button className={styles.collapseBtn} onClick={toggleAllSections}>
             {allSectionsCollapsed ? "▶ Expand All" : "▼ Collapse All"}
           </button>
-        </div>
-      )}
-      {sectionDefs.map(({ key, label }) => {
-        const section = hoursSummary?.[key] || emptySection;
-        const sectionGroups: IHoursSectionGroup[] = section.sections || [];
-        const unsectionedItems = section.items.filter((i) => !i.sectionId);
+        )}
+        {!readOnly && onSave && (
+          <button
+            className={styles.importBidBtn}
+            onClick={() => setShowImportModal(true)}
+            title="Import hours from a completed BID or template"
+          >
+            📥 Import BID / Template
+          </button>
+        )}
+      </div>
 
-        return (
-          <div key={key}>
-            <div className={styles.sectionHeader}>
-              <h4 className={styles.sectionTitle}>{label}</h4>
-              {!readOnly && onSave && (
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button className={styles.addBtn} onClick={() => addRow(key)}>
-                    + Add Row
-                  </button>
-                  <button
-                    className={styles.addBtn}
-                    onClick={() => addSectionGroup(key)}
-                  >
-                    + Add Section
-                  </button>
-                </div>
-              )}
-            </div>
+      {/* Tab-level notes */}
+      <div className={styles.tabNotesContainer}>
+        <label className={styles.tabNotesLabel}>📝 Notes / Comments</label>
+        {readOnly && !onSaveTabNotes ? (
+          <p className={styles.tabNotesText}>{tabNotes || "—"}</p>
+        ) : (
+          <textarea
+            className={styles.tabNotesInput}
+            value={tabNotes}
+            placeholder="Add general notes or comments for Hours & Personnel..."
+            rows={2}
+            readOnly={readOnly}
+            onChange={(e) => onSaveTabNotes && onSaveTabNotes(e.target.value)}
+          />
+        )}
+      </div>
 
-            {section.items.length === 0 && sectionGroups.length === 0 ? (
-              <div className={styles.empty}>No items</div>
-            ) : (
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    {!readOnly && onSave && <th style={{ width: 28 }} />}
-                    {[
-                      "Function",
-                      "Phase",
-                      "Hrs/Day",
-                      "People",
-                      "Work Days",
-                      "Util %",
-                      "Total Hrs",
-                      "Cost (BRL)",
-                    ].map((h) => (
-                      <th key={h}>{h}</th>
+      {/* Engineering Hours — deliverable-based section */}
+      <EngineeringHoursSection
+        engineeringSection={hoursSummary?.engineeringHours || emptySection}
+        scopeItems={engineeringScopeItems}
+        readOnly={readOnly}
+        onSave={onSave ? handleEngineeringSave : undefined}
+      />
+
+      {/* Onshore & Offshore — row-based sections */}
+      {sectionDefs
+        .filter((s) => s.key !== "engineeringHours")
+        .map(({ key, label }) => {
+          const section = hoursSummary?.[key] || emptySection;
+          const sectionGroups: IHoursSectionGroup[] = section.sections || [];
+          const unsectionedItems = section.items.filter((i) => !i.sectionId);
+
+          return (
+            <div key={key}>
+              <div className={styles.sectionHeader}>
+                <h4 className={styles.sectionTitle}>{label}</h4>
+                {!readOnly && onSave && (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      className={styles.addBtn}
+                      onClick={() => addRow(key)}
+                    >
+                      + Add Row
+                    </button>
+                    <button
+                      className={styles.addBtn}
+                      onClick={() => addSectionGroup(key)}
+                    >
+                      + Add Section
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {section.items.length === 0 && sectionGroups.length === 0 ? (
+                <div className={styles.empty}>No items</div>
+              ) : (
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      {!readOnly && onSave && <th style={{ width: 28 }} />}
+                      {[
+                        "Function",
+                        "Phase",
+                        "Hrs/Day",
+                        "People",
+                        "Work Days",
+                        "Util %",
+                        "Total Hrs",
+                        "Cost (BRL)",
+                      ].map((h) => (
+                        <th key={h}>{h}</th>
+                      ))}
+                      {!readOnly && onSave && <th />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Unsectioned items first */}
+                    {unsectionedItems.map((item) => (
+                      <HoursRow
+                        key={item.id}
+                        item={item}
+                        sectionKey={key}
+                        readOnly={readOnly}
+                        onSave={onSave}
+                        functionCategories={functionCategories}
+                        hoursPhases={hoursPhases}
+                        updateItem={updateItem}
+                        deleteRow={deleteRow}
+                        moveItem={moveHoursItem}
+                        sectionGroups={sectionGroups}
+                        moveToSection={moveItemToSection}
+                      />
                     ))}
-                    {!readOnly && onSave && <th />}
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Unsectioned items first */}
-                  {unsectionedItems.map((item) => (
-                    <HoursRow
-                      key={item.id}
-                      item={item}
-                      sectionKey={key}
-                      readOnly={readOnly}
-                      onSave={onSave}
-                      functionCategories={functionCategories}
-                      hoursPhases={hoursPhases}
-                      updateItem={updateItem}
-                      deleteRow={deleteRow}
-                      moveItem={moveHoursItem}
-                      sectionGroups={sectionGroups}
-                      moveToSection={moveItemToSection}
-                    />
-                  ))}
-                  {/* Section groups */}
-                  {sectionGroups.map((group) => {
-                    const groupItems = section.items.filter(
-                      (i) => i.sectionId === group.id,
-                    );
-                    const isCollapsed = collapsedSections.has(group.id);
-                    const groupTotal = groupItems.reduce(
-                      (s, i) => s + i.totalHours,
-                      0,
-                    );
-                    const gColor = group.color || "";
-                    return (
-                      <React.Fragment key={group.id}>
-                        <tr
-                          className={styles.sectionGroupRow}
-                          style={
-                            gColor ? { background: `${gColor}15` } : undefined
-                          }
-                        >
-                          <td
-                            colSpan={!readOnly && onSave ? 10 : 8}
+                    {/* Section groups */}
+                    {sectionGroups.map((group) => {
+                      const groupItems = section.items.filter(
+                        (i) => i.sectionId === group.id,
+                      );
+                      const isCollapsed = collapsedSections.has(group.id);
+                      const groupTotal = groupItems.reduce(
+                        (s, i) => s + i.totalHours,
+                        0,
+                      );
+                      const gColor = group.color || "";
+                      return (
+                        <React.Fragment key={group.id}>
+                          <tr
+                            className={styles.sectionGroupRow}
                             style={
-                              gColor
-                                ? {
-                                    borderBottomColor: gColor,
-                                    borderBottomWidth: 2,
-                                    borderBottomStyle: "solid" as const,
-                                    background: `${gColor}15`,
-                                  }
-                                : undefined
+                              gColor ? { background: `${gColor}15` } : undefined
                             }
                           >
-                            <div
-                              className={styles.sectionGroupHeader}
-                              onClick={() => toggleCollapse(group.id)}
-                              style={gColor ? { color: gColor } : undefined}
+                            <td
+                              colSpan={!readOnly && onSave ? 10 : 8}
+                              style={
+                                gColor
+                                  ? {
+                                      borderBottomColor: gColor,
+                                      borderBottomWidth: 2,
+                                      borderBottomStyle: "solid" as const,
+                                      background: `${gColor}15`,
+                                    }
+                                  : undefined
+                              }
                             >
-                              <span
-                                className={`${styles.chevron} ${isCollapsed ? styles.chevronCollapsed : ""}`}
+                              <div
+                                className={styles.sectionGroupHeader}
+                                onClick={() => toggleCollapse(group.id)}
+                                style={gColor ? { color: gColor } : undefined}
                               >
-                                ▼
-                              </span>
-                              {editingSection === group.id && !readOnly ? (
-                                <input
-                                  className={styles.sectionGroupInput}
-                                  value={group.title}
-                                  autoFocus
-                                  onChange={(e) =>
-                                    renameSectionGroup(
-                                      key,
-                                      group.id,
-                                      e.target.value,
-                                    )
-                                  }
-                                  onBlur={() => setEditingSection(null)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter")
-                                      setEditingSection(null);
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              ) : (
                                 <span
-                                  onDoubleClick={() =>
-                                    !readOnly && setEditingSection(group.id)
-                                  }
+                                  className={`${styles.chevron} ${isCollapsed ? styles.chevronCollapsed : ""}`}
                                 >
-                                  {group.title || "Untitled Section"}
+                                  ▼
                                 </span>
-                              )}
-                              <span className={styles.sectionGroupMeta}>
-                                ({groupItems.length} items ·{" "}
-                                {formatHours(groupTotal)})
-                              </span>
-                              {!readOnly && onSave && (
-                                <div
-                                  className={styles.sectionGroupActions}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <button
-                                    className={styles.addBtn}
-                                    style={{ padding: "2px 5px", fontSize: 11 }}
-                                    onClick={() =>
-                                      moveSectionGroup(key, group.id, "up")
-                                    }
-                                    title="Move section up"
-                                  >
-                                    ▲
-                                  </button>
-                                  <button
-                                    className={styles.addBtn}
-                                    style={{ padding: "2px 5px", fontSize: 11 }}
-                                    onClick={() =>
-                                      moveSectionGroup(key, group.id, "down")
-                                    }
-                                    title="Move section down"
-                                  >
-                                    ▼
-                                  </button>
-                                  <button
-                                    className={styles.addBtn}
-                                    onClick={() => addRow(key, group.id)}
-                                  >
-                                    + Row
-                                  </button>
-                                  <ColorPickerInline
-                                    currentColor={gColor}
-                                    colors={SECTION_COLORS}
-                                    onChange={(c) =>
-                                      updateSectionGroupColor(key, group.id, c)
-                                    }
-                                  />
-                                  <button
-                                    className={styles.deleteBtn}
-                                    onClick={() => {
-                                      if (
-                                        window.confirm(
-                                          `Delete section "${group.title || "Untitled"}"? Items will be moved to unsectioned.`,
-                                        )
+                                {editingSection === group.id && !readOnly ? (
+                                  <input
+                                    className={styles.sectionGroupInput}
+                                    value={group.title}
+                                    autoFocus
+                                    onChange={(e) =>
+                                      renameSectionGroup(
+                                        key,
+                                        group.id,
+                                        e.target.value,
                                       )
-                                        deleteSectionGroup(key, group.id);
+                                    }
+                                    onBlur={() => setEditingSection(null)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter")
+                                        setEditingSection(null);
                                     }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                ) : (
+                                  <span
+                                    onDoubleClick={() =>
+                                      !readOnly && setEditingSection(group.id)
+                                    }
                                   >
-                                    ✕
-                                  </button>
+                                    {group.title || "Untitled Section"}
+                                  </span>
+                                )}
+                                <span className={styles.sectionGroupMeta}>
+                                  ({groupItems.length} items ·{" "}
+                                  {formatHours(groupTotal)})
+                                </span>
+                                {!readOnly && onSave && (
+                                  <div
+                                    className={styles.sectionGroupActions}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <button
+                                      className={styles.addBtn}
+                                      style={{
+                                        padding: "2px 5px",
+                                        fontSize: 11,
+                                      }}
+                                      onClick={() =>
+                                        moveSectionGroup(key, group.id, "up")
+                                      }
+                                      title="Move section up"
+                                    >
+                                      ▲
+                                    </button>
+                                    <button
+                                      className={styles.addBtn}
+                                      style={{
+                                        padding: "2px 5px",
+                                        fontSize: 11,
+                                      }}
+                                      onClick={() =>
+                                        moveSectionGroup(key, group.id, "down")
+                                      }
+                                      title="Move section down"
+                                    >
+                                      ▼
+                                    </button>
+                                    <button
+                                      className={styles.addBtn}
+                                      onClick={() => addRow(key, group.id)}
+                                    >
+                                      + Row
+                                    </button>
+                                    <button
+                                      className={`${styles.addBtn} ${expandedNotes.has(group.id) ? styles.activeSectionBtn : ""}`}
+                                      style={{
+                                        padding: "2px 5px",
+                                        fontSize: 11,
+                                      }}
+                                      onClick={() =>
+                                        toggleSectionNotes(group.id)
+                                      }
+                                      title="Section notes & specs"
+                                    >
+                                      📋
+                                    </button>
+                                    <ColorPickerInline
+                                      currentColor={gColor}
+                                      colors={SECTION_COLORS}
+                                      onChange={(c) =>
+                                        updateSectionGroupColor(
+                                          key,
+                                          group.id,
+                                          c,
+                                        )
+                                      }
+                                    />
+                                    <button
+                                      className={styles.deleteBtn}
+                                      onClick={() => {
+                                        if (
+                                          window.confirm(
+                                            `Delete section "${group.title || "Untitled"}"? Items will be moved to unsectioned.`,
+                                          )
+                                        )
+                                          deleteSectionGroup(key, group.id);
+                                      }}
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                )}
+                                {/* Read-only notes/specs indicator */}
+                                {readOnly &&
+                                  (group.notes ||
+                                    (group.specs &&
+                                      group.specs.length > 0)) && (
+                                    <button
+                                      className={styles.addBtn}
+                                      style={{
+                                        padding: "2px 5px",
+                                        fontSize: 11,
+                                        marginLeft: "auto",
+                                      }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleSectionNotes(group.id);
+                                      }}
+                                      title="View section notes & specs"
+                                    >
+                                      📋
+                                    </button>
+                                  )}
+                              </div>
+                            </td>
+                          </tr>
+                          {/* Section Notes & Specs Panel */}
+                          {expandedNotes.has(group.id) && (
+                            <tr>
+                              <td
+                                colSpan={!readOnly && onSave ? 10 : 8}
+                                className={styles.sectionNotesCell}
+                              >
+                                <div className={styles.sectionNotesPanel}>
+                                  <div className={styles.sectionNotesGrid}>
+                                    <div className={styles.sectionNotesCol}>
+                                      <label
+                                        className={styles.sectionNotesLabel}
+                                      >
+                                        Notes / Comments
+                                      </label>
+                                      {readOnly ? (
+                                        <p className={styles.sectionNotesText}>
+                                          {group.notes || "—"}
+                                        </p>
+                                      ) : (
+                                        <textarea
+                                          className={styles.sectionNotesInput}
+                                          value={group.notes || ""}
+                                          placeholder="Add notes for this section..."
+                                          rows={3}
+                                          onChange={(e) =>
+                                            updateSectionGroupNotes(
+                                              key,
+                                              group.id,
+                                              e.target.value,
+                                            )
+                                          }
+                                        />
+                                      )}
+                                    </div>
+                                    <div className={styles.sectionNotesCol}>
+                                      <label
+                                        className={styles.sectionNotesLabel}
+                                      >
+                                        Technical Specs
+                                        {(group.specs || []).length > 0 && (
+                                          <span className={styles.specBadge}>
+                                            {(group.specs || []).length}
+                                          </span>
+                                        )}
+                                      </label>
+                                      {(group.specs || []).length > 0 && (
+                                        <div className={styles.specsList}>
+                                          {(group.specs || []).map(
+                                            (spec, idx) => (
+                                              <div
+                                                key={idx}
+                                                className={styles.specItem}
+                                              >
+                                                <span
+                                                  className={styles.specNum}
+                                                >
+                                                  {idx + 1}
+                                                </span>
+                                                {readOnly ? (
+                                                  <span>{spec}</span>
+                                                ) : (
+                                                  <input
+                                                    className={styles.specInput}
+                                                    value={spec}
+                                                    placeholder="Specification..."
+                                                    onChange={(e) => {
+                                                      const updated = [
+                                                        ...(group.specs || []),
+                                                      ];
+                                                      updated[idx] =
+                                                        e.target.value;
+                                                      updateSectionGroupSpecs(
+                                                        key,
+                                                        group.id,
+                                                        updated,
+                                                      );
+                                                    }}
+                                                  />
+                                                )}
+                                                {!readOnly && (
+                                                  <button
+                                                    className={
+                                                      styles.specDelBtn
+                                                    }
+                                                    onClick={() => {
+                                                      const updated = (
+                                                        group.specs || []
+                                                      ).filter(
+                                                        (_, i) => i !== idx,
+                                                      );
+                                                      updateSectionGroupSpecs(
+                                                        key,
+                                                        group.id,
+                                                        updated,
+                                                      );
+                                                    }}
+                                                    title="Remove"
+                                                  >
+                                                    ✕
+                                                  </button>
+                                                )}
+                                              </div>
+                                            ),
+                                          )}
+                                        </div>
+                                      )}
+                                      {!readOnly && (
+                                        <button
+                                          className={styles.addBtn}
+                                          style={{ marginTop: 6, fontSize: 12 }}
+                                          onClick={() => {
+                                            const updated = [
+                                              ...(group.specs || []),
+                                              "",
+                                            ];
+                                            updateSectionGroupSpecs(
+                                              key,
+                                              group.id,
+                                              updated,
+                                            );
+                                          }}
+                                        >
+                                          + Add Spec
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                        {!isCollapsed &&
-                          groupItems.map((item) => (
-                            <HoursRow
-                              key={item.id}
-                              item={item}
-                              sectionKey={key}
-                              readOnly={readOnly}
-                              onSave={onSave}
-                              functionCategories={functionCategories}
-                              hoursPhases={hoursPhases}
-                              updateItem={updateItem}
-                              deleteRow={deleteRow}
-                              moveItem={moveHoursItem}
-                              sectionGroups={sectionGroups}
-                              moveToSection={moveItemToSection}
-                            />
-                          ))}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td
-                      colSpan={!readOnly && onSave ? 7 : 6}
-                      className={styles.cellRight}
-                    >
-                      Subtotal:
-                    </td>
-                    <td className={styles.cellRight}>
-                      {formatHours(section.totalHours)}
-                    </td>
-                    <td className={styles.cellRight}>
-                      {formatCurrency(section.totalCostBRL, "BRL")}
-                    </td>
-                    {!readOnly && onSave && <td />}
-                  </tr>
-                </tfoot>
-              </table>
-            )}
-          </div>
-        );
-      })}
+                              </td>
+                            </tr>
+                          )}
+                          {!isCollapsed &&
+                            groupItems.map((item) => (
+                              <HoursRow
+                                key={item.id}
+                                item={item}
+                                sectionKey={key}
+                                readOnly={readOnly}
+                                onSave={onSave}
+                                functionCategories={functionCategories}
+                                hoursPhases={hoursPhases}
+                                updateItem={updateItem}
+                                deleteRow={deleteRow}
+                                moveItem={moveHoursItem}
+                                sectionGroups={sectionGroups}
+                                moveToSection={moveItemToSection}
+                              />
+                            ))}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td
+                        colSpan={!readOnly && onSave ? 7 : 6}
+                        className={styles.cellRight}
+                      >
+                        Subtotal:
+                      </td>
+                      <td className={styles.cellRight}>
+                        {formatHours(section.totalHours)}
+                      </td>
+                      <td className={styles.cellRight}>
+                        {formatCurrency(section.totalCostBRL, "BRL")}
+                      </td>
+                      {!readOnly && onSave && <td />}
+                    </tr>
+                  </tfoot>
+                </table>
+              )}
+            </div>
+          );
+        })}
       <div className={styles.grandTotal}>
         <div className={styles.grandTotalRow}>
           <span>Grand Total</span>
@@ -560,6 +862,132 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
           </span>
         </div>
       </div>
+
+      {/* Import from BID/Template Modal */}
+      <ImportSourceModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        importMode="hours"
+        onImportHours={(importedHours) => {
+          if (!onSave) return;
+          const updated = { ...hoursSummary };
+
+          // Merge engineering hours
+          if (importedHours.engineeringHours) {
+            const existing = updated.engineeringHours || {
+              totalHours: 0,
+              totalCostBRL: 0,
+              items: [],
+            };
+            const mergedItems = [
+              ...existing.items,
+              ...importedHours.engineeringHours.items,
+            ];
+            const existingSections = existing.sections || [];
+            const importedSections =
+              importedHours.engineeringHours.sections || [];
+            const existingSectionIds = new Set(
+              existingSections.map((s) => s.id),
+            );
+            const newSections = importedSections.filter(
+              (s) => !existingSectionIds.has(s.id),
+            );
+            updated.engineeringHours = {
+              ...existing,
+              items: mergedItems,
+              sections: [...existingSections, ...newSections],
+              totalHours: mergedItems.reduce(
+                (s, i) => s + (i.totalHours || 0),
+                0,
+              ),
+              totalCostBRL: mergedItems.reduce(
+                (s, i) => s + (i.costBRL || 0),
+                0,
+              ),
+            };
+          }
+
+          // Merge onshore hours
+          if (importedHours.onshoreHours) {
+            const existing = updated.onshoreHours || {
+              totalHours: 0,
+              totalCostBRL: 0,
+              items: [],
+            };
+            const mergedItems = [
+              ...existing.items,
+              ...importedHours.onshoreHours.items,
+            ];
+            const existingSections = existing.sections || [];
+            const importedSections = importedHours.onshoreHours.sections || [];
+            const existingSectionIds = new Set(
+              existingSections.map((s) => s.id),
+            );
+            const newSections = importedSections.filter(
+              (s) => !existingSectionIds.has(s.id),
+            );
+            updated.onshoreHours = {
+              ...existing,
+              items: mergedItems,
+              sections: [...existingSections, ...newSections],
+              totalHours: mergedItems.reduce(
+                (s, i) => s + (i.totalHours || 0),
+                0,
+              ),
+              totalCostBRL: mergedItems.reduce(
+                (s, i) => s + (i.costBRL || 0),
+                0,
+              ),
+            };
+          }
+
+          // Merge offshore hours
+          if (importedHours.offshoreHours) {
+            const existing = updated.offshoreHours || {
+              totalHours: 0,
+              totalCostBRL: 0,
+              items: [],
+            };
+            const mergedItems = [
+              ...existing.items,
+              ...importedHours.offshoreHours.items,
+            ];
+            const existingSections = existing.sections || [];
+            const importedSections = importedHours.offshoreHours.sections || [];
+            const existingSectionIds = new Set(
+              existingSections.map((s) => s.id),
+            );
+            const newSections = importedSections.filter(
+              (s) => !existingSectionIds.has(s.id),
+            );
+            updated.offshoreHours = {
+              ...existing,
+              items: mergedItems,
+              sections: [...existingSections, ...newSections],
+              totalHours: mergedItems.reduce(
+                (s, i) => s + (i.totalHours || 0),
+                0,
+              ),
+              totalCostBRL: mergedItems.reduce(
+                (s, i) => s + (i.costBRL || 0),
+                0,
+              ),
+            };
+          }
+
+          // Recalculate grand totals
+          updated.grandTotalHours =
+            (updated.engineeringHours?.totalHours || 0) +
+            (updated.onshoreHours?.totalHours || 0) +
+            (updated.offshoreHours?.totalHours || 0);
+          updated.grandTotalCostBRL =
+            (updated.engineeringHours?.totalCostBRL || 0) +
+            (updated.onshoreHours?.totalCostBRL || 0) +
+            (updated.offshoreHours?.totalCostBRL || 0);
+
+          onSave(updated);
+        }}
+      />
     </div>
   );
 };

@@ -31,9 +31,32 @@ export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
     logisticsBreakdown || [],
   );
 
+  // Debounced save to prevent input lag
+  const saveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isEditingRef = React.useRef(false);
+
+  const debouncedSave = React.useCallback(
+    (updated: ILogisticsItem[]) => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        saveTimerRef.current = null;
+        onSave(updated);
+      }, 400);
+    },
+    [onSave],
+  );
+
   React.useEffect(() => {
-    setItems(logisticsBreakdown || []);
+    if (!isEditingRef.current && saveTimerRef.current === null) {
+      setItems(logisticsBreakdown || []);
+    }
   }, [logisticsBreakdown]);
+
+  React.useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
 
   const persist = React.useCallback(
     (updated: ILogisticsItem[]) => {
@@ -42,9 +65,9 @@ export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
         lineNumber: idx + 1,
       }));
       setItems(renumbered);
-      onSave(renumbered);
+      debouncedSave(renumbered);
     },
-    [onSave],
+    [debouncedSave],
   );
 
   const addItem = (): void => {
@@ -60,6 +83,7 @@ export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
     field: keyof ILogisticsItem,
     value: unknown,
   ): void => {
+    isEditingRef.current = true;
     const updated = items.map((i) => {
       if (i.id !== id) return i;
       const patched = { ...i, [field]: value };
@@ -70,6 +94,9 @@ export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
       return patched;
     });
     persist(updated);
+    setTimeout(() => {
+      isEditingRef.current = false;
+    }, 500);
   };
 
   const grandTotal = items.reduce((sum, i) => sum + (i.totalCost || 0), 0);

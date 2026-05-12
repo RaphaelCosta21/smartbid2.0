@@ -282,6 +282,100 @@
 /* GROUPED OPTIONS (for Job Functions by team)                      */
 /* ================================================================ */
 
+/* ---- Team management ------------------------------------------- */
+
+.teamManagement {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+.teamManagementHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.teamManagementTitle {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.teamList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.teamChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.teamChipLabel {
+  white-space: nowrap;
+}
+
+.teamChipBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: none;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 150ms ease;
+
+  &:hover {
+    background: var(--border-subtle);
+    color: var(--text-primary);
+  }
+
+  &.danger:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+  }
+}
+
+.teamEditRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.teamEditInput {
+  width: 120px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--input-bg, var(--card-bg));
+  color: var(--text-primary);
+  outline: none;
+
+  &:focus {
+    border-color: var(--primary-accent);
+  }
+}
+
 .groupedSection {
   margin-bottom: 20px;
 }

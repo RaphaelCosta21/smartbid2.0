@@ -79,10 +79,43 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
     );
   }, [clarifications, autoImported, scopeItems]);
 
+  // ─── Debounced save to prevent input lag ───
+  const clarTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const qualTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isEditingRef = React.useRef(false);
+
+  const debouncedSaveClar = React.useCallback(
+    (updated: IClarificationItem[]) => {
+      if (clarTimerRef.current) clearTimeout(clarTimerRef.current);
+      clarTimerRef.current = setTimeout(() => {
+        clarTimerRef.current = null;
+        if (onSave) onSave({ clarifications: updated });
+      }, 400);
+    },
+    [onSave],
+  );
+  const debouncedSaveQual = React.useCallback(
+    (updated: IQualificationTable[]) => {
+      if (qualTimerRef.current) clearTimeout(qualTimerRef.current);
+      qualTimerRef.current = setTimeout(() => {
+        qualTimerRef.current = null;
+        if (onSave) onSave({ qualificationTables: updated });
+      }, 400);
+    },
+    [onSave],
+  );
+
+  React.useEffect(() => {
+    return () => {
+      if (clarTimerRef.current) clearTimeout(clarTimerRef.current);
+      if (qualTimerRef.current) clearTimeout(qualTimerRef.current);
+    };
+  }, []);
+
   // Persist clarifications
   const saveClarifications = (updated: IClarificationItem[]): void => {
     if (!onSave) return;
-    onSave({ clarifications: updated });
+    debouncedSaveClar(updated);
   };
 
   const addClarification = (): void => {
@@ -105,11 +138,15 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
     field: keyof IClarificationItem,
     value: string,
   ): void => {
+    isEditingRef.current = true;
     saveClarifications(
       allClarifications.map((c) =>
         c.id === id ? { ...c, [field]: value } : c,
       ),
     );
+    setTimeout(() => {
+      isEditingRef.current = false;
+    }, 500);
   };
 
   const deleteClarification = (id: string): void => {
@@ -119,7 +156,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   // Qualification tables
   const saveQualTables = (updated: IQualificationTable[]): void => {
     if (!onSave) return;
-    onSave({ qualificationTables: updated });
+    debouncedSaveQual(updated);
   };
 
   const addTable = (): void => {
@@ -161,6 +198,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
     field: keyof IQualificationItem,
     value: unknown,
   ): void => {
+    isEditingRef.current = true;
     saveQualTables(
       tables.map((t) => {
         if (t.id !== tableId) return t;
@@ -172,6 +210,9 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
         };
       }),
     );
+    setTimeout(() => {
+      isEditingRef.current = false;
+    }, 500);
   };
 
   const deleteQualItem = (tableId: string, itemId: string): void => {

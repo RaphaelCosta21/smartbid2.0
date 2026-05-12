@@ -269,13 +269,22 @@ export const useQueryCatalogStore = create<QueryCatalogState>((set, get) => ({
       (i) => i.partNumber.toUpperCase().trim() === upperPN,
     );
     if (bumblMatch) {
+      let costUSD = bumblMatch.costPerItem;
+      if (exchangeRates) {
+        const rate = exchangeRates.find(
+          (r) => r.currency.toUpperCase() === "BRL",
+        );
+        if (rate && rate.rate > 0) {
+          costUSD = bumblMatch.costPerItem / rate.rate;
+        }
+      }
       return {
         partNumber: bumblMatch.partNumber,
         description: bumblMatch.description,
         businessUnit: bumblMatch.businessUnit,
         costPerItem: bumblMatch.costPerItem,
         currency: "BRL",
-        costPerItemUSD: bumblMatch.costPerItem, // BOM sheets already in local currency
+        costPerItemUSD: costUSD,
         dataReference: bumblMatch.dataReference,
         leadTimeDays: bumblMatch.leadTimeDays,
         sourceTab: "BUMBL",
@@ -288,13 +297,22 @@ export const useQueryCatalogStore = create<QueryCatalogState>((set, get) => ({
       (i) => i.partNumber.toUpperCase().trim() === upperPN,
     );
     if (bumbrMatch) {
+      let costUSD = bumbrMatch.costPerItem;
+      if (exchangeRates) {
+        const rate = exchangeRates.find(
+          (r) => r.currency.toUpperCase() === "BRL",
+        );
+        if (rate && rate.rate > 0) {
+          costUSD = bumbrMatch.costPerItem / rate.rate;
+        }
+      }
       return {
         partNumber: bumbrMatch.partNumber,
         description: bumbrMatch.description,
         businessUnit: bumbrMatch.businessUnit,
         costPerItem: bumbrMatch.costPerItem,
         currency: "BRL",
-        costPerItemUSD: bumbrMatch.costPerItem,
+        costPerItemUSD: costUSD,
         dataReference: bumbrMatch.dataReference,
         leadTimeDays: bumbrMatch.leadTimeDays,
         sourceTab: "BUMBR",

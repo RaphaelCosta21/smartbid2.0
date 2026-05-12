@@ -25,7 +25,16 @@ export interface IOpportunityInfo {
   currency: string;
   ptax: number;
   ptaxDate: string;
+  /** Snapshot of all exchange rates at BID creation time */
+  exchangeRatesSnapshot?: IExchangeRateSnapshot[];
   qualifications: string[];
+}
+
+/** Exchange rate snapshot saved at BID creation */
+export interface IExchangeRateSnapshot {
+  currency: string;
+  rate: number;
+  capturedDate: string;
 }
 
 /** Tracks time spent in each phase independently */
@@ -114,6 +123,8 @@ export interface IScopeItem {
   qtySpare: number;
   /** Flag: this item needs certification (auto-populates Certifications tab) */
   needsCertification: boolean;
+  /** Flag: this item needs engineering hours (appears in Engineering Hours section) */
+  needsEngineering?: boolean;
   comments: string;
   importedFromTemplate: string | null;
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
@@ -163,6 +174,8 @@ export interface IAssetBreakdownItem {
   totalCostUSD: number;
   /** From systemConfig.costReferences (BUMBL, BUABO, etc.) */
   costReference: string;
+  /** Date reference for cost (ISO string — when the cost was last sourced) */
+  dateReference?: string;
   costCalcMethod: "auto" | "manual";
   originalCost: number;
   originalCurrency: string;
@@ -207,16 +220,27 @@ export interface ICertificationItem {
   lineNumber: number;
   /** Optional FK to IScopeItem (items flagged needsCertification) */
   scopeItemId: string | null;
+  /** If true, this is a section header row */
+  isSection?: boolean;
+  /** Section title (only when isSection=true) */
+  sectionTitle?: string;
+  /** Parent section ID */
+  sectionId?: string | null;
+  /** Section color */
+  sectionColor?: string;
   /** Display reference (auto-filled from Scope or manual) */
   itemRef: string;
   qty: number;
   /** Free text, e.g. "12 months", "2 years" */
   expiryPeriod: string;
   unitCost: number;
-  /** Auto-calc: unitCost Ã— qty */
+  /** Auto-calc: unitCost × qty */
   totalCost: number;
   originalCurrency: string;
+  costReference: string;
   notes: string;
+  /** Attachments for this certification item */
+  attachments?: IBidAttachment[];
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
   integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
 }
@@ -264,6 +288,7 @@ export interface IMobilizationItem {
   unitCost: number;
   qty: number;
   totalCost: number;
+  costReference: string;
   notes: string;
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
   integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
@@ -279,6 +304,7 @@ export interface IConsumableItem {
   qty: number;
   unitCost: number;
   totalCost: number;
+  costReference: string;
   notes: string;
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
   integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
@@ -294,9 +320,14 @@ export interface ISubItemCost {
   unitCostUSD: number;
   totalCostUSD: number;
   costReference: string;
+  /** Date reference for cost (ISO string) */
+  dateReference?: string;
   costCategory: "CAPEX" | "OPEX" | "";
   supplier: string;
   leadTimeDays: number;
+  /** For rental sub-items */
+  dailyRate?: number | null;
+  rentalDays?: number | null;
   notes: string;
 }
 
@@ -362,6 +393,10 @@ export interface IHoursSectionGroup {
   title: string;
   /** Optional custom color for the section header */
   color?: string;
+  /** Section notes/comments */
+  notes?: string;
+  /** Technical specs for the section */
+  specs?: string[];
 }
 
 export interface IHoursSection {
@@ -378,13 +413,73 @@ export interface IDivisionHoursTotals {
 }
 
 export interface IHoursSummary {
-  engineeringHours: IHoursSection;
+  engineeringHours: IEngineeringHoursSection;
   onshoreHours: IHoursSection;
   offshoreHours: IHoursSection;
   totalsByDivision: Record<string, IDivisionHoursTotals>;
   grandTotalHours: number;
   grandTotalCostBRL: number;
   grandTotalCostUSD: number;
+}
+
+/* ─── Engineering Hours (deliverable-based) ─── */
+
+/** A single deliverable within an engineering item (e.g. "Drawing - Detail Drawing": 12h) */
+export interface IEngineeringDeliverable {
+  id: string;
+  /** Deliverable type label from config.engineerDeliverables */
+  deliverableType: string;
+  /** Resource/function performing this deliverable */
+  resourceType: string;
+  /** Estimated hours */
+  hours: number;
+}
+
+/** An engineering scope item with its deliverable breakdown */
+export interface IEngineeringHoursItem {
+  id: string;
+  /** FK to IScopeItem.id — links back to scope of supply */
+  scopeItemId: string;
+  /** Item description (copied from scope for display) */
+  description: string;
+  /** Equipment offer info (copied from scope) */
+  equipmentOffer?: string;
+  /** Section name from scope (parent section title) */
+  sectionName?: string;
+  /** Notes/comments for this engineering item */
+  notes?: string;
+  /** Deliverable breakdown for this item */
+  deliverables: IEngineeringDeliverable[];
+  /** Total hours for this item (sum of deliverables) */
+  totalHours: number;
+}
+
+/** Resource allocation for engineering hours planning */
+export interface IResourceAllocation {
+  id: string;
+  /** Resource type (job function) from config */
+  resourceType: string;
+  /** Total hours assigned to this resource (derived from deliverables) */
+  totalHours: number;
+  /** Hours per day this resource works */
+  hoursPerDay: number;
+  /** Number of people allocated */
+  people: number;
+  /** Calculated: totalHours / (hoursPerDay * people) */
+  estimatedDays: number;
+}
+
+/** Engineering Hours section — different from onshore/offshore */
+export interface IEngineeringHoursSection {
+  totalHours: number;
+  totalCostBRL: number;
+  /** Legacy row-based items (kept for backward compat) */
+  items: IHoursItem[];
+  sections?: IHoursSectionGroup[];
+  /** New deliverable-based engineering items */
+  engineeringItems?: IEngineeringHoursItem[];
+  /** Resource allocation plan for engineering hours */
+  resourceAllocations?: IResourceAllocation[];
 }
 
 export interface IDivisionCost {

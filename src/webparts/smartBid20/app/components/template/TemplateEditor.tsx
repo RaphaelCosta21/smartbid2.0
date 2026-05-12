@@ -495,6 +495,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
               hoursSummary={hoursSummary}
               readOnly={!isHoursEditing}
               onSave={setHoursSummary}
+              scopeItems={scopeItems}
             />
           </div>
 

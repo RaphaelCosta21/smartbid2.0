@@ -62,7 +62,6 @@
 
   th {
     padding: 8px 10px;
-    text-align: left;
     border-bottom: 1px solid var(--border-subtle);
     font-size: 11px;
     font-weight: 600;
@@ -116,6 +115,17 @@
   transition: width 0.3s ease;
 }
 
+.hoursTag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
 .notes {
   padding: 12px 20px;
   font-size: 13px;
@@ -123,4 +133,131 @@
   background: var(--card-bg);
   border-radius: 10px;
   border: 1px solid var(--border-subtle);
+}
+
+/* ─── CAPEX vs OPEX Section ─── */
+.capexOpexRow {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.capexOpexCard {
+  flex: 1;
+  padding: 16px 20px;
+  border-radius: 10px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-subtle);
+}
+
+.capexOpexHeader {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.capexOpexValues {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.capexOpexBrl {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.capexOpexUsd {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* ─── Stacked bar chart ─── */
+.stackedBarContainer {
+  margin-top: 8px;
+}
+
+.stackedBar {
+  display: flex;
+  height: 32px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+}
+
+.stackedSegment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4px;
+  transition: width 0.3s ease;
+}
+
+.segmentLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.stackedLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ─── CAPEX / OPEX percentage bar ─── */
+.capexOpexBarSection {
+  margin-top: 4px;
+}
+
+.capexOpexBarLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.capexOpexBar {
+  display: flex;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+}
+
+.capexPortion {
+  height: 100%;
+  background: linear-gradient(90deg, #0d9488, #14b8a6);
+  transition: width 0.3s ease;
+}
+
+.opexPortion {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  transition: width 0.3s ease;
 }

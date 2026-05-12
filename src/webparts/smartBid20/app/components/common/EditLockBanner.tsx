@@ -80,9 +80,15 @@ export const EditableTabContent: React.FC<{
   editControl: EditControlState;
   canEdit: boolean;
   label?: string;
+  onEditChange?: (editing: boolean) => void;
   children: (isEditing: boolean) => React.ReactNode;
-}> = ({ editControl, canEdit, label, children }) => {
+}> = ({ editControl, canEdit, label, onEditChange, children }) => {
   const isEditing = canEdit && editControl.isEditing;
+
+  React.useEffect(() => {
+    if (onEditChange) onEditChange(isEditing);
+  }, [isEditing]);
+
   return (
     <div>
       <EditToolbar editControl={editControl} canEdit={canEdit} label={label} />

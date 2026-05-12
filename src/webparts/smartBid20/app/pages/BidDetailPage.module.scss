@@ -11,6 +11,11 @@
   grid-template-columns: 220px 1fr;
   gap: 20px;
   min-height: 0;
+  transition: grid-template-columns 0.2s ease;
+}
+
+.detailLayoutCollapsed {
+  grid-template-columns: 52px 1fr;
 }
 
 .sideNav {
@@ -26,6 +31,14 @@
   align-self: start;
   max-height: calc(100vh - 200px);
   overflow-y: auto;
+  transition:
+    width 0.2s ease,
+    padding 0.2s ease;
+}
+
+.sideNavCollapsed {
+  padding: 8px 4px;
+  align-items: center;
 }
 
 .navGroup {

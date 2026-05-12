@@ -217,9 +217,6 @@ const NOTIFICATION_LABELS: Record<string, string> = {
   DEADLINE_WARNING: "Deadline Warning",
 };
 
-/* Job function team categories */
-const JOB_CATEGORIES = ["ROV", "Survey", "Engineer", "General"] as const;
-
 /* ------------------------------------------------------------------ */
 /* SUB-COMPONENTS for Phases & Status (need useState per row)          */
 /* ------------------------------------------------------------------ */
@@ -380,6 +377,14 @@ const SystemConfiguration: React.FC = () => {
   >([]);
   const [addCurrencyLoading, setAddCurrencyLoading] = React.useState(false);
   const [addCurrencySearch, setAddCurrencySearch] = React.useState("");
+
+  /* ---- job team editing state ----------------------------------- */
+  const [editingTeamIdx, setEditingTeamIdx] = React.useState<number | null>(
+    null,
+  );
+  const [editingTeamName, setEditingTeamName] = React.useState("");
+  const [addingTeam, setAddingTeam] = React.useState(false);
+  const [newTeamName, setNewTeamName] = React.useState("");
 
   const currentNavItem = ALL_NAV_ITEMS.find((n) => n.key === activeTab);
 
@@ -704,16 +709,184 @@ const SystemConfiguration: React.FC = () => {
   const renderJobFunctions = (): React.ReactElement => {
     if (!config) return <></>;
     const all = config.jobFunctions;
+    // Use jobTeams from config if available, otherwise derive from existing jobFunctions categories
+    const teams: string[] =
+      config.jobTeams && config.jobTeams.length > 0
+        ? config.jobTeams
+        : Array.from(
+            new Set(all.map((jf) => jf.category || "General").filter(Boolean)),
+          );
+
+    const handleAddTeam = (): void => {
+      const name = newTeamName.trim();
+      if (!name || teams.includes(name)) return;
+      const updatedTeams = [...teams, name];
+      updateConfig({ jobTeams: updatedTeams });
+      setNewTeamName("");
+      setAddingTeam(false);
+      showMsg("success", `Team "${name}" added`);
+    };
+
+    const handleRenameTeam = (idx: number): void => {
+      const newName = editingTeamName.trim();
+      const oldName = teams[idx];
+      if (!newName || newName === oldName) {
+        setEditingTeamIdx(null);
+        return;
+      }
+      if (teams.includes(newName)) {
+        showMsg("error", `Team "${newName}" already exists`);
+        return;
+      }
+      const updatedTeams = teams.map((t, i) => (i === idx ? newName : t));
+      // Also update the category on all job functions that belong to the old team
+      const updatedFunctions = all.map((jf) =>
+        (jf.category || "General") === oldName
+          ? { ...jf, category: newName }
+          : jf,
+      );
+      updateConfig({ jobTeams: updatedTeams, jobFunctions: updatedFunctions });
+      setEditingTeamIdx(null);
+      showMsg("success", `Team renamed to "${newName}"`);
+    };
+
+    const handleDeleteTeam = (idx: number): void => {
+      const teamName = teams[idx];
+      const updatedTeams = teams.filter((_, i) => i !== idx);
+      // Move functions from deleted team to "General" (or first remaining team)
+      const fallback =
+        updatedTeams.length > 0
+          ? updatedTeams[updatedTeams.length - 1]
+          : "General";
+      const updatedFunctions = all.map((jf) =>
+        (jf.category || "General") === teamName
+          ? { ...jf, category: fallback }
+          : jf,
+      );
+      updateConfig({ jobTeams: updatedTeams, jobFunctions: updatedFunctions });
+      showMsg(
+        "success",
+        `Team "${teamName}" removed. Functions moved to "${fallback}".`,
+      );
+    };
 
     return (
       <div>
         <div className={styles.sectionHeader}>
           <h3>Job Functions</h3>
           <p>
-            Organized by team. &quot;General&quot; functions apply to all teams.
+            Organized by team. Manage teams and their associated job functions.
           </p>
         </div>
-        {JOB_CATEGORIES.map((cat) => {
+
+        {/* Team management section */}
+        {canEdit && (
+          <div className={styles.teamManagement}>
+            <div className={styles.teamManagementHeader}>
+              <span className={styles.teamManagementTitle}>Teams</span>
+              {!addingTeam && (
+                <button
+                  className={`${styles.actionBtn} ${styles.primary}`}
+                  onClick={() => setAddingTeam(true)}
+                >
+                  + Add Team
+                </button>
+              )}
+            </div>
+            <div className={styles.teamList}>
+              {teams.map((team, idx) => (
+                <div key={`${team}-${idx}`} className={styles.teamChip}>
+                  {editingTeamIdx === idx ? (
+                    <div className={styles.teamEditRow}>
+                      <input
+                        className={styles.teamEditInput}
+                        value={editingTeamName}
+                        onChange={(e) =>
+                          setEditingTeamName(e.currentTarget.value)
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleRenameTeam(idx);
+                          if (e.key === "Escape") setEditingTeamIdx(null);
+                        }}
+                        autoFocus
+                      />
+                      <button
+                        className={styles.actionBtn}
+                        onClick={() => handleRenameTeam(idx)}
+                      >
+                        ✓
+                      </button>
+                      <button
+                        className={styles.actionBtn}
+                        onClick={() => setEditingTeamIdx(null)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className={styles.teamChipLabel}>{team}</span>
+                      <button
+                        className={styles.teamChipBtn}
+                        onClick={() => {
+                          setEditingTeamIdx(idx);
+                          setEditingTeamName(team);
+                        }}
+                        title="Rename team"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        className={`${styles.teamChipBtn} ${styles.danger}`}
+                        onClick={() => handleDeleteTeam(idx)}
+                        title="Delete team"
+                      >
+                        ✕
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+              {addingTeam && (
+                <div className={styles.teamChip}>
+                  <div className={styles.teamEditRow}>
+                    <input
+                      className={styles.teamEditInput}
+                      placeholder="Team name..."
+                      value={newTeamName}
+                      onChange={(e) => setNewTeamName(e.currentTarget.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleAddTeam();
+                        if (e.key === "Escape") {
+                          setAddingTeam(false);
+                          setNewTeamName("");
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      className={styles.actionBtn}
+                      onClick={handleAddTeam}
+                    >
+                      ✓
+                    </button>
+                    <button
+                      className={styles.actionBtn}
+                      onClick={() => {
+                        setAddingTeam(false);
+                        setNewTeamName("");
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {teams.map((cat) => {
           const items = all.filter((j) => (j.category || "General") === cat);
           if (items.length === 0 && !canEdit) return null;
           return (
@@ -2584,7 +2757,16 @@ const SystemConfiguration: React.FC = () => {
                       })
                     }
                   >
-                    {JOB_CATEGORIES.map((c) => (
+                    {(config && config.jobTeams && config.jobTeams.length > 0
+                      ? config.jobTeams
+                      : Array.from(
+                          new Set(
+                            (config ? config.jobFunctions : [])
+                              .map((jf) => jf.category || "General")
+                              .filter(Boolean),
+                          ),
+                        )
+                    ).map((c) => (
                       <option key={c} value={c}>
                         {c}
                       </option>

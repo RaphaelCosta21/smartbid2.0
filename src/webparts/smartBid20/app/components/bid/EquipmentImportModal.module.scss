@@ -210,18 +210,20 @@
 
 .body {
   flex: 1 1 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 12px 20px;
   min-height: 0;
-  -webkit-overflow-scrolling: touch;
 }
 
 .tabBody {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .loadingState,
@@ -439,8 +441,9 @@
 .favLayout {
   display: flex;
   gap: 12px;
-  height: 100%;
-  min-height: 360px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .favSidebar {
@@ -512,6 +515,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .subGroupChips {
@@ -821,6 +826,9 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .querySubTabs {

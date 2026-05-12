@@ -1,15 +1,7 @@
 import * as React from "react";
-import {
-  IBid,
-  ITeamMember,
-  Division,
-  BidType,
-  BidSize,
-} from "../../models";
+import { IBid, ITeamMember, Division, BidType, BidSize } from "../../models";
 import { StatusBadge } from "../common/StatusBadge";
-import {
-  EditLockBanner,
-} from "../common/EditLockBanner";
+import { EditLockBanner } from "../common/EditLockBanner";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useConfigPhases } from "../../hooks/useConfigPhases";
 import { useEditControl } from "../../hooks/useEditControl";
@@ -18,10 +10,7 @@ import { MembersService } from "../../services/MembersService";
 import { isTerminalStatus } from "../../utils/statusHelpers";
 import { PRIORITY_COLORS } from "../../utils/constants";
 import { createActivityLogEntry } from "../../utils/activityLogHelpers";
-import {
-  formatDate,
-  formatDateTime,
-} from "../../utils/formatters";
+import { formatDate, formatDateTime } from "../../utils/formatters";
 import { getPhaseLabelForBid } from "../../utils/phaseHelpers";
 import styles from "../../pages/BidDetailPage.module.scss";
 
@@ -304,12 +293,27 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       changes.push(`PTAX → ${currDraft.ptax}`);
     if (currDraft.ptaxDate !== bid.opportunityInfo?.ptaxDate)
       changes.push(`PTAX Date → "${currDraft.ptaxDate}"`);
-    if (changes.length > 0) {
-      logAndSave(
-        { opportunityInfo: { ...bid.opportunityInfo, ...currDraft } },
-        `Currency/PTAX updated: ${changes.join("; ")}`,
-      );
-    }
+
+    // Always refresh exchange rates snapshot from current config
+    const currentRates = config?.currencySettings?.exchangeRates || [];
+    const now = new Date().toISOString();
+    const newSnapshot = currentRates.map((er) => ({
+      currency: er.currency,
+      rate: er.rate,
+      capturedDate: now,
+    }));
+    changes.push("Exchange rates refreshed from config");
+
+    logAndSave(
+      {
+        opportunityInfo: {
+          ...bid.opportunityInfo,
+          ...currDraft,
+          exchangeRatesSnapshot: newSnapshot,
+        },
+      },
+      `Currency/PTAX updated: ${changes.join("; ")}`,
+    );
     setEditingCurrency(false);
     currencyLock.stopEditing();
   };
@@ -1000,6 +1004,142 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     : "—"
                 }
               />
+            </div>
+          )}
+          {/* Exchange Rates from Config + Snapshot */}
+          {!editingCurrency && (
+            <div style={{ marginTop: 12 }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "var(--text-secondary)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                Exchange Rates (saved in BID)
+              </span>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  marginTop: 6,
+                }}
+              >
+                {bid.opportunityInfo?.exchangeRatesSnapshot &&
+                bid.opportunityInfo.exchangeRatesSnapshot.length > 0
+                  ? bid.opportunityInfo.exchangeRatesSnapshot.map((er) => (
+                      <div
+                        key={er.currency}
+                        style={{
+                          padding: "4px 10px",
+                          borderRadius: 6,
+                          background:
+                            "var(--card-bg-elevated, rgba(0,0,0,0.04))",
+                          border: "1px solid var(--border-subtle)",
+                          fontSize: 12,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            color: "var(--text-primary)",
+                          }}
+                        >
+                          {er.currency}
+                        </span>
+                        <span
+                          style={{
+                            marginLeft: 4,
+                            color: "var(--text-muted)",
+                            fontSize: 10,
+                          }}
+                        >
+                          1 USD =
+                        </span>
+                        <span
+                          style={{
+                            marginLeft: 4,
+                            color: "var(--text-secondary)",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {er.rate.toFixed(2)}
+                        </span>
+                      </div>
+                    ))
+                  : (config?.currencySettings?.exchangeRates || []).map(
+                      (er) => (
+                        <div
+                          key={er.currency}
+                          style={{
+                            padding: "4px 10px",
+                            borderRadius: 6,
+                            background:
+                              "var(--card-bg-elevated, rgba(0,0,0,0.04))",
+                            border: "1px solid var(--border-subtle)",
+                            fontSize: 12,
+                            opacity: 0.7,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontWeight: 600,
+                              color: "var(--text-primary)",
+                            }}
+                          >
+                            {er.currency}
+                          </span>
+                          <span
+                            style={{
+                              marginLeft: 4,
+                              color: "var(--text-muted)",
+                              fontSize: 10,
+                            }}
+                          >
+                            1 USD =
+                          </span>
+                          <span
+                            style={{
+                              marginLeft: 4,
+                              color: "var(--text-secondary)",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {er.rate.toFixed(2)}
+                          </span>
+                          <span
+                            style={{
+                              marginLeft: 4,
+                              color: "var(--text-tertiary)",
+                              fontSize: 9,
+                            }}
+                          >
+                            (from config)
+                          </span>
+                        </div>
+                      ),
+                    )}
+              </div>
+              {bid.opportunityInfo?.exchangeRatesSnapshot &&
+                bid.opportunityInfo.exchangeRatesSnapshot.length > 0 &&
+                bid.opportunityInfo.exchangeRatesSnapshot[0]?.capturedDate && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      color: "var(--text-tertiary)",
+                      marginTop: 4,
+                      display: "block",
+                    }}
+                  >
+                    Last updated:{" "}
+                    {formatDate(
+                      bid.opportunityInfo.exchangeRatesSnapshot[0].capturedDate,
+                    )}
+                  </span>
+                )}
             </div>
           )}
           {isClosed && (

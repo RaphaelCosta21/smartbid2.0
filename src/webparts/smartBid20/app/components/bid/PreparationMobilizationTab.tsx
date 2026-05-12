@@ -8,7 +8,6 @@ import {
   RTSCostType,
   MobilizationCostType,
 } from "../../models";
-import { useConfigStore } from "../../stores/useConfigStore";
 import { makeId } from "../../utils/idGenerator";
 import { getCurrencies } from "../../utils/currencyHelpers";
 import styles from "./PreparationMobilizationTab.module.scss";
@@ -68,6 +67,7 @@ const blankMob = (n: number, sectionId?: string | null): IMobilizationItem => ({
   unitCost: 0,
   qty: 1,
   totalCost: 0,
+  costReference: "",
   notes: "",
 });
 
@@ -84,6 +84,7 @@ const blankConsumable = (
   qty: 1,
   unitCost: 0,
   totalCost: 0,
+  costReference: "",
   notes: "",
 });
 
@@ -105,10 +106,77 @@ export const PreparationMobilizationTab: React.FC<
   onSaveConsSections,
   readOnly = false,
 }) => {
-  const config = useConfigStore((s) => s.config);
-  const costReferences = (config?.costReferences || []).filter(
-    (c) => c.isActive !== false,
+  // ─── Local state for debounced save (prevents input lag) ───
+  const [rts, setRts] = React.useState<IRTSItem[]>(rtsItems || []);
+  const [mob, setMob] = React.useState<IMobilizationItem[]>(
+    mobilizationItems || [],
   );
+  const [cons, setCons] = React.useState<IConsumableItem[]>(
+    consumableItems || [],
+  );
+
+  // Debounce timers
+  const rtsTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mobTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const consTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isEditingRef = React.useRef(false);
+
+  const debouncedSaveRTS = React.useCallback(
+    (items: IRTSItem[]) => {
+      if (rtsTimerRef.current) clearTimeout(rtsTimerRef.current);
+      rtsTimerRef.current = setTimeout(() => {
+        rtsTimerRef.current = null;
+        onSaveRTS(items);
+      }, 400);
+    },
+    [onSaveRTS],
+  );
+  const debouncedSaveMob = React.useCallback(
+    (items: IMobilizationItem[]) => {
+      if (mobTimerRef.current) clearTimeout(mobTimerRef.current);
+      mobTimerRef.current = setTimeout(() => {
+        mobTimerRef.current = null;
+        onSaveMob(items);
+      }, 400);
+    },
+    [onSaveMob],
+  );
+  const debouncedSaveCons = React.useCallback(
+    (items: IConsumableItem[]) => {
+      if (consTimerRef.current) clearTimeout(consTimerRef.current);
+      consTimerRef.current = setTimeout(() => {
+        consTimerRef.current = null;
+        onSaveConsumables(items);
+      }, 400);
+    },
+    [onSaveConsumables],
+  );
+
+  // Sync from props only when NOT editing
+  React.useEffect(() => {
+    if (!isEditingRef.current && rtsTimerRef.current === null) {
+      setRts(rtsItems || []);
+    }
+  }, [rtsItems]);
+  React.useEffect(() => {
+    if (!isEditingRef.current && mobTimerRef.current === null) {
+      setMob(mobilizationItems || []);
+    }
+  }, [mobilizationItems]);
+  React.useEffect(() => {
+    if (!isEditingRef.current && consTimerRef.current === null) {
+      setCons(consumableItems || []);
+    }
+  }, [consumableItems]);
+
+  // Cleanup timers on unmount
+  React.useEffect(() => {
+    return () => {
+      if (rtsTimerRef.current) clearTimeout(rtsTimerRef.current);
+      if (mobTimerRef.current) clearTimeout(mobTimerRef.current);
+      if (consTimerRef.current) clearTimeout(consTimerRef.current);
+    };
+  }, []);
 
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const toggle = (key: string): void =>
@@ -341,9 +409,10 @@ export const PreparationMobilizationTab: React.FC<
   }
 
   // ─── RTS handlers ───
-  const rts = rtsItems || [];
   const persistRTS = (items: IRTSItem[]): void => {
-    onSaveRTS(items.map((i, idx) => ({ ...i, lineNumber: idx + 1 })));
+    const renumbered = items.map((i, idx) => ({ ...i, lineNumber: idx + 1 }));
+    setRts(renumbered);
+    debouncedSaveRTS(renumbered);
   };
   const addRTS = (sectionId?: string | null): void =>
     persistRTS([...rts, blankRTS(rts.length + 1, sectionId)]);
@@ -354,6 +423,7 @@ export const PreparationMobilizationTab: React.FC<
     field: keyof IRTSItem,
     value: unknown,
   ): void => {
+    isEditingRef.current = true;
     persistRTS(
       rts.map((i) => {
         if (i.id !== id) return i;
@@ -363,6 +433,9 @@ export const PreparationMobilizationTab: React.FC<
         return p;
       }),
     );
+    setTimeout(() => {
+      isEditingRef.current = false;
+    }, 500);
   };
   const moveRTS = (id: string, dir: "up" | "down"): void => {
     const r = moveItemInList(rts, rtsSections || [], id, dir);
@@ -370,9 +443,10 @@ export const PreparationMobilizationTab: React.FC<
   };
 
   // ─── Mobilization handlers ───
-  const mob = mobilizationItems || [];
   const persistMob = (items: IMobilizationItem[]): void => {
-    onSaveMob(items.map((i, idx) => ({ ...i, lineNumber: idx + 1 })));
+    const renumbered = items.map((i, idx) => ({ ...i, lineNumber: idx + 1 }));
+    setMob(renumbered);
+    debouncedSaveMob(renumbered);
   };
   const addMob = (sectionId?: string | null): void =>
     persistMob([...mob, blankMob(mob.length + 1, sectionId)]);
@@ -383,6 +457,7 @@ export const PreparationMobilizationTab: React.FC<
     field: keyof IMobilizationItem,
     value: unknown,
   ): void => {
+    isEditingRef.current = true;
     persistMob(
       mob.map((i) => {
         if (i.id !== id) return i;
@@ -392,6 +467,9 @@ export const PreparationMobilizationTab: React.FC<
         return p;
       }),
     );
+    setTimeout(() => {
+      isEditingRef.current = false;
+    }, 500);
   };
   const moveMob = (id: string, dir: "up" | "down"): void => {
     const r = moveItemInList(mob, mobSections || [], id, dir);
@@ -399,9 +477,10 @@ export const PreparationMobilizationTab: React.FC<
   };
 
   // ─── Consumables handlers ───
-  const cons = consumableItems || [];
   const persistCons = (items: IConsumableItem[]): void => {
-    onSaveConsumables(items.map((i, idx) => ({ ...i, lineNumber: idx + 1 })));
+    const renumbered = items.map((i, idx) => ({ ...i, lineNumber: idx + 1 }));
+    setCons(renumbered);
+    debouncedSaveCons(renumbered);
   };
   const addCons = (sectionId?: string | null): void =>
     persistCons([...cons, blankConsumable(cons.length + 1, sectionId)]);
@@ -412,6 +491,7 @@ export const PreparationMobilizationTab: React.FC<
     field: keyof IConsumableItem,
     value: unknown,
   ): void => {
+    isEditingRef.current = true;
     persistCons(
       cons.map((i) => {
         if (i.id !== id) return i;
@@ -421,6 +501,9 @@ export const PreparationMobilizationTab: React.FC<
         return p;
       }),
     );
+    setTimeout(() => {
+      isEditingRef.current = false;
+    }, 500);
   };
   const moveCons = (id: string, dir: "up" | "down"): void => {
     const r = moveItemInList(cons, consSections || [], id, dir);
@@ -831,22 +914,14 @@ export const PreparationMobilizationTab: React.FC<
         {readOnly ? (
           item.costReference || "—"
         ) : (
-          <select
-            className={styles.selectCell}
+          <input
+            className={styles.editInput}
             value={item.costReference}
             onChange={(e) =>
               updateRTS(item.id, "costReference", e.target.value)
             }
-          >
-            <option value="" disabled hidden>
-              Select...
-            </option>
-            {costReferences.map((cr) => (
-              <option key={cr.id} value={cr.value}>
-                {cr.label}
-              </option>
-            ))}
-          </select>
+            placeholder="Cost Ref"
+          />
         )}
       </td>
       <td>
@@ -997,6 +1072,20 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
+          item.costReference || "—"
+        ) : (
+          <input
+            className={styles.editInput}
+            value={item.costReference || ""}
+            onChange={(e) =>
+              updateMob(item.id, "costReference", e.target.value)
+            }
+            placeholder="Cost Ref"
+          />
+        )}
+      </td>
+      <td>
+        {readOnly ? (
           item.notes || "—"
         ) : (
           <input
@@ -1131,6 +1220,20 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td className={`${styles.cellRight} ${styles.cellBold}`}>
         {((item.qty || 0) * (item.unitCost || 0)).toLocaleString()}
+      </td>
+      <td>
+        {readOnly ? (
+          item.costReference || "—"
+        ) : (
+          <input
+            className={styles.editInput}
+            value={item.costReference || ""}
+            onChange={(e) =>
+              updateCons(item.id, "costReference", e.target.value)
+            }
+            placeholder="Cost Ref"
+          />
+        )}
       </td>
       <td>
         {readOnly ? (
@@ -1353,6 +1456,7 @@ export const PreparationMobilizationTab: React.FC<
                       <th>Qty</th>
                       <th>Unit Cost</th>
                       <th>Total</th>
+                      <th>Cost Ref</th>
                       <th>Notes</th>
                       {!readOnly && <th />}
                     </tr>
@@ -1369,7 +1473,7 @@ export const PreparationMobilizationTab: React.FC<
                             "mob",
                             group,
                             gi.length,
-                            readOnly ? 9 : 10,
+                            readOnly ? 10 : 11,
                             () => addMob(group.id),
                           )}
                           {!collapsedGroups.has(group.id) &&
@@ -1438,6 +1542,7 @@ export const PreparationMobilizationTab: React.FC<
                       <th>Qty</th>
                       <th>Unit Cost</th>
                       <th>Total</th>
+                      <th>Cost Ref</th>
                       <th>Notes</th>
                       {!readOnly && <th />}
                     </tr>
@@ -1454,7 +1559,7 @@ export const PreparationMobilizationTab: React.FC<
                             "cons",
                             group,
                             gi.length,
-                            readOnly ? 9 : 10,
+                            readOnly ? 10 : 11,
                             () => addCons(group.id),
                           )}
                           {!collapsedGroups.has(group.id) &&

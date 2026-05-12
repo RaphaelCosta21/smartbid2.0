@@ -598,6 +598,18 @@ export const Sidebar: React.FC = () => {
                     badgePulsing={item.badgePulsing}
                     isCollapsed={!sidebarExpanded}
                     onClick={() => navigate(item.route)}
+                    onExternalClick={
+                      item.externalRoute
+                        ? () => {
+                            const currentUrl = window.location.href;
+                            const baseUrl = currentUrl.split("#")[0];
+                            window.open(
+                              baseUrl + "#" + item.externalRoute,
+                              "_blank",
+                            );
+                          }
+                        : undefined
+                    }
                   />
                 )}
               </React.Fragment>

@@ -5,6 +5,8 @@ import {
   IClarificationItem,
   IFavoriteEquipment,
   IBidAttachment,
+  IEngineeringHoursItem,
+  IResourceAllocation,
 } from "../../models";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
@@ -13,6 +15,7 @@ import { makeId } from "../../utils/idGenerator";
 import { AIDocumentAnalyzer } from "../common/AIDocumentAnalyzer";
 import { PartNumberAutocomplete } from "../common/PartNumberAutocomplete";
 import { EquipmentImportModal } from "./EquipmentImportModal";
+import { ImportSourceModal } from "../common/ImportSourceModal";
 import { AttachmentService } from "../../services/AttachmentService";
 import styles from "./ScopeOfSupplyTab.module.scss";
 
@@ -25,6 +28,15 @@ interface ScopeOfSupplyTabProps {
   bidNumber?: string;
   /** Template ID — used for attachment uploads when inside a template */
   templateId?: string;
+  /** Tab-level notes/comments */
+  tabNotes?: string;
+  /** Callback to save tab-level notes */
+  onSaveTabNotes?: (notes: string) => void;
+  /** Callback to merge imported engineering hours into the BID */
+  onImportEngHours?: (
+    engItems: IEngineeringHoursItem[],
+    resAlloc?: IResourceAllocation[],
+  ) => void;
 }
 
 const blankItem = (
@@ -46,6 +58,7 @@ const blankItem = (
   qtyOperational: 0,
   qtySpare: 0,
   needsCertification: false,
+  needsEngineering: false,
   comments: "",
   importedFromTemplate: null,
   clientRequirement: "",
@@ -93,6 +106,9 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   clarifications = [],
   bidNumber,
   templateId,
+  tabNotes = "",
+  onSaveTabNotes,
+  onImportEngHours,
 }) => {
   // Helper: append fieldEmpty class when value is empty/falsy
   const emptyIf = (base: string, value: unknown): string =>
@@ -158,15 +174,22 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   // ─── Drag-and-drop state ───
   const [draggedId, setDraggedId] = React.useState<string | null>(null);
   const [dragOverId, setDragOverId] = React.useState<string | null>(null);
-  const [dragHandleActive, setDragHandleActive] = React.useState<string | null>(null);
+  const [dragHandleActive, setDragHandleActive] = React.useState<string | null>(
+    null,
+  );
 
   // ─── Sub-item drag state ───
   const [subDraggedId, setSubDraggedId] = React.useState<string | null>(null);
   const [subDragOverId, setSubDragOverId] = React.useState<string | null>(null);
-  const [subDragHandleActive, setSubDragHandleActive] = React.useState<string | null>(null);
+  const [subDragHandleActive, setSubDragHandleActive] = React.useState<
+    string | null
+  >(null);
 
   // ─── AI Analyzer modal state ───
   const [showAIModal, setShowAIModal] = React.useState(false);
+
+  // ─── Import from BID/Template modal state ───
+  const [showImportModal, setShowImportModal] = React.useState(false);
 
   // ─── Equipment Import modal state ───
   const [importTargetId, setImportTargetId] = React.useState<string | null>(
@@ -186,6 +209,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     (updated: IScopeItem[]) => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
+        saveTimerRef.current = null;
         onSave(updated);
       }, 400);
     },
@@ -298,6 +322,13 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       const patched = { ...i, [field]: value };
       // Clear sub-type when resource type changes
       if (field === "resourceType") patched.resourceSubType = "";
+      // Auto-mark needsEngineering when sub-type is Development or Eng. Solutions
+      if (field === "resourceSubType") {
+        const val = (value as string).toLowerCase();
+        if (val === "development" || val === "eng. solutions") {
+          patched.needsEngineering = true;
+        }
+      }
       return patched;
     });
     persist(updated);
@@ -495,7 +526,10 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     });
   };
 
-  const setDrawerTab = (itemId: string, tab: "subs" | "specs" | "attachments"): void => {
+  const setDrawerTab = (
+    itemId: string,
+    tab: "subs" | "specs" | "attachments",
+  ): void => {
     setDrawerActiveTab((prev) => ({ ...prev, [itemId]: tab }));
   };
 
@@ -556,7 +590,11 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
 
     // If dragging a non-section item to another non-section item in a different section,
     // update sectionId to match the target's section
-    if (!draggedItem.isSection && !targetItem.isSection && draggedItem.sectionId !== targetItem.sectionId) {
+    if (
+      !draggedItem.isSection &&
+      !targetItem.isSection &&
+      draggedItem.sectionId !== targetItem.sectionId
+    ) {
       ordered.splice(fromIdx, 1);
       const updatedItem = { ...draggedItem, sectionId: targetItem.sectionId };
       const newToIdx = ordered.findIndex((i) => i.id === targetId);
@@ -666,7 +704,11 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     }
   };
 
-  const handleSubDrop = (e: React.DragEvent, itemId: string, targetSubId: string): void => {
+  const handleSubDrop = (
+    e: React.DragEvent,
+    itemId: string,
+    targetSubId: string,
+  ): void => {
     e.preventDefault();
     e.stopPropagation();
     if (!subDraggedId || subDraggedId === targetSubId) {
@@ -723,7 +765,9 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
 
   // ─── Attachment handlers ───
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [attachTargetId, setAttachTargetId] = React.useState<string | null>(null);
+  const [attachTargetId, setAttachTargetId] = React.useState<string | null>(
+    null,
+  );
 
   const handleAttachClick = (itemId: string): void => {
     setAttachTargetId(itemId);
@@ -733,16 +777,23 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     }
   };
 
-  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+  const handleFileSelected = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ): Promise<void> => {
     const files = e.target.files;
     if (!files || files.length === 0 || !attachTargetId) return;
 
     const file = files[0];
-    const folderId = bidNumber || (templateId ? `Templates/${templateId}` : "unsaved");
+    const folderId =
+      bidNumber || (templateId ? `Templates/${templateId}` : "unsaved");
     const category = `scope-attachments/${attachTargetId}`;
 
     try {
-      const uploaded = await AttachmentService.uploadFile(folderId, category, file);
+      const uploaded = await AttachmentService.uploadFile(
+        folderId,
+        category,
+        file,
+      );
       const updated = items.map((i) => {
         if (i.id !== attachTargetId) return i;
         return { ...i, attachments: [...(i.attachments || []), uploaded] };
@@ -763,7 +814,10 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       };
       const updated = items.map((i) => {
         if (i.id !== attachTargetId) return i;
-        return { ...i, attachments: [...(i.attachments || []), localAttachment] };
+        return {
+          ...i,
+          attachments: [...(i.attachments || []), localAttachment],
+        };
       });
       persist(updated);
     }
@@ -771,7 +825,8 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   };
 
   const removeAttachment = (itemId: string, attachmentId: string): void => {
-    if (!window.confirm("Are you sure you want to remove this attachment?")) return;
+    if (!window.confirm("Are you sure you want to remove this attachment?"))
+      return;
     const updated = items.map((i) => {
       if (i.id !== itemId) return i;
       return {
@@ -806,6 +861,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     "Qty Op",
     "Qty Spare",
     "Cert?",
+    "Eng?",
     "Comments",
   ];
 
@@ -818,6 +874,24 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
         style={{ display: "none" }}
         onChange={handleFileSelected}
       />
+
+      {/* Tab-level notes */}
+      <div className={styles.tabNotesContainer}>
+        <label className={styles.tabNotesLabel}>📝 Notes / Comments</label>
+        {readOnly && !onSaveTabNotes ? (
+          <p className={styles.tabNotesText}>{tabNotes || "—"}</p>
+        ) : (
+          <textarea
+            className={styles.tabNotesInput}
+            value={tabNotes}
+            placeholder="Add general notes or comments for Scope of Supply..."
+            rows={2}
+            readOnly={readOnly}
+            onChange={(e) => onSaveTabNotes && onSaveTabNotes(e.target.value)}
+          />
+        )}
+      </div>
+
       {/* Summary Cards */}
       <div className={styles.summaryRow}>
         <div className={styles.summaryCard}>
@@ -853,6 +927,13 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
               {allSectionsCollapsed ? "▶ Expand All" : "▼ Collapse All"}
             </button>
           )}
+          <button
+            className={`${styles.toolbarBtn} ${styles.importBidBtn}`}
+            onClick={() => setShowImportModal(true)}
+            title="Import scope items from a completed BID or template"
+          >
+            📥 Import BID / Template
+          </button>
           {bidNumber && (
             <button
               className={`${styles.toolbarBtn} ${styles.aiBtn}`}
@@ -953,7 +1034,9 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                             className={styles.sectionHeader}
                             onClick={() => toggleSection(item.id)}
                             style={titleStyle}
-                            draggable={!readOnly && dragHandleActive === item.id}
+                            draggable={
+                              !readOnly && dragHandleActive === item.id
+                            }
                             onDragStart={(e) => {
                               e.stopPropagation();
                               handleDragStart(e, item.id);
@@ -1037,7 +1120,14 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                 }}
                                 title="Edit section title"
                               >
-                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2">
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  width="12"
+                                  height="12"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
                                   <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
                                   <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
                                 </svg>
@@ -1052,10 +1142,18 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                             >
                               ({itemsBySectionCount[item.id] || 0} items
                               {(() => {
-                                const sectionItems = dataItems.filter((di) => di.sectionId === item.id);
-                                const totalSubs = sectionItems.reduce((acc, di) => acc + (di.subItems || []).length, 0);
-                                return totalSubs > 0 ? `, ${totalSubs} sub-items` : "";
-                              })()})
+                                const sectionItems = dataItems.filter(
+                                  (di) => di.sectionId === item.id,
+                                );
+                                const totalSubs = sectionItems.reduce(
+                                  (acc, di) => acc + (di.subItems || []).length,
+                                  0,
+                                );
+                                return totalSubs > 0
+                                  ? `, ${totalSubs} sub-items`
+                                  : "";
+                              })()}
+                              )
                             </span>
                             {!readOnly && (
                               <div
@@ -1106,23 +1204,15 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                   </div>
                                 </div>
                                 <button
-                                  className={`${styles.actionBtn} ${styles.specsToggle} ${sectionHasSpecs ? styles.hasSpecs : ""}`}
-                                  onClick={() => toggleSpecsExpand(item.id)}
-                                  title={
-                                    isSectionSpecsOpen
-                                      ? "Collapse section specs"
-                                      : "Section technical specs"
-                                  }
-                                >
-                                  {isSectionSpecsOpen ? "▼" : "▶"} 📋
-                                </button>
-                                <button
                                   className={`${styles.actionBtn} ${styles.edit}`}
                                   onClick={() => handleAttachClick(item.id)}
                                   title={`Attach file to section${(item.attachments || []).length > 0 ? ` (${(item.attachments || []).length})` : ""}`}
                                 >
-                                  📎{(item.attachments || []).length > 0 && (
-                                    <span className={styles.attachBadge}>{(item.attachments || []).length}</span>
+                                  📎
+                                  {(item.attachments || []).length > 0 && (
+                                    <span className={styles.attachBadge}>
+                                      {(item.attachments || []).length}
+                                    </span>
                                   )}
                                 </button>
                                 <button
@@ -1139,6 +1229,35 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                   ✕
                                 </button>
                               </div>
+                            )}
+                            {/* Specs toggle — always visible (view & edit mode) */}
+                            {sectionHasSpecs && (
+                              <button
+                                className={`${styles.actionBtn} ${styles.specsToggle} ${styles.hasSpecs}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSpecsExpand(item.id);
+                                }}
+                                title={
+                                  isSectionSpecsOpen
+                                    ? "Collapse section specs"
+                                    : "Section technical specs"
+                                }
+                              >
+                                {isSectionSpecsOpen ? "▼" : "▶"} 📋
+                              </button>
+                            )}
+                            {!readOnly && !sectionHasSpecs && (
+                              <button
+                                className={`${styles.actionBtn} ${styles.specsToggle}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSpecsExpand(item.id);
+                                }}
+                                title="Section technical specs"
+                              >
+                                ▶ 📋
+                              </button>
                             )}
                           </div>
                         </td>
@@ -1331,9 +1450,20 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                         <tr className={styles.sectionAttachRow}>
                           <td colSpan={totalColsSection}>
                             <div className={styles.sectionAttachList}>
-                              <span style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600 }}>📎 Attachments:</span>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  color: "var(--text-secondary)",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                📎 Attachments:
+                              </span>
                               {(item.attachments || []).map((att) => (
-                                <div key={att.id} className={styles.sectionAttachItem}>
+                                <div
+                                  key={att.id}
+                                  className={styles.sectionAttachItem}
+                                >
                                   <a
                                     href={att.fileUrl}
                                     target="_blank"
@@ -1346,7 +1476,9 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                   {!readOnly && (
                                     <button
                                       className={styles.sectionAttachDelete}
-                                      onClick={() => removeAttachment(item.id, att.id)}
+                                      onClick={() =>
+                                        removeAttachment(item.id, att.id)
+                                      }
                                       title="Remove"
                                     >
                                       ✕
@@ -1423,7 +1555,11 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                         <div
                           className={`${styles.cellExpand}${isDrawerOpen ? ` ${styles.cellExpandOpen}` : ""}${itemHasSubItems || itemHasSpecs ? ` ${styles.cellExpandHasContent}` : ""}${itemHasSubItems ? ` ${styles.cellExpandHasSubs}` : ""}`}
                           onClick={() => toggleDrawer(item.id)}
-                          title={itemHasSubItems ? `${(item.subItems || []).length} sub-item(s) — click to expand` : "Expand / Collapse details"}
+                          title={
+                            itemHasSubItems
+                              ? `${(item.subItems || []).length} sub-item(s) — click to expand`
+                              : "Expand / Collapse details"
+                          }
                         >
                           <svg
                             viewBox="0 0 24 24"
@@ -1713,6 +1849,22 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                           }
                         />
                       </td>
+                      <td className={styles.cellCenter}>
+                        <input
+                          className={styles.checkbox}
+                          type="checkbox"
+                          checked={!!item.needsEngineering}
+                          disabled={readOnly}
+                          onChange={(e) =>
+                            updateField(
+                              item.id,
+                              "needsEngineering",
+                              e.target.checked,
+                            )
+                          }
+                          title="Needs engineering hours"
+                        />
+                      </td>
                       {/* Comments - collapsible */}
                       <td>
                         {editingCell?.id === item.id &&
@@ -1823,8 +1975,22 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                               onClick={() => duplicateItem(item.id)}
                               title="Duplicate item (with sub-items and specs)"
                             >
-                              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2">
-                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="11"
+                                height="11"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <rect
+                                  x="9"
+                                  y="9"
+                                  width="13"
+                                  height="13"
+                                  rx="2"
+                                  ry="2"
+                                />
                                 <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
                               </svg>
                             </button>
@@ -1900,7 +2066,9 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                               </div>
                               <div
                                 className={`${styles.drawerTab}${activeTab === "attachments" ? ` ${styles.drawerTabActive}` : ""}`}
-                                onClick={() => setDrawerTab(item.id, "attachments")}
+                                onClick={() =>
+                                  setDrawerTab(item.id, "attachments")
+                                }
                               >
                                 <svg
                                   viewBox="0 0 24 24"
@@ -1924,8 +2092,12 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                               <div className={styles.drawerTabPanel}>
                                 {(item.subItems || []).length > 0 ? (
                                   <div className={styles.subTblWrap}>
-                                    <div className={styles.subTblHead}>
-                                      {!readOnly && <div className={styles.subTh}></div>}
+                                    <div
+                                      className={`${styles.subTblHead}${readOnly ? ` ${styles.subTblHeadReadOnly}` : ""}`}
+                                    >
+                                      {!readOnly && (
+                                        <div className={styles.subTh}></div>
+                                      )}
                                       <div className={styles.subTh}>#</div>
                                       <div className={styles.subTh}>
                                         Description
@@ -1953,20 +2125,40 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                       {(item.subItems || []).map((sub, idx) => (
                                         <div
                                           key={sub.id}
-                                          className={`${styles.subRow}${subDragOverId === sub.id ? ` ${styles.subRowDragOver}` : ""}${subDraggedId === sub.id ? ` ${styles.subRowDragged}` : ""}`}
-                                          draggable={!readOnly && subDragHandleActive === sub.id}
-                                          onDragStart={(e) => handleSubDragStart(e, sub.id)}
-                                          onDragOver={(e) => handleSubDragOver(e, sub.id)}
-                                          onDrop={(e) => handleSubDrop(e, item.id, sub.id)}
+                                          className={`${styles.subRow}${readOnly ? ` ${styles.subRowReadOnly}` : ""}${subDragOverId === sub.id ? ` ${styles.subRowDragOver}` : ""}${subDraggedId === sub.id ? ` ${styles.subRowDragged}` : ""}`}
+                                          draggable={
+                                            !readOnly &&
+                                            subDragHandleActive === sub.id
+                                          }
+                                          onDragStart={(e) =>
+                                            handleSubDragStart(e, sub.id)
+                                          }
+                                          onDragOver={(e) =>
+                                            handleSubDragOver(e, sub.id)
+                                          }
+                                          onDrop={(e) =>
+                                            handleSubDrop(e, item.id, sub.id)
+                                          }
                                           onDragEnd={handleSubDragEnd}
                                         >
                                           {!readOnly && (
                                             <div
                                               className={`${styles.subCell} ${styles.subDragHandle}`}
-                                              onMouseDown={() => setSubDragHandleActive(sub.id)}
-                                              onMouseUp={() => setSubDragHandleActive(null)}
+                                              onMouseDown={() =>
+                                                setSubDragHandleActive(sub.id)
+                                              }
+                                              onMouseUp={() =>
+                                                setSubDragHandleActive(null)
+                                              }
                                             >
-                                              <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2">
+                                              <svg
+                                                viewBox="0 0 24 24"
+                                                width="10"
+                                                height="10"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                              >
                                                 <circle cx="9" cy="5" r="1" />
                                                 <circle cx="9" cy="12" r="1" />
                                                 <circle cx="9" cy="19" r="1" />
@@ -2033,7 +2225,9 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                               </select>
                                             )}
                                           </div>
-                                          <div className={`${styles.subCell} ${styles.subEquipmentCell}`}>
+                                          <div
+                                            className={`${styles.subCell} ${styles.subEquipmentCell}`}
+                                          >
                                             {readOnly ? (
                                               sub.equipmentOffer || "—"
                                             ) : (
@@ -2142,7 +2336,10 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                               <div
                                                 className={styles.subActionBtn}
                                                 onClick={() =>
-                                                  setImportSubTarget({ itemId: item.id, subId: sub.id })
+                                                  setImportSubTarget({
+                                                    itemId: item.id,
+                                                    subId: sub.id,
+                                                  })
                                                 }
                                                 title="Import Equipment"
                                               >
@@ -2156,7 +2353,12 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                                 >
                                                   <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
                                                   <polyline points="7 10 12 15 17 10" />
-                                                  <line x1="12" y1="15" x2="12" y2="3" />
+                                                  <line
+                                                    x1="12"
+                                                    y1="15"
+                                                    x2="12"
+                                                    y2="3"
+                                                  />
                                                 </svg>
                                               </div>
                                               <div
@@ -2500,8 +2702,13 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                   {(item.attachments || []).length > 0 ? (
                                     <div className={styles.attachList}>
                                       {(item.attachments || []).map((att) => (
-                                        <div key={att.id} className={styles.attachItem}>
-                                          <span className={styles.attachIcon}>📄</span>
+                                        <div
+                                          key={att.id}
+                                          className={styles.attachItem}
+                                        >
+                                          <span className={styles.attachIcon}>
+                                            📄
+                                          </span>
                                           <a
                                             href={att.fileUrl}
                                             target="_blank"
@@ -2519,7 +2726,12 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           {!readOnly && (
                                             <button
                                               className={styles.attachDelete}
-                                              onClick={() => removeAttachment(item.id, att.id)}
+                                              onClick={() =>
+                                                removeAttachment(
+                                                  item.id,
+                                                  att.id,
+                                                )
+                                              }
                                               title="Remove attachment"
                                             >
                                               ✕
@@ -2538,7 +2750,14 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                       className={styles.addSubBtn}
                                       onClick={() => handleAttachClick(item.id)}
                                     >
-                                      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <svg
+                                        viewBox="0 0 24 24"
+                                        width="11"
+                                        height="11"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                      >
                                         <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
                                       </svg>
                                       Attach File
@@ -2727,6 +2946,39 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
           onClose={() => setImportSubTarget(null)}
         />
       )}
+
+      {/* Import from BID/Template Modal */}
+      <ImportSourceModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        importMode="scope"
+        onImportScope={(result) => {
+          // Assign new line numbers after existing items
+          const maxLine = items.reduce(
+            (max, i) => Math.max(max, i.lineNumber || 0),
+            0,
+          );
+          const numbered = result.items.map((item, idx) => ({
+            ...item,
+            lineNumber: maxLine + idx + 1,
+          }));
+          const merged = [...items, ...numbered];
+          setItems(merged);
+          persist(merged);
+
+          // Cross-import engineering hours if available
+          if (
+            onImportEngHours &&
+            result.engineeringItems &&
+            result.engineeringItems.length > 0
+          ) {
+            onImportEngHours(
+              result.engineeringItems,
+              result.resourceAllocations,
+            );
+          }
+        }}
+      />
     </div>
   );
 };

@@ -63,6 +63,7 @@ export interface ISystemConfig {
   serviceLines: IConfigOption[];
   clientList: IConfigOption[];
   jobFunctions: IConfigOption[];
+  jobTeams?: string[];
   hoursPhases: IConfigOption[];
   availabilityStatuses: IConfigOption[];
   acquisitionTypes: IConfigOption[];

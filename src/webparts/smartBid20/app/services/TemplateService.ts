@@ -1,7 +1,9 @@
 /**
  * TemplateService — CRUD for bid templates.
- * Each template is a separate row in the smartbid-templates list.
- * Column mapping: Title = template.id, jsondata = JSON.stringify(template)
+ * Templates are stored in two places (legacy + current):
+ *   1. smartbid-config list, key "BID_TEMPLATES" → ConfigValue = JSON array
+ *   2. smartbid-templates list → one row per template (Title=id, jsondata=JSON)
+ * getAll() merges both sources, deduplicating by template ID.
  * Static singleton pattern.
  */
 import { SPService } from "./SPService";
@@ -13,24 +15,63 @@ export class TemplateService {
     return SPService.sp.web.lists.getByTitle(SHAREPOINT_CONFIG.lists.templates);
   }
 
+  private static get _configList() {
+    return SPService.sp.web.lists.getByTitle(SHAREPOINT_CONFIG.lists.config);
+  }
+
   /**
-   * Get all templates from the smartbid-templates list.
+   * Get all templates from both storage locations (config key + dedicated list).
    */
   public static async getAll(): Promise<IBidTemplate[]> {
-    const items = await TemplateService._list.items
-      .select("Title", "jsondata")
-      .top(500)();
+    const byId = new Map<string, IBidTemplate>();
 
-    const results: IBidTemplate[] = [];
-    items.forEach((item: { Title: string; jsondata: string }) => {
-      if (item.jsondata) {
-        try {
-          results.push(JSON.parse(item.jsondata) as IBidTemplate);
-        } catch {
-          // Skip invalid JSON rows
+    // Source 1: smartbid-config list → BID_TEMPLATES key (legacy/primary)
+    try {
+      const configItems = await TemplateService._configList.items
+        .filter(`Title eq '${SHAREPOINT_CONFIG.configKeys.bidTemplates}'`)
+        .select("ConfigValue")
+        .top(1)();
+
+      if (configItems.length > 0) {
+        const raw = (configItems[0] as { ConfigValue: string }).ConfigValue;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const arr: IBidTemplate[] = Array.isArray(parsed) ? parsed : [parsed];
+          arr.forEach((tpl) => {
+            if (tpl && tpl.id) byId.set(tpl.id, tpl);
+          });
         }
       }
-    });
+    } catch (e) {
+      console.warn("TemplateService: Failed to read from config list", e);
+    }
+
+    // Source 2: smartbid-templates list (one row per template)
+    try {
+      const listItems = await TemplateService._list.items
+        .select("Title", "jsondata")
+        .top(500)();
+
+      listItems.forEach((item: { Title: string; jsondata: string }) => {
+        if (item.jsondata) {
+          try {
+            const tpl = JSON.parse(item.jsondata) as IBidTemplate;
+            if (tpl && tpl.id) byId.set(tpl.id, tpl); // Overrides config version if same ID
+          } catch {
+            // Skip invalid JSON rows
+          }
+        }
+      });
+    } catch (e) {
+      // smartbid-templates list may not exist — that's OK
+      console.warn(
+        "TemplateService: smartbid-templates list not found or empty",
+        e,
+      );
+    }
+
+    const results: IBidTemplate[] = [];
+    byId.forEach((tpl) => results.push(tpl));
     return results;
   }
 
