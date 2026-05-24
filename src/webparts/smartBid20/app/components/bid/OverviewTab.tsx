@@ -1,5 +1,12 @@
 import * as React from "react";
-import { IBid, ITeamMember, Division, BidType, BidSize } from "../../models";
+import {
+  IBid,
+  ITeamMember,
+  Division,
+  BidType,
+  BidSize,
+  BidPhase,
+} from "../../models";
 import { StatusBadge } from "../common/StatusBadge";
 import { EditLockBanner } from "../common/EditLockBanner";
 import { useConfigStore } from "../../stores/useConfigStore";
@@ -12,6 +19,8 @@ import { PRIORITY_COLORS } from "../../utils/constants";
 import { createActivityLogEntry } from "../../utils/activityLogHelpers";
 import { formatDate, formatDateTime } from "../../utils/formatters";
 import { getPhaseLabelForBid } from "../../utils/phaseHelpers";
+import { calcElapsedDays } from "../../utils/durationHelpers";
+import { getCurrentRevisionLetter, hasActiveRevision } from "./RevisionsTab";
 import styles from "../../pages/BidDetailPage.module.scss";
 
 /* ─── Helpers ─── */
@@ -804,6 +813,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </div>
           ) : (
             <div className={styles.infoGrid}>
+              <InfoRow
+                label="Project Name"
+                value={bid.opportunityInfo?.projectName}
+              />
               <InfoRow label="Client" value={bid.opportunityInfo?.client} />
               <InfoRow
                 label="Client Contact"
@@ -1161,11 +1174,29 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <h4 className={styles.infoTitle}>
             Project Description (Commercial Input)
           </h4>
-          <p className={styles.scopeDescription}>
+          <p
+            className={styles.scopeDescription}
+            style={{ whiteSpace: "pre-wrap" }}
+          >
             {bid.opportunityInfo?.projectDescription ||
               "No description provided."}
           </p>
         </div>
+
+        {/* Request Notes (Commercial Input) */}
+        {(bid.bidNotes as Record<string, string>)?.general && (
+          <div className={styles.infoSection}>
+            <h4 className={styles.infoTitle}>
+              Request Notes (Commercial Input)
+            </h4>
+            <p
+              className={styles.scopeDescription}
+              style={{ whiteSpace: "pre-wrap" }}
+            >
+              {(bid.bidNotes as Record<string, string>).general}
+            </p>
+          </div>
+        )}
 
         {/* Engineer BID Overview */}
         <div className={styles.infoSection}>
@@ -1245,16 +1276,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           )}
         </div>
 
-        {/* Request Notes (bidNotes.general) */}
-        {(bid.bidNotes as Record<string, string>)?.general && (
-          <div className={styles.infoSection}>
-            <h4 className={styles.infoTitle}>Request Notes</h4>
-            <p className={styles.scopeDescription}>
-              {(bid.bidNotes as Record<string, string>).general}
-            </p>
-          </div>
-        )}
-
         {/* People */}
         <div className={styles.infoSection}>
           <h4 className={styles.infoTitle}>Key People</h4>
@@ -1289,7 +1310,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   other: (typeof groups)["rov"];
                 },
               ): React.ReactNode => (
-                <div style={{ marginBottom: 12 }}>
+                <div>
                   <div
                     style={{
                       fontSize: 12,
@@ -1368,8 +1389,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 </div>
               );
               return (
-                <div>
-                  <div style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fill, minmax(220px, 1fr))",
+                    gap: "16px 24px",
+                  }}
+                >
+                  <div>
                     <div
                       style={{
                         fontSize: 12,
@@ -1390,7 +1418,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       "—"
                     )}
                   </div>
-                  <div style={{ marginBottom: 12 }}>
+                  <div>
                     <div
                       style={{
                         fontSize: 12,
@@ -1552,36 +1580,62 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         <div className={styles.progressSection}>
           <h4 className={styles.infoTitle}>
             Phase Progress — {getPhaseLabelForBid(bid)}
-          </h4>
-          {configPhases.map((phase, idx) => {
-            const isCompleted = idx < currentPhaseIndex;
-            const isCurrent = idx === currentPhaseIndex;
-            const stateClass = isCompleted
-              ? styles.completed
-              : isCurrent
-                ? styles.current
-                : styles.pending;
-            return (
-              <div
-                key={phase.id}
-                className={`${styles.phaseStep} ${stateClass}`}
+            {(bid.revisions || []).length > 0 && (
+              <span
+                style={{
+                  marginLeft: 8,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#F97316",
+                }}
               >
-                <div className={`${styles.phaseCircle} ${stateClass}`}>
-                  {isCompleted ? "✓" : idx}
-                </div>
-                <div className={styles.phaseInfo}>
-                  <div className={styles.phaseLabel}>{phase.label}</div>
-                  <div className={styles.phaseStatus}>
-                    {isCompleted
-                      ? "Completed"
-                      : isCurrent
-                        ? bid.currentStatus
-                        : "Pending"}
+                (Rev. {getCurrentRevisionLetter(bid)})
+              </span>
+            )}
+          </h4>
+          {configPhases
+            .filter((phase) => {
+              // Rework is optional: only show if the BID has used it
+              if (phase.value === "Rework") {
+                const hasReworkHistory = (bid.phaseHistory || []).some(
+                  (ph) => ph.phase === ("Rework" as BidPhase),
+                );
+                return (
+                  hasReworkHistory ||
+                  bid.currentPhase === ("Rework" as BidPhase)
+                );
+              }
+              return true;
+            })
+            .map((phase, idx) => {
+              const isCompleted = idx < currentPhaseIndex;
+              const isCurrent = idx === currentPhaseIndex;
+              const stateClass = isCompleted
+                ? styles.completed
+                : isCurrent
+                  ? styles.current
+                  : styles.pending;
+              return (
+                <div
+                  key={phase.id}
+                  className={`${styles.phaseStep} ${stateClass}`}
+                >
+                  <div className={`${styles.phaseCircle} ${stateClass}`}>
+                    {isCompleted ? "✓" : idx}
+                  </div>
+                  <div className={styles.phaseInfo}>
+                    <div className={styles.phaseLabel}>{phase.label}</div>
+                    <div className={styles.phaseStatus}>
+                      {isCompleted
+                        ? "Completed"
+                        : isCurrent
+                          ? bid.currentStatus
+                          : "Pending"}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
 
         <div className={styles.infoSection}>
@@ -1589,24 +1643,70 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <div className={styles.flexColumnSmall}>
             <InfoRow
               label="Days Elapsed"
-              value={`${bid.kpis?.totalDaysElapsed ?? 0} days`}
+              value={(() => {
+                const refDate = bid.startDate || bid.createdDate;
+                if (!refDate) return "0 days";
+                if (isClosed && bid.completedDate) {
+                  const ms =
+                    new Date(bid.completedDate).getTime() -
+                    new Date(refDate).getTime();
+                  return `${Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24)))} days`;
+                }
+                return `${calcElapsedDays(refDate)} days`;
+              })()}
             />
             <InfoRow
               label="Days in Phase"
-              value={`${bid.kpis?.daysInCurrentPhase ?? 0} days`}
-            />
-            <InfoRow
-              label="Est. Remaining"
-              value={`${bid.kpis?.estimatedDaysRemaining ?? 0} days`}
+              value={(() => {
+                const ph = bid.phaseHistory || [];
+                if (ph.length === 0) {
+                  return `${calcElapsedDays(bid.createdDate)} days`;
+                }
+                const lastEntry = ph[ph.length - 1];
+                if (!lastEntry.end) {
+                  if (isClosed && bid.completedDate) {
+                    const ms =
+                      new Date(bid.completedDate).getTime() -
+                      new Date(lastEntry.start).getTime();
+                    return `${Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24)))} days`;
+                  }
+                  return `${calcElapsedDays(lastEntry.start)} days`;
+                }
+                return "0 days";
+              })()}
             />
             <InfoRow
               label="Completion"
-              value={`${bid.kpis?.phaseCompletionPercentage ?? 0}%`}
+              value={(() => {
+                // Phases go from 0 to 5, active phases are 1-5 (20% each)
+                const phaseNum = currentPhaseIndex >= 0 ? currentPhaseIndex : 0;
+                const pct = Math.round((phaseNum / 5) * 100);
+                return `${Math.min(100, pct)}%`;
+              })()}
             />
             <InfoRow
               label="Overdue"
+              value={(() => {
+                if (!bid.dueDate) return "No";
+                const now =
+                  isClosed && bid.completedDate
+                    ? new Date(bid.completedDate)
+                    : new Date();
+                const due = new Date(bid.dueDate);
+                const diffMs = now.getTime() - due.getTime();
+                if (diffMs > 0) {
+                  const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                  return `Yes (${days} days)`;
+                }
+                return "No";
+              })()}
+            />
+            <InfoRow
+              label="Rework Required"
               value={
-                bid.kpis?.isOverdue ? `Yes (${bid.kpis.overdueBy} days)` : "No"
+                (bid.revisions || []).length > 0
+                  ? `Yes (${(bid.revisions || []).length} revision${(bid.revisions || []).length > 1 ? "s" : ""})`
+                  : "No"
               }
             />
           </div>
@@ -1626,12 +1726,62 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               label="Completed"
               value={bid.completedDate ? formatDate(bid.completedDate) : "—"}
             />
+            {/* Revision completion dates */}
+            {(bid.revisions || [])
+              .filter((r) => r.closedDate)
+              .map((r) => (
+                <InfoRow
+                  key={r.revisionLetter}
+                  label={`Revision ${r.revisionLetter} Completed`}
+                  value={formatDate(r.closedDate!)}
+                />
+              ))}
             <InfoRow
               label="Last Modified"
               value={formatDateTime(bid.lastModified)}
             />
           </div>
         </div>
+
+        {/* Current Revision Info */}
+        {hasActiveRevision(bid) && (
+          <div className={styles.infoSection}>
+            <h4 className={styles.infoTitle} style={{ color: "#F97316" }}>
+              🔄 Active Revision
+            </h4>
+            <div className={styles.flexColumnSmall}>
+              <InfoRow
+                label="Revision"
+                value={
+                  <span style={{ fontWeight: 700, color: "#F97316" }}>
+                    {getCurrentRevisionLetter(bid)}
+                  </span>
+                }
+              />
+              <InfoRow
+                label="Opened By"
+                value={
+                  (bid.revisions || []).find((r) => r.status === "open")
+                    ?.openedBy?.name || "—"
+                }
+              />
+              <InfoRow
+                label="Opened Date"
+                value={formatDateTime(
+                  (bid.revisions || []).find((r) => r.status === "open")
+                    ?.openedDate || "",
+                )}
+              />
+              <InfoRow
+                label="Reason"
+                value={
+                  (bid.revisions || []).find((r) => r.status === "open")
+                    ?.reason || "—"
+                }
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import { useBidStore } from "../../stores/useBidStore";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { BidService } from "../../services/BidService";
 import { SystemConfigService } from "../../services/SystemConfigService";
+import { MembersService } from "../../services/MembersService";
 import { ROUTES } from "../../config/routes.config";
 import darkTheme from "../../styles/themes/dark.module.scss";
 import lightTheme from "../../styles/themes/light.module.scss";
@@ -46,8 +47,10 @@ import { ToastContainer } from "../common/ToastContainer";
 
 export const AppLayout: React.FC = () => {
   const theme = useUIStore((s) => s.theme);
+  const setTheme = useUIStore((s) => s.setTheme);
   const sidebarExpanded = useUIStore((s) => s.sidebarExpanded);
   const isGuestUser = useAuthStore((s) => s.isGuestUser);
+  const currentUser = useAuthStore((s) => s.currentUser);
   const setBids = useBidStore((s) => s.setBids);
   const toasts = useUIStore((s) => s.toasts);
   const dismissToast = useUIStore((s) => s.dismissToast);
@@ -62,6 +65,19 @@ export const AppLayout: React.FC = () => {
     SystemConfigService.get()
       .then((cfg) => setConfig(cfg))
       .catch((err) => console.error("Failed to load system config:", err));
+
+    // Load user's theme preference from TEAM_MEMBERS
+    MembersService.getAll()
+      .then((data) => {
+        const userEmail = currentUser.email.toLowerCase();
+        const member = data.members.find(
+          (m) => m.email.toLowerCase() === userEmail,
+        );
+        if (member && member.themePreference) {
+          setTheme(member.themePreference);
+        }
+      })
+      .catch((err) => console.warn("Failed to load theme preference:", err));
   }, []);
 
   const themeClass =

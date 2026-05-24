@@ -61,6 +61,9 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   const [scopeItems, setScopeItems] = React.useState<IScopeItem[]>(
     template?.scopeItems || [],
   );
+  const [scopeNotes, setScopeNotes] = React.useState(
+    template?.scopeNotes || "",
+  );
 
   const EMPTY_HOURS: IHoursSummary = {
     engineeringHours: { totalHours: 0, totalCostBRL: 0, items: [] },
@@ -134,6 +137,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
       serviceLine,
       category,
       scopeItems,
+      scopeNotes,
       hoursSummary,
       createdBy: template?.createdBy || currentUser?.displayName || "",
       createdDate: template?.createdDate || new Date().toISOString(),
@@ -438,6 +442,8 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
               onSave={setScopeItems}
               readOnly={!isScopeEditing}
               templateId={stableId}
+              tabNotes={scopeNotes}
+              onSaveTabNotes={setScopeNotes}
             />
           </div>
 

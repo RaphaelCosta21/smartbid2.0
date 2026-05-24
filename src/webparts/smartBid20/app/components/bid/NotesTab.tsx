@@ -1,6 +1,7 @@
 import * as React from "react";
 import { IBid, IQuickNote } from "../../models";
 import { GlassCard } from "../common/GlassCard";
+import { BidComments } from "./BidComments";
 import { EmptySection } from "./EmptySection";
 import { makeId } from "../../utils/idGenerator";
 import { formatDateTime } from "../../utils/formatters";
@@ -11,6 +12,7 @@ export interface NotesTabProps {
   canEdit?: boolean;
   onSave?: (patch: Partial<IBid>) => void;
   currentUser?: { displayName: string; email: string };
+  onAddComment?: (text: string) => void;
 }
 
 export const NotesTab: React.FC<NotesTabProps> = ({
@@ -18,6 +20,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
   canEdit,
   onSave,
   currentUser,
+  onAddComment,
 }) => {
   const notes = (bid.bidNotes || {}) as Record<string, string>;
   const entries = Object.entries(notes);
@@ -353,6 +356,12 @@ export const NotesTab: React.FC<NotesTabProps> = ({
           </div>
         )}
       </GlassCard>
+
+      {/* Comments / Discussion */}
+      <BidComments
+        comments={bid.comments || []}
+        onAdd={canEdit ? onAddComment : undefined}
+      />
     </div>
   );
 };

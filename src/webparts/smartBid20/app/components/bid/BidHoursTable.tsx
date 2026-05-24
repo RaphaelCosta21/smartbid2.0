@@ -28,19 +28,24 @@ interface BidHoursTableProps {
   onSaveTabNotes?: (notes: string) => void;
 }
 
-const blankHoursItem = (sectionId?: string): IHoursItem => ({
+const blankHoursItem = (
+  sectionId?: string,
+  hoursPerDay: number = 8,
+  division?: "ROV" | "SURVEY" | "OPG" | "" | null,
+): IHoursItem => ({
   id: makeId("hrs"),
   lineNumber: 0,
   sectionId: sectionId || null,
   requirementName: "",
   function: "",
   phase: "",
-  hoursPerDay: 8,
+  hoursPerDay,
   pplQty: 1,
   workDays: 1,
   utilizationPercent: 100,
-  totalHours: 8,
+  totalHours: hoursPerDay,
   costBRL: 0,
+  integratedDivision: division || undefined,
 });
 
 type SectionKey = "engineeringHours" | "onshoreHours" | "offshoreHours";
@@ -49,10 +54,45 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
   hoursSummary,
   readOnly = false,
   onSave,
+  integratedDivision,
   scopeItems = [],
   tabNotes = "",
   onSaveTabNotes,
 }) => {
+  // ─── Local state + debounced save (prevents character loss while typing) ───
+  const [localSummary, setLocalSummary] =
+    React.useState<IHoursSummary>(hoursSummary);
+  const saveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isEditingRef = React.useRef(false);
+
+  // Sync from props only when not mid-edit
+  React.useEffect(() => {
+    if (!isEditingRef.current && saveTimerRef.current === null) {
+      setLocalSummary(hoursSummary);
+    }
+  }, [hoursSummary]);
+
+  const debouncedSave = React.useCallback(
+    (updated: IHoursSummary) => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        saveTimerRef.current = null;
+        isEditingRef.current = false;
+        if (onSave) onSave(updated);
+      }, 400);
+    },
+    [onSave],
+  );
+
+  const localPersist = React.useCallback(
+    (updated: IHoursSummary) => {
+      isEditingRef.current = true;
+      setLocalSummary(updated);
+      debouncedSave(updated);
+    },
+    [debouncedSave],
+  );
+
   const config = useConfigStore((s) => s.config);
   const hoursPhases = (config?.hoursPhases || []).filter(
     (p) => p.isActive !== false,
@@ -108,7 +148,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     if (!onSave) return;
     const recalced = recalcSection(updatedSection);
     const updated: IHoursSummary = {
-      ...hoursSummary,
+      ...localSummary,
       [sectionKey]: recalced,
     };
     // Recalc grand totals
@@ -123,19 +163,23 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
       (sum, s) => sum + s.totalCostBRL,
       0,
     );
-    onSave(updated);
+    localPersist(updated);
   };
 
   const addRow = (sectionKey: SectionKey, sectionGroupId?: string): void => {
-    const section = hoursSummary?.[sectionKey] || emptySection;
+    const section = localSummary?.[sectionKey] || emptySection;
+    const defaultHours = sectionKey === "offshoreHours" ? 12 : 8;
     persistChange(sectionKey, {
       ...section,
-      items: [...section.items, blankHoursItem(sectionGroupId)],
+      items: [
+        ...section.items,
+        blankHoursItem(sectionGroupId, defaultHours, integratedDivision),
+      ],
     });
   };
 
   const deleteRow = (sectionKey: SectionKey, itemId: string): void => {
-    const section = hoursSummary?.[sectionKey] || emptySection;
+    const section = localSummary?.[sectionKey] || emptySection;
     persistChange(sectionKey, {
       ...section,
       items: section.items.filter((i) => i.id !== itemId),
@@ -143,11 +187,16 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
   };
 
   const addSectionGroup = (sectionKey: SectionKey): void => {
-    const section = hoursSummary?.[sectionKey] || emptySection;
+    const section = localSummary?.[sectionKey] || emptySection;
     const sections = section.sections || [];
+    const newGroup: IHoursSectionGroup = {
+      id: makeId("hrs"),
+      title: "New Section",
+      integratedDivision: integratedDivision || undefined,
+    };
     persistChange(sectionKey, {
       ...section,
-      sections: [...sections, { id: makeId("hrs"), title: "New Section" }],
+      sections: [...sections, newGroup],
     });
   };
 
@@ -156,7 +205,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     groupId: string,
     title: string,
   ): void => {
-    const section = hoursSummary?.[sectionKey] || emptySection;
+    const section = localSummary?.[sectionKey] || emptySection;
     persistChange(sectionKey, {
       ...section,
       sections: (section.sections || []).map((s) =>
@@ -170,7 +219,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     groupId: string,
     color: string,
   ): void => {
-    const section = hoursSummary?.[sectionKey] || emptySection;
+    const section = localSummary?.[sectionKey] || emptySection;
     persistChange(sectionKey, {
       ...section,
       sections: (section.sections || []).map((s) =>
@@ -184,7 +233,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     itemId: string,
     targetSectionId: string | null,
   ): void => {
-    const section = hoursSummary?.[sectionKey] || emptySection;
+    const section = localSummary?.[sectionKey] || emptySection;
     persistChange(sectionKey, {
       ...section,
       items: section.items.map((i) =>
@@ -211,7 +260,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     sectionKey: SectionKey,
     groupId: string,
   ): void => {
-    const section = hoursSummary?.[sectionKey] || emptySection;
+    const section = localSummary?.[sectionKey] || emptySection;
     persistChange(sectionKey, {
       ...section,
       sections: (section.sections || []).filter((s) => s.id !== groupId),
@@ -227,7 +276,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     groupId: string,
     direction: "up" | "down",
   ): void => {
-    const section = hoursSummary?.[sectionKey] || emptySection;
+    const section = localSummary?.[sectionKey] || emptySection;
     const groups = [...(section.sections || [])];
     const idx = groups.findIndex((g) => g.id === groupId);
     if (idx < 0) return;
@@ -244,7 +293,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     itemId: string,
     direction: "up" | "down",
   ): void => {
-    const section = hoursSummary?.[sectionKey] || emptySection;
+    const section = localSummary?.[sectionKey] || emptySection;
     const item = section.items.find((i) => i.id === itemId);
     if (!item) return;
     // Build display-order list: unsectioned first, then items grouped by section
@@ -274,7 +323,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     field: keyof IHoursItem,
     value: unknown,
   ): void => {
-    const section = hoursSummary?.[sectionKey] || emptySection;
+    const section = localSummary?.[sectionKey] || emptySection;
     const items = section.items.map((i) =>
       i.id === itemId ? { ...i, [field]: value } : i,
     );
@@ -296,12 +345,12 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
   const allGroupIds = React.useMemo(() => {
     const ids: string[] = [];
     sectionDefs.forEach(({ key }) => {
-      const section = hoursSummary?.[key] || emptySection;
+      const section = localSummary?.[key] || emptySection;
       const groups: IHoursSectionGroup[] = section.sections || [];
       groups.forEach((g) => ids.push(g.id));
     });
     return ids;
-  }, [hoursSummary]);
+  }, [localSummary]);
 
   const allSectionsCollapsed =
     allGroupIds.length > 0 &&
@@ -337,7 +386,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     groupId: string,
     notes: string,
   ): void => {
-    const section = hoursSummary?.[sectionKey] || emptySection;
+    const section = localSummary?.[sectionKey] || emptySection;
     persistChange(sectionKey, {
       ...section,
       sections: (section.sections || []).map((s) =>
@@ -351,7 +400,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     groupId: string,
     specs: string[],
   ): void => {
-    const section = hoursSummary?.[sectionKey] || emptySection;
+    const section = localSummary?.[sectionKey] || emptySection;
     persistChange(sectionKey, {
       ...section,
       sections: (section.sections || []).map((s) =>
@@ -364,20 +413,20 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
   const handleEngineeringSave = (updated: IEngineeringHoursSection): void => {
     if (!onSave) return;
     const newSummary: IHoursSummary = {
-      ...hoursSummary,
+      ...localSummary,
       engineeringHours: updated,
     };
     // Recalc grand totals
     const engTotal = updated.totalHours;
-    const onshoreTotal = (hoursSummary.onshoreHours || emptySection).totalHours;
-    const offshoreTotal = (hoursSummary.offshoreHours || emptySection)
+    const onshoreTotal = (localSummary.onshoreHours || emptySection).totalHours;
+    const offshoreTotal = (localSummary.offshoreHours || emptySection)
       .totalHours;
     newSummary.grandTotalHours = engTotal + onshoreTotal + offshoreTotal;
     newSummary.grandTotalCostBRL =
       updated.totalCostBRL +
-      (hoursSummary.onshoreHours || emptySection).totalCostBRL +
-      (hoursSummary.offshoreHours || emptySection).totalCostBRL;
-    onSave(newSummary);
+      (localSummary.onshoreHours || emptySection).totalCostBRL +
+      (localSummary.offshoreHours || emptySection).totalCostBRL;
+    localPersist(newSummary);
   };
 
   // Scope items that are marked for engineering
@@ -428,7 +477,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
 
       {/* Engineering Hours — deliverable-based section */}
       <EngineeringHoursSection
-        engineeringSection={hoursSummary?.engineeringHours || emptySection}
+        engineeringSection={localSummary?.engineeringHours || emptySection}
         scopeItems={engineeringScopeItems}
         readOnly={readOnly}
         onSave={onSave ? handleEngineeringSave : undefined}
@@ -438,7 +487,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
       {sectionDefs
         .filter((s) => s.key !== "engineeringHours")
         .map(({ key, label }) => {
-          const section = hoursSummary?.[key] || emptySection;
+          const section = localSummary?.[key] || emptySection;
           const sectionGroups: IHoursSectionGroup[] = section.sections || [];
           const unsectionedItems = section.items.filter((i) => !i.sectionId);
 
@@ -573,6 +622,18 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
                                   >
                                     {group.title || "Untitled Section"}
                                   </span>
+                                )}
+                                {!readOnly && editingSection !== group.id && (
+                                  <button
+                                    className={styles.sectionEditBtn}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingSection(group.id);
+                                    }}
+                                    title="Rename section"
+                                  >
+                                    ✏️
+                                  </button>
                                 )}
                                 <span className={styles.sectionGroupMeta}>
                                   ({groupItems.length} items ·{" "}
@@ -853,15 +914,6 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
             </div>
           );
         })}
-      <div className={styles.grandTotal}>
-        <div className={styles.grandTotalRow}>
-          <span>Grand Total</span>
-          <span>
-            {formatHours(hoursSummary?.grandTotalHours || 0)} —{" "}
-            {formatCurrency(hoursSummary?.grandTotalCostBRL || 0, "BRL")}
-          </span>
-        </div>
-      </div>
 
       {/* Import from BID/Template Modal */}
       <ImportSourceModal
@@ -870,7 +922,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
         importMode="hours"
         onImportHours={(importedHours) => {
           if (!onSave) return;
-          const updated = { ...hoursSummary };
+          const updated = { ...localSummary };
 
           // Merge engineering hours
           if (importedHours.engineeringHours) {
@@ -985,7 +1037,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
             (updated.onshoreHours?.totalCostBRL || 0) +
             (updated.offshoreHours?.totalCostBRL || 0);
 
-          onSave(updated);
+          localPersist(updated as IHoursSummary);
         }}
       />
     </div>

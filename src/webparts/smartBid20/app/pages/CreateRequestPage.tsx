@@ -107,7 +107,9 @@ export const CreateRequestPage: React.FC = () => {
     : null;
 
   // Config-driven lists
-  const clientOptions = config?.clientList?.filter((c) => c.isActive) || [];
+  const clientOptions = (
+    config?.clientList?.filter((c) => c.isActive) || []
+  ).sort((a, b) => a.label.localeCompare(b.label));
   const divisionOptions = config?.divisions?.filter((d) => d.isActive) || [];
   const bidTypeOptions = config?.bidTypes?.filter((b) => b.isActive) || [];
 

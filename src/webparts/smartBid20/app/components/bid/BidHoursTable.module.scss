@@ -237,6 +237,31 @@
   }
 }
 
+/* ─── Section edit button (pencil) ─── */
+.sectionEditBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  transition: all 0.15s;
+  font-size: 12px;
+  padding: 0;
+
+  &:hover {
+    opacity: 1;
+    background: var(--glass-bg, rgba(255, 255, 255, 0.08));
+    border-color: var(--border-subtle);
+    color: var(--accent-color);
+  }
+}
+
 .chevron {
   transition: transform 0.2s;
   font-size: 11px;

@@ -160,6 +160,15 @@ export const BID_STATUSES: IBidStatusDef[] = [
     order: 18,
     isTerminal: false,
   },
+  {
+    id: "rework",
+    label: "Rework",
+    value: "Rework",
+    phase: "Rework",
+    color: "#F97316",
+    order: 19,
+    isTerminal: false,
+  },
 ];
 
 export const BID_PHASES: IPhaseDef[] = [
@@ -204,6 +213,13 @@ export const BID_PHASES: IPhaseDef[] = [
     value: "Close Out",
     order: 5,
     color: "#10B981",
+  },
+  {
+    id: "phase-6",
+    label: "Rework",
+    value: "Rework",
+    order: 6,
+    color: "#F97316",
   },
 ];
 

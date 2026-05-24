@@ -9,6 +9,9 @@ import {
 import { useConfigStore } from "../../stores/useConfigStore";
 import { makeId } from "../../utils/idGenerator";
 import { CostSearchModal, CostSearchImportItem } from "./CostSearchModal";
+import { AddQuotationModal } from "./AddQuotationModal";
+import { IQuotationItem } from "../../models";
+import { useQuotationStore } from "../../stores/useQuotationStore";
 import styles from "./AssetsBreakdownTab.module.scss";
 
 interface AssetsBreakdownTabProps {
@@ -16,6 +19,8 @@ interface AssetsBreakdownTabProps {
   assetBreakdown: IAssetBreakdownItem[];
   onSave: (items: IAssetBreakdownItem[]) => void;
   readOnly?: boolean;
+  /** Called when user wants to create a BOM from Search Costs modal (triggers navigation to BOM Costs) */
+  onCreateBom?: (partNumber: string, description: string) => void;
 }
 
 const blankAsset = (scopeItemId: string): IAssetBreakdownItem => ({
@@ -121,16 +126,24 @@ const dateAgeClass = (dateRef: string): string => {
   return styles.dateRecent;
 };
 
-/** Source badge class for Cost Ref */
+/** Known query/catalog source values that get a colored badge */
+const QUERY_SOURCES = ["BUMBL", "BUMBR", "BUMCO", "FINANCIALS", "BOM COST"];
+const isQuerySource = (ref: string): boolean => {
+  if (!ref) return false;
+  const upper = ref.toUpperCase();
+  return QUERY_SOURCES.some(
+    (s) => upper === s || upper.startsWith(s.slice(0, 3)),
+  );
+};
+
+/** Badge class for query catalog sources */
 const costRefBadgeClass = (ref: string): string => {
   if (!ref) return "";
   const upper = ref.toUpperCase();
   if (upper === "BUMBL") return styles.srcBUMBL;
-  if (upper === "BUMBR") return styles.srcBUMBR;
+  if (upper === "BUMBR" || upper === "BUMCO") return styles.srcBUMBR;
   if (upper.startsWith("FIN") || upper === "FINANCIALS") return styles.srcFIN;
   if (upper === "BOM COST") return styles.srcBOM;
-  if (upper === "QUOTE") return styles.srcQuote;
-  if (upper === "MANUAL") return styles.srcManual;
   return styles.srcOther;
 };
 
@@ -139,6 +152,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   assetBreakdown,
   onSave,
   readOnly = false,
+  onCreateBom,
 }) => {
   // Helper: append fieldEmpty class when value is empty/falsy
   const emptyIf = (base: string, value: unknown): string =>
@@ -165,6 +179,21 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     new Set(),
   );
   const [showCostSearch, setShowCostSearch] = React.useState(false);
+
+  // ─── Add Quotation modal state ───
+  const [addQuotationTarget, setAddQuotationTarget] = React.useState<{
+    assetId: string;
+    subItemCostId?: string;
+    partNumber: string;
+    description: string;
+  } | null>(null);
+  // After quotation saved, show picker to import
+  const [quotationPickerTarget, setQuotationPickerTarget] = React.useState<{
+    assetId: string;
+    subItemCostId?: string;
+    partNumber: string;
+  } | null>(null);
+  const quotationItems = useQuotationStore((s) => s.items);
 
   // ─── Auto-sync: ensure every non-section scope item has an asset entry ───
   const syncedAssets = React.useMemo(() => {
@@ -886,11 +915,13 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
 
     localAssets.forEach((a) => {
       const avail = (a.availabilityStatus || "").toLowerCase();
+      const acqType = (a.acquisitionType || "").toLowerCase();
       const isNoCost =
         avail === "onboard" || avail === "call out" || avail === "not offered";
+      const isNoCostAcq = acqType === "workshop" || acqType === "in house";
 
-      // Count main items (skip no-cost statuses)
-      if (!isNoCost) {
+      // Count main items (skip no-cost statuses and no-cost acquisition types)
+      if (!isNoCost && !isNoCostAcq) {
         itemsTotal++;
         const effectiveTotal = getEffectiveTotal(a);
         if (effectiveTotal === 0) {
@@ -898,8 +929,16 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         }
       }
 
-      // Count sub-item costs
+      // Count sub-item costs (skip no-cost sub-items)
       (a.subItemCosts || []).forEach((sic) => {
+        const sicAvail = (sic.availabilityStatus || "").toLowerCase();
+        const sicAcq = (sic.acquisitionType || "").toLowerCase();
+        const sicIsNoCost =
+          sicAvail === "onboard" ||
+          sicAvail === "call out" ||
+          sicAvail === "not offered";
+        const sicIsNoCostAcq = sicAcq === "workshop" || sicAcq === "in house";
+        if (sicIsNoCost || sicIsNoCostAcq) return;
         subItemsTotal++;
         const sicTotal = getSubItemCostTotal(sic, a.scopeItemId);
         if (sicTotal === 0) {
@@ -934,11 +973,13 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
 
     localAssets.forEach((a) => {
       const avail = (a.availabilityStatus || "").toLowerCase();
+      const acqType = (a.acquisitionType || "").toLowerCase();
       const isNoCost =
         avail === "onboard" || avail === "call out" || avail === "not offered";
+      const isNoCostAcq = acqType === "workshop" || acqType === "in house";
       const si = getScopeItem(a.scopeItemId);
 
-      if (!isNoCost) {
+      if (!isNoCost && !isNoCostAcq) {
         const effectiveTotal = getEffectiveTotal(a);
         if (effectiveTotal === 0 && si) {
           items.push({
@@ -955,6 +996,14 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       }
 
       (a.subItemCosts || []).forEach((sic) => {
+        const sicAvail = (sic.availabilityStatus || "").toLowerCase();
+        const sicAcq = (sic.acquisitionType || "").toLowerCase();
+        const sicIsNoCost =
+          sicAvail === "onboard" ||
+          sicAvail === "call out" ||
+          sicAvail === "not offered";
+        const sicIsNoCostAcq = sicAcq === "workshop" || sicAcq === "in house";
+        if (sicIsNoCost || sicIsNoCostAcq) return;
         const sicTotal = getSubItemCostTotal(sic, a.scopeItemId);
         if (sicTotal === 0 && si) {
           const sub = (si.subItems || []).find((s) => s.id === sic.subItemId);
@@ -1029,6 +1078,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           originalCurrency: mainMatch.originalCurrency,
           costDate: mainMatch.costDate,
           costCalcMethod: "auto" as const,
+          ...(mainMatch.supplier ? { supplier: mainMatch.supplier } : {}),
         };
       }
 
@@ -1052,6 +1102,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             originalCost: sm.originalCost,
             originalCurrency: sm.originalCurrency,
             costDate: sm.costDate,
+            ...(sm.supplier ? { supplier: sm.supplier } : {}),
           };
         });
         patched = { ...patched, subItemCosts: updatedSubCosts };
@@ -1063,7 +1114,72 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     persist(updated);
   };
 
-  const COLS = 18;
+  // ─── Add Quotation handlers ───
+  const handleAddQuotation = (
+    assetId: string,
+    partNumber: string,
+    description: string,
+    subItemCostId?: string,
+  ): void => {
+    setAddQuotationTarget({ assetId, subItemCostId, partNumber, description });
+  };
+
+  const handleQuotationSaved = (newItems: IQuotationItem[]): void => {
+    setAddQuotationTarget(null);
+    // Open the picker to let user choose which quotation(s) to import
+    if (newItems.length > 0) {
+      const first = newItems[0];
+      setQuotationPickerTarget({
+        assetId: addQuotationTarget?.assetId || "",
+        subItemCostId: addQuotationTarget?.subItemCostId,
+        partNumber: first.partNumber,
+      });
+    }
+  };
+
+  const handleQuotationPickerImport = (item: IQuotationItem): void => {
+    if (!quotationPickerTarget) return;
+    const { assetId, subItemCostId } = quotationPickerTarget;
+
+    const importItems: CostSearchImportItem[] = [
+      {
+        assetId,
+        subItemCostId,
+        unitCostUSD: item.costUSD || item.cost,
+        costReference: item.supplier || "Quote",
+        dateReference: item.quotationDate || "",
+        leadTimeDays: item.leadTimeDays || 0,
+        originalCost: item.cost,
+        originalCurrency: item.currency || "USD",
+        costDate: item.quotationDate || "",
+        supplier: item.supplier || "",
+      },
+    ];
+    handleCostSearchImport(importItems);
+    setQuotationPickerTarget(null);
+  };
+
+  // ─── Tooltip position helper (above/below viewport detection) ───
+  const handleSpecsHover = React.useCallback(
+    (e: React.MouseEvent<HTMLSpanElement>) => {
+      const indicator = e.currentTarget;
+      const tooltip = indicator.querySelector(
+        `.${styles.specsTooltip}`,
+      ) as HTMLElement | null;
+      if (!tooltip) return;
+      const rect = indicator.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      // If the bottom of the indicator is in the lower 35% of the viewport, show above
+      if (rect.bottom > viewportHeight * 0.65) {
+        tooltip.classList.add(styles.specsTooltipAbove);
+      } else {
+        tooltip.classList.remove(styles.specsTooltipAbove);
+      }
+    },
+    [],
+  );
+
+  const COLS = 17;
 
   return (
     <div className={styles.container}>
@@ -1278,11 +1394,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 <th style={{ minWidth: 120 }}>Acq. Type</th>
                 <th>Unit Cost USD</th>
                 <th>Total Cost USD</th>
-                <th>Cost Ref</th>
+                <th>Cost Ref / Supplier</th>
                 <th>Date Ref</th>
                 <th>Lead Time</th>
                 <th>CAPEX/OPEX</th>
-                <th>Supplier</th>
                 <th>Notes</th>
               </tr>
             </thead>
@@ -1377,6 +1492,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                             <span
                               className={styles.specsIndicator}
                               onClick={(e) => e.stopPropagation()}
+                              onMouseEnter={handleSpecsHover}
                             >
                               <span className={styles.specsIndicatorIcon}>
                                 📋
@@ -1592,7 +1708,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                               si.clientRequirement.trim()) ||
                               (si.clientSpecs &&
                                 si.clientSpecs.length > 0)) && (
-                              <span className={styles.specsIndicator}>
+                              <span
+                                className={styles.specsIndicator}
+                                onMouseEnter={handleSpecsHover}
+                              >
                                 <span className={styles.specsIndicatorIcon}>
                                   📋
                                 </span>
@@ -1618,6 +1737,24 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 </div>
                               </span>
                             )}
+                          {si && si.comments && si.comments.trim() && (
+                            <span
+                              className={styles.specsIndicator}
+                              onMouseEnter={handleSpecsHover}
+                            >
+                              <span className={styles.specsIndicatorIcon}>
+                                💬
+                              </span>
+                              <div className={styles.specsTooltip}>
+                                <div className={styles.specsTooltipTitle}>
+                                  Scope Comments
+                                </div>
+                                <div className={styles.specsTooltipReq}>
+                                  {si.comments}
+                                </div>
+                              </div>
+                            </span>
+                          )}
                         </span>
                       </td>
                       <td className={styles.readOnlyCell}>
@@ -2010,7 +2147,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           </>
                         );
                       })()}
-                      {/* Cost Ref */}
+                      {/* Cost Ref / Supplier */}
                       <td>
                         {(() => {
                           const av = (
@@ -2023,7 +2160,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                             av === "onboard" ||
                             av === "call out" ||
                             av === "not offered" ||
-                            aq === "workshop";
+                            aq === "workshop" ||
+                            aq === "in house";
                           if (closed) {
                             return (
                               <span
@@ -2032,38 +2170,76 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   color: "var(--text-muted)",
                                 }}
                               >
-                                {aq === "workshop" &&
-                                (asset.subCosts || []).length > 0
-                                  ? (asset.subCosts || [])
-                                      .map((sc) => sc.costReference)
-                                      .filter(Boolean)
-                                      .join(", ") || "—"
-                                  : "—"}
+                                —
                               </span>
                             );
                           }
                           if (readOnly) {
-                            if (!asset.costReference) return "—";
-                            return (
-                              <span
-                                className={`${styles.srcBadge} ${costRefBadgeClass(asset.costReference)}`}
-                              >
-                                {asset.costReference}
+                            if (isQuerySource(asset.costReference)) {
+                              return (
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 2,
+                                  }}
+                                >
+                                  <span
+                                    className={`${styles.srcBadge} ${costRefBadgeClass(asset.costReference)}`}
+                                  >
+                                    {asset.costReference}
+                                  </span>
+                                  {asset.supplier && (
+                                    <span
+                                      style={{
+                                        fontSize: 10,
+                                        color: "var(--text-muted)",
+                                      }}
+                                    >
+                                      {asset.supplier}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            }
+                            const display = [
+                              asset.costReference,
+                              asset.supplier,
+                            ]
+                              .filter(Boolean)
+                              .join(" | ");
+                            return display ? (
+                              <span style={{ fontSize: 11 }}>{display}</span>
+                            ) : (
+                              <span style={{ color: "var(--text-muted)" }}>
+                                —
                               </span>
                             );
                           }
+                          const combined = [asset.costReference, asset.supplier]
+                            .filter(Boolean)
+                            .join(" | ");
                           return (
                             <input
                               className={styles.editInput}
-                              value={asset.costReference}
-                              placeholder="—"
-                              onChange={(e) =>
+                              value={combined}
+                              placeholder="Cost Ref / Supplier..."
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const parts = val
+                                  .split("|")
+                                  .map((p) => p.trim());
                                 updateField(
                                   asset.id,
                                   "costReference",
-                                  e.target.value,
-                                )
-                              }
+                                  parts[0] || "",
+                                );
+                                updateField(
+                                  asset.id,
+                                  "supplier",
+                                  parts[1] || "",
+                                );
+                              }}
                               style={{ width: "100%", fontSize: 11 }}
                             />
                           );
@@ -2119,13 +2295,29 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   {formatDateRef(asset.dateReference)}
                                 </span>
                               )}
-                              <label
+                              <span
                                 style={{
                                   cursor: "pointer",
                                   fontSize: 14,
                                   lineHeight: 1,
+                                  position: "relative",
                                 }}
                                 title="Set date"
+                                onClick={(ev) => {
+                                  const inp = (
+                                    ev.currentTarget as HTMLElement
+                                  ).querySelector(
+                                    "input",
+                                  ) as HTMLInputElement | null;
+                                  if (inp) {
+                                    try {
+                                      (inp as any).showPicker();
+                                    } catch {
+                                      inp.focus();
+                                      inp.click();
+                                    }
+                                  }
+                                }}
                               >
                                 📅
                                 <input
@@ -2142,13 +2334,16 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                     )
                                   }
                                   style={{
-                                    width: 0,
-                                    height: 0,
-                                    opacity: 0,
                                     position: "absolute",
+                                    top: 0,
+                                    left: 0,
+                                    width: "100%",
+                                    height: "100%",
+                                    opacity: 0,
+                                    cursor: "pointer",
                                   }}
                                 />
-                              </label>
+                              </span>
                             </div>
                           );
                         })()}
@@ -2279,47 +2474,6 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           );
                         })()}
                       </td>
-                      {/* Supplier */}
-                      <td>
-                        {(() => {
-                          const av = (
-                            asset.availabilityStatus || ""
-                          ).toLowerCase();
-                          const aq = (
-                            asset.acquisitionType || ""
-                          ).toLowerCase();
-                          const closed =
-                            av === "onboard" ||
-                            av === "call out" ||
-                            av === "not offered" ||
-                            aq === "workshop";
-                          if (closed)
-                            return (
-                              <span
-                                style={{
-                                  fontSize: 12,
-                                  color: "var(--text-muted)",
-                                }}
-                              >
-                                —
-                              </span>
-                            );
-                          if (readOnly) return asset.supplier || "—";
-                          return (
-                            <input
-                              className={styles.editInput}
-                              value={asset.supplier}
-                              onChange={(e) =>
-                                updateField(
-                                  asset.id,
-                                  "supplier",
-                                  e.target.value,
-                                )
-                              }
-                            />
-                          );
-                        })()}
-                      </td>
                       <td>
                         <div
                           style={{
@@ -2353,6 +2507,21 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                               {hasSubCosts
                                 ? `💲${(asset.subCosts || []).length}`
                                 : "+💲"}
+                            </button>
+                          )}
+                          {!readOnly && (
+                            <button
+                              className={styles.subCostToggle}
+                              onClick={() =>
+                                handleAddQuotation(
+                                  asset.id,
+                                  si?.partNumber || "",
+                                  si?.equipmentOffer || si?.description || "",
+                                )
+                              }
+                              title="Add Quotation"
+                            >
+                              📝
                             </button>
                           )}
                           {readOnly && hasSubCosts && (
@@ -2905,11 +3074,12 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 <div className={styles.subTh}>Acq. Type</div>
                                 <div className={styles.subTh}>Unit Cost</div>
                                 <div className={styles.subTh}>Total Cost</div>
-                                <div className={styles.subTh}>Cost Ref</div>
+                                <div className={styles.subTh}>
+                                  Cost Ref / Supplier
+                                </div>
                                 <div className={styles.subTh}>Date Ref</div>
                                 <div className={styles.subTh}>Lead Time</div>
                                 <div className={styles.subTh}>CAPEX/OPEX</div>
-                                <div className={styles.subTh}>Supplier</div>
                                 <div className={styles.subTh}>Notes</div>
                               </div>
                               <div className={styles.subRows}>
@@ -2933,6 +3103,13 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   const sicIsRental = sicAcq === "rental";
                                   const sicIsNotOffered =
                                     sicAvail === "not offered";
+                                  const sicIsWorkshopOrInHouse =
+                                    sicAcq === "workshop" ||
+                                    sicAcq === "in house";
+                                  const sicShowDashCost =
+                                    sicIsNoCost || sicIsWorkshopOrInHouse;
+                                  const sicShowDashMeta =
+                                    sicIsNoCost || sicIsWorkshopOrInHouse;
                                   const sicTotal = sicIsRental
                                     ? (sic.dailyRate || 0) *
                                       (sic.rentalDays || 0) *
@@ -3067,7 +3244,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                         )}
                                       </div>
                                       <div className={styles.subCell}>
-                                        {sicIsNoCost ? (
+                                        {sicShowDashCost ? (
                                           <span
                                             style={{
                                               fontSize: 12,
@@ -3080,67 +3257,113 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                           </span>
                                         ) : sicIsRental ? (
                                           readOnly ? (
-                                            <span style={{ fontSize: 11 }}>
-                                              $ {fmtCost(sic.dailyRate || 0)}
-                                              /d × {sic.rentalDays || 0}d
-                                            </span>
+                                            <div
+                                              style={{
+                                                display: "flex",
+                                                flexDirection: "column",
+                                                gap: 2,
+                                              }}
+                                            >
+                                              <span style={{ fontSize: 11 }}>
+                                                $ {fmtCost(sic.dailyRate || 0)}{" "}
+                                                <span
+                                                  style={{
+                                                    color: "var(--text-muted)",
+                                                    fontSize: 10,
+                                                  }}
+                                                >
+                                                  /day
+                                                </span>
+                                              </span>
+                                              <span
+                                                style={{
+                                                  fontSize: 10,
+                                                  color: "var(--text-muted)",
+                                                }}
+                                              >
+                                                {sic.rentalDays || 0} day
+                                                {(sic.rentalDays || 0) !== 1
+                                                  ? "s"
+                                                  : ""}
+                                              </span>
+                                            </div>
                                           ) : (
                                             <div
                                               style={{
                                                 display: "flex",
-                                                gap: 3,
-                                                alignItems: "center",
+                                                flexDirection: "column",
+                                                gap: 4,
                                               }}
                                             >
-                                              <input
-                                                className={styles.numInput}
-                                                type="number"
-                                                min={0}
-                                                step={0.01}
-                                                value={sic.dailyRate || 0}
-                                                onChange={(e) =>
-                                                  updateSubItemCost(
-                                                    asset.id,
-                                                    sic.id,
-                                                    "dailyRate" as any,
-                                                    Number(e.target.value) || 0,
-                                                  )
-                                                }
-                                                style={{ width: 55 }}
-                                                placeholder="Rate"
-                                              />
-                                              <span
+                                              <div
                                                 style={{
-                                                  fontSize: 10,
-                                                  color: "var(--text-muted)",
+                                                  display: "flex",
+                                                  alignItems: "center",
+                                                  gap: 4,
                                                 }}
                                               >
-                                                ×
-                                              </span>
-                                              <input
-                                                className={styles.numInput}
-                                                type="number"
-                                                min={0}
-                                                value={sic.rentalDays || 0}
-                                                onChange={(e) =>
-                                                  updateSubItemCost(
-                                                    asset.id,
-                                                    sic.id,
-                                                    "rentalDays" as any,
-                                                    Number(e.target.value) || 0,
-                                                  )
-                                                }
-                                                style={{ width: 45 }}
-                                                placeholder="Days"
-                                              />
-                                              <span
+                                                <span
+                                                  style={{
+                                                    fontSize: 10,
+                                                    color: "var(--text-muted)",
+                                                    minWidth: 52,
+                                                  }}
+                                                >
+                                                  Daily Rate
+                                                </span>
+                                                <input
+                                                  className={styles.numInput}
+                                                  type="number"
+                                                  min={0}
+                                                  step={0.01}
+                                                  value={sic.dailyRate || 0}
+                                                  placeholder="0.00"
+                                                  onChange={(e) =>
+                                                    updateSubItemCost(
+                                                      asset.id,
+                                                      sic.id,
+                                                      "dailyRate" as any,
+                                                      Number(e.target.value) ||
+                                                        0,
+                                                    )
+                                                  }
+                                                  style={{ width: 70 }}
+                                                />
+                                              </div>
+                                              <div
                                                 style={{
-                                                  fontSize: 10,
-                                                  color: "var(--text-muted)",
+                                                  display: "flex",
+                                                  alignItems: "center",
+                                                  gap: 4,
                                                 }}
                                               >
-                                                d
-                                              </span>
+                                                <span
+                                                  style={{
+                                                    fontSize: 10,
+                                                    color: "var(--text-muted)",
+                                                    minWidth: 52,
+                                                  }}
+                                                >
+                                                  Days
+                                                </span>
+                                                <input
+                                                  className={styles.numInput}
+                                                  type="number"
+                                                  min={0}
+                                                  value={sic.rentalDays || 0}
+                                                  placeholder="0"
+                                                  onChange={(e) =>
+                                                    updateSubItemCost(
+                                                      asset.id,
+                                                      sic.id,
+                                                      "rentalDays" as any,
+                                                      Number(e.target.value) ||
+                                                        0,
+                                                    )
+                                                  }
+                                                  style={{ width: 55 }}
+                                                />
+                                              </div>
                                             </div>
                                           )
                                         ) : readOnly ? (
@@ -3166,7 +3389,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                       <div
                                         className={`${styles.subCell} ${styles.subCellBold}`}
                                       >
-                                        {sicIsNoCost ? (
+                                        {sicShowDashCost ? (
                                           <span
                                             style={{
                                               fontSize: 12,
@@ -3175,7 +3398,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                                 : "var(--text-muted)",
                                             }}
                                           >
-                                            $ 0
+                                            —
                                           </span>
                                         ) : (
                                           <>
@@ -3204,29 +3427,95 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                         )}
                                       </div>
                                       <div className={styles.subCell}>
-                                        {readOnly ? (
-                                          sic.costReference ? (
-                                            <span
-                                              className={`${styles.srcBadge} ${costRefBadgeClass(sic.costReference)}`}
-                                            >
-                                              {sic.costReference}
-                                            </span>
-                                          ) : (
-                                            "—"
-                                          )
+                                        {sicShowDashMeta ? (
+                                          <span
+                                            style={{
+                                              fontSize: 12,
+                                              color: "var(--text-muted)",
+                                            }}
+                                          >
+                                            —
+                                          </span>
+                                        ) : readOnly ? (
+                                          (() => {
+                                            if (
+                                              isQuerySource(sic.costReference)
+                                            ) {
+                                              return (
+                                                <div
+                                                  style={{
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    gap: 2,
+                                                  }}
+                                                >
+                                                  <span
+                                                    className={`${styles.srcBadge} ${costRefBadgeClass(sic.costReference)}`}
+                                                  >
+                                                    {sic.costReference}
+                                                  </span>
+                                                  {sic.supplier && (
+                                                    <span
+                                                      style={{
+                                                        fontSize: 10,
+                                                        color:
+                                                          "var(--text-muted)",
+                                                      }}
+                                                    >
+                                                      {sic.supplier}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              );
+                                            }
+                                            const d = [
+                                              sic.costReference,
+                                              sic.supplier,
+                                            ]
+                                              .filter(Boolean)
+                                              .join(" | ");
+                                            return d ? (
+                                              <span style={{ fontSize: 11 }}>
+                                                {d}
+                                              </span>
+                                            ) : (
+                                              <span
+                                                style={{
+                                                  color: "var(--text-muted)",
+                                                }}
+                                              >
+                                                —
+                                              </span>
+                                            );
+                                          })()
                                         ) : (
                                           <input
                                             className={styles.editInput}
-                                            value={sic.costReference}
-                                            placeholder="—"
-                                            onChange={(e) =>
+                                            value={[
+                                              sic.costReference,
+                                              sic.supplier,
+                                            ]
+                                              .filter(Boolean)
+                                              .join(" | ")}
+                                            placeholder="Cost Ref / Supplier..."
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              const parts = val
+                                                .split("|")
+                                                .map((p) => p.trim());
                                               updateSubItemCost(
                                                 asset.id,
                                                 sic.id,
                                                 "costReference",
-                                                e.target.value,
-                                              )
-                                            }
+                                                parts[0] || "",
+                                              );
+                                              updateSubItemCost(
+                                                asset.id,
+                                                sic.id,
+                                                "supplier",
+                                                parts[1] || "",
+                                              );
+                                            }}
                                             style={{
                                               width: "100%",
                                               fontSize: 11,
@@ -3239,7 +3528,16 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                         className={styles.subCell}
                                         style={{ fontSize: 11 }}
                                       >
-                                        {readOnly ? (
+                                        {sicShowDashMeta ? (
+                                          <span
+                                            style={{
+                                              fontSize: 12,
+                                              color: "var(--text-muted)",
+                                            }}
+                                          >
+                                            —
+                                          </span>
+                                        ) : readOnly ? (
                                           sic.dateReference ? (
                                             <span
                                               className={`${styles.dateBadge} ${dateAgeClass(sic.dateReference)}`}
@@ -3269,13 +3567,29 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                                 )}
                                               </span>
                                             )}
-                                            <label
+                                            <span
                                               style={{
                                                 cursor: "pointer",
                                                 fontSize: 14,
                                                 lineHeight: 1,
+                                                position: "relative",
                                               }}
                                               title="Set date"
+                                              onClick={(ev) => {
+                                                const inp = (
+                                                  ev.currentTarget as HTMLElement
+                                                ).querySelector(
+                                                  "input",
+                                                ) as HTMLInputElement | null;
+                                                if (inp) {
+                                                  try {
+                                                    (inp as any).showPicker();
+                                                  } catch {
+                                                    inp.focus();
+                                                    inp.click();
+                                                  }
+                                                }
+                                              }}
                                             >
                                               📅
                                               <input
@@ -3292,20 +3606,32 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                                   )
                                                 }
                                                 style={{
-                                                  width: 0,
-                                                  height: 0,
-                                                  opacity: 0,
                                                   position: "absolute",
+                                                  top: 0,
+                                                  left: 0,
+                                                  width: "100%",
+                                                  height: "100%",
+                                                  opacity: 0,
+                                                  cursor: "pointer",
                                                 }}
                                               />
-                                            </label>
+                                            </span>
                                           </div>
                                         )}
                                       </div>
                                       <div
                                         className={`${styles.subCell} ${styles.subCellCenter}`}
                                       >
-                                        {readOnly ? (
+                                        {sicShowDashMeta ? (
+                                          <span
+                                            style={{
+                                              fontSize: 12,
+                                              color: "var(--text-muted)",
+                                            }}
+                                          >
+                                            —
+                                          </span>
+                                        ) : readOnly ? (
                                           sic.leadTimeDays || "—"
                                         ) : (
                                           <input
@@ -3326,7 +3652,16 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                         )}
                                       </div>
                                       <div className={styles.subCell}>
-                                        {readOnly ? (
+                                        {sicIsNoCost ? (
+                                          <span
+                                            style={{
+                                              fontSize: 12,
+                                              color: "var(--text-muted)",
+                                            }}
+                                          >
+                                            —
+                                          </span>
+                                        ) : readOnly ? (
                                           sic.costCategory || "—"
                                         ) : (
                                           <select
@@ -3350,24 +3685,6 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                             <option value="CAPEX">CAPEX</option>
                                             <option value="OPEX">OPEX</option>
                                           </select>
-                                        )}
-                                      </div>
-                                      <div className={styles.subCell}>
-                                        {readOnly ? (
-                                          sic.supplier || "—"
-                                        ) : (
-                                          <input
-                                            className={styles.editInput}
-                                            value={sic.supplier}
-                                            onChange={(e) =>
-                                              updateSubItemCost(
-                                                asset.id,
-                                                sic.id,
-                                                "supplier",
-                                                e.target.value,
-                                              )
-                                            }
-                                          />
                                         )}
                                       </div>
                                       <div className={styles.subCell}>
@@ -3427,7 +3744,107 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           assetBreakdown={localAssets}
           onImport={handleCostSearchImport}
           onClose={() => setShowCostSearch(false)}
+          onCreateBom={onCreateBom}
         />
+      )}
+
+      {/* Add Quotation Modal */}
+      {addQuotationTarget && (
+        <AddQuotationModal
+          onClose={() => setAddQuotationTarget(null)}
+          onSaved={handleQuotationSaved}
+          defaultPartNumber={addQuotationTarget.partNumber}
+          defaultDescription={addQuotationTarget.description}
+        />
+      )}
+
+      {/* Quotation Picker — after saving a new quotation, let user pick which to import */}
+      {quotationPickerTarget && (
+        <div
+          className={styles.pickerOverlay}
+          onClick={() => setQuotationPickerTarget(null)}
+        >
+          <div
+            className={styles.pickerModal}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.pickerHeader}>
+              <h3>Import from Quotation</h3>
+              <button
+                className={styles.pickerClose}
+                onClick={() => setQuotationPickerTarget(null)}
+              >
+                ✕
+              </button>
+            </div>
+            <p className={styles.pickerSubtitle}>
+              Select a quotation to import cost data for{" "}
+              <strong>{quotationPickerTarget.partNumber || "this item"}</strong>
+            </p>
+            <div className={styles.pickerList}>
+              {quotationItems
+                .filter((q) => {
+                  const pn = quotationPickerTarget.partNumber
+                    .trim()
+                    .toUpperCase();
+                  if (!pn || pn === "TBD" || pn === "TBC") return false;
+                  return q.partNumber.trim().toUpperCase().indexOf(pn) >= 0;
+                })
+                .map((q) => (
+                  <div
+                    key={q.id}
+                    className={styles.pickerItem}
+                    onClick={() => handleQuotationPickerImport(q)}
+                  >
+                    <div className={styles.pickerItemMain}>
+                      <span className={styles.pickerItemPN}>
+                        {q.partNumber}
+                      </span>
+                      <span className={styles.pickerItemDesc}>
+                        {q.description}
+                      </span>
+                    </div>
+                    <div className={styles.pickerItemMeta}>
+                      <span>
+                        ${" "}
+                        {(q.costUSD || q.cost).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                      <span className={styles.pickerItemSupplier}>
+                        {q.supplier}
+                      </span>
+                      <span className={styles.pickerItemDate}>
+                        {q.quotationDate
+                          ? new Date(q.quotationDate).toLocaleDateString()
+                          : ""}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              {quotationItems.filter((q) => {
+                const pn = quotationPickerTarget.partNumber
+                  .trim()
+                  .toUpperCase();
+                if (!pn) return true;
+                return q.partNumber.trim().toUpperCase().indexOf(pn) >= 0;
+              }).length === 0 && (
+                <div className={styles.pickerEmpty}>
+                  No matching quotations found.
+                </div>
+              )}
+            </div>
+            <div className={styles.pickerFooter}>
+              <button
+                className={styles.pickerCancelBtn}
+                onClick={() => setQuotationPickerTarget(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

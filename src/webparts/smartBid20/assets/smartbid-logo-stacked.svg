@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="640" viewBox="0 0 600 640" fill="none">
+  <!-- Stacked/vertical logo -->
+  <defs>
+    <linearGradient id="sBgGrad" x1="100" y1="30" x2="500" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00ddb3"/>
+      <stop offset="45%" stop-color="#00b894"/>
+      <stop offset="100%" stop-color="#005c4b"/>
+    </linearGradient>
+    <linearGradient id="sBarGrad" x1="0" y1="400" x2="0" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#065f56"/>
+      <stop offset="100%" stop-color="#00e6be"/>
+    </linearGradient>
+    <linearGradient id="sBidGrad" x1="0" y1="450" x2="0" y2="530" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00c9a7"/>
+      <stop offset="100%" stop-color="#005c4b"/>
+    </linearGradient>
+    <linearGradient id="sUnderline" x1="150" y1="0" x2="450" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00e6be" stop-opacity="0"/>
+      <stop offset="20%" stop-color="#00e6be"/>
+      <stop offset="80%" stop-color="#00b894"/>
+      <stop offset="100%" stop-color="#005c4b" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="sShadow">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#003d32" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Icon centered -->
+  <g transform="translate(150, 20) scale(0.586)">
+    <rect x="24" y="24" width="464" height="464" rx="100" fill="url(#sBgGrad)" filter="url(#sShadow)"/>
+    
+    <!-- Document -->
+    <g transform="rotate(-3, 240, 260)">
+      <path d="M136 96h168l80 80v244c0 16-13 29-29 29H136c-16 0-29-13-29-29V125c0-16 13-29 29-29z" fill="#ffffff" opacity="0.95"/>
+      <path d="M304 96l80 80h-51c-16 0-29-13-29-29V96z" fill="#c8f7ed"/>
+    </g>
+
+    <!-- Bars -->
+    <g transform="rotate(-3, 240, 260)">
+      <rect x="156" y="308" width="32" height="72" rx="6" fill="url(#sBarGrad)" opacity="0.7"/>
+      <rect x="200" y="272" width="32" height="108" rx="6" fill="url(#sBarGrad)" opacity="0.8"/>
+      <rect x="244" y="232" width="32" height="148" rx="6" fill="url(#sBarGrad)" opacity="0.85"/>
+      <rect x="288" y="192" width="32" height="188" rx="6" fill="url(#sBarGrad)" opacity="0.95"/>
+    </g>
+
+    <!-- Checkmark -->
+    <path d="M320 280l40 44 88-96" fill="none" stroke="#ffffff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Diamond -->
+    <rect x="396" y="92" width="24" height="24" rx="4" fill="#ffffff" opacity="0.5" transform="rotate(45, 408, 104)"/>
+  </g>
+
+  <!-- Text below -->
+  <text x="300" y="490" text-anchor="middle">
+    <tspan font-family="'Segoe UI Light', 'Helvetica Neue', sans-serif" font-size="74" font-weight="200" letter-spacing="2" fill="#1a2332">SMART</tspan><tspan font-family="'Segoe UI Black', 'Helvetica Neue', sans-serif" font-size="74" font-weight="900" letter-spacing="-2" fill="url(#sBidGrad)">BID</tspan>
+  </text>
+  
+  <!-- Underline -->
+  <rect x="140" y="508" width="320" height="4" rx="2" fill="url(#sUnderline)"/>
+  
+  <!-- Tagline -->
+  <text x="300" y="555" text-anchor="middle" font-family="'Segoe UI Semibold', 'Helvetica Neue', sans-serif" 
+        font-size="17" font-weight="600" letter-spacing="5" fill="#64748b">ENGINEERING BID SYSTEM</text>
+
+  <!-- Version -->
+  <rect x="277" y="572" width="46" height="22" rx="11" fill="#00c9a7" opacity="0.1" stroke="#00c9a7" stroke-width="1" stroke-opacity="0.25"/>
+  <text x="300" y="588" text-anchor="middle" font-family="'Segoe UI', sans-serif" 
+        font-size="12" font-weight="700" fill="#0d9488">2.0</text>
+</svg>

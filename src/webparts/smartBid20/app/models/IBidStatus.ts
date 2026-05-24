@@ -4,7 +4,8 @@ export type BidPhase =
   | "Technical Analysis"
   | "Cost & Resources"
   | "Technical Proposal"
-  | "Close Out";
+  | "Close Out"
+  | "Rework";
 
 export type BidStatusId =
   | "request-submitted"
@@ -24,7 +25,8 @@ export type BidStatusId =
   | "on-hold"
   | "canceled"
   | "no-bid"
-  | "returned-revision";
+  | "returned-revision"
+  | "rework";
 
 export interface IBidStatusDef {
   id: BidStatusId;

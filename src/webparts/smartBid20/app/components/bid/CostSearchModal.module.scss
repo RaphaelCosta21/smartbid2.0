@@ -400,3 +400,50 @@
     filter: brightness(1.1);
   }
 }
+
+/* ─── Add Quotation button in toolbar ─── */
+.addQuoteBtn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card-bg-elevated, rgba(255, 255, 255, 0.04));
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 200ms;
+
+  &:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+  }
+}
+
+/* ─── Actions column in table ─── */
+.tdActions {
+  text-align: center;
+  padding: 4px 6px;
+}
+
+.actionBtns {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.actionBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 150ms ease;
+  line-height: 1;
+
+  &:hover {
+    border-color: var(--accent-color);
+    background: var(--card-bg-elevated);
+  }
+}

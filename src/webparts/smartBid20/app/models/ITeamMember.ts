@@ -13,6 +13,7 @@ export interface ITeamMember {
   photoUrl?: string;
   phone?: string;
   joinedDate: string;
+  themePreference?: "dark" | "light";
 }
 
 export interface IMembersData {

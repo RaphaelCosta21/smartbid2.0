@@ -1,9 +1,14 @@
 import * as React from "react";
-import { IBid } from "../../models";
+import { IBid, IHoursItem } from "../../models";
 import {
   buildCostSummary,
   calculateAssetsByResourceType,
   calculateHoursTotals,
+  calculateLogisticsTotals,
+  calculateCertificationsTotals,
+  calculateRTSTotals,
+  calculateMobilizationTotals,
+  calculateConsumablesTotals,
 } from "../../utils/costCalculations";
 import { formatCurrency } from "../../utils/formatters";
 import styles from "./BidCostSummary.module.scss";
@@ -52,6 +57,127 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
     hoursLabel?: string;
   }
 
+  const isIntegrated = (bid.serviceLine || "").toLowerCase() === "integrated";
+  const divisions: string[] = isIntegrated ? ["ROV", "SURVEY"] : [];
+  const ptax = s.ptaxUsed;
+
+  // ─── Per-division hours breakdown ───
+  const hoursByDiv = React.useMemo(() => {
+    if (!isIntegrated) return {};
+    const hs = bid.hoursSummary;
+    const scopeItems = bid.scopeItems || [];
+    const result: Record<
+      string,
+      {
+        engBRL: number;
+        engH: number;
+        onBRL: number;
+        onH: number;
+        offBRL: number;
+        offH: number;
+      }
+    > = {};
+    divisions.forEach((div) => {
+      // Legacy row-based engineering items
+      const engItems: IHoursItem[] = (hs?.engineeringHours?.items || []).filter(
+        (i) => i.integratedDivision === div,
+      );
+      // Deliverable-based engineering items (linked via scope)
+      const divScopeIds = new Set(
+        scopeItems
+          .filter((si) => si.integratedDivision === div)
+          .map((si) => si.id),
+      );
+      const engDeliverableHours = (hs?.engineeringHours?.engineeringItems || [])
+        .filter((ei) => divScopeIds.has(ei.scopeItemId))
+        .reduce((sum, ei) => sum + (ei.totalHours || 0), 0);
+
+      const onItems: IHoursItem[] = (hs?.onshoreHours?.items || []).filter(
+        (i) => i.integratedDivision === div,
+      );
+      const offItems: IHoursItem[] = (hs?.offshoreHours?.items || []).filter(
+        (i) => i.integratedDivision === div,
+      );
+      result[div] = {
+        engBRL: engItems.reduce((sum, i) => sum + (i.costBRL || 0), 0),
+        engH:
+          engItems.reduce((sum, i) => sum + (i.totalHours || 0), 0) +
+          engDeliverableHours,
+        onBRL: onItems.reduce((sum, i) => sum + (i.costBRL || 0), 0),
+        onH: onItems.reduce((sum, i) => sum + (i.totalHours || 0), 0),
+        offBRL: offItems.reduce((sum, i) => sum + (i.costBRL || 0), 0),
+        offH: offItems.reduce((sum, i) => sum + (i.totalHours || 0), 0),
+      };
+    });
+    return result;
+  }, [bid, isIntegrated]);
+
+  // ─── Per-division logistics/certs/rts/mob/consumables ───
+  const divLogistics = React.useMemo(() => {
+    if (!isIntegrated) return {};
+    const result: Record<string, { usd: number; brl: number }> = {};
+    divisions.forEach((div) => {
+      const items = (bid.logisticsBreakdown || []).filter(
+        (i) => i.integratedDivision === div,
+      );
+      const t = calculateLogisticsTotals(items, ptax);
+      result[div] = { usd: t.totalUSD, brl: t.totalBRL };
+    });
+    return result;
+  }, [bid, isIntegrated]);
+
+  const divCerts = React.useMemo(() => {
+    if (!isIntegrated) return {};
+    const result: Record<string, { usd: number; brl: number }> = {};
+    divisions.forEach((div) => {
+      const items = (bid.certificationsBreakdown || []).filter(
+        (i) => i.integratedDivision === div,
+      );
+      const t = calculateCertificationsTotals(items, ptax);
+      result[div] = { usd: t.totalUSD, brl: t.totalBRL };
+    });
+    return result;
+  }, [bid, isIntegrated]);
+
+  const divRTS = React.useMemo(() => {
+    if (!isIntegrated) return {};
+    const result: Record<string, { usd: number; brl: number }> = {};
+    divisions.forEach((div) => {
+      const items = (bid.rtsItems || []).filter(
+        (i) => i.integratedDivision === div,
+      );
+      const t = calculateRTSTotals(items, ptax);
+      result[div] = { usd: t.totalUSD, brl: t.totalBRL };
+    });
+    return result;
+  }, [bid, isIntegrated]);
+
+  const divMob = React.useMemo(() => {
+    if (!isIntegrated) return {};
+    const result: Record<string, { usd: number; brl: number }> = {};
+    divisions.forEach((div) => {
+      const items = (bid.mobilizationItems || []).filter(
+        (i) => i.integratedDivision === div,
+      );
+      const t = calculateMobilizationTotals(items, ptax);
+      result[div] = { usd: t.totalUSD, brl: t.totalBRL };
+    });
+    return result;
+  }, [bid, isIntegrated]);
+
+  const divCons = React.useMemo(() => {
+    if (!isIntegrated) return {};
+    const result: Record<string, { usd: number; brl: number }> = {};
+    divisions.forEach((div) => {
+      const items = (bid.consumableItems || []).filter(
+        (i) => i.integratedDivision === div,
+      );
+      const t = calculateConsumablesTotals(items, ptax);
+      result[div] = { usd: t.totalUSD, brl: t.totalBRL };
+    });
+    return result;
+  }, [bid, isIntegrated]);
+
   const breakdown: IBreakdownRow[] = [];
 
   // Assets rows — always show resource type breakdown (dynamic labels)
@@ -86,52 +212,191 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
     }
   });
 
-  breakdown.push(
-    {
-      label: "Engineering Hours",
-      usd: s.ptaxUsed > 0 ? s.engineeringHoursCostBRL / s.ptaxUsed : 0,
-      brl: s.engineeringHoursCostBRL,
-      hoursLabel:
-        hours.engineeringHours > 0
-          ? `${hours.engineeringHours.toLocaleString()}h`
-          : undefined,
-    },
-    {
-      label: "Onshore Hours",
-      usd: s.ptaxUsed > 0 ? s.onshoreHoursCostBRL / s.ptaxUsed : 0,
-      brl: s.onshoreHoursCostBRL,
-      hoursLabel:
-        hours.onshoreHours > 0
-          ? `${hours.onshoreHours.toLocaleString()}h`
-          : undefined,
-    },
-    {
-      label: "Offshore Hours",
-      usd: s.ptaxUsed > 0 ? s.offshoreHoursCostBRL / s.ptaxUsed : 0,
-      brl: s.offshoreHoursCostBRL,
-      hoursLabel:
-        hours.offshoreHours > 0
-          ? `${hours.offshoreHours.toLocaleString()}h`
-          : undefined,
-    },
-    { label: "Logistics", usd: s.logisticsCostUSD, brl: s.logisticsCostBRL },
-    {
-      label: "Certifications",
-      usd: s.certificationsCostUSD,
-      brl: s.certificationsCostBRL,
-    },
-    { label: "RTS (Ready To Service)", usd: s.rtsCostUSD, brl: s.rtsCostBRL },
-    {
-      label: "Mobilization",
-      usd: s.mobilizationCostUSD,
-      brl: s.mobilizationCostBRL,
-    },
-    {
-      label: "Consumables",
-      usd: s.consumablesCostUSD,
-      brl: s.consumablesCostBRL,
-    },
-  );
+  // ─── Compute real totals from items (section.totalHours can be stale) ───
+  const realEngH = isIntegrated
+    ? divisions.reduce(
+        (sum, div) => sum + ((hoursByDiv[div] || {}).engH || 0),
+        0,
+      )
+    : hours.engineeringHours;
+  const realOnH = isIntegrated
+    ? divisions.reduce(
+        (sum, div) => sum + ((hoursByDiv[div] || {}).onH || 0),
+        0,
+      )
+    : hours.onshoreHours;
+  const realOffH = isIntegrated
+    ? divisions.reduce(
+        (sum, div) => sum + ((hoursByDiv[div] || {}).offH || 0),
+        0,
+      )
+    : hours.offshoreHours;
+
+  // Engineering Hours
+  breakdown.push({
+    label: "Engineering Hours",
+    usd: s.ptaxUsed > 0 ? s.engineeringHoursCostBRL / s.ptaxUsed : 0,
+    brl: s.engineeringHoursCostBRL,
+    hoursLabel: realEngH > 0 ? `${realEngH.toLocaleString()}h` : undefined,
+  });
+  if (isIntegrated) {
+    divisions.forEach((div) => {
+      const d = hoursByDiv[div];
+      if (d && (d.engBRL > 0 || d.engH > 0)) {
+        breakdown.push({
+          label: `↳ ${div}`,
+          usd: ptax > 0 ? d.engBRL / ptax : 0,
+          brl: d.engBRL,
+          indent: true,
+          hoursLabel: d.engH > 0 ? `${d.engH.toLocaleString()}h` : undefined,
+        });
+      }
+    });
+  }
+
+  // Onshore Hours
+  breakdown.push({
+    label: "Onshore Hours",
+    usd: s.ptaxUsed > 0 ? s.onshoreHoursCostBRL / s.ptaxUsed : 0,
+    brl: s.onshoreHoursCostBRL,
+    hoursLabel: realOnH > 0 ? `${realOnH.toLocaleString()}h` : undefined,
+  });
+  if (isIntegrated) {
+    divisions.forEach((div) => {
+      const d = hoursByDiv[div];
+      if (d && (d.onBRL > 0 || d.onH > 0)) {
+        breakdown.push({
+          label: `↳ ${div}`,
+          usd: ptax > 0 ? d.onBRL / ptax : 0,
+          brl: d.onBRL,
+          indent: true,
+          hoursLabel: d.onH > 0 ? `${d.onH.toLocaleString()}h` : undefined,
+        });
+      }
+    });
+  }
+
+  // Offshore Hours
+  breakdown.push({
+    label: "Offshore Hours",
+    usd: s.ptaxUsed > 0 ? s.offshoreHoursCostBRL / s.ptaxUsed : 0,
+    brl: s.offshoreHoursCostBRL,
+    hoursLabel: realOffH > 0 ? `${realOffH.toLocaleString()}h` : undefined,
+  });
+  if (isIntegrated) {
+    divisions.forEach((div) => {
+      const d = hoursByDiv[div];
+      if (d && (d.offBRL > 0 || d.offH > 0)) {
+        breakdown.push({
+          label: `↳ ${div}`,
+          usd: ptax > 0 ? d.offBRL / ptax : 0,
+          brl: d.offBRL,
+          indent: true,
+          hoursLabel: d.offH > 0 ? `${d.offH.toLocaleString()}h` : undefined,
+        });
+      }
+    });
+  }
+
+  // Logistics
+  breakdown.push({
+    label: "Logistics",
+    usd: s.logisticsCostUSD,
+    brl: s.logisticsCostBRL,
+  });
+  if (isIntegrated) {
+    divisions.forEach((div) => {
+      const d = divLogistics[div];
+      if (d && (d.usd > 0 || d.brl > 0)) {
+        breakdown.push({
+          label: `↳ ${div}`,
+          usd: d.usd,
+          brl: d.brl,
+          indent: true,
+        });
+      }
+    });
+  }
+
+  // Certifications
+  breakdown.push({
+    label: "Certifications",
+    usd: s.certificationsCostUSD,
+    brl: s.certificationsCostBRL,
+  });
+  if (isIntegrated) {
+    divisions.forEach((div) => {
+      const d = divCerts[div];
+      if (d && (d.usd > 0 || d.brl > 0)) {
+        breakdown.push({
+          label: `↳ ${div}`,
+          usd: d.usd,
+          brl: d.brl,
+          indent: true,
+        });
+      }
+    });
+  }
+
+  // RTS
+  breakdown.push({
+    label: "RTS (Ready To Service)",
+    usd: s.rtsCostUSD,
+    brl: s.rtsCostBRL,
+  });
+  if (isIntegrated) {
+    divisions.forEach((div) => {
+      const d = divRTS[div];
+      if (d && (d.usd > 0 || d.brl > 0)) {
+        breakdown.push({
+          label: `↳ ${div}`,
+          usd: d.usd,
+          brl: d.brl,
+          indent: true,
+        });
+      }
+    });
+  }
+
+  // Mobilization
+  breakdown.push({
+    label: "Mobilization",
+    usd: s.mobilizationCostUSD,
+    brl: s.mobilizationCostBRL,
+  });
+  if (isIntegrated) {
+    divisions.forEach((div) => {
+      const d = divMob[div];
+      if (d && (d.usd > 0 || d.brl > 0)) {
+        breakdown.push({
+          label: `↳ ${div}`,
+          usd: d.usd,
+          brl: d.brl,
+          indent: true,
+        });
+      }
+    });
+  }
+
+  // Consumables
+  breakdown.push({
+    label: "Consumables",
+    usd: s.consumablesCostUSD,
+    brl: s.consumablesCostBRL,
+  });
+  if (isIntegrated) {
+    divisions.forEach((div) => {
+      const d = divCons[div];
+      if (d && (d.usd > 0 || d.brl > 0)) {
+        breakdown.push({
+          label: `↳ ${div}`,
+          usd: d.usd,
+          brl: d.brl,
+          indent: true,
+        });
+      }
+    });
+  }
 
   // Simple horizontal bar percentages
   const maxUSD = Math.max(...breakdown.map((b) => b.usd), 1);
@@ -291,6 +556,14 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
 
   return (
     <div className={`${styles.wrapper} ${className || ""}`}>
+      {/* Service Line Badge */}
+      <div className={styles.serviceLineBadge}>
+        <span className={styles.serviceLineLabel}>Service Line</span>
+        <span className={styles.serviceLineValue}>
+          {(bid.serviceLine || "N/A").toUpperCase()}
+        </span>
+      </div>
+
       {/* KPI Cards */}
       <div className={styles.kpiRow}>
         {kpis.map((k) => (

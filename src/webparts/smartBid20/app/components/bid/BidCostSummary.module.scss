@@ -4,6 +4,35 @@
   gap: 20px;
 }
 
+/* ─── Service Line Badge ─── */
+.serviceLineBadge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-subtle);
+  width: fit-content;
+}
+
+.serviceLineLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.serviceLineValue {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-color, #14b8a6);
+  padding: 2px 10px;
+  border-radius: 4px;
+  background: var(--accent-color-10, rgba(20, 184, 166, 0.12));
+}
+
 .kpiRow {
   display: flex;
   gap: 12px;

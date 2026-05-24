@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useBidStore } from "../stores/useBidStore";
+import { ROUTES } from "../config/routes.config";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { GlassCard } from "../components/common/GlassCard";
 import { ScopeOfSupplyTab } from "../components/bid/ScopeOfSupplyTab";
@@ -12,7 +13,6 @@ import { BidHoursTable } from "../components/bid/BidHoursTable";
 import { BidCostSummary } from "../components/bid/BidCostSummary";
 import { BidStatusPhasePanel } from "../components/bid/BidStatusPhasePanel";
 import { BidApprovalPanel } from "../components/bid/BidApprovalPanel";
-import { BidComments } from "../components/bid/BidComments";
 import { BidActivityLog } from "../components/bid/BidActivityLog";
 import { BidExportButton } from "../components/bid/BidExportButton";
 import { BidTimeline } from "../components/bid/BidTimeline";
@@ -21,6 +21,16 @@ import { DocumentsTab } from "../components/bid/DocumentsTab";
 import { NotesTab } from "../components/bid/NotesTab";
 import { QualificationsTab } from "../components/bid/QualificationsTab";
 import { AITab } from "../components/bid/AITab";
+import {
+  RevisionsTab,
+  hasActiveRevision,
+  getCurrentRevisionLetter,
+} from "../components/bid/RevisionsTab";
+import {
+  detectRevisionChanges,
+  getSectionFromPatch,
+  appendRevisionChanges,
+} from "../utils/revisionHelpers";
 import { IntegratedDivisionTabs } from "../components/common/IntegratedDivisionTabs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useUIStore } from "../stores/useUIStore";
@@ -34,6 +44,7 @@ import {
 } from "../utils/exportHelpers";
 import { PRIORITY_COLORS } from "../utils/constants";
 import { formatDate, formatDaysLeft } from "../utils/formatters";
+import { isTerminalStatus } from "../utils/statusHelpers";
 import { makeId } from "../utils/idGenerator";
 import { useAccessLevel } from "../hooks/useAccessLevel";
 import { useConfigPhases } from "../hooks/useConfigPhases";
@@ -55,12 +66,12 @@ type BidTab =
   | "timeline"
   | "approval"
   | "documents"
-  | "comments"
   | "notes"
   | "qualifications"
   | "ai"
   | "activity"
-  | "export";
+  | "export"
+  | "revisions";
 
 interface INavItem {
   key: BidTab;
@@ -114,6 +125,7 @@ const NAV_GROUPS: INavGroup[] = [
     group: "Management",
     items: [
       { key: "tasks", label: "Status & Phases", icon: "✅" },
+      { key: "revisions", label: "Revisions", icon: "🔄" },
       { key: "approval", label: "Approval", icon: "🔏" },
       { key: "documents", label: "Documents", icon: "📄" },
     ],
@@ -121,8 +133,7 @@ const NAV_GROUPS: INavGroup[] = [
   {
     group: "Collaboration",
     items: [
-      { key: "comments", label: "Comments", icon: "💬" },
-      { key: "notes", label: "BID Notes", icon: "📝" },
+      { key: "notes", label: "Notes & Comments", icon: "📝" },
       { key: "qualifications", label: "Clarif. & Qualif.", icon: "🎓" },
     ],
   },
@@ -235,6 +246,7 @@ export const BidDetailPage: React.FC = () => {
   );
 
   // Save handler: patches BID JSON in SharePoint + optimistic store update
+  // Also tracks changes when an active revision exists
   const savePatch = React.useCallback(
     async (patch: Partial<IBid>) => {
       if (!id) return;
@@ -242,9 +254,28 @@ export const BidDetailPage: React.FC = () => {
       const currentBid = currentBids.find((b) => b.bidNumber === id);
       if (!currentBid) return;
 
+      // If there's an active revision, track changes in the revision
+      let finalPatch = { ...patch };
+      if (hasActiveRevision(currentBid)) {
+        const section = getSectionFromPatch(patch);
+        if (section) {
+          const revChanges = detectRevisionChanges(section, currentBid, patch, {
+            name: currentUser.displayName || currentUser.email,
+            email: currentUser.email,
+          });
+          if (revChanges.length > 0) {
+            const updatedRevisions = appendRevisionChanges(
+              finalPatch.revisions || currentBid.revisions || [],
+              revChanges,
+            );
+            finalPatch.revisions = updatedRevisions;
+          }
+        }
+      }
+
       const merged = {
         ...currentBid,
-        ...patch,
+        ...finalPatch,
         lastModified: new Date().toISOString(),
       };
       useBidStore
@@ -253,7 +284,7 @@ export const BidDetailPage: React.FC = () => {
 
       try {
         await BidService.patchByBidNumber(id, {
-          ...patch,
+          ...finalPatch,
           lastModified: new Date().toISOString(),
         });
       } catch (err) {
@@ -261,7 +292,7 @@ export const BidDetailPage: React.FC = () => {
         useBidStore.getState().setBids(currentBids);
       }
     },
-    [id],
+    [id, currentUser],
   );
 
   const bid = bids.find((b) => b.bidNumber === id);
@@ -283,6 +314,13 @@ export const BidDetailPage: React.FC = () => {
   const currentPhaseIndex = configPhases.findIndex(
     (p) => p.value === bid.currentPhase,
   );
+
+  // BID is locked for editing when in a terminal status (Completed, Canceled, No Bid)
+  // UNLESS there is an active revision (Rework), which unlocks editing
+  const isBidLocked =
+    isTerminalStatus(bid.currentStatus) && !hasActiveRevision(bid);
+  // canEditBidTabs: false when locked, prevents edit on scope/costing tabs
+  const canEditBidTabs = canEditBid && !isBidLocked;
 
   return (
     <div className={styles.bidDetail}>
@@ -320,6 +358,10 @@ export const BidDetailPage: React.FC = () => {
             </span>
             <span className={styles.headerSep}>|</span>
             <StatusBadge status={bid.currentStatus} />
+            <span className={styles.headerSep}>|</span>
+            <span className={styles.monoValue} style={{ fontWeight: 600 }}>
+              Rev. {getCurrentRevisionLetter(bid)}
+            </span>
             <span className={styles.headerSep}>|</span>
             <span>
               Due: {formatDate(bid.dueDate)}
@@ -415,7 +457,7 @@ export const BidDetailPage: React.FC = () => {
                   tabName="Scope of Supply"
                   sectionPrefix="scope"
                   div={div}
-                  canEdit={canEditBid}
+                  canEdit={canEditBidTabs}
                   onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
@@ -503,6 +545,67 @@ export const BidDetailPage: React.FC = () => {
                             },
                           })
                         }
+                        currentDivision={div}
+                        onMoveSectionToDivision={
+                          div
+                            ? (sectionId, targetDiv) => {
+                                const allItems = bid.scopeItems || [];
+                                const updated = allItems.map((i) => {
+                                  if (
+                                    i.id === sectionId ||
+                                    i.sectionId === sectionId
+                                  ) {
+                                    return {
+                                      ...i,
+                                      integratedDivision: targetDiv as
+                                        | "ROV"
+                                        | "SURVEY",
+                                    };
+                                  }
+                                  return i;
+                                });
+                                savePatch({ scopeItems: updated });
+                              }
+                            : undefined
+                        }
+                        onCopySectionToDivision={
+                          div
+                            ? (sectionId, targetDiv) => {
+                                const allItems = bid.scopeItems || [];
+                                const sectionHeader = allItems.find(
+                                  (i) => i.id === sectionId,
+                                );
+                                const sectionChildren = allItems.filter(
+                                  (i) => i.sectionId === sectionId,
+                                );
+                                if (!sectionHeader) return;
+                                const newSectionId = makeId("scope");
+                                const copiedHeader: IScopeItem = {
+                                  ...sectionHeader,
+                                  id: newSectionId,
+                                  integratedDivision: targetDiv as
+                                    | "ROV"
+                                    | "SURVEY",
+                                };
+                                const copiedChildren: IScopeItem[] =
+                                  sectionChildren.map((c) => ({
+                                    ...c,
+                                    id: makeId("scope"),
+                                    sectionId: newSectionId,
+                                    integratedDivision: targetDiv as
+                                      | "ROV"
+                                      | "SURVEY",
+                                  }));
+                                savePatch({
+                                  scopeItems: [
+                                    ...allItems,
+                                    copiedHeader,
+                                    ...copiedChildren,
+                                  ],
+                                });
+                              }
+                            : undefined
+                        }
                       />
                     );
                   }}
@@ -518,7 +621,7 @@ export const BidDetailPage: React.FC = () => {
                   tabName="Assets Breakdown"
                   sectionPrefix="assets"
                   div={div}
-                  canEdit={canEditBid}
+                  canEdit={canEditBidTabs}
                   onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
@@ -538,6 +641,15 @@ export const BidDetailPage: React.FC = () => {
                         scopeItems={filteredScope}
                         assetBreakdown={filteredAssets}
                         readOnly={!isEditing}
+                        onCreateBom={(partNumber, description) => {
+                          navigate(
+                            ROUTES.bomCosts +
+                              "?pn=" +
+                              encodeURIComponent(partNumber) +
+                              "&desc=" +
+                              encodeURIComponent(description),
+                          );
+                        }}
                         onSave={(items) => {
                           if (div) {
                             const otherAssets = (
@@ -565,7 +677,7 @@ export const BidDetailPage: React.FC = () => {
                   tabName="Logistics"
                   sectionPrefix="logistics"
                   div={div}
-                  canEdit={canEditBid}
+                  canEdit={canEditBidTabs}
                   onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
@@ -615,7 +727,7 @@ export const BidDetailPage: React.FC = () => {
                   tabName="Certifications"
                   sectionPrefix="certifications"
                   div={div}
-                  canEdit={canEditBid}
+                  canEdit={canEditBidTabs}
                   onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
@@ -672,7 +784,7 @@ export const BidDetailPage: React.FC = () => {
                   tabName="Prep & Mobilization"
                   sectionPrefix="preparation"
                   div={div}
-                  canEdit={canEditBid}
+                  canEdit={canEditBidTabs}
                   onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
@@ -790,38 +902,208 @@ export const BidDetailPage: React.FC = () => {
                   tabName="Hours & Personnel"
                   sectionPrefix="hours"
                   div={_div}
-                  canEdit={canEditBid}
+                  canEdit={canEditBidTabs}
                   onEditChange={handleEditChange}
                 >
-                  {(isEditing) => (
-                    <BidHoursTable
-                      hoursSummary={bid.hoursSummary || EMPTY_HOURS_SUMMARY}
-                      readOnly={!isEditing}
-                      onSave={(updated) => savePatch({ hoursSummary: updated })}
-                      integratedDivision={_div}
-                      scopeItems={bid.scopeItems || []}
-                      tabNotes={
-                        (bid.bidNotes as Record<string, string>)?.hours || ""
-                      }
-                      onSaveTabNotes={(notes) =>
-                        savePatch({
-                          bidNotes: {
-                            ...(bid.bidNotes || {}),
-                            hours: notes,
+                  {(isEditing) => {
+                    const fullSummary = bid.hoursSummary || EMPTY_HOURS_SUMMARY;
+                    const filteredScope = _div
+                      ? (bid.scopeItems || []).filter(
+                          (i) => i.integratedDivision === _div,
+                        )
+                      : bid.scopeItems || [];
+                    const scopeIds = new Set(filteredScope.map((s) => s.id));
+
+                    // Filter hours items by integratedDivision
+                    const filterItems = (
+                      items: typeof fullSummary.onshoreHours.items,
+                    ) =>
+                      _div
+                        ? items.filter((i) => i.integratedDivision === _div)
+                        : items;
+
+                    // Filter section groups by integratedDivision
+                    const filterSections = (
+                      sections: typeof fullSummary.onshoreHours.sections,
+                    ) =>
+                      _div
+                        ? (sections || []).filter(
+                            (s) =>
+                              !s.integratedDivision ||
+                              s.integratedDivision === _div,
+                          )
+                        : sections;
+
+                    // Filter engineering items by scope linkage
+                    const filterEngItems = (
+                      items: typeof fullSummary.engineeringHours.engineeringItems,
+                    ) =>
+                      _div && items
+                        ? items.filter((i) => scopeIds.has(i.scopeItemId))
+                        : items;
+
+                    const filteredSummary: typeof fullSummary = _div
+                      ? {
+                          ...fullSummary,
+                          engineeringHours: {
+                            ...fullSummary.engineeringHours,
+                            items: filterItems(
+                              fullSummary.engineeringHours.items,
+                            ),
+                            sections: filterSections(
+                              fullSummary.engineeringHours.sections,
+                            ),
+                            engineeringItems: filterEngItems(
+                              fullSummary.engineeringHours.engineeringItems,
+                            ),
                           },
-                        })
-                      }
-                    />
-                  )}
+                          onshoreHours: {
+                            ...fullSummary.onshoreHours,
+                            items: filterItems(fullSummary.onshoreHours.items),
+                            sections: filterSections(
+                              fullSummary.onshoreHours.sections,
+                            ),
+                          },
+                          offshoreHours: {
+                            ...fullSummary.offshoreHours,
+                            items: filterItems(fullSummary.offshoreHours.items),
+                            sections: filterSections(
+                              fullSummary.offshoreHours.sections,
+                            ),
+                          },
+                        }
+                      : fullSummary;
+
+                    return (
+                      <BidHoursTable
+                        hoursSummary={filteredSummary}
+                        readOnly={!isEditing}
+                        onSave={(updated) => {
+                          if (_div) {
+                            // Merge: keep items from the other division, add updated items tagged with current division
+                            const mergeItems = (
+                              original: typeof fullSummary.onshoreHours.items,
+                              updatedItems: typeof fullSummary.onshoreHours.items,
+                            ) => {
+                              const others = original.filter(
+                                (i) =>
+                                  i.integratedDivision &&
+                                  i.integratedDivision !== _div,
+                              );
+                              return [
+                                ...others,
+                                ...updatedItems.map((i) => ({
+                                  ...i,
+                                  integratedDivision: _div as "ROV" | "SURVEY",
+                                })),
+                              ];
+                            };
+                            // Merge section groups: keep other division's sections, add current division's
+                            const mergeSections = (
+                              original: typeof fullSummary.onshoreHours.sections,
+                              updatedSections: typeof fullSummary.onshoreHours.sections,
+                            ) => {
+                              const origSections = original || [];
+                              const updSections = updatedSections || [];
+                              const others = origSections.filter(
+                                (s) =>
+                                  s.integratedDivision &&
+                                  s.integratedDivision !== _div,
+                              );
+                              return [
+                                ...others,
+                                ...updSections.map((s) => ({
+                                  ...s,
+                                  integratedDivision: _div as "ROV" | "SURVEY",
+                                })),
+                              ];
+                            };
+                            const mergeEngItems = (
+                              original: typeof fullSummary.engineeringHours.engineeringItems,
+                              updatedItems: typeof fullSummary.engineeringHours.engineeringItems,
+                            ) => {
+                              const origItems = original || [];
+                              const updItems = updatedItems || [];
+                              const otherScopeIds = new Set(
+                                (bid.scopeItems || [])
+                                  .filter(
+                                    (s) =>
+                                      s.integratedDivision &&
+                                      s.integratedDivision !== _div,
+                                  )
+                                  .map((s) => s.id),
+                              );
+                              const others = origItems.filter((i) =>
+                                otherScopeIds.has(i.scopeItemId),
+                              );
+                              return [...others, ...updItems];
+                            };
+                            const merged: typeof fullSummary = {
+                              ...updated,
+                              engineeringHours: {
+                                ...updated.engineeringHours,
+                                items: mergeItems(
+                                  fullSummary.engineeringHours.items,
+                                  updated.engineeringHours.items,
+                                ),
+                                sections: mergeSections(
+                                  fullSummary.engineeringHours.sections,
+                                  updated.engineeringHours.sections,
+                                ),
+                                engineeringItems: mergeEngItems(
+                                  fullSummary.engineeringHours.engineeringItems,
+                                  updated.engineeringHours.engineeringItems,
+                                ),
+                              },
+                              onshoreHours: {
+                                ...updated.onshoreHours,
+                                items: mergeItems(
+                                  fullSummary.onshoreHours.items,
+                                  updated.onshoreHours.items,
+                                ),
+                                sections: mergeSections(
+                                  fullSummary.onshoreHours.sections,
+                                  updated.onshoreHours.sections,
+                                ),
+                              },
+                              offshoreHours: {
+                                ...updated.offshoreHours,
+                                items: mergeItems(
+                                  fullSummary.offshoreHours.items,
+                                  updated.offshoreHours.items,
+                                ),
+                                sections: mergeSections(
+                                  fullSummary.offshoreHours.sections,
+                                  updated.offshoreHours.sections,
+                                ),
+                              },
+                            };
+                            savePatch({ hoursSummary: merged });
+                          } else {
+                            savePatch({ hoursSummary: updated });
+                          }
+                        }}
+                        integratedDivision={_div}
+                        scopeItems={filteredScope}
+                        tabNotes={
+                          (bid.bidNotes as Record<string, string>)?.hours || ""
+                        }
+                        onSaveTabNotes={(notes) =>
+                          savePatch({
+                            bidNotes: {
+                              ...(bid.bidNotes || {}),
+                              hours: notes,
+                            },
+                          })
+                        }
+                      />
+                    );
+                  }}
                 </DivisionEditWrap>
               )}
             </IntegratedDivisionTabs>
           )}
-          {activeTab === "costs" && (
-            <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
-              {(_div) => <BidCostSummary bid={bid} />}
-            </IntegratedDivisionTabs>
-          )}
+          {activeTab === "costs" && <BidCostSummary bid={bid} />}
           {activeTab === "tasks" && (
             <BidStatusPhasePanel
               bid={bid}
@@ -856,10 +1138,13 @@ export const BidDetailPage: React.FC = () => {
               currentUser={currentUser}
             />
           )}
-          {activeTab === "comments" && (
-            <BidComments
-              comments={bid.comments || []}
-              onAdd={
+          {activeTab === "notes" && (
+            <NotesTab
+              bid={bid}
+              canEdit={canEditBid}
+              onSave={savePatch}
+              currentUser={currentUser}
+              onAddComment={
                 canEditBid
                   ? (text) => {
                       const newComment: IBidComment = {
@@ -883,14 +1168,6 @@ export const BidDetailPage: React.FC = () => {
                     }
                   : undefined
               }
-            />
-          )}
-          {activeTab === "notes" && (
-            <NotesTab
-              bid={bid}
-              canEdit={canEditBid}
-              onSave={savePatch}
-              currentUser={currentUser}
             />
           )}
           {activeTab === "qualifications" && (
@@ -962,6 +1239,14 @@ export const BidDetailPage: React.FC = () => {
           )}
           {activeTab === "activity" && (
             <BidActivityLog entries={bid.activityLog || []} />
+          )}
+          {activeTab === "revisions" && (
+            <RevisionsTab
+              bid={bid}
+              canEdit={canEditBid}
+              currentUser={currentUser}
+              onSave={savePatch}
+            />
           )}
           {activeTab === "export" && (
             <GlassCard title="Export BID Data">

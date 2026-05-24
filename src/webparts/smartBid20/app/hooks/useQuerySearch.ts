@@ -83,7 +83,7 @@ export function useQuerySearch(
       clearTimeout(timerRef.current);
     }
 
-    if (query.length < minChars) {
+    if (query.length < minChars || query.trim().toUpperCase() === "TBD") {
       setResults(EMPTY_RESULTS);
       setIsSearching(false);
       return;

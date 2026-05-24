@@ -26,4 +26,6 @@ export interface IBidTemplate {
   version: number;
   /** Template-level attachments (e.g. client specification PDFs) */
   attachments?: IBidAttachment[];
+  /** Scope-level notes/comments */
+  scopeNotes?: string;
 }

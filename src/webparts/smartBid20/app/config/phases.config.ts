@@ -264,6 +264,14 @@ export const PHASES_CONFIG: {
       },
     ],
   },
+  {
+    id: "Rework",
+    label: "Rework",
+    order: 6,
+    color: "#F97316",
+    description: "Revisão e retrabalho após fechamento",
+    tasks: [],
+  },
 ];
 
 export function getPhaseConfig(phase: BidPhase) {

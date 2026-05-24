@@ -37,6 +37,12 @@ interface ScopeOfSupplyTabProps {
     engItems: IEngineeringHoursItem[],
     resAlloc?: IResourceAllocation[],
   ) => void;
+  /** Current division (for Move/Copy section feature) */
+  currentDivision?: string | null;
+  /** Callback to move a section (header + children) to target division */
+  onMoveSectionToDivision?: (sectionId: string, targetDivision: string) => void;
+  /** Callback to copy a section (header + children) to target division */
+  onCopySectionToDivision?: (sectionId: string, targetDivision: string) => void;
 }
 
 const blankItem = (
@@ -109,6 +115,9 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   tabNotes = "",
   onSaveTabNotes,
   onImportEngHours,
+  currentDivision,
+  onMoveSectionToDivision,
+  onCopySectionToDivision,
 }) => {
   // Helper: append fieldEmpty class when value is empty/falsy
   const emptyIf = (base: string, value: unknown): string =>
@@ -302,6 +311,24 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     persist([...items, newItem]);
   };
 
+  const duplicateSection = (sectionId: string): void => {
+    const sectionHeader = items.find((i) => i.id === sectionId);
+    if (!sectionHeader) return;
+    const sectionChildren = items.filter((i) => i.sectionId === sectionId);
+    const newSectionId = makeId("scope");
+    const copiedHeader: IScopeItem = {
+      ...sectionHeader,
+      id: newSectionId,
+      sectionTitle: `${sectionHeader.sectionTitle || "Untitled"} (Copy)`,
+    };
+    const copiedChildren: IScopeItem[] = sectionChildren.map((c) => ({
+      ...c,
+      id: makeId("scope"),
+      sectionId: newSectionId,
+    }));
+    persist([...items, copiedHeader, ...copiedChildren]);
+  };
+
   const deleteItem = (id: string): void => {
     const target = items.find((i) => i.id === id);
     if (target && target.isSection) {
@@ -330,6 +357,41 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
         }
       }
       return patched;
+    });
+    persist(updated);
+  };
+
+  /** Bulk-update a field for all items belonging to a section */
+  const bulkUpdateSectionField = (
+    sectionId: string,
+    field: keyof IScopeItem,
+    value: unknown,
+  ): void => {
+    const updated = items.map((i) => {
+      if (i.isSection || i.sectionId !== sectionId) return i;
+      const patched = { ...i, [field]: value };
+      if (field === "resourceType") patched.resourceSubType = "";
+      if (field === "resourceSubType") {
+        const val = (value as string).toLowerCase();
+        if (val === "development" || val === "eng. solutions") {
+          patched.needsEngineering = true;
+        }
+      }
+      return patched;
+    });
+    persist(updated);
+  };
+
+  /** Bulk-update a field for all sub-items of a given item */
+  const bulkUpdateSubItemsField = (
+    itemId: string,
+    field: keyof IScopeSubItem,
+    value: unknown,
+  ): void => {
+    const updated = items.map((i) => {
+      if (i.id !== itemId) return i;
+      const subs = (i.subItems || []).map((s) => ({ ...s, [field]: value }));
+      return { ...i, subItems: subs };
     });
     persist(updated);
   };
@@ -469,6 +531,31 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       else next.add(cellKey);
       return next;
     });
+  };
+
+  // ─── Toggle all comments expanded ───
+  const [allCommentsExpanded, setAllCommentsExpanded] = React.useState(false);
+  const toggleAllComments = (): void => {
+    if (allCommentsExpanded) {
+      // Collapse all comments
+      setExpandedCells((prev) => {
+        const next = new Set(prev);
+        dataItems.forEach((it) => next.delete(`comments-${it.id}`));
+        return next;
+      });
+      setAllCommentsExpanded(false);
+    } else {
+      // Expand all comments that have content
+      setExpandedCells((prev) => {
+        const next = new Set(prev);
+        dataItems.forEach((it) => {
+          if (it.comments && it.comments.length > 25)
+            next.add(`comments-${it.id}`);
+        });
+        return next;
+      });
+      setAllCommentsExpanded(true);
+    }
   };
 
   // ─── Toggle specs panel ───
@@ -992,7 +1079,26 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
             <thead>
               <tr>
                 {columns.map((h) => (
-                  <th key={h}>{h}</th>
+                  <th key={h}>
+                    {h === "Comments" ? (
+                      <span className={styles.thWithAction}>
+                        {h}
+                        <button
+                          className={styles.thExpandBtn}
+                          onClick={toggleAllComments}
+                          title={
+                            allCommentsExpanded
+                              ? "Collapse all comments"
+                              : "Expand all comments"
+                          }
+                        >
+                          {allCommentsExpanded ? "▼" : "▶"}
+                        </button>
+                      </span>
+                    ) : (
+                      h
+                    )}
+                  </th>
                 ))}
                 {!readOnly && <th>Actions</th>}
               </tr>
@@ -1166,6 +1272,74 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                 >
                                   + Item
                                 </button>
+                                <select
+                                  className={styles.setAllSelect}
+                                  value=""
+                                  onChange={(e) => {
+                                    if (e.target.value)
+                                      bulkUpdateSectionField(
+                                        item.id,
+                                        "resourceType",
+                                        e.target.value,
+                                      );
+                                    e.target.value = "";
+                                  }}
+                                  title="Set Resource Type for all items in section"
+                                >
+                                  <option value="">Set All Res. Type</option>
+                                  {resourceTypes
+                                    .filter((r) => r.isActive)
+                                    .map((r) => (
+                                      <option key={r.id} value={r.label}>
+                                        {r.label}
+                                      </option>
+                                    ))}
+                                </select>
+                                <select
+                                  className={styles.setAllSelect}
+                                  value=""
+                                  onChange={(e) => {
+                                    if (e.target.value)
+                                      bulkUpdateSectionField(
+                                        item.id,
+                                        "resourceSubType",
+                                        e.target.value,
+                                      );
+                                    e.target.value = "";
+                                  }}
+                                  title="Set Sub-Type for all items in section"
+                                >
+                                  <option value="">Set All Sub-Type</option>
+                                  {resourceTypes
+                                    .filter((r) => r.isActive)
+                                    .reduce(
+                                      (
+                                        acc: { label: string; value: string }[],
+                                        rt,
+                                      ) => {
+                                        (rt.subTypes || [])
+                                          .filter((s) => s.isActive !== false)
+                                          .forEach((s) => {
+                                            if (
+                                              !acc.find(
+                                                (a) => a.value === s.value,
+                                              )
+                                            )
+                                              acc.push({
+                                                label: s.label,
+                                                value: s.value,
+                                              });
+                                          });
+                                        return acc;
+                                      },
+                                      [],
+                                    )
+                                    .map((s) => (
+                                      <option key={s.value} value={s.value}>
+                                        {s.label}
+                                      </option>
+                                    ))}
+                                </select>
                                 <div className={styles.colorPicker}>
                                   <button
                                     className={styles.colorPickerBtn}
@@ -1228,6 +1402,69 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                 >
                                   ✕
                                 </button>
+                                <div className={styles.sectionMenu}>
+                                  <button
+                                    className={`${styles.actionBtn} ${styles.edit}`}
+                                    title="Section actions"
+                                  >
+                                    ⋯
+                                  </button>
+                                  <div className={styles.sectionMenuDropdown}>
+                                    <button
+                                      className={styles.sectionMenuItem}
+                                      onClick={() => duplicateSection(item.id)}
+                                    >
+                                      📋 Duplicate Section
+                                    </button>
+                                    {currentDivision &&
+                                      onMoveSectionToDivision && (
+                                        <button
+                                          className={styles.sectionMenuItem}
+                                          onClick={() => {
+                                            const target =
+                                              currentDivision === "ROV"
+                                                ? "SURVEY"
+                                                : "ROV";
+                                            if (
+                                              window.confirm(
+                                                `Move section "${item.sectionTitle || "Untitled"}" to ${target}?`,
+                                              )
+                                            )
+                                              onMoveSectionToDivision(
+                                                item.id,
+                                                target,
+                                              );
+                                          }}
+                                        >
+                                          ➡ Move to{" "}
+                                          {currentDivision === "ROV"
+                                            ? "SURVEY"
+                                            : "ROV"}
+                                        </button>
+                                      )}
+                                    {currentDivision &&
+                                      onCopySectionToDivision && (
+                                        <button
+                                          className={styles.sectionMenuItem}
+                                          onClick={() => {
+                                            const target =
+                                              currentDivision === "ROV"
+                                                ? "SURVEY"
+                                                : "ROV";
+                                            onCopySectionToDivision(
+                                              item.id,
+                                              target,
+                                            );
+                                          }}
+                                        >
+                                          📄 Copy to{" "}
+                                          {currentDivision === "ROV"
+                                            ? "SURVEY"
+                                            : "ROV"}
+                                        </button>
+                                      )}
+                                  </div>
+                                </div>
                               </div>
                             )}
                             {/* Specs toggle — always visible (view & edit mode) */}
@@ -1870,17 +2107,19 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                         {editingCell?.id === item.id &&
                         editingCell?.field === "comments" &&
                         !readOnly ? (
-                          <input
+                          <textarea
                             className={styles.editInput}
                             value={item.comments}
                             autoFocus
+                            rows={3}
+                            style={{
+                              resize: "vertical",
+                              whiteSpace: "pre-wrap",
+                            }}
                             onChange={(e) =>
                               updateField(item.id, "comments", e.target.value)
                             }
                             onBlur={() => setEditingCell(null)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") setEditingCell(null);
-                            }}
                           />
                         ) : (
                           <div
@@ -2104,6 +2343,34 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                       </div>
                                       <div className={styles.subTh}>
                                         Sub-Type
+                                        {!readOnly && (
+                                          <select
+                                            className={styles.setAllSelect}
+                                            value=""
+                                            onChange={(e) => {
+                                              if (e.target.value)
+                                                bulkUpdateSubItemsField(
+                                                  item.id,
+                                                  "subType",
+                                                  e.target.value,
+                                                );
+                                              e.target.value = "";
+                                            }}
+                                            title="Set Sub-Type for all sub-items"
+                                          >
+                                            <option value="">Set All</option>
+                                            <option value="Consumable">
+                                              Consumable
+                                            </option>
+                                            <option value="Spare Part">
+                                              Spare Part
+                                            </option>
+                                            <option value="Accessory">
+                                              Accessory
+                                            </option>
+                                            <option value="Other">Other</option>
+                                          </select>
+                                        )}
                                       </div>
                                       <div className={styles.subTh}>
                                         Equipment Offer

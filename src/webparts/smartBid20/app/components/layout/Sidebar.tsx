@@ -11,6 +11,11 @@ import styles from "./Sidebar.module.scss";
 import { SidebarItem } from "./SidebarItem";
 import { SidebarSubmenu } from "./SidebarSubmenu";
 
+// Logo imports
+const smartBidLogoCompact = require("../../../assets/smartbid-logo-compact.svg");
+const smartBidIconWhite = require("../../../assets/smartbid-icon.svg");
+const oiiWhiteLogo = require("../../../assets/OII-white-transparent-vetorizado.svg");
+
 // Simple icon component that renders Lucide-style icons inline
 const Icon: React.FC<{ name: string; size?: number }> = ({
   name,
@@ -19,8 +24,8 @@ const Icon: React.FC<{ name: string; size?: number }> = ({
   const icons: Record<string, React.ReactNode> = {
     Diamond: (
       <svg
-        width={size}
-        height={size}
+        width={25}
+        height={25}
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -536,100 +541,110 @@ export const Sidebar: React.FC = () => {
         />
       </button>
 
-      <div className={styles.logo}>
-        <div className={styles.logoIcon}>
-          <Icon name="Diamond" />
+      <div className={styles.sidebarInner}>
+        <div className={styles.logo}>
+          {sidebarExpanded ? (
+            <img
+              src={smartBidLogoCompact}
+              alt="SmartBid"
+              className={styles.logoImage}
+            />
+          ) : (
+            <img
+              src={smartBidIconWhite}
+              alt="SmartBid"
+              className={styles.logoIconImg}
+            />
+          )}
         </div>
-        {sidebarExpanded && (
-          <div className={styles.logoText}>
-            <h2>SMART BID</h2>
-            <span>Oceaneering · Bid Dept</span>
-          </div>
-        )}
-      </div>
 
-      {/* Create Request Button */}
-      {groupedItems["action"]?.map((item) => (
-        <button
-          key={item.key}
-          className={styles.createBtn}
-          onClick={() => navigate(item.route)}
-          title={!sidebarExpanded ? item.label : undefined}
-        >
-          <Icon name={item.icon} size={16} />
-          {sidebarExpanded && item.label}
-        </button>
-      ))}
-
-      {/* Navigation Sections */}
-      {Object.entries(groupedItems)
-        .filter(([sec]) => sec !== "action")
-        .map(([section, items]) => (
-          <div key={section} className={styles.navSection}>
-            {sidebarExpanded && SECTION_LABELS[section] && (
-              <div className={styles.sectionLabel}>
-                {SECTION_LABELS[section]}
-              </div>
-            )}
-            {items.map((item) => (
-              <React.Fragment key={item.key}>
-                {item.children ? (
-                  <SidebarSubmenu
-                    label={item.label}
-                    icon={<Icon name={item.icon} />}
-                    isCollapsed={!sidebarExpanded}
-                  >
-                    {item.children.map((child) => (
-                      <div
-                        key={child.key}
-                        className={`${styles.submenuItem} ${currentPath === child.route ? styles.active : ""}`}
-                        onClick={() => navigate(child.route)}
-                      >
-                        {child.label}
-                      </div>
-                    ))}
-                  </SidebarSubmenu>
-                ) : (
-                  <SidebarItem
-                    icon={<Icon name={item.icon} />}
-                    label={item.label}
-                    isActive={currentPath === item.route}
-                    badge={item.badge}
-                    badgePulsing={item.badgePulsing}
-                    isCollapsed={!sidebarExpanded}
-                    onClick={() => navigate(item.route)}
-                    onExternalClick={
-                      item.externalRoute
-                        ? () => {
-                            const currentUrl = window.location.href;
-                            const baseUrl = currentUrl.split("#")[0];
-                            window.open(
-                              baseUrl + "#" + item.externalRoute,
-                              "_blank",
-                            );
-                          }
-                        : undefined
-                    }
-                  />
-                )}
-              </React.Fragment>
-            ))}
-          </div>
+        {/* Create Request Button */}
+        {groupedItems["action"]?.map((item) => (
+          <button
+            key={item.key}
+            className={styles.createBtn}
+            onClick={() => navigate(item.route)}
+            title={!sidebarExpanded ? item.label : undefined}
+          >
+            <Icon name={item.icon} size={sidebarExpanded ? 16 : 20} />
+            {sidebarExpanded && item.label}
+          </button>
         ))}
 
-      {/* Footer */}
-      <div className={styles.sidebarFooter}>
-        <button className={styles.themeToggle} onClick={toggleTheme}>
-          <Icon name={theme === "dark" ? "Moon" : "Sun"} size={16} />
-          {sidebarExpanded && (theme === "dark" ? "Dark Mode" : "Light Mode")}
-        </button>
+        {/* Navigation Sections */}
+        {Object.entries(groupedItems)
+          .filter(([sec]) => sec !== "action")
+          .map(([section, items]) => (
+            <div key={section} className={styles.navSection}>
+              {sidebarExpanded && SECTION_LABELS[section] && (
+                <div className={styles.sectionLabel}>
+                  {SECTION_LABELS[section]}
+                </div>
+              )}
+              {items.map((item) => (
+                <React.Fragment key={item.key}>
+                  {item.children ? (
+                    <SidebarSubmenu
+                      label={item.label}
+                      icon={<Icon name={item.icon} />}
+                      isCollapsed={!sidebarExpanded}
+                    >
+                      {item.children.map((child) => (
+                        <div
+                          key={child.key}
+                          className={`${styles.submenuItem} ${currentPath === child.route ? styles.active : ""}`}
+                          onClick={() => navigate(child.route)}
+                        >
+                          {child.label}
+                        </div>
+                      ))}
+                    </SidebarSubmenu>
+                  ) : (
+                    <SidebarItem
+                      icon={<Icon name={item.icon} />}
+                      label={item.label}
+                      isActive={currentPath === item.route}
+                      badge={item.badge}
+                      badgePulsing={item.badgePulsing}
+                      isCollapsed={!sidebarExpanded}
+                      onClick={() => navigate(item.route)}
+                      onExternalClick={
+                        item.externalRoute
+                          ? () => {
+                              const currentUrl = window.location.href;
+                              const baseUrl = currentUrl.split("#")[0];
+                              window.open(
+                                baseUrl + "#" + item.externalRoute,
+                                "_blank",
+                              );
+                            }
+                          : undefined
+                      }
+                    />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          ))}
 
-        {sidebarExpanded && (
-          <div className={styles.brandFooter}>
-            OCEANEERING
-            <div className={styles.createdBy}>Created by R. Costa</div>
-          </div>
-        )}
+        {/* Footer */}
+        <div className={styles.sidebarFooter}>
+          <button className={styles.themeToggle} onClick={toggleTheme}>
+            <Icon name={theme === "dark" ? "Moon" : "Sun"} size={16} />
+            {sidebarExpanded && (theme === "dark" ? "Dark Mode" : "Light Mode")}
+          </button>
+
+          {sidebarExpanded && (
+            <div className={styles.brandFooter}>
+              <img
+                src={oiiWhiteLogo}
+                alt="Oceaneering"
+                className={styles.oiiLogo}
+              />
+              <div className={styles.createdBy}>Created by R. Costa</div>
+            </div>
+          )}
+        </div>
       </div>
     </nav>
   );

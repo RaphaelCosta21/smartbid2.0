@@ -1,0 +1,244 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-bg, rgba(0, 0, 0, 0.6));
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
+}
+
+.modal {
+  background: var(--card-bg, #1a2d4a);
+  border: 1px solid var(--border, #1e3a5f);
+  border-radius: 16px;
+  width: 95%;
+  max-width: 680px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+  animation: slideUp 0.25s ease;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-subtle, #162d50);
+  flex-shrink: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger, #ef4444);
+  }
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  min-height: 0;
+}
+
+.modeSelector {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.modeBtn {
+  flex: 1;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border, #1e3a5f);
+  background: var(--card-bg-elevated, #1e3553);
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+
+  &:hover {
+    border-color: var(--primary-accent, #00c9a7);
+    color: var(--text-primary, #f1f5f9);
+  }
+}
+
+.modeBtnActive {
+  border-color: var(--primary-accent, #00c9a7);
+  background: rgba(0, 201, 167, 0.1);
+  color: var(--primary-accent, #00c9a7);
+}
+
+.modeIcon {
+  font-size: 20px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.selectionList {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--border, #1e3a5f);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.selectAll {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border, #1e3a5f);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+  background: var(--card-bg-elevated, #1e3553);
+}
+
+.selectionItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle, #162d50);
+  font-size: 13px;
+  color: var(--text-primary, #f1f5f9);
+  transition: background 0.1s ease;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: var(--card-bg-elevated, #1e3553);
+  }
+}
+
+.itemNumber {
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+  min-width: 24px;
+}
+
+.itemText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary-accent, #00c9a7);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-subtle, #162d50);
+  flex-shrink: 0;
+}
+
+.selectedCount {
+  font-size: 13px;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.footerActions {
+  display: flex;
+  gap: 10px;
+}
+
+.cancelBtn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #1e3a5f);
+  background: transparent;
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: var(--text-secondary, #94a3b8);
+    color: var(--text-primary, #f1f5f9);
+  }
+}
+
+.exportBtn {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: none;
+  background: var(--primary-accent, #00c9a7);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+
+  &:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

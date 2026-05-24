@@ -91,9 +91,9 @@
   }
 
   &.primary {
-    background: var(--accent-color);
+    background: var(--accent-color, var(--primary-accent, #0d9488));
     color: #fff;
-    border-color: var(--accent-color);
+    border-color: var(--accent-color, var(--primary-accent, #0d9488));
 
     &:hover {
       opacity: 0.9;
@@ -103,8 +103,7 @@
 
 /* ─── Table ─── */
 .tableWrapper {
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: visible;
   position: relative;
 }
 
@@ -201,6 +200,35 @@
   display: flex;
   gap: 4px;
   margin-left: auto;
+  align-items: center;
+}
+
+/* ─── Bulk "Set All" select ─── */
+.setAllSelect {
+  padding: 3px 6px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 5px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-secondary);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  option {
+    background: var(--card-bg, #1e1e28);
+    color: var(--text-primary);
+  }
+
+  &:hover {
+    border-color: var(--accent-color, var(--primary-accent, #0d9488));
+    color: var(--text-primary);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-color, var(--primary-accent, #0d9488));
+    box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
+  }
 }
 
 /* ─── Section edit button ─── */
@@ -1103,6 +1131,34 @@
   }
 }
 
+/* ─── Table header with action button ─── */
+.thWithAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.thExpandBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 9px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s;
+  padding: 0;
+
+  &:hover {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.08));
+    color: var(--text-primary);
+  }
+}
+
 /* ─── Truncated / collapsible cells ─── */
 .truncatedCell {
   max-width: 140px;
@@ -1114,7 +1170,7 @@
   transition: all 0.2s;
 
   &.expanded {
-    white-space: normal;
+    white-space: pre-wrap;
     max-width: none;
     overflow: visible;
     word-break: break-word;
@@ -1554,6 +1610,52 @@
   }
 }
 
+/* ─── Section Actions Menu ─── */
+.sectionMenu {
+  position: relative;
+  display: inline-flex;
+}
+
+.sectionMenuDropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 300;
+  padding: 4px 0;
+  border-radius: 8px;
+  background: var(--card-bg, #1e1e2e);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  min-width: 180px;
+  margin-top: 4px;
+  flex-direction: column;
+
+  .sectionMenu:hover & {
+    display: flex;
+  }
+}
+
+.sectionMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: left;
+  width: 100%;
+  transition: background 0.1s;
+
+  &:hover {
+    background: var(--accent-color-10, rgba(20, 184, 166, 0.1));
+  }
+}
+
 /* ─── Section Color Picker ─── */
 .colorPicker {
   position: relative;
@@ -1577,19 +1679,19 @@
 .colorPickerDropdown {
   display: none;
   position: absolute;
-  bottom: 100%;
+  top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 200;
+  z-index: 300;
   padding: 6px;
   border-radius: 8px;
   background: var(--card-bg, #1e1e2e);
   border: 1px solid var(--border-subtle);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
   gap: 4px;
   flex-wrap: wrap;
   width: 120px;
-  margin-bottom: 4px;
+  margin-top: 4px;
 
   .colorPicker:hover & {
     display: flex;

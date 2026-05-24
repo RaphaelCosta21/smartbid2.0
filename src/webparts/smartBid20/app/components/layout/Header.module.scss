@@ -5,7 +5,7 @@
   align-items: center;
   padding: 0 24px;
   gap: 16px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--header-border);
 }
 
 .searchBar {
@@ -16,17 +16,17 @@
   input {
     width: 100%;
     height: 38px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid var(--border);
+    background: var(--header-input-bg);
+    border: 1px solid var(--header-border);
     border-radius: 10px;
     padding: 0 16px 0 40px;
-    color: var(--text-primary);
+    color: var(--header-text-primary);
     font-size: 13px;
     outline: none;
     transition: all 200ms ease;
 
     &::placeholder {
-      color: var(--text-muted);
+      color: var(--header-text-muted);
     }
 
     &:focus {
@@ -41,7 +41,7 @@
     left: 12px;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--text-muted);
+    color: var(--header-text-muted);
   }
 
   .shortcut {
@@ -51,9 +51,9 @@
     transform: translateY(-50%);
     font-size: 10px;
     padding: 2px 6px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--header-border);
     border-radius: 4px;
-    color: var(--text-muted);
+    color: var(--header-text-muted);
     background: rgba(255, 255, 255, 0.04);
   }
 }
@@ -74,14 +74,14 @@
   justify-content: center;
   background: none;
   border: none;
-  color: var(--text-secondary);
+  color: var(--header-text-secondary);
   cursor: pointer;
   transition: all 200ms ease;
   position: relative;
 
   &:hover {
     background: rgba(255, 255, 255, 0.06);
-    color: var(--text-primary);
+    color: var(--header-text-primary);
   }
 
   svg {
@@ -116,6 +116,7 @@
   padding: 4px 8px;
   border-radius: 10px;
   transition: all 200ms ease;
+  position: relative;
 
   &:hover {
     background: rgba(255, 255, 255, 0.06);
@@ -133,6 +134,14 @@
   color: white;
   font-weight: 700;
   font-size: 13px;
+  overflow: hidden;
+}
+
+.avatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
 }
 
 .userInfo {
@@ -142,14 +151,149 @@
   .userName {
     font-size: 13px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--header-text-primary);
     line-height: 1.2;
   }
 
   .userRole {
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--header-text-muted);
   }
+}
+
+.userMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 260px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  padding: 12px;
+  animation: fadeInMenu 150ms ease;
+}
+
+@keyframes fadeInMenu {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.userMenuHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0 8px;
+}
+
+.userMenuAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--gradient-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
+  }
+}
+
+.userMenuInfo {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.userMenuName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userMenuEmail {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userMenuDivider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 0;
+}
+
+.userMenuSection {
+  padding: 4px 0;
+}
+
+.userMenuLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.themeOptions {
+  display: flex;
+  gap: 8px;
+}
+
+.themeOption {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.themeActive {
+  background: var(--primary-accent) !important;
+  color: white !important;
+  border-color: var(--primary-accent) !important;
 }
 
 @keyframes pulse-notif {

@@ -58,6 +58,7 @@ export {
   type IBidKPIs,
   type IBidMetadata,
   type IBidRevision,
+  type IRevisionChange,
   type IAssetSubCost,
   type ISubItemCost,
   type IQualificationTable,

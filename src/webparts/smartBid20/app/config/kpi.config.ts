@@ -103,6 +103,16 @@ export const KPI_DEFINITIONS: IKPIDef[] = [
     format: "percent",
     color: "#22C55E",
   },
+  {
+    id: "rework-rate",
+    label: "Rework Rate",
+    description: "Percentage of BIDs that required Rework/Revision",
+    unit: "%",
+    targetKey: "targetReworkRate",
+    higherIsBetter: false,
+    format: "percent",
+    color: "#F97316",
+  },
 ];
 
 export const DEFAULT_KPI_TARGETS = {
@@ -115,4 +125,5 @@ export const DEFAULT_KPI_TARGETS = {
   targetTemplateUsage: 60,
   targetOverdueRate: 15,
   targetWinRate: 40,
+  targetReworkRate: 10,
 };

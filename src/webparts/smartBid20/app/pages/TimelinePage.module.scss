@@ -8,44 +8,103 @@
   background: var(--card-bg);
   border-radius: 16px;
   border: 1px solid var(--border-subtle);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .ganttHeader {
   display: flex;
   border-bottom: 1px solid var(--border-subtle);
+  background: var(--card-bg);
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 
 .ganttLabelCol {
-  width: 280px;
+  width: 320px;
+  min-width: 320px;
   flex-shrink: 0;
-  padding: 12px 16px;
+  padding: 12px 20px;
   font-weight: 600;
   font-size: 13px;
   color: var(--text-secondary);
+  border-right: 1px solid var(--border-subtle);
 }
 
 .ganttBarCol {
   flex: 1;
+  min-width: 600px;
   position: relative;
-  height: 40px;
+  height: 48px;
 }
 
-.todayLine {
+.dateMarker {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 2px;
-  background: #ef4444;
-  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.todayLineLight {
+.dateMarkerLabel {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  padding: 6px 0 4px;
+  white-space: nowrap;
+}
+
+.dateMarkerMonth .dateMarkerLabel {
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.dateMarkerLine {
+  width: 1px;
+  flex: 1;
+  background: var(--border-subtle);
+}
+
+.dateMarkerMonth .dateMarkerLine {
+  background: var(--border);
+}
+
+.todayMarker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 3;
+}
+
+.todayLabel {
+  font-size: 9px;
+  font-weight: 700;
+  color: #ef4444;
+  padding: 4px 0 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.todayLine {
+  width: 2px;
+  flex: 1;
+  background: #ef4444;
+  border-radius: 1px;
+}
+
+.todayLineRow {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.2);
+  z-index: 1;
 }
 
 .emptyState {
@@ -58,22 +117,29 @@
   display: flex;
   align-items: center;
   border-bottom: 1px solid var(--border-subtle);
-  min-height: 52px;
+  min-height: 64px;
+  transition: background 150ms;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
 }
 
 .ganttRowLabel {
-  width: 280px;
+  width: 320px;
+  min-width: 320px;
   flex-shrink: 0;
-  padding: 8px 16px;
+  padding: 10px 20px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  border-right: 1px solid var(--border-subtle);
 }
 
 .ganttRowTop {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .ganttBidNumber {
@@ -85,28 +151,36 @@
 .ganttRowBottom {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 8px;
+  font-size: 11px;
   color: var(--text-secondary);
+  flex-wrap: wrap;
 }
 
 .ganttBarArea {
   flex: 1;
+  min-width: 600px;
   position: relative;
-  height: 32px;
-  padding: 0 8px;
+  height: 36px;
+  padding: 0 12px;
 }
 
 .ganttBar {
   position: absolute;
-  top: 6px;
-  height: 20px;
-  border-radius: 4px;
+  top: 8px;
+  height: 22px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
-  padding-left: 6px;
+  padding: 0 8px;
   font-size: 11px;
   font-weight: 600;
   overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: opacity 150ms;
+
+  &:hover {
+    opacity: 0.85;
+  }
 }

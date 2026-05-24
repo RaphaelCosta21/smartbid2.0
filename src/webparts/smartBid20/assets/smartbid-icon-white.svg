@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <!-- White icon only - for dark backgrounds without bg square -->
+  <defs>
+    <filter id="wGlow">
+      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#00c9a7" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Document -->
+  <g transform="rotate(-3, 240, 260)">
+    <path d="M120 72h188l92 92v268c0 18-14.5 32.5-32.5 32.5H120c-18 0-32.5-14.5-32.5-32.5V104.5C87.5 86.5 102 72 120 72z" 
+          fill="#ffffff" opacity="0.92" filter="url(#wGlow)"/>
+    <path d="M308 72l92 92h-59.5c-18 0-32.5-14.5-32.5-32.5V72z" fill="#ffffff" opacity="0.4"/>
+  </g>
+
+  <!-- Bars -->
+  <g transform="rotate(-3, 240, 260)">
+    <rect x="132" y="312" width="38" height="84" rx="7" fill="#ffffff" opacity="0.25"/>
+    <rect x="184" y="268" width="38" height="128" rx="7" fill="#ffffff" opacity="0.35"/>
+    <rect x="236" y="220" width="38" height="176" rx="7" fill="#ffffff" opacity="0.5"/>
+    <rect x="288" y="172" width="38" height="224" rx="7" fill="#ffffff" opacity="0.7"/>
+  </g>
+
+  <!-- Bold checkmark -->
+  <path d="M320 276l44 48 96-104" fill="none" stroke="#ffffff" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" filter="url(#wGlow)"/>
+
+  <!-- Diamond -->
+  <rect x="416" y="76" width="28" height="28" rx="5" fill="#ffffff" opacity="0.45" transform="rotate(45, 430, 90)"/>
+</svg>

@@ -31,6 +31,32 @@ export const TimelinePage: React.FC = () => {
     (maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24),
   );
 
+  // Generate week markers for the header
+  const weekMarkers = React.useMemo(() => {
+    const markers: { label: string; position: string; isMonth: boolean }[] = [];
+    const cursor = new Date(minDate);
+    // Align to next Monday
+    const dayOfWeek = cursor.getDay();
+    const daysToMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7;
+    cursor.setDate(cursor.getDate() + daysToMonday);
+
+    let lastMonth = -1;
+    while (cursor <= maxDate) {
+      const dayOffset = Math.ceil(
+        (cursor.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      const position = `${(dayOffset / totalDays) * 100}%`;
+      const isNewMonth = cursor.getMonth() !== lastMonth;
+      const label = isNewMonth
+        ? cursor.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+        : cursor.getDate().toString();
+      markers.push({ label, position, isMonth: isNewMonth });
+      lastMonth = cursor.getMonth();
+      cursor.setDate(cursor.getDate() + 7);
+    }
+    return markers;
+  }, [totalDays]);
+
   const getBarStyle = (
     createdDate: string,
     dueDate: string,
@@ -83,11 +109,24 @@ export const TimelinePage: React.FC = () => {
       />
 
       <div className={styles.ganttContainer}>
-        {/* Header row with month markers */}
+        {/* Header row with date markers */}
         <div className={styles.ganttHeader}>
           <div className={styles.ganttLabelCol}>BID</div>
           <div className={styles.ganttBarCol}>
-            <div className={styles.todayLine} style={{ left: todayPosition }} />
+            {weekMarkers.map((marker, i) => (
+              <div
+                key={i}
+                className={`${styles.dateMarker} ${marker.isMonth ? styles.dateMarkerMonth : ""}`}
+                style={{ left: marker.position }}
+              >
+                <span className={styles.dateMarkerLabel}>{marker.label}</span>
+                <div className={styles.dateMarkerLine} />
+              </div>
+            ))}
+            <div className={styles.todayMarker} style={{ left: todayPosition }}>
+              <span className={styles.todayLabel}>Today</span>
+              <div className={styles.todayLine} />
+            </div>
           </div>
         </div>
 
@@ -114,7 +153,7 @@ export const TimelinePage: React.FC = () => {
                 </div>
                 <div className={styles.ganttBarArea}>
                   <div
-                    className={styles.todayLineLight}
+                    className={styles.todayLineRow}
                     style={{ left: todayPosition }}
                   />
                   <div

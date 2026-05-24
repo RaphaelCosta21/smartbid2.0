@@ -8,6 +8,7 @@ import {
 import { GlassCard } from "../common/GlassCard";
 import { EditToolbar } from "../common/EditLockBanner";
 import { EmptySection } from "./EmptySection";
+import { ExportClarificationModal } from "./ExportClarificationModal";
 import { useEditControl } from "../../hooks/useEditControl";
 import { makeId } from "../../utils/idGenerator";
 import styles from "../../pages/BidDetailPage.module.scss";
@@ -26,6 +27,9 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   const tables = bid.qualificationTables || [];
   const clarifications = bid.clarifications || [];
   const scopeItems = bid.scopeItems || [];
+
+  // Export modal state
+  const [exportModalOpen, setExportModalOpen] = React.useState(false);
 
   // Edit lock hooks — separate locks for Qualifications and Clarifications
   const qualLock = useEditControl(bid.bidNumber, "qualifications");
@@ -47,11 +51,12 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
         newAuto.push({
           id: makeId("q"),
           scopeItemId: si.id,
-          item: si.equipmentOffer || si.partNumber || `#${si.lineNumber}`,
+          item: si.clientDocRef || `#${si.lineNumber}`,
           description: si.description,
           clarification: "",
           clientResponse: "",
           isAutoImported: true,
+          createdDate: new Date().toISOString(),
         });
       }
     });
@@ -79,10 +84,29 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
     );
   }, [clarifications, autoImported, scopeItems]);
 
+  // ─── Local state to prevent input lag ───
+  const [localTables, setLocalTables] =
+    React.useState<IQualificationTable[]>(tables);
+  const [localClarifications, setLocalClarifications] =
+    React.useState<IClarificationItem[]>(allClarifications);
+
   // ─── Debounced save to prevent input lag ───
   const clarTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const qualTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const isEditingRef = React.useRef(false);
+
+  // Sync external changes when NOT actively editing
+  React.useEffect(() => {
+    if (!isEditingRef.current && !qualTimerRef.current) {
+      setLocalTables(tables);
+    }
+  }, [tables]);
+
+  React.useEffect(() => {
+    if (!isEditingRef.current && !clarTimerRef.current) {
+      setLocalClarifications(allClarifications);
+    }
+  }, [allClarifications]);
 
   const debouncedSaveClar = React.useCallback(
     (updated: IClarificationItem[]) => {
@@ -114,13 +138,14 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
 
   // Persist clarifications
   const saveClarifications = (updated: IClarificationItem[]): void => {
+    setLocalClarifications(updated);
     if (!onSave) return;
     debouncedSaveClar(updated);
   };
 
   const addClarification = (): void => {
     saveClarifications([
-      ...allClarifications,
+      ...localClarifications,
       {
         id: makeId("q"),
         scopeItemId: null,
@@ -129,6 +154,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
         clarification: "",
         clientResponse: "",
         isAutoImported: false,
+        createdDate: new Date().toISOString(),
       },
     ]);
   };
@@ -140,9 +166,19 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   ): void => {
     isEditingRef.current = true;
     saveClarifications(
-      allClarifications.map((c) =>
-        c.id === id ? { ...c, [field]: value } : c,
-      ),
+      localClarifications.map((c) => {
+        if (c.id !== id) return c;
+        const updated = { ...c, [field]: value };
+        // Auto-set responseDate when clientResponse is first filled
+        if (field === "clientResponse" && value && !c.responseDate) {
+          updated.responseDate = new Date().toISOString();
+        }
+        // Clear responseDate if clientResponse is emptied
+        if (field === "clientResponse" && !value) {
+          updated.responseDate = undefined;
+        }
+        return updated;
+      }),
     );
     setTimeout(() => {
       isEditingRef.current = false;
@@ -150,33 +186,36 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   };
 
   const deleteClarification = (id: string): void => {
-    saveClarifications(allClarifications.filter((c) => c.id !== id));
+    saveClarifications(localClarifications.filter((c) => c.id !== id));
   };
 
   // Qualification tables
   const saveQualTables = (updated: IQualificationTable[]): void => {
+    setLocalTables(updated);
     if (!onSave) return;
     debouncedSaveQual(updated);
   };
 
   const addTable = (): void => {
     saveQualTables([
-      ...tables,
+      ...localTables,
       { id: makeId("q"), title: "New Qualification Table", items: [] },
     ]);
   };
 
   const updateTableTitle = (tableId: string, title: string): void => {
-    saveQualTables(tables.map((t) => (t.id === tableId ? { ...t, title } : t)));
+    saveQualTables(
+      localTables.map((t) => (t.id === tableId ? { ...t, title } : t)),
+    );
   };
 
   const deleteTable = (tableId: string): void => {
-    saveQualTables(tables.filter((t) => t.id !== tableId));
+    saveQualTables(localTables.filter((t) => t.id !== tableId));
   };
 
   const addQualItem = (tableId: string): void => {
     saveQualTables(
-      tables.map((t) => {
+      localTables.map((t) => {
         if (t.id !== tableId) return t;
         const nextItem =
           (t.items.length > 0 ? Math.max(...t.items.map((i) => i.item)) : 0) +
@@ -200,7 +239,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   ): void => {
     isEditingRef.current = true;
     saveQualTables(
-      tables.map((t) => {
+      localTables.map((t) => {
         if (t.id !== tableId) return t;
         return {
           ...t,
@@ -217,7 +256,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
 
   const deleteQualItem = (tableId: string, itemId: string): void => {
     saveQualTables(
-      tables.map((t) => {
+      localTables.map((t) => {
         if (t.id !== tableId) return t;
         return { ...t, items: t.items.filter((i) => i.id !== itemId) };
       }),
@@ -244,10 +283,10 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
         >
           Qualification tables for client / vessel owner requirements.
         </p>
-        {tables.length === 0 && (
+        {localTables.length === 0 && (
           <EmptySection message="No qualification tables yet." />
         )}
-        {tables.map((table) => (
+        {localTables.map((table) => (
           <div
             key={table.id}
             className={styles.infoSection}
@@ -488,254 +527,319 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
             label="Clarifications"
           />
         )}
-        <p
+        <div
           style={{
-            fontSize: 13,
-            color: "var(--text-secondary)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             marginBottom: 12,
           }}
         >
-          Items with Compliance = &quot;No&quot; are auto-imported. You can also
-          add manual entries.
-        </p>
-        {allClarifications.length === 0 ? (
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--text-secondary)",
+              margin: 0,
+            }}
+          >
+            Items with Compliance = &quot;No&quot; are auto-imported. You can
+            also add manual entries.
+          </p>
+          {localClarifications.length > 0 && (
+            <button
+              onClick={() => setExportModalOpen(true)}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "var(--card-bg-elevated)",
+                color: "var(--text-primary)",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 500,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                transition: "all 0.15s ease",
+              }}
+            >
+              📥 Export Excel
+            </button>
+          )}
+        </div>
+        {localClarifications.length === 0 ? (
           <EmptySection message="No clarifications needed." />
         ) : (
-          <table
-            style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
-          >
-            <thead>
-              <tr>
-                <th
-                  style={{
-                    padding: "8px 10px",
-                    textAlign: "left",
-                    borderBottom: "1px solid var(--border)",
-                    color: "var(--text-secondary)",
-                    width: 30,
-                  }}
-                >
-                  #
-                </th>
-                <th
-                  style={{
-                    padding: "8px 10px",
-                    textAlign: "left",
-                    borderBottom: "1px solid var(--border)",
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  Item
-                </th>
-                <th
-                  style={{
-                    padding: "8px 10px",
-                    textAlign: "left",
-                    borderBottom: "1px solid var(--border)",
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  Description
-                </th>
-                <th
-                  style={{
-                    padding: "8px 10px",
-                    textAlign: "left",
-                    borderBottom: "1px solid var(--border)",
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  Clarification / Qualification
-                </th>
-                <th
-                  style={{
-                    padding: "8px 10px",
-                    textAlign: "left",
-                    borderBottom: "1px solid var(--border)",
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  Client Response
-                </th>
-                <th
-                  style={{
-                    padding: "8px 10px",
-                    textAlign: "center",
-                    borderBottom: "1px solid var(--border)",
-                    color: "var(--text-secondary)",
-                    width: 60,
-                  }}
-                >
-                  Source
-                </th>
-                {canEditClar && (
+          <div style={{ overflowX: "auto" }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: 13,
+                minWidth: 900,
+              }}
+            >
+              <thead>
+                <tr>
                   <th
                     style={{
-                      width: 40,
+                      padding: "8px 10px",
+                      textAlign: "left",
                       borderBottom: "1px solid var(--border)",
-                    }}
-                  />
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {allClarifications.map((c, idx) => (
-                <tr key={c.id}>
-                  <td
-                    style={{
-                      padding: "6px 10px",
-                      borderBottom: "1px solid var(--border)",
-                      fontWeight: 600,
+                      color: "var(--text-secondary)",
+                      width: 30,
                     }}
                   >
-                    {idx + 1}
-                  </td>
-                  <td
+                    #
+                  </th>
+                  <th
                     style={{
-                      padding: "6px 10px",
+                      padding: "8px 10px",
+                      textAlign: "left",
                       borderBottom: "1px solid var(--border)",
+                      color: "var(--text-secondary)",
                     }}
                   >
-                    {canEditClar && !c.isAutoImported ? (
-                      <input
-                        value={c.item}
-                        onChange={(e) =>
-                          updateClarification(c.id, "item", e.target.value)
-                        }
-                        style={{
-                          width: "100%",
-                          padding: "4px 6px",
-                          border: "1px solid var(--border)",
-                          borderRadius: 4,
-                          background: "var(--card-bg-elevated)",
-                          color: "var(--text-primary)",
-                          fontSize: 13,
-                        }}
-                      />
-                    ) : (
-                      <span
-                        style={{
-                          fontStyle: c.isAutoImported ? "italic" : undefined,
-                        }}
-                      >
-                        {c.item || "—"}
-                      </span>
-                    )}
-                  </td>
-                  <td
+                    Client Doc Ref
+                  </th>
+                  <th
                     style={{
-                      padding: "6px 10px",
+                      padding: "8px 10px",
+                      textAlign: "left",
                       borderBottom: "1px solid var(--border)",
+                      color: "var(--text-secondary)",
                     }}
                   >
-                    {canEditClar && !c.isAutoImported ? (
-                      <input
-                        value={c.description}
-                        onChange={(e) =>
-                          updateClarification(
-                            c.id,
-                            "description",
-                            e.target.value,
-                          )
-                        }
-                        style={{
-                          width: "100%",
-                          padding: "4px 6px",
-                          border: "1px solid var(--border)",
-                          borderRadius: 4,
-                          background: "var(--card-bg-elevated)",
-                          color: "var(--text-primary)",
-                          fontSize: 13,
-                        }}
-                      />
-                    ) : (
-                      c.description || "—"
-                    )}
-                  </td>
-                  <td
+                    Description
+                  </th>
+                  <th
                     style={{
-                      padding: "6px 10px",
+                      padding: "8px 10px",
+                      textAlign: "left",
                       borderBottom: "1px solid var(--border)",
+                      color: "var(--text-secondary)",
                     }}
                   >
-                    {canEditClar ? (
-                      <input
-                        value={c.clarification}
-                        onChange={(e) =>
-                          updateClarification(
-                            c.id,
-                            "clarification",
-                            e.target.value,
-                          )
-                        }
-                        style={{
-                          width: "100%",
-                          padding: "4px 6px",
-                          border: "1px solid var(--border)",
-                          borderRadius: 4,
-                          background: "var(--card-bg-elevated)",
-                          color: "var(--text-primary)",
-                          fontSize: 13,
-                        }}
-                      />
-                    ) : (
-                      c.clarification || "—"
-                    )}
-                  </td>
-                  <td
+                    Clarification / Qualification
+                  </th>
+                  <th
                     style={{
-                      padding: "6px 10px",
+                      padding: "8px 10px",
+                      textAlign: "left",
                       borderBottom: "1px solid var(--border)",
+                      color: "var(--text-secondary)",
                     }}
                   >
-                    {canEditClar ? (
-                      <input
-                        value={c.clientResponse}
-                        onChange={(e) =>
-                          updateClarification(
-                            c.id,
-                            "clientResponse",
-                            e.target.value,
-                          )
-                        }
-                        style={{
-                          width: "100%",
-                          padding: "4px 6px",
-                          border: "1px solid var(--border)",
-                          borderRadius: 4,
-                          background: "var(--card-bg-elevated)",
-                          color: "var(--text-primary)",
-                          fontSize: 13,
-                        }}
-                      />
-                    ) : (
-                      c.clientResponse || "—"
-                    )}
-                  </td>
-                  <td
+                    Client Response
+                  </th>
+                  <th
                     style={{
-                      padding: "6px 10px",
-                      borderBottom: "1px solid var(--border)",
+                      padding: "8px 10px",
                       textAlign: "center",
+                      borderBottom: "1px solid var(--border)",
+                      color: "var(--text-secondary)",
+                      width: 90,
                     }}
                   >
-                    <span
+                    Created
+                  </th>
+                  <th
+                    style={{
+                      padding: "8px 10px",
+                      textAlign: "center",
+                      borderBottom: "1px solid var(--border)",
+                      color: "var(--text-secondary)",
+                      width: 90,
+                    }}
+                  >
+                    Responded
+                  </th>
+                  <th
+                    style={{
+                      padding: "8px 10px",
+                      textAlign: "center",
+                      borderBottom: "1px solid var(--border)",
+                      color: "var(--text-secondary)",
+                      width: 60,
+                    }}
+                  >
+                    Source
+                  </th>
+                  {canEditClar && (
+                    <th
                       style={{
-                        fontSize: 11,
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        background: c.isAutoImported
-                          ? "rgba(234, 179, 8, 0.15)"
-                          : "rgba(59, 130, 246, 0.15)",
-                        color: c.isAutoImported
-                          ? "var(--warning-color, #EAB308)"
-                          : "var(--primary-accent)",
+                        width: 40,
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    />
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {localClarifications.map((c, idx) => (
+                  <tr key={c.id}>
+                    <td
+                      style={{
+                        padding: "6px 10px",
+                        borderBottom: "1px solid var(--border)",
+                        fontWeight: 600,
                       }}
                     >
-                      {c.isAutoImported ? "Auto" : "Manual"}
-                    </span>
-                  </td>
-                  {canEditClar && (
+                      {idx + 1}
+                    </td>
+                    <td
+                      style={{
+                        padding: "6px 10px",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      {canEditClar && !c.isAutoImported ? (
+                        <input
+                          value={c.item}
+                          onChange={(e) =>
+                            updateClarification(c.id, "item", e.target.value)
+                          }
+                          style={{
+                            width: "100%",
+                            padding: "4px 6px",
+                            border: "1px solid var(--border)",
+                            borderRadius: 4,
+                            background: "var(--card-bg-elevated)",
+                            color: "var(--text-primary)",
+                            fontSize: 13,
+                          }}
+                        />
+                      ) : (
+                        <span
+                          style={{
+                            fontStyle: c.isAutoImported ? "italic" : undefined,
+                            color: c.isAutoImported
+                              ? "var(--text-secondary)"
+                              : undefined,
+                          }}
+                        >
+                          {c.item || "—"}
+                        </span>
+                      )}
+                    </td>
+                    <td
+                      style={{
+                        padding: "6px 10px",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      {canEditClar ? (
+                        <input
+                          value={c.description}
+                          onChange={(e) =>
+                            updateClarification(
+                              c.id,
+                              "description",
+                              e.target.value,
+                            )
+                          }
+                          style={{
+                            width: "100%",
+                            padding: "4px 6px",
+                            border: "1px solid var(--border)",
+                            borderRadius: 4,
+                            background: "var(--card-bg-elevated)",
+                            color: "var(--text-primary)",
+                            fontSize: 13,
+                          }}
+                        />
+                      ) : (
+                        c.description || "—"
+                      )}
+                    </td>
+                    <td
+                      style={{
+                        padding: "6px 10px",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      {canEditClar ? (
+                        <input
+                          value={c.clarification}
+                          onChange={(e) =>
+                            updateClarification(
+                              c.id,
+                              "clarification",
+                              e.target.value,
+                            )
+                          }
+                          style={{
+                            width: "100%",
+                            padding: "4px 6px",
+                            border: "1px solid var(--border)",
+                            borderRadius: 4,
+                            background: "var(--card-bg-elevated)",
+                            color: "var(--text-primary)",
+                            fontSize: 13,
+                          }}
+                        />
+                      ) : (
+                        c.clarification || "—"
+                      )}
+                    </td>
+                    <td
+                      style={{
+                        padding: "6px 10px",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      {canEditClar ? (
+                        <input
+                          value={c.clientResponse}
+                          onChange={(e) =>
+                            updateClarification(
+                              c.id,
+                              "clientResponse",
+                              e.target.value,
+                            )
+                          }
+                          style={{
+                            width: "100%",
+                            padding: "4px 6px",
+                            border: "1px solid var(--border)",
+                            borderRadius: 4,
+                            background: "var(--card-bg-elevated)",
+                            color: "var(--text-primary)",
+                            fontSize: 13,
+                          }}
+                        />
+                      ) : (
+                        c.clientResponse || "—"
+                      )}
+                    </td>
+                    <td
+                      style={{
+                        padding: "6px 10px",
+                        borderBottom: "1px solid var(--border)",
+                        textAlign: "center",
+                        fontSize: 11,
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      {c.createdDate
+                        ? new Date(c.createdDate).toLocaleDateString()
+                        : "—"}
+                    </td>
+                    <td
+                      style={{
+                        padding: "6px 10px",
+                        borderBottom: "1px solid var(--border)",
+                        textAlign: "center",
+                        fontSize: 11,
+                        color: c.responseDate
+                          ? "var(--success-color, #10b981)"
+                          : "var(--text-secondary)",
+                      }}
+                    >
+                      {c.responseDate
+                        ? new Date(c.responseDate).toLocaleDateString()
+                        : "—"}
+                    </td>
                     <td
                       style={{
                         padding: "6px 10px",
@@ -743,26 +847,51 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                         textAlign: "center",
                       }}
                     >
-                      {!c.isAutoImported && (
-                        <button
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "var(--error-color, #EF4444)",
-                            cursor: "pointer",
-                            fontSize: 14,
-                          }}
-                          onClick={() => deleteClarification(c.id)}
-                        >
-                          ✕
-                        </button>
-                      )}
+                      <span
+                        style={{
+                          fontSize: 11,
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          background: c.isAutoImported
+                            ? "rgba(234, 179, 8, 0.15)"
+                            : "rgba(59, 130, 246, 0.15)",
+                          color: c.isAutoImported
+                            ? "var(--warning-color, #EAB308)"
+                            : "var(--primary-accent)",
+                        }}
+                      >
+                        {c.isAutoImported ? "Auto" : "Manual"}
+                      </span>
                     </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    {canEditClar && (
+                      <td
+                        style={{
+                          padding: "6px 10px",
+                          borderBottom: "1px solid var(--border)",
+                          textAlign: "center",
+                        }}
+                      >
+                        {!c.isAutoImported && (
+                          <button
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "var(--error-color, #EF4444)",
+                              cursor: "pointer",
+                              fontSize: 14,
+                            }}
+                            onClick={() => deleteClarification(c.id)}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
         {canEditClar && (
           <button
@@ -779,6 +908,14 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
           </button>
         )}
       </GlassCard>
+
+      {/* Export Modal */}
+      <ExportClarificationModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        bid={bid}
+        clarifications={localClarifications}
+      />
     </div>
   );
 };

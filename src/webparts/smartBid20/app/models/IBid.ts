@@ -367,6 +367,10 @@ export interface IClarificationItem {
   clarification: string;
   clientResponse: string;
   isAutoImported: boolean;
+  /** Date when the clarification was created/added */
+  createdDate?: string;
+  /** Date when the client response was provided */
+  responseDate?: string;
 }
 
 export interface IHoursItem {
@@ -397,6 +401,8 @@ export interface IHoursSectionGroup {
   notes?: string;
   /** Technical specs for the section */
   specs?: string[];
+  /** Division tag for Integrated BIDs (ROV/SURVEY) */
+  integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
 }
 
 export interface IHoursSection {
@@ -604,13 +610,47 @@ export interface IBidKPIs {
   templateMatchScore: number | null;
 }
 
+/** A single tracked change within a revision */
+export interface IRevisionChange {
+  id: string;
+  /** Which tab/page was changed (e.g. "scope", "hours", "assets", "preparation", "logistics", "certifications") */
+  section: string;
+  /** Type of change: added, removed, or modified */
+  changeType: "added" | "removed" | "modified";
+  /** Human-readable description of what changed */
+  description: string;
+  /** Field path or item identifier that changed */
+  fieldPath: string;
+  /** Previous value (serialized) - null for additions */
+  previousValue: string | null;
+  /** New value (serialized) - null for removals */
+  newValue: string | null;
+  /** Who made this change */
+  changedBy: { name: string; email: string };
+  /** When was this change made */
+  changedAt: string;
+}
+
 export interface IBidRevision {
+  /** Revision letter: "A", "B", "C", etc. */
+  revisionLetter: string;
+  /** Legacy numeric index (0-based) */
   revision: number;
   openedBy: { name: string; email: string };
   openedDate: string;
-  reason: string;
-  returnToPhase: string;
+  closedBy: { name: string; email: string } | null;
   closedDate: string | null;
+  reason: string;
+  /** Phase the BID was in when revision was opened */
+  returnToPhase: string;
+  /** Status of this revision: open or closed */
+  status: "open" | "closed";
+  /** All changes tracked during this revision */
+  changes: IRevisionChange[];
+  /** Phase history entries during this revision */
+  phaseChanges: IPhaseHistoryEntry[];
+  /** Status history entries during this revision */
+  statusChanges: IStatusHistoryEntry[];
 }
 
 export interface IBidMetadata {

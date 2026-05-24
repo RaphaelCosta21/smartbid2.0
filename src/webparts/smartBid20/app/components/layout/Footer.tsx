@@ -1,10 +1,17 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { APP_CONFIG } from "../../config/app.config";
+import { useUIStore } from "../../stores/useUIStore";
 import styles from "./Footer.module.scss";
+
+const oiiBlueLogo = require("../../../assets/OII-blue-vetorizado.svg");
+const oiiWhiteLogo = require("../../../assets/OII-white-transparent-vetorizado.svg");
+const smartBidIcon = require("../../../assets/smartbid-icon.svg");
+const smartBidIconDark = require("../../../assets/smartbid-icon-dark.svg");
 
 export const Footer: React.FC = () => {
   const navigate = useNavigate();
+  const { theme } = useUIStore();
   const [time, setTime] = React.useState(new Date());
 
   React.useEffect(() => {
@@ -13,12 +20,16 @@ export const Footer: React.FC = () => {
   }, []);
 
   const formattedTime = time.toLocaleTimeString("en-US", { hour12: false });
+  const isDark = theme === "dark";
 
   return (
     <footer className={styles.footer}>
-      <span>&copy; 2026 Oceaneering</span>
-      <span className={styles.separator}>|</span>
-      <span>
+      <span className={styles.brandGroup}>
+        <img
+          src={isDark ? smartBidIcon : smartBidIconDark}
+          alt="SmartBid"
+          className={styles.footerSmartBidIcon}
+        />
         Smart BID v{APP_CONFIG.appVersion}{" "}
         <span
           className={styles.patchLink}
@@ -41,7 +52,11 @@ export const Footer: React.FC = () => {
         rel="noopener noreferrer"
         className={styles.link}
       >
-        oceaneering.com
+        <img
+          src={isDark ? oiiWhiteLogo : oiiBlueLogo}
+          alt="Oceaneering"
+          className={styles.footerOiiLogo}
+        />
       </a>
     </footer>
   );

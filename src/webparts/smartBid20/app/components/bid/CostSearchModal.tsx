@@ -21,6 +21,7 @@ import { useQueryCatalogStore } from "../../stores/useQueryCatalogStore";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useQuotationStore } from "../../stores/useQuotationStore";
 import { BomCostAnalysisService } from "../../services/BomCostAnalysisService";
+import { AddQuotationModal } from "./AddQuotationModal";
 import styles from "./CostSearchModal.module.scss";
 
 export interface CostSearchImportItem {
@@ -34,6 +35,7 @@ export interface CostSearchImportItem {
   originalCost: number;
   originalCurrency: string;
   costDate: string;
+  supplier?: string;
 }
 
 interface CostSearchModalProps {
@@ -41,6 +43,8 @@ interface CostSearchModalProps {
   assetBreakdown: IAssetBreakdownItem[];
   onImport: (items: CostSearchImportItem[]) => void;
   onClose: () => void;
+  /** Called when user wants to create a BOM for a specific item (triggers BOM import flow) */
+  onCreateBom?: (partNumber: string, description: string) => void;
 }
 
 interface SearchRow {
@@ -78,6 +82,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
   assetBreakdown,
   onImport,
   onClose,
+  onCreateBom,
 }) => {
   const catalogLoaded = useQueryCatalogStore((s) => s.isLoaded);
   const catalogLoading = useQueryCatalogStore((s) => s.isLoading);
@@ -92,6 +97,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
   const quotationItems = useQuotationStore((s) => s.items);
   const quotationsLoaded = useQuotationStore((s) => s.isLoaded);
   const loadQuotations = useQuotationStore((s) => s.loadQuotations);
+  const refreshQuotations = useQuotationStore((s) => s.refreshQuotations);
   const [bomAnalyses, setBomAnalyses] = React.useState<IBomCostAnalysis[]>([]);
 
   const [rows, setRows] = React.useState<SearchRow[]>([]);
@@ -100,6 +106,12 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
   const [filterMode, setFilterMode] = React.useState<"missing" | "all">(
     "missing",
   );
+
+  // ─── Add Quotation modal state ───
+  const [addQuotationOpen, setAddQuotationOpen] = React.useState<{
+    partNumber: string;
+    description: string;
+  } | null>(null);
 
   // Load catalog, quotations and BOM analyses on mount
   React.useEffect(() => {
@@ -377,12 +389,13 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
             assetId: r.asset.id,
             subItemCostId: r.subItemCost ? r.subItemCost.id : undefined,
             unitCostUSD: cost,
-            costReference: "QUOTE",
+            costReference: r.quoteResult.supplier || "Quote",
             dateReference: r.quoteResult.quotationDate,
             leadTimeDays: 0,
             originalCost: r.quoteResult.costUSD,
             originalCurrency: "USD",
             costDate: r.quoteResult.quotationDate,
+            supplier: r.quoteResult.supplier || "",
           };
         }
         // Default: catalog
@@ -564,6 +577,15 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                 ? "Searching..."
                 : "🔍 Search All"}
           </button>
+          <button
+            className={styles.addQuoteBtn}
+            onClick={() =>
+              setAddQuotationOpen({ partNumber: "", description: "" })
+            }
+            title="Add a new quotation to the database"
+          >
+            📝 Add Quotation
+          </button>
         </div>
 
         {/* Summary */}
@@ -602,6 +624,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                 <th>Date Ref</th>
                 <th>Lead Time</th>
                 <th>Override</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -624,7 +647,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                           </span>
                         )}
                       </td>
-                      <td colSpan={6} className={styles.parentContextHint}>
+                      <td colSpan={7} className={styles.parentContextHint}>
                         ✅ has cost — sub-items below
                       </td>
                     </tr>
@@ -801,12 +824,51 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                         />
                       )}
                     </td>
+                    <td className={styles.tdActions}>
+                      {hasSearched && !hasAny && pn.trim() && (
+                        <div className={styles.actionBtns}>
+                          <button
+                            className={styles.actionBtn}
+                            onClick={() =>
+                              setAddQuotationOpen({
+                                partNumber: pn,
+                                description: row.subItemScope
+                                  ? row.subItemScope.equipmentOffer ||
+                                    row.subItemScope.description ||
+                                    ""
+                                  : row.scopeItem.equipmentOffer || "",
+                              })
+                            }
+                            title="Add Quotation for this item"
+                          >
+                            📝
+                          </button>
+                          {onCreateBom && !row.subItemCost && (
+                            <button
+                              className={styles.actionBtn}
+                              onClick={() => {
+                                onCreateBom(
+                                  pn,
+                                  row.scopeItem.equipmentOffer ||
+                                    row.scopeItem.description ||
+                                    "",
+                                );
+                                onClose();
+                              }}
+                              title="Create BOM Cost Analysis for this item"
+                            >
+                              🧮
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className={styles.emptyRow}>
+                  <td colSpan={10} className={styles.emptyRow}>
                     {filterMode === "missing"
                       ? "All items already have costs assigned!"
                       : "No scope items found."}
@@ -831,6 +893,20 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Add Quotation Modal */}
+      {addQuotationOpen && (
+        <AddQuotationModal
+          onClose={() => setAddQuotationOpen(null)}
+          onSaved={() => {
+            setAddQuotationOpen(null);
+            // Refresh quotations so the next Search All picks them up
+            refreshQuotations();
+          }}
+          defaultPartNumber={addQuotationOpen.partNumber}
+          defaultDescription={addQuotationOpen.description}
+        />
+      )}
     </div>
   );
 };

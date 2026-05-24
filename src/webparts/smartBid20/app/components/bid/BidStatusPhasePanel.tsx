@@ -5,6 +5,7 @@ import {
   IActivityLogEntry,
   IPhaseHistoryEntry,
   IStatusHistoryEntry,
+  IBidRevision,
   BidPhase,
 } from "../../models";
 import { BID_STATUSES, BID_PHASES } from "../../config/status.config";
@@ -14,6 +15,7 @@ import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { StatusBadge } from "../common/StatusBadge";
 import { GlassCard } from "../common/GlassCard";
 import { BidTaskChecklist } from "./BidTaskChecklist";
+import { getRevisionLetter } from "./RevisionsTab";
 import { formatDateTime } from "../../utils/formatters";
 import {
   formatDurationHours,
@@ -68,6 +70,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
     phaseLabel: string;
   } | null>(null);
   const [phasePickerStatus, setPhasePickerStatus] = React.useState<string>("");
+  const [reworkReason, setReworkReason] = React.useState<string>("");
 
   /* ─── Phases from config (fallback to hardcoded) ─── */
   const phases = React.useMemo(() => {
@@ -198,6 +201,14 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
       ? Math.round((completedTasks / currentPhaseTasks.length) * 100)
       : 0;
 
+  /* ─── Terminal status warning state ─── */
+  const [terminalWarning, setTerminalWarning] = React.useState<{
+    phase: BidPhase;
+    status: string;
+    phaseLabel: string;
+    statusLabel: string;
+  } | null>(null);
+
   /* ─── Change handler ─── */
   const executeChange = React.useCallback(
     (newPhase: BidPhase, newStatus: string) => {
@@ -290,17 +301,61 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
         });
       }
 
-      onSave({
+      // Determine if this is a terminal status to set completedDate
+      const isTerminal = terminalStatuses.some((t) => t.value === newStatus);
+
+      const patch: Partial<IBid> = {
         currentPhase: newPhase,
         currentStatus: newStatus,
         phaseHistory: newPhaseHistory,
         statusHistory: newStatusHistory,
         activityLog: [...(bid.activityLog || []), ...logs],
-      });
+      };
+
+      if (isTerminal) {
+        patch.completedDate = now;
+      }
+
+      // If leaving Rework with a terminal status, close the active revision
+      if (bid.currentPhase === ("Rework" as BidPhase) && isTerminal) {
+        const currentRevisions = bid.revisions || [];
+        const hasOpen = currentRevisions.some((r) => r.status === "open");
+        if (hasOpen) {
+          patch.revisions = currentRevisions.map((r) =>
+            r.status === "open"
+              ? {
+                  ...r,
+                  status: "closed" as const,
+                  closedDate: now,
+                  closedBy: {
+                    name: currentUser.displayName,
+                    email: currentUser.email,
+                  },
+                }
+              : r,
+          );
+          const openRev = currentRevisions.find((r) => r.status === "open");
+          if (openRev) {
+            logs.push({
+              id: `log-${Date.now()}-rev-close`,
+              type: "REVISION_CLOSED",
+              timestamp: now,
+              actor: currentUser.email,
+              actorName: currentUser.displayName,
+              description: `Revision ${openRev.revisionLetter} closed`,
+              metadata: { revisionLetter: openRev.revisionLetter },
+            });
+            patch.activityLog = [...(bid.activityLog || []), ...logs];
+          }
+        }
+      }
+
+      onSave(patch);
 
       setConfirmAction(null);
+      setTerminalWarning(null);
     },
-    [bid, currentUser, onSave, phases],
+    [bid, currentUser, onSave, phases, terminalStatuses],
   );
 
   /* ─── Click handlers ─── */
@@ -330,6 +385,17 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
     const phaseLabel =
       phases.find((p) => p.value === targetPhase)?.label || targetPhase;
 
+    // Terminal statuses: show special warning dialog
+    if (isTerminal) {
+      setTerminalWarning({
+        phase: targetPhase,
+        status: statusDef.value,
+        phaseLabel,
+        statusLabel: statusDef.label,
+      });
+      return;
+    }
+
     setConfirmAction({
       type: targetPhase !== bid.currentPhase ? "phase" : "status",
       phase: targetPhase,
@@ -347,6 +413,16 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
     if (isUnassigned && RESTRICTED_PHASES.indexOf(phase.value) >= 0) {
       setUnassignedBlock(true);
       return;
+    }
+
+    // Rework phase is only allowed when BID is in a terminal status (Completed, Canceled, No Bid)
+    if (phase.value === ("Rework" as BidPhase)) {
+      const bidIsTerminal = terminalStatuses.some(
+        (t) => t.value === bid.currentStatus,
+      );
+      if (!bidIsTerminal) {
+        return;
+      }
     }
 
     // Open status picker for target phase
@@ -374,6 +450,97 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
     executeChange(phasePickerTarget.phase, phasePickerStatus);
     setPhasePickerTarget(null);
     setPhasePickerStatus("");
+  };
+
+  /** Handle Rework phase confirmation — creates a new revision */
+  const handleReworkPhaseConfirm = () => {
+    if (!phasePickerStatus || !reworkReason.trim()) return;
+    const now = new Date().toISOString();
+    const revisions = bid.revisions || [];
+    const newRevisionIndex = revisions.length;
+    const newLetter = getRevisionLetter(newRevisionIndex);
+
+    const newRevision: IBidRevision = {
+      revisionLetter: newLetter,
+      revision: newRevisionIndex,
+      openedBy: { name: currentUser.displayName, email: currentUser.email },
+      openedDate: now,
+      closedBy: null,
+      closedDate: null,
+      reason: reworkReason.trim(),
+      returnToPhase: bid.currentPhase,
+      status: "open",
+      changes: [],
+      phaseChanges: [],
+      statusChanges: [],
+    };
+
+    // Close current phase
+    const currentPhaseHistory = bid.phaseHistory || [];
+    const updatedPhaseHistory: IPhaseHistoryEntry[] = currentPhaseHistory.map(
+      (entry, idx) => {
+        if (idx === currentPhaseHistory.length - 1 && !entry.end) {
+          return {
+            ...entry,
+            end: now,
+            durationHours: calcDurationHours(entry.start, now),
+          };
+        }
+        return entry;
+      },
+    );
+    const newPhaseEntry: IPhaseHistoryEntry = {
+      id: updatedPhaseHistory.length + 1,
+      phase: "Rework" as BidPhase,
+      start: now,
+      end: null,
+      durationHours: null,
+      actor: currentUser.displayName,
+    };
+
+    // Close current status
+    const currentStatusHistory = bid.statusHistory || [];
+    const updatedStatusHistory: IStatusHistoryEntry[] =
+      currentStatusHistory.map((entry, idx) => {
+        if (idx === currentStatusHistory.length - 1 && !entry.end) {
+          return {
+            ...entry,
+            end: now,
+            durationHours: calcDurationHours(entry.start, now),
+          };
+        }
+        return entry;
+      });
+    const newStatusEntry: IStatusHistoryEntry = {
+      id: updatedStatusHistory.length + 1,
+      status: phasePickerStatus,
+      phase: "Rework" as BidPhase,
+      start: now,
+      end: null,
+      durationHours: null,
+      actor: currentUser.displayName,
+    };
+
+    // Activity log
+    const logEntry: IActivityLogEntry = {
+      id: `log-${Date.now()}-rework`,
+      type: "REVISION_STARTED",
+      timestamp: now,
+      actor: currentUser.email,
+      actorName: currentUser.displayName,
+      description: `Rework phase started. Revision ${newLetter} created. Reason: ${reworkReason.trim()}`,
+      metadata: { revisionLetter: newLetter, reason: reworkReason.trim() },
+    };
+
+    onSave({
+      revisions: [...revisions, newRevision],
+      currentPhase: "Rework" as BidPhase,
+      currentStatus: phasePickerStatus,
+      phaseHistory: [...updatedPhaseHistory, newPhaseEntry],
+      statusHistory: [...updatedStatusHistory, newStatusEntry],
+      completedDate: null,
+      activityLog: [...(bid.activityLog || []), logEntry],
+    });
   };
 
   /* ─── Task toggle handler ─── */
@@ -432,7 +599,11 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
           {phases.map((phase, idx) => {
             const isCompleted = idx < currentPhaseIndex;
             const isCurrent = idx === currentPhaseIndex;
-            const isClickable = !readOnly && !isCurrent;
+            // Rework is only clickable when BID is in a terminal status
+            const isReworkLocked =
+              phase.value === ("Rework" as BidPhase) &&
+              !terminalStatuses.some((t) => t.value === bid.currentStatus);
+            const isClickable = !readOnly && !isCurrent && !isReworkLocked;
 
             return (
               <React.Fragment key={phase.id}>
@@ -440,9 +611,11 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                   className={`${styles.phaseStep} ${isClickable ? styles.phaseStepClickable : ""}`}
                   onClick={() => isClickable && handlePhaseClick(phase)}
                   title={
-                    isClickable
-                      ? `Click to change to ${phase.label}`
-                      : phase.label
+                    isReworkLocked
+                      ? "Rework is only available when BID has a terminal status"
+                      : isClickable
+                        ? `Click to change to ${phase.label}`
+                        : phase.label
                   }
                 >
                   <div
@@ -1028,6 +1201,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
           onClick={() => {
             setPhasePickerTarget(null);
             setPhasePickerStatus("");
+            setReworkReason("");
           }}
         >
           <div
@@ -1041,98 +1215,325 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                 height="32"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="var(--primary-accent)"
+                stroke={
+                  phasePickerTarget.phase === ("Rework" as BidPhase)
+                    ? "#F97316"
+                    : "var(--primary-accent)"
+                }
                 strokeWidth="2"
               >
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
               </svg>
             </div>
             <h3 className={styles.confirmTitle}>
-              Change Phase to &ldquo;{phasePickerTarget.phaseLabel}&rdquo;
+              {phasePickerTarget.phase === ("Rework" as BidPhase)
+                ? "Start Rework / New Revision"
+                : `Change Phase to "${phasePickerTarget.phaseLabel}"`}
             </h3>
             <div className={styles.confirmMeta}>
-              Select the initial status for this phase:
+              {phasePickerTarget.phase === ("Rework" as BidPhase) ? (
+                <div style={{ textAlign: "center" }}>
+                  <strong style={{ color: "#F97316" }}>⚠️ Attention:</strong>{" "}
+                  Starting a Rework will reopen the BID process. All editing
+                  pages (Scope, Hours, Assets, Prep & Mobilization, Logistics,
+                  Certifications) will be unlocked for changes.
+                  <br />
+                  <br />A new revision (
+                  <strong>
+                    Revision {getRevisionLetter((bid.revisions || []).length)}
+                  </strong>
+                  ) will be created and all changes made during this revision
+                  will be tracked.
+                </div>
+              ) : (
+                "Select the initial status for this phase:"
+              )}
             </div>
-            <div className={styles.statusGrid} style={{ width: "100%" }}>
-              {(() => {
-                const targetPhaseVal = phasePickerTarget.phase;
-                // Get statuses applicable to target phase
-                const phaseSpecific = statusesByPhase[targetPhaseVal] || [];
-                const globalStatuses = statusesByPhase["global"] || [];
-                const available = [...phaseSpecific, ...globalStatuses];
-                // Also include terminal statuses if target is Close Out
-                const extras =
-                  targetPhaseVal === "Close Out" ? terminalStatuses : [];
-                const allAvailable = [...available, ...extras];
-                // Deduplicate by value
-                const seen = new Set<string>();
-                const deduped: typeof allAvailable = [];
-                allAvailable.forEach((s) => {
-                  if (!seen.has(s.value)) {
-                    seen.add(s.value);
-                    deduped.push(s);
-                  }
-                });
-                return deduped.map((s) => {
-                  const isSelected = phasePickerStatus === s.value;
-                  return (
-                    <button
-                      key={s.id}
-                      className={`${styles.statusCard} ${isSelected ? styles.statusCardActive : ""}`}
-                      style={
-                        isSelected
-                          ? {
-                              borderColor: s.color,
-                              background: `${s.color}12`,
+            {phasePickerTarget.phase === ("Rework" as BidPhase) && (
+              <>
+                <div style={{ width: "100%", marginTop: 12 }}>
+                  <label
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
+                      display: "block",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Reason for Rework *
+                  </label>
+                  <textarea
+                    style={{
+                      width: "100%",
+                      minHeight: 70,
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      border: "1px solid var(--border-color)",
+                      background: "var(--card-bg)",
+                      color: "var(--text-primary)",
+                      fontSize: 13,
+                      resize: "vertical",
+                    }}
+                    placeholder="Describe the reason for this rework..."
+                    value={reworkReason}
+                    onChange={(e) => setReworkReason(e.target.value)}
+                  />
+                </div>
+                <div style={{ width: "100%", marginTop: 12 }}>
+                  <label
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
+                      display: "block",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Select initial status for Rework phase:
+                  </label>
+                  <div className={styles.statusGrid} style={{ width: "100%" }}>
+                    {(() => {
+                      const reworkStatuses = statusesByPhase["Rework"] || [];
+                      const globalStatuses = statusesByPhase["global"] || [];
+                      const available = [...reworkStatuses, ...globalStatuses];
+                      const seen = new Set<string>();
+                      const deduped: typeof available = [];
+                      available.forEach((s) => {
+                        if (!seen.has(s.value)) {
+                          seen.add(s.value);
+                          deduped.push(s);
+                        }
+                      });
+                      return deduped.map((s) => {
+                        const isSelected = phasePickerStatus === s.value;
+                        return (
+                          <button
+                            key={s.id}
+                            className={`${styles.statusCard} ${isSelected ? styles.statusCardActive : ""}`}
+                            style={
+                              isSelected
+                                ? {
+                                    borderColor: s.color,
+                                    background: `${s.color}12`,
+                                  }
+                                : {}
                             }
-                          : {}
-                      }
-                      onClick={() => setPhasePickerStatus(s.value)}
-                    >
-                      <span
-                        className={styles.statusCardDot}
-                        style={{ background: s.color }}
-                      />
-                      <span className={styles.statusCardLabel}>{s.label}</span>
-                      {isSelected && (
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke={s.color}
-                          strokeWidth="2.5"
-                          className={styles.statusCardCheck}
-                        >
-                          <path d="M20 6L9 17l-5-5" />
-                        </svg>
-                      )}
-                    </button>
-                  );
-                });
-              })()}
-            </div>
+                            onClick={() => setPhasePickerStatus(s.value)}
+                          >
+                            <span
+                              className={styles.statusCardDot}
+                              style={{ background: s.color }}
+                            />
+                            <span className={styles.statusCardLabel}>
+                              {s.label}
+                            </span>
+                            {isSelected && (
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke={s.color}
+                                strokeWidth="2.5"
+                                className={styles.statusCardCheck}
+                              >
+                                <path d="M20 6L9 17l-5-5" />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              </>
+            )}
+            {phasePickerTarget.phase !== ("Rework" as BidPhase) && (
+              <div className={styles.statusGrid} style={{ width: "100%" }}>
+                {(() => {
+                  const targetPhaseVal = phasePickerTarget.phase;
+                  // Get statuses applicable to target phase
+                  const phaseSpecific = statusesByPhase[targetPhaseVal] || [];
+                  const globalStatuses = statusesByPhase["global"] || [];
+                  const available = [...phaseSpecific, ...globalStatuses];
+                  // Also include terminal statuses if target is Close Out
+                  const extras =
+                    targetPhaseVal === "Close Out" ? terminalStatuses : [];
+                  const allAvailable = [...available, ...extras];
+                  // Deduplicate by value
+                  const seen = new Set<string>();
+                  const deduped: typeof allAvailable = [];
+                  allAvailable.forEach((s) => {
+                    if (!seen.has(s.value)) {
+                      seen.add(s.value);
+                      deduped.push(s);
+                    }
+                  });
+                  return deduped.map((s) => {
+                    const isSelected = phasePickerStatus === s.value;
+                    return (
+                      <button
+                        key={s.id}
+                        className={`${styles.statusCard} ${isSelected ? styles.statusCardActive : ""}`}
+                        style={
+                          isSelected
+                            ? {
+                                borderColor: s.color,
+                                background: `${s.color}12`,
+                              }
+                            : {}
+                        }
+                        onClick={() => setPhasePickerStatus(s.value)}
+                      >
+                        <span
+                          className={styles.statusCardDot}
+                          style={{ background: s.color }}
+                        />
+                        <span className={styles.statusCardLabel}>
+                          {s.label}
+                        </span>
+                        {isSelected && (
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke={s.color}
+                            strokeWidth="2.5"
+                            className={styles.statusCardCheck}
+                          >
+                            <path d="M20 6L9 17l-5-5" />
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+            )}
             <div className={styles.confirmActions}>
               <button
                 className={styles.confirmCancel}
                 onClick={() => {
                   setPhasePickerTarget(null);
                   setPhasePickerStatus("");
+                  setReworkReason("");
                 }}
+              >
+                Cancel
+              </button>
+              {phasePickerTarget.phase === ("Rework" as BidPhase) ? (
+                <button
+                  className={styles.confirmSubmit}
+                  style={
+                    !phasePickerStatus || !reworkReason.trim()
+                      ? {
+                          background: "#F97316",
+                          opacity: 0.5,
+                          cursor: "not-allowed",
+                        }
+                      : { background: "#F97316" }
+                  }
+                  disabled={!phasePickerStatus || !reworkReason.trim()}
+                  onClick={() => {
+                    handleReworkPhaseConfirm();
+                    setPhasePickerTarget(null);
+                    setPhasePickerStatus("");
+                    setReworkReason("");
+                  }}
+                >
+                  Start Rework & Create Revision
+                </button>
+              ) : (
+                <button
+                  className={styles.confirmSubmit}
+                  disabled={!phasePickerStatus}
+                  onClick={handlePhasePickerConfirm}
+                  style={
+                    !phasePickerStatus
+                      ? { opacity: 0.5, cursor: "not-allowed" }
+                      : {}
+                  }
+                >
+                  Confirm Phase Change
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Terminal Status Warning Dialog ─── */}
+      {terminalWarning && (
+        <div
+          className={styles.overlay}
+          onClick={() => setTerminalWarning(null)}
+        >
+          <div
+            className={styles.confirmDialog}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.confirmIcon}>
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#EF4444"
+                strokeWidth="2"
+              >
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+            <h3 className={styles.confirmTitle}>
+              Terminal Status — BID Will Be Locked
+            </h3>
+            <div className={styles.confirmChanges}>
+              <div className={styles.confirmChangeRow}>
+                <span className={styles.confirmLabel}>Status</span>
+                <span className={styles.confirmFrom}>{bid.currentStatus}</span>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--text-secondary)"
+                  strokeWidth="2"
+                >
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+                <span className={styles.confirmTo}>
+                  {terminalWarning.statusLabel}
+                </span>
+              </div>
+            </div>
+            <div
+              className={styles.confirmMeta}
+              style={{ textAlign: "center", color: "var(--danger, #EF4444)" }}
+            >
+              <strong>Warning:</strong> Selecting a terminal status will lock
+              this BID for editing. All cost, scope, and resource tabs will
+              become read-only. To make any future edits, a revision process
+              must be initiated.
+            </div>
+            <div className={styles.confirmActions}>
+              <button
+                className={styles.confirmCancel}
+                onClick={() => setTerminalWarning(null)}
               >
                 Cancel
               </button>
               <button
                 className={styles.confirmSubmit}
-                disabled={!phasePickerStatus}
-                onClick={handlePhasePickerConfirm}
-                style={
-                  !phasePickerStatus
-                    ? { opacity: 0.5, cursor: "not-allowed" }
-                    : {}
+                style={{ background: "#EF4444" }}
+                onClick={() =>
+                  executeChange(terminalWarning.phase, terminalWarning.status)
                 }
               >
-                Confirm Phase Change
+                Confirm Terminal Status
               </button>
             </div>
           </div>

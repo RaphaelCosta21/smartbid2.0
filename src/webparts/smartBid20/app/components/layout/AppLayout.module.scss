@@ -3,7 +3,7 @@
 .appLayout {
   display: flex;
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
   background: var(--main-bg);
   color: var(--text-primary);
   position: relative;
@@ -13,8 +13,12 @@
 .sidebarArea {
   flex-shrink: 0;
   width: 260px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
   transition: width 300ms ease;
   z-index: 50;
+  overflow: visible;
 
   &.collapsed {
     width: 64px;
@@ -26,6 +30,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: 100vh;
   overflow: hidden;
 }
 

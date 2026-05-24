@@ -8,6 +8,7 @@ import {
 import { BID_PHASES } from "../../config/status.config";
 import { getStatusColor } from "../../config/status.config";
 import { useConfigStore } from "../../stores/useConfigStore";
+import { isTerminalStatus } from "../../utils/statusHelpers";
 import { StatusBadge } from "../common/StatusBadge";
 import { GlassCard } from "../common/GlassCard";
 import { formatDateTime } from "../../utils/formatters";
@@ -23,14 +24,16 @@ import styles from "./BidTimeline.module.scss";
 function getPhaseTotalHours(
   entries: IPhaseHistoryEntry[],
   phase: BidPhase,
+  frozenTime?: number,
 ): number {
   let total = 0;
+  const refTime = frozenTime || Date.now();
   entries.forEach((e) => {
     if (e.phase === phase) {
       if (e.durationHours !== null) {
         total += e.durationHours;
       } else if (!e.end) {
-        total += (Date.now() - new Date(e.start).getTime()) / (1000 * 60 * 60);
+        total += (refTime - new Date(e.start).getTime()) / (1000 * 60 * 60);
       }
     }
   });
@@ -70,10 +73,23 @@ export const BidTimeline: React.FC<BidTimelineProps> = ({
 }) => {
   const config = useConfigStore((s) => s.config);
 
+  // Check if bid is in terminal status (frozen — no live timers)
+  const isFrozen = isTerminalStatus(bid.currentStatus);
+  const frozenTime =
+    isFrozen && bid.completedDate
+      ? new Date(bid.completedDate).getTime()
+      : undefined;
+
   const phases = React.useMemo(() => {
     const cfgPhases = config?.phases;
+    let allPhases: {
+      id: string;
+      label: string;
+      value: BidPhase;
+      color: string;
+    }[];
     if (cfgPhases && cfgPhases.length > 0) {
-      return cfgPhases
+      allPhases = cfgPhases
         .filter((p) => p.isActive !== false)
         .sort((a, b) => (a.order || 0) - (b.order || 0))
         .map((p) => ({
@@ -82,32 +98,42 @@ export const BidTimeline: React.FC<BidTimelineProps> = ({
           value: p.value as BidPhase,
           color: p.color || "#94A3B8",
         }));
+    } else {
+      allPhases = BID_PHASES.map((p) => ({
+        id: p.id,
+        label: p.label,
+        value: p.value as BidPhase,
+        color: p.color || "#94A3B8",
+      }));
     }
-    return BID_PHASES.map((p) => ({
-      id: p.id,
-      label: p.label,
-      value: p.value as BidPhase,
-      color: p.color || "#94A3B8",
-    }));
-  }, [config]);
+    // Rework is optional: only show if BID has been in Rework phase
+    const hasReworkHistory = (bid.phaseHistory || []).some(
+      (ph) => ph.phase === ("Rework" as BidPhase),
+    );
+    const isInRework = bid.currentPhase === ("Rework" as BidPhase);
+    if (!hasReworkHistory && !isInRework) {
+      allPhases = allPhases.filter((p) => p.value !== ("Rework" as BidPhase));
+    }
+    return allPhases;
+  }, [config, bid.phaseHistory, bid.currentPhase]);
 
   const phaseHistory = React.useMemo(() => bid.phaseHistory || [], [bid]);
   const statusHistory = React.useMemo(() => bid.statusHistory || [], [bid]);
 
-  // Live timer for current phase
+  // Live timer for current phase (disabled when frozen/terminal)
   const currentPhaseEntry =
     phaseHistory.length > 0 ? phaseHistory[phaseHistory.length - 1] : null;
   const livePhaseElapsed = useLiveElapsed(
-    currentPhaseEntry && !currentPhaseEntry.end
+    !isFrozen && currentPhaseEntry && !currentPhaseEntry.end
       ? currentPhaseEntry.start
       : null,
   );
 
-  // Live timer for current status
+  // Live timer for current status (disabled when frozen/terminal)
   const currentStatusEntry =
     statusHistory.length > 0 ? statusHistory[statusHistory.length - 1] : null;
   const liveStatusElapsed = useLiveElapsed(
-    currentStatusEntry && !currentStatusEntry.end
+    !isFrozen && currentStatusEntry && !currentStatusEntry.end
       ? currentStatusEntry.start
       : null,
   );
@@ -123,9 +149,9 @@ export const BidTimeline: React.FC<BidTimelineProps> = ({
     return map;
   }, [statusHistory]);
 
-  // Total elapsed
+  // Total elapsed (frozen at completedDate if terminal)
   const totalElapsedMs = bid.createdDate
-    ? Date.now() - new Date(bid.createdDate).getTime()
+    ? (frozenTime || Date.now()) - new Date(bid.createdDate).getTime()
     : 0;
   const totalElapsed = formatLiveElapsed(totalElapsedMs);
 
@@ -177,6 +203,21 @@ export const BidTimeline: React.FC<BidTimelineProps> = ({
                 <span className={styles.liveDot} /> {livePhaseElapsed}
               </span>
             )}
+            {isFrozen && currentPhaseEntry && (
+              <span
+                className={styles.summaryLive}
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {(() => {
+                  const hrs = getPhaseTotalHours(
+                    phaseHistory,
+                    bid.currentPhase,
+                    frozenTime,
+                  );
+                  return hrs > 0 ? formatDurationFromHours(hrs) : "";
+                })()}
+              </span>
+            )}
           </div>
         </div>
         <div className={styles.summaryCard}>
@@ -201,6 +242,26 @@ export const BidTimeline: React.FC<BidTimelineProps> = ({
             {liveStatusElapsed && (
               <span className={styles.summaryLive}>
                 <span className={styles.liveDot} /> {liveStatusElapsed}
+              </span>
+            )}
+            {isFrozen && currentStatusEntry && !liveStatusElapsed && (
+              <span
+                className={styles.summaryLive}
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {(() => {
+                  if (currentStatusEntry.durationHours !== null) {
+                    return formatDurationFromHours(
+                      currentStatusEntry.durationHours,
+                    );
+                  }
+                  if (currentStatusEntry.start && frozenTime) {
+                    const ms =
+                      frozenTime - new Date(currentStatusEntry.start).getTime();
+                    return formatDurationFromHours(ms / (1000 * 60 * 60));
+                  }
+                  return "";
+                })()}
               </span>
             )}
           </div>
@@ -244,8 +305,21 @@ export const BidTimeline: React.FC<BidTimelineProps> = ({
             let durationText = "";
             if (isCurrent && livePhaseElapsed) {
               durationText = livePhaseElapsed;
+            } else if (isCurrent && isFrozen) {
+              // Frozen: show total hours for current phase at completedDate
+              const totalHrs = getPhaseTotalHours(
+                phaseHistory,
+                phase.value,
+                frozenTime,
+              );
+              if (totalHrs > 0)
+                durationText = formatDurationFromHours(totalHrs);
             } else if (isCompleted) {
-              const totalHrs = getPhaseTotalHours(phaseHistory, phase.value);
+              const totalHrs = getPhaseTotalHours(
+                phaseHistory,
+                phase.value,
+                frozenTime,
+              );
               if (totalHrs > 0)
                 durationText = formatDurationFromHours(totalHrs);
             }
@@ -380,6 +454,12 @@ export const BidTimeline: React.FC<BidTimelineProps> = ({
                   phaseDuration = formatDurationFromHours(
                     phaseEntry.durationHours,
                   );
+                } else if (isFrozen && frozenTime && !phaseEntry.end) {
+                  // Frozen: calculate duration from start to completedDate
+                  const ms = frozenTime - new Date(phaseEntry.start).getTime();
+                  phaseDuration = formatDurationFromHours(
+                    ms / (1000 * 60 * 60),
+                  );
                 }
               }
 
@@ -481,6 +561,12 @@ export const BidTimeline: React.FC<BidTimelineProps> = ({
                           );
                         } else if (sh.durationHours !== null) {
                           sDuration = formatDurationFromHours(sh.durationHours);
+                        } else if (isFrozen && frozenTime && !sh.end) {
+                          // Frozen: calculate duration from start to completedDate
+                          const ms = frozenTime - new Date(sh.start).getTime();
+                          sDuration = formatDurationFromHours(
+                            ms / (1000 * 60 * 60),
+                          );
                         }
 
                         return (
