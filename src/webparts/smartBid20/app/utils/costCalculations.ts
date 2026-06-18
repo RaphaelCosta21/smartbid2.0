@@ -10,6 +10,7 @@ import {
   IScopeItem,
   IExchangeRate,
   ISubItemCost,
+  IAvailabilitySplit,
 } from "../models";
 
 /** Per-resource-type asset cost breakdown */
@@ -20,6 +21,28 @@ export interface IAssetResourceTypeCost {
   totalUSD: number;
 }
 
+/** Compute the cost of a single availability split entry */
+export function getSplitCost(split: IAvailabilitySplit): number {
+  const avail = (split.availabilityStatus || "").toLowerCase();
+  const acqType = (split.acquisitionType || "").toLowerCase();
+  const subCostsSum = (split.subCosts || []).reduce(
+    (s, sc) => s + (sc.costUSD || 0),
+    0,
+  );
+  const qty = split.qty || 0;
+
+  if (avail === "onboard" || avail === "call out" || avail === "not offered") {
+    return subCostsSum;
+  }
+  if (acqType === "workshop") {
+    return subCostsSum;
+  }
+  if (acqType === "rental") {
+    return (split.dailyRate || 0) * (split.rentalDays || 0) * qty + subCostsSum;
+  }
+  return (split.unitCostUSD || 0) * qty + subCostsSum;
+}
+
 /**
  * Compute the effective total for a single asset's main cost (excludes subItemCosts),
  * matching the logic used in AssetsBreakdownTab.getEffectiveTotal.
@@ -28,6 +51,14 @@ function getAssetMainCost(
   a: IAssetBreakdownItem,
   scopeItems: IScopeItem[],
 ): number {
+  // If availability splits are active, use their individual costs
+  if (a.availabilitySplits && a.availabilitySplits.length > 0) {
+    return a.availabilitySplits.reduce(
+      (sum, split) => sum + getSplitCost(split),
+      0,
+    );
+  }
+
   const si = scopeItems.find((s) => s.id === a.scopeItemId);
   const qty = (si ? (si.qtyOperational || 0) + (si.qtySpare || 0) : 0) || 1;
   const avail = (a.availabilityStatus || "").toLowerCase();
@@ -54,6 +85,14 @@ function getSubItemCostTotal(
   sic: ISubItemCost,
   scopeItem: IScopeItem | undefined,
 ): number {
+  // If availability splits are active, use their individual costs
+  if (sic.availabilitySplits && sic.availabilitySplits.length > 0) {
+    return sic.availabilitySplits.reduce(
+      (sum, split) => sum + getSplitCost(split),
+      0,
+    );
+  }
+
   const avail = (sic.availabilityStatus || "").toLowerCase();
   if (avail === "onboard" || avail === "call out" || avail === "not offered")
     return 0;
@@ -88,18 +127,38 @@ export function calculateAssetsTotals(
 
   (assets || []).forEach((a) => {
     const si = items.find((s) => s.id === a.scopeItemId);
-    const mainCost = getAssetMainCost(a, items);
-    const cat = getEffectiveCategory(a);
 
-    if (cat === "CAPEX") capexUSD += mainCost;
-    else opexUSD += mainCost;
+    // If splits are active, categorize each split independently
+    if (a.availabilitySplits && a.availabilitySplits.length > 0) {
+      a.availabilitySplits.forEach((split) => {
+        const splitCost = getSplitCost(split);
+        const splitCat = getEffectiveCategory(split);
+        if (splitCat === "CAPEX") capexUSD += splitCost;
+        else opexUSD += splitCost;
+      });
+    } else {
+      const mainCost = getAssetMainCost(a, items);
+      const cat = getEffectiveCategory(a);
+      if (cat === "CAPEX") capexUSD += mainCost;
+      else opexUSD += mainCost;
+    }
 
     // Categorize sub-item costs by their own category
     (a.subItemCosts || []).forEach((sic) => {
-      const sicCost = getSubItemCostTotal(sic, si);
-      const sicCat = getEffectiveCategory(sic);
-      if (sicCat === "CAPEX") capexUSD += sicCost;
-      else opexUSD += sicCost;
+      // If sub-item has splits, categorize each split independently
+      if (sic.availabilitySplits && sic.availabilitySplits.length > 0) {
+        sic.availabilitySplits.forEach((split) => {
+          const splitCost = getSplitCost(split);
+          const splitCat = getEffectiveCategory(split);
+          if (splitCat === "CAPEX") capexUSD += splitCost;
+          else opexUSD += splitCost;
+        });
+      } else {
+        const sicCost = getSubItemCostTotal(sic, si);
+        const sicCat = getEffectiveCategory(sic);
+        if (sicCat === "CAPEX") capexUSD += sicCost;
+        else opexUSD += sicCost;
+      }
     });
   });
 
@@ -120,20 +179,43 @@ export function calculateAssetsByResourceType(
 
   (assets || []).forEach((a) => {
     const si = scopeMap.get(a.scopeItemId);
-    const rt = (si && si.resourceType) || "Other";
+    const rt =
+      (si && si.resourceType) ||
+      (si && si.integratedDivision
+        ? `${si.integratedDivision} Asset`
+        : "Other");
     if (!byType[rt]) byType[rt] = { capex: 0, opex: 0 };
 
-    const mainCost = getAssetMainCost(a, items);
-    const cat = getEffectiveCategory(a);
-    if (cat === "OPEX") byType[rt].opex += mainCost;
-    else byType[rt].capex += mainCost;
+    // If splits are active, categorize each split independently
+    if (a.availabilitySplits && a.availabilitySplits.length > 0) {
+      a.availabilitySplits.forEach((split) => {
+        const splitCost = getSplitCost(split);
+        const splitCat = getEffectiveCategory(split);
+        if (splitCat === "OPEX") byType[rt].opex += splitCost;
+        else byType[rt].capex += splitCost;
+      });
+    } else {
+      const mainCost = getAssetMainCost(a, items);
+      const cat = getEffectiveCategory(a);
+      if (cat === "OPEX") byType[rt].opex += mainCost;
+      else byType[rt].capex += mainCost;
+    }
 
     // Sub-item costs inherit resource type from parent scope item
     (a.subItemCosts || []).forEach((sic) => {
-      const sicCost = getSubItemCostTotal(sic, si);
-      const sicCat = getEffectiveCategory(sic);
-      if (sicCat === "OPEX") byType[rt].opex += sicCost;
-      else byType[rt].capex += sicCost;
+      if (sic.availabilitySplits && sic.availabilitySplits.length > 0) {
+        sic.availabilitySplits.forEach((split) => {
+          const splitCost = getSplitCost(split);
+          const splitCat = getEffectiveCategory(split);
+          if (splitCat === "OPEX") byType[rt].opex += splitCost;
+          else byType[rt].capex += splitCost;
+        });
+      } else {
+        const sicCost = getSubItemCostTotal(sic, si);
+        const sicCat = getEffectiveCategory(sic);
+        if (sicCat === "OPEX") byType[rt].opex += sicCost;
+        else byType[rt].capex += sicCost;
+      }
     });
   });
 

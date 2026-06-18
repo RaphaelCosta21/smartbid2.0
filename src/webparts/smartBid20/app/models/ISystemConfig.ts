@@ -69,6 +69,7 @@ export interface ISystemConfig {
   acquisitionTypes: IConfigOption[];
   deliverableTypes: IConfigOption[];
   engineerDeliverables: IConfigOption[];
+  engineerDeliverableCategories?: string[];
   bidResultOptions: IConfigOption[];
   lossReasons: IConfigOption[];
   costReferences: IConfigOption[];

@@ -64,6 +64,20 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     React.useState<IHoursSummary>(hoursSummary);
   const saveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const isEditingRef = React.useRef(false);
+  const pendingDataRef = React.useRef<IHoursSummary | null>(null);
+  const onSaveRef = React.useRef(onSave);
+  onSaveRef.current = onSave;
+
+  // Flush pending save on unmount (e.g., when switching division tabs)
+  React.useEffect(() => {
+    return () => {
+      if (saveTimerRef.current && pendingDataRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+        if (onSaveRef.current) onSaveRef.current(pendingDataRef.current);
+      }
+    };
+  }, []);
 
   // Sync from props only when not mid-edit
   React.useEffect(() => {
@@ -75,8 +89,10 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
   const debouncedSave = React.useCallback(
     (updated: IHoursSummary) => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      pendingDataRef.current = updated;
       saveTimerRef.current = setTimeout(() => {
         saveTimerRef.current = null;
+        pendingDataRef.current = null;
         isEditingRef.current = false;
         if (onSave) onSave(updated);
       }, 400);
@@ -126,6 +142,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
 
   const recalcSection = (section: IHoursSection): IHoursSection => {
     const items = section.items.map((item) => {
+      if (item.isSeparator) return item;
       const totalHours =
         item.hoursPerDay *
         item.pplQty *
@@ -133,11 +150,12 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
         (item.utilizationPercent / 100);
       return { ...item, totalHours: Math.round(totalHours * 100) / 100 };
     });
+    const dataItems = items.filter((i) => !i.isSeparator);
     return {
       ...section,
       items,
-      totalHours: items.reduce((sum, i) => sum + i.totalHours, 0),
-      totalCostBRL: items.reduce((sum, i) => sum + i.costBRL, 0),
+      totalHours: dataItems.reduce((sum, i) => sum + i.totalHours, 0),
+      totalCostBRL: dataItems.reduce((sum, i) => sum + i.costBRL, 0),
     };
   };
 
@@ -175,6 +193,34 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
         ...section.items,
         blankHoursItem(sectionGroupId, defaultHours, integratedDivision),
       ],
+    });
+  };
+
+  const addSeparator = (
+    sectionKey: SectionKey,
+    sectionGroupId?: string,
+  ): void => {
+    const section = localSummary?.[sectionKey] || emptySection;
+    const separator: IHoursItem = {
+      id: makeId("sep"),
+      lineNumber: 0,
+      sectionId: sectionGroupId || null,
+      requirementName: "",
+      function: "",
+      phase: "",
+      hoursPerDay: 0,
+      pplQty: 0,
+      workDays: 0,
+      utilizationPercent: 0,
+      totalHours: 0,
+      costBRL: 0,
+      integratedDivision: integratedDivision || undefined,
+      isSeparator: true,
+      separatorLabel: "",
+    };
+    persistChange(sectionKey, {
+      ...section,
+      items: [...section.items, separator],
     });
   };
 
@@ -430,10 +476,33 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
   };
 
   // Scope items that are marked for engineering
-  const engineeringScopeItems = React.useMemo(
-    () => scopeItems.filter((si) => !si.isSection && si.needsEngineering),
-    [scopeItems],
-  );
+  const engineeringScopeItems = React.useMemo(() => {
+    const results: IScopeItem[] = [];
+    scopeItems.forEach((si) => {
+      if (si.isSection) {
+        results.push(si);
+        return;
+      }
+      if (si.needsEngineering) {
+        results.push(si);
+      }
+      if (si.subItems) {
+        si.subItems.forEach((sub) => {
+          if (sub.needsEngineering) {
+            results.push({
+              ...si,
+              id: sub.id,
+              description: sub.description || "Sub-item",
+              equipmentOffer: sub.equipmentOffer || "",
+              needsEngineering: true,
+              subItems: undefined,
+            } as IScopeItem);
+          }
+        });
+      }
+    });
+    return results;
+  }, [scopeItems]);
 
   // ─── Import from BID/Template modal state ───
   const [showImportModal, setShowImportModal] = React.useState(false);
@@ -502,6 +571,13 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
                       onClick={() => addRow(key)}
                     >
                       + Add Row
+                    </button>
+                    <button
+                      className={styles.addBtn}
+                      onClick={() => addSeparator(key)}
+                      title="Add a visual separator line"
+                    >
+                      + Separator
                     </button>
                     <button
                       className={styles.addBtn}
@@ -675,6 +751,19 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
                                       onClick={() => addRow(key, group.id)}
                                     >
                                       + Row
+                                    </button>
+                                    <button
+                                      className={styles.addBtn}
+                                      onClick={() =>
+                                        addSeparator(key, group.id)
+                                      }
+                                      title="Add visual separator"
+                                      style={{
+                                        padding: "2px 5px",
+                                        fontSize: 11,
+                                      }}
+                                    >
+                                      ― Sep
                                     </button>
                                     <button
                                       className={`${styles.addBtn} ${expandedNotes.has(group.id) ? styles.activeSectionBtn : ""}`}
@@ -1087,239 +1176,367 @@ const HoursRow: React.FC<HoursRowProps> = ({
   moveItem,
   sectionGroups,
   moveToSection,
-}) => (
-  <tr>
-    {!readOnly && onSave && (
-      <td style={{ width: 28, padding: "0 2px", textAlign: "center" }}>
-        <button
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "var(--text-secondary)",
-            fontSize: 10,
-            display: "block",
-            lineHeight: 1,
-          }}
-          onClick={() => moveItem(sectionKey as SectionKey, item.id, "up")}
-          title="Move up"
+}) => {
+  const [showNotes, setShowNotes] = React.useState(false);
+  const colCount = (!readOnly && onSave ? 10 : 8) + 1; // +1 for the notes icon col
+
+  // ─── Separator row ───
+  if (item.isSeparator) {
+    return (
+      <tr className={styles.separatorRow}>
+        {!readOnly && onSave && (
+          <td style={{ width: 28, padding: "0 2px", textAlign: "center" }}>
+            <button
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--text-secondary)",
+                fontSize: 10,
+                display: "block",
+                lineHeight: 1,
+              }}
+              onClick={() => moveItem(sectionKey as SectionKey, item.id, "up")}
+              title="Move up"
+            >
+              ▲
+            </button>
+            <button
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--text-secondary)",
+                fontSize: 10,
+                display: "block",
+                lineHeight: 1,
+              }}
+              onClick={() =>
+                moveItem(sectionKey as SectionKey, item.id, "down")
+              }
+              title="Move down"
+            >
+              ▼
+            </button>
+          </td>
+        )}
+        <td
+          colSpan={!readOnly && onSave ? 8 : 8}
+          className={styles.separatorCell}
         >
-          ▲
-        </button>
-        <button
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "var(--text-secondary)",
-            fontSize: 10,
-            display: "block",
-            lineHeight: 1,
-          }}
-          onClick={() => moveItem(sectionKey as SectionKey, item.id, "down")}
-          title="Move down"
-        >
-          ▼
-        </button>
-      </td>
-    )}
-    <td>
-      {readOnly ? (
-        item.function
-      ) : (
-        <select
-          className={styles.selectCell}
-          value={item.function}
-          onChange={(e) =>
-            updateItem(sectionKey, item.id, "function", e.target.value)
-          }
-        >
-          <option value="" disabled hidden>
-            Select...
-          </option>
-          {Object.entries(functionCategories).map(([cat, fns]) => (
-            <optgroup key={cat} label={cat}>
-              {fns.map((f) => (
-                <option key={f.id} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      )}
-    </td>
-    <td>
-      {readOnly ? (
-        item.phase
-      ) : (
-        <select
-          className={styles.selectCell}
-          value={item.phase}
-          onChange={(e) =>
-            updateItem(sectionKey, item.id, "phase", e.target.value)
-          }
-        >
-          <option value="" disabled hidden>
-            Select...
-          </option>
-          {hoursPhases.map((p) => (
-            <option key={p.id} value={p.value}>
-              {p.label}
-            </option>
-          ))}
-        </select>
-      )}
-    </td>
-    <td className={styles.cellCenter}>
-      {readOnly ? (
-        item.hoursPerDay
-      ) : (
-        <input
-          className={styles.numInput}
-          type="number"
-          min={0}
-          step={0.5}
-          value={item.hoursPerDay}
-          onChange={(e) =>
-            updateItem(
-              sectionKey,
-              item.id,
-              "hoursPerDay",
-              Number(e.target.value) || 0,
-            )
-          }
-        />
-      )}
-    </td>
-    <td className={styles.cellCenter}>
-      {readOnly ? (
-        item.pplQty
-      ) : (
-        <input
-          className={styles.numInput}
-          type="number"
-          min={0}
-          value={item.pplQty}
-          onChange={(e) =>
-            updateItem(
-              sectionKey,
-              item.id,
-              "pplQty",
-              Number(e.target.value) || 0,
-            )
-          }
-        />
-      )}
-    </td>
-    <td className={styles.cellCenter}>
-      {readOnly ? (
-        item.workDays
-      ) : (
-        <input
-          className={styles.numInput}
-          type="number"
-          min={0}
-          value={item.workDays}
-          onChange={(e) =>
-            updateItem(
-              sectionKey,
-              item.id,
-              "workDays",
-              Number(e.target.value) || 0,
-            )
-          }
-        />
-      )}
-    </td>
-    <td className={styles.cellCenter}>
-      {readOnly ? (
-        `${item.utilizationPercent}%`
-      ) : (
-        <input
-          className={styles.numInput}
-          type="number"
-          min={0}
-          max={100}
-          value={item.utilizationPercent}
-          onChange={(e) =>
-            updateItem(
-              sectionKey,
-              item.id,
-              "utilizationPercent",
-              Number(e.target.value) || 0,
-            )
-          }
-        />
-      )}
-    </td>
-    <td className={`${styles.cellRight} ${styles.cellBold}`}>
-      {formatHours(item.totalHours)}
-    </td>
-    <td className={styles.cellRight}>
-      {readOnly ? (
-        formatCurrency(item.costBRL, "BRL")
-      ) : (
-        <input
-          className={styles.numInput}
-          type="number"
-          min={0}
-          value={item.costBRL}
-          onChange={(e) =>
-            updateItem(
-              sectionKey,
-              item.id,
-              "costBRL",
-              Number(e.target.value) || 0,
-            )
-          }
-        />
-      )}
-    </td>
-    {!readOnly && onSave && (
-      <td>
-        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          {sectionGroups.length > 0 && (
-            <select
-              value={item.sectionId || ""}
+          {!readOnly ? (
+            <input
+              className={styles.separatorInput}
+              value={item.separatorLabel || ""}
+              placeholder="(separator label – optional)"
               onChange={(e) =>
-                moveToSection(
-                  sectionKey as SectionKey,
+                updateItem(
+                  sectionKey,
                   item.id,
-                  e.target.value || null,
+                  "separatorLabel",
+                  e.target.value,
                 )
               }
-              title="Move to section"
-              style={{
-                maxWidth: 80,
-                padding: "2px 4px",
-                border: "1px solid var(--border-subtle, #444)",
-                borderRadius: 4,
-                background: "var(--input-bg, rgba(255,255,255,0.06))",
-                color: "var(--text-secondary, #aaa)",
-                fontSize: 10,
-                cursor: "pointer",
-              }}
+            />
+          ) : (
+            <span className={styles.separatorLabel}>
+              {item.separatorLabel || ""}
+            </span>
+          )}
+        </td>
+        {!readOnly && onSave && (
+          <td>
+            <button
+              className={styles.deleteBtn}
+              onClick={() => deleteRow(sectionKey, item.id)}
             >
-              <option value="">— None —</option>
-              {sectionGroups.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.title || "Untitled"}
+              ✕
+            </button>
+          </td>
+        )}
+      </tr>
+    );
+  }
+
+  // ─── Normal data row ───
+  return (
+    <>
+      <tr>
+        {!readOnly && onSave && (
+          <td style={{ width: 28, padding: "0 2px", textAlign: "center" }}>
+            <button
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--text-secondary)",
+                fontSize: 10,
+                display: "block",
+                lineHeight: 1,
+              }}
+              onClick={() => moveItem(sectionKey as SectionKey, item.id, "up")}
+              title="Move up"
+            >
+              ▲
+            </button>
+            <button
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--text-secondary)",
+                fontSize: 10,
+                display: "block",
+                lineHeight: 1,
+              }}
+              onClick={() =>
+                moveItem(sectionKey as SectionKey, item.id, "down")
+              }
+              title="Move down"
+            >
+              ▼
+            </button>
+          </td>
+        )}
+        <td>
+          {readOnly ? (
+            item.function
+          ) : (
+            <select
+              className={styles.selectCell}
+              value={item.function}
+              onChange={(e) =>
+                updateItem(sectionKey, item.id, "function", e.target.value)
+              }
+            >
+              <option value="" disabled hidden>
+                Select...
+              </option>
+              {Object.entries(functionCategories).map(([cat, fns]) => (
+                <optgroup key={cat} label={cat}>
+                  {fns.map((f) => (
+                    <option key={f.id} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          )}
+        </td>
+        <td>
+          {readOnly ? (
+            item.phase
+          ) : (
+            <select
+              className={styles.selectCell}
+              value={item.phase}
+              onChange={(e) =>
+                updateItem(sectionKey, item.id, "phase", e.target.value)
+              }
+            >
+              <option value="" disabled hidden>
+                Select...
+              </option>
+              {hoursPhases.map((p) => (
+                <option key={p.id} value={p.value}>
+                  {p.label}
                 </option>
               ))}
             </select>
           )}
-          <button
-            className={styles.deleteBtn}
-            onClick={() => deleteRow(sectionKey, item.id)}
-          >
-            ✕
-          </button>
-        </div>
-      </td>
-    )}
-  </tr>
-);
+        </td>
+        <td className={styles.cellCenter}>
+          {readOnly ? (
+            item.hoursPerDay
+          ) : (
+            <input
+              className={styles.numInput}
+              type="number"
+              min={0}
+              step={0.5}
+              value={item.hoursPerDay}
+              onChange={(e) =>
+                updateItem(
+                  sectionKey,
+                  item.id,
+                  "hoursPerDay",
+                  Number(e.target.value) || 0,
+                )
+              }
+            />
+          )}
+        </td>
+        <td className={styles.cellCenter}>
+          {readOnly ? (
+            item.pplQty
+          ) : (
+            <input
+              className={styles.numInput}
+              type="number"
+              min={0}
+              value={item.pplQty}
+              onChange={(e) =>
+                updateItem(
+                  sectionKey,
+                  item.id,
+                  "pplQty",
+                  Number(e.target.value) || 0,
+                )
+              }
+            />
+          )}
+        </td>
+        <td className={styles.cellCenter}>
+          {readOnly ? (
+            item.workDays
+          ) : (
+            <input
+              className={styles.numInput}
+              type="number"
+              min={0}
+              value={item.workDays}
+              onChange={(e) =>
+                updateItem(
+                  sectionKey,
+                  item.id,
+                  "workDays",
+                  Number(e.target.value) || 0,
+                )
+              }
+            />
+          )}
+        </td>
+        <td className={styles.cellCenter}>
+          {readOnly ? (
+            `${item.utilizationPercent}%`
+          ) : (
+            <input
+              className={styles.numInput}
+              type="number"
+              min={0}
+              max={100}
+              value={item.utilizationPercent}
+              onChange={(e) =>
+                updateItem(
+                  sectionKey,
+                  item.id,
+                  "utilizationPercent",
+                  Number(e.target.value) || 0,
+                )
+              }
+            />
+          )}
+        </td>
+        <td className={`${styles.cellRight} ${styles.cellBold}`}>
+          {formatHours(item.totalHours)}
+        </td>
+        <td className={styles.cellRight}>
+          {readOnly ? (
+            formatCurrency(item.costBRL, "BRL")
+          ) : (
+            <input
+              className={styles.numInput}
+              type="number"
+              min={0}
+              value={item.costBRL}
+              onChange={(e) =>
+                updateItem(
+                  sectionKey,
+                  item.id,
+                  "costBRL",
+                  Number(e.target.value) || 0,
+                )
+              }
+            />
+          )}
+        </td>
+        {!readOnly && onSave && (
+          <td>
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              {sectionGroups.length > 0 && (
+                <select
+                  value={item.sectionId || ""}
+                  onChange={(e) =>
+                    moveToSection(
+                      sectionKey as SectionKey,
+                      item.id,
+                      e.target.value || null,
+                    )
+                  }
+                  title="Move to section"
+                  style={{
+                    maxWidth: 80,
+                    padding: "2px 4px",
+                    border: "1px solid var(--border-subtle, #444)",
+                    borderRadius: 4,
+                    background: "var(--input-bg, rgba(255,255,255,0.06))",
+                    color: "var(--text-secondary, #aaa)",
+                    fontSize: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="">— None —</option>
+                  {sectionGroups.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.title || "Untitled"}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                className={`${styles.addBtn}${showNotes ? ` ${styles.activeSectionBtn}` : item.notes ? ` ${styles.hasNotesBtn}` : ""}`}
+                style={{ padding: "2px 5px", fontSize: 11 }}
+                onClick={() => setShowNotes(!showNotes)}
+                title="Row notes"
+              >
+                💬
+              </button>
+              <button
+                className={styles.deleteBtn}
+                style={{ marginLeft: "auto" }}
+                onClick={() => deleteRow(sectionKey, item.id)}
+              >
+                ✕
+              </button>
+            </div>
+          </td>
+        )}
+        {readOnly && item.notes && (
+          <td>
+            <button
+              className={`${styles.addBtn}${showNotes ? ` ${styles.activeSectionBtn}` : ` ${styles.hasNotesBtn}`}`}
+              style={{ padding: "2px 5px", fontSize: 11 }}
+              onClick={() => setShowNotes(!showNotes)}
+              title="Row notes"
+            >
+              💬
+            </button>
+          </td>
+        )}
+      </tr>
+      {/* Inline notes row */}
+      {showNotes && (
+        <tr className={styles.notesRow}>
+          <td colSpan={colCount} className={styles.notesCell}>
+            {readOnly ? (
+              <span className={styles.notesText}>{item.notes || "—"}</span>
+            ) : (
+              <input
+                className={styles.notesInput}
+                value={item.notes || ""}
+                placeholder="Add notes for this row..."
+                onChange={(e) =>
+                  updateItem(sectionKey, item.id, "notes", e.target.value)
+                }
+              />
+            )}
+          </td>
+        </tr>
+      )}
+    </>
+  );
+};
 
 /* ─── Inline Color Picker (reusable) ─── */
 const ColorPickerInline: React.FC<{

@@ -273,11 +273,79 @@ export const UnassignedRequestsPage: React.FC = () => {
         return;
       }
 
+      const now = new Date().toISOString();
+
       bid.engineerResponsible = engineers;
       bid.analyst = analysts;
-      bid.currentStatus = "Pending Assignment";
-      bid.lastModified = new Date().toISOString();
-      bid.startDate = new Date().toISOString();
+
+      // Close the "Request Submitted" phase and transition to "Bid Kick Off"
+      const prevPhase = bid.currentPhase;
+      const prevStatus = bid.currentStatus;
+      bid.currentPhase = "Bid Kick Off";
+      bid.currentStatus = "Awaiting Kick Off";
+      bid.lastModified = now;
+      bid.startDate = bid.startDate || now;
+
+      // Update phase history — close previous phase, open new one
+      const phaseHistory = bid.phaseHistory || [];
+      const lastPhaseEntry = phaseHistory[phaseHistory.length - 1];
+      if (lastPhaseEntry && !lastPhaseEntry.end) {
+        lastPhaseEntry.end = now;
+        const startMs = new Date(lastPhaseEntry.start).getTime();
+        lastPhaseEntry.durationHours = Math.round(
+          (new Date(now).getTime() - startMs) / 3600000,
+        );
+      }
+      phaseHistory.push({
+        id: phaseHistory.length + 1,
+        phase: "Bid Kick Off" as any,
+        start: now,
+        end: null,
+        durationHours: null,
+        actor: engineers[0]?.name || "",
+      });
+      bid.phaseHistory = phaseHistory;
+
+      // Update status history — close previous status, open new one
+      const statusHistory = bid.statusHistory || [];
+      const lastStatusEntry = statusHistory[statusHistory.length - 1];
+      if (lastStatusEntry && !lastStatusEntry.end) {
+        lastStatusEntry.end = now;
+        const startMs = new Date(lastStatusEntry.start).getTime();
+        lastStatusEntry.durationHours = Math.round(
+          (new Date(now).getTime() - startMs) / 3600000,
+        );
+      }
+      statusHistory.push({
+        id: statusHistory.length + 1,
+        status: "Awaiting Kick Off",
+        phase: "Bid Kick Off" as any,
+        start: now,
+        end: null,
+        durationHours: null,
+        actor: engineers[0]?.name || "",
+      });
+      bid.statusHistory = statusHistory;
+
+      // Add activity log entry for assignment
+      const activityLog = bid.activityLog || [];
+      activityLog.push({
+        id: `log-${Date.now()}-assign`,
+        type: "PHASE_CHANGE",
+        timestamp: now,
+        actor: engineers[0]?.email || "",
+        actorName: engineers[0]?.name || "",
+        description: `BID assigned — moved from ${prevPhase} / ${prevStatus} to Bid Kick Off / Awaiting Kick Off`,
+        metadata: {
+          previousPhase: prevPhase,
+          previousStatus: prevStatus,
+          newPhase: "Bid Kick Off",
+          newStatus: "Awaiting Kick Off",
+          engineers: engineers.map((e) => e.name).join(", "),
+          analysts: analysts.map((a) => a.name).join(", "),
+        },
+      });
+      bid.activityLog = activityLog;
 
       // Find SP item ID for update
       const spItems = await (BidService as any)._list.items

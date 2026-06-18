@@ -152,8 +152,30 @@ export interface IScopeSubItem {
   partNumber: string;
   qty: number;
   comments: string;
+  /** If true, this sub-item needs engineering hours */
+  needsEngineering?: boolean;
 }
-
+/* ——— Availability Split (partial qty with different status/cost) ——— */
+export interface IAvailabilitySplit {
+  id: string;
+  /** How many units this split covers */
+  qty: number;
+  availabilityStatus: string;
+  acquisitionType: string;
+  unitCostUSD: number;
+  /** Auto-calc based on acq type and qty */
+  totalCostUSD: number;
+  costReference: string;
+  dateReference?: string;
+  costCategory: "CAPEX" | "OPEX" | "";
+  supplier: string;
+  leadTimeDays: number;
+  dailyRate: number | null;
+  rentalDays: number | null;
+  notes: string;
+  /** Sub-costs specific to this split (e.g., Transit Rate for rental splits) */
+  subCosts?: IAssetSubCost[];
+}
 /* â”€â”€â”€ Assets Breakdown (cost layer for Scope items) â”€â”€â”€ */
 export interface IAssetBreakdownItem {
   id: string;
@@ -194,6 +216,8 @@ export interface IAssetBreakdownItem {
   subCosts?: IAssetSubCost[];
   /** Cost entries for scope sub-items (consumables, spares) */
   subItemCosts?: ISubItemCost[];
+  /** Partial availability splits — when set, overrides main availability/cost fields */
+  availabilitySplits?: IAvailabilitySplit[];
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
   integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
 }
@@ -329,6 +353,10 @@ export interface ISubItemCost {
   dailyRate?: number | null;
   rentalDays?: number | null;
   notes: string;
+  /** Partial availability splits — when set, overrides main availability/cost fields */
+  availabilitySplits?: IAvailabilitySplit[];
+  /** Sub-costs (e.g. Transit Rate for Rental sub-items) */
+  subCosts?: IAssetSubCost[];
 }
 
 export interface IAssetSubCost {
@@ -390,6 +418,12 @@ export interface IHoursItem {
   costBRL: number;
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
   integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
+  /** Optional notes/comments for this line item */
+  notes?: string;
+  /** If true, this item is rendered as a visual separator line */
+  isSeparator?: boolean;
+  /** Label for a separator row */
+  separatorLabel?: string;
 }
 
 export interface IHoursSectionGroup {
@@ -435,10 +469,12 @@ export interface IEngineeringDeliverable {
   id: string;
   /** Deliverable type label from config.engineerDeliverables */
   deliverableType: string;
-  /** Resource/function performing this deliverable */
+  /** Resource/function performing this deliverable (legacy single-resource) */
   resourceType: string;
-  /** Estimated hours */
+  /** Estimated hours (total across all resources) */
   hours: number;
+  /** Hours broken down by resource type (e.g. {"Designer": 10, "Engineer": 20}) */
+  hoursByResource?: Record<string, number>;
 }
 
 /** An engineering scope item with its deliverable breakdown */
@@ -458,6 +494,8 @@ export interface IEngineeringHoursItem {
   deliverables: IEngineeringDeliverable[];
   /** Total hours for this item (sum of deliverables) */
   totalHours: number;
+  /** Whether Manufacturing Support (20%) is included in totalHours */
+  includeManufacturing?: boolean;
 }
 
 /** Resource allocation for engineering hours planning */
@@ -711,6 +749,15 @@ export interface IBid {
   bidFolderUrl: string | null;
   commercialFolderUrl: string | null;
   bidNotes: Record<string, string>;
+  bidNotesMetadata?: Record<
+    string,
+    {
+      author: string;
+      date: string;
+      lastEditedBy?: string;
+      lastEditedDate?: string;
+    }
+  >;
   quickNotes: IQuickNote[];
   engineerBidOverview: string;
   revisions: IBidRevision[];

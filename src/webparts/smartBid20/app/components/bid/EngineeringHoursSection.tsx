@@ -28,6 +28,10 @@ interface EditItemModalState {
   sectionName: string;
   notes: string;
   deliverables: IEngineeringDeliverable[];
+  /** Hours grid: deliverableType -> resourceType -> hours */
+  hoursGrid: Record<string, Record<string, number>>;
+  /** Whether to include Manufacturing Support (20%) */
+  includeManufacturing: boolean;
 }
 
 const INITIAL_MODAL: EditItemModalState = {
@@ -39,6 +43,8 @@ const INITIAL_MODAL: EditItemModalState = {
   sectionName: "",
   notes: "",
   deliverables: [],
+  hoursGrid: {},
+  includeManufacturing: false,
 };
 
 export const EngineeringHoursSection: React.FC<
@@ -48,11 +54,34 @@ export const EngineeringHoursSection: React.FC<
   const engineerDeliverables = (config?.engineerDeliverables || []).filter(
     (d) => d.isActive !== false,
   );
+  const deliverableCategories: string[] =
+    config?.engineerDeliverableCategories || [];
   const jobFunctions = (config?.jobFunctions || []).filter(
     (f) =>
       f.isActive !== false &&
       (f.category || "").toUpperCase() === "ENGINEERING",
   );
+
+  // Resource column labels for the hours grid
+  const resourceColumns = React.useMemo(() => {
+    return jobFunctions.map((f) => f.value);
+  }, [jobFunctions]);
+
+  // Group deliverables by category
+  const deliverablesByCategory = React.useMemo(() => {
+    const map: Record<string, typeof engineerDeliverables> = {};
+    const categories =
+      deliverableCategories.length > 0 ? deliverableCategories : ["General"];
+    categories.forEach((cat) => {
+      map[cat] = [];
+    });
+    engineerDeliverables.forEach((d) => {
+      const cat = (d as any).category || "General";
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(d);
+    });
+    return map;
+  }, [engineerDeliverables, deliverableCategories]);
 
   const engItems = engineeringSection.engineeringItems || [];
 
@@ -61,31 +90,68 @@ export const EngineeringHoursSection: React.FC<
     new Set(),
   );
 
+  // Track previous scope IDs to avoid unnecessary auto-sync triggers
+  const prevScopeIdsRef = React.useRef<string>("");
+
   // Auto-sync: add/remove items based on scope needsEngineering flag
   React.useEffect(() => {
     if (!onSave) return;
+
+    // Build list of all items/sub-items needing engineering
+    const engSources: Array<{
+      id: string;
+      description: string;
+      equipmentOffer: string;
+      sectionId?: string;
+    }> = [];
+    scopeItems.forEach((si) => {
+      if (!si.isSection && si.needsEngineering) {
+        engSources.push({
+          id: si.id,
+          description:
+            si.description || si.equipmentOffer || `Item #${si.lineNumber}`,
+          equipmentOffer: si.equipmentOffer || "",
+          sectionId: si.sectionId || undefined,
+        });
+      }
+      if (si.subItems) {
+        si.subItems.forEach((sub) => {
+          if (sub.needsEngineering) {
+            engSources.push({
+              id: sub.id,
+              description: sub.description || "Sub-item",
+              equipmentOffer: sub.equipmentOffer || "",
+              sectionId: si.sectionId || undefined,
+            });
+          }
+        });
+      }
+    });
+
+    // Build a stable key to avoid firing on mere reference changes
+    const scopeIdsKey = engSources
+      .map((s) => s.id)
+      .sort()
+      .join(",");
+    if (scopeIdsKey === prevScopeIdsRef.current) return;
+    prevScopeIdsRef.current = scopeIdsKey;
+
     const currentItems = engineeringSection.engineeringItems || [];
-    const scopeIdsNeeding = new Set(
-      scopeItems
-        .filter((si) => !si.isSection && si.needsEngineering)
-        .map((si) => si.id),
-    );
+    const scopeIdsNeeding = new Set(engSources.map((s) => s.id));
     const existingIds = new Set(currentItems.map((ei) => ei.scopeItemId));
 
     const toAdd: IEngineeringHoursItem[] = [];
-    scopeItems
-      .filter(
-        (si) => !si.isSection && si.needsEngineering && !existingIds.has(si.id),
-      )
-      .forEach((si) => {
+    engSources
+      .filter((s) => !existingIds.has(s.id))
+      .forEach((s) => {
         const parentSection = scopeItems.find(
-          (s) => s.isSection && s.id === si.sectionId,
+          (sec) => sec.isSection && sec.id === s.sectionId,
         );
         toAdd.push({
           id: makeId("eng"),
-          scopeItemId: si.id,
-          description: si.description || `Item #${si.lineNumber}`,
-          equipmentOffer: si.equipmentOffer || "",
+          scopeItemId: s.id,
+          description: s.description,
+          equipmentOffer: s.equipmentOffer,
           sectionName: parentSection?.sectionTitle || "",
           notes: "",
           deliverables: [],
@@ -130,9 +196,26 @@ export const EngineeringHoursSection: React.FC<
   // Scope items available for manual add
   const availableScopeItems = React.useMemo(() => {
     const existingIds = new Set(engItems.map((ei) => ei.scopeItemId));
-    return scopeItems.filter(
-      (si) => !si.isSection && si.needsEngineering && !existingIds.has(si.id),
-    );
+    const results: IScopeItem[] = [];
+    scopeItems.forEach((si) => {
+      if (!si.isSection && si.needsEngineering && !existingIds.has(si.id)) {
+        results.push(si);
+      }
+      if (si.subItems) {
+        si.subItems.forEach((sub) => {
+          if (sub.needsEngineering && !existingIds.has(sub.id)) {
+            results.push({
+              ...si,
+              id: sub.id,
+              description: sub.description,
+              equipmentOffer: sub.equipmentOffer || "",
+              subItems: undefined,
+            } as any);
+          }
+        });
+      }
+    });
+    return results;
   }, [scopeItems, engItems]);
 
   // Grand total
@@ -184,10 +267,22 @@ export const EngineeringHoursSection: React.FC<
       sectionName: parentSection?.sectionTitle || "",
       notes: "",
       deliverables: [],
+      hoursGrid: {},
+      includeManufacturing: false,
     });
   };
 
   const openEditModal = (item: IEngineeringHoursItem): void => {
+    // Build hoursGrid from existing deliverables
+    const grid: Record<string, Record<string, number>> = {};
+    item.deliverables.forEach((d) => {
+      if (d.hoursByResource) {
+        grid[d.deliverableType] = { ...d.hoursByResource };
+      } else if (d.hours > 0) {
+        // Legacy: single resource
+        grid[d.deliverableType] = { [d.resourceType]: d.hours };
+      }
+    });
     setModal({
       open: true,
       mode: "edit",
@@ -198,6 +293,8 @@ export const EngineeringHoursSection: React.FC<
       sectionName: item.sectionName || "",
       notes: item.notes || "",
       deliverables: [...item.deliverables],
+      hoursGrid: grid,
+      includeManufacturing: item.includeManufacturing || false,
     });
   };
 
@@ -217,61 +314,87 @@ export const EngineeringHoursSection: React.FC<
     }));
   };
 
-  const toggleDeliverable = (deliverableValue: string): void => {
+  // Update a single cell in the hours grid
+  const updateGridCell = (
+    deliverableType: string,
+    resourceType: string,
+    hours: number,
+  ): void => {
     setModal((prev) => {
-      const existing = prev.deliverables.find(
-        (d) => d.deliverableType === deliverableValue,
-      );
-      if (existing) {
-        return {
-          ...prev,
-          deliverables: prev.deliverables.filter(
-            (d) => d.deliverableType !== deliverableValue,
-          ),
-        };
-      }
-      return {
-        ...prev,
-        deliverables: [
-          ...prev.deliverables,
-          {
-            id: makeId("edl"),
-            deliverableType: deliverableValue,
-            resourceType: jobFunctions[0]?.value || "Engineer",
-            hours: 0,
-          },
-        ],
+      const newGrid = { ...prev.hoursGrid };
+      if (!newGrid[deliverableType]) newGrid[deliverableType] = {};
+      newGrid[deliverableType] = {
+        ...newGrid[deliverableType],
+        [resourceType]: hours,
       };
+      return { ...prev, hoursGrid: newGrid };
     });
   };
 
-  const updateDeliverableHours = (
-    deliverableType: string,
-    hours: number,
-  ): void => {
-    setModal((prev) => ({
-      ...prev,
-      deliverables: prev.deliverables.map((d) =>
-        d.deliverableType === deliverableType ? { ...d, hours } : d,
-      ),
-    }));
+  // Compute totals from the grid
+  const getGridColumnTotals = (): Record<string, number> => {
+    const totals: Record<string, number> = {};
+    resourceColumns.forEach((rc) => {
+      totals[rc] = 0;
+    });
+    Object.values(modal.hoursGrid).forEach((resourceMap) => {
+      resourceColumns.forEach((rc) => {
+        totals[rc] += resourceMap[rc] || 0;
+      });
+    });
+    return totals;
   };
 
-  const updateDeliverableResource = (
-    deliverableType: string,
-    resourceType: string,
-  ): void => {
-    setModal((prev) => ({
-      ...prev,
-      deliverables: prev.deliverables.map((d) =>
-        d.deliverableType === deliverableType ? { ...d, resourceType } : d,
-      ),
-    }));
+  // Manufacturing Support = 20% of design totals per column
+  const getManufacturingSupportHours = (
+    columnTotals: Record<string, number>,
+  ): Record<string, number> => {
+    const mfg: Record<string, number> = {};
+    resourceColumns.forEach((rc) => {
+      mfg[rc] = Math.round(columnTotals[rc] * 0.2 * 100) / 100;
+    });
+    return mfg;
   };
 
   const handleSaveItem = (): void => {
-    const activeDels = modal.deliverables.filter((d) => d.hours > 0);
-    const totalItemHours = activeDels.reduce((sum, d) => sum + d.hours, 0);
+    // Build deliverables from hoursGrid
+    const newDeliverables: IEngineeringDeliverable[] = [];
+    Object.keys(modal.hoursGrid).forEach((deliverableType) => {
+      const resourceMap = modal.hoursGrid[deliverableType];
+      const totalHrs = Object.values(resourceMap).reduce(
+        (sum, h) => sum + (h || 0),
+        0,
+      );
+      if (totalHrs > 0) {
+        // Find the primary resource (the one with most hours)
+        let primaryResource = resourceColumns[0] || "Engineer";
+        let maxHrs = 0;
+        Object.entries(resourceMap).forEach(([res, hrs]) => {
+          if (hrs > maxHrs) {
+            maxHrs = hrs;
+            primaryResource = res;
+          }
+        });
+        newDeliverables.push({
+          id: makeId("edl"),
+          deliverableType,
+          resourceType: primaryResource,
+          hours: totalHrs,
+          hoursByResource: { ...resourceMap },
+        });
+      }
+    });
+
+    const designHours = newDeliverables.reduce((sum, d) => sum + d.hours, 0);
+    // Add 20% manufacturing support hours if enabled
+    let mfgHoursTotal = 0;
+    if (modal.includeManufacturing) {
+      const colTotals = getGridColumnTotals();
+      const mfgHrs = getManufacturingSupportHours(colTotals);
+      mfgHoursTotal = Object.values(mfgHrs).reduce((s, v) => s + v, 0);
+    }
+    const totalItemHours = designHours + mfgHoursTotal;
+
     if (modal.mode === "add") {
       const newItem: IEngineeringHoursItem = {
         id: makeId("eng"),
@@ -280,8 +403,9 @@ export const EngineeringHoursSection: React.FC<
         equipmentOffer: modal.equipmentOffer,
         sectionName: modal.sectionName,
         notes: modal.notes,
-        deliverables: activeDels,
+        deliverables: newDeliverables,
         totalHours: totalItemHours,
+        includeManufacturing: modal.includeManufacturing,
       };
       persist([...engItems, newItem]);
     } else {
@@ -291,8 +415,9 @@ export const EngineeringHoursSection: React.FC<
             ? {
                 ...item,
                 notes: modal.notes,
-                deliverables: activeDels,
+                deliverables: newDeliverables,
                 totalHours: totalItemHours,
+                includeManufacturing: modal.includeManufacturing,
               }
             : item,
         ),
@@ -477,8 +602,12 @@ export const EngineeringHoursSection: React.FC<
                         <thead>
                           <tr>
                             <th>Deliverable Type</th>
-                            <th>Resource</th>
-                            <th className={styles.thHours}>Hours</th>
+                            {resourceColumns.map((rc) => (
+                              <th key={rc} className={styles.thHours}>
+                                {rc}
+                              </th>
+                            ))}
+                            <th className={styles.thHours}>Total</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -487,18 +616,30 @@ export const EngineeringHoursSection: React.FC<
                               <td className={styles.delivType}>
                                 {d.deliverableType}
                               </td>
-                              <td className={styles.delivResource}>
-                                {d.resourceType}
-                              </td>
+                              {resourceColumns.map((rc) => (
+                                <td key={rc} className={styles.delivHours}>
+                                  {d.hoursByResource?.[rc] || "—"}
+                                </td>
+                              ))}
                               <td className={styles.delivHours}>{d.hours}</td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
                           <tr>
-                            <td colSpan={2} className={styles.footLabel}>
-                              Subtotal
-                            </td>
+                            <td className={styles.footLabel}>Subtotal</td>
+                            {resourceColumns.map((rc) => {
+                              const colTotal = item.deliverables.reduce(
+                                (sum, d) =>
+                                  sum + (d.hoursByResource?.[rc] || 0),
+                                0,
+                              );
+                              return (
+                                <td key={rc} className={styles.delivHours}>
+                                  {colTotal > 0 ? colTotal : "—"}
+                                </td>
+                              );
+                            })}
                             <td className={styles.delivHours}>
                               {item.totalHours}
                             </td>
@@ -630,23 +771,28 @@ export const EngineeringHoursSection: React.FC<
       {/* ─── Add/Edit Modal ─── */}
       {modal.open && (
         <div className={styles.modalOverlay} onClick={closeModal}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+          <div
+            className={styles.modalWide}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className={styles.modalHeader}>
               <h3>
-                {modal.mode === "add" ? "Add Engineering Item" : "Edit Item"}
+                {modal.mode === "add"
+                  ? "Add Engineering Item"
+                  : "Edit Engineering Hours"}
               </h3>
               <button className={styles.closeBtn} onClick={closeModal}>
                 ✕
               </button>
             </div>
             <div className={styles.modalBody}>
-              {/* Item info */}
-              <div className={styles.formRow}>
-                <div className={styles.formGroup}>
-                  <label className={styles.formLabel}>Item Description</label>
+              {/* Compact item info row */}
+              <div className={styles.modalInfoBar}>
+                <div className={styles.infoBarItem}>
+                  <span className={styles.infoBarLabel}>Item:</span>
                   {modal.mode === "add" ? (
                     <select
-                      className={styles.formSelect}
+                      className={styles.infoBarSelect}
                       value={modal.scopeItemId}
                       onChange={(e) => handleScopeItemChange(e.target.value)}
                     >
@@ -660,124 +806,197 @@ export const EngineeringHoursSection: React.FC<
                       ))}
                     </select>
                   ) : (
-                    <input
-                      className={styles.formInput}
-                      value={modal.description}
-                      readOnly
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Context info */}
-              {(modal.sectionName || modal.equipmentOffer) && (
-                <div className={styles.contextRow}>
-                  {modal.sectionName && (
-                    <span className={styles.contextTag}>
-                      📁 Section: {modal.sectionName}
-                    </span>
-                  )}
-                  {modal.equipmentOffer && (
-                    <span className={styles.contextTag}>
-                      🔧 Equipment: {modal.equipmentOffer}
+                    <span className={styles.infoBarValue}>
+                      {modal.description}
                     </span>
                   )}
                 </div>
-              )}
-
-              {/* Notes */}
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Notes / Comments</label>
-                <textarea
-                  className={styles.formTextarea}
-                  value={modal.notes}
-                  onChange={(e) =>
-                    setModal((prev) => ({ ...prev, notes: e.target.value }))
-                  }
-                  placeholder="Add any notes about this engineering item..."
-                  rows={2}
-                />
+                {modal.sectionName && (
+                  <div className={styles.infoBarItem}>
+                    <span className={styles.infoBarLabel}>Section:</span>
+                    <span className={styles.infoBarValue}>
+                      {modal.sectionName}
+                    </span>
+                  </div>
+                )}
+                {modal.equipmentOffer && (
+                  <div className={styles.infoBarItem}>
+                    <span className={styles.infoBarLabel}>Equipment:</span>
+                    <span className={styles.infoBarValue}>
+                      {modal.equipmentOffer}
+                    </span>
+                  </div>
+                )}
               </div>
 
-              {/* Deliverable Types */}
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>
-                  Deliverables
-                  <span className={styles.formHint}>
-                    {" "}
-                    — Check each deliverable needed and set the hours
-                  </span>
+              {/* ─── Hours Grid Table ─── */}
+              <div className={styles.hoursGridWrapper}>
+                <table className={styles.hoursGridTable}>
+                  <thead>
+                    <tr>
+                      <th className={styles.gridColDesc}>
+                        Deliverable Description
+                      </th>
+                      {resourceColumns.map((rc) => (
+                        <th key={rc} className={styles.gridColHours}>
+                          {rc} Hours
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(deliverablesByCategory).map(
+                      ([category, deliverables]) => {
+                        if (deliverables.length === 0) return null;
+                        return (
+                          <React.Fragment key={category}>
+                            {/* Category header row */}
+                            <tr className={styles.gridCategoryRow}>
+                              <td
+                                colSpan={resourceColumns.length + 1}
+                                className={styles.gridCategoryCell}
+                              >
+                                {category}
+                              </td>
+                            </tr>
+                            {/* Deliverable rows */}
+                            {deliverables.map((del) => (
+                              <tr key={del.id} className={styles.gridItemRow}>
+                                <td className={styles.gridItemLabel}>
+                                  {del.label}
+                                </td>
+                                {resourceColumns.map((rc) => (
+                                  <td key={rc} className={styles.gridItemCell}>
+                                    <input
+                                      className={styles.gridInput}
+                                      type="number"
+                                      min={0}
+                                      value={
+                                        modal.hoursGrid[del.value]?.[rc] || ""
+                                      }
+                                      placeholder="0"
+                                      onChange={(e) =>
+                                        updateGridCell(
+                                          del.value,
+                                          rc,
+                                          Number(e.target.value) || 0,
+                                        )
+                                      }
+                                    />
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        );
+                      },
+                    )}
+                    {/* Manufacturing Support row (auto-calculated, toggleable) */}
+                    {modal.includeManufacturing &&
+                      (() => {
+                        const colTotals = getGridColumnTotals();
+                        const mfgHours =
+                          getManufacturingSupportHours(colTotals);
+
+                        return (
+                          <tr className={styles.gridMfgRow}>
+                            <td className={styles.gridMfgLabel}>
+                              Manufacturing Support (20%)
+                            </td>
+                            {resourceColumns.map((rc) => (
+                              <td key={rc} className={styles.gridMfgCell}>
+                                {mfgHours[rc] > 0
+                                  ? mfgHours[rc].toFixed(1)
+                                  : "—"}
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })()}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Manufacturing toggle */}
+              <div className={styles.mfgToggleRow}>
+                <label className={styles.mfgToggleLabel}>
+                  <input
+                    type="checkbox"
+                    checked={modal.includeManufacturing}
+                    onChange={(e) =>
+                      setModal((prev) => ({
+                        ...prev,
+                        includeManufacturing: e.target.checked,
+                      }))
+                    }
+                  />
+                  Include Manufacturing Support (20%)
                 </label>
-                <div className={styles.deliverablesGrid}>
-                  {engineerDeliverables.map((del) => {
-                    const isChecked = modal.deliverables.some(
-                      (d) => d.deliverableType === del.value,
-                    );
-                    const deliverable = modal.deliverables.find(
-                      (d) => d.deliverableType === del.value,
-                    );
-                    return (
-                      <div
-                        key={del.id}
-                        className={`${styles.deliverableRow} ${isChecked ? styles.deliverableActive : ""}`}
-                      >
-                        <label className={styles.deliverableCheck}>
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleDeliverable(del.value)}
-                          />
-                          <span>{del.label}</span>
-                        </label>
-                        {isChecked && (
-                          <div className={styles.deliverableInputs}>
-                            <select
-                              className={styles.resourceSelect}
-                              value={deliverable?.resourceType || ""}
-                              onChange={(e) =>
-                                updateDeliverableResource(
-                                  del.value,
-                                  e.target.value,
-                                )
-                              }
-                            >
-                              {jobFunctions.map((f) => (
-                                <option key={f.id} value={f.value}>
-                                  {f.label}
-                                </option>
-                              ))}
-                              {jobFunctions.length === 0 && (
-                                <option value="Engineer">Engineer</option>
-                              )}
-                            </select>
-                            <input
-                              className={styles.hoursInput}
-                              type="number"
-                              min={0}
-                              placeholder="Hrs"
-                              value={deliverable?.hours || ""}
-                              onChange={(e) =>
-                                updateDeliverableHours(
-                                  del.value,
-                                  Number(e.target.value) || 0,
-                                )
-                              }
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
               </div>
 
-              {/* Modal total */}
-              <div className={styles.modalTotal}>
-                <span>Total Hours:</span>
-                <strong>
-                  {modal.deliverables.reduce((sum, d) => sum + d.hours, 0)}
-                </strong>
-              </div>
+              {/* ─── Summary Totals ─── */}
+              {(() => {
+                const colTotals = getGridColumnTotals();
+                const mfgHours = getManufacturingSupportHours(colTotals);
+                const designTotal = Object.values(colTotals).reduce(
+                  (s, v) => s + v,
+                  0,
+                );
+                // Get "Support - Project" hours specifically
+                const projectSupportHours = resourceColumns.reduce(
+                  (sum, rc) => {
+                    return (
+                      sum + (modal.hoursGrid["Support - Project"]?.[rc] || 0)
+                    );
+                  },
+                  0,
+                );
+                const mfgTotal = modal.includeManufacturing
+                  ? Object.values(mfgHours).reduce((s, v) => s + v, 0)
+                  : 0;
+                const grandTotal2 = designTotal + mfgTotal;
+
+                return (
+                  <div className={styles.gridSummary}>
+                    <table className={styles.gridSummaryTable}>
+                      <tbody>
+                        <tr>
+                          <td className={styles.summaryLabel}>Total Design</td>
+                          <td className={styles.summaryValue}>
+                            {designTotal.toFixed(1)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className={styles.summaryLabel}>
+                            Total Project Support
+                          </td>
+                          <td className={styles.summaryValue}>
+                            {projectSupportHours.toFixed(1)}
+                          </td>
+                        </tr>
+                        {modal.includeManufacturing && (
+                          <tr>
+                            <td className={styles.summaryLabel}>
+                              Total w/ Manufacturing Support
+                            </td>
+                            <td className={styles.summaryValue}>
+                              {(designTotal + mfgTotal).toFixed(1)}
+                            </td>
+                          </tr>
+                        )}
+                        <tr className={styles.summaryTotalRow}>
+                          <td className={styles.summaryTotalLabel}>
+                            Total for BID
+                          </td>
+                          <td className={styles.summaryTotalValue}>
+                            {grandTotal2.toFixed(1)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
             <div className={styles.modalFooter}>
               <button className={styles.cancelBtn} onClick={closeModal}>

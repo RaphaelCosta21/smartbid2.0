@@ -82,12 +82,16 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
       const engItems: IHoursItem[] = (hs?.engineeringHours?.items || []).filter(
         (i) => i.integratedDivision === div,
       );
-      // Deliverable-based engineering items (linked via scope)
-      const divScopeIds = new Set(
-        scopeItems
-          .filter((si) => si.integratedDivision === div)
-          .map((si) => si.id),
-      );
+      // Deliverable-based engineering items (linked via scope or sub-items)
+      const divScopeIds = new Set<string>();
+      scopeItems
+        .filter((si) => si.integratedDivision === div)
+        .forEach((si) => {
+          divScopeIds.add(si.id);
+          if (si.subItems) {
+            si.subItems.forEach((sub) => divScopeIds.add(sub.id));
+          }
+        });
       const engDeliverableHours = (hs?.engineeringHours?.engineeringItems || [])
         .filter((ei) => divScopeIds.has(ei.scopeItemId))
         .reduce((sum, ei) => sum + (ei.totalHours || 0), 0);
@@ -401,6 +405,9 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
   // Simple horizontal bar percentages
   const maxUSD = Math.max(...breakdown.map((b) => b.usd), 1);
 
+  // Expand/collapse sub-categories (open by default)
+  const [subCatsExpanded, setSubCatsExpanded] = React.useState(true);
+
   // ─── CAPEX vs OPEX totals ───
   const capexBRL = React.useMemo(() => {
     // Assets CAPEX
@@ -579,7 +586,20 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
 
       {/* Breakdown Table */}
       <div className={styles.breakdownSection}>
-        <h4 className={styles.sectionTitle}>Cost Breakdown</h4>
+        <h4 className={styles.sectionTitle}>
+          Cost Breakdown
+          <button
+            className={styles.toggleSubCats}
+            onClick={() => setSubCatsExpanded(!subCatsExpanded)}
+            title={
+              subCatsExpanded
+                ? "Collapse sub-categories"
+                : "Expand sub-categories"
+            }
+          >
+            {subCatsExpanded ? "▾ Hide details" : "▸ Show details"}
+          </button>
+        </h4>
         <table className={styles.breakdownTable}>
           <thead>
             <tr>
@@ -591,12 +611,13 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
             </tr>
           </thead>
           <tbody>
-            {breakdown.map((row) => {
+            {breakdown.map((row, idx) => {
+              if (row.indent && !subCatsExpanded) return null;
               const pct =
                 s.totalCostUSD > 0 ? (row.usd / s.totalCostUSD) * 100 : 0;
               return (
                 <tr
-                  key={row.label}
+                  key={`${idx}-${row.label}`}
                   className={row.indent ? styles.indentRow : ""}
                 >
                   <td>

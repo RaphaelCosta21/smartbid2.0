@@ -23,6 +23,15 @@ export const NotesTab: React.FC<NotesTabProps> = ({
   onAddComment,
 }) => {
   const notes = (bid.bidNotes || {}) as Record<string, string>;
+  const notesMetadata = (bid.bidNotesMetadata || {}) as Record<
+    string,
+    {
+      author: string;
+      date: string;
+      lastEditedBy?: string;
+      lastEditedDate?: string;
+    }
+  >;
   const entries = Object.entries(notes);
   const quickNotes: IQuickNote[] = bid.quickNotes || [];
   const [editingKey, setEditingKey] = React.useState<string | null>(null);
@@ -33,13 +42,33 @@ export const NotesTab: React.FC<NotesTabProps> = ({
 
   const handleSave = (key: string, value: string): void => {
     if (!onSave) return;
-    onSave({ bidNotes: { ...notes, [key]: value } });
+    const now = new Date().toISOString();
+    const userName =
+      currentUser?.displayName || currentUser?.email || "Unknown";
+    const existingMeta = notesMetadata[key];
+    const updatedMeta = existingMeta
+      ? { ...existingMeta, lastEditedBy: userName, lastEditedDate: now }
+      : { author: userName, date: now };
+    onSave({
+      bidNotes: { ...notes, [key]: value },
+      bidNotesMetadata: { ...notesMetadata, [key]: updatedMeta },
+    });
     setEditingKey(null);
   };
 
   const handleAddNote = (): void => {
     if (!onSave || !newKey.trim()) return;
-    onSave({ bidNotes: { ...notes, [newKey.trim()]: editValue } });
+    const now = new Date().toISOString();
+    const userName =
+      currentUser?.displayName || currentUser?.email || "Unknown";
+    const trimmedKey = newKey.trim();
+    onSave({
+      bidNotes: { ...notes, [trimmedKey]: editValue },
+      bidNotesMetadata: {
+        ...notesMetadata,
+        [trimmedKey]: { author: userName, date: now },
+      },
+    });
     setNewKey("");
     setEditValue("");
     setShowAddForm(false);
@@ -49,7 +78,9 @@ export const NotesTab: React.FC<NotesTabProps> = ({
     if (!onSave) return;
     const updated = { ...notes };
     delete updated[key];
-    onSave({ bidNotes: updated });
+    const updatedMeta = { ...notesMetadata };
+    delete updatedMeta[key];
+    onSave({ bidNotes: updated, bidNotesMetadata: updatedMeta });
   };
 
   const addQuickNote = (): void => {
@@ -271,12 +302,40 @@ export const NotesTab: React.FC<NotesTabProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <p
-                      className={styles.noteContent}
-                      style={{ marginTop: "12px" }}
-                    >
-                      {content}
-                    </p>
+                    <>
+                      <p
+                        className={styles.noteContent}
+                        style={{ marginTop: "12px" }}
+                      >
+                        {content}
+                      </p>
+                      {notesMetadata[section] && (
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "var(--text-tertiary)",
+                            marginTop: 6,
+                          }}
+                        >
+                          Created by{" "}
+                          <strong>{notesMetadata[section].author}</strong> ·{" "}
+                          {formatDateTime(notesMetadata[section].date)}
+                          {notesMetadata[section].lastEditedBy && (
+                            <>
+                              {" "}
+                              | Last edited by{" "}
+                              <strong>
+                                {notesMetadata[section].lastEditedBy}
+                              </strong>{" "}
+                              ·{" "}
+                              {formatDateTime(
+                                notesMetadata[section].lastEditedDate || "",
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ))}

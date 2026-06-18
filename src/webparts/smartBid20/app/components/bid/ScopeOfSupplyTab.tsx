@@ -2382,6 +2382,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                       <div className={styles.subTh}>
                                         Comments
                                       </div>
+                                      <div className={styles.subTh}>Eng?</div>
                                       {!readOnly && (
                                         <div className={styles.subTh}>
                                           &times;
@@ -2595,6 +2596,24 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                                 }
                                               />
                                             )}
+                                          </div>
+                                          <div
+                                            className={`${styles.subCell} ${styles.subCellCenter}`}
+                                          >
+                                            <input
+                                              className={styles.checkbox}
+                                              type="checkbox"
+                                              checked={!!sub.needsEngineering}
+                                              disabled={readOnly}
+                                              onChange={(e) =>
+                                                updateSubItem(
+                                                  item.id,
+                                                  sub.id,
+                                                  "needsEngineering",
+                                                  e.target.checked,
+                                                )
+                                              }
+                                            />
                                           </div>
                                           {!readOnly && (
                                             <div

@@ -14,6 +14,7 @@ import { useConfigPhases } from "../../hooks/useConfigPhases";
 import { useEditControl } from "../../hooks/useEditControl";
 import { useSpfxContext } from "../../config/SpfxContext";
 import { MembersService } from "../../services/MembersService";
+import { CurrencyService } from "../../services/CurrencyService";
 import { isTerminalStatus } from "../../utils/statusHelpers";
 import { PRIORITY_COLORS } from "../../utils/constants";
 import { createActivityLogEntry } from "../../utils/activityLogHelpers";
@@ -140,51 +141,55 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     name: string;
     email: string;
     role?: string;
-  }> = ({ name, email, role }) => (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        marginRight: 12,
-        marginBottom: 6,
-      }}
-    >
-      {photoMap[email] ? (
-        <img
-          src={photoMap[email]}
-          alt=""
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: "50%",
-            objectFit: "cover",
-          }}
-        />
-      ) : (
-        <span
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: "50%",
-            background: "var(--border-subtle)",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 12,
-            fontWeight: 600,
-            color: "var(--text-secondary)",
-          }}
-        >
-          {name.charAt(0).toUpperCase()}
+    photoUrl?: string;
+  }> = ({ name, email, role, photoUrl }) => {
+    const imgSrc = photoMap[email] || photoUrl;
+    return (
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          marginRight: 12,
+          marginBottom: 6,
+        }}
+      >
+        {imgSrc ? (
+          <img
+            src={imgSrc}
+            alt=""
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              objectFit: "cover",
+            }}
+          />
+        ) : (
+          <span
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              background: "var(--border-subtle)",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--text-secondary)",
+            }}
+          >
+            {name.charAt(0).toUpperCase()}
+          </span>
+        )}
+        <span style={{ fontSize: 13 }}>
+          {name}
+          {role ? ` (${role})` : ""}
         </span>
-      )}
-      <span style={{ fontSize: 13 }}>
-        {name}
-        {role ? ` (${role})` : ""}
       </span>
-    </span>
-  );
+    );
+  };
 
   // Edit mode state for General Info
   const [editingGeneral, setEditingGeneral] = React.useState(false);
@@ -200,16 +205,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const [editingOps, setEditingOps] = React.useState(false);
   const [opsDraft, setOpsDraft] = React.useState({ ...bid.opportunityInfo });
 
-  // Currency & PTAX edit
+  // Currency & Exchange Rates edit
   const [editingCurrency, setEditingCurrency] = React.useState(false);
-  const [currDraft, setCurrDraft] = React.useState({
-    currency:
-      bid.opportunityInfo?.currency ||
-      config?.currencySettings?.defaultCurrency ||
-      "USD",
-    ptax: bid.opportunityInfo?.ptax || 0,
-    ptaxDate: bid.opportunityInfo?.ptaxDate || "",
-  });
+  const [fetchingRates, setFetchingRates] = React.useState(false);
 
   // Engineer BID Overview
   const [editingOverview, setEditingOverview] = React.useState(false);
@@ -294,37 +292,43 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     opsLock.stopEditing();
   };
 
-  const saveCurrency = (): void => {
-    const changes: string[] = [];
-    if (currDraft.currency !== bid.opportunityInfo?.currency)
-      changes.push(`Currency → "${currDraft.currency}"`);
-    if (currDraft.ptax !== bid.opportunityInfo?.ptax)
-      changes.push(`PTAX → ${currDraft.ptax}`);
-    if (currDraft.ptaxDate !== bid.opportunityInfo?.ptaxDate)
-      changes.push(`PTAX Date → "${currDraft.ptaxDate}"`);
-
-    // Always refresh exchange rates snapshot from current config
-    const currentRates = config?.currencySettings?.exchangeRates || [];
-    const now = new Date().toISOString();
-    const newSnapshot = currentRates.map((er) => ({
-      currency: er.currency,
-      rate: er.rate,
-      capturedDate: now,
-    }));
-    changes.push("Exchange rates refreshed from config");
-
-    logAndSave(
-      {
-        opportunityInfo: {
-          ...bid.opportunityInfo,
-          ...currDraft,
-          exchangeRatesSnapshot: newSnapshot,
+  const saveCurrency = async (): Promise<void> => {
+    setFetchingRates(true);
+    try {
+      const currencies = (config?.currencySettings?.exchangeRates || []).map(
+        (er) => er.currency,
+      );
+      const rates = await CurrencyService.getRatesWithFallback(currencies);
+      if (rates.length === 0) {
+        setFetchingRates(false);
+        return;
+      }
+      const now = new Date().toISOString();
+      const newSnapshot = rates.map((r) => ({
+        currency: r.currency,
+        rate: r.rate,
+        capturedDate: now,
+      }));
+      // Also update the BRL rate as ptax for backward compat
+      const brlRate = rates.find((r) => r.currency === "BRL");
+      logAndSave(
+        {
+          opportunityInfo: {
+            ...bid.opportunityInfo,
+            ptax: brlRate ? brlRate.rate : bid.opportunityInfo?.ptax || 0,
+            ptaxDate: now.split("T")[0],
+            exchangeRatesSnapshot: newSnapshot,
+          },
         },
-      },
-      `Currency/PTAX updated: ${changes.join("; ")}`,
-    );
-    setEditingCurrency(false);
-    currencyLock.stopEditing();
+        `Exchange rates updated from BCB PTAX (${rates.map((r) => r.currency).join(", ")})`,
+      );
+    } catch (err) {
+      console.error("Failed to fetch BCB rates:", err);
+    } finally {
+      setFetchingRates(false);
+      setEditingCurrency(false);
+      currencyLock.stopEditing();
+    }
   };
 
   const saveOverview = (): void => {
@@ -853,7 +857,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           )}
         </div>
 
-        {/* Currency & PTAX */}
+        {/* Exchange Rates */}
         <div className={styles.infoSection}>
           {currencyLock.errorMessage && (
             <EditLockBanner
@@ -872,7 +876,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               className={styles.infoTitle}
               style={{ borderBottom: "none", marginBottom: 0 }}
             >
-              Currency & PTAX
+              Exchange Rates
             </h4>
             {canEdit && !isClosed && !editingCurrency && (
               <button
@@ -880,17 +884,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 disabled={currencyLock.loading}
                 onClick={async () => {
                   const ok = await currencyLock.startEditing();
-                  if (ok) {
-                    setCurrDraft({
-                      currency:
-                        bid.opportunityInfo?.currency ||
-                        config?.currencySettings?.defaultCurrency ||
-                        "USD",
-                      ptax: bid.opportunityInfo?.ptax || 0,
-                      ptaxDate: bid.opportunityInfo?.ptaxDate || "",
-                    });
-                    setEditingCurrency(true);
-                  }
+                  if (ok) setEditingCurrency(true);
                 }}
               >
                 {currencyLock.loading ? "Checking..." : "Edit"}
@@ -898,8 +892,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             )}
             {editingCurrency && (
               <div style={{ display: "flex", gap: 6 }}>
-                <button style={saveBtnStyle} onClick={saveCurrency}>
-                  Save
+                <button
+                  style={saveBtnStyle}
+                  disabled={fetchingRates}
+                  onClick={saveCurrency}
+                >
+                  {fetchingRates ? "Updating..." : "🔄 Update Rates (BCB)"}
                 </button>
                 <button
                   style={cancelBtnStyle}
@@ -913,216 +911,154 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               </div>
             )}
           </div>
-          {editingCurrency ? (
-            <div className={styles.infoGrid}>
-              <InfoRow
-                label="Currency"
-                value={
-                  <select
-                    value={currDraft.currency}
-                    onChange={(e) => {
-                      const newCurr = e.target.value;
-                      const rateEntry = (
-                        config?.currencySettings?.exchangeRates || []
-                      ).find((r) => r.currency === newCurr);
-                      setCurrDraft((d) => ({
-                        ...d,
-                        currency: newCurr,
-                        ptax: rateEntry ? rateEntry.rate : d.ptax,
-                        ptaxDate:
-                          rateEntry && rateEntry.lastUpdate
-                            ? rateEntry.lastUpdate.split("T")[0]
-                            : d.ptaxDate,
-                      }));
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "4px 8px",
-                      border: "1px solid var(--border)",
-                      borderRadius: 6,
-                      background: "var(--card-bg-elevated)",
-                      color: "var(--text-primary)",
-                      fontSize: 13,
-                    }}
-                  >
-                    {(() => {
-                      const rates =
-                        config?.currencySettings?.exchangeRates || [];
-                      const currencies = [
-                        config?.currencySettings?.defaultCurrency || "USD",
-                        ...rates.map((r) => r.currency),
-                      ];
-                      // deduplicate
-                      const unique: string[] = [];
-                      currencies.forEach((c) => {
-                        if (unique.indexOf(c) < 0) unique.push(c);
-                      });
-                      return unique.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ));
-                    })()}
-                  </select>
+
+          {/* Exchange Rates Display */}
+          <div style={{ marginTop: 8 }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--text-secondary)",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
+              Rates saved in BID
+              {editingCurrency && (
+                <span
+                  style={{
+                    marginLeft: 8,
+                    fontSize: 10,
+                    fontWeight: 400,
+                    color: "var(--primary-accent)",
+                    textTransform: "none",
+                  }}
+                >
+                  Click &quot;Update Rates&quot; to fetch latest from Banco
+                  Central
+                </span>
+              )}
+            </span>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginTop: 6,
+              }}
+            >
+              {(() => {
+                const snapshot =
+                  bid.opportunityInfo?.exchangeRatesSnapshot || [];
+                const configRates =
+                  config?.currencySettings?.exchangeRates || [];
+                const hasSnapshot = snapshot.length > 0;
+                const ratesList = hasSnapshot ? snapshot : configRates;
+
+                if (ratesList.length === 0) {
+                  return (
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: "var(--text-muted)",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      No exchange rates configured
+                    </span>
+                  );
                 }
-              />
-              <InfoRow
-                label="PTAX Rate"
-                value={
-                  <EditInput
-                    type="number"
-                    value={String(currDraft.ptax)}
-                    onChange={(v) =>
-                      setCurrDraft((d) => ({ ...d, ptax: Number(v) || 0 }))
-                    }
-                  />
-                }
-              />
-              <InfoRow
-                label="PTAX Date"
-                value={
-                  <EditInput
-                    type="date"
-                    value={currDraft.ptaxDate}
-                    onChange={(v) =>
-                      setCurrDraft((d) => ({ ...d, ptaxDate: v }))
-                    }
-                  />
-                }
-              />
-            </div>
-          ) : (
-            <div className={styles.infoGrid}>
-              <InfoRow
-                label="Currency"
-                value={
-                  bid.opportunityInfo?.currency ||
-                  config?.currencySettings?.defaultCurrency ||
-                  "USD"
-                }
-              />
-              <InfoRow
-                label="PTAX Rate"
-                value={
-                  bid.opportunityInfo?.ptax
-                    ? bid.opportunityInfo.ptax.toFixed(4)
-                    : "—"
-                }
-              />
-              <InfoRow
-                label="PTAX Date"
-                value={
-                  bid.opportunityInfo?.ptaxDate
-                    ? formatDate(bid.opportunityInfo.ptaxDate)
-                    : "—"
-                }
-              />
-            </div>
-          )}
-          {/* Exchange Rates from Config + Snapshot */}
-          {!editingCurrency && (
-            <div style={{ marginTop: 12 }}>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: "var(--text-secondary)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                }}
-              >
-                Exchange Rates (saved in BID)
-              </span>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 8,
-                  marginTop: 6,
-                }}
-              >
-                {bid.opportunityInfo?.exchangeRatesSnapshot &&
-                bid.opportunityInfo.exchangeRatesSnapshot.length > 0
-                  ? bid.opportunityInfo.exchangeRatesSnapshot.map((er) => (
-                      <div
-                        key={er.currency}
-                        style={{
-                          padding: "4px 10px",
-                          borderRadius: 6,
-                          background:
-                            "var(--card-bg-elevated, rgba(0,0,0,0.04))",
-                          border: "1px solid var(--border-subtle)",
-                          fontSize: 12,
-                        }}
-                      >
+
+                const chips: React.ReactNode[] = [];
+                ratesList.forEach((er) => {
+                  const isBRL = er.currency === "BRL";
+                  const chipStyle = {
+                    padding: "4px 10px",
+                    borderRadius: 6,
+                    background: "var(--card-bg-elevated, rgba(0,0,0,0.04))",
+                    border: "1px solid var(--border-subtle)",
+                    fontSize: 12,
+                    opacity: hasSnapshot ? 1 : 0.7,
+                  };
+
+                  if (isBRL) {
+                    // Show both USD→BRL and BRL→USD
+                    chips.push(
+                      <div key="USD-BRL" style={chipStyle}>
                         <span
                           style={{
                             fontWeight: 600,
                             color: "var(--text-primary)",
                           }}
                         >
-                          {er.currency}
+                          1 USD → BRL
                         </span>
                         <span
                           style={{
-                            marginLeft: 4,
-                            color: "var(--text-muted)",
-                            fontSize: 10,
-                          }}
-                        >
-                          1 USD =
-                        </span>
-                        <span
-                          style={{
-                            marginLeft: 4,
+                            marginLeft: 6,
                             color: "var(--text-secondary)",
                             fontWeight: 600,
                           }}
                         >
-                          {er.rate.toFixed(2)}
+                          {er.rate.toFixed(4)}
                         </span>
-                      </div>
-                    ))
-                  : (config?.currencySettings?.exchangeRates || []).map(
-                      (er) => (
-                        <div
-                          key={er.currency}
+                      </div>,
+                    );
+                    chips.push(
+                      <div key="BRL-USD" style={chipStyle}>
+                        <span
                           style={{
-                            padding: "4px 10px",
-                            borderRadius: 6,
-                            background:
-                              "var(--card-bg-elevated, rgba(0,0,0,0.04))",
-                            border: "1px solid var(--border-subtle)",
-                            fontSize: 12,
-                            opacity: 0.7,
+                            fontWeight: 600,
+                            color: "var(--text-primary)",
                           }}
                         >
-                          <span
-                            style={{
-                              fontWeight: 600,
-                              color: "var(--text-primary)",
-                            }}
-                          >
-                            {er.currency}
-                          </span>
-                          <span
-                            style={{
-                              marginLeft: 4,
-                              color: "var(--text-muted)",
-                              fontSize: 10,
-                            }}
-                          >
-                            1 USD =
-                          </span>
-                          <span
-                            style={{
-                              marginLeft: 4,
-                              color: "var(--text-secondary)",
-                              fontWeight: 600,
-                            }}
-                          >
-                            {er.rate.toFixed(2)}
-                          </span>
+                          1 BRL → USD
+                        </span>
+                        <span
+                          style={{
+                            marginLeft: 6,
+                            color: "var(--text-secondary)",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {er.rate > 0 ? (1 / er.rate).toFixed(4) : "—"}
+                        </span>
+                      </div>,
+                    );
+                  } else {
+                    // Show X→USD (invert units-per-USD to USD-per-unit)
+                    chips.push(
+                      <div key={er.currency} style={chipStyle}>
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            color: "var(--text-primary)",
+                          }}
+                        >
+                          1 {er.currency} → USD
+                        </span>
+                        <span
+                          style={{
+                            marginLeft: 6,
+                            color: "var(--text-secondary)",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {er.rate > 0 ? (1 / er.rate).toFixed(4) : "—"}
+                        </span>
+                      </div>,
+                    );
+                  }
+                  if (!hasSnapshot) {
+                    // Mark as "from config" for the last chip
+                    const lastChip = chips[chips.length - 1];
+                    if (lastChip) {
+                      chips[chips.length - 1] = (
+                        <div
+                          key={`${er.currency}-cfg`}
+                          style={{ ...chipStyle, opacity: 0.7 }}
+                        >
+                          {(lastChip as React.ReactElement).props.children}
                           <span
                             style={{
                               marginLeft: 4,
@@ -1133,28 +1069,31 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                             (from config)
                           </span>
                         </div>
-                      ),
-                    )}
-              </div>
-              {bid.opportunityInfo?.exchangeRatesSnapshot &&
-                bid.opportunityInfo.exchangeRatesSnapshot.length > 0 &&
-                bid.opportunityInfo.exchangeRatesSnapshot[0]?.capturedDate && (
-                  <span
-                    style={{
-                      fontSize: 10,
-                      color: "var(--text-tertiary)",
-                      marginTop: 4,
-                      display: "block",
-                    }}
-                  >
-                    Last updated:{" "}
-                    {formatDate(
-                      bid.opportunityInfo.exchangeRatesSnapshot[0].capturedDate,
-                    )}
-                  </span>
-                )}
+                      );
+                    }
+                  }
+                });
+                return chips;
+              })()}
             </div>
-          )}
+            {bid.opportunityInfo?.exchangeRatesSnapshot &&
+              bid.opportunityInfo.exchangeRatesSnapshot.length > 0 &&
+              bid.opportunityInfo.exchangeRatesSnapshot[0]?.capturedDate && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: "var(--text-tertiary)",
+                    marginTop: 4,
+                    display: "block",
+                  }}
+                >
+                  Last updated:{" "}
+                  {formatDate(
+                    bid.opportunityInfo.exchangeRatesSnapshot[0].capturedDate,
+                  )}
+                </span>
+              )}
+          </div>
           {isClosed && (
             <p
               style={{
@@ -1282,7 +1221,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           {bid.serviceLine === "Integrated" ? (
             (() => {
               const groupByDiv = (
-                people: { name: string; email: string; role?: string }[],
+                people: {
+                  name: string;
+                  email: string;
+                  role?: string;
+                  photoUrl?: string;
+                }[],
               ): {
                 rov: typeof people;
                 survey: typeof people;
@@ -1305,7 +1249,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               const renderGroup = (
                 label: string,
                 groups: {
-                  rov: { name: string; email: string; role?: string }[];
+                  rov: {
+                    name: string;
+                    email: string;
+                    role?: string;
+                    photoUrl?: string;
+                  }[];
                   survey: (typeof groups)["rov"];
                   other: (typeof groups)["rov"];
                 },
@@ -1339,6 +1288,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           name={p.name}
                           email={p.email}
                           role={p.role}
+                          photoUrl={p.photoUrl}
                         />
                       ))}
                     </div>
@@ -1361,6 +1311,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           name={p.name}
                           email={p.email}
                           role={p.role}
+                          photoUrl={p.photoUrl}
                         />
                       ))}
                     </div>
@@ -1373,6 +1324,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           name={p.name}
                           email={p.email}
                           role={p.role}
+                          photoUrl={p.photoUrl}
                         />
                       ))}
                     </div>
@@ -1413,6 +1365,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         name={bid.creator.name}
                         email={bid.creator.email}
                         role={bid.creator.role}
+                        photoUrl={bid.creator.photoUrl}
                       />
                     ) : (
                       "—"
@@ -1435,6 +1388,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           key={pm.email}
                           name={pm.name}
                           email={pm.email}
+                          photoUrl={pm.photoUrl}
                         />
                       ))
                     ) : (
@@ -1469,6 +1423,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     name={bid.creator.name}
                     email={bid.creator.email}
                     role={bid.creator.role}
+                    photoUrl={bid.creator.photoUrl}
                   />
                 ) : (
                   "—"
@@ -1487,7 +1442,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 </div>
                 {(bid.engineerResponsible || []).length > 0 ? (
                   bid.engineerResponsible.map((e) => (
-                    <PersonChip key={e.email} name={e.name} email={e.email} />
+                    <PersonChip
+                      key={e.email}
+                      name={e.name}
+                      email={e.email}
+                      photoUrl={e.photoUrl}
+                    />
                   ))
                 ) : (
                   <span
@@ -1510,7 +1470,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 </div>
                 {(bid.analyst || []).length > 0 ? (
                   bid.analyst.map((a) => (
-                    <PersonChip key={a.email} name={a.name} email={a.email} />
+                    <PersonChip
+                      key={a.email}
+                      name={a.name}
+                      email={a.email}
+                      photoUrl={a.photoUrl}
+                    />
                   ))
                 ) : (
                   <span
@@ -1537,6 +1502,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       key={pm.email}
                       name={pm.name}
                       email={pm.email}
+                      photoUrl={pm.photoUrl}
                     />
                   ))
                 ) : (
@@ -1560,7 +1526,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 </div>
                 {(bid.reviewers || []).length > 0 ? (
                   bid.reviewers.map((r) => (
-                    <PersonChip key={r.email} name={r.name} email={r.email} />
+                    <PersonChip
+                      key={r.email}
+                      name={r.name}
+                      email={r.email}
+                      photoUrl={r.photoUrl}
+                    />
                   ))
                 ) : (
                   <span

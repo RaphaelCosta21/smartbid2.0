@@ -585,6 +585,11 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
   const currentPhaseColor =
     phases.find((p) => p.value === bid.currentPhase)?.color || "#94A3B8";
 
+  /** Whether BID is currently in a terminal status (Completed, Canceled, No Bid) */
+  const isInTerminalStatus = terminalStatuses.some(
+    (t) => t.value === bid.currentStatus,
+  );
+
   /* ─── Last change info ─── */
   const lastStatusEntry =
     (bid.statusHistory || []).length > 0
@@ -694,8 +699,13 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
           <div className={styles.phaseNavRow}>
             <button
               className={styles.phaseNavBtn}
-              disabled={currentPhaseIndex <= 0}
+              disabled={currentPhaseIndex <= 0 || isInTerminalStatus}
               onClick={handleRevertPhase}
+              title={
+                isInTerminalStatus
+                  ? "Cannot revert phase while in a terminal status"
+                  : undefined
+              }
             >
               <svg
                 width="14"
@@ -862,6 +872,11 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
           {readOnly ? (
             <div className={styles.readOnlyMsg}>
               You don&apos;t have permission to change the status.
+            </div>
+          ) : isInTerminalStatus ? (
+            <div className={styles.readOnlyMsg}>
+              BID is in a terminal status (<strong>{bid.currentStatus}</strong>
+              ). To make changes, advance to the <strong>Rework</strong> phase.
             </div>
           ) : (
             <div className={styles.statusSelectorWrap}>

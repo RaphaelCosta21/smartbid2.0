@@ -36,7 +36,13 @@ import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useUIStore } from "../stores/useUIStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { BidService } from "../services/BidService";
-import { IBid, IScopeItem, IHoursSummary, IBidComment } from "../models";
+import {
+  IBid,
+  IScopeItem,
+  IHoursSummary,
+  IBidComment,
+  IActivityLogEntry,
+} from "../models";
 import {
   bidsToCSV,
   downloadCSV,
@@ -295,6 +301,102 @@ export const BidDetailPage: React.FC = () => {
     [id, currentUser],
   );
 
+  /** Builds a human-readable description of the patch for activity log */
+  const describeTerminalEdit = (
+    tabName: string,
+    patch: Partial<IBid>,
+    currentBid: IBid,
+  ): string => {
+    const parts: string[] = [];
+    if (patch.bidNotes) {
+      const oldKeys = Object.keys(currentBid.bidNotes || {});
+      const newKeys = Object.keys(patch.bidNotes);
+      const added = newKeys.filter((k) => oldKeys.indexOf(k) === -1);
+      const removed = oldKeys.filter((k) => newKeys.indexOf(k) === -1);
+      const edited = newKeys.filter(
+        (k) =>
+          oldKeys.indexOf(k) >= 0 &&
+          (currentBid.bidNotes || {})[k] !== patch.bidNotes![k],
+      );
+      if (added.length > 0) parts.push(`Added note: "${added.join('", "')}"`);
+      if (edited.length > 0)
+        parts.push(`Edited note: "${edited.join('", "')}"`);
+      if (removed.length > 0)
+        parts.push(`Deleted note: "${removed.join('", "')}"`);
+    }
+    if (patch.quickNotes) {
+      const oldCount = (currentBid.quickNotes || []).length;
+      const newCount = patch.quickNotes.length;
+      if (newCount > oldCount) parts.push("Added a quick note");
+      else if (newCount < oldCount) parts.push("Deleted a quick note");
+    }
+    if (patch.comments) {
+      const oldCount = (currentBid.comments || []).length;
+      const newCount = patch.comments.length;
+      if (newCount > oldCount) parts.push("Added a comment");
+    }
+    if (patch.qualificationTables) parts.push("Updated qualification tables");
+    if (patch.clarifications) parts.push("Updated clarifications");
+    if (patch.engineerBidOverview !== undefined)
+      parts.push("Updated engineer overview");
+    if (parts.length === 0) parts.push(`Edited ${tabName}`);
+    return parts.join("; ") + ` (BID in ${currentBid.currentStatus})`;
+  };
+
+  /** Wrapped savePatch that appends activity log when BID is in terminal status */
+  const makeTerminalSave = React.useCallback(
+    (tabName: string) => (patch: Partial<IBid>) => {
+      const currentBids = useBidStore.getState().bids;
+      const currentBid = currentBids.find((b) => b.bidNumber === id);
+      if (!currentBid || !isTerminalStatus(currentBid.currentStatus)) {
+        savePatch(patch);
+        return;
+      }
+      const fields = Object.keys(patch).filter(
+        (k) =>
+          k !== "activityLog" &&
+          k !== "lastModified" &&
+          k !== "bidNotesMetadata",
+      );
+      if (fields.length === 0) {
+        savePatch(patch);
+        return;
+      }
+      const logEntry: IActivityLogEntry = {
+        id: `log-${Date.now()}-terminal-edit`,
+        type: "EDIT_IN_TERMINAL",
+        timestamp: new Date().toISOString(),
+        actor: currentUser.email,
+        actorName: currentUser.displayName,
+        description: describeTerminalEdit(tabName, patch, currentBid),
+        metadata: { tab: tabName, fields },
+      };
+      savePatch({
+        ...patch,
+        activityLog: [
+          ...(currentBid.activityLog || []),
+          ...(patch.activityLog || []),
+          logEntry,
+        ],
+      });
+    },
+    [id, currentUser, savePatch],
+  );
+
+  // Stable memoized references for each tab
+  const saveOverview = React.useMemo(
+    () => makeTerminalSave("Overview"),
+    [makeTerminalSave],
+  );
+  const saveNotes = React.useMemo(
+    () => makeTerminalSave("Notes & Comments"),
+    [makeTerminalSave],
+  );
+  const saveQualifications = React.useMemo(
+    () => makeTerminalSave("Clarif. & Qualif."),
+    [makeTerminalSave],
+  );
+
   const bid = bids.find((b) => b.bidNumber === id);
 
   if (!bid) {
@@ -319,8 +421,15 @@ export const BidDetailPage: React.FC = () => {
   // UNLESS there is an active revision (Rework), which unlocks editing
   const isBidLocked =
     isTerminalStatus(bid.currentStatus) && !hasActiveRevision(bid);
-  // canEditBidTabs: false when locked, prevents edit on scope/costing tabs
-  const canEditBidTabs = canEditBid && !isBidLocked;
+
+  // BID is unassigned when no engineer responsible is set
+  const isUnassigned =
+    !bid.engineerResponsible ||
+    (Array.isArray(bid.engineerResponsible) &&
+      bid.engineerResponsible.length === 0);
+
+  // canEditBidTabs: false when locked OR unassigned, prevents edit on scope/costing tabs
+  const canEditBidTabs = canEditBid && !isBidLocked && !isUnassigned;
 
   return (
     <div className={styles.bidDetail}>
@@ -440,12 +549,43 @@ export const BidDetailPage: React.FC = () => {
 
         {/* Main Content */}
         <div className={styles.tabContent}>
+          {isUnassigned &&
+            (activeTab === "scope" ||
+              activeTab === "hours" ||
+              activeTab === "assets" ||
+              activeTab === "preparation" ||
+              activeTab === "logistics" ||
+              activeTab === "certifications" ||
+              activeTab === "costs") && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 16px",
+                  marginBottom: 12,
+                  borderRadius: 8,
+                  background: "var(--warning-bg, rgba(249, 115, 22, 0.1))",
+                  border: "1px solid var(--warning, #F97316)",
+                  color: "var(--warning, #F97316)",
+                  fontSize: 13,
+                  fontWeight: 500,
+                }}
+              >
+                <span style={{ fontSize: 16 }}>🔒</span>
+                <span>
+                  This BID has no Engineer Responsible assigned. Scope &amp;
+                  Costing tabs are read-only until a team member is assigned via
+                  the Unassigned Requests page.
+                </span>
+              </div>
+            )}
           {activeTab === "overview" && (
             <OverviewTab
               bid={bid}
               currentPhaseIndex={currentPhaseIndex}
               canEdit={canEditBid}
-              onSave={savePatch}
+              onSave={saveOverview}
               currentUser={currentUser}
             />
           )}
@@ -652,9 +792,16 @@ export const BidDetailPage: React.FC = () => {
                         }}
                         onSave={(items) => {
                           if (div) {
+                            const allScopeIds = new Set(
+                              (bid.scopeItems || []).map((s) => s.id),
+                            );
                             const otherAssets = (
                               bid.assetBreakdown || []
-                            ).filter((a) => !scopeIds.has(a.scopeItemId));
+                            ).filter(
+                              (a) =>
+                                !scopeIds.has(a.scopeItemId) &&
+                                allScopeIds.has(a.scopeItemId),
+                            );
                             savePatch({
                               assetBreakdown: [...otherAssets, ...items],
                             });
@@ -898,6 +1045,7 @@ export const BidDetailPage: React.FC = () => {
             <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
               {(_div) => (
                 <DivisionEditWrap
+                  key={_div || "default"}
                   bidNumber={bid.bidNumber}
                   tabName="Hours & Personnel"
                   sectionPrefix="hours"
@@ -912,7 +1060,20 @@ export const BidDetailPage: React.FC = () => {
                           (i) => i.integratedDivision === _div,
                         )
                       : bid.scopeItems || [];
-                    const scopeIds = new Set(filteredScope.map((s) => s.id));
+                    // IDs of scope items/sub-items that currently need engineering
+                    const engScopeIds = new Set(
+                      filteredScope.reduce<string[]>((acc, s) => {
+                        if (!s.isSection && s.needsEngineering) {
+                          acc.push(s.id);
+                        }
+                        if (s.subItems) {
+                          s.subItems.forEach((sub) => {
+                            if (sub.needsEngineering) acc.push(sub.id);
+                          });
+                        }
+                        return acc;
+                      }, []),
+                    );
 
                     // Filter hours items by integratedDivision
                     const filterItems = (
@@ -939,39 +1100,72 @@ export const BidDetailPage: React.FC = () => {
                       items: typeof fullSummary.engineeringHours.engineeringItems,
                     ) =>
                       _div && items
-                        ? items.filter((i) => scopeIds.has(i.scopeItemId))
+                        ? items.filter((i) => engScopeIds.has(i.scopeItemId))
                         : items;
 
                     const filteredSummary: typeof fullSummary = _div
-                      ? {
-                          ...fullSummary,
-                          engineeringHours: {
-                            ...fullSummary.engineeringHours,
-                            items: filterItems(
-                              fullSummary.engineeringHours.items,
-                            ),
-                            sections: filterSections(
-                              fullSummary.engineeringHours.sections,
-                            ),
-                            engineeringItems: filterEngItems(
-                              fullSummary.engineeringHours.engineeringItems,
-                            ),
-                          },
-                          onshoreHours: {
-                            ...fullSummary.onshoreHours,
-                            items: filterItems(fullSummary.onshoreHours.items),
-                            sections: filterSections(
-                              fullSummary.onshoreHours.sections,
-                            ),
-                          },
-                          offshoreHours: {
-                            ...fullSummary.offshoreHours,
-                            items: filterItems(fullSummary.offshoreHours.items),
-                            sections: filterSections(
-                              fullSummary.offshoreHours.sections,
-                            ),
-                          },
-                        }
+                      ? (() => {
+                          const engItems = filterItems(
+                            fullSummary.engineeringHours.items,
+                          );
+                          const engEngItems = filterEngItems(
+                            fullSummary.engineeringHours.engineeringItems,
+                          );
+                          const onItems = filterItems(
+                            fullSummary.onshoreHours.items,
+                          );
+                          const offItems = filterItems(
+                            fullSummary.offshoreHours.items,
+                          );
+                          const sumHours = (items: { totalHours?: number }[]) =>
+                            items.reduce((s, i) => s + (i.totalHours || 0), 0);
+                          const sumCost = (items: { costBRL?: number }[]) =>
+                            items.reduce((s, i) => s + (i.costBRL || 0), 0);
+                          const engEngTotal = (engEngItems || []).reduce(
+                            (s, i) => s + (i.totalHours || 0),
+                            0,
+                          );
+                          return {
+                            ...fullSummary,
+                            engineeringHours: {
+                              ...fullSummary.engineeringHours,
+                              items: engItems,
+                              sections: filterSections(
+                                fullSummary.engineeringHours.sections,
+                              ),
+                              engineeringItems: engEngItems,
+                              totalHours: sumHours(engItems) + engEngTotal,
+                              totalCostBRL: sumCost(engItems),
+                            },
+                            onshoreHours: {
+                              ...fullSummary.onshoreHours,
+                              items: onItems,
+                              sections: filterSections(
+                                fullSummary.onshoreHours.sections,
+                              ),
+                              totalHours: sumHours(onItems),
+                              totalCostBRL: sumCost(onItems),
+                            },
+                            offshoreHours: {
+                              ...fullSummary.offshoreHours,
+                              items: offItems,
+                              sections: filterSections(
+                                fullSummary.offshoreHours.sections,
+                              ),
+                              totalHours: sumHours(offItems),
+                              totalCostBRL: sumCost(offItems),
+                            },
+                            grandTotalHours:
+                              sumHours(engItems) +
+                              engEngTotal +
+                              sumHours(onItems) +
+                              sumHours(offItems),
+                            grandTotalCostBRL:
+                              sumCost(engItems) +
+                              sumCost(onItems) +
+                              sumCost(offItems),
+                          };
+                        })()
                       : fullSummary;
 
                     return (
@@ -980,10 +1174,17 @@ export const BidDetailPage: React.FC = () => {
                         readOnly={!isEditing}
                         onSave={(updated) => {
                           if (_div) {
+                            // Read LATEST hours from store to avoid stale-closure race conditions
+                            const latestBid = useBidStore
+                              .getState()
+                              .bids.find((b) => b.bidNumber === id);
+                            const latestSummary =
+                              latestBid?.hoursSummary || EMPTY_HOURS_SUMMARY;
+
                             // Merge: keep items from the other division, add updated items tagged with current division
                             const mergeItems = (
-                              original: typeof fullSummary.onshoreHours.items,
-                              updatedItems: typeof fullSummary.onshoreHours.items,
+                              original: typeof latestSummary.onshoreHours.items,
+                              updatedItems: typeof latestSummary.onshoreHours.items,
                             ) => {
                               const others = original.filter(
                                 (i) =>
@@ -1000,8 +1201,8 @@ export const BidDetailPage: React.FC = () => {
                             };
                             // Merge section groups: keep other division's sections, add current division's
                             const mergeSections = (
-                              original: typeof fullSummary.onshoreHours.sections,
-                              updatedSections: typeof fullSummary.onshoreHours.sections,
+                              original: typeof latestSummary.onshoreHours.sections,
+                              updatedSections: typeof latestSummary.onshoreHours.sections,
                             ) => {
                               const origSections = original || [];
                               const updSections = updatedSections || [];
@@ -1019,65 +1220,118 @@ export const BidDetailPage: React.FC = () => {
                               ];
                             };
                             const mergeEngItems = (
-                              original: typeof fullSummary.engineeringHours.engineeringItems,
-                              updatedItems: typeof fullSummary.engineeringHours.engineeringItems,
+                              original: typeof latestSummary.engineeringHours.engineeringItems,
+                              updatedItems: typeof latestSummary.engineeringHours.engineeringItems,
                             ) => {
                               const origItems = original || [];
                               const updItems = updatedItems || [];
+                              const latestScope = latestBid?.scopeItems || [];
                               const otherScopeIds = new Set(
-                                (bid.scopeItems || [])
+                                latestScope
                                   .filter(
                                     (s) =>
                                       s.integratedDivision &&
                                       s.integratedDivision !== _div,
                                   )
-                                  .map((s) => s.id),
+                                  .reduce<string[]>((acc, s) => {
+                                    acc.push(s.id);
+                                    if (s.subItems) {
+                                      s.subItems.forEach((sub) =>
+                                        acc.push(sub.id),
+                                      );
+                                    }
+                                    return acc;
+                                  }, []),
                               );
                               const others = origItems.filter((i) =>
                                 otherScopeIds.has(i.scopeItemId),
                               );
                               return [...others, ...updItems];
                             };
-                            const merged: typeof fullSummary = {
+
+                            // Perform the merge
+                            const mergedOnshoreItems = mergeItems(
+                              latestSummary.onshoreHours.items,
+                              updated.onshoreHours.items,
+                            );
+                            const mergedOffshoreItems = mergeItems(
+                              latestSummary.offshoreHours.items,
+                              updated.offshoreHours.items,
+                            );
+                            const mergedEngItems = mergeItems(
+                              latestSummary.engineeringHours.items,
+                              updated.engineeringHours.items,
+                            );
+                            const mergedEngEngineeringItems = mergeEngItems(
+                              latestSummary.engineeringHours.engineeringItems,
+                              updated.engineeringHours.engineeringItems,
+                            );
+
+                            // Recalculate totals from ALL merged items
+                            const calcTotal = (
+                              items: typeof mergedOnshoreItems,
+                            ) =>
+                              items.reduce(
+                                (sum, i) => sum + (i.totalHours || 0),
+                                0,
+                              );
+                            const calcCost = (
+                              items: typeof mergedOnshoreItems,
+                            ) =>
+                              items.reduce(
+                                (sum, i) => sum + (i.costBRL || 0),
+                                0,
+                              );
+                            const engItemsTotal =
+                              mergedEngEngineeringItems.reduce(
+                                (sum, i) => sum + (i.totalHours || 0),
+                                0,
+                              );
+
+                            const merged: typeof latestSummary = {
                               ...updated,
                               engineeringHours: {
                                 ...updated.engineeringHours,
-                                items: mergeItems(
-                                  fullSummary.engineeringHours.items,
-                                  updated.engineeringHours.items,
-                                ),
+                                items: mergedEngItems,
                                 sections: mergeSections(
-                                  fullSummary.engineeringHours.sections,
+                                  latestSummary.engineeringHours.sections,
                                   updated.engineeringHours.sections,
                                 ),
-                                engineeringItems: mergeEngItems(
-                                  fullSummary.engineeringHours.engineeringItems,
-                                  updated.engineeringHours.engineeringItems,
-                                ),
+                                engineeringItems: mergedEngEngineeringItems,
+                                totalHours:
+                                  calcTotal(mergedEngItems) + engItemsTotal,
+                                totalCostBRL: calcCost(mergedEngItems),
                               },
                               onshoreHours: {
                                 ...updated.onshoreHours,
-                                items: mergeItems(
-                                  fullSummary.onshoreHours.items,
-                                  updated.onshoreHours.items,
-                                ),
+                                items: mergedOnshoreItems,
                                 sections: mergeSections(
-                                  fullSummary.onshoreHours.sections,
+                                  latestSummary.onshoreHours.sections,
                                   updated.onshoreHours.sections,
                                 ),
+                                totalHours: calcTotal(mergedOnshoreItems),
+                                totalCostBRL: calcCost(mergedOnshoreItems),
                               },
                               offshoreHours: {
                                 ...updated.offshoreHours,
-                                items: mergeItems(
-                                  fullSummary.offshoreHours.items,
-                                  updated.offshoreHours.items,
-                                ),
+                                items: mergedOffshoreItems,
                                 sections: mergeSections(
-                                  fullSummary.offshoreHours.sections,
+                                  latestSummary.offshoreHours.sections,
                                   updated.offshoreHours.sections,
                                 ),
+                                totalHours: calcTotal(mergedOffshoreItems),
+                                totalCostBRL: calcCost(mergedOffshoreItems),
                               },
                             };
+                            // Recalculate grand totals
+                            merged.grandTotalHours =
+                              merged.engineeringHours.totalHours +
+                              merged.onshoreHours.totalHours +
+                              merged.offshoreHours.totalHours;
+                            merged.grandTotalCostBRL =
+                              merged.engineeringHours.totalCostBRL +
+                              merged.onshoreHours.totalCostBRL +
+                              merged.offshoreHours.totalCostBRL;
                             savePatch({ hoursSummary: merged });
                           } else {
                             savePatch({ hoursSummary: updated });
@@ -1142,7 +1396,7 @@ export const BidDetailPage: React.FC = () => {
             <NotesTab
               bid={bid}
               canEdit={canEditBid}
-              onSave={savePatch}
+              onSave={saveNotes}
               currentUser={currentUser}
               onAddComment={
                 canEditBid
@@ -1162,7 +1416,7 @@ export const BidDetailPage: React.FC = () => {
                         mentions: [],
                         attachments: [],
                       };
-                      savePatch({
+                      saveNotes({
                         comments: [...(bid.comments || []), newComment],
                       });
                     }
@@ -1174,7 +1428,7 @@ export const BidDetailPage: React.FC = () => {
             <QualificationsTab
               bid={bid}
               canEdit={canEditBid}
-              onSave={savePatch}
+              onSave={saveQualifications}
             />
           )}
           {activeTab === "ai" && (

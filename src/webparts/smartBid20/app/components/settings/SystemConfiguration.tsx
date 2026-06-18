@@ -17,6 +17,7 @@ import {
   IFavoriteSubGroup,
 } from "../../models";
 import { SystemConfigService } from "../../services/SystemConfigService";
+import { CurrencyService } from "../../services/CurrencyService";
 // DEFAULT_SYSTEM_CONFIG removed — all data loaded from SharePoint JSON
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useConfigStore } from "../../stores/useConfigStore";
@@ -386,6 +387,14 @@ const SystemConfiguration: React.FC = () => {
   const [addingTeam, setAddingTeam] = React.useState(false);
   const [newTeamName, setNewTeamName] = React.useState("");
 
+  /* ---- engineer deliverable category editing state -------------- */
+  const [editingDelCatIdx, setEditingDelCatIdx] = React.useState<number | null>(
+    null,
+  );
+  const [editingDelCatName, setEditingDelCatName] = React.useState("");
+  const [addingDelCat, setAddingDelCat] = React.useState(false);
+  const [newDelCatName, setNewDelCatName] = React.useState("");
+
   const currentNavItem = ALL_NAV_ITEMS.find((n) => n.key === activeTab);
 
   /* ---- helpers --------------------------------------------------- */
@@ -511,7 +520,24 @@ const SystemConfiguration: React.FC = () => {
     if (isColorOnly && editItem) {
       const patch: Partial<IConfigOption> = { color: panelForm.color };
       if (key === "subStatuses") {
-        patch.category = panelForm.category || "all";
+        // Enforce locked phase-status pairs
+        const LOCKED_PHASE_MAP: Record<string, string[]> = {
+          "Pending Assignment": ["Request Submitted"],
+          "Awaiting Kick Off": ["Bid Kick Off"],
+        };
+        const locked = LOCKED_PHASE_MAP[editItem.value] || [];
+        let cat = panelForm.category || "all";
+        if (cat !== "all" && locked.length > 0) {
+          const existing = cat
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+          locked.forEach((lp) => {
+            if (existing.indexOf(lp) < 0) existing.push(lp);
+          });
+          cat = existing.join(",");
+        }
+        patch.category = cat;
       }
       const updated = list.map((o) =>
         o.id === editItem.id ? { ...o, ...patch } : o,
@@ -554,7 +580,7 @@ const SystemConfiguration: React.FC = () => {
     setShowPanel(false);
   };
 
-  /* ---- force-update exchange rates ------------------------------- */
+  /* ---- force-update exchange rates (BCB PTAX) -------------------- */
 
   const forceUpdateRates = React.useCallback(async () => {
     if (!config || !canEdit) return;
@@ -562,32 +588,22 @@ const SystemConfiguration: React.FC = () => {
     try {
       const cs = config.currencySettings;
       const codes = cs.exchangeRates.map((er) => er.currency);
-      const resp = await fetch(
-        `https://open.er-api.com/v6/latest/${cs.defaultCurrency}`,
-      );
-      if (!resp.ok) throw new Error(`API returned ${resp.status}`);
-      const data = (await resp.json()) as {
-        result: string;
-        rates: Record<string, number>;
-      };
-      if (data.result !== "success") throw new Error("API error");
+      const rates = await CurrencyService.getRatesWithFallback(codes);
 
       const now = new Date().toISOString();
       const updatedRates = cs.exchangeRates.map((er) => {
-        const newRate = data.rates[er.currency];
-        if (newRate !== null && newRate !== undefined) {
+        const bcbRate = rates.find((r) => r.currency === er.currency);
+        if (bcbRate) {
           return {
             ...er,
-            rate: Math.round(newRate * 100) / 100,
+            rate: Math.round(bcbRate.rate * 100000) / 100000,
             lastUpdate: now,
           };
         }
         return er;
       });
       const notFound = cs.exchangeRates.filter(
-        (er) =>
-          data.rates[er.currency] === null ||
-          data.rates[er.currency] === undefined,
+        (er) => !rates.find((r) => r.currency === er.currency),
       );
       updateConfig({
         currencySettings: { ...cs, exchangeRates: updatedRates },
@@ -597,17 +613,20 @@ const SystemConfiguration: React.FC = () => {
       if (notFound.length > 0) {
         showMsg(
           "error",
-          `Updated ${codes.length - notFound.length}/${codes.length}. Not found in API: ${notFound.map((e) => e.currency).join(", ")}`,
+          `Updated ${codes.length - notFound.length}/${codes.length}. Not found in BCB: ${notFound.map((e) => e.currency).join(", ")}`,
         );
       } else {
         showMsg(
           "success",
-          `Rates updated from Open Exchange Rates API (${codes.join(", ")})`,
+          `Rates updated from BCB PTAX API (${codes.join(", ")})`,
         );
       }
     } catch (err) {
-      console.error("Failed to fetch rates:", err);
-      showMsg("error", "Failed to fetch exchange rates — check console");
+      console.error("Failed to fetch BCB rates:", err);
+      showMsg(
+        "error",
+        "Failed to fetch exchange rates from BCB — check console",
+      );
     } finally {
       setFetchingRates(false);
     }
@@ -934,6 +953,272 @@ const SystemConfiguration: React.FC = () => {
                           className={`${styles.actionBtn} ${styles.danger}`}
                           onClick={() =>
                             handleDeleteOption("jobFunctions", opt.id)
+                          }
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  /* ---- Engineer Deliverables (grouped by category) -------------- */
+
+  const renderEngineerDeliverables = (): React.ReactElement => {
+    if (!config) return <></>;
+    const all = config.engineerDeliverables;
+    // Use engineerDeliverableCategories from config if available, otherwise derive from existing deliverables
+    const categories: string[] =
+      config.engineerDeliverableCategories &&
+      config.engineerDeliverableCategories.length > 0
+        ? config.engineerDeliverableCategories
+        : Array.from(
+            new Set(all.map((d) => d.category || "General").filter(Boolean)),
+          );
+
+    // Ensure "General" exists if there are uncategorized items
+    const effectiveCategories =
+      categories.length > 0 ? categories : ["General"];
+
+    const handleAddCategory = (): void => {
+      const name = newDelCatName.trim();
+      if (!name || effectiveCategories.includes(name)) return;
+      const updatedCategories = [...effectiveCategories, name];
+      updateConfig({ engineerDeliverableCategories: updatedCategories });
+      setNewDelCatName("");
+      setAddingDelCat(false);
+      showMsg("success", `Category "${name}" added`);
+    };
+
+    const handleRenameCategory = (idx: number): void => {
+      const newName = editingDelCatName.trim();
+      const oldName = effectiveCategories[idx];
+      if (!newName || newName === oldName) {
+        setEditingDelCatIdx(null);
+        return;
+      }
+      if (effectiveCategories.includes(newName)) {
+        showMsg("error", `Category "${newName}" already exists`);
+        return;
+      }
+      const updatedCategories = effectiveCategories.map((c, i) =>
+        i === idx ? newName : c,
+      );
+      // Also update the category on all deliverables that belong to the old category
+      const updatedDeliverables = all.map((d) =>
+        (d.category || "General") === oldName ? { ...d, category: newName } : d,
+      );
+      updateConfig({
+        engineerDeliverableCategories: updatedCategories,
+        engineerDeliverables: updatedDeliverables,
+      });
+      setEditingDelCatIdx(null);
+      showMsg("success", `Category renamed to "${newName}"`);
+    };
+
+    const handleDeleteCategory = (idx: number): void => {
+      const catName = effectiveCategories[idx];
+      const updatedCategories = effectiveCategories.filter((_, i) => i !== idx);
+      // Move deliverables from deleted category to "General" (or first remaining category)
+      const fallback =
+        updatedCategories.length > 0
+          ? updatedCategories[updatedCategories.length - 1]
+          : "General";
+      const updatedDeliverables = all.map((d) =>
+        (d.category || "General") === catName
+          ? { ...d, category: fallback }
+          : d,
+      );
+      updateConfig({
+        engineerDeliverableCategories: updatedCategories,
+        engineerDeliverables: updatedDeliverables,
+      });
+      showMsg(
+        "success",
+        `Category "${catName}" removed. Items moved to "${fallback}".`,
+      );
+    };
+
+    return (
+      <div>
+        <div className={styles.sectionHeader}>
+          <h3>Eng. Deliverables</h3>
+          <p>
+            Organized by category. Manage categories and their associated
+            deliverables.
+          </p>
+        </div>
+
+        {/* Category management section */}
+        {canEdit && (
+          <div className={styles.teamManagement}>
+            <div className={styles.teamManagementHeader}>
+              <span className={styles.teamManagementTitle}>Categories</span>
+              {!addingDelCat && (
+                <button
+                  className={`${styles.actionBtn} ${styles.primary}`}
+                  onClick={() => setAddingDelCat(true)}
+                >
+                  + Add Category
+                </button>
+              )}
+            </div>
+            <div className={styles.teamList}>
+              {effectiveCategories.map((cat, idx) => (
+                <div key={`${cat}-${idx}`} className={styles.teamChip}>
+                  {editingDelCatIdx === idx ? (
+                    <div className={styles.teamEditRow}>
+                      <input
+                        className={styles.teamEditInput}
+                        value={editingDelCatName}
+                        onChange={(e) =>
+                          setEditingDelCatName(e.currentTarget.value)
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleRenameCategory(idx);
+                          if (e.key === "Escape") setEditingDelCatIdx(null);
+                        }}
+                        autoFocus
+                      />
+                      <button
+                        className={styles.actionBtn}
+                        onClick={() => handleRenameCategory(idx)}
+                      >
+                        ✓
+                      </button>
+                      <button
+                        className={styles.actionBtn}
+                        onClick={() => setEditingDelCatIdx(null)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className={styles.teamChipLabel}>{cat}</span>
+                      <button
+                        className={styles.teamChipBtn}
+                        onClick={() => {
+                          setEditingDelCatIdx(idx);
+                          setEditingDelCatName(cat);
+                        }}
+                        title="Rename category"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        className={`${styles.teamChipBtn} ${styles.danger}`}
+                        onClick={() => handleDeleteCategory(idx)}
+                        title="Delete category"
+                      >
+                        ✕
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+              {addingDelCat && (
+                <div className={styles.teamChip}>
+                  <div className={styles.teamEditRow}>
+                    <input
+                      className={styles.teamEditInput}
+                      placeholder="Category name..."
+                      value={newDelCatName}
+                      onChange={(e) => setNewDelCatName(e.currentTarget.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleAddCategory();
+                        if (e.key === "Escape") {
+                          setAddingDelCat(false);
+                          setNewDelCatName("");
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      className={styles.actionBtn}
+                      onClick={handleAddCategory}
+                    >
+                      ✓
+                    </button>
+                    <button
+                      className={styles.actionBtn}
+                      onClick={() => {
+                        setAddingDelCat(false);
+                        setNewDelCatName("");
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {effectiveCategories.map((cat) => {
+          const items = all.filter((d) => (d.category || "General") === cat);
+          if (items.length === 0 && !canEdit) return null;
+          return (
+            <div key={cat} className={styles.groupedSection}>
+              <div className={styles.groupLabel}>{cat}</div>
+              {canEdit && (
+                <div className={styles.addBtnRow}>
+                  <button
+                    className={`${styles.actionBtn} ${styles.primary}`}
+                    onClick={() => openAddPanel("engineerDeliverables", cat)}
+                  >
+                    + Add to {cat}
+                  </button>
+                </div>
+              )}
+              <div className={styles.optionsList}>
+                {items.map((opt) => (
+                  <div
+                    key={opt.id}
+                    className={`${styles.optionCard} ${!opt.isActive ? styles.inactive : ""}`}
+                  >
+                    {opt.color && (
+                      <span
+                        className={styles.optionColor}
+                        style={{ background: opt.color }}
+                      />
+                    )}
+                    <div className={styles.optionInfo}>
+                      <span className={styles.optionLabel}>{opt.label}</span>
+                      {!opt.isActive && (
+                        <span className={styles.inactiveTag}>Inactive</span>
+                      )}
+                    </div>
+                    {canEdit && (
+                      <div className={styles.optionActions}>
+                        <button
+                          className={styles.actionBtn}
+                          onClick={() =>
+                            openEditPanel("engineerDeliverables", opt)
+                          }
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className={styles.actionBtn}
+                          onClick={() =>
+                            handleOptionToggle("engineerDeliverables", opt.id)
+                          }
+                        >
+                          {opt.isActive ? "Disable" : "Enable"}
+                        </button>
+                        <button
+                          className={`${styles.actionBtn} ${styles.danger}`}
+                          onClick={() =>
+                            handleDeleteOption("engineerDeliverables", opt.id)
                           }
                         >
                           ✕
@@ -1280,57 +1565,77 @@ const SystemConfiguration: React.FC = () => {
 
     const addRate = (): void => {
       if (!canEdit) return;
-      // Fetch available currencies from the API
+      // Fetch available currencies from BCB PTAX API
       setShowAddCurrency(true);
       setAddCurrencySearch("");
       if (availableCurrencies.length === 0) {
         setAddCurrencyLoading(true);
-        fetch(`https://open.er-api.com/v6/latest/${cs.defaultCurrency}`)
+        fetch(
+          "https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/Moedas?$top=100&$format=json",
+        )
           .then((resp) => {
-            if (!resp.ok) throw new Error("API error");
+            if (!resp.ok) throw new Error("BCB API error");
             return resp.json();
           })
-          .then((data: { result: string; rates: Record<string, number> }) => {
-            if (data.result !== "success") throw new Error("API error");
-            const existing = new Set(cs.exchangeRates.map((r) => r.currency));
-            existing.add(cs.defaultCurrency);
-            const list: Array<{ code: string; rate: number }> = [];
-            Object.keys(data.rates).forEach((code) => {
-              if (!existing.has(code)) {
-                list.push({ code, rate: data.rates[code] });
-              }
-            });
-            list.sort((a, b) => a.code.localeCompare(b.code));
-            setAvailableCurrencies(list);
-            setAddCurrencyLoading(false);
-          })
+          .then(
+            (data: {
+              value: Array<{
+                simbolo: string;
+                nomeFormatado: string;
+                tipoMoeda: string;
+              }>;
+            }) => {
+              const existing = new Set(cs.exchangeRates.map((r) => r.currency));
+              existing.add(cs.defaultCurrency);
+              const list: Array<{ code: string; rate: number }> = [];
+              (data.value || []).forEach((m) => {
+                const code = m.simbolo.trim();
+                if (!existing.has(code)) {
+                  list.push({ code, rate: 0 });
+                }
+              });
+              list.sort((a, b) => a.code.localeCompare(b.code));
+              setAvailableCurrencies(list);
+              setAddCurrencyLoading(false);
+            },
+          )
           .catch(() => {
-            showMsg("error", "Failed to load currencies from API");
+            showMsg("error", "Failed to load currencies from BCB API");
             setShowAddCurrency(false);
             setAddCurrencyLoading(false);
           });
       }
     };
 
-    const handleSelectCurrency = (code: string, rate: number): void => {
-      const newEntry: IExchangeRate = {
-        currency: code,
-        rate: Math.round(rate * 100) / 100,
-        lastUpdate: new Date().toISOString(),
-      };
-      updateConfig({
-        currencySettings: {
-          ...cs,
-          exchangeRates: [...cs.exchangeRates, newEntry],
-        },
-      });
-      // Remove from available list
-      setAvailableCurrencies((prev) => prev.filter((c) => c.code !== code));
-      setShowAddCurrency(false);
-      showMsg(
-        "success",
-        `${code} added with rate ${Math.round(rate * 100) / 100}`,
-      );
+    const handleSelectCurrency = (code: string, _rate: number): void => {
+      // Fetch live rate from BCB for the selected currency
+      setAddCurrencyLoading(true);
+      CurrencyService.getCurrencyRate(code)
+        .then((result) => {
+          const finalRate = result ? result.rate : 0;
+          const newEntry: IExchangeRate = {
+            currency: code,
+            rate: Math.round(finalRate * 100000) / 100000,
+            lastUpdate: new Date().toISOString(),
+          };
+          updateConfig({
+            currencySettings: {
+              ...cs,
+              exchangeRates: [...cs.exchangeRates, newEntry],
+            },
+          });
+          setAvailableCurrencies((prev) => prev.filter((c) => c.code !== code));
+          setShowAddCurrency(false);
+          setAddCurrencyLoading(false);
+          showMsg(
+            "success",
+            `${code} added with rate ${finalRate > 0 ? finalRate.toFixed(4) : "(no rate — update manually)"}`,
+          );
+        })
+        .catch(() => {
+          showMsg("error", `Failed to fetch rate for ${code}`);
+          setAddCurrencyLoading(false);
+        });
     };
 
     return (
@@ -1342,12 +1647,12 @@ const SystemConfiguration: React.FC = () => {
             rates update <strong>{cs.updateFrequency}</strong> (beginning of
             each month). Source:{" "}
             <a
-              href="https://open.er-api.com"
+              href="https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/aplicacao#!/recursos"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: "var(--primary-accent)" }}
             >
-              Open Exchange Rates API
+              Banco Central do Brasil — PTAX
             </a>
             .
           </p>
@@ -1385,6 +1690,17 @@ const SystemConfiguration: React.FC = () => {
                   />
                   <span>{er.currency}</span>
                 </div>
+                {er.currency === "BRL" && er.rate > 0 && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--text-secondary)",
+                      padding: "4px 0 0",
+                    }}
+                  >
+                    1 BRL → USD = <strong>{(1 / er.rate).toFixed(5)}</strong>
+                  </div>
+                )}
                 <div className={styles.currencyMeta}>
                   Last update: {formatted}
                   {canEdit && (
@@ -2567,6 +2883,8 @@ const SystemConfiguration: React.FC = () => {
         return renderAvailabilityAndAcquisition();
       case "groupsAndSubGroups":
         return renderGroupsAndSubGroups();
+      case "engineerDeliverables":
+        return renderEngineerDeliverables();
       default: {
         if (currentNavItem?.configKey) {
           return renderOptionsList(currentNavItem.configKey);
@@ -2811,6 +3129,13 @@ const SystemConfiguration: React.FC = () => {
                     unchecked for &quot;All Phases&quot;.
                   </p>
                   {(() => {
+                    // Locked phase-status pairs: these phases cannot be unchecked
+                    const LOCKED_PHASE_MAP: Record<string, string[]> = {
+                      "Pending Assignment": ["Request Submitted"],
+                      "Awaiting Kick Off": ["Bid Kick Off"],
+                    };
+                    const lockedPhases = LOCKED_PHASE_MAP[editItem.value] || [];
+
                     const cat =
                       panelForm.category === undefined ||
                       panelForm.category === null
@@ -2869,6 +3194,8 @@ const SystemConfiguration: React.FC = () => {
                         {config.phases
                           .filter((p) => p.isActive)
                           .map((phase) => {
+                            const isLocked =
+                              lockedPhases.indexOf(phase.value) >= 0;
                             return (
                               <label
                                 key={phase.id}
@@ -2879,15 +3206,22 @@ const SystemConfiguration: React.FC = () => {
                                   fontSize: 13,
                                   color: "var(--text-primary)",
                                   padding: "4px 0",
+                                  opacity: allChecked || isLocked ? 0.7 : 1,
                                 }}
+                                title={
+                                  isLocked
+                                    ? `"${phase.label}" is required for "${editItem.label}" and cannot be removed`
+                                    : undefined
+                                }
                               >
                                 <input
                                   type="checkbox"
                                   checked={
                                     allChecked ||
+                                    isLocked ||
                                     selectedPhases.includes(phase.value)
                                   }
-                                  disabled={allChecked}
+                                  disabled={allChecked || isLocked}
                                   onChange={(e) => {
                                     let newPhases: string[];
                                     if (e.target.checked) {
@@ -2919,6 +3253,17 @@ const SystemConfiguration: React.FC = () => {
                                   }}
                                 />
                                 {phase.label}
+                                {isLocked && (
+                                  <span
+                                    style={{
+                                      fontSize: 10,
+                                      color: "var(--text-muted)",
+                                      marginLeft: 4,
+                                    }}
+                                  >
+                                    🔒
+                                  </span>
+                                )}
                               </label>
                             );
                           })}

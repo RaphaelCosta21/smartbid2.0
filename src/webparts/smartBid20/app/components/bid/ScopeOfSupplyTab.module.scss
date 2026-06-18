@@ -673,13 +673,13 @@
 
 .subTblHead {
   display: grid;
-  grid-template-columns: 28px 40px 1fr 128px 160px 115px 70px 1fr 36px;
+  grid-template-columns: 28px 40px 1fr 128px 160px 115px 70px 1fr 45px 36px;
   background: var(--card-bg, #162d5a);
   border-radius: 10px 10px 0 0;
 }
 
 .subTblHeadReadOnly {
-  grid-template-columns: 40px 1fr 128px 160px 115px 70px 1fr;
+  grid-template-columns: 40px 1fr 128px 160px 115px 70px 1fr 45px;
 }
 
 .subTh {
@@ -706,7 +706,7 @@
 
 .subRow {
   display: grid;
-  grid-template-columns: 28px 40px 1fr 128px 160px 115px 70px 1fr 36px;
+  grid-template-columns: 28px 40px 1fr 128px 160px 115px 70px 1fr 45px 36px;
   min-height: 38px;
   border-bottom: 1px solid var(--border-subtle);
   transition: background 0.12s;
@@ -723,7 +723,7 @@
 }
 
 .subRowReadOnly {
-  grid-template-columns: 40px 1fr 128px 160px 115px 70px 1fr;
+  grid-template-columns: 40px 1fr 128px 160px 115px 70px 1fr 45px;
 }
 
 .subCell {
@@ -740,6 +740,10 @@
     border-right: none;
     justify-content: center;
   }
+}
+
+.subCellCenter {
+  justify-content: center;
 }
 
 .subNum {

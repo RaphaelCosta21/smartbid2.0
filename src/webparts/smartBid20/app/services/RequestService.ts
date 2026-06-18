@@ -11,20 +11,16 @@ import { makeId } from "../utils/idGenerator";
 export class RequestService {
   /**
    * Fetch unassigned requests directly from SharePoint smartbid-tracker list.
-   * Returns BIDs that have status "Request Submitted" OR empty engineerResponsible.
+   * Returns BIDs that have no engineerResponsible assigned.
    */
   public static async getUnassignedFromSP(): Promise<IBidRequest[]> {
     const allBids = await BidService.getAll();
     const unassigned = allBids.filter((bid) => {
-      if (bid.currentStatus === "Request Submitted") return true;
-      if (
+      return (
         !bid.engineerResponsible ||
         (Array.isArray(bid.engineerResponsible) &&
           bid.engineerResponsible.length === 0)
-      ) {
-        return true;
-      }
-      return false;
+      );
     });
 
     return unassigned.map((bid) => RequestService.bidToRequest(bid));
@@ -83,7 +79,7 @@ export class RequestService {
       })),
       notes: bid.bidNotes ? Object.values(bid.bidNotes).join("\n") : "",
       status:
-        bid.currentStatus === "Request Submitted" ? "submitted" : "assigned",
+        bid.currentStatus === "Pending Assignment" ? "submitted" : "assigned",
       currentPhase: bid.currentPhase || "",
       currentStatus: bid.currentStatus || "",
       assignedTo: bid.engineerResponsible?.[0] || null,
@@ -153,7 +149,7 @@ export class RequestService {
       startDate: null,
       completedDate: null,
       lastModified: now,
-      currentStatus: "Awaiting Kick Off",
+      currentStatus: "Pending Assignment",
       currentPhase: "Request Submitted",
       phaseHistory: [
         {
@@ -168,7 +164,7 @@ export class RequestService {
       statusHistory: [
         {
           id: 1,
-          status: "Awaiting Kick Off",
+          status: "Pending Assignment",
           phase: "Request Submitted" as any,
           start: now,
           end: null,
@@ -272,6 +268,7 @@ export class RequestService {
       bidFolderUrl: null,
       commercialFolderUrl: request.commercialFolderUrl || null,
       bidNotes: request.notes ? { general: request.notes } : {},
+      bidNotesMetadata: {},
       quickNotes: [],
       engineerBidOverview: "",
       revisions: [],
