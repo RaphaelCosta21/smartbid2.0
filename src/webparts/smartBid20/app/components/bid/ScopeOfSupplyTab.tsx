@@ -2518,7 +2518,6 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                                     {
                                                       equipmentOffer: desc,
                                                       partNumber: pn,
-                                                      description: desc,
                                                     },
                                                   );
                                                 }}
@@ -2551,7 +2550,6 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                                     {
                                                       partNumber: pn,
                                                       equipmentOffer: desc,
-                                                      description: desc,
                                                     },
                                                   );
                                                 }}

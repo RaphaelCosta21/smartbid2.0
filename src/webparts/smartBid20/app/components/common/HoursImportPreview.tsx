@@ -146,6 +146,9 @@ export const HoursImportPreview: React.FC<HoursImportPreviewProps> = ({
           id: makeId("hrs"),
           lineNumber: 0,
         }));
+      const selectedSectionIds = new Set(
+        selectedItems.map((i) => i.sectionId).filter(Boolean),
+      );
       result.engineeringHours = {
         totalHours: selectedItems.reduce(
           (sum, i) => sum + (i.totalHours || 0),
@@ -156,7 +159,9 @@ export const HoursImportPreview: React.FC<HoursImportPreviewProps> = ({
           0,
         ),
         items: selectedItems,
-        sections: hoursSummary.engineeringHours?.sections || [],
+        sections: (hoursSummary.engineeringHours?.sections || []).filter((s) =>
+          selectedSectionIds.has(s.id),
+        ),
       };
     }
 
@@ -169,6 +174,9 @@ export const HoursImportPreview: React.FC<HoursImportPreviewProps> = ({
           id: makeId("hrs"),
           lineNumber: 0,
         }));
+      const selectedSectionIds = new Set(
+        selectedItems.map((i) => i.sectionId).filter(Boolean),
+      );
       result.onshoreHours = {
         totalHours: selectedItems.reduce(
           (sum, i) => sum + (i.totalHours || 0),
@@ -179,7 +187,9 @@ export const HoursImportPreview: React.FC<HoursImportPreviewProps> = ({
           0,
         ),
         items: selectedItems,
-        sections: hoursSummary.onshoreHours?.sections || [],
+        sections: (hoursSummary.onshoreHours?.sections || []).filter((s) =>
+          selectedSectionIds.has(s.id),
+        ),
       };
     }
 
@@ -192,6 +202,9 @@ export const HoursImportPreview: React.FC<HoursImportPreviewProps> = ({
           id: makeId("hrs"),
           lineNumber: 0,
         }));
+      const selectedSectionIds = new Set(
+        selectedItems.map((i) => i.sectionId).filter(Boolean),
+      );
       result.offshoreHours = {
         totalHours: selectedItems.reduce(
           (sum, i) => sum + (i.totalHours || 0),
@@ -202,7 +215,9 @@ export const HoursImportPreview: React.FC<HoursImportPreviewProps> = ({
           0,
         ),
         items: selectedItems,
-        sections: hoursSummary.offshoreHours?.sections || [],
+        sections: (hoursSummary.offshoreHours?.sections || []).filter((s) =>
+          selectedSectionIds.has(s.id),
+        ),
       };
     }
 

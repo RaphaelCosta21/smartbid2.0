@@ -129,6 +129,31 @@ const dateAgeClass = (dateRef: string): string => {
 
 /** Known query/catalog source values that get a colored badge */
 const QUERY_SOURCES = ["BUMBL", "BUMBR", "BUMCO", "FINANCIALS", "BOM COST"];
+
+/** Calculate contingency % based on years since dateReference */
+const calcContingencyPct = (
+  dateRef: string | undefined,
+  pctPerYear: number,
+): number => {
+  if (!dateRef || pctPerYear <= 0) return 0;
+  const refDate = new Date(dateRef);
+  if (isNaN(refDate.getTime())) return 0;
+  const currentYear = new Date().getFullYear();
+  const years = currentYear - refDate.getFullYear();
+  if (years <= 0) return 0;
+  return years * pctPerYear;
+};
+
+/** Apply contingency to a unit cost */
+const applyContingency = (
+  unitCost: number,
+  dateRef: string | undefined,
+  pctPerYear: number,
+): number => {
+  const pct = calcContingencyPct(dateRef, pctPerYear);
+  if (pct <= 0) return unitCost;
+  return unitCost * (1 + pct / 100);
+};
 const isQuerySource = (ref: string): boolean => {
   if (!ref) return false;
   const upper = ref.toUpperCase();
@@ -177,6 +202,11 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     new Set(),
   );
   const [showCostSearch, setShowCostSearch] = React.useState(false);
+
+  // ─── Contingency state ───
+  const [contingencyPerYear, setContingencyPerYear] = React.useState(10);
+  const [isContingencyEditing, setIsContingencyEditing] = React.useState(false);
+  const [contingencyApplied, setContingencyApplied] = React.useState(false);
 
   // ─── Add Quotation modal state ───
   const [addQuotationTarget, setAddQuotationTarget] = React.useState<{
@@ -972,7 +1002,14 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             (split.dailyRate || 0) * (split.rentalDays || 0) * splitQty +
             splitSubSum
           );
-        return sum + (split.unitCostUSD || 0) * splitQty + splitSubSum;
+        const spUnit = contingencyApplied
+          ? applyContingency(
+              split.unitCostUSD || 0,
+              split.dateReference,
+              contingencyPerYear,
+            )
+          : split.unitCostUSD || 0;
+        return sum + spUnit * splitQty + splitSubSum;
       }, 0);
     }
 
@@ -983,7 +1020,15 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     const qty = sub?.qty || 1;
     const isRental = (sic.acquisitionType || "").toLowerCase() === "rental";
     if (isRental) return (sic.dailyRate || 0) * (sic.rentalDays || 0) * qty;
-    return (sic.unitCostUSD || 0) * qty;
+    // Apply contingency for non-rental sub-items
+    const sicUnit = contingencyApplied
+      ? applyContingency(
+          sic.unitCostUSD || 0,
+          sic.dateReference,
+          contingencyPerYear,
+        )
+      : sic.unitCostUSD || 0;
+    return sicUnit * qty;
   };
 
   const toggleSection = (sectionId: string): void => {
@@ -1374,7 +1419,14 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             splitSubSum
           );
         }
-        return sum + (split.unitCostUSD || 0) * splitQty + splitSubSum;
+        const splitUnit = contingencyApplied
+          ? applyContingency(
+              split.unitCostUSD || 0,
+              split.dateReference,
+              contingencyPerYear,
+            )
+          : split.unitCostUSD || 0;
+        return sum + splitUnit * splitQty + splitSubSum;
       }, 0);
     }
 
@@ -1401,8 +1453,15 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       const rentalTotal = (a.dailyRate || 0) * (a.rentalDays || 0) * qty;
       return rentalTotal + scSum;
     }
-    // Normal
-    return (a.unitCostUSD || 0) * qty + scSum;
+    // Normal — apply contingency if active
+    const unitCost = contingencyApplied
+      ? applyContingency(
+          a.unitCostUSD || 0,
+          a.dateReference,
+          contingencyPerYear,
+        )
+      : a.unitCostUSD || 0;
+    return unitCost * qty + scSum;
   };
 
   /** Get the total of all sub-item costs for an asset */
@@ -1615,7 +1674,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       subItemCostsTotal,
       byResourceType,
     };
-  }, [localAssets]);
+  }, [localAssets, contingencyApplied, contingencyPerYear]);
 
   // ─── Cost completeness tracker ───
   const costCompleteness = React.useMemo(() => {
@@ -1659,7 +1718,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     });
 
     return { itemsMissing, itemsTotal, subItemsMissing, subItemsTotal };
-  }, [localAssets, scopeItems]);
+  }, [localAssets, scopeItems, contingencyApplied, contingencyPerYear]);
 
   const totalMissing =
     costCompleteness.itemsMissing + costCompleteness.subItemsMissing;
@@ -1735,7 +1794,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     });
 
     return items;
-  }, [localAssets, scopeItems]);
+  }, [localAssets, scopeItems, contingencyApplied, contingencyPerYear]);
 
   const scrollToAsset = React.useCallback(
     (assetId: string, sectionId: string | null) => {
@@ -2062,6 +2121,76 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           </button>
         )}
       </div>
+
+      {/* Contingency Bar — Edit mode only */}
+      {!readOnly && (
+        <div className={styles.contingencyBar}>
+          <span className={styles.contingencyLabel}>Contingency per year:</span>
+          {isContingencyEditing ? (
+            <>
+              <input
+                type="number"
+                className={styles.contingencyInput}
+                value={contingencyPerYear}
+                onChange={(e) =>
+                  setContingencyPerYear(parseFloat(e.target.value) || 0)
+                }
+                min={0}
+                max={100}
+                step={0.5}
+                autoFocus
+              />
+              <span className={styles.contingencySuffix}>
+                % / year since Date Ref.
+              </span>
+              <button
+                className={styles.contingencyApplyBtn}
+                onClick={() => {
+                  setContingencyApplied(contingencyPerYear > 0);
+                  setIsContingencyEditing(false);
+                }}
+              >
+                Apply
+              </button>
+              <button
+                className={styles.toolbarBtn}
+                onClick={() => setIsContingencyEditing(false)}
+                style={{ padding: "5px 10px", fontSize: 12 }}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <span className={styles.contingencyValue}>
+                {contingencyPerYear}% / year
+              </span>
+              {contingencyApplied && (
+                <span className={styles.contingencyActiveBadge}>Active</span>
+              )}
+              <button
+                className={styles.contingencyEditBtn}
+                onClick={() => setIsContingencyEditing(true)}
+              >
+                ✏️ Edit
+              </button>
+            </>
+          )}
+
+          {/* Date ref legend */}
+          <span className={styles.dateLegend}>
+            <span className={`${styles.dateBadge} ${styles.dateRecent}`}>
+              &lt;1y (no adj.)
+            </span>
+            <span className={`${styles.dateBadge} ${styles.dateWarn}`}>
+              1-2y
+            </span>
+            <span className={`${styles.dateBadge} ${styles.dateOld}`}>
+              &gt;2y
+            </span>
+          </span>
+        </div>
+      )}
 
       {/* Resource Type Sub-Tabs */}
       {showResourceTypeFilter && (
@@ -3000,36 +3129,66 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           );
                         }
                         // Normal (non-rental) cost fields
+                        const contingencyPct = contingencyApplied
+                          ? calcContingencyPct(
+                              asset.dateReference,
+                              contingencyPerYear,
+                            )
+                          : 0;
+                        const adjustedUnitCost =
+                          contingencyPct > 0
+                            ? applyContingency(
+                                asset.unitCostUSD,
+                                asset.dateReference,
+                                contingencyPerYear,
+                              )
+                            : asset.unitCostUSD;
                         return (
                           <>
                             <td>
                               {readOnly ? (
-                                `$ ${fmtCost(asset.unitCostUSD)}`
+                                `$ ${fmtCost(adjustedUnitCost)}`
                               ) : (
-                                <input
-                                  className={styles.numInput}
-                                  type="number"
-                                  min={0}
-                                  step={0.01}
-                                  value={asset.unitCostUSD}
-                                  onChange={(e) => {
-                                    const cost = Number(e.target.value) || 0;
-                                    const updated = localAssets.map((a) =>
-                                      a.id === asset.id
-                                        ? {
-                                            ...a,
-                                            unitCostUSD: cost,
-                                            totalCostUSD: cost * qty,
-                                          }
-                                        : a,
-                                    );
-                                    persist(updated);
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 2,
                                   }}
-                                />
+                                >
+                                  <input
+                                    className={styles.numInput}
+                                    type="number"
+                                    min={0}
+                                    step={0.01}
+                                    value={
+                                      Math.round(asset.unitCostUSD * 100) / 100
+                                    }
+                                    onChange={(e) => {
+                                      const cost = Number(e.target.value) || 0;
+                                      const updated = localAssets.map((a) =>
+                                        a.id === asset.id
+                                          ? {
+                                              ...a,
+                                              unitCostUSD: cost,
+                                              totalCostUSD: cost * qty,
+                                            }
+                                          : a,
+                                      );
+                                      persist(updated);
+                                    }}
+                                  />
+                                  {contingencyPct > 0 && (
+                                    <span className={styles.contingencyBadge}>
+                                      +{contingencyPct}% → ${" "}
+                                      {fmtCost(adjustedUnitCost)}
+                                    </span>
+                                  )}
+                                </div>
                               )}
                             </td>
                             <td className={styles.mainTotalCost}>
-                              $ {fmtCost(asset.unitCostUSD * qty + subCostsSum)}
+                              $ {fmtCost(adjustedUnitCost * qty + subCostsSum)}
                             </td>
                           </>
                         );
@@ -3879,7 +4038,11 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                             type="number"
                                             min={0}
                                             step={0.01}
-                                            value={split.unitCostUSD}
+                                            value={
+                                              Math.round(
+                                                split.unitCostUSD * 100,
+                                              ) / 100
+                                            }
                                             onChange={(e) =>
                                               handleUpdateSplit(
                                                 asset.id,
@@ -5373,23 +5536,74 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                               </div>
                                             )
                                           ) : readOnly ? (
-                                            `$ ${fmtCost(sic.unitCostUSD)}`
+                                            `$ ${fmtCost(
+                                              contingencyApplied
+                                                ? applyContingency(
+                                                    sic.unitCostUSD,
+                                                    sic.dateReference,
+                                                    contingencyPerYear,
+                                                  )
+                                                : sic.unitCostUSD,
+                                            )}`
                                           ) : (
-                                            <input
-                                              className={styles.numInput}
-                                              type="number"
-                                              min={0}
-                                              step={0.01}
-                                              value={sic.unitCostUSD}
-                                              onChange={(e) =>
-                                                updateSubItemCost(
-                                                  asset.id,
-                                                  sic.id,
-                                                  "unitCostUSD",
-                                                  Number(e.target.value) || 0,
-                                                )
-                                              }
-                                            />
+                                            (() => {
+                                              const sicContPct =
+                                                contingencyApplied
+                                                  ? calcContingencyPct(
+                                                      sic.dateReference,
+                                                      contingencyPerYear,
+                                                    )
+                                                  : 0;
+                                              const sicAdjusted =
+                                                sicContPct > 0
+                                                  ? applyContingency(
+                                                      sic.unitCostUSD,
+                                                      sic.dateReference,
+                                                      contingencyPerYear,
+                                                    )
+                                                  : sic.unitCostUSD;
+                                              return (
+                                                <div
+                                                  style={{
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    gap: 2,
+                                                  }}
+                                                >
+                                                  <input
+                                                    className={styles.numInput}
+                                                    type="number"
+                                                    min={0}
+                                                    step={0.01}
+                                                    value={
+                                                      Math.round(
+                                                        sic.unitCostUSD * 100,
+                                                      ) / 100
+                                                    }
+                                                    onChange={(e) =>
+                                                      updateSubItemCost(
+                                                        asset.id,
+                                                        sic.id,
+                                                        "unitCostUSD",
+                                                        Number(
+                                                          e.target.value,
+                                                        ) || 0,
+                                                      )
+                                                    }
+                                                  />
+                                                  {sicContPct > 0 && (
+                                                    <span
+                                                      className={
+                                                        styles.contingencyBadge
+                                                      }
+                                                    >
+                                                      +{sicContPct}% → ${" "}
+                                                      {fmtCost(sicAdjusted)}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              );
+                                            })()
                                           )}
                                         </div>
                                         <div
@@ -5411,33 +5625,66 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                               —
                                             </span>
                                           ) : (
-                                            <>
-                                              $ {fmtCost(sicTotal)}
-                                              {sicIsRental &&
-                                                (sic.dailyRate || 0) > 0 && (
-                                                  <div
-                                                    className={
-                                                      styles.subCellCalc
-                                                    }
-                                                  >
-                                                    {fmtCost(
-                                                      sic.dailyRate || 0,
+                                            (() => {
+                                              const sicContPctT =
+                                                contingencyApplied &&
+                                                !sicIsRental
+                                                  ? calcContingencyPct(
+                                                      sic.dateReference,
+                                                      contingencyPerYear,
+                                                    )
+                                                  : 0;
+                                              const sicAdjTotal =
+                                                sicContPctT > 0
+                                                  ? applyContingency(
+                                                      sic.unitCostUSD,
+                                                      sic.dateReference,
+                                                      contingencyPerYear,
+                                                    ) * sicQty
+                                                  : sicTotal;
+                                              return (
+                                                <>
+                                                  $ {fmtCost(sicAdjTotal)}
+                                                  {sicIsRental &&
+                                                    (sic.dailyRate || 0) >
+                                                      0 && (
+                                                      <div
+                                                        className={
+                                                          styles.subCellCalc
+                                                        }
+                                                      >
+                                                        {fmtCost(
+                                                          sic.dailyRate || 0,
+                                                        )}
+                                                        /d ×{" "}
+                                                        {sic.rentalDays || 0}d
+                                                        {sicQty > 1
+                                                          ? ` × ${sicQty}`
+                                                          : ""}
+                                                      </div>
                                                     )}
-                                                    /d × {sic.rentalDays || 0}d
-                                                    {sicQty > 1
-                                                      ? ` × ${sicQty}`
-                                                      : ""}
-                                                  </div>
-                                                )}
-                                              {!sicIsRental && sicQty > 1 && (
-                                                <div
-                                                  className={styles.subCellCalc}
-                                                >
-                                                  {fmtCost(sic.unitCostUSD)} ×{" "}
-                                                  {sicQty}
-                                                </div>
-                                              )}
-                                            </>
+                                                  {!sicIsRental &&
+                                                    sicQty > 1 && (
+                                                      <div
+                                                        className={
+                                                          styles.subCellCalc
+                                                        }
+                                                      >
+                                                        {fmtCost(
+                                                          sicContPctT > 0
+                                                            ? applyContingency(
+                                                                sic.unitCostUSD,
+                                                                sic.dateReference,
+                                                                contingencyPerYear,
+                                                              )
+                                                            : sic.unitCostUSD,
+                                                        )}{" "}
+                                                        × {sicQty}
+                                                      </div>
+                                                    )}
+                                                </>
+                                              );
+                                            })()
                                           )}
                                         </div>
                                         <div className={styles.subCell}>
@@ -6016,7 +6263,12 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                                           type="number"
                                                           min={0}
                                                           step={0.01}
-                                                          value={sp.unitCostUSD}
+                                                          value={
+                                                            Math.round(
+                                                              sp.unitCostUSD *
+                                                                100,
+                                                            ) / 100
+                                                          }
                                                           onChange={(e) =>
                                                             handleUpdateSubItemSplit(
                                                               asset.id,
