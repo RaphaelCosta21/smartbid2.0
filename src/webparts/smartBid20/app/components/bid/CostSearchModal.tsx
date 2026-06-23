@@ -197,6 +197,50 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
           });
         }
       });
+
+      // PCF item rows (same pattern as sub-items)
+      const pcfItems = si.pcfItems || [];
+      const pcfCosts = a.pcfCosts || [];
+      let pcfParentContextAdded = false;
+      pcfItems.forEach((pcf) => {
+        const pc = pcfCosts.find((sc) => sc.subItemId === pcf.id);
+        if (!pc) return;
+        const pcAvail = (pc.availabilityStatus || "").toLowerCase();
+        const skipPcf =
+          pcAvail === "onboard" ||
+          pcAvail === "call out" ||
+          pcAvail === "not offered";
+        if (filterMode === "all" || (!skipPcf && pc.unitCostUSD === 0)) {
+          if (!mainIncluded && !parentContextAdded && !pcfParentContextAdded) {
+            pcfParentContextAdded = true;
+            result.push({
+              asset: a,
+              scopeItem: si,
+              subItemCost: null,
+              subItemScope: null,
+              result: null,
+              bomResult: null,
+              quoteResult: null,
+              selected: false,
+              costOverride: null,
+              selectedSource: null,
+              isParentContext: true,
+            });
+          }
+          result.push({
+            asset: a,
+            scopeItem: si,
+            subItemCost: pc,
+            subItemScope: pcf,
+            result: null,
+            bomResult: null,
+            quoteResult: null,
+            selected: false,
+            costOverride: null,
+            selectedSource: null,
+          });
+        }
+      });
     });
 
     return result;

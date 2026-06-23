@@ -29,6 +29,9 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
       calculateAssetsByResourceType(
         bid.assetBreakdown || [],
         bid.scopeItems || [],
+        (bid.assetsContingencyPerYear || 0) > 0
+          ? { perYear: bid.assetsContingencyPerYear || 0, applied: true }
+          : undefined,
       ),
     [bid],
   );
@@ -672,10 +675,10 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
             <div className={styles.capexOpexHeader}>CAPEX</div>
             <div className={styles.capexOpexValues}>
               <span className={styles.capexOpexBrl}>
-                {formatCurrency(capexBRL, "BRL")}
+                {formatCurrency(capexUSD)}
               </span>
               <span className={styles.capexOpexUsd}>
-                {formatCurrency(capexUSD)}
+                {formatCurrency(capexBRL, "BRL")}
               </span>
             </div>
             {renderStackedBar(capexSegments, capexBRL)}
@@ -686,10 +689,10 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
             <div className={styles.capexOpexHeader}>OPEX</div>
             <div className={styles.capexOpexValues}>
               <span className={styles.capexOpexBrl}>
-                {formatCurrency(opexBRL, "BRL")}
+                {formatCurrency(opexUSD)}
               </span>
               <span className={styles.capexOpexUsd}>
-                {formatCurrency(opexUSD)}
+                {formatCurrency(opexBRL, "BRL")}
               </span>
             </div>
             {renderStackedBar(opexSegments, opexBRL)}

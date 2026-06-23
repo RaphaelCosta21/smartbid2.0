@@ -1,8 +1,16 @@
 /**
  * IBidApproval — Sistema de aprovação.
  */
-import { IPersonRef } from "./IUser";
+import { IPersonRef, Sector } from "./IUser";
 import { ApprovalStatus } from "./IBidStatus";
+
+export interface IApprovalSectorGroup {
+  sector: Sector;
+  sectorLabel: string;
+  approvers: IPersonRef[];
+  isAutoLocked: boolean;
+  isPreSelected: boolean;
+}
 
 export interface IApprovalChainStep {
   stepOrder: number;

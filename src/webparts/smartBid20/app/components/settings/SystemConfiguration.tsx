@@ -2041,10 +2041,28 @@ const SystemConfiguration: React.FC = () => {
   const renderResourceTypes = (): React.ReactElement => {
     const resourceTypes = config?.resourceTypes || [];
 
+    // Protected resource types that cannot be edited or deleted
+    const LOCKED_TYPES = ["rov asset", "survey asset", "tooling"];
+    // Protected sub-types within Tooling that cannot be edited or deleted
+    const LOCKED_SUBTYPES = ["eng. solutions", "development"];
+
+    const isLockedType = (label: string): boolean =>
+      LOCKED_TYPES.indexOf(label.toLowerCase()) >= 0;
+    const isLockedSubType = (label: string): boolean =>
+      LOCKED_SUBTYPES.indexOf(label.toLowerCase()) >= 0;
+
     const addResourceType = (): void => {
+      const newLabel = "New Resource Type";
+      const exists = resourceTypes.some(
+        (rt) => rt.label.toLowerCase() === newLabel.toLowerCase(),
+      );
+      if (exists) {
+        window.alert("A Resource Type with this name already exists.");
+        return;
+      }
       const newType = {
         id: `rt-${Date.now()}`,
-        label: "New Resource Type",
+        label: newLabel,
         isActive: true,
         order: resourceTypes.length,
         subTypes: [],
@@ -2056,6 +2074,16 @@ const SystemConfiguration: React.FC = () => {
       id: string,
       patch: Record<string, unknown>,
     ): void => {
+      if (patch.label !== undefined) {
+        const newLabel = String(patch.label).toLowerCase();
+        const duplicate = resourceTypes.some(
+          (rt) => rt.id !== id && rt.label.toLowerCase() === newLabel,
+        );
+        if (duplicate) {
+          window.alert("A Resource Type with this name already exists.");
+          return;
+        }
+      }
       updateConfig({
         resourceTypes: resourceTypes.map((rt) =>
           rt.id === id ? { ...rt, ...patch } : rt,
@@ -2064,12 +2092,27 @@ const SystemConfiguration: React.FC = () => {
     };
 
     const deleteResourceType = (id: string): void => {
+      const rt = resourceTypes.find((r) => r.id === id);
+      if (rt && isLockedType(rt.label)) return;
       updateConfig({
         resourceTypes: resourceTypes.filter((rt) => rt.id !== id),
       });
     };
 
     const addSubType = (parentId: string): void => {
+      const parent = resourceTypes.find((rt) => rt.id === parentId);
+      if (parent) {
+        const newLabel = "New Sub-Type";
+        const exists = parent.subTypes.some(
+          (st) => st.label.toLowerCase() === newLabel.toLowerCase(),
+        );
+        if (exists) {
+          window.alert(
+            "A Sub-Type with this name already exists in this Resource Type.",
+          );
+          return;
+        }
+      }
       updateConfig({
         resourceTypes: resourceTypes.map((rt) =>
           rt.id === parentId
@@ -2095,6 +2138,21 @@ const SystemConfiguration: React.FC = () => {
       subId: string,
       patch: Record<string, unknown>,
     ): void => {
+      if (patch.label !== undefined) {
+        const parent = resourceTypes.find((rt) => rt.id === parentId);
+        if (parent) {
+          const newLabel = String(patch.label).toLowerCase();
+          const duplicate = parent.subTypes.some(
+            (st) => st.id !== subId && st.label.toLowerCase() === newLabel,
+          );
+          if (duplicate) {
+            window.alert(
+              "A Sub-Type with this name already exists in this Resource Type.",
+            );
+            return;
+          }
+        }
+      }
       updateConfig({
         resourceTypes: resourceTypes.map((rt) =>
           rt.id === parentId
@@ -2110,6 +2168,9 @@ const SystemConfiguration: React.FC = () => {
     };
 
     const deleteSubType = (parentId: string, subId: string): void => {
+      const rt = resourceTypes.find((r) => r.id === parentId);
+      const st = rt ? rt.subTypes.find((s) => s.id === subId) : undefined;
+      if (st && isLockedSubType(st.label)) return;
       updateConfig({
         resourceTypes: resourceTypes.map((rt) =>
           rt.id === parentId
@@ -2180,6 +2241,7 @@ const SystemConfiguration: React.FC = () => {
                   color: "var(--text-primary)",
                 }}
                 value={rt.label}
+                disabled={isLockedType(rt.label)}
                 onChange={(e) =>
                   updateResourceType(rt.id, { label: e.target.value })
                 }
@@ -2195,25 +2257,39 @@ const SystemConfiguration: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={rt.isActive}
+                  disabled={isLockedType(rt.label)}
                   onChange={(e) =>
                     updateResourceType(rt.id, { isActive: e.target.checked })
                   }
                 />
                 Active
               </label>
-              <button
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  color: "#ef4444",
-                  fontSize: 16,
-                  padding: "2px 6px",
-                }}
-                onClick={() => deleteResourceType(rt.id)}
-              >
-                ✕
-              </button>
+              {!isLockedType(rt.label) && (
+                <button
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    color: "#ef4444",
+                    fontSize: 16,
+                    padding: "2px 6px",
+                  }}
+                  onClick={() => deleteResourceType(rt.id)}
+                >
+                  ✕
+                </button>
+              )}
+              {isLockedType(rt.label) && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: "var(--text-muted)",
+                    fontStyle: "italic",
+                  }}
+                >
+                  🔒 Protected
+                </span>
+              )}
             </div>
             <div style={{ paddingLeft: 16 }}>
               <div
@@ -2268,6 +2344,7 @@ const SystemConfiguration: React.FC = () => {
                       color: "var(--text-primary)",
                     }}
                     value={st.label}
+                    disabled={isLockedSubType(st.label)}
                     onChange={(e) => {
                       updateSubType(rt.id, st.id, {
                         label: e.target.value,
@@ -2286,6 +2363,7 @@ const SystemConfiguration: React.FC = () => {
                     <input
                       type="checkbox"
                       checked={st.isActive !== false}
+                      disabled={isLockedSubType(st.label)}
                       onChange={(e) =>
                         updateSubType(rt.id, st.id, {
                           isActive: e.target.checked,
@@ -2294,18 +2372,30 @@ const SystemConfiguration: React.FC = () => {
                     />
                     Active
                   </label>
-                  <button
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      cursor: "pointer",
-                      color: "#ef4444",
-                      fontSize: 14,
-                    }}
-                    onClick={() => deleteSubType(rt.id, st.id)}
-                  >
-                    ✕
-                  </button>
+                  {!isLockedSubType(st.label) ? (
+                    <button
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                        color: "#ef4444",
+                        fontSize: 14,
+                      }}
+                      onClick={() => deleteSubType(rt.id, st.id)}
+                    >
+                      ✕
+                    </button>
+                  ) : (
+                    <span
+                      style={{
+                        fontSize: 9,
+                        color: "var(--text-muted)",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      🔒
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

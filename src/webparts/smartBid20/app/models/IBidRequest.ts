@@ -41,6 +41,7 @@ export interface IBidRequest {
   totalDuration: number;
   creationDate: string;
   creator: IPersonRef;
+  commercialRequester: IPersonRef | null;
   engineerResponsible: IPersonRef[] | null;
   analyst: IPersonRef[] | null;
   vessel: string;

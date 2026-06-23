@@ -4,8 +4,13 @@
  */
 import { SPService } from "./SPService";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
-import { IBidApprovalState, IApprovalChain } from "../models/IBidApproval";
+import {
+  IBidApprovalState,
+  IApprovalChain,
+  IApprovalSectorGroup,
+} from "../models/IBidApproval";
 import { IPersonRef } from "../models";
+import { IBid } from "../models/IBid";
 
 export class ApprovalService {
   private static get _approvalsList() {
@@ -102,5 +107,37 @@ export class ApprovalService {
     }
 
     return approval;
+  }
+
+  /**
+   * Start a new approval round — creates one SP list item with all approvers
+   * grouped by sector. This item serves as trigger for Power Automate.
+   */
+  public static async startApprovalRound(
+    bidNumber: string,
+    sectorGroups: IApprovalSectorGroup[],
+    requestedBy: IPersonRef,
+    bid: IBid,
+  ): Promise<void> {
+    const deepLink = `${window.location.origin}${window.location.pathname}#/bid/${bidNumber}?tab=approval`;
+    await ApprovalService._approvalsList.items.add({
+      Title: bidNumber,
+      jsondata: JSON.stringify({
+        bidNumber,
+        approvers: sectorGroups.map((g) => ({
+          sector: g.sector,
+          sectorLabel: g.sectorLabel,
+          members: g.approvers,
+          isAutoLocked: g.isAutoLocked,
+        })),
+        requestedBy: { name: requestedBy.name, email: requestedBy.email },
+        requestedDate: new Date().toISOString(),
+        deepLink,
+        status: "pending",
+        capexUSD: bid.costSummary.assetsCapexUSD,
+        division: bid.division,
+        serviceLine: bid.serviceLine,
+      }),
+    });
   }
 }

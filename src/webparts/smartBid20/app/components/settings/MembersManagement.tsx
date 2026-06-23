@@ -120,6 +120,18 @@ const BID_ROLE_META: IBidRoleMeta[] = [
     color: "#0284c7",
     bg: "rgba(2,132,199,0.12)",
   },
+  {
+    key: "lead",
+    label: "Lead",
+    color: "#d97706",
+    bg: "rgba(217,119,6,0.12)",
+  },
+  {
+    key: "sr-manager",
+    label: "Sr. Manager",
+    color: "#991b1b",
+    bg: "rgba(153,27,27,0.12)",
+  },
 ];
 
 function getInitials(name: string): string {

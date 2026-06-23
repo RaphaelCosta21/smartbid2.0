@@ -22,6 +22,26 @@
   border-color: var(--accent-color, #14b8a6);
   background: var(--accent-color-10, rgba(20, 184, 166, 0.08));
 }
+.summaryCardSecondary {
+  flex: 1;
+  .summaryValue {
+    font-size: 17px;
+  }
+}
+.summaryCardTertiary {
+  flex: 1;
+  padding: 8px 14px;
+  min-width: 100px;
+  background: var(--glass-bg-subtle, rgba(255, 255, 255, 0.03));
+  border-style: dashed;
+  .summaryLabel {
+    font-size: 10px;
+  }
+  .summaryValue {
+    font-size: 14px;
+    font-weight: 600;
+  }
+}
 .summaryLabel {
   font-size: 11px;
   color: var(--text-secondary);

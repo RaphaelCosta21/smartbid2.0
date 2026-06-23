@@ -62,6 +62,7 @@ export {
   type IAssetSubCost,
   type ISubItemCost,
   type IAvailabilitySplit,
+  type IPCFItem,
   type IQualificationTable,
   type IQualificationItem,
   type IClarificationItem,

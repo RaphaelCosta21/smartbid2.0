@@ -18,7 +18,16 @@ import { CurrencyService } from "../../services/CurrencyService";
 import { isTerminalStatus } from "../../utils/statusHelpers";
 import { PRIORITY_COLORS } from "../../utils/constants";
 import { createActivityLogEntry } from "../../utils/activityLogHelpers";
-import { formatDate, formatDateTime } from "../../utils/formatters";
+import {
+  formatDate,
+  formatDateTime,
+  formatCurrency,
+} from "../../utils/formatters";
+import {
+  buildCostSummary,
+  calculateAssetsByResourceType,
+} from "../../utils/costCalculations";
+import { EmptySection } from "./EmptySection";
 import { getPhaseLabelForBid } from "../../utils/phaseHelpers";
 import { calcElapsedDays } from "../../utils/durationHelpers";
 import { getCurrentRevisionLetter, hasActiveRevision } from "./RevisionsTab";
@@ -35,6 +44,273 @@ const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({
     <div className={styles.infoValue}>{value || "—"}</div>
   </div>
 );
+
+/* ─── Approval Status Card (Overview sidebar) ─── */
+
+const APPROVAL_STATUS_DISPLAY: Record<
+  string,
+  { icon: string; color: string; label: string }
+> = {
+  approved: { icon: "✅", color: "#10B981", label: "Approved" },
+  rejected: { icon: "❌", color: "#EF4444", label: "Rejected" },
+  pending: { icon: "⏳", color: "#F59E0B", label: "In Progress" },
+  "not-started": { icon: "⚪", color: "#94A3B8", label: "Not Started" },
+  "revision-requested": {
+    icon: "🔄",
+    color: "#F97316",
+    label: "Revision Requested",
+  },
+};
+
+const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
+  const approvals = bid.approvals || [];
+  const status = bid.approvalStatus || "not-started";
+  const display =
+    APPROVAL_STATUS_DISPLAY[status] || APPROVAL_STATUS_DISPLAY["not-started"];
+  const totalCount = approvals.length;
+  const approvedCount = approvals.filter((a) => a.status === "approved").length;
+  const rejectedCount = approvals.filter((a) => a.status === "rejected").length;
+  const pendingCount = approvals.filter((a) => a.status === "pending").length;
+  const progressPct =
+    totalCount > 0 ? Math.round((approvedCount / totalCount) * 100) : 0;
+
+  // Determine approval round number from persisted rounds
+  const rounds = bid.approvalRounds || [];
+  const roundLabel = rounds.length > 0 ? `Round ${rounds.length}` : "Round 1";
+
+  // Group by stakeholderRole for sector summary
+  const sectorGroups: Record<
+    string,
+    { total: number; approved: number; rejected: number }
+  > = {};
+  approvals.forEach((a) => {
+    if (!sectorGroups[a.stakeholderRole]) {
+      sectorGroups[a.stakeholderRole] = { total: 0, approved: 0, rejected: 0 };
+    }
+    sectorGroups[a.stakeholderRole].total++;
+    if (a.status === "approved") sectorGroups[a.stakeholderRole].approved++;
+    if (a.status === "rejected") sectorGroups[a.stakeholderRole].rejected++;
+  });
+
+  return (
+    <div className={styles.infoSection}>
+      <h4
+        className={styles.infoTitle}
+        style={{ display: "flex", alignItems: "center", gap: 8 }}
+      >
+        <span>{display.icon}</span>
+        <span style={{ flex: 1 }}>Approval Status</span>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 500,
+            color: "var(--text-secondary)",
+            background: "var(--glass-bg)",
+            padding: "2px 8px",
+            borderRadius: 4,
+          }}
+        >
+          {roundLabel}
+        </span>
+      </h4>
+
+      {totalCount === 0 ? (
+        <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+          Approval not started yet. Go to the Approval tab to select approvers
+          and start the flow.
+        </div>
+      ) : (
+        <div className={styles.flexColumnSmall}>
+          {/* Overall Status Badge */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 4,
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "4px 10px",
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                background: `${display.color}18`,
+                color: display.color,
+                border: `1px solid ${display.color}40`,
+              }}
+            >
+              {display.icon} {display.label}
+            </span>
+            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+              {approvedCount}/{totalCount} approved
+            </span>
+          </div>
+
+          {/* Progress Bar */}
+          <div
+            style={{
+              width: "100%",
+              height: 5,
+              borderRadius: 3,
+              background: "var(--border-subtle)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                width: `${progressPct}%`,
+                borderRadius: 3,
+                background: display.color,
+                transition: "width 400ms ease",
+              }}
+            />
+          </div>
+
+          {/* Sector Breakdown with approver names + photos */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              marginTop: 4,
+            }}
+          >
+            {Object.keys(sectorGroups).map((sector) => {
+              const g = sectorGroups[sector];
+              const sectorApprovals = approvals.filter(
+                (a) => a.stakeholderRole === sector,
+              );
+              const sectorDone = g.approved === g.total;
+              const sectorRejected = g.rejected > 0;
+              const sectorIcon = sectorDone
+                ? "✅"
+                : sectorRejected
+                  ? "❌"
+                  : "⏳";
+              return (
+                <div key={sector}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 12,
+                      marginBottom: 4,
+                    }}
+                  >
+                    <span style={{ width: 16, textAlign: "center" }}>
+                      {sectorIcon}
+                    </span>
+                    <span
+                      style={{ fontWeight: 600, color: "var(--text-primary)" }}
+                    >
+                      {sector}
+                    </span>
+                    <span
+                      style={{
+                        color: "var(--text-secondary)",
+                        marginLeft: "auto",
+                      }}
+                    >
+                      {g.approved}/{g.total}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 3,
+                      paddingLeft: 22,
+                    }}
+                  >
+                    {sectorApprovals.map((a) => {
+                      const aStatus =
+                        APPROVAL_STATUS_DISPLAY[a.status] ||
+                        APPROVAL_STATUS_DISPLAY["pending"];
+                      return (
+                        <div
+                          key={a.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            fontSize: 12,
+                          }}
+                        >
+                          {a.stakeholder.photoUrl ? (
+                            <img
+                              src={a.stakeholder.photoUrl}
+                              alt=""
+                              style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: "50%",
+                                objectFit: "cover",
+                              }}
+                            />
+                          ) : (
+                            <span
+                              style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: "50%",
+                                background: "var(--border-subtle)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 10,
+                                fontWeight: 600,
+                                color: "var(--text-secondary)",
+                              }}
+                            >
+                              {a.stakeholder.name.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                          <span
+                            style={{ flex: 1, color: "var(--text-primary)" }}
+                          >
+                            {a.stakeholder.name}
+                          </span>
+                          <span style={{ fontSize: 11 }}>{aStatus.icon}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Summary stats */}
+          {(rejectedCount > 0 || pendingCount > 0) && (
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                marginTop: 4,
+                fontSize: 11,
+                color: "var(--text-secondary)",
+              }}
+            >
+              {pendingCount > 0 && <span>⏳ {pendingCount} pending</span>}
+              {rejectedCount > 0 && (
+                <span style={{ color: "#EF4444" }}>
+                  ❌ {rejectedCount} rejected
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 /* ─── OverviewTab ─── */
 
@@ -857,256 +1133,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           )}
         </div>
 
-        {/* Exchange Rates */}
-        <div className={styles.infoSection}>
-          {currencyLock.errorMessage && (
-            <EditLockBanner
-              message={currencyLock.errorMessage}
-              onDismiss={currencyLock.dismissError}
-            />
-          )}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <h4
-              className={styles.infoTitle}
-              style={{ borderBottom: "none", marginBottom: 0 }}
-            >
-              Exchange Rates
-            </h4>
-            {canEdit && !isClosed && !editingCurrency && (
-              <button
-                style={editBtnStyle}
-                disabled={currencyLock.loading}
-                onClick={async () => {
-                  const ok = await currencyLock.startEditing();
-                  if (ok) setEditingCurrency(true);
-                }}
-              >
-                {currencyLock.loading ? "Checking..." : "Edit"}
-              </button>
-            )}
-            {editingCurrency && (
-              <div style={{ display: "flex", gap: 6 }}>
-                <button
-                  style={saveBtnStyle}
-                  disabled={fetchingRates}
-                  onClick={saveCurrency}
-                >
-                  {fetchingRates ? "Updating..." : "🔄 Update Rates (BCB)"}
-                </button>
-                <button
-                  style={cancelBtnStyle}
-                  onClick={() => {
-                    setEditingCurrency(false);
-                    currencyLock.stopEditing();
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Exchange Rates Display */}
-          <div style={{ marginTop: 8 }}>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: "var(--text-secondary)",
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-              }}
-            >
-              Rates saved in BID
-              {editingCurrency && (
-                <span
-                  style={{
-                    marginLeft: 8,
-                    fontSize: 10,
-                    fontWeight: 400,
-                    color: "var(--primary-accent)",
-                    textTransform: "none",
-                  }}
-                >
-                  Click &quot;Update Rates&quot; to fetch latest from Banco
-                  Central
-                </span>
-              )}
-            </span>
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 8,
-                marginTop: 6,
-              }}
-            >
-              {(() => {
-                const snapshot =
-                  bid.opportunityInfo?.exchangeRatesSnapshot || [];
-                const configRates =
-                  config?.currencySettings?.exchangeRates || [];
-                const hasSnapshot = snapshot.length > 0;
-                const ratesList = hasSnapshot ? snapshot : configRates;
-
-                if (ratesList.length === 0) {
-                  return (
-                    <span
-                      style={{
-                        fontSize: 12,
-                        color: "var(--text-muted)",
-                        fontStyle: "italic",
-                      }}
-                    >
-                      No exchange rates configured
-                    </span>
-                  );
-                }
-
-                const chips: React.ReactNode[] = [];
-                ratesList.forEach((er) => {
-                  const isBRL = er.currency === "BRL";
-                  const chipStyle = {
-                    padding: "4px 10px",
-                    borderRadius: 6,
-                    background: "var(--card-bg-elevated, rgba(0,0,0,0.04))",
-                    border: "1px solid var(--border-subtle)",
-                    fontSize: 12,
-                    opacity: hasSnapshot ? 1 : 0.7,
-                  };
-
-                  if (isBRL) {
-                    // Show both USD→BRL and BRL→USD
-                    chips.push(
-                      <div key="USD-BRL" style={chipStyle}>
-                        <span
-                          style={{
-                            fontWeight: 600,
-                            color: "var(--text-primary)",
-                          }}
-                        >
-                          1 USD → BRL
-                        </span>
-                        <span
-                          style={{
-                            marginLeft: 6,
-                            color: "var(--text-secondary)",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {er.rate.toFixed(4)}
-                        </span>
-                      </div>,
-                    );
-                    chips.push(
-                      <div key="BRL-USD" style={chipStyle}>
-                        <span
-                          style={{
-                            fontWeight: 600,
-                            color: "var(--text-primary)",
-                          }}
-                        >
-                          1 BRL → USD
-                        </span>
-                        <span
-                          style={{
-                            marginLeft: 6,
-                            color: "var(--text-secondary)",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {er.rate > 0 ? (1 / er.rate).toFixed(4) : "—"}
-                        </span>
-                      </div>,
-                    );
-                  } else {
-                    // Show X→USD (invert units-per-USD to USD-per-unit)
-                    chips.push(
-                      <div key={er.currency} style={chipStyle}>
-                        <span
-                          style={{
-                            fontWeight: 600,
-                            color: "var(--text-primary)",
-                          }}
-                        >
-                          1 {er.currency} → USD
-                        </span>
-                        <span
-                          style={{
-                            marginLeft: 6,
-                            color: "var(--text-secondary)",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {er.rate > 0 ? (1 / er.rate).toFixed(4) : "—"}
-                        </span>
-                      </div>,
-                    );
-                  }
-                  if (!hasSnapshot) {
-                    // Mark as "from config" for the last chip
-                    const lastChip = chips[chips.length - 1];
-                    if (lastChip) {
-                      chips[chips.length - 1] = (
-                        <div
-                          key={`${er.currency}-cfg`}
-                          style={{ ...chipStyle, opacity: 0.7 }}
-                        >
-                          {(lastChip as React.ReactElement).props.children}
-                          <span
-                            style={{
-                              marginLeft: 4,
-                              color: "var(--text-tertiary)",
-                              fontSize: 9,
-                            }}
-                          >
-                            (from config)
-                          </span>
-                        </div>
-                      );
-                    }
-                  }
-                });
-                return chips;
-              })()}
-            </div>
-            {bid.opportunityInfo?.exchangeRatesSnapshot &&
-              bid.opportunityInfo.exchangeRatesSnapshot.length > 0 &&
-              bid.opportunityInfo.exchangeRatesSnapshot[0]?.capturedDate && (
-                <span
-                  style={{
-                    fontSize: 10,
-                    color: "var(--text-tertiary)",
-                    marginTop: 4,
-                    display: "block",
-                  }}
-                >
-                  Last updated:{" "}
-                  {formatDate(
-                    bid.opportunityInfo.exchangeRatesSnapshot[0].capturedDate,
-                  )}
-                </span>
-              )}
-          </div>
-          {isClosed && (
-            <p
-              style={{
-                fontSize: 11,
-                color: "var(--text-tertiary)",
-                marginTop: 4,
-                fontStyle: "italic",
-              }}
-            >
-              Currency locked — BID is closed.
-            </p>
-          )}
-        </div>
+        {/* BID Analysis Notes / Premisses */}
+        <AnalysisNotesCard
+          bid={bid}
+          canEdit={canEdit}
+          onSave={onSave}
+          currentUser={currentUser}
+        />
 
         {/* Project Description (Commercial Input) */}
         <div className={styles.infoSection}>
@@ -1245,7 +1278,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               };
               const engineers = groupByDiv(bid.engineerResponsible || []);
               const analysts = groupByDiv(bid.analyst || []);
-              const reviewersList = groupByDiv(bid.reviewers || []);
               const renderGroup = (
                 label: string,
                 groups: {
@@ -1401,7 +1433,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   </div>
                   {renderGroup("Engineer Responsible", engineers)}
                   {renderGroup("Analyst", analysts)}
-                  {renderGroup("Reviewers", reviewersList)}
                 </div>
               );
             })()
@@ -1513,34 +1544,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   </span>
                 )}
               </div>
-              <div style={{ marginBottom: 8 }}>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "var(--text-secondary)",
-                    marginBottom: 4,
-                  }}
-                >
-                  Reviewers
-                </div>
-                {(bid.reviewers || []).length > 0 ? (
-                  bid.reviewers.map((r) => (
-                    <PersonChip
-                      key={r.email}
-                      name={r.name}
-                      email={r.email}
-                      photoUrl={r.photoUrl}
-                    />
-                  ))
-                ) : (
-                  <span
-                    style={{ fontSize: 13, color: "var(--text-secondary)" }}
-                  >
-                    None assigned
-                  </span>
-                )}
-              </div>
             </div>
           )}
         </div>
@@ -1608,6 +1611,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               );
             })}
         </div>
+
+        {/* Approval Status Card — shown once BID reaches Close Out + Pending Approval or has approvals */}
+        {(bid.approvalStatus !== "not-started" ||
+          (bid.currentPhase === "Close Out" &&
+            bid.currentStatus === "Pending Approval")) && (
+          <ApprovalStatusCard bid={bid} />
+        )}
 
         <div className={styles.infoSection}>
           <h4 className={styles.infoTitle}>BID KPIs</h4>
@@ -1714,6 +1724,25 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
         </div>
 
+        {/* Exchange Rates */}
+        <ExchangeRatesCard
+          bid={bid}
+          config={config}
+          canEdit={canEdit}
+          isClosed={isClosed}
+          currencyLock={currencyLock}
+          editingCurrency={editingCurrency}
+          setEditingCurrency={setEditingCurrency}
+          fetchingRates={fetchingRates}
+          saveCurrency={saveCurrency}
+          editBtnStyle={editBtnStyle}
+          saveBtnStyle={saveBtnStyle}
+          cancelBtnStyle={cancelBtnStyle}
+        />
+
+        {/* BID CAPEX x OPEX (Vertical) */}
+        <CapexOpexVerticalChart bid={bid} />
+
         {/* Current Revision Info */}
         {hasActiveRevision(bid) && (
           <div className={styles.infoSection}>
@@ -1753,6 +1782,851 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+/* ─── Exchange Rates Card (Right Column) ─── */
+const ExchangeRatesCard: React.FC<{
+  bid: IBid;
+  config: any;
+  canEdit?: boolean;
+  isClosed: boolean;
+  currencyLock: any;
+  editingCurrency: boolean;
+  setEditingCurrency: (v: boolean) => void;
+  fetchingRates: boolean;
+  saveCurrency: () => void;
+  editBtnStyle: React.CSSProperties;
+  saveBtnStyle: React.CSSProperties;
+  cancelBtnStyle: React.CSSProperties;
+}> = ({
+  bid,
+  config,
+  canEdit,
+  isClosed,
+  currencyLock,
+  editingCurrency,
+  setEditingCurrency,
+  fetchingRates,
+  saveCurrency,
+  editBtnStyle,
+  saveBtnStyle,
+  cancelBtnStyle,
+}) => (
+  <div className={styles.infoSection}>
+    {currencyLock.errorMessage && (
+      <EditLockBanner
+        message={currencyLock.errorMessage}
+        onDismiss={currencyLock.dismissError}
+      />
+    )}
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}
+    >
+      <h4
+        className={styles.infoTitle}
+        style={{ borderBottom: "none", marginBottom: 0 }}
+      >
+        Exchange Rates
+      </h4>
+      {canEdit && !isClosed && !editingCurrency && (
+        <button
+          style={editBtnStyle}
+          disabled={currencyLock.loading}
+          onClick={async () => {
+            const ok = await currencyLock.startEditing();
+            if (ok) setEditingCurrency(true);
+          }}
+        >
+          {currencyLock.loading ? "Checking..." : "Edit"}
+        </button>
+      )}
+      {editingCurrency && (
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            style={saveBtnStyle}
+            disabled={fetchingRates}
+            onClick={saveCurrency}
+          >
+            {fetchingRates ? "Updating..." : "🔄 Update Rates (BCB)"}
+          </button>
+          <button
+            style={cancelBtnStyle}
+            onClick={() => {
+              setEditingCurrency(false);
+              currencyLock.stopEditing();
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
+    <div style={{ marginTop: 8 }}>
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: "var(--text-secondary)",
+          textTransform: "uppercase",
+          letterSpacing: "0.5px",
+        }}
+      >
+        Rates saved in BID
+        {editingCurrency && (
+          <span
+            style={{
+              marginLeft: 8,
+              fontSize: 10,
+              fontWeight: 400,
+              color: "var(--primary-accent)",
+              textTransform: "none",
+            }}
+          >
+            Click &quot;Update Rates&quot; to fetch latest from Banco Central
+          </span>
+        )}
+      </span>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 8,
+          marginTop: 6,
+        }}
+      >
+        {(() => {
+          const snapshot = bid.opportunityInfo?.exchangeRatesSnapshot || [];
+          const configRates = config?.currencySettings?.exchangeRates || [];
+          const hasSnapshot = snapshot.length > 0;
+          const ratesList = hasSnapshot ? snapshot : configRates;
+
+          if (ratesList.length === 0) {
+            return (
+              <span
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  fontStyle: "italic",
+                }}
+              >
+                No exchange rates configured
+              </span>
+            );
+          }
+
+          const chips: React.ReactNode[] = [];
+          ratesList.forEach((er: any) => {
+            const isBRL = er.currency === "BRL";
+            const chipStyle = {
+              padding: "4px 10px",
+              borderRadius: 6,
+              background: "var(--card-bg-elevated, rgba(0,0,0,0.04))",
+              border: "1px solid var(--border-subtle)",
+              fontSize: 12,
+              opacity: hasSnapshot ? 1 : 0.7,
+            };
+
+            if (isBRL) {
+              chips.push(
+                <div key="USD-BRL" style={chipStyle}>
+                  <span
+                    style={{ fontWeight: 600, color: "var(--text-primary)" }}
+                  >
+                    1 USD → BRL
+                  </span>
+                  <span
+                    style={{
+                      marginLeft: 6,
+                      color: "var(--text-secondary)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {er.rate.toFixed(4)}
+                  </span>
+                </div>,
+              );
+              chips.push(
+                <div key="BRL-USD" style={chipStyle}>
+                  <span
+                    style={{ fontWeight: 600, color: "var(--text-primary)" }}
+                  >
+                    1 BRL → USD
+                  </span>
+                  <span
+                    style={{
+                      marginLeft: 6,
+                      color: "var(--text-secondary)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {er.rate > 0 ? (1 / er.rate).toFixed(4) : "—"}
+                  </span>
+                </div>,
+              );
+            } else {
+              chips.push(
+                <div key={er.currency} style={chipStyle}>
+                  <span
+                    style={{ fontWeight: 600, color: "var(--text-primary)" }}
+                  >
+                    1 {er.currency} → USD
+                  </span>
+                  <span
+                    style={{
+                      marginLeft: 6,
+                      color: "var(--text-secondary)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {er.rate > 0 ? (1 / er.rate).toFixed(4) : "—"}
+                  </span>
+                </div>,
+              );
+            }
+          });
+          return chips;
+        })()}
+      </div>
+      {bid.opportunityInfo?.exchangeRatesSnapshot &&
+        bid.opportunityInfo.exchangeRatesSnapshot.length > 0 &&
+        bid.opportunityInfo.exchangeRatesSnapshot[0]?.capturedDate && (
+          <span
+            style={{
+              fontSize: 10,
+              color: "var(--text-tertiary)",
+              marginTop: 4,
+              display: "block",
+            }}
+          >
+            Last updated:{" "}
+            {formatDate(
+              bid.opportunityInfo.exchangeRatesSnapshot[0].capturedDate,
+            )}
+          </span>
+        )}
+    </div>
+    {isClosed && (
+      <p
+        style={{
+          fontSize: 11,
+          color: "var(--text-tertiary)",
+          marginTop: 4,
+          fontStyle: "italic",
+        }}
+      >
+        Currency locked — BID is closed.
+      </p>
+    )}
+  </div>
+);
+
+/* ─── BID Analysis Notes / Premisses Card ─── */
+const AnalysisNotesCard: React.FC<{
+  bid: IBid;
+  canEdit?: boolean;
+  onSave?: (patch: Partial<IBid>) => void;
+  currentUser?: { displayName: string; email: string };
+}> = ({ bid, canEdit, onSave, currentUser }) => {
+  const notes = (bid.bidNotes || {}) as Record<string, string>;
+  const notesMetadata = (bid.bidNotesMetadata || {}) as Record<
+    string,
+    {
+      author: string;
+      date: string;
+      lastEditedBy?: string;
+      lastEditedDate?: string;
+    }
+  >;
+  const entries = Object.entries(notes).filter(([k]) => k !== "general");
+  const [editingKey, setEditingKey] = React.useState<string | null>(null);
+  const [editValue, setEditValue] = React.useState("");
+  const [newKey, setNewKey] = React.useState("");
+  const [showAddForm, setShowAddForm] = React.useState(false);
+
+  const handleSave = (key: string, value: string): void => {
+    if (!onSave) return;
+    const now = new Date().toISOString();
+    const userName =
+      currentUser?.displayName || currentUser?.email || "Unknown";
+    const existingMeta = notesMetadata[key];
+    const updatedMeta = existingMeta
+      ? { ...existingMeta, lastEditedBy: userName, lastEditedDate: now }
+      : { author: userName, date: now };
+    onSave({
+      bidNotes: { ...notes, [key]: value },
+      bidNotesMetadata: { ...notesMetadata, [key]: updatedMeta },
+    });
+    setEditingKey(null);
+  };
+
+  const handleAddNote = (): void => {
+    if (!onSave || !newKey.trim()) return;
+    const now = new Date().toISOString();
+    const userName =
+      currentUser?.displayName || currentUser?.email || "Unknown";
+    const trimmedKey = newKey.trim();
+    onSave({
+      bidNotes: { ...notes, [trimmedKey]: editValue },
+      bidNotesMetadata: {
+        ...notesMetadata,
+        [trimmedKey]: { author: userName, date: now },
+      },
+    });
+    setNewKey("");
+    setEditValue("");
+    setShowAddForm(false);
+  };
+
+  const handleDelete = (key: string): void => {
+    if (!onSave) return;
+    const updated = { ...notes };
+    delete updated[key];
+    const updatedMeta = { ...notesMetadata };
+    delete updatedMeta[key];
+    onSave({ bidNotes: updated, bidNotesMetadata: updatedMeta });
+  };
+
+  return (
+    <div className={styles.infoSection}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <h4
+          className={styles.infoTitle}
+          style={{ borderBottom: "none", marginBottom: 0 }}
+        >
+          BID Analysis Notes / Premisses
+        </h4>
+        {canEdit && !showAddForm && (
+          <button
+            style={{
+              background: "var(--primary-accent)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              padding: "3px 10px",
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+            onClick={() => setShowAddForm(true)}
+          >
+            + Add Note
+          </button>
+        )}
+      </div>
+      {entries.length === 0 && !showAddForm && (
+        <EmptySection message="No analysis notes added yet." />
+      )}
+      <div
+        className={styles.flexColumn}
+        style={{ marginTop: entries.length > 0 ? 12 : 0 }}
+      >
+        {entries.map(([section, content]) => (
+          <div
+            key={section}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 8,
+              border: "1px solid var(--border-subtle)",
+              background: "var(--card-bg-elevated, rgba(0,0,0,0.02))",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <strong style={{ fontSize: 13, color: "var(--text-primary)" }}>
+                {section}
+              </strong>
+              {canEdit && editingKey !== section && (
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button
+                    className={styles.backBtn}
+                    onClick={() => {
+                      setEditingKey(section);
+                      setEditValue(content);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className={styles.backBtn}
+                    style={{ color: "var(--error-color, #EF4444)" }}
+                    onClick={() => handleDelete(section)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
+            {editingKey === section ? (
+              <div style={{ marginTop: 8 }}>
+                <textarea
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  style={{
+                    width: "100%",
+                    minHeight: 80,
+                    padding: 10,
+                    borderRadius: 8,
+                    border: "1px solid var(--border)",
+                    background: "var(--card-bg-elevated)",
+                    color: "var(--text-primary)",
+                    fontSize: 13,
+                    resize: "vertical",
+                  }}
+                />
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button
+                    className={styles.backBtn}
+                    style={{
+                      background: "var(--primary-accent)",
+                      color: "white",
+                      border: "none",
+                    }}
+                    onClick={() => handleSave(section, editValue)}
+                  >
+                    Save
+                  </button>
+                  <button
+                    className={styles.backBtn}
+                    onClick={() => setEditingKey(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    fontSize: 13,
+                    color: "var(--text-secondary)",
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {content}
+                </p>
+                {notesMetadata[section] && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-tertiary)",
+                      marginTop: 6,
+                    }}
+                  >
+                    Created by <strong>{notesMetadata[section].author}</strong>{" "}
+                    · {formatDateTime(notesMetadata[section].date)}
+                    {notesMetadata[section].lastEditedBy && (
+                      <>
+                        {" "}
+                        | Last edited by{" "}
+                        <strong>
+                          {notesMetadata[section].lastEditedBy}
+                        </strong> ·{" "}
+                        {formatDateTime(
+                          notesMetadata[section].lastEditedDate || "",
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+      {canEdit && showAddForm && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: 12,
+            borderRadius: 8,
+            border: "1px solid var(--border-subtle)",
+          }}
+        >
+          <input
+            placeholder="Section title (e.g., Gap Analysis, Technical Notes...)"
+            value={newKey}
+            onChange={(e) => setNewKey(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+              background: "var(--card-bg-elevated)",
+              color: "var(--text-primary)",
+              fontSize: 14,
+              marginBottom: 8,
+            }}
+          />
+          <textarea
+            placeholder="Note content..."
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            style={{
+              width: "100%",
+              minHeight: 80,
+              padding: 10,
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+              background: "var(--card-bg-elevated)",
+              color: "var(--text-primary)",
+              fontSize: 13,
+              resize: "vertical",
+            }}
+          />
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button
+              className={styles.backBtn}
+              style={{
+                background: "var(--primary-accent)",
+                color: "white",
+                border: "none",
+              }}
+              onClick={handleAddNote}
+              disabled={!newKey.trim()}
+            >
+              Save Note
+            </button>
+            <button
+              className={styles.backBtn}
+              onClick={() => {
+                setShowAddForm(false);
+                setNewKey("");
+                setEditValue("");
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ─── CAPEX x OPEX Vertical Chart Card ─── */
+const CapexOpexVerticalChart: React.FC<{ bid: IBid }> = ({ bid }) => {
+  const s = React.useMemo(() => buildCostSummary(bid), [bid]);
+  const assetsByType = React.useMemo(
+    () =>
+      calculateAssetsByResourceType(
+        bid.assetBreakdown || [],
+        bid.scopeItems || [],
+        (bid.assetsContingencyPerYear || 0) > 0
+          ? { perYear: bid.assetsContingencyPerYear || 0, applied: true }
+          : undefined,
+      ),
+    [bid],
+  );
+
+  const TYPE_COLORS = [
+    "#0d9488",
+    "#3b82f6",
+    "#8b5cf6",
+    "#f59e0b",
+    "#ef4444",
+    "#06b6d4",
+    "#ec4899",
+    "#84cc16",
+  ];
+
+  const allTypes = React.useMemo(() => {
+    const set: string[] = [];
+    assetsByType.forEach((rt) => {
+      if (set.indexOf(rt.resourceType) === -1) set.push(rt.resourceType);
+    });
+    return set;
+  }, [assetsByType]);
+
+  const getTypeColor = (label: string): string => {
+    const idx = allTypes.indexOf(label);
+    return TYPE_COLORS[idx >= 0 ? idx % TYPE_COLORS.length : 0];
+  };
+
+  const nonAssetCostsBRL =
+    s.engineeringHoursCostBRL +
+    s.onshoreHoursCostBRL +
+    s.offshoreHoursCostBRL +
+    s.logisticsCostBRL +
+    s.certificationsCostBRL +
+    s.rtsCostBRL +
+    s.mobilizationCostBRL +
+    s.consumablesCostBRL;
+
+  const capexBRL = s.assetsCapexUSD * s.ptaxUsed + nonAssetCostsBRL;
+  const opexBRL = s.assetsOpexUSD * s.ptaxUsed;
+  const capexUSD = s.totalCostUSD - s.assetsOpexUSD;
+  const opexUSD = s.assetsOpexUSD;
+  const totalBRL = capexBRL + opexBRL;
+
+  const capexSegments = React.useMemo(() => {
+    const segs: { label: string; brl: number; color: string }[] = [];
+    assetsByType.forEach((rt) => {
+      if (rt.capexUSD > 0) {
+        segs.push({
+          label: rt.resourceType,
+          brl: rt.capexUSD * s.ptaxUsed,
+          color: getTypeColor(rt.resourceType),
+        });
+      }
+    });
+    if (nonAssetCostsBRL > 0) {
+      segs.push({
+        label: "Services & Others",
+        brl: nonAssetCostsBRL,
+        color: "#64748b",
+      });
+    }
+    return segs;
+  }, [assetsByType, s, nonAssetCostsBRL]);
+
+  const opexSegments = React.useMemo(() => {
+    const segs: { label: string; brl: number; color: string }[] = [];
+    assetsByType.forEach((rt) => {
+      if (rt.opexUSD > 0) {
+        segs.push({
+          label: rt.resourceType,
+          brl: rt.opexUSD * s.ptaxUsed,
+          color: getTypeColor(rt.resourceType),
+        });
+      }
+    });
+    return segs;
+  }, [assetsByType, s]);
+
+  const maxBarBRL = Math.max(capexBRL, opexBRL, 1);
+  const barMaxHeight = 160;
+
+  const renderVerticalBar = (
+    segments: { label: string; brl: number; color: string }[],
+    totalVal: number,
+  ): React.ReactNode => {
+    if (totalVal <= 0) return <div style={{ height: barMaxHeight }} />;
+    const barH = (totalVal / maxBarBRL) * barMaxHeight;
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          height: barMaxHeight,
+        }}
+      >
+        <div
+          style={{
+            width: 60,
+            height: barH,
+            borderRadius: "6px 6px 0 0",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {segments.map((seg) => {
+            const pct = totalVal > 0 ? (seg.brl / totalVal) * 100 : 0;
+            if (pct < 0.5) return null;
+            return (
+              <div
+                key={seg.label}
+                style={{
+                  flex: `${pct} 0 0%`,
+                  background: seg.color,
+                  minHeight: 3,
+                }}
+                title={`${seg.label}: ${formatCurrency(seg.brl, "BRL")} (${pct.toFixed(1)}%)`}
+              />
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className={styles.infoSection}>
+      <h4 className={styles.infoTitle}>BID CAPEX x OPEX</h4>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "flex-end",
+          gap: 32,
+          padding: "16px 0",
+        }}
+      >
+        {/* CAPEX bar */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          {renderVerticalBar(capexSegments, capexBRL)}
+          <div style={{ textAlign: "center" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                color: "var(--text-secondary)",
+                letterSpacing: 1,
+              }}
+            >
+              CAPEX
+            </div>
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: "var(--text-primary)",
+              }}
+            >
+              {formatCurrency(capexUSD)}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+              {formatCurrency(capexBRL, "BRL")}
+            </div>
+          </div>
+        </div>
+
+        {/* OPEX bar */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          {renderVerticalBar(opexSegments, opexBRL)}
+          <div style={{ textAlign: "center" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                color: "var(--text-secondary)",
+                letterSpacing: 1,
+              }}
+            >
+              OPEX
+            </div>
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: "var(--text-primary)",
+              }}
+            >
+              {formatCurrency(opexUSD)}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+              {formatCurrency(opexBRL, "BRL")}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Percentage split bar */}
+      <div style={{ marginTop: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--text-secondary)",
+            marginBottom: 6,
+          }}
+        >
+          <span>
+            CAPEX:{" "}
+            {totalBRL > 0 ? ((capexBRL / totalBRL) * 100).toFixed(1) : "0"}%
+          </span>
+          <span>
+            OPEX: {totalBRL > 0 ? ((opexBRL / totalBRL) * 100).toFixed(1) : "0"}
+            %
+          </span>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            height: 12,
+            borderRadius: 6,
+            overflow: "hidden",
+            background: "var(--glass-bg, rgba(255,255,255,0.06))",
+          }}
+        >
+          <div
+            style={{
+              width: `${totalBRL > 0 ? (capexBRL / totalBRL) * 100 : 50}%`,
+              height: "100%",
+              background: "linear-gradient(90deg, #0d9488, #14b8a6)",
+              transition: "width 0.3s ease",
+            }}
+          />
+          <div
+            style={{
+              width: `${totalBRL > 0 ? (opexBRL / totalBRL) * 100 : 50}%`,
+              height: "100%",
+              background: "linear-gradient(90deg, #3b82f6, #60a5fa)",
+              transition: "width 0.3s ease",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div
+        style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 12 }}
+      >
+        {[...capexSegments, ...opexSegments]
+          .filter(
+            (seg, idx, arr) =>
+              arr.findIndex((s2) => s2.label === seg.label) === idx,
+          )
+          .map((seg) => (
+            <span
+              key={seg.label}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: 11,
+                color: "var(--text-secondary)",
+              }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: seg.color,
+                  flexShrink: 0,
+                }}
+              />
+              {seg.label}
+            </span>
+          ))}
       </div>
     </div>
   );

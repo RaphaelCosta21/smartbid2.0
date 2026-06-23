@@ -36,6 +36,9 @@ interface FormData {
   serviceLine: string;
   projectManagers: IPersonRef[];
   projectManagerSearch: string;
+  commercialRequester: IPersonRef | null;
+  commercialRequesterSearch: string;
+  commercialRequesterIsCreator: boolean;
   bidType: string;
   desiredDueDate: string;
   operationStartDate: string;
@@ -56,6 +59,9 @@ const INITIAL_FORM: FormData = {
   serviceLine: "",
   projectManagers: [],
   projectManagerSearch: "",
+  commercialRequester: null,
+  commercialRequesterSearch: "",
+  commercialRequesterIsCreator: false,
   bidType: "Firm",
   desiredDueDate: "",
   operationStartDate: "",
@@ -86,8 +92,10 @@ export const CreateRequestPage: React.FC = () => {
   const [showConfirm, setShowConfirm] = React.useState(false);
   const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([]);
   const [showPeoplePicker, setShowPeoplePicker] = React.useState(false);
+  const [showCommercialPicker, setShowCommercialPicker] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const peoplePickerRef = React.useRef<HTMLDivElement>(null);
+  const commercialPickerRef = React.useRef<HTMLDivElement>(null);
 
   // Team members for PM picker
   const [teamMembers, setTeamMembers] = React.useState<ITeamMember[]>([]);
@@ -149,6 +157,22 @@ export const CreateRequestPage: React.FC = () => {
         m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q),
     );
   }, [projectManagerOptions, form.projectManagerSearch]);
+
+  // Commercial team members for Commercial Requester picker
+  const commercialTeamOptions = React.useMemo(() => {
+    if (teamMembers.length === 0) return [];
+    return teamMembers.filter((m) => m.sector === "commercial" && m.isActive);
+  }, [teamMembers]);
+
+  // Filtered commercial list for search input
+  const filteredCommercial = React.useMemo(() => {
+    if (!form.commercialRequesterSearch) return commercialTeamOptions;
+    const q = form.commercialRequesterSearch.toLowerCase();
+    return commercialTeamOptions.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q),
+    );
+  }, [commercialTeamOptions, form.commercialRequesterSearch]);
 
   // Load team members from SharePoint
   React.useEffect(() => {
@@ -226,6 +250,12 @@ export const CreateRequestPage: React.FC = () => {
       ) {
         setShowPeoplePicker(false);
       }
+      if (
+        commercialPickerRef.current &&
+        !commercialPickerRef.current.contains(e.target as Node)
+      ) {
+        setShowCommercialPicker(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -259,6 +289,8 @@ export const CreateRequestPage: React.FC = () => {
       if (!form.bidType) stepErrors.push("BID Type is required.");
       if (!form.desiredDueDate)
         stepErrors.push("Desired Due Date is required.");
+      if (!form.commercialRequester)
+        stepErrors.push("Commercial Requester is required.");
       setErrors(stepErrors);
       return stepErrors.length === 0;
     }
@@ -329,6 +361,7 @@ export const CreateRequestPage: React.FC = () => {
           role: currentUser.role,
           photoUrl: currentUserPhoto || currentUser.photoUrl,
         },
+        commercialRequester: form.commercialRequester,
         engineerResponsible: null,
         analyst: null,
         vessel: form.vessel,
@@ -793,6 +826,122 @@ export const CreateRequestPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Commercial Requester */}
+                <div className={styles.formGroup} ref={commercialPickerRef}>
+                  <span className={styles.formLabel}>
+                    Commercial Requester *
+                  </span>
+                  <label className={styles.checkboxRow}>
+                    <input
+                      type="checkbox"
+                      checked={form.commercialRequesterIsCreator}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setForm((prev) => ({
+                          ...prev,
+                          commercialRequesterIsCreator: checked,
+                          commercialRequester: checked
+                            ? {
+                                name: currentUser.displayName,
+                                email: currentUser.email,
+                                role: currentUser.jobTitle || currentUser.role,
+                                photoUrl:
+                                  currentUserPhoto || currentUser.photoUrl,
+                              }
+                            : null,
+                          commercialRequesterSearch: "",
+                        }));
+                        setShowCommercialPicker(false);
+                      }}
+                    />
+                    <span className={styles.checkboxText}>
+                      I am the requester
+                    </span>
+                  </label>
+                  {form.commercialRequester && (
+                    <div className={styles.selectedPersonaList}>
+                      <div className={styles.selectedPersona}>
+                        <PersonaCard
+                          name={form.commercialRequester.name}
+                          email={form.commercialRequester.email}
+                          role={form.commercialRequester.role}
+                          photoUrl={form.commercialRequester.photoUrl}
+                          size="small"
+                        />
+                        {!form.commercialRequesterIsCreator && (
+                          <button
+                            className={styles.removePersona}
+                            onClick={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                commercialRequester: null,
+                                commercialRequesterSearch: "",
+                              }))
+                            }
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {!form.commercialRequesterIsCreator &&
+                    !form.commercialRequester && (
+                      <div className={styles.peoplePickerWrapper}>
+                        <input
+                          className={styles.formInput}
+                          value={form.commercialRequesterSearch}
+                          onChange={(e) => {
+                            setForm((prev) => ({
+                              ...prev,
+                              commercialRequesterSearch: e.target.value,
+                            }));
+                            setShowCommercialPicker(true);
+                          }}
+                          onFocus={() => setShowCommercialPicker(true)}
+                          placeholder="Search commercial team..."
+                        />
+                        {showCommercialPicker && (
+                          <div className={styles.peopleDropdown}>
+                            {filteredCommercial.length === 0 ? (
+                              <div className={styles.peopleDropdownEmpty}>
+                                No commercial team members found
+                              </div>
+                            ) : (
+                              filteredCommercial.map((member) => (
+                                <div
+                                  key={member.id}
+                                  className={styles.peopleDropdownItem}
+                                  onClick={() => {
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      commercialRequester: {
+                                        name: member.name,
+                                        email: member.email,
+                                        role: member.jobTitle,
+                                        photoUrl: member.photoUrl,
+                                      },
+                                      commercialRequesterSearch: "",
+                                    }));
+                                    setShowCommercialPicker(false);
+                                  }}
+                                >
+                                  <PersonaCard
+                                    name={member.name}
+                                    email={member.email}
+                                    role={member.jobTitle}
+                                    photoUrl={member.photoUrl}
+                                    size="small"
+                                  />
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                </div>
+
                 {/* Desired Due Date */}
                 <label className={styles.formGroupFull}>
                   <span className={styles.formLabel}>Desired Due Date *</span>
@@ -1088,6 +1237,24 @@ export const CreateRequestPage: React.FC = () => {
                       photoUrl={currentUserPhoto || currentUser.photoUrl}
                       size="small"
                     />
+                  </span>
+                </div>
+                <div className={styles.reviewCell}>
+                  <span className={styles.reviewCellLabel}>
+                    Commercial Requester
+                  </span>
+                  <span className={styles.reviewCellValue}>
+                    {form.commercialRequester ? (
+                      <PersonaCard
+                        name={form.commercialRequester.name}
+                        email={form.commercialRequester.email}
+                        role={form.commercialRequester.role}
+                        photoUrl={form.commercialRequester.photoUrl}
+                        size="small"
+                      />
+                    ) : (
+                      "—"
+                    )}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>

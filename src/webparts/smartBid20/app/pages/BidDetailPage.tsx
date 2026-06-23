@@ -12,7 +12,7 @@ import { PreparationMobilizationTab } from "../components/bid/PreparationMobiliz
 import { BidHoursTable } from "../components/bid/BidHoursTable";
 import { BidCostSummary } from "../components/bid/BidCostSummary";
 import { BidStatusPhasePanel } from "../components/bid/BidStatusPhasePanel";
-import { BidApprovalPanel } from "../components/bid/BidApprovalPanel";
+import { ApprovalTab } from "../components/bid/ApprovalTab";
 import { BidActivityLog } from "../components/bid/BidActivityLog";
 import { BidExportButton } from "../components/bid/BidExportButton";
 import { BidTimeline } from "../components/bid/BidTimeline";
@@ -36,6 +36,7 @@ import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useUIStore } from "../stores/useUIStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { BidService } from "../services/BidService";
+import { MembersService } from "../services/MembersService";
 import {
   IBid,
   IScopeItem,
@@ -43,6 +44,7 @@ import {
   IBidComment,
   IActivityLogEntry,
 } from "../models";
+import { ITeamMember } from "../models/ITeamMember";
 import {
   bidsToCSV,
   downloadCSV,
@@ -209,6 +211,7 @@ export const BidDetailPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = React.useState<BidTab>("overview");
   const [navCollapsed, setNavCollapsed] = React.useState(false);
+  const [teamMembers, setTeamMembers] = React.useState<ITeamMember[]>([]);
   const currentUser = useCurrentUser();
   const setSidebarExpanded = useUIStore((s) => s.setSidebarExpanded);
 
@@ -224,6 +227,13 @@ export const BidDetailPage: React.FC = () => {
   // Auto-collapse/expand nav when editing state changes
   const handleEditChange = React.useCallback((editing: boolean) => {
     setNavCollapsed(editing);
+  }, []);
+
+  // Load team members for Approval tab
+  React.useEffect(() => {
+    MembersService.getAll()
+      .then((data) => setTeamMembers(data.members))
+      .catch(() => setTeamMembers([]));
   }, []);
 
   // Cleanup: release all edit locks for this BID when leaving the page
@@ -746,6 +756,76 @@ export const BidDetailPage: React.FC = () => {
                               }
                             : undefined
                         }
+                        assetBreakdown={bid.assetBreakdown || []}
+                        onResetSubItemCost={(scopeItemId, subItemId, kind) => {
+                          const updatedBreakdown = (
+                            bid.assetBreakdown || []
+                          ).map((a) => {
+                            if (a.scopeItemId !== scopeItemId) return a;
+                            const resetCost = (arr: unknown[]) =>
+                              (arr || []).map((sic: any) => {
+                                if (sic.subItemId !== subItemId) return sic;
+                                return {
+                                  ...sic,
+                                  unitCostUSD: 0,
+                                  totalCostUSD: 0,
+                                  costReference: "",
+                                  dateReference: "",
+                                  costCategory: kind === "pcf" ? "CAPEX" : "",
+                                  supplier: "",
+                                  leadTimeDays: 0,
+                                  dailyRate: null,
+                                  rentalDays: null,
+                                  notes: "",
+                                  subCosts: [],
+                                  availabilitySplits: [],
+                                };
+                              });
+                            if (kind === "pcf") {
+                              return {
+                                ...a,
+                                pcfCosts: resetCost(a.pcfCosts || []),
+                              };
+                            }
+                            return {
+                              ...a,
+                              subItemCosts: resetCost(a.subItemCosts || []),
+                            };
+                          });
+                          savePatch({ assetBreakdown: updatedBreakdown });
+                        }}
+                        engineeringItems={
+                          (bid.hoursSummary || EMPTY_HOURS_SUMMARY)
+                            .engineeringHours?.engineeringItems || []
+                        }
+                        onClearEngineeringHours={(scopeItemId) => {
+                          const currentHours =
+                            bid.hoursSummary || EMPTY_HOURS_SUMMARY;
+                          const currentEng = currentHours.engineeringHours;
+                          const currentItems =
+                            currentEng?.engineeringItems || [];
+                          const removedItem = currentItems.find(
+                            (ei) => ei.scopeItemId === scopeItemId,
+                          );
+                          const removedHours = removedItem?.totalHours || 0;
+                          const updatedItems = currentItems.filter(
+                            (ei) => ei.scopeItemId !== scopeItemId,
+                          );
+                          savePatch({
+                            hoursSummary: {
+                              ...currentHours,
+                              engineeringHours: {
+                                ...currentEng,
+                                engineeringItems: updatedItems,
+                                totalHours:
+                                  (currentEng?.totalHours || 0) - removedHours,
+                              },
+                              grandTotalHours:
+                                (currentHours.grandTotalHours || 0) -
+                                removedHours,
+                            },
+                          });
+                        }}
                       />
                     );
                   }}
@@ -781,6 +861,14 @@ export const BidDetailPage: React.FC = () => {
                         scopeItems={filteredScope}
                         assetBreakdown={filteredAssets}
                         readOnly={!isEditing}
+                        contingencyPerYearSaved={bid.assetsContingencyPerYear}
+                        contingencyAppliedSaved={bid.assetsContingencyApplied}
+                        onContingencyChange={(perYear, applied) => {
+                          savePatch({
+                            assetsContingencyPerYear: perYear,
+                            assetsContingencyApplied: applied,
+                          });
+                        }}
                         onCreateBom={(partNumber, description) => {
                           navigate(
                             ROUTES.bomCosts +
@@ -1369,20 +1457,20 @@ export const BidDetailPage: React.FC = () => {
             <BidTimeline bid={bid} currentPhaseIndex={currentPhaseIndex} />
           )}
           {activeTab === "approval" && (
-            <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
-              {(_div) => (
-                <BidApprovalPanel
-                  approvals={bid.approvals || []}
-                  onRequestApproval={
-                    canEditBid
-                      ? () => {
-                          /* TODO: implement approval request flow */
-                        }
-                      : undefined
-                  }
-                />
-              )}
-            </IntegratedDivisionTabs>
+            <ApprovalTab
+              bid={bid}
+              teamMembers={teamMembers}
+              currentUser={{
+                name: currentUser.displayName,
+                email: currentUser.email,
+                role: currentUser.jobTitle || currentUser.role,
+                photoUrl: currentUser.photoUrl,
+              }}
+              canEdit={canEditBid}
+              onSave={(approvals, approvalStatus, approvalRounds) =>
+                savePatch({ approvals, approvalStatus, approvalRounds })
+              }
+            />
           )}
           {activeTab === "documents" && (
             <DocumentsTab

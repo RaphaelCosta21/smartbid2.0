@@ -110,6 +110,39 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
   );
 
   const config = useConfigStore((s) => s.config);
+
+  // ─── Debounced tab notes (prevents data loss on rapid typing) ───
+  const [localTabNotes, setLocalTabNotes] = React.useState(tabNotes);
+  const tabNotesTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const isEditingNotesRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!isEditingNotesRef.current) {
+      setLocalTabNotes(tabNotes);
+    }
+  }, [tabNotes]);
+
+  React.useEffect(() => {
+    return () => {
+      if (tabNotesTimerRef.current) clearTimeout(tabNotesTimerRef.current);
+    };
+  }, []);
+
+  const handleTabNotesChange = (value: string): void => {
+    isEditingNotesRef.current = true;
+    setLocalTabNotes(value);
+    if (tabNotesTimerRef.current) clearTimeout(tabNotesTimerRef.current);
+    tabNotesTimerRef.current = setTimeout(() => {
+      tabNotesTimerRef.current = null;
+      if (onSaveTabNotes) onSaveTabNotes(value);
+      setTimeout(() => {
+        isEditingNotesRef.current = false;
+      }, 500);
+    }, 400);
+  };
+
   const hoursPhases = (config?.hoursPhases || []).filter(
     (p) => p.isActive !== false,
   );
@@ -535,11 +568,11 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
         ) : (
           <textarea
             className={styles.tabNotesInput}
-            value={tabNotes}
+            value={localTabNotes}
             placeholder="Add general notes or comments for Hours & Personnel..."
             rows={2}
             readOnly={readOnly}
-            onChange={(e) => onSaveTabNotes && onSaveTabNotes(e.target.value)}
+            onChange={(e) => handleTabNotesChange(e.target.value)}
           />
         )}
       </div>

@@ -137,6 +137,8 @@ export interface IScopeItem {
   sectionColor?: string;
   /** Sub-items: consumables, spare parts, accessories tied to this scope item */
   subItems?: IScopeSubItem[];
+  /** Preliminary Concept Form items (BOM concept for Eng. Solutions / Development items) */
+  pcfItems?: IScopeSubItem[];
   /** Attachments for this scope item or section */
   attachments?: IBidAttachment[];
 }
@@ -216,6 +218,12 @@ export interface IAssetBreakdownItem {
   subCosts?: IAssetSubCost[];
   /** Cost entries for scope sub-items (consumables, spares) */
   subItemCosts?: ISubItemCost[];
+  /** When true, the main item has no own cost — its cost is the rollup of its sub-items (e.g. Eng. Solutions / developed items) */
+  costFromSubItems?: boolean;
+  /** PCF cost entries (synced from IScopeItem.pcfItems for Eng. Solutions / Development items) */
+  pcfCosts?: ISubItemCost[];
+  /** When true, the main item's cost is derived from the PCF items */
+  costFromPCF?: boolean;
   /** Partial availability splits — when set, overrides main availability/cost fields */
   availabilitySplits?: IAvailabilitySplit[];
   /** Division tag for Integrated BIDs (ROV/SURVEY) */
@@ -373,7 +381,32 @@ export interface IAssetSubCost {
   transitDiscount?: number;
 }
 
-/* â”€â”€â”€ Qualifications & Clarifications â”€â”€â”€ */
+/* ——— Preliminary Concept Form (PCF) — ad-hoc BOM for Eng. Solutions/Development items ——— */
+export interface IPCFItem {
+  id: string;
+  description: string;
+  /** Classification (e.g. Consumable, Accessory, Other, Structural) */
+  subType: string;
+  /** OII or Manufacturer part number */
+  partNumber: string;
+  qty: number;
+  availabilityStatus: string;
+  acquisitionType: string;
+  unitCostUSD: number;
+  totalCostUSD: number;
+  costReference: string;
+  dateReference?: string;
+  costCategory: "CAPEX" | "OPEX" | "";
+  supplier: string;
+  leadTimeDays: number;
+  dailyRate?: number | null;
+  rentalDays?: number | null;
+  notes: string;
+  /** Sub-costs (e.g. Transit Rate for Rental items) */
+  subCosts?: IAssetSubCost[];
+}
+
+/* ——— Qualifications & Clarifications ——— */
 export interface IQualificationTable {
   id: string;
   title: string;
@@ -571,6 +604,7 @@ export interface ICostSummary {
 
 export interface IBidApproval {
   id: string;
+  round: number;
   stakeholderRole: string;
   stakeholder: IPersonRef;
   status: ApprovalStatus;
@@ -581,6 +615,15 @@ export interface IBidApproval {
   approvedVia: string | null;
   notificationSent: boolean;
   reminderCount: number;
+}
+
+export interface IApprovalRound {
+  round: number;
+  startedDate: string;
+  startedBy: IPersonRef;
+  status: ApprovalStatus;
+  completedDate: string | null;
+  approvals: IBidApproval[];
 }
 
 export interface IBidAttachment {
@@ -709,6 +752,7 @@ export interface IBid {
   priority: BidPriority;
   opportunityInfo: IOpportunityInfo;
   creator: IPersonRef;
+  commercialRequester: IPersonRef | null;
   engineerResponsible: IPersonRef[];
   analyst: IPersonRef[];
   projectManager: IPersonRef[];
@@ -729,6 +773,10 @@ export interface IBid {
   equipmentList: IEquipmentItem[];
   scopeItems: IScopeItem[];
   assetBreakdown: IAssetBreakdownItem[];
+  /** Contingency % per year applied on Assets Breakdown (0 = disabled) */
+  assetsContingencyPerYear?: number;
+  /** Whether contingency is currently active on Assets Breakdown */
+  assetsContingencyApplied?: boolean;
   logisticsBreakdown: ILogisticsItem[];
   certificationsBreakdown: ICertificationItem[];
   rtsItems: IRTSItem[];
@@ -742,6 +790,7 @@ export interface IBid {
   bidResult: IBidResult;
   approvals: IBidApproval[];
   approvalStatus: ApprovalStatus;
+  approvalRounds?: IApprovalRound[];
   attachments: IBidAttachment[];
   comments: IBidComment[];
   activityLog: IActivityLogEntry[];

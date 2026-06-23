@@ -9,7 +9,13 @@ export type Sector =
 
 export type BusinessLine = "ROV" | "OPG" | "SURVEY";
 
-export type BidRole = "contributor" | "manager" | "coordinator" | "analyst";
+export type BidRole =
+  | "contributor"
+  | "manager"
+  | "sr-manager"
+  | "coordinator"
+  | "analyst"
+  | "lead";
 
 /** @deprecated Use Sector instead */
 export type UserRole = Sector | "guest";

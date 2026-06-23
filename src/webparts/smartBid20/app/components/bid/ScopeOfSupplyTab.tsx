@@ -7,6 +7,7 @@ import {
   IBidAttachment,
   IEngineeringHoursItem,
   IResourceAllocation,
+  IAssetBreakdownItem,
 } from "../../models";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
@@ -43,6 +44,18 @@ interface ScopeOfSupplyTabProps {
   onMoveSectionToDivision?: (sectionId: string, targetDivision: string) => void;
   /** Callback to copy a section (header + children) to target division */
   onCopySectionToDivision?: (sectionId: string, targetDivision: string) => void;
+  /** Asset breakdown data — used to check for existing cost mappings */
+  assetBreakdown?: IAssetBreakdownItem[];
+  /** Callback to reset a sub-item/PCF cost entry when the SOS item identity changes */
+  onResetSubItemCost?: (
+    scopeItemId: string,
+    subItemId: string,
+    kind: "sub" | "pcf",
+  ) => void;
+  /** Engineering hours items — used to warn when unchecking ENG? */
+  engineeringItems?: IEngineeringHoursItem[];
+  /** Callback to remove engineering hours for a scope item */
+  onClearEngineeringHours?: (scopeItemId: string) => void;
 }
 
 const blankItem = (
@@ -118,10 +131,58 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   currentDivision,
   onMoveSectionToDivision,
   onCopySectionToDivision,
+  assetBreakdown,
+  onResetSubItemCost,
+  engineeringItems,
+  onClearEngineeringHours,
 }) => {
   // Helper: append fieldEmpty class when value is empty/falsy
   const emptyIf = (base: string, value: unknown): string =>
     value ? base : `${base} ${styles.fieldEmpty}`;
+
+  /** Check whether a sub-item / PCF item already has non-zero cost data in
+   *  Assets Breakdown.  Used to warn before identity-field changes. */
+  const hasMappedCost = (
+    scopeItemId: string,
+    subItemId: string,
+    kind: "sub" | "pcf",
+  ): boolean => {
+    if (!assetBreakdown) return false;
+    const asset = assetBreakdown.find((a) => a.scopeItemId === scopeItemId);
+    if (!asset) return false;
+    const costs =
+      kind === "pcf" ? asset.pcfCosts || [] : asset.subItemCosts || [];
+    const entry = costs.find((c) => c.subItemId === subItemId);
+    if (!entry) return false;
+    return (
+      entry.unitCostUSD > 0 ||
+      entry.totalCostUSD > 0 ||
+      (entry.costReference || "").trim() !== "" ||
+      (entry.supplier || "").trim() !== ""
+    );
+  };
+
+  /** If the user is about to change an identity field (PN / Equipment Offer)
+   *  on a sub-item/PCF item that already has costs, show a confirmation dialog
+   *  and reset the cost entry if they confirm.
+   *  Returns `true` if the update should proceed, `false` if cancelled. */
+  const confirmCostReset = (
+    scopeItemId: string,
+    subItemId: string,
+    kind: "sub" | "pcf",
+  ): boolean => {
+    if (!onResetSubItemCost) return true;
+    if (!hasMappedCost(scopeItemId, subItemId, kind)) return true;
+    const confirmed = window.confirm(
+      "This item already has cost data mapped in Assets Breakdown.\n\n" +
+        "Changing the Part Number or Equipment Offer will clear the " +
+        "associated cost data to prevent incorrect cost mapping.\n\n" +
+        "Are you sure you want to proceed?",
+    );
+    if (!confirmed) return false;
+    onResetSubItemCost(scopeItemId, subItemId, kind);
+    return true;
+  };
 
   const config = useConfigStore((s) => s.config);
   const resourceTypes = config?.resourceTypes || [];
@@ -154,6 +215,39 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   };
 
   const [items, setItems] = React.useState<IScopeItem[]>(scopeItems || []);
+
+  // ─── Debounced tab notes (prevents data loss on rapid typing) ───
+  const [localTabNotes, setLocalTabNotes] = React.useState(tabNotes);
+  const tabNotesTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const isEditingNotesRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!isEditingNotesRef.current) {
+      setLocalTabNotes(tabNotes);
+    }
+  }, [tabNotes]);
+
+  React.useEffect(() => {
+    return () => {
+      if (tabNotesTimerRef.current) clearTimeout(tabNotesTimerRef.current);
+    };
+  }, []);
+
+  const handleTabNotesChange = (value: string): void => {
+    isEditingNotesRef.current = true;
+    setLocalTabNotes(value);
+    if (tabNotesTimerRef.current) clearTimeout(tabNotesTimerRef.current);
+    tabNotesTimerRef.current = setTimeout(() => {
+      tabNotesTimerRef.current = null;
+      if (onSaveTabNotes) onSaveTabNotes(value);
+      setTimeout(() => {
+        isEditingNotesRef.current = false;
+      }, 500);
+    }, 400);
+  };
+
   const [collapsedSections, setCollapsedSections] = React.useState<Set<string>>(
     new Set(),
   );
@@ -177,7 +271,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   // ─── Drawer state (combined sub-items + specs per item) ───
   const [openDrawers, setOpenDrawers] = React.useState<Set<string>>(new Set());
   const [drawerActiveTab, setDrawerActiveTab] = React.useState<
-    Record<string, "subs" | "specs" | "attachments">
+    Record<string, "subs" | "specs" | "attachments" | "pcf">
   >({});
 
   // ─── Drag-and-drop state ───
@@ -344,6 +438,78 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     field: keyof IScopeItem,
     value: unknown,
   ): void => {
+    // Warn when unchecking ENG? if engineering hours are already allocated
+    if (field === "needsEngineering" && value === false) {
+      const engItem = (engineeringItems || []).find(
+        (ei) => ei.scopeItemId === id,
+      );
+      if (engItem && engItem.totalHours > 0) {
+        const confirmed = window.confirm(
+          `This item has ${engItem.totalHours} engineering hour${engItem.totalHours !== 1 ? "s" : ""} allocated in Hours & Personnel.\n\n` +
+            "Unchecking will permanently delete those hours.\n\n" +
+            "Are you sure you want to proceed?",
+        );
+        if (!confirmed) return;
+        if (onClearEngineeringHours) onClearEngineeringHours(id);
+      }
+    }
+
+    // Safety check: warn if changing away from Eng. Solutions / Development with PCF data
+    if (field === "resourceSubType") {
+      const item = items.find((i) => i.id === id);
+      if (item) {
+        const oldVal = (item.resourceSubType || "").toLowerCase();
+        const newVal = (value as string).toLowerCase();
+        const wasPCFType =
+          oldVal === "eng. solutions" || oldVal === "development";
+        const isPCFType =
+          newVal === "eng. solutions" || newVal === "development";
+        if (wasPCFType && !isPCFType && (item.pcfItems || []).length > 0) {
+          const confirmed = window.confirm(
+            "This item has Preliminary Concept Form data that will be permanently deleted if you change the Sub-Type.\n\nAre you sure you want to proceed?",
+          );
+          if (!confirmed) return;
+          // Clear PCF items from scope
+          const updated = items.map((i) => {
+            if (i.id !== id) return i;
+            return {
+              ...i,
+              resourceSubType: value as string,
+              pcfItems: [] as IScopeSubItem[],
+            };
+          });
+          persist(updated);
+          return;
+        }
+      }
+    }
+    // Also check when resourceType changes (which clears resourceSubType)
+    if (field === "resourceType") {
+      const item = items.find((i) => i.id === id);
+      if (item) {
+        const oldSubType = (item.resourceSubType || "").toLowerCase();
+        const wasPCFType =
+          oldSubType === "eng. solutions" || oldSubType === "development";
+        if (wasPCFType && (item.pcfItems || []).length > 0) {
+          const confirmed = window.confirm(
+            "This item has Preliminary Concept Form data that will be permanently deleted if you change the Resource Type.\n\nAre you sure you want to proceed?",
+          );
+          if (!confirmed) return;
+          const updated = items.map((i) => {
+            if (i.id !== id) return i;
+            return {
+              ...i,
+              resourceType: value as string,
+              resourceSubType: "",
+              pcfItems: [] as IScopeSubItem[],
+            };
+          });
+          persist(updated);
+          return;
+        }
+      }
+    }
+
     const updated = items.map((i) => {
       if (i.id !== id) return i;
       const patched = { ...i, [field]: value };
@@ -615,7 +781,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
 
   const setDrawerTab = (
     itemId: string,
-    tab: "subs" | "specs" | "attachments",
+    tab: "subs" | "specs" | "attachments" | "pcf",
   ): void => {
     setDrawerActiveTab((prev) => ({ ...prev, [itemId]: tab }));
   };
@@ -731,6 +897,16 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     field: keyof IScopeSubItem,
     value: unknown,
   ): void => {
+    // Warn & clear cost if an identity field changes on a cost-mapped item
+    if (field === "partNumber" || field === "equipmentOffer") {
+      const item = items.find((i) => i.id === itemId);
+      const sub = item
+        ? (item.subItems || []).find((s) => s.id === subId)
+        : null;
+      if (sub && sub[field] !== value) {
+        if (!confirmCostReset(itemId, subId, "sub")) return;
+      }
+    }
     const updated = items.map((i) => {
       if (i.id !== itemId) return i;
       const subs = (i.subItems || []).map((s) =>
@@ -747,6 +923,23 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     subId: string,
     fields: Partial<IScopeSubItem>,
   ): void => {
+    // Warn & clear cost if identity fields are changing on a cost-mapped item
+    if ("partNumber" in fields || "equipmentOffer" in fields) {
+      const item = items.find((i) => i.id === itemId);
+      const sub = item
+        ? (item.subItems || []).find((s) => s.id === subId)
+        : null;
+      if (sub) {
+        const pnChanged =
+          "partNumber" in fields && fields.partNumber !== sub.partNumber;
+        const eoChanged =
+          "equipmentOffer" in fields &&
+          fields.equipmentOffer !== sub.equipmentOffer;
+        if (pnChanged || eoChanged) {
+          if (!confirmCostReset(itemId, subId, "sub")) return;
+        }
+      }
+    }
     const updated = items.map((i) => {
       if (i.id !== itemId) return i;
       const subs = (i.subItems || []).map((s) =>
@@ -764,6 +957,85 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
         ...i,
         subItems: (i.subItems || []).filter((s) => s.id !== subId),
       };
+    });
+    persist(updated);
+  };
+
+  // ─── PCF item handlers ───
+  const addPCFItem = (itemId: string): void => {
+    const updated = items.map((i) =>
+      i.id === itemId
+        ? { ...i, pcfItems: [...(i.pcfItems || []), blankSubItem()] }
+        : i,
+    );
+    persist(updated);
+  };
+
+  const updatePCFItem = (
+    itemId: string,
+    pcfId: string,
+    field: keyof IScopeSubItem,
+    value: unknown,
+  ): void => {
+    // Warn & clear cost if an identity field changes on a cost-mapped item
+    if (field === "partNumber" || field === "equipmentOffer") {
+      const item = items.find((i) => i.id === itemId);
+      const pcf = item
+        ? (item.pcfItems || []).find((p) => p.id === pcfId)
+        : null;
+      if (pcf && pcf[field] !== value) {
+        if (!confirmCostReset(itemId, pcfId, "pcf")) return;
+      }
+    }
+    const updated = items.map((i) => {
+      if (i.id !== itemId) return i;
+      const pcfs = (i.pcfItems || []).map((p) =>
+        p.id === pcfId ? { ...p, [field]: value } : p,
+      );
+      return { ...i, pcfItems: pcfs };
+    });
+    persist(updated);
+  };
+
+  const deletePCFItem = (itemId: string, pcfId: string): void => {
+    const updated = items.map((i) => {
+      if (i.id !== itemId) return i;
+      return {
+        ...i,
+        pcfItems: (i.pcfItems || []).filter((p) => p.id !== pcfId),
+      };
+    });
+    persist(updated);
+  };
+
+  const updatePCFItemBatch = (
+    itemId: string,
+    pcfId: string,
+    fields: Partial<IScopeSubItem>,
+  ): void => {
+    // Warn & clear cost if identity fields are changing on a cost-mapped item
+    if ("partNumber" in fields || "equipmentOffer" in fields) {
+      const item = items.find((i) => i.id === itemId);
+      const pcf = item
+        ? (item.pcfItems || []).find((p) => p.id === pcfId)
+        : null;
+      if (pcf) {
+        const pnChanged =
+          "partNumber" in fields && fields.partNumber !== pcf.partNumber;
+        const eoChanged =
+          "equipmentOffer" in fields &&
+          fields.equipmentOffer !== pcf.equipmentOffer;
+        if (pnChanged || eoChanged) {
+          if (!confirmCostReset(itemId, pcfId, "pcf")) return;
+        }
+      }
+    }
+    const updated = items.map((i) => {
+      if (i.id !== itemId) return i;
+      const pcfs = (i.pcfItems || []).map((p) =>
+        p.id === pcfId ? { ...p, ...fields } : p,
+      );
+      return { ...i, pcfItems: pcfs };
     });
     persist(updated);
   };
@@ -970,11 +1242,11 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
         ) : (
           <textarea
             className={styles.tabNotesInput}
-            value={tabNotes}
+            value={localTabNotes}
             placeholder="Add general notes or comments for Scope of Supply..."
             rows={2}
             readOnly={readOnly}
-            onChange={(e) => onSaveTabNotes && onSaveTabNotes(e.target.value)}
+            onChange={(e) => handleTabNotesChange(e.target.value)}
           />
         )}
       </div>
@@ -2324,6 +2596,33 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                   {(item.attachments || []).length}
                                 </span>
                               </div>
+                              {/* PCF tab — only for Eng. Solutions / Development items */}
+                              {((item.resourceSubType || "").toLowerCase() ===
+                                "eng. solutions" ||
+                                (item.resourceSubType || "").toLowerCase() ===
+                                  "development") && (
+                                <div
+                                  className={`${styles.drawerTab}${activeTab === "pcf" ? ` ${styles.drawerTabActive}` : ""}`}
+                                  onClick={() => setDrawerTab(item.id, "pcf")}
+                                >
+                                  <svg
+                                    viewBox="0 0 24 24"
+                                    width="13"
+                                    height="13"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                  >
+                                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                                    <path d="M2 17l10 5 10-5" />
+                                    <path d="M2 12l10 5 10-5" />
+                                  </svg>
+                                  Preliminary Concept Form
+                                  <span className={styles.drawerTabCount}>
+                                    {(item.pcfItems || []).length}
+                                  </span>
+                                </div>
+                              )}
                             </div>
 
                             {/* Sub-Items panel */}
@@ -3047,6 +3346,383 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                       Attach File
                                     </button>
                                   )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* PCF panel */}
+                            {activeTab === "pcf" && (
+                              <div className={styles.drawerTabPanel}>
+                                {(item.pcfItems || []).length > 0 ? (
+                                  <div className={styles.subTblWrap}>
+                                    <div
+                                      className={`${styles.subTblHead}${readOnly ? ` ${styles.subTblHeadReadOnly}` : ""}`}
+                                    >
+                                      {!readOnly && (
+                                        <div className={styles.subTh}></div>
+                                      )}
+                                      <div className={styles.subTh}>#</div>
+                                      <div className={styles.subTh}>
+                                        Description
+                                      </div>
+                                      <div className={styles.subTh}>
+                                        Sub-Type
+                                      </div>
+                                      <div className={styles.subTh}>
+                                        Equipment Offer
+                                      </div>
+                                      <div className={styles.subTh}>
+                                        OII / MFG PN
+                                      </div>
+                                      <div className={styles.subTh}>Qty</div>
+                                      <div className={styles.subTh}>
+                                        Comments
+                                      </div>
+                                      {!readOnly && (
+                                        <div className={styles.subTh}>
+                                          &times;
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className={styles.subRows}>
+                                      {(item.pcfItems || []).map((pcf, idx) => (
+                                        <div
+                                          key={pcf.id}
+                                          className={`${styles.subRow}${readOnly ? ` ${styles.subRowReadOnly}` : ""}`}
+                                        >
+                                          {!readOnly && (
+                                            <div
+                                              className={`${styles.subCell} ${styles.subDragHandle}`}
+                                            >
+                                              <svg
+                                                viewBox="0 0 24 24"
+                                                width="10"
+                                                height="10"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                              >
+                                                <circle cx="9" cy="5" r="1" />
+                                                <circle cx="9" cy="12" r="1" />
+                                                <circle cx="9" cy="19" r="1" />
+                                                <circle cx="15" cy="5" r="1" />
+                                                <circle cx="15" cy="12" r="1" />
+                                                <circle cx="15" cy="19" r="1" />
+                                              </svg>
+                                            </div>
+                                          )}
+                                          <div
+                                            className={`${styles.subCell} ${styles.subNum}`}
+                                          >
+                                            {idx + 1}
+                                          </div>
+                                          <div className={styles.subCell}>
+                                            {readOnly ? (
+                                              pcf.description || "—"
+                                            ) : (
+                                              <input
+                                                className={styles.subInp}
+                                                value={pcf.description}
+                                                placeholder="Description…"
+                                                onChange={(e) =>
+                                                  updatePCFItem(
+                                                    item.id,
+                                                    pcf.id,
+                                                    "description",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              />
+                                            )}
+                                          </div>
+                                          <div className={styles.subCell}>
+                                            {readOnly ? (
+                                              pcf.subType || "—"
+                                            ) : (
+                                              <select
+                                                className={styles.subSel}
+                                                value={pcf.subType || ""}
+                                                onChange={(e) =>
+                                                  updatePCFItem(
+                                                    item.id,
+                                                    pcf.id,
+                                                    "subType",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              >
+                                                <option value="">—</option>
+                                                <option value="Structural">
+                                                  Structural
+                                                </option>
+                                                <option value="Consumable">
+                                                  Consumable
+                                                </option>
+                                                <option value="Spare Part">
+                                                  Spare Part
+                                                </option>
+                                                <option value="Accessory">
+                                                  Accessory
+                                                </option>
+                                                <option value="Other">
+                                                  Other
+                                                </option>
+                                              </select>
+                                            )}
+                                          </div>
+                                          <div
+                                            className={`${styles.subCell} ${styles.subEquipmentCell}`}
+                                          >
+                                            {readOnly ? (
+                                              pcf.equipmentOffer || "—"
+                                            ) : (
+                                              <PartNumberAutocomplete
+                                                value={pcf.equipmentOffer}
+                                                searchField="description"
+                                                placeholder="Offer…"
+                                                onChange={(v) =>
+                                                  updatePCFItem(
+                                                    item.id,
+                                                    pcf.id,
+                                                    "equipmentOffer",
+                                                    v,
+                                                  )
+                                                }
+                                                onSelect={(pn, desc) => {
+                                                  updatePCFItemBatch(
+                                                    item.id,
+                                                    pcf.id,
+                                                    {
+                                                      equipmentOffer: desc,
+                                                      partNumber: pn,
+                                                    },
+                                                  );
+                                                }}
+                                              />
+                                            )}
+                                          </div>
+                                          <div className={styles.subCell}>
+                                            {readOnly ? (
+                                              <span className={styles.cellMono}>
+                                                {pcf.partNumber || "—"}
+                                              </span>
+                                            ) : (
+                                              <PartNumberAutocomplete
+                                                value={pcf.partNumber}
+                                                searchField="pn"
+                                                mono
+                                                placeholder="PN…"
+                                                onChange={(v) =>
+                                                  updatePCFItem(
+                                                    item.id,
+                                                    pcf.id,
+                                                    "partNumber",
+                                                    v,
+                                                  )
+                                                }
+                                                onSelect={(pn, desc) => {
+                                                  updatePCFItemBatch(
+                                                    item.id,
+                                                    pcf.id,
+                                                    {
+                                                      partNumber: pn,
+                                                      equipmentOffer: desc,
+                                                    },
+                                                  );
+                                                }}
+                                              />
+                                            )}
+                                          </div>
+                                          <div className={styles.subCell}>
+                                            {readOnly ? (
+                                              pcf.qty
+                                            ) : (
+                                              <input
+                                                type="number"
+                                                className={`${styles.subInp} ${styles.subInpCenter}`}
+                                                value={pcf.qty}
+                                                min={1}
+                                                onChange={(e) =>
+                                                  updatePCFItem(
+                                                    item.id,
+                                                    pcf.id,
+                                                    "qty",
+                                                    Number(e.target.value) || 1,
+                                                  )
+                                                }
+                                              />
+                                            )}
+                                          </div>
+                                          <div className={styles.subCell}>
+                                            {readOnly ? (
+                                              pcf.comments || "—"
+                                            ) : (
+                                              <input
+                                                className={styles.subInp}
+                                                value={pcf.comments}
+                                                placeholder="Notes…"
+                                                onChange={(e) =>
+                                                  updatePCFItem(
+                                                    item.id,
+                                                    pcf.id,
+                                                    "comments",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              />
+                                            )}
+                                          </div>
+                                          {!readOnly && (
+                                            <div
+                                              className={`${styles.subCell} ${styles.subActions}`}
+                                            >
+                                              <div
+                                                className={styles.subActionBtn}
+                                                onClick={() =>
+                                                  setImportSubTarget({
+                                                    itemId: item.id,
+                                                    subId: pcf.id,
+                                                  })
+                                                }
+                                                title="Import Equipment"
+                                              >
+                                                <svg
+                                                  viewBox="0 0 24 24"
+                                                  width="12"
+                                                  height="12"
+                                                  fill="none"
+                                                  stroke="currentColor"
+                                                  strokeWidth="2"
+                                                >
+                                                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                                                  <polyline points="7 10 12 15 17 10" />
+                                                  <line
+                                                    x1="12"
+                                                    y1="15"
+                                                    x2="12"
+                                                    y2="3"
+                                                  />
+                                                </svg>
+                                              </div>
+                                              <div
+                                                className={`${styles.subActionBtn} ${styles.subActionDanger}`}
+                                                onClick={() =>
+                                                  deletePCFItem(item.id, pcf.id)
+                                                }
+                                                title="Delete PCF item"
+                                              >
+                                                <svg
+                                                  viewBox="0 0 24 24"
+                                                  width="13"
+                                                  height="13"
+                                                  fill="none"
+                                                  stroke="currentColor"
+                                                  strokeWidth="2"
+                                                >
+                                                  <line
+                                                    x1="18"
+                                                    y1="6"
+                                                    x2="6"
+                                                    y2="18"
+                                                  />
+                                                  <line
+                                                    x1="6"
+                                                    y1="6"
+                                                    x2="18"
+                                                    y2="18"
+                                                  />
+                                                </svg>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {!readOnly && (
+                                      <div className={styles.subFooter}>
+                                        <button
+                                          className={styles.addSubBtn}
+                                          onClick={() => addPCFItem(item.id)}
+                                        >
+                                          <svg
+                                            viewBox="0 0 24 24"
+                                            width="11"
+                                            height="11"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                          >
+                                            <line
+                                              x1="12"
+                                              y1="5"
+                                              x2="12"
+                                              y2="19"
+                                            />
+                                            <line
+                                              x1="5"
+                                              y1="12"
+                                              x2="19"
+                                              y2="12"
+                                            />
+                                          </svg>
+                                          Add PCF Item
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className={styles.drawerEmpty}>
+                                    <p>
+                                      No PCF items yet. Add components for the
+                                      preliminary concept.
+                                    </p>
+                                    {!readOnly && (
+                                      <button
+                                        className={styles.addSubBtn}
+                                        onClick={() => addPCFItem(item.id)}
+                                      >
+                                        <svg
+                                          viewBox="0 0 24 24"
+                                          width="11"
+                                          height="11"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          strokeWidth="2"
+                                        >
+                                          <line
+                                            x1="12"
+                                            y1="5"
+                                            x2="12"
+                                            y2="19"
+                                          />
+                                          <line
+                                            x1="5"
+                                            y1="12"
+                                            x2="19"
+                                            y2="12"
+                                          />
+                                        </svg>
+                                        Add PCF Item
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                                <div
+                                  style={{
+                                    padding: "8px 12px",
+                                    fontSize: 10,
+                                    color: "var(--text-muted)",
+                                    fontStyle: "italic",
+                                    borderTop: "1px solid var(--border-light)",
+                                  }}
+                                >
+                                  Note: This form describes the items and tools
+                                  that served as the basis for the Bid survey
+                                  and the costs of the aforementioned project.
+                                  It is understood that there is the possibility
+                                  that some items described here may be used,
+                                  however, the issuance of the BOM is mandatory
+                                  before any purchase order.
                                 </div>
                               </div>
                             )}
