@@ -1,4 +1,5 @@
 import { UserRole } from "../models";
+import { IUser } from "../models";
 
 export interface AccessRule {
   workspace: "edit" | "view" | "none";
@@ -101,4 +102,15 @@ export const SUPER_ADMIN_EMAILS = [
 
 export function isSuperAdmin(email: string): boolean {
   return SUPER_ADMIN_EMAILS.indexOf(email.toLowerCase()) >= 0;
+}
+
+/**
+ * Whether the user can access the Knowledge Base section (Assets Catalog,
+ * Scope Templates, Datasheets, Manuals & Catalogs, Clarif. & Qualif.,
+ * Links & Recommendations). Restricted to the Engineering team.
+ */
+export function canAccessKnowledge(user: IUser | undefined | null): boolean {
+  if (!user) return false;
+  if (user.isSuperAdmin || isSuperAdmin(user.email || "")) return true;
+  return user.sector === "engineering";
 }

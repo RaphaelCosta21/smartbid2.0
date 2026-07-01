@@ -428,6 +428,10 @@ export interface IClarificationItem {
   clarification: string;
   clientResponse: string;
   isAutoImported: boolean;
+  /** Classification of this row: a Clarification or a Qualification */
+  baseType?: "Clarification" | "Qualification";
+  /** True once this row has been pushed to the Clarifications Database (anti-duplication) */
+  exportedToDatabase?: boolean;
   /** Date when the clarification was created/added */
   createdDate?: string;
   /** Date when the client response was provided */

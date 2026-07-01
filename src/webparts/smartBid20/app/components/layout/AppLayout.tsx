@@ -1,5 +1,11 @@
 import * as React from "react";
-import { HashRouter, Routes, Route, useLocation } from "react-router-dom";
+import {
+  HashRouter,
+  Routes,
+  Route,
+  useLocation,
+  Navigate,
+} from "react-router-dom";
 import { useUIStore } from "../../stores/useUIStore";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useBidStore } from "../../stores/useBidStore";
@@ -7,6 +13,9 @@ import { useConfigStore } from "../../stores/useConfigStore";
 import { BidService } from "../../services/BidService";
 import { SystemConfigService } from "../../services/SystemConfigService";
 import { MembersService } from "../../services/MembersService";
+import { UserService } from "../../services/UserService";
+import { canAccessKnowledge, isSuperAdmin } from "../../utils/accessControl";
+import { IUser, UserRole } from "../../models";
 import { ROUTES } from "../../config/routes.config";
 import darkTheme from "../../styles/themes/dark.module.scss";
 import lightTheme from "../../styles/themes/light.module.scss";
@@ -29,10 +38,13 @@ import { CreateRequestPage } from "../../pages/CreateRequestPage";
 import { FlowBoardPage } from "../../pages/FlowBoardPage";
 import { TimelinePage } from "../../pages/TimelinePage";
 import { ApprovalsPage } from "../../pages/ApprovalsPage";
-import { BidResultsPage } from "../../pages/BidResultsPage";
+import { FollowUpPage } from "../../pages/FollowUpPage";
 import { TemplatesPage } from "../../pages/TemplatesPage";
-import { KnowledgeBasePage } from "../../pages/KnowledgeBasePage";
 import { AssetsCatalogPage } from "../../pages/AssetsCatalogPage";
+import { DatasheetsPage } from "../../pages/DatasheetsPage";
+import { ManualsCatalogsPage } from "../../pages/ManualsCatalogsPage";
+import { ClarificationsDbPage } from "../../pages/ClarificationsDbPage";
+import { LinksRecommendationsPage } from "../../pages/LinksRecommendationsPage";
 import { AnalyticsPage } from "../../pages/AnalyticsPage";
 import { ReportsPage } from "../../pages/ReportsPage";
 import { FavoritesPage } from "../../pages/FavoritesPage";
@@ -45,12 +57,23 @@ import { FaqPage } from "../../pages/FaqPage";
 import { CommandPalette } from "./CommandPalette";
 import { ToastContainer } from "../common/ToastContainer";
 
+/** Route guard — only the Engineering team may access Knowledge Base pages */
+const RequireEngineering: React.FC<{ children: React.ReactElement }> = ({
+  children,
+}) => {
+  const currentUser = useAuthStore((s) => s.currentUser);
+  if (!canAccessKnowledge(currentUser)) {
+    return <Navigate to={ROUTES.tracker} replace />;
+  }
+  return children;
+};
+
 export const AppLayout: React.FC = () => {
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
   const sidebarExpanded = useUIStore((s) => s.sidebarExpanded);
   const isGuestUser = useAuthStore((s) => s.isGuestUser);
-  const currentUser = useAuthStore((s) => s.currentUser);
+  const setCurrentUser = useAuthStore((s) => s.setCurrentUser);
   const setBids = useBidStore((s) => s.setBids);
   const toasts = useUIStore((s) => s.toasts);
   const dismissToast = useUIStore((s) => s.dismissToast);
@@ -66,18 +89,41 @@ export const AppLayout: React.FC = () => {
       .then((cfg) => setConfig(cfg))
       .catch((err) => console.error("Failed to load system config:", err));
 
-    // Load user's theme preference from TEAM_MEMBERS
-    MembersService.getAll()
-      .then((data) => {
-        const userEmail = currentUser.email.toLowerCase();
+    // Resolve the signed-in user and merge their Members Management record,
+    // so access (e.g. the Engineering-only Knowledge Base) reflects reality.
+    Promise.all([UserService.getCurrentUser(), MembersService.getAll()])
+      .then(([spUser, data]) => {
+        const email = (spUser.email || "").toLowerCase();
         const member = data.members.find(
-          (m) => m.email.toLowerCase() === userEmail,
+          (m) => m.email.toLowerCase() === email,
         );
+        const admin = isSuperAdmin(email);
+        const resolved: IUser = {
+          ...spUser,
+          displayName: member
+            ? member.name || spUser.displayName
+            : spUser.displayName,
+          photoUrl: member ? member.photoUrl : undefined,
+          jobTitle: member ? member.jobTitle : spUser.jobTitle,
+          department: member ? member.department : spUser.department,
+          sector: member ? member.sector : undefined,
+          role: member
+            ? (member.sector as UserRole)
+            : admin
+              ? "engineering"
+              : "guest",
+          teamCategory: member ? member.sector : spUser.teamCategory,
+          bidRole: member ? member.bidRole : undefined,
+          businessLines: member ? member.businessLines : undefined,
+          isActive: member ? member.isActive : true,
+          isSuperAdmin: admin,
+        };
+        setCurrentUser(resolved);
         if (member && member.themePreference) {
           setTheme(member.themePreference);
         }
       })
-      .catch((err) => console.warn("Failed to load theme preference:", err));
+      .catch((err) => console.warn("Failed to resolve current user:", err));
   }, []);
 
   const themeClass =
@@ -168,18 +214,60 @@ const AppLayoutInner: React.FC<{
               element={<NotificationsPage />}
             />
             <Route path={ROUTES.faq} element={<FaqPage />} />
-            <Route path={ROUTES.knowledge} element={<KnowledgeBasePage />} />
             <Route
               path={ROUTES.assetsCatalog}
-              element={<AssetsCatalogPage />}
+              element={
+                <RequireEngineering>
+                  <AssetsCatalogPage />
+                </RequireEngineering>
+              }
+            />
+            <Route
+              path={ROUTES.datasheets}
+              element={
+                <RequireEngineering>
+                  <DatasheetsPage />
+                </RequireEngineering>
+              }
+            />
+            <Route
+              path={ROUTES.manualsCatalogs}
+              element={
+                <RequireEngineering>
+                  <ManualsCatalogsPage />
+                </RequireEngineering>
+              }
+            />
+            <Route
+              path={ROUTES.clarificationsDb}
+              element={
+                <RequireEngineering>
+                  <ClarificationsDbPage />
+                </RequireEngineering>
+              }
+            />
+            <Route
+              path={ROUTES.linksRecommendations}
+              element={
+                <RequireEngineering>
+                  <LinksRecommendationsPage />
+                </RequireEngineering>
+              }
             />
             <Route path={ROUTES.analytics} element={<AnalyticsPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path={ROUTES.reports} element={<ReportsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path={ROUTES.approvals} element={<ApprovalsPage />} />
-            <Route path={ROUTES.results} element={<BidResultsPage />} />
-            <Route path={ROUTES.templates} element={<TemplatesPage />} />
+            <Route path={ROUTES.followUp} element={<FollowUpPage />} />
+            <Route
+              path={ROUTES.templates}
+              element={
+                <RequireEngineering>
+                  <TemplatesPage />
+                </RequireEngineering>
+              }
+            />
             <Route path={ROUTES.favorites} element={<FavoritesPage />} />
             <Route path={ROUTES.bomCosts} element={<BomCostsPage />} />
             <Route path={ROUTES.quotations} element={<QuotationsPage />} />

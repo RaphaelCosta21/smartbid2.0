@@ -62,7 +62,7 @@ export const BidResultsPage: React.FC = () => {
       (b) => b.bidResult?.outcome === "Won",
     ).length;
     const lost = terminalBids.filter(
-      (b) => b.bidResult?.outcome === "Lost",
+      (b) => b.bidResult?.outcome === "Loss",
     ).length;
     const total = terminalBids.length;
     return {

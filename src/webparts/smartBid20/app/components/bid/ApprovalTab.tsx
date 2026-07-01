@@ -20,6 +20,7 @@ interface ApprovalTabProps {
     approvalStatus: ApprovalStatus,
     approvalRounds: IApprovalRound[],
   ) => void;
+  onPatchBid: (patch: Partial<IBid>) => void;
 }
 
 interface SectorConfig {
@@ -187,6 +188,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   currentUser,
   canEdit,
   onSave,
+  onPatchBid,
 }) => {
   const isGateOpen =
     bid.currentPhase === "Close Out" &&
@@ -224,6 +226,22 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     (bid.approvalStatus === "not-started" || hasActiveRevisionPending);
   const isTrackingMode = bid.approvalStatus !== "not-started" && !needsNewRound;
 
+  // ── Auto-complete: when all approvals are approved, transition to "Completed" ──
+  React.useEffect(() => {
+    if (bid.approvalStatus !== "approved") return;
+    if (bid.currentStatus === "Completed") return;
+    const approvals = bid.approvals || [];
+    if (approvals.length === 0) return;
+    const allApproved = approvals.every((a) => a.status === "approved");
+    if (allApproved) {
+      onPatchBid({
+        currentStatus: "Completed",
+        currentPhase: "Close Out" as any,
+        completedDate: new Date().toISOString(),
+      });
+    }
+  }, [bid.approvalStatus, bid.approvals, bid.currentStatus]);
+
   // ── State ──
   const [sectorSelections, setSectorSelections] = React.useState<
     Record<Sector, IPersonRef[]>
@@ -236,6 +254,8 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   );
   const [openPicker, setOpenPicker] = React.useState<Sector | null>(null);
   const [showConfirm, setShowConfirm] = React.useState(false);
+  const [showPhaseTransitionConfirm, setShowPhaseTransitionConfirm] =
+    React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
 
   const pickerRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
@@ -349,6 +369,17 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       const now = new Date().toISOString();
       const roundNumber = currentRoundNumber;
 
+      // If BID is not in Close Out / Pending Approval, transition it first
+      if (
+        bid.currentPhase !== "Close Out" ||
+        bid.currentStatus !== "Pending Approval"
+      ) {
+        onPatchBid({
+          currentPhase: "Close Out" as any,
+          currentStatus: "Pending Approval",
+        });
+      }
+
       // Build IBidApproval[] from selections
       const approvals: IBidApproval[] = [];
       let stepOrder = 1;
@@ -417,8 +448,9 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
 
   // ═══════════════════════════════════════════════════════
   // RENDER: Gate Banner (not in Close Out / Pending Approval)
+  // Only shown for users who cannot manage approvals
   // ═══════════════════════════════════════════════════════
-  if (!isGateOpen && !isTrackingMode) {
+  if (!isGateOpen && !isTrackingMode && !canManageApproval) {
     return (
       <div className={styles.container}>
         <div className={styles.gateBanner}>
@@ -606,7 +638,17 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
         <button
           className={styles.startBtn}
           disabled={!canStart || submitting}
-          onClick={() => setShowConfirm(true)}
+          onClick={() => {
+            // If not already in Close Out / Pending Approval, show phase transition confirmation first
+            if (
+              bid.currentPhase !== "Close Out" ||
+              bid.currentStatus !== "Pending Approval"
+            ) {
+              setShowPhaseTransitionConfirm(true);
+            } else {
+              setShowConfirm(true);
+            }
+          }}
         >
           {submitting ? "Starting..." : "🚀 Start Approval"}
         </button>
@@ -759,6 +801,48 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
           );
         })}
       </div>
+
+      {/* Phase Transition Confirm Dialog */}
+      {showPhaseTransitionConfirm && (
+        <div className={styles.confirmOverlay}>
+          <div className={styles.confirmBox}>
+            <div className={styles.confirmTitle}>
+              Phase & Status Change Required
+            </div>
+            <div className={styles.confirmText}>
+              To start the approval flow, the BID will be updated:
+              <br />
+              <br />
+              <strong>Phase:</strong> {bid.currentPhase} →{" "}
+              <strong>Close Out</strong>
+              <br />
+              <strong>Status:</strong> {bid.currentStatus} →{" "}
+              <strong>Pending Approval</strong>
+              <br />
+              <br />
+              Do you want to proceed with this change and start the approval
+              setup?
+            </div>
+            <div className={styles.confirmActions}>
+              <button
+                className={styles.confirmBtnCancel}
+                onClick={() => setShowPhaseTransitionConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.confirmBtnStart}
+                onClick={() => {
+                  setShowPhaseTransitionConfirm(false);
+                  setShowConfirm(true);
+                }}
+              >
+                Confirm & Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirm Dialog */}
       {showConfirm && (

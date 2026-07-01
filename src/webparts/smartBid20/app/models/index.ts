@@ -134,8 +134,21 @@ export {
   type IApprovalFlowChain,
   type IApprovalFlowStep,
 } from "./IApprovalFlow";
-export { type IKnowledgeBaseItem, type KBCategory } from "./IKnowledgeBase";
 export { type IAssetCatalogItem } from "./IAssetCatalog";
+export {
+  type IDocLibraryItem,
+  type IDocLibraryMetadata,
+  type DocCatalogType,
+} from "./IDocLibraryItem";
+export {
+  type IClarificationDbItem,
+  type ClarificationBaseType,
+} from "./IClarificationDb";
+export {
+  type IBidLink,
+  type IBidRecommendation,
+  type ILinksRecommendationsData,
+} from "./ILinksRecommendations";
 export { type IEditLock } from "./IEditLock";
 export {
   type IAIAnalysisRequest,

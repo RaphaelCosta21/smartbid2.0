@@ -12,6 +12,7 @@ export const SHAREPOINT_CONFIG = {
     assetsCatalog: "Assets Catalog_",
     templates: "smartbid-templates",
     quotations: "smartbid-quotations",
+    clarificationsDatabase: "Clarifications Database",
   },
 
   libraries: {
@@ -20,6 +21,44 @@ export const SHAREPOINT_CONFIG = {
 
   /** Base URL for equipment photos (format: {partNumber}.jpg) — relative to siteUrl */
   photosBaseUrl: "/smartBidDocs/photos",
+
+  /**
+   * Document library that holds catalogued reference documents
+   * (Datasheets, Manuals & Catalogs). Catalog metadata is stored as
+   * columns on the library itself.
+   */
+  docLibrary: {
+    name: "smartBidDocs",
+    serverRelativeUrl: "/sites/G-OPGSSRBrazilEngineering/smartBidDocs",
+    folders: {
+      datasheets: "Datasheets",
+      manualsCatalogs: "Manuals and Catalogs",
+    },
+  },
+
+  /** Internal field names for the smartBidDocs catalog columns (auto-created if missing) */
+  docCatalogFields: {
+    docType: "DocType",
+    category: "DocCategory",
+    manufacturer: "Manufacturer",
+    model: "DocModel",
+    keywords: "DocKeywords",
+    description: "DocDescription",
+    revision: "DocRevision",
+  },
+
+  /** Internal field names for the "Clarifications Database" list */
+  clarificationDbFields: {
+    baseType: "BaseType",
+    clientDocRef: "Title",
+    etTopic: "TextodaET",
+    clarification: "ClarificationEnviado",
+    clientReply: "RespostaaoClarification",
+    approved: "Aprovado_x002f_Aceito_x003f_",
+    date: "Data",
+    keyword: "Keyword",
+    client: "Client",
+  },
 
   folders: {
     clientDocuments: "Client-Documents",
@@ -43,6 +82,7 @@ export const SHAREPOINT_CONFIG = {
     editControl: "EDIT_CONTROL",
     favorites: "FAVORITES",
     bomCosts: "BOM_COSTS",
+    linksRecommendations: "LINKS_RECOMMENDATIONS",
   },
 
   /** Path to the Queries.xlsx Excel catalog in SharePoint */

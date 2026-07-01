@@ -847,8 +847,8 @@ export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
     },
     {
       id: "br-2",
-      label: "Lost",
-      value: "Lost",
+      label: "Loss",
+      value: "Loss",
       isActive: true,
       order: 2,
       color: "#ef4444",

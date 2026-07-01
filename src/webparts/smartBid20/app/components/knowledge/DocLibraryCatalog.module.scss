@@ -1,0 +1,580 @@
+.page {
+  padding: 4px 2px 40px;
+  position: relative;
+  min-height: 60vh;
+}
+
+.dropOverlay {
+  position: absolute;
+  inset: 6px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--primary-accent);
+  border-radius: 16px;
+  background: rgba(59, 130, 246, 0.08);
+  pointer-events: none;
+}
+
+.dropOverlayInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--primary-accent);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ─── Toolbar ─── */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin: 16px 0 20px;
+}
+
+.searchWrapper {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 9px 34px 9px 38px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+
+  &:focus {
+    border-color: var(--primary-accent);
+  }
+}
+
+.clearBtn {
+  position: absolute;
+  right: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.filterGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.filterSelect {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+}
+
+.clearFiltersBtn {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+
+.viewToggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.viewBtn {
+  padding: 8px 10px;
+  border: none;
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.viewBtnActive {
+  background: var(--primary-accent);
+  color: #fff;
+}
+
+.addBtn {
+  padding: 9px 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--primary-accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  &:hover {
+    filter: brightness(1.08);
+  }
+}
+
+/* ─── Loading ─── */
+.loadingWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 60px 0;
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loadingText {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* ─── Card Grid ─── */
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.docCard {
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  }
+}
+
+.cardThumbWrapper {
+  position: relative;
+  height: 170px;
+  background: var(--card-bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+
+.cardThumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.cardThumbPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.docTypeBadge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--primary-accent);
+  color: #fff;
+}
+
+.cardBody {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.cardMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cardMetaRow {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 6px;
+}
+
+.cardMetaRow strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.cardKeywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.keywordChip {
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.cardDescription {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cardFooter {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.openLink {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-accent);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.cardActions {
+  display: flex;
+  gap: 6px;
+}
+
+.actionBtn {
+  border: 1px solid var(--border);
+  background: var(--card-bg-elevated);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+
+.deleteBtn:hover {
+  color: var(--danger, #ef4444);
+  border-color: var(--danger, #ef4444);
+}
+
+/* ─── List View ─── */
+.listTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.listTable th {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.listTable td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.listThumb {
+  width: 46px;
+  height: 46px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card-bg-elevated);
+}
+
+/* ─── Modal ─── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 20px;
+}
+
+.modal {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 540px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modalTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modalClose {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.modalBody {
+  padding: 18px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formRow {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.formLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.formInput,
+.formSelect,
+.formTextarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg-elevated);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+
+  &:focus {
+    border-color: var(--primary-accent);
+  }
+}
+
+.formTextarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+.fileDrop {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.fileName {
+  font-size: 12px;
+  color: var(--text-primary);
+  margin-top: 6px;
+  word-break: break-all;
+}
+
+.dupWarning {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: var(--danger, #ef4444);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.replaceBtn {
+  display: block;
+  margin-top: 8px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--primary-accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.replaceNote {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: var(--primary-accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.btnPrimary {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 9px;
+  background: var(--primary-accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btnSecondary {
+  padding: 9px 18px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btnDanger {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 9px;
+  background: var(--danger, #ef4444);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.confirmText {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.emptyWrap {
+  padding: 40px 0;
+}

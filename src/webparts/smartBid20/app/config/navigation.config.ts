@@ -81,18 +81,12 @@ export const NAVIGATION_ITEMS: INavItem[] = [
 
   // KNOWLEDGE BASE
   {
-    key: "knowledge-base",
-    label: "Knowledge Base",
-    icon: "BookOpen",
-    route: "/knowledge",
-    section: "knowledge",
-  },
-  {
     key: "assets-catalog",
     label: "Assets Catalog",
     icon: "Package",
     route: "/knowledge/assets-catalog",
     section: "knowledge",
+    requiredAccess: "engineering",
   },
   {
     key: "templates",
@@ -100,6 +94,39 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     icon: "LayoutTemplate",
     route: "/templates",
     section: "knowledge",
+    requiredAccess: "engineering",
+  },
+  {
+    key: "datasheets",
+    label: "Datasheets",
+    icon: "FileText",
+    route: "/knowledge/datasheets",
+    section: "knowledge",
+    requiredAccess: "engineering",
+  },
+  {
+    key: "manuals-catalogs",
+    label: "Manuals & Catalogs",
+    icon: "FolderArchive",
+    route: "/knowledge/manuals",
+    section: "knowledge",
+    requiredAccess: "engineering",
+  },
+  {
+    key: "clarifications-db",
+    label: "Clarif. & Qualif.",
+    icon: "MessageSquare",
+    route: "/knowledge/clarifications",
+    section: "knowledge",
+    requiredAccess: "engineering",
+  },
+  {
+    key: "links-recommendations",
+    label: "Links & Recommendations",
+    icon: "Link",
+    route: "/knowledge/links",
+    section: "knowledge",
+    requiredAccess: "engineering",
   },
 
   // INSIGHTS
@@ -129,6 +156,13 @@ export const NAVIGATION_ITEMS: INavItem[] = [
         label: "Team Analytics",
         icon: "Users",
         route: "/analytics/team",
+        section: "insights",
+      },
+      {
+        key: "follow-up",
+        label: "Follow Up",
+        icon: "Target",
+        route: "/analytics/follow-up",
         section: "insights",
       },
     ],

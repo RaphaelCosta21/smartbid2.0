@@ -43,13 +43,13 @@ export function useKPIs(): BidKPIs {
     const totalBids = bids.length;
     const activeBids = bids.filter((b) => !isTerminal(b.currentStatus)).length;
     const wonBids = bids.filter((b) => b.bidResult?.outcome === "Won").length;
-    const lostBids = bids.filter((b) => b.bidResult?.outcome === "Lost").length;
+    const lostBids = bids.filter((b) => b.bidResult?.outcome === "Loss").length;
     const pendingBids = bids.filter(
       (b) => b.bidResult?.outcome === "Pending" || !b.bidResult?.outcome,
     ).length;
 
     const completedWithResult = bids.filter(
-      (b) => b.bidResult?.outcome === "Won" || b.bidResult?.outcome === "Lost",
+      (b) => b.bidResult?.outcome === "Won" || b.bidResult?.outcome === "Loss",
     );
     const winRate = completedWithResult.length
       ? (wonBids / completedWithResult.length) * 100

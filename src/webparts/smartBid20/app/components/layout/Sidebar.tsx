@@ -7,6 +7,8 @@ import {
   INavItem,
 } from "../../config/navigation.config";
 import { RequestService } from "../../services/RequestService";
+import { useAuthStore } from "../../stores/useAuthStore";
+import { canAccessKnowledge } from "../../utils/accessControl";
 import styles from "./Sidebar.module.scss";
 import { SidebarItem } from "./SidebarItem";
 import { SidebarSubmenu } from "./SidebarSubmenu";
@@ -494,6 +496,31 @@ const Icon: React.FC<{ name: string; size?: number }> = ({
         <line x1="12" y1="18" x2="12" y2="18.01" />
       </svg>
     ),
+    MessageSquare: (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+      </svg>
+    ),
+    Link: (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+        <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+      </svg>
+    ),
   };
   return <>{icons[name] || null}</>;
 };
@@ -504,6 +531,9 @@ export const Sidebar: React.FC = () => {
   const { sidebarExpanded, toggleSidebar, theme, toggleTheme } = useUIStore();
 
   const currentPath = location.pathname;
+
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const canKnowledge = canAccessKnowledge(currentUser);
 
   // Fetch real unassigned request count
   const [unassignedCount, setUnassignedCount] = React.useState<number>(0);
@@ -516,6 +546,8 @@ export const Sidebar: React.FC = () => {
   const groupedItems = React.useMemo(() => {
     const grouped: Record<string, INavItem[]> = {};
     NAVIGATION_ITEMS.forEach((item) => {
+      // Engineering-only items (Knowledge Base section) are hidden for others
+      if (item.requiredAccess === "engineering" && !canKnowledge) return;
       const navItem = { ...item };
       // Override hardcoded badge for unassigned requests
       if (navItem.key === "unassigned") {
@@ -526,7 +558,7 @@ export const Sidebar: React.FC = () => {
       grouped[navItem.section].push(navItem);
     });
     return grouped;
-  }, [unassignedCount]);
+  }, [unassignedCount, canKnowledge]);
 
   return (
     <nav className={styles.sidebar}>

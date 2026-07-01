@@ -1470,6 +1470,7 @@ export const BidDetailPage: React.FC = () => {
               onSave={(approvals, approvalStatus, approvalRounds) =>
                 savePatch({ approvals, approvalStatus, approvalRounds })
               }
+              onPatchBid={savePatch}
             />
           )}
           {activeTab === "documents" && (

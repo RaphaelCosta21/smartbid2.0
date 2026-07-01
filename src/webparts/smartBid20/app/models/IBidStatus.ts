@@ -90,7 +90,7 @@ export type ApprovalStatus =
   | "not-started";
 export type BidResultOutcome =
   | "Won"
-  | "Lost"
+  | "Loss"
   | "Client Canceled"
   | "No Bid"
   | "Pending"

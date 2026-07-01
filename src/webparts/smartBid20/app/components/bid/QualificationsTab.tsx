@@ -9,6 +9,7 @@ import { GlassCard } from "../common/GlassCard";
 import { EditToolbar } from "../common/EditLockBanner";
 import { EmptySection } from "./EmptySection";
 import { ExportClarificationModal } from "./ExportClarificationModal";
+import { ImportClarificationModal } from "./ImportClarificationModal";
 import { useEditControl } from "../../hooks/useEditControl";
 import { makeId } from "../../utils/idGenerator";
 import styles from "../../pages/BidDetailPage.module.scss";
@@ -28,8 +29,9 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   const clarifications = bid.clarifications || [];
   const scopeItems = bid.scopeItems || [];
 
-  // Export modal state
+  // Export / import modal state
   const [exportModalOpen, setExportModalOpen] = React.useState(false);
+  const [importModalOpen, setImportModalOpen] = React.useState(false);
 
   // Edit lock hooks — separate locks for Qualifications and Clarifications
   const qualLock = useEditControl(bid.bidNumber, "qualifications");
@@ -56,6 +58,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
           clarification: "",
           clientResponse: "",
           isAutoImported: true,
+          baseType: "Clarification",
           createdDate: new Date().toISOString(),
         });
       }
@@ -154,6 +157,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
         clarification: "",
         clientResponse: "",
         isAutoImported: false,
+        baseType: "Clarification",
         createdDate: new Date().toISOString(),
       },
     ]);
@@ -187,6 +191,10 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
 
   const deleteClarification = (id: string): void => {
     saveClarifications(localClarifications.filter((c) => c.id !== id));
+  };
+
+  const handleImportFromDb = (imported: IClarificationItem[]): void => {
+    saveClarifications([...localClarifications, ...imported]);
   };
 
   // Qualification tables
@@ -545,27 +553,50 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
             Items with Compliance = &quot;No&quot; are auto-imported. You can
             also add manual entries.
           </p>
-          {localClarifications.length > 0 && (
-            <button
-              onClick={() => setExportModalOpen(true)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 8,
-                border: "1px solid var(--border)",
-                background: "var(--card-bg-elevated)",
-                color: "var(--text-primary)",
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: 500,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                transition: "all 0.15s ease",
-              }}
-            >
-              📥 Export Excel
-            </button>
-          )}
+          <div style={{ display: "flex", gap: 8 }}>
+            {canEditClar && (
+              <button
+                onClick={() => setImportModalOpen(true)}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--card-bg-elevated)",
+                  color: "var(--text-primary)",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                📚 Import from Database
+              </button>
+            )}
+            {localClarifications.length > 0 && (
+              <button
+                onClick={() => setExportModalOpen(true)}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--card-bg-elevated)",
+                  color: "var(--text-primary)",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                📥 Export Excel
+              </button>
+            )}
+          </div>
         </div>
         {localClarifications.length === 0 ? (
           <EmptySection message="No clarifications needed." />
@@ -591,6 +622,17 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                     }}
                   >
                     #
+                  </th>
+                  <th
+                    style={{
+                      padding: "8px 10px",
+                      textAlign: "left",
+                      borderBottom: "1px solid var(--border)",
+                      color: "var(--text-secondary)",
+                      width: 120,
+                    }}
+                  >
+                    Type
                   </th>
                   <th
                     style={{
@@ -686,6 +728,41 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                       }}
                     >
                       {idx + 1}
+                    </td>
+                    <td
+                      style={{
+                        padding: "6px 10px",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      {canEditClar ? (
+                        <select
+                          value={c.baseType || "Clarification"}
+                          onChange={(e) =>
+                            updateClarification(
+                              c.id,
+                              "baseType",
+                              e.target.value,
+                            )
+                          }
+                          style={{
+                            width: "100%",
+                            padding: "4px 6px",
+                            border: "1px solid var(--border)",
+                            borderRadius: 4,
+                            background: "var(--card-bg-elevated)",
+                            color: "var(--text-primary)",
+                            fontSize: 12,
+                          }}
+                        >
+                          <option value="Clarification">Clarification</option>
+                          <option value="Qualification">Qualification</option>
+                        </select>
+                      ) : (
+                        <span style={{ fontSize: 11 }}>
+                          {c.baseType || "Clarification"}
+                        </span>
+                      )}
                     </td>
                     <td
                       style={{
@@ -916,6 +993,14 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
         bid={bid}
         clarifications={localClarifications}
       />
+
+      {/* Import from Database Modal */}
+      {importModalOpen && (
+        <ImportClarificationModal
+          onClose={() => setImportModalOpen(false)}
+          onImport={handleImportFromDb}
+        />
+      )}
     </div>
   );
 };

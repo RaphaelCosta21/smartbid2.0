@@ -8,6 +8,8 @@ import { useNavigate } from "react-router-dom";
 import styles from "./CommandPalette.module.scss";
 import { useUIStore } from "../../stores/useUIStore";
 import { useBidStore } from "../../stores/useBidStore";
+import { useAuthStore } from "../../stores/useAuthStore";
+import { canAccessKnowledge } from "../../utils/accessControl";
 import { NAVIGATION_ITEMS } from "../../config/navigation.config";
 
 interface ICommandItem {
@@ -24,6 +26,8 @@ export const CommandPalette: React.FC = () => {
   const isOpen = useUIStore((s) => s.commandPaletteOpen);
   const setOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const bids = useBidStore((s) => s.bids);
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const canKnowledge = canAccessKnowledge(currentUser);
 
   const [query, setQuery] = React.useState("");
   const [selectedIndex, setSelectedIndex] = React.useState(0);
@@ -33,7 +37,7 @@ export const CommandPalette: React.FC = () => {
 
   const allCommands = React.useMemo<ICommandItem[]>(() => {
     const navCommands: ICommandItem[] = NAVIGATION_ITEMS.filter(
-      (n) => n.route,
+      (n) => n.route && !(n.requiredAccess === "engineering" && !canKnowledge),
     ).map((n) => ({
       id: `nav-${n.key}`,
       label: n.label,
@@ -84,7 +88,7 @@ export const CommandPalette: React.FC = () => {
     ];
 
     return [...actionCommands, ...navCommands, ...bidCommands];
-  }, [bids, navigate, setOpen]);
+  }, [bids, navigate, setOpen, canKnowledge]);
 
   /* ---- filter ---------------------------------------------------- */
 
