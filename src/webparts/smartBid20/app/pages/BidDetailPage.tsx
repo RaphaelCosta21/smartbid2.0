@@ -105,24 +105,23 @@ const NAV_GROUPS: INavGroup[] = [
   {
     group: "Scope & Costing",
     items: [
-      { key: "scope", label: "Scope of Supply", icon: "📋", restricted: true },
+      // Scope & Costing pages are viewable by everyone who can open the BID.
+      // Editing is limited to the Engineering team (see canEditBidTabs below).
+      { key: "scope", label: "Scope of Supply", icon: "📋" },
       {
         key: "hours",
         label: "Hours & Personnel",
         icon: "⏱️",
-        restricted: true,
       },
       {
         key: "assets",
         label: "Assets Breakdown",
         icon: "🔩",
-        restricted: true,
       },
       {
         key: "preparation",
         label: "Prep & Mobilization",
         icon: "🔧",
-        restricted: true,
       },
       { key: "logistics", label: "Logistics", icon: "🚚" },
       { key: "certifications", label: "Certifications", icon: "📜" },
@@ -249,7 +248,12 @@ export const BidDetailPage: React.FC = () => {
 
   // Access control via hook
   const { canEdit: canEditSection, isSuperAdmin } = useAccessLevel();
-  const canEditBid = canEditSection("bids") || isSuperAdmin;
+  const canEditBid = canEditSection("workspace") || isSuperAdmin;
+
+  // Only the Engineering team (or a super admin) may edit Scope & Costing pages.
+  // Everyone else can open these pages read-only (no Edit button is shown).
+  const isEngineeringTeam =
+    isSuperAdmin || currentUser.sector === "engineering";
 
   // Filter nav groups based on access
   const visibleGroups = React.useMemo(
@@ -438,8 +442,10 @@ export const BidDetailPage: React.FC = () => {
     (Array.isArray(bid.engineerResponsible) &&
       bid.engineerResponsible.length === 0);
 
-  // canEditBidTabs: false when locked OR unassigned, prevents edit on scope/costing tabs
-  const canEditBidTabs = canEditBid && !isBidLocked && !isUnassigned;
+  // canEditBidTabs: Scope & Costing pages are editable only by the Engineering
+  // team, and never while the BID is locked (terminal status without an active
+  // revision) or unassigned. All other users see these pages read-only.
+  const canEditBidTabs = isEngineeringTeam && !isBidLocked && !isUnassigned;
 
   return (
     <div className={styles.bidDetail}>

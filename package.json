@@ -25,6 +25,7 @@
     "@pnp/sp": "^3.19.0",
     "date-fns": "^4.1.0",
     "lucide-react": "^1.7.0",
+    "pptxgenjs": "^4.0.1",
     "react": "17.0.1",
     "react-dom": "17.0.1",
     "react-router-dom": "^6.30.3",

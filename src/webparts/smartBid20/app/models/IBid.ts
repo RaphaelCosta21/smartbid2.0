@@ -141,6 +141,10 @@ export interface IScopeItem {
   pcfItems?: IScopeSubItem[];
   /** Attachments for this scope item or section */
   attachments?: IBidAttachment[];
+  /** Origin of this item: extracted by AI or authored/edited by a human */
+  source?: "ai" | "human";
+  /** True while an AI-suggested item still awaits human confirmation */
+  aiPendingReview?: boolean;
 }
 
 /** A sub-item within a scope item (e.g. consumable brush, spare blade) */
@@ -746,6 +750,33 @@ export interface IBidMetadata {
   schemaVersion: number;
 }
 
+/** Review lifecycle of an AI scope suggestion (human-in-the-loop) */
+export type AIAnalysisReviewStatus = "pending-review" | "accepted" | "rejected";
+
+/**
+ * Provenance of an AI scope extraction run, stored on the BID.
+ * Keeps the raw AI suggestion separate from the human-edited `scopeItems`,
+ * enabling review, diff and audit (human-in-the-loop).
+ */
+export interface IBidAIAnalysis {
+  /** Snapshot of the scope items exactly as extracted by the AI (pre human edits) */
+  scopeItems: IScopeItem[];
+  /** Warnings from the analysis (truncation, low confidence, etc.) */
+  warnings: string[];
+  /** Number of text chunks processed (>1 for large documents) */
+  chunksProcessed: number;
+  /** Whether the analysis covered the full document */
+  isComplete: boolean;
+  /** Source document that was analyzed (e.g. "client-scope.pdf") */
+  sourceDocument: string;
+  /** ISO timestamp of when the analysis was performed */
+  analyzedAt: string;
+  /** Display name of who triggered the analysis */
+  analyzedBy?: string;
+  /** Review lifecycle of the AI suggestion */
+  status: AIAnalysisReviewStatus;
+}
+
 export interface IBid {
   bidNumber: string;
   crmNumber: string;
@@ -776,6 +807,8 @@ export interface IBid {
   assetsCostSummary: IAssetsCostSummary;
   equipmentList: IEquipmentItem[];
   scopeItems: IScopeItem[];
+  /** Raw AI scope extraction + review state (human-in-the-loop). Absent until analyzed. */
+  aiAnalysis?: IBidAIAnalysis;
   assetBreakdown: IAssetBreakdownItem[];
   /** Contingency % per year applied on Assets Breakdown (0 = disabled) */
   assetsContingencyPerYear?: number;

@@ -1,0 +1,12 @@
+{
+  "name": "smartbid-deck-generator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "One-off generator for the SmartBid 2.0 leadership PowerPoint deck",
+  "scripts": {
+    "build": "node generate-deck.js"
+  },
+  "dependencies": {
+    "pptxgenjs": "4.0.1"
+  }
+}

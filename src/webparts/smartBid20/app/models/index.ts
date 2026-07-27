@@ -57,6 +57,8 @@ export {
   type IActivityLogEntry,
   type IBidKPIs,
   type IBidMetadata,
+  type IBidAIAnalysis,
+  type AIAnalysisReviewStatus,
   type IBidRevision,
   type IRevisionChange,
   type IAssetSubCost,
