@@ -154,6 +154,13 @@
   padding: 24px;
 }
 
+.chartEmpty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
 .chartTitle {
   font-size: 14px;
   font-weight: 600;

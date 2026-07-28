@@ -7,6 +7,13 @@
   text-align: center;
 }
 
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  backdrop-filter: blur(16px);
+}
+
 .title {
   margin-top: 16px;
   font-size: 18px;

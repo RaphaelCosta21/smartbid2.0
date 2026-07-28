@@ -14,6 +14,12 @@
   }
 }
 
+.glass {
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  backdrop-filter: blur(16px);
+}
+
 .accentBar {
   position: absolute;
   left: 0;
@@ -87,6 +93,10 @@
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 6px;
+}
+
+.sparkline {
+  margin: 12px -8px -6px;
 }
 
 .progressBar {

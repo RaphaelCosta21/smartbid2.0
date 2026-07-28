@@ -1,4 +1,4 @@
-﻿import { IPersonRef } from "./IUser";
+﻿import { IPersonRef, Sector } from "./IUser";
 import {
   BidPhase,
   BidPriority,
@@ -614,6 +614,8 @@ export interface IBidApproval {
   id: string;
   round: number;
   stakeholderRole: string;
+  /** Sector this approval belongs to (deterministic grouping for analytics). */
+  sector?: Sector;
   stakeholder: IPersonRef;
   status: ApprovalStatus;
   requestedDate: string;
@@ -625,6 +627,16 @@ export interface IBidApproval {
   reminderCount: number;
 }
 
+/** Computed approval duration for a single sector within a round. */
+export interface ISectorApprovalDuration {
+  sector: Sector;
+  sectorLabel: string;
+  requestedDate: string;
+  completedDate: string;
+  durationHours: number;
+  approverCount: number;
+}
+
 export interface IApprovalRound {
   round: number;
   startedDate: string;
@@ -632,6 +644,8 @@ export interface IApprovalRound {
   status: ApprovalStatus;
   completedDate: string | null;
   approvals: IBidApproval[];
+  /** Per-sector durations computed & persisted when the round completes. */
+  sectorDurations?: ISectorApprovalDuration[];
 }
 
 export interface IBidAttachment {

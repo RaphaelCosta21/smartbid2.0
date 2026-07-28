@@ -1,0 +1,52 @@
+.tooltip {
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(14px);
+  min-width: 130px;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.label {
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px var(--card-bg-elevated);
+}
+
+.name {
+  color: var(--text-secondary);
+  margin-right: auto;
+  white-space: nowrap;
+}
+
+.value {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-left: 12px;
+}

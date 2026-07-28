@@ -51,6 +51,8 @@ export {
   type IAssetsCostSummary,
   type ICostSummary,
   type IBidApproval,
+  type ISectorApprovalDuration,
+  type IApprovalRound,
   type IBidAttachment,
   type IBidComment,
   type IBidResult,

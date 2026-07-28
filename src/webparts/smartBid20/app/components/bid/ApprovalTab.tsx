@@ -7,6 +7,10 @@ import { IPersonRef, Sector } from "../../models/IUser";
 import { ApprovalStatus } from "../../models/IBidStatus";
 import { PersonaCard } from "../common/PersonaCard";
 import { ApprovalService } from "../../services/ApprovalService";
+import {
+  computeRoundSectorDurations,
+  computeApprovalCycleTime,
+} from "../../utils/approvalHelpers";
 import { formatDate } from "../../utils/formatters";
 import styles from "./ApprovalTab.module.scss";
 
@@ -234,10 +238,31 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     if (approvals.length === 0) return;
     const allApproved = approvals.every((a) => a.status === "approved");
     if (allApproved) {
+      const nowIso = new Date().toISOString();
+      // Persist per-sector approval durations for the closing round + cycle time.
+      const rounds = bid.approvalRounds || [];
+      let updatedRounds = rounds;
+      if (rounds.length > 0) {
+        const last = rounds[rounds.length - 1];
+        const enriched: IApprovalRound = {
+          ...last,
+          approvals: approvals.length ? approvals : last.approvals,
+          status: "approved",
+          completedDate: last.completedDate || nowIso,
+        };
+        enriched.sectorDurations = computeRoundSectorDurations(enriched);
+        updatedRounds = [...rounds.slice(0, -1), enriched];
+      }
+      const cycle = computeApprovalCycleTime({
+        ...bid,
+        approvalRounds: updatedRounds,
+      });
       onPatchBid({
         currentStatus: "Completed",
         currentPhase: "Close Out" as any,
-        completedDate: new Date().toISOString(),
+        completedDate: nowIso,
+        approvalRounds: updatedRounds,
+        kpis: { ...bid.kpis, approvalCycleTime: cycle },
       });
     }
   }, [bid.approvalStatus, bid.approvals, bid.currentStatus]);
@@ -390,6 +415,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
             id: `apr-r${roundNumber}-${cfg.sector}-${stepOrder}`,
             round: roundNumber,
             stakeholderRole: cfg.label,
+            sector: cfg.sector,
             stakeholder: person,
             status: "pending" as ApprovalStatus,
             requestedDate: now,

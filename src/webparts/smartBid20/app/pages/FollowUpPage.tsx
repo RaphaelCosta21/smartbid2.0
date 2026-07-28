@@ -8,8 +8,33 @@ import { useConfigStore } from "../stores/useConfigStore";
 import { useAuthStore } from "../stores/useAuthStore";
 import { useBidStore } from "../stores/useBidStore";
 import { BidService } from "../services/BidService";
+import { GlassCard } from "../components/common/GlassCard";
+import { KPICard } from "../components/common/KPICard";
+import { ChartTooltip } from "../components/charts/ChartTooltip";
+import { Sparkline } from "../components/charts/Sparkline";
+import { AnalyticsFilterBar } from "../components/insights/AnalyticsFilterBar";
+import { useChartTheme } from "../hooks/useChartTheme";
+import { useAnalyticsFilters } from "../hooks/useAnalyticsFilters";
+import { winRateTrend } from "../utils/analyticsHelpers";
 import { formatDate } from "../utils/formatters";
 import { IBid, IBidResult } from "../models";
+import {
+  ComposedChart,
+  PieChart,
+  Pie,
+  BarChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  Cell,
+  Label,
+  LabelList,
+  ResponsiveContainer,
+} from "recharts";
 import styles from "./FollowUpPage.module.scss";
 
 /* ─────────────────────────────── Component ─────────────────────────────── */
@@ -20,6 +45,7 @@ export const FollowUpPage: React.FC = () => {
   const setBids = useBidStore((s) => s.setBids);
   const currentUser = useAuthStore((s) => s.currentUser);
   const navigate = useNavigate();
+  const chart = useChartTheme();
 
   // Access control: only Commercial and Engineering teams can edit
   const canEdit = React.useMemo(() => {
@@ -32,17 +58,12 @@ export const FollowUpPage: React.FC = () => {
     return team === "commercial" || team === "engineering";
   }, [currentUser]);
 
-  // Local state — top-level filters (apply to KPIs + charts + table)
-  const [kpiDivisionFilter, setKpiDivisionFilter] =
-    React.useState<string>("all");
-  const [kpiServiceLineFilter, setKpiServiceLineFilter] =
-    React.useState<string>("all");
-  const [dateFrom, setDateFrom] = React.useState<string>("");
-  const [dateTo, setDateTo] = React.useState<string>("");
+  // Top-level filters (division / service line / date / search) via shared bar
+  const { filters, patch, setPreset, reset, applyFilters, hasActive } =
+    useAnalyticsFilters();
 
   // Table-level filters
   const [outcomeFilter, setOutcomeFilter] = React.useState<string>("all");
-  const [searchQuery, setSearchQuery] = React.useState<string>("");
   const [sortOrder, setSortOrder] = React.useState<
     "newest" | "oldest" | "created-newest" | "created-oldest"
   >("newest");
@@ -159,31 +180,11 @@ export const FollowUpPage: React.FC = () => {
     return bids.filter((b) => b.currentStatus === "Completed");
   }, [bids]);
 
-  // Filtered by KPI-level Division/Service Line + date range (applies to KPIs + charts)
-  const kpiFilteredBids = React.useMemo(() => {
-    let result = completedBids;
-    if (kpiDivisionFilter !== "all") {
-      result = result.filter((b) => b.division === kpiDivisionFilter);
-    }
-    if (kpiServiceLineFilter !== "all") {
-      result = result.filter((b) => b.serviceLine === kpiServiceLineFilter);
-    }
-    if (dateFrom) {
-      result = result.filter((b) => (b.createdDate || "") >= dateFrom);
-    }
-    if (dateTo) {
-      result = result.filter(
-        (b) => (b.createdDate || "").slice(0, 10) <= dateTo,
-      );
-    }
-    return result;
-  }, [
-    completedBids,
-    kpiDivisionFilter,
-    kpiServiceLineFilter,
-    dateFrom,
-    dateTo,
-  ]);
+  // Division / Service Line / date range / search via the shared filter bar
+  const kpiFilteredBids = React.useMemo(
+    () => applyFilters(completedBids, "createdDate"),
+    [completedBids, applyFilters],
+  );
 
   const filtered = React.useMemo(() => {
     let result = kpiFilteredBids;
@@ -196,17 +197,6 @@ export const FollowUpPage: React.FC = () => {
       } else {
         result = result.filter((b) => b.bidResult?.outcome === outcomeFilter);
       }
-    }
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (b) =>
-          b.bidNumber.toLowerCase().indexOf(q) >= 0 ||
-          (b.opportunityInfo?.client || "").toLowerCase().indexOf(q) >= 0 ||
-          (b.opportunityInfo?.projectName || "").toLowerCase().indexOf(q) >=
-            0 ||
-          (b.crmNumber || "").toLowerCase().indexOf(q) >= 0,
-      );
     }
 
     return result.sort((a, b) => {
@@ -223,7 +213,7 @@ export const FollowUpPage: React.FC = () => {
         ? dateB.localeCompare(dateA)
         : dateA.localeCompare(dateB);
     });
-  }, [kpiFilteredBids, outcomeFilter, searchQuery, sortOrder]);
+  }, [kpiFilteredBids, outcomeFilter, sortOrder]);
 
   /* ────────────────────── KPI Calculations ────────────────────── */
 
@@ -309,6 +299,12 @@ export const FollowUpPage: React.FC = () => {
       .slice(0, 6)
       .map(([reason, count]) => ({ reason, count }));
   }, [kpiFilteredBids]);
+
+  const winTrend = React.useMemo(
+    () => winRateTrend(kpiFilteredBids, "month"),
+    [kpiFilteredBids],
+  );
+  const winRateSpark = winTrend.map((p) => p.winRate);
 
   /* ────────────────────── Drawer Logic ────────────────────── */
 
@@ -505,7 +501,6 @@ export const FollowUpPage: React.FC = () => {
   /* ────────────────────── Render ────────────────────── */
 
   const chartTotal = outcomeDistribution.reduce((s, d) => s + d.count, 0) || 1;
-  const maxWinRate = Math.max(...divisionWinRates.map((d) => d.winRate), 1);
 
   return (
     <div className={styles.page}>
@@ -550,296 +545,323 @@ export const FollowUpPage: React.FC = () => {
         </span>
       </div>
 
-      {/* KPI Filter Row */}
-      <div className={styles.kpiFilterRow}>
-        <select
-          className={styles.filterSelect}
-          value={kpiDivisionFilter}
-          onChange={(e) => {
-            setKpiDivisionFilter(e.target.value);
-            setKpiServiceLineFilter("all");
-          }}
-        >
-          <option value="all">All Divisions</option>
-          {divisions.map((d: any) => (
-            <option key={d.value} value={d.value}>
-              {d.label || d.value}
-            </option>
-          ))}
-        </select>
-        <select
-          className={styles.filterSelect}
-          value={kpiServiceLineFilter}
-          onChange={(e) => setKpiServiceLineFilter(e.target.value)}
-        >
-          <option value="all">All Service Lines</option>
-          {serviceLines.map((s: any) => (
-            <option key={s.value} value={s.value}>
-              {s.label || s.value}
-            </option>
-          ))}
-        </select>
-        <div className={styles.dateRangeGroup}>
-          <span className={styles.dateRangeLabel}>Created Date:</span>
-          <input
-            type="date"
-            className={styles.dateInput}
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            placeholder="From"
-          />
-          <span className={styles.dateRangeSeparator}>—</span>
-          <input
-            type="date"
-            className={styles.dateInput}
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            placeholder="To"
-          />
-          {(dateFrom || dateTo) && (
-            <button
-              className={styles.dateRangeClear}
-              onClick={() => {
-                setDateFrom("");
-                setDateTo("");
-              }}
-              title="Clear date filter"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-      </div>
+      {/* Top-level filters */}
+      <AnalyticsFilterBar
+        filters={filters}
+        onPatch={patch}
+        onPreset={setPreset}
+        onReset={reset}
+        hasActive={hasActive}
+        divisions={divisions.map((d: any) => ({
+          value: d.value,
+          label: d.label || d.value,
+          color: d.color,
+        }))}
+        serviceLines={serviceLines.map((s: any) => ({
+          value: s.value,
+          label: s.label || s.value,
+        }))}
+      />
 
       {/* KPI Cards */}
       <div className={styles.kpiGrid}>
-        {[
-          {
-            label: "Completed BIDs",
-            value: kpis.total,
-            color: "#3B82F6",
-            sub: "Total terminal",
-          },
-          {
-            label: "Won",
-            value: kpis.won,
-            color: "#10B981",
-            sub: `${kpis.winRate}% win rate`,
-          },
-          {
-            label: "Loss",
-            value: kpis.lost,
-            color: "#EF4444",
-            sub:
-              kpis.lost > 0 ? `${lossReasonDistribution.length} reasons` : "",
-          },
-          {
-            label: "Pending",
-            value: kpis.pending,
-            color: "#F59E0B",
-            sub: "Awaiting outcome",
-          },
-          {
-            label: "Win Rate",
-            value: `${kpis.winRate}%`,
-            color: "#8B5CF6",
-            sub: `Avg ${kpis.avgDaysToResult}d to result`,
-          },
-        ].map((kpi) => (
-          <div key={kpi.label} className={styles.kpiCard}>
-            <div
-              className={styles.kpiAccent}
-              style={{ background: kpi.color }}
+        <KPICard
+          variant="glass"
+          label="Completed BIDs"
+          value={kpis.total}
+          accentColor={chart.accentSecondary}
+          subtitle="Total terminal"
+        />
+        <KPICard
+          variant="glass"
+          label="Won"
+          value={kpis.won}
+          accentColor={chart.success}
+          subtitle={`${kpis.winRate}% win rate`}
+        />
+        <KPICard
+          variant="glass"
+          label="Loss"
+          value={kpis.lost}
+          accentColor={chart.danger}
+          subtitle={
+            kpis.lost > 0 ? `${lossReasonDistribution.length} reasons` : ""
+          }
+        />
+        <KPICard
+          variant="glass"
+          label="Pending"
+          value={kpis.pending}
+          accentColor={chart.warning}
+          subtitle="Awaiting outcome"
+        />
+        <KPICard
+          variant="glass"
+          label="Win Rate"
+          value={`${kpis.winRate}%`}
+          accentColor={chart.accentTertiary}
+          subtitle={`Avg ${kpis.avgDaysToResult}d to result`}
+          sparkline={
+            <Sparkline
+              data={winRateSpark}
+              color={chart.accentTertiary}
+              height={34}
             />
-            <div className={styles.kpiLabel}>{kpi.label}</div>
-            <div className={styles.kpiValue} style={{ color: kpi.color }}>
-              {kpi.value}
-            </div>
-            {kpi.sub && <div className={styles.kpiSubtext}>{kpi.sub}</div>}
-          </div>
-        ))}
+          }
+        />
       </div>
 
-      {/* Charts Row */}
-      <div className={styles.chartsRow}>
-        {/* Donut Chart - Outcome Distribution */}
-        <div className={styles.chartCard}>
-          <div className={styles.chartTitle}>
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
-              <path d="M22 12A10 10 0 0 0 12 2v10z" />
-            </svg>
-            Outcome Distribution
+      {/* Win / Loss over time */}
+      <GlassCard
+        title="Win / Loss Over Time"
+        subtitle="Outcomes per month and win-rate trend"
+        accentColor={chart.success}
+      >
+        {winTrend.length === 0 ? (
+          <div className={styles.chartEmpty}>
+            No decided outcomes in the selected period.
           </div>
-          <div className={styles.chartLayout}>
-            <div className={styles.donutWrapper}>
-              <svg viewBox="0 0 36 36" className={styles.donutSvg}>
-                {
-                  outcomeDistribution.reduce(
-                    (acc, item) => {
-                      if (item.count === 0) return acc;
-                      const percent = (item.count / chartTotal) * 100;
-                      acc.elements.push(
-                        <circle
-                          key={item.value}
-                          r="15.9155"
-                          cx="18"
-                          cy="18"
-                          fill="none"
-                          stroke={item.color}
-                          strokeWidth="3.5"
-                          strokeDasharray={`${percent} ${100 - percent}`}
-                          strokeDashoffset={`-${acc.offset}`}
-                        />,
-                      );
-                      acc.offset += percent;
-                      return acc;
-                    },
-                    { elements: [] as React.ReactNode[], offset: 0 },
-                  ).elements
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <ComposedChart
+              data={winTrend}
+              margin={{ top: 8, right: 16, bottom: 4, left: -8 }}
+            >
+              <CartesianGrid vertical={false} stroke={chart.grid} />
+              <XAxis
+                dataKey="period"
+                tick={{ fill: chart.tick, fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                yAxisId="left"
+                tick={{ fill: chart.tick, fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+                allowDecimals={false}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                domain={[0, 100]}
+                tickFormatter={(v) => `${v}%`}
+                tick={{ fill: chart.tick, fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                cursor={{ fill: chart.referenceFill }}
+                content={
+                  <ChartTooltip
+                    valueFormatter={(v, e) =>
+                      e.dataKey === "winRate" ? `${v}%` : v
+                    }
+                  />
                 }
-              </svg>
-              <div className={styles.donutCenter}>
-                <span className={styles.donutTotal}>{chartTotal}</span>
-                <span className={styles.donutLabel}>Total</span>
-              </div>
-            </div>
-            <div className={styles.legend}>
-              {outcomeDistribution
-                .filter((d) => d.count > 0)
-                .map((item) => (
-                  <div key={item.value} className={styles.legendItem}>
-                    <div
-                      className={styles.legendDot}
-                      style={{ background: item.color }}
-                    />
-                    <span>{item.label}</span>
-                    <span className={styles.legendCount}>{item.count}</span>
-                    <span className={styles.legendPercent}>
-                      {Math.round((item.count / chartTotal) * 100)}%
-                    </span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
+              />
+              <Legend
+                wrapperStyle={{ fontSize: 12, color: chart.textSecondary }}
+              />
+              <Bar
+                yAxisId="left"
+                dataKey="won"
+                name="Won"
+                fill={chart.success}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={28}
+              />
+              <Bar
+                yAxisId="left"
+                dataKey="lost"
+                name="Loss"
+                fill={chart.danger}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={28}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="winRate"
+                name="Win rate"
+                stroke={chart.accentTertiary}
+                strokeWidth={2.5}
+                dot={{ r: 3, strokeWidth: 0, fill: chart.accentTertiary }}
+                activeDot={{ r: 5 }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        )}
+      </GlassCard>
 
-        {/* Bar Chart - Win Rate by Division */}
-        <div className={styles.chartCard}>
-          <div className={styles.chartTitle}>
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <line x1="18" y1="20" x2="18" y2="10" />
-              <line x1="12" y1="20" x2="12" y2="4" />
-              <line x1="6" y1="20" x2="6" y2="14" />
-            </svg>
-            Win Rate by Division
-          </div>
-          <div className={styles.barChartList}>
-            {divisionWinRates.map((item) => (
-              <div key={item.division} className={styles.barItem}>
-                <div className={styles.barLabel}>
-                  <span>{item.division}</span>
-                  <span className={styles.barLabelValue}>{item.winRate}%</span>
-                </div>
-                <div className={styles.barTrack}>
-                  <div
-                    className={styles.barFill}
-                    style={{
-                      width: `${maxWinRate > 0 ? (item.winRate / maxWinRate) * 100 : 0}%`,
-                      background: item.color,
+      {/* Charts */}
+      <div className={styles.chartsRow}>
+        <GlassCard
+          title="Outcome Distribution"
+          subtitle="Resultados dos BIDs concluídos"
+          accentColor={chart.accentSecondary}
+        >
+          {chartTotal === 0 ? (
+            <div className={styles.chartEmpty}>Sem resultados no período.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Tooltip content={<ChartTooltip hideLabel />} />
+                <Pie
+                  data={outcomeDistribution.filter((d) => d.count > 0)}
+                  dataKey="count"
+                  nameKey="label"
+                  innerRadius={66}
+                  outerRadius={98}
+                  paddingAngle={2}
+                  strokeWidth={0}
+                >
+                  {outcomeDistribution
+                    .filter((d) => d.count > 0)
+                    .map((d) => (
+                      <Cell key={d.value} fill={d.color} />
+                    ))}
+                  <Label
+                    content={(props: any) => {
+                      const vb = props.viewBox || { cx: 0, cy: 0 };
+                      return (
+                        <g>
+                          <text
+                            x={vb.cx}
+                            y={vb.cy - 4}
+                            textAnchor="middle"
+                            fill={chart.textPrimary}
+                            style={{ fontSize: 26, fontWeight: 800 }}
+                          >
+                            {chartTotal}
+                          </text>
+                          <text
+                            x={vb.cx}
+                            y={vb.cy + 16}
+                            textAnchor="middle"
+                            fill={chart.textMuted}
+                            style={{ fontSize: 11 }}
+                          >
+                            Total
+                          </text>
+                        </g>
+                      );
                     }}
                   />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Loss Reason Pareto (mini) */}
-          {lossReasonDistribution.length > 0 && (
-            <>
-              <div className={styles.chartTitle} style={{ marginTop: 24 }}>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-                Top Loss Reasons
-              </div>
-              <div className={styles.barChartList}>
-                {lossReasonDistribution.map((item) => {
-                  const maxCount = lossReasonDistribution[0]?.count || 1;
-                  return (
-                    <div key={item.reason} className={styles.barItem}>
-                      <div className={styles.barLabel}>
-                        <span>{item.reason}</span>
-                        <span className={styles.barLabelValue}>
-                          {item.count}
-                        </span>
-                      </div>
-                      <div className={styles.barTrack}>
-                        <div
-                          className={styles.barFill}
-                          style={{
-                            width: `${(item.count / maxCount) * 100}%`,
-                            background: "#EF4444",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
+                </Pie>
+                <Legend
+                  wrapperStyle={{ fontSize: 12, color: chart.textSecondary }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
           )}
-        </div>
+        </GlassCard>
+
+        <GlassCard
+          title="Win Rate by Division"
+          subtitle="Percentual de vitórias por divisão"
+          accentColor={chart.success}
+        >
+          <ResponsiveContainer
+            width="100%"
+            height={Math.max(220, divisionWinRates.length * 48)}
+          >
+            <BarChart
+              data={divisionWinRates}
+              layout="vertical"
+              margin={{ top: 8, right: 44, bottom: 4, left: 8 }}
+            >
+              <CartesianGrid horizontal={false} stroke={chart.grid} />
+              <XAxis
+                type="number"
+                domain={[0, 100]}
+                tickFormatter={(v) => `${v}%`}
+                tick={{ fill: chart.tick, fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                type="category"
+                dataKey="division"
+                width={110}
+                tick={{ fill: chart.tick, fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                cursor={{ fill: chart.referenceFill }}
+                content={<ChartTooltip valueFormatter={(v) => `${v}%`} />}
+              />
+              <Bar dataKey="winRate" radius={[0, 6, 6, 0]} barSize={20}>
+                <LabelList
+                  dataKey="winRate"
+                  position="right"
+                  formatter={(v: number) => `${v}%`}
+                  fill={chart.textSecondary}
+                  fontSize={11}
+                />
+                {divisionWinRates.map((d, i) => (
+                  <Cell key={i} fill={d.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </GlassCard>
       </div>
 
-      {/* Filters */}
-      <div className={styles.filterBar}>
-        <div className={styles.searchWrapperFull}>
-          <span className={styles.searchIcon}>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+      {lossReasonDistribution.length > 0 && (
+        <GlassCard
+          title="Top Loss Reasons"
+          subtitle="Motivos mais frequentes de perda"
+          accentColor={chart.danger}
+        >
+          <ResponsiveContainer
+            width="100%"
+            height={Math.max(200, lossReasonDistribution.length * 44)}
+          >
+            <BarChart
+              data={lossReasonDistribution}
+              layout="vertical"
+              margin={{ top: 8, right: 36, bottom: 4, left: 8 }}
             >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-          </span>
-          <input
-            type="text"
-            className={styles.searchInput}
-            placeholder="Search by BID number, client, project, or CRM..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
+              <CartesianGrid horizontal={false} stroke={chart.grid} />
+              <XAxis
+                type="number"
+                allowDecimals={false}
+                tick={{ fill: chart.tick, fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                type="category"
+                dataKey="reason"
+                width={210}
+                tick={{ fill: chart.tick, fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                cursor={{ fill: chart.referenceFill }}
+                content={<ChartTooltip />}
+              />
+              <Bar
+                dataKey="count"
+                name="BIDs"
+                fill={chart.danger}
+                radius={[0, 6, 6, 0]}
+                barSize={18}
+              >
+                <LabelList
+                  dataKey="count"
+                  position="right"
+                  fill={chart.textSecondary}
+                  fontSize={11}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </GlassCard>
+      )}
 
       {/* Outcome Tabs */}
       <div className={styles.tabBar}>

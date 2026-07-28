@@ -1,10 +1,15 @@
 .glassCard {
+  position: relative;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: 16px;
   padding: 24px;
-  backdrop-filter: blur(12px);
-  transition: all 250ms ease;
+  backdrop-filter: blur(18px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  transition:
+    transform 250ms ease,
+    box-shadow 250ms ease,
+    border-color 250ms ease;
 
   &:hover {
     transform: translateY(-2px);
@@ -13,12 +18,75 @@
   }
 }
 
+.interactive {
+  cursor: pointer;
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 16px 16px 0 0;
+  opacity: 0.9;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.flush .header {
+  padding: 20px 24px 0;
+  margin-bottom: 12px;
+}
+
+.titleBlock {
+  min-width: 0;
+}
+
 .cardTitle {
   font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 16px;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glassCard {
+    transition: none;
+
+    &:hover {
+      transform: none;
+    }
+  }
 }

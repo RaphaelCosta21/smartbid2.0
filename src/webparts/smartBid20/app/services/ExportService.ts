@@ -4,6 +4,8 @@
  */
 import { IBid } from "../models";
 import { IExportOptions, IExportResult } from "../models/IBidExport";
+import { bidToExportRow } from "../utils/exportHelpers";
+import { buildReportPdf } from "../utils/pdfExport";
 
 export class ExportService {
   public static async exportToExcel(
@@ -54,16 +56,37 @@ export class ExportService {
   }
 
   public static async exportToPDF(
-    _bids: IBid[],
-    _options: IExportOptions,
+    bids: IBid[],
+    options: IExportOptions,
   ): Promise<IExportResult> {
-    // TODO: Implement jsPDF + jspdf-autotable export
-    return {
-      success: false,
-      fileName: "",
-      fileSize: 0,
-      error: "PDF export not yet implemented",
-    };
+    const rows = bids.map(bidToExportRow) as Record<string, unknown>[];
+    const head = rows.length > 0 ? Object.keys(rows[0]) : [];
+    const body = rows.map((r) =>
+      head.map((h) => {
+        const v = r[h];
+        return v === null || v === undefined ? "" : String(v);
+      }),
+    );
+    const fileName =
+      (options.title ||
+        `SmartBID-Report-${new Date().toISOString().slice(0, 10)}`) + ".pdf";
+    try {
+      await buildReportPdf({
+        title: options.title || "SmartBID Report",
+        subtitle: options.subtitle,
+        tables: [{ head, body }],
+        fileName,
+        orientation: "l",
+      });
+      return { success: true, fileName, fileSize: 0 };
+    } catch (err) {
+      return {
+        success: false,
+        fileName: "",
+        fileSize: 0,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   }
 
   public static print(_bids: IBid[], _options: IExportOptions): void {

@@ -46,7 +46,13 @@ import { ManualsCatalogsPage } from "../../pages/ManualsCatalogsPage";
 import { ClarificationsDbPage } from "../../pages/ClarificationsDbPage";
 import { LinksRecommendationsPage } from "../../pages/LinksRecommendationsPage";
 import { AnalyticsPage } from "../../pages/AnalyticsPage";
+import { PerformanceTrendsPage } from "../../pages/PerformanceTrendsPage";
+import { BottleneckAnalysisPage } from "../../pages/BottleneckAnalysisPage";
+import { TeamAnalyticsPage } from "../../pages/TeamAnalyticsPage";
 import { ReportsPage } from "../../pages/ReportsPage";
+import { PeriodPerformancePage } from "../../pages/PeriodPerformancePage";
+import { OperationalSummaryPage } from "../../pages/OperationalSummaryPage";
+import { BidDetailsReportPage } from "../../pages/BidDetailsReportPage";
 import { FavoritesPage } from "../../pages/FavoritesPage";
 import { BomCostsPage } from "../../pages/BomCostsPage";
 import { QuotationsPage } from "../../pages/QuotationsPage";
@@ -255,9 +261,31 @@ const AppLayoutInner: React.FC<{
               }
             />
             <Route path={ROUTES.analytics} element={<AnalyticsPage />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route
+              path={ROUTES.performanceTrends}
+              element={<PerformanceTrendsPage />}
+            />
+            <Route
+              path={ROUTES.bottleneckAnalysis}
+              element={<BottleneckAnalysisPage />}
+            />
+            <Route
+              path={ROUTES.teamAnalytics}
+              element={<TeamAnalyticsPage />}
+            />
             <Route path={ROUTES.reports} element={<ReportsPage />} />
-            <Route path="/reports" element={<ReportsPage />} />
+            <Route
+              path={ROUTES.periodPerformance}
+              element={<PeriodPerformancePage />}
+            />
+            <Route
+              path={ROUTES.bidDetailsReport}
+              element={<BidDetailsReportPage />}
+            />
+            <Route
+              path={ROUTES.operationalSummary}
+              element={<OperationalSummaryPage />}
+            />
             <Route path={ROUTES.approvals} element={<ApprovalsPage />} />
             <Route path={ROUTES.followUp} element={<FollowUpPage />} />
             <Route

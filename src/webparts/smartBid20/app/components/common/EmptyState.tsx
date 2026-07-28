@@ -8,6 +8,7 @@ interface EmptyStateProps {
   onAction?: () => void;
   icon?: React.ReactNode;
   className?: string;
+  variant?: "plain" | "glass";
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
@@ -17,9 +18,12 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   onAction,
   icon,
   className,
+  variant = "plain",
 }) => {
   return (
-    <div className={`${styles.container} ${className || ""}`}>
+    <div
+      className={`${styles.container} ${variant === "glass" ? styles.glass : ""} ${className || ""}`}
+    >
       {icon || (
         <svg
           width="64"

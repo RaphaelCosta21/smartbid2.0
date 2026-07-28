@@ -9,6 +9,10 @@ interface KPICardProps {
   trend?: { value: string; direction: "up" | "down" | "neutral" };
   subtitle?: string;
   progress?: { value: number; max: number };
+  /** Visual style — "glass" for frosted analytics cards. */
+  variant?: "solid" | "glass";
+  /** Optional mini-chart rendered at the bottom (e.g. a Sparkline). */
+  sparkline?: React.ReactNode;
 }
 
 export const KPICard: React.FC<KPICardProps> = ({
@@ -19,9 +23,13 @@ export const KPICard: React.FC<KPICardProps> = ({
   trend,
   subtitle,
   progress,
+  variant = "solid",
+  sparkline,
 }) => {
   return (
-    <div className={styles.kpiCard}>
+    <div
+      className={`${styles.kpiCard} ${variant === "glass" ? styles.glass : ""}`}
+    >
       <div className={styles.accentBar} style={{ background: accentColor }} />
 
       <div className={styles.header}>
@@ -51,6 +59,8 @@ export const KPICard: React.FC<KPICardProps> = ({
       </div>
 
       {subtitle && <div className={styles.subtitle}>{subtitle}</div>}
+
+      {sparkline && <div className={styles.sparkline}>{sparkline}</div>}
 
       {progress && (
         <div className={styles.progressBar}>
