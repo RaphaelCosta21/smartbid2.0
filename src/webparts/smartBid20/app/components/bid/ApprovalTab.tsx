@@ -42,25 +42,28 @@ interface SectorConfig {
 const CAPEX_THRESHOLD_USD = 200000;
 
 function matchesDivision(member: ITeamMember, bid: IBid): boolean {
-  if (
-    bid.division === "SSR-ROV" ||
-    bid.division === "SSR-Survey" ||
-    bid.division === "SSR-Integrated"
-  ) {
-    if (bid.division === "SSR-ROV") return member.businessLines.includes("ROV");
-    if (bid.division === "SSR-Survey")
-      return member.businessLines.includes("SURVEY");
-    if (bid.division === "SSR-Integrated") {
-      return (
-        member.businessLines.includes("ROV") ||
-        member.businessLines.includes("SURVEY")
-      );
-    }
+  const bl = member.businessLines;
+  const div: string = bid.division || "";
+  const sl = (bid.serviceLine || "").toLowerCase();
+
+  if (div === "SSR") {
+    if (sl === "rov") return bl.includes("ROV");
+    if (sl === "survey") return bl.includes("SURVEY");
+    if (sl === "integrated") return bl.includes("ROV") || bl.includes("SURVEY");
+    // unknown SSR service line — accept any SSR member
+    return bl.includes("ROV") || bl.includes("SURVEY");
   }
-  return (
-    member.businessLines.includes(bid.division as any) ||
-    member.businessLines.length === 0
-  );
+  if (div === "OPG") {
+    return bl.includes("OPG") || bl.length === 0;
+  }
+
+  // Legacy division values saved before the SSR/serviceLine split
+  if (div === "SSR-ROV") return bl.includes("ROV");
+  if (div === "SSR-Survey") return bl.includes("SURVEY");
+  if (div === "SSR-Integrated")
+    return bl.includes("ROV") || bl.includes("SURVEY");
+
+  return bl.includes(div as any) || bl.length === 0;
 }
 
 const SECTOR_CONFIGS: SectorConfig[] = [
@@ -198,7 +201,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     bid.currentPhase === "Close Out" &&
     bid.currentStatus === "Pending Approval";
 
-  // Only Engineering members can start/manage approval rounds
+  // Engineering members can start/manage approval rounds
   const isEngineeringUser = React.useMemo(() => {
     return teamMembers.some(
       (m) =>
@@ -208,7 +211,14 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     );
   }, [teamMembers, currentUser.email]);
 
-  const canManageApproval = canEdit && isEngineeringUser;
+  // The BID's assigned analyst may also start/manage approval rounds
+  const isBidAnalyst = React.useMemo(() => {
+    return (bid.analyst || []).some(
+      (p) => p.email.toLowerCase() === currentUser.email.toLowerCase(),
+    );
+  }, [bid.analyst, currentUser.email]);
+
+  const canManageApproval = canEdit && (isEngineeringUser || isBidAnalyst);
 
   // Current round number (based on existing rounds history)
   const existingRounds = bid.approvalRounds || [];
@@ -447,6 +457,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
         sectorGroups,
         currentUser,
         bid,
+        roundNumber,
       );
 
       // Build new round record for history

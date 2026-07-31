@@ -1,0 +1,61 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.4",
+  "body": [
+    {
+      "type": "Container",
+      "style": "good",
+      "bleed": true,
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "🎉 Todos aprovaram!",
+          "weight": "Bolder",
+          "size": "ExtraLarge",
+          "horizontalAlignment": "Center",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "[[BID_NUMBER]] · [[CLIENT]]",
+          "horizontalAlignment": "Center",
+          "isSubtle": true,
+          "spacing": "None",
+          "wrap": true
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "O BID foi **totalmente aprovado** por todos os setores e seu status foi alterado para **Completed** ✅. Obrigado a todos os aprovadores! 🙌",
+      "wrap": true
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        { "title": "Total de aprovadores", "value": "[[TOTAL_COUNT]]" },
+        { "title": "Concluído em", "value": "[[COMPLETED_AT]]" },
+        { "title": "Duração total", "value": "[[DURATION]]" }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Aprovadores",
+      "weight": "Bolder",
+      "spacing": "Medium"
+    },
+    {
+      "type": "TextBlock",
+      "text": "[[APPROVER_LIST_MD]]",
+      "wrap": true
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Abrir BID no SmartBID",
+      "url": "[[DEEP_LINK]]"
+    }
+  ]
+}

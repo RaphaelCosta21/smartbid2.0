@@ -47,6 +47,26 @@ export const SHAREPOINT_CONFIG = {
     revision: "DocRevision",
   },
 
+  /**
+   * Internal field names for the smartbid-approvals list (auto-provisioned by
+   * ApprovalService.ensureApprovalColumns). Drives the Teams approval flow:
+   * one "Round" row per approval + one "Approver" row per person.
+   */
+  approvalFields: {
+    recordType: "RecordType",
+    bidNumber: "BidNumber",
+    roundNumber: "RoundNumber",
+    approverEmail: "ApproverEmail",
+    approverName: "ApproverName",
+    sector: "Sector",
+    sectorLabel: "SectorLabel",
+    approvalStatus: "ApprovalStatus",
+    respondedDate: "RespondedDate",
+    chatId: "ChatId",
+    statusCardMessageId: "StatusCardMessageId",
+    expectedApproverCount: "ExpectedApproverCount",
+  },
+
   /** Internal field names for the "Clarifications Database" list */
   clarificationDbFields: {
     baseType: "BaseType",

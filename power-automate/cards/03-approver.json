@@ -1,0 +1,91 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.4",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "🟢",
+              "size": "ExtraLarge"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Aprovação de BID",
+              "weight": "Bolder",
+              "size": "Large",
+              "spacing": "None"
+            },
+            {
+              "type": "TextBlock",
+              "text": "[[BID_NUMBER]] · [[CLIENT]]",
+              "isSubtle": true,
+              "spacing": "None",
+              "wrap": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "bleed": true,
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "Olá **[[APPROVER_NAME]]**, sua aprovação foi solicitada para este BID.",
+          "wrap": true
+        },
+        {
+          "type": "FactSet",
+          "facts": [
+            { "title": "Setor", "value": "[[SECTOR_LABEL]]" },
+            { "title": "Divisão", "value": "[[DIVISION]]" },
+            { "title": "Service Line", "value": "[[SERVICE_LINE]]" },
+            { "title": "Solicitado por", "value": "[[REQUESTED_BY]]" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Você pode aprovar a qualquer momento — não precisa esperar os demais aprovadores.",
+      "wrap": true,
+      "isSubtle": true,
+      "size": "Small"
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Submit",
+      "title": "✅ Aprovar",
+      "style": "positive",
+      "data": {
+        "action": "approve",
+        "bidNumber": "[[BID_NUMBER]]",
+        "round": "[[ROUND]]",
+        "approverEmail": "[[APPROVER_EMAIL]]",
+        "sector": "[[SECTOR]]"
+      }
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Abrir BID",
+      "url": "[[DEEP_LINK]]"
+    }
+  ]
+}

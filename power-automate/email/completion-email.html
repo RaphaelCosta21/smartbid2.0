@@ -1,0 +1,283 @@
+<!--
+  SmartBID — E-mail de conclusão de aprovação.
+  Cole este HTML no corpo da ação "Enviar um email (V2)" (modo código-fonte </>).
+  Substitua os tokens [[...]] por conteúdo dinâmico do Power Automate.
+  [[APPROVER_ROWS_HTML]] = string HTML montada no fluxo (uma <tr> por aprovador).
+-->
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BID Aprovado</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background-color: #f1f5f9;
+      font-family: &quot;Segoe UI&quot;, Arial, sans-serif;
+      color: #0f172a;
+    "
+  >
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      style="background-color: #f1f5f9; padding: 24px 0"
+    >
+      <tr>
+        <td align="center">
+          <table
+            role="presentation"
+            width="600"
+            cellpadding="0"
+            cellspacing="0"
+            style="
+              max-width: 600px;
+              width: 100%;
+              background-color: #ffffff;
+              border-radius: 16px;
+              overflow: hidden;
+              box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+            "
+          >
+            <!-- Header -->
+            <tr>
+              <td
+                style="
+                  background: linear-gradient(135deg, #0369a1 0%, #0891b2 100%);
+                  padding: 32px 40px;
+                "
+              >
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                >
+                  <tr>
+                    <td>
+                      <div
+                        style="
+                          font-size: 13px;
+                          letter-spacing: 2px;
+                          text-transform: uppercase;
+                          color: #bae6fd;
+                          font-weight: 600;
+                        "
+                      >
+                        SmartBID · Oceaneering
+                      </div>
+                      <div
+                        style="
+                          font-size: 26px;
+                          font-weight: 700;
+                          color: #ffffff;
+                          margin-top: 6px;
+                        "
+                      >
+                        ✅ BID Totalmente Aprovado
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Intro -->
+            <tr>
+              <td style="padding: 32px 40px 8px 40px">
+                <p
+                  style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.6"
+                >
+                  Olá, equipe.
+                </p>
+                <p
+                  style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.6"
+                >
+                  O BID <strong>[[BID_NUMBER]]</strong> do cliente
+                  <strong>[[CLIENT]]</strong> foi
+                  <strong style="color: #059669"
+                    >aprovado por todos os setores</strong
+                  >. Seu status foi automaticamente alterado para
+                  <strong>Completed</strong>.
+                </p>
+              </td>
+            </tr>
+
+            <!-- Summary card -->
+            <tr>
+              <td style="padding: 8px 40px">
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  style="
+                    background-color: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 12px;
+                  "
+                >
+                  <tr>
+                    <td style="padding: 20px 24px">
+                      <table
+                        role="presentation"
+                        width="100%"
+                        cellpadding="0"
+                        cellspacing="0"
+                        style="font-size: 14px; line-height: 1.9"
+                      >
+                        <tr>
+                          <td style="color: #64748b; width: 180px">BID</td>
+                          <td style="font-weight: 600">[[BID_NUMBER]]</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #64748b">Cliente</td>
+                          <td style="font-weight: 600">[[CLIENT]]</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #64748b">Divisão</td>
+                          <td style="font-weight: 600">[[DIVISION]]</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #64748b">Service Line</td>
+                          <td style="font-weight: 600">[[SERVICE_LINE]]</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #64748b">Solicitado por</td>
+                          <td style="font-weight: 600">[[REQUESTED_BY]]</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #64748b">Concluído em</td>
+                          <td style="font-weight: 600">[[COMPLETED_AT]]</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #64748b">Duração total</td>
+                          <td style="font-weight: 600">[[DURATION]]</td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Approvers table -->
+            <tr>
+              <td style="padding: 24px 40px 8px 40px">
+                <div
+                  style="font-size: 15px; font-weight: 700; margin-bottom: 12px"
+                >
+                  Aprovadores
+                </div>
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  style="font-size: 14px; border-collapse: collapse"
+                >
+                  <thead>
+                    <tr>
+                      <th
+                        align="left"
+                        style="
+                          padding: 10px 12px;
+                          background-color: #f1f5f9;
+                          border-radius: 8px 0 0 8px;
+                          color: #475569;
+                          font-weight: 600;
+                        "
+                      >
+                        Nome
+                      </th>
+                      <th
+                        align="left"
+                        style="
+                          padding: 10px 12px;
+                          background-color: #f1f5f9;
+                          color: #475569;
+                          font-weight: 600;
+                        "
+                      >
+                        Setor
+                      </th>
+                      <th
+                        align="left"
+                        style="
+                          padding: 10px 12px;
+                          background-color: #f1f5f9;
+                          border-radius: 0 8px 8px 0;
+                          color: #475569;
+                          font-weight: 600;
+                        "
+                      >
+                        Aprovado em
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    [[APPROVER_ROWS_HTML]]
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+
+            <!-- CTA -->
+            <tr>
+              <td style="padding: 28px 40px 8px 40px" align="center">
+                <a
+                  href="[[DEEP_LINK]]"
+                  style="
+                    display: inline-block;
+                    background: linear-gradient(
+                      135deg,
+                      #0369a1 0%,
+                      #0891b2 100%
+                    );
+                    color: #ffffff;
+                    text-decoration: none;
+                    font-size: 15px;
+                    font-weight: 600;
+                    padding: 14px 32px;
+                    border-radius: 10px;
+                  "
+                  >Abrir BID no SmartBID</a
+                >
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="padding: 24px 40px 32px 40px">
+                <hr
+                  style="
+                    border: none;
+                    border-top: 1px solid #e2e8f0;
+                    margin: 0 0 16px 0;
+                  "
+                />
+                <p
+                  style="
+                    margin: 0;
+                    font-size: 12px;
+                    color: #94a3b8;
+                    line-height: 1.6;
+                  "
+                >
+                  Este é um e-mail automático enviado pelo fluxo de aprovação do
+                  SmartBID. Todos os aprovadores estão em cópia. Em caso de
+                  dúvida, responda a este e-mail ou utilize o chat de aprovação
+                  no Microsoft Teams.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

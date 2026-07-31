@@ -1,0 +1,62 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.4",
+  "body": [
+    {
+      "type": "Container",
+      "style": "accent",
+      "bleed": true,
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "🚀 Fluxo de Aprovação Iniciado",
+          "weight": "Bolder",
+          "size": "Large",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "[[BID_NUMBER]] · [[CLIENT]]",
+          "spacing": "None",
+          "isSubtle": true,
+          "wrap": true
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Bem-vindos! Este chat reúne **todos os aprovadores** deste BID. As aprovações rodam **em paralelo** — cada pessoa pode aprovar quando quiser, sem esperar os demais. O card de status abaixo mostra o progresso em tempo real.",
+      "wrap": true
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        { "title": "BID", "value": "[[BID_NUMBER]]" },
+        { "title": "Cliente", "value": "[[CLIENT]]" },
+        { "title": "Divisão", "value": "[[DIVISION]]" },
+        { "title": "Service Line", "value": "[[SERVICE_LINE]]" },
+        { "title": "Solicitado por", "value": "[[REQUESTED_BY]]" },
+        { "title": "Aprovadores", "value": "[[TOTAL_COUNT]]" }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Aprovadores por setor",
+      "weight": "Bolder",
+      "spacing": "Medium"
+    },
+    {
+      "type": "TextBlock",
+      "text": "[[APPROVER_LIST_MD]]",
+      "wrap": true
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Abrir BID no SmartBID",
+      "url": "[[DEEP_LINK]]"
+    }
+  ]
+}
