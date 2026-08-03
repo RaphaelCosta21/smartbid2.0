@@ -1205,13 +1205,13 @@
 .clarPopupOverlay {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: var(--z-modal);
   background: transparent;
 }
 
 .clarPopup {
   position: fixed;
-  z-index: 10000;
+  z-index: var(--z-popover);
   min-width: 240px;
   max-width: 320px;
   padding: 14px 16px;
@@ -2192,7 +2192,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: var(--z-modal);
   backdrop-filter: blur(4px);
 }
 

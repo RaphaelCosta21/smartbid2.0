@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Wrench } from "lucide-react";
 import {
   IScopeItem,
   IScopeSubItem,
@@ -343,7 +344,8 @@ export const ScopeImportPreview: React.FC<ScopeImportPreviewProps> = ({
             <div className={styles.itemBadges}>
               {item.needsEngineering && (
                 <span className={`${styles.badge} ${styles.badgeEng}`}>
-                  ⚙️ Eng. Hours
+                  <Wrench size={12} style={{ verticalAlign: "-2px" }} /> Eng.
+                  Hours
                   {engData ? ` · ${Math.round(engData.totalHours)}h` : ""}
                 </span>
               )}

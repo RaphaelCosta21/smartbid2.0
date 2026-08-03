@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Search, Check, TriangleAlert } from "lucide-react";
 import {
   IScopeItem,
   IAssetBreakdownItem,
@@ -3379,7 +3380,11 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             style={!allCostsFilled ? { cursor: "pointer" } : undefined}
           >
             <span className={styles.costBannerIcon}>
-              {allCostsFilled ? "✅" : "⚠️"}
+              {allCostsFilled ? (
+                <Check size={16} />
+              ) : (
+                <TriangleAlert size={16} />
+              )}
             </span>
             <span className={styles.costBannerText}>
               {allCostsFilled
@@ -3498,7 +3503,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             className={styles.toolbarBtn}
             onClick={() => setShowCostSearch(true)}
           >
-            🔍 Search Costs
+            <Search size={14} style={{ verticalAlign: "-2px" }} /> Search Costs
           </button>
         )}
       </div>

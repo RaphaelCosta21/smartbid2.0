@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Check, X, RefreshCw, Clock, Circle } from "lucide-react";
 import { IApprovalChain } from "../../models/IBidApproval";
 import styles from "./ApprovalMatrix.module.scss";
 
@@ -40,15 +41,32 @@ export const ApprovalMatrix: React.FC<ApprovalMatrixProps> = ({
                     <td>{step.approver.name}</td>
                     <td className={styles.cellRole}>{step.role}</td>
                     <td className={styles.cellCenter}>
-                      {step.decision === "approved" && "✅"}
-                      {step.decision === "rejected" && "❌"}
-                      {step.decision === "revision-requested" && "🔄"}
+                      {step.decision === "approved" && (
+                        <Check size={16} style={{ color: "var(--success)" }} />
+                      )}
+                      {step.decision === "rejected" && (
+                        <X size={16} style={{ color: "var(--danger)" }} />
+                      )}
+                      {step.decision === "revision-requested" && (
+                        <RefreshCw
+                          size={16}
+                          style={{ color: "var(--warning)" }}
+                        />
+                      )}
                       {!step.decision &&
-                        step.stepOrder === chain.currentStep &&
-                        "⏳"}
+                        step.stepOrder === chain.currentStep && (
+                          <Clock
+                            size={16}
+                            style={{ color: "var(--warning)" }}
+                          />
+                        )}
                       {!step.decision &&
-                        step.stepOrder !== chain.currentStep &&
-                        "⚪"}
+                        step.stepOrder !== chain.currentStep && (
+                          <Circle
+                            size={16}
+                            style={{ color: "var(--text-muted)" }}
+                          />
+                        )}
                     </td>
                     <td className={styles.cellDate}>
                       {step.decisionDate

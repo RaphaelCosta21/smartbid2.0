@@ -1,4 +1,5 @@
 import * as React from "react";
+import { BookOpen } from "lucide-react";
 import {
   IBid,
   IClarificationItem,
@@ -572,7 +573,8 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                   transition: "all 0.15s ease",
                 }}
               >
-                📚 Import from Database
+                <BookOpen size={14} />
+                Import from Database
               </button>
             )}
             {localClarifications.length > 0 && (

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Paperclip } from "lucide-react";
 import { IScopeItem, ICertificationItem } from "../../models";
 import { makeId } from "../../utils/idGenerator";
 import { getCurrencies } from "../../utils/currencyHelpers";
@@ -396,7 +397,7 @@ export const CertificationsBreakdownTab: React.FC<
                 title={att.fileName}
                 className={styles.attachmentLink}
               >
-                📎{" "}
+                <Paperclip size={12} style={{ verticalAlign: "-2px" }} />{" "}
                 {att.fileName.length > 15
                   ? att.fileName.substring(0, 12) + "..."
                   : att.fileName}
@@ -647,7 +648,7 @@ export const CertificationsBreakdownTab: React.FC<
                               </div>
                               <button
                                 className={styles.sectionActionBtn}
-                                style={{ color: "#EF4444" }}
+                                style={{ color: "var(--danger)" }}
                                 onClick={() => deleteSection(sec.id)}
                               >
                                 ✕

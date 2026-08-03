@@ -1,4 +1,5 @@
 import * as React from "react";
+import { StickyNote } from "lucide-react";
 import {
   IHoursSummary,
   IHoursItem,
@@ -562,7 +563,10 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
 
       {/* Tab-level notes */}
       <div className={styles.tabNotesContainer}>
-        <label className={styles.tabNotesLabel}>📝 Notes / Comments</label>
+        <label className={styles.tabNotesLabel}>
+          <StickyNote size={14} style={{ verticalAlign: "-2px" }} /> Notes /
+          Comments
+        </label>
         {readOnly && !onSaveTabNotes ? (
           <p className={styles.tabNotesText}>{tabNotes || "—"}</p>
         ) : (

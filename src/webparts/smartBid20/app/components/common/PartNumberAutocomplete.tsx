@@ -4,6 +4,7 @@
  * Favorites, and BOM sheets with grouped dropdown results.
  */
 import * as React from "react";
+import { ClipboardList, Star } from "lucide-react";
 import styles from "./PartNumberAutocomplete.module.scss";
 import { useQuerySearch } from "../../hooks/useQuerySearch";
 import { ISearchResultItem, IMultiSourceResults } from "../../models";
@@ -43,13 +44,17 @@ const SOURCE_LABELS: Record<string, { label: string; cls: string }> = {
 
 interface SectionDef {
   key: keyof IMultiSourceResults;
-  icon: string;
+  icon: React.ReactNode;
   label: string;
 }
 
 const SECTIONS: SectionDef[] = [
-  { key: "query", icon: "📋", label: "Peoplesoft Catalog" },
-  { key: "favorites", icon: "⭐", label: "Favorites" },
+  {
+    key: "query",
+    icon: <ClipboardList size={14} />,
+    label: "Peoplesoft Catalog",
+  },
+  { key: "favorites", icon: <Star size={14} />, label: "Favorites" },
 ];
 
 export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (

@@ -954,7 +954,7 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
-  z-index: 999;
+  z-index: var(--z-panel);
 }
 
 .panelOverlay {
@@ -965,7 +965,7 @@
   width: 400px;
   background: var(--card-bg);
   border-left: 1px solid var(--border);
-  z-index: 1000;
+  z-index: var(--z-panel);
   display: flex;
   flex-direction: column;
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);

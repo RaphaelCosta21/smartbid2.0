@@ -736,7 +736,7 @@ export const PreparationMobilizationTab: React.FC<
                   style={{
                     background: "none",
                     border: "none",
-                    color: "#EF4444",
+                    color: "var(--danger)",
                     cursor: "pointer",
                     fontSize: 13,
                   }}

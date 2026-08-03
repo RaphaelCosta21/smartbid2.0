@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Check, X, Clock, Circle, RefreshCw } from "lucide-react";
 import {
   IBid,
   ITeamMember,
@@ -49,15 +50,31 @@ const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({
 
 const APPROVAL_STATUS_DISPLAY: Record<
   string,
-  { icon: string; color: string; label: string }
+  { icon: React.ReactNode; color: string; label: string }
 > = {
-  approved: { icon: "✅", color: "#10B981", label: "Approved" },
-  rejected: { icon: "❌", color: "#EF4444", label: "Rejected" },
-  pending: { icon: "⏳", color: "#F59E0B", label: "In Progress" },
-  "not-started": { icon: "⚪", color: "#94A3B8", label: "Not Started" },
+  approved: {
+    icon: <Check size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--success)",
+    label: "Approved",
+  },
+  rejected: {
+    icon: <X size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--danger)",
+    label: "Rejected",
+  },
+  pending: {
+    icon: <Clock size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--warning)",
+    label: "In Progress",
+  },
+  "not-started": {
+    icon: <Circle size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--text-muted)",
+    label: "Not Started",
+  },
   "revision-requested": {
-    icon: "🔄",
-    color: "#F97316",
+    icon: <RefreshCw size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--warning)",
     label: "Revision Requested",
   },
 };
@@ -139,9 +156,9 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
                 borderRadius: 6,
                 fontSize: 12,
                 fontWeight: 600,
-                background: `${display.color}18`,
+                background: `color-mix(in srgb, ${display.color} 10%, transparent)`,
                 color: display.color,
-                border: `1px solid ${display.color}40`,
+                border: `1px solid color-mix(in srgb, ${display.color} 25%, transparent)`,
               }}
             >
               {display.icon} {display.label}
@@ -298,10 +315,16 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
                 color: "var(--text-secondary)",
               }}
             >
-              {pendingCount > 0 && <span>⏳ {pendingCount} pending</span>}
+              {pendingCount > 0 && (
+                <span>
+                  <Clock size={12} style={{ verticalAlign: "-2px" }} />{" "}
+                  {pendingCount} pending
+                </span>
+              )}
               {rejectedCount > 0 && (
-                <span style={{ color: "#EF4444" }}>
-                  ❌ {rejectedCount} rejected
+                <span style={{ color: "var(--danger)" }}>
+                  <X size={12} style={{ verticalAlign: "-2px" }} />{" "}
+                  {rejectedCount} rejected
                 </span>
               )}
             </div>

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Wrench, Building, Ship } from "lucide-react";
 import { IHoursSummary, IHoursItem, IHoursSectionGroup } from "../../models";
 import { makeId } from "../../utils/idGenerator";
 import styles from "./HoursImportPreview.module.scss";
@@ -231,7 +232,7 @@ export const HoursImportPreview: React.FC<HoursImportPreviewProps> = ({
   const renderHoursSection = (
     category: HoursCategory,
     label: string,
-    icon: string,
+    icon: React.ReactNode,
     items: IHoursItem[],
   ): React.ReactElement | null => {
     if (items.length === 0) return null;
@@ -413,11 +414,21 @@ export const HoursImportPreview: React.FC<HoursImportPreviewProps> = ({
         {renderHoursSection(
           "engineering",
           "Engineering Hours",
-          "⚙️",
+          <Wrench size={14} />,
           engineeringItems,
         )}
-        {renderHoursSection("onshore", "Onshore Hours", "🏢", onshoreItems)}
-        {renderHoursSection("offshore", "Offshore Hours", "🚢", offshoreItems)}
+        {renderHoursSection(
+          "onshore",
+          "Onshore Hours",
+          <Building size={14} />,
+          onshoreItems,
+        )}
+        {renderHoursSection(
+          "offshore",
+          "Offshore Hours",
+          <Ship size={14} />,
+          offshoreItems,
+        )}
 
         {allItemsCount === 0 && (
           <div className={styles.empty}>

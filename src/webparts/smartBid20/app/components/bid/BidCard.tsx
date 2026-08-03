@@ -1,4 +1,5 @@
 import * as React from "react";
+import { StickyNote } from "lucide-react";
 import { IBid, IQuickNote } from "../../models";
 import { StatusBadge } from "../common/StatusBadge";
 import { getPhaseDef } from "../../config/status.config";
@@ -127,7 +128,9 @@ export const BidCard: React.FC<BidCardProps> = ({
           onClick={toggleNotes}
           title={notesOpen ? "Collapse notes" : "Expand notes"}
         >
-          <span className={styles.notesIcon}>📝</span>
+          <span className={styles.notesIcon}>
+            <StickyNote size={14} />
+          </span>
           <span>Notes</span>
           {notes.length > 0 && (
             <span className={styles.notesBadge}>{notes.length}</span>

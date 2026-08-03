@@ -523,7 +523,7 @@
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 999;
+  z-index: var(--z-panel);
   opacity: 0;
   pointer-events: none;
   transition: opacity 300ms ease;
@@ -543,7 +543,7 @@
   max-width: 90vw;
   background: var(--card-bg);
   border-left: 1px solid var(--border-subtle);
-  z-index: 1000;
+  z-index: var(--z-panel);
   display: flex;
   flex-direction: column;
   transform: translateX(100%);

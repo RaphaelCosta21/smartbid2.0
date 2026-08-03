@@ -35,6 +35,11 @@ export function getTotalHours(bids: IBid[]): number {
   );
 }
 
+/** Engineering-only hours for a single BID (excludes onshore/offshore). */
+export function getEngineeringHours(bid: IBid): number {
+  return bid.hoursSummary?.engineeringHours?.totalHours || 0;
+}
+
 export function getTotalCostUSD(bids: IBid[]): number {
   return bids.reduce((sum, b) => sum + (b.costSummary?.totalCostUSD || 0), 0);
 }

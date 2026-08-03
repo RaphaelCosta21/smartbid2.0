@@ -1,12 +1,14 @@
 import * as React from "react";
 import { KPICard } from "../common/KPICard";
+import { useChartTheme } from "../../hooks/useChartTheme";
 import styles from "./DashboardKPIRow.module.scss";
 
 interface DashboardKPIRowProps {
   activeBids: number;
   overdueBids: number;
-  totalHours: number;
+  engHoursClosed: number;
   onTimePercent: number;
+  avgCycleDays: number;
   winRate: number;
   wonCount: number;
   lostCount: number;
@@ -16,55 +18,72 @@ interface DashboardKPIRowProps {
 export const DashboardKPIRow: React.FC<DashboardKPIRowProps> = ({
   activeBids,
   overdueBids,
-  totalHours,
+  engHoursClosed,
   onTimePercent,
+  avgCycleDays,
   winRate,
   wonCount,
   lostCount,
   pipelineValueUSD,
-}) => (
-  <div className={styles.kpiGrid}>
-    <KPICard
-      label="Active BIDs"
-      value={activeBids}
-      accentColor="#00c9a7"
-      trend={{
-        value: `${overdueBids} overdue`,
-        direction: overdueBids > 0 ? "down" : "neutral",
-      }}
-    />
-    <KPICard
-      label="Eng. Hours (Active)"
-      value={totalHours.toLocaleString()}
-      accentColor="#3b82f6"
-      trend={{ value: "+12%", direction: "up" }}
-    />
-    <KPICard
-      label="On-Time Delivery"
-      value={`${onTimePercent}%`}
-      accentColor={
-        onTimePercent >= 90
-          ? "#10b981"
-          : onTimePercent >= 70
-            ? "#f59e0b"
-            : "#ef4444"
-      }
-      progress={{ value: onTimePercent, max: 100 }}
-      subtitle="Target: 90%"
-    />
-    <KPICard label="BIDs at Risk" value={overdueBids} accentColor="#ef4444" />
-    <KPICard
-      label="Win Rate"
-      value={`${winRate}%`}
-      accentColor="#8b5cf6"
-      trend={{ value: `${wonCount}W / ${lostCount}L`, direction: "neutral" }}
-      progress={{ value: winRate, max: 100 }}
-    />
-    <KPICard
-      label="Pipeline Value"
-      value={`$${(pipelineValueUSD / 1000).toFixed(0)}K`}
-      accentColor="#06b6d4"
-      subtitle="Active BIDs total cost (USD)"
-    />
-  </div>
-);
+}) => {
+  const t = useChartTheme();
+  const onTimeColor =
+    onTimePercent >= 90
+      ? t.success
+      : onTimePercent >= 70
+        ? t.warning
+        : t.danger;
+
+  return (
+    <div className={styles.kpiGrid}>
+      <KPICard
+        label="Active BIDs"
+        value={activeBids}
+        variant="glass"
+        accentColor={t.accent}
+        subtitle="In progress"
+        trend={{
+          value: `${overdueBids} overdue`,
+          direction: overdueBids > 0 ? "down" : "neutral",
+        }}
+      />
+      <KPICard
+        label="Eng. Hours (Closed)"
+        value={Math.round(engHoursClosed).toLocaleString()}
+        variant="glass"
+        accentColor={t.accentSecondary}
+        subtitle="Delivered on closed BIDs"
+      />
+      <KPICard
+        label="On-Time Delivery"
+        value={`${onTimePercent}%`}
+        variant="glass"
+        accentColor={onTimeColor}
+        progress={{ value: onTimePercent, max: 100 }}
+        subtitle="Target: 90%"
+      />
+      <KPICard
+        label="Avg Cycle Time"
+        value={`${avgCycleDays}d`}
+        variant="glass"
+        accentColor={t.accentTertiary}
+        subtitle="Created → Completed"
+      />
+      <KPICard
+        label="Win Rate"
+        value={`${winRate}%`}
+        variant="glass"
+        accentColor={t.success}
+        progress={{ value: winRate, max: 100 }}
+        trend={{ value: `${wonCount}W / ${lostCount}L`, direction: "neutral" }}
+      />
+      <KPICard
+        label="Pipeline Value"
+        value={`$${(pipelineValueUSD / 1000).toFixed(0)}K`}
+        variant="glass"
+        accentColor={t.info}
+        subtitle="Active BIDs total cost (USD)"
+      />
+    </div>
+  );
+};

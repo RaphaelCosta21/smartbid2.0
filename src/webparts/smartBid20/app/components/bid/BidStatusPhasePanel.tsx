@@ -1,4 +1,5 @@
 import * as React from "react";
+import { TriangleAlert } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   IBid,
@@ -1312,7 +1313,13 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
             <div className={styles.confirmMeta}>
               {phasePickerTarget.phase === ("Rework" as BidPhase) ? (
                 <div style={{ textAlign: "center" }}>
-                  <strong style={{ color: "#F97316" }}>⚠️ Attention:</strong>{" "}
+                  <strong style={{ color: "var(--warning)" }}>
+                    <TriangleAlert
+                      size={14}
+                      style={{ verticalAlign: "-2px" }}
+                    />{" "}
+                    Attention:
+                  </strong>{" "}
                   Starting a Rework will reopen the BID process. All editing
                   pages (Scope, Hours, Assets, Prep & Mobilization, Logistics,
                   Certifications) will be unlocked for changes.

@@ -8,6 +8,7 @@
  * Lets user select + override costs, then imports.
  */
 import * as React from "react";
+import { Search, Check, X, TriangleAlert } from "lucide-react";
 import {
   IScopeItem,
   IScopeSubItem,
@@ -615,11 +616,16 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
             onClick={handleSearch}
             disabled={rows.length === 0 || isSearching || catalogLoading}
           >
-            {catalogLoading
-              ? "Loading Catalog..."
-              : isSearching
-                ? "Searching..."
-                : "🔍 Search All"}
+            {catalogLoading ? (
+              "Loading Catalog..."
+            ) : isSearching ? (
+              "Searching..."
+            ) : (
+              <>
+                <Search size={14} style={{ verticalAlign: "-2px" }} /> Search
+                All
+              </>
+            )}
           </button>
           <button
             className={styles.addQuoteBtn}
@@ -635,12 +641,19 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
         {/* Summary */}
         {hasSearched && (
           <div className={styles.summary}>
-            <span className={styles.summaryFound}>✅ {foundCount} found</span>
+            <span className={styles.summaryFound}>
+              <Check size={12} style={{ verticalAlign: "-2px" }} /> {foundCount}{" "}
+              found
+            </span>
             <span className={styles.summaryNotFound}>
-              ❌ {notFoundCount} not found
+              <X size={12} style={{ verticalAlign: "-2px" }} /> {notFoundCount}{" "}
+              not found
             </span>
             {noPN > 0 && (
-              <span className={styles.summaryNoPN}>⚠ {noPN} without PN</span>
+              <span className={styles.summaryNoPN}>
+                <TriangleAlert size={12} style={{ verticalAlign: "-2px" }} />{" "}
+                {noPN} without PN
+              </span>
             )}
           </div>
         )}
@@ -692,7 +705,8 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                         )}
                       </td>
                       <td colSpan={7} className={styles.parentContextHint}>
-                        ✅ has cost — sub-items below
+                        <Check size={12} style={{ verticalAlign: "-2px" }} />{" "}
+                        has cost — sub-items below
                       </td>
                     </tr>
                   );
@@ -745,9 +759,13 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                       ) : !pn.trim() ? (
                         <span className={styles.noPN}>No PN</span>
                       ) : hasAny ? (
-                        <span className={styles.found}>✅</span>
+                        <span className={styles.found}>
+                          <Check size={14} />
+                        </span>
                       ) : (
-                        <span className={styles.notFound}>❌</span>
+                        <span className={styles.notFound}>
+                          <X size={14} />
+                        </span>
                       )}
                     </td>
                     <td className={styles.tdCost}>

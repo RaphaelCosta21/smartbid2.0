@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Folder } from "lucide-react";
 import {
   IScopeItem,
   IEngineeringHoursSection,
@@ -545,7 +546,8 @@ export const EngineeringHoursSection: React.FC<
                     <div className={styles.itemMeta}>
                       {item.sectionName && (
                         <span className={styles.metaTag}>
-                          📁 {item.sectionName}
+                          <Folder size={12} style={{ verticalAlign: "-2px" }} />{" "}
+                          {item.sectionName}
                         </span>
                       )}
                       {item.equipmentOffer && (

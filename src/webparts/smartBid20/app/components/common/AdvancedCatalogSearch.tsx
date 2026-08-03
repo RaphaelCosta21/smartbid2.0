@@ -5,6 +5,7 @@
  * Brazil tab also supports Mfg ID and Mfg Itm ID search fields.
  */
 import * as React from "react";
+import { DollarSign } from "lucide-react";
 import styles from "./AdvancedCatalogSearch.module.scss";
 import { useQueryCatalogStore } from "../../stores/useQueryCatalogStore";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
@@ -237,7 +238,8 @@ export const AdvancedCatalogSearch: React.FC<AdvancedCatalogSearchProps> = ({
               setBuFilterOpen(false);
             }}
           >
-            💰 Peoplesoft - Financials
+            <DollarSign size={14} style={{ verticalAlign: "-2px" }} />{" "}
+            Peoplesoft - Financials
           </button>
         </div>
 

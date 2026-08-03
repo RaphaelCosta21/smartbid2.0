@@ -37,6 +37,13 @@
   gap: 16px;
 }
 
+@media (max-width: 900px) {
+  .chartsRow,
+  .activityRow {
+    grid-template-columns: 1fr;
+  }
+}
+
 .tableSection {
   background: var(--card-bg);
   border-radius: 16px;

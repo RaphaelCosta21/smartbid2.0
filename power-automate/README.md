@@ -153,14 +153,20 @@ como abaixo:
 | Apply to each (cria Approver rows)             | `Apply_to_each_createrow`              | Passo 12     |
 | Create item (Approver row)                     | `Create_ApproverRow`                   | Passo 12     |
 | Apply to each (loop de aprovação)              | `Apply_to_each`                        | Passos 13–14 |
+| Do Until (aguarda aprovador correto)           | `Do_until_valid_response`              | Passo 13.2   |
 | Post adaptive card and wait for a response     | `Post_card_and_wait`                   | Passo 13.2   |
+| Condition (houve resposta)                     | `Condition_response_received`          | Passo 13.2   |
+| Condition (é o aprovador correto)              | `Condition_correct_approver`           | Passo 13.2   |
+| Post message (clique da pessoa errada)         | `Post_msg_wrong_approver`              | Passo 13.2   |
+| Get an @mention token (lembrete)               | `Get_mention_approver`                 | Passo 13.2   |
+| Post message (lembrete)                        | `Post_msg_reminder`                    | Passo 13.2   |
 | Get items (linha do aprovador atual)           | `Get_items_appr`                       | Passo 14.1   |
 | Update item (Approver row = Approved)          | `Update_ApproverRow`                   | Passo 14.1   |
 | Get items (todas as Approver rows)             | `Get_items_all`                        | Passo 14.2   |
 | Filter array (aprovados)                       | `filAprovados`                         | Passo 14.2   |
 | Select (linhas MD do status card)              | `selStatusMD`                          | Passo 14.3   |
 | Join (une linhas MD do status card)            | `joinStatusMD`                         | Passo 14.3   |
-| Compose (barra de progresso)                   | `varProgressBar`                       | Passo 14.4   |
+| Compose (barra de progresso)                   | `comProgressBar`                       | Passo 14.4   |
 | Update an adaptive card (Status ao vivo)       | `Update_StatusCard`                    | Passo 14.5   |
 | Post message in a chat (confirmação)           | `Post_msg_confirm`                     | Passo 14.6   |
 | **— Write-back incremental (passo 14.7) —**    |                                        |              |
@@ -172,6 +178,11 @@ como abaixo:
 | Compose (continua após 412, incremental)       | `comContinue_inc`                      | Passo 14.7   |
 | Update item (BID — versão simples, increment.) | `Update_BID_inc`                       | Passo 14.7   |
 | **— E-mail + write-back final —**              |                                        |              |
+| Get items (Approver rows finais)               | `Get_items_final_status`               | Passo 15     |
+| Select (linhas MD finais)                      | `selStatusMD_final`                    | Passo 15     |
+| Join (une linhas MD finais)                    | `joinStatusMD_final`                   | Passo 15     |
+| Update an adaptive card (Status concluído)     | `Update_StatusCard_final`              | Passo 15     |
+| Post card in a chat (card final)               | `Post_card_Final`                      | Passo 16     |
 | Select (linhas HTML do e-mail)                 | `selEmailRows`                         | Passo 17     |
 | Join (une linhas HTML do e-mail)               | `joinEmailRows`                        | Passo 17     |
 | Send an email notification (V3)                | `Send_email_V3`                        | Passo 18     |
@@ -225,19 +236,20 @@ usadas ao longo do fluxo e por isso costumavam faltar):
 | `varDivision`         | String  | `body('Parse_JSON')?['division']`             | cards                            |
 | `varServiceLine`      | String  | `body('Parse_JSON')?['serviceLine']`          | cards                            |
 | `varClient`           | String  | `body('Parse_JSON')?['client']`               | cards, e-mail                    |
-| `varApprovers`        | Array   | `createArray()`                               | achatado no passo 5              |
-| `varApproverEmails`   | Array   | `createArray()`                               | passo 5 (campo **To** do e-mail) |
+| `varApprovers`        | Array   | `json('[]')`                                  | achatado no passo 5              |
+| `varApproverEmails`   | Array   | `json('[]')`                                  | passo 5 (campo **To** do e-mail) |
 | `varFlowOwnerEmail`   | String  | _(deixe vazio)_                               | passo 7.1                        |
 | `varBidItemId`        | Integer | `0`                                           | passo 6, write-back              |
 | `varChatId`           | String  | _(vazio)_                                     | passo 7.3                        |
 | `varStatusMsgId`      | String  | _(vazio)_                                     | passo 10                         |
-| `varTotalCount`       | Integer | `0`                                           | passo 14.2                       |
-| `varApprovedCount`    | Integer | `0`                                           | passo 14.2                       |
-| `varApproverListMD`   | String  | _(vazio)_                                     | passo 14.3                       |
 | `varApproverRowsHtml` | String  | _(vazio)_                                     | passo 17                         |
 
-> - `varResponded` (Boolean) é de **escopo do loop** e é tratado no passo 13.1 — as demais são
->   globais e ficam aqui.
+> - `createArray()` sem parâmetros é inválido. Para iniciar um array realmente vazio, use a
+>   expressão `json('[]')`.
+> - **Não crie `varResponded`.** Variáveis do Power Automate são globais à execução, inclusive
+>   quando manipuladas dentro de um `Apply to each`. Com concorrência ligada, um aprovador que
+>   definisse essa variável como `true` encerraria os loops de **todos** os aprovadores. O passo
+>   13 usa diretamente a resposta do card da iteração atual.
 > - **Não** crie variáveis globais para o ETag nem para o "gravou OK?" do write-back. O write-back
 >   incremental (14.7) roda **dentro do loop paralelo** (`Apply_to_each` com concorrência), e as
 >   variáveis do Power Automate são **globais ao run** — duas iterações simultâneas sobrescreveriam
@@ -334,7 +346,7 @@ lista `smartbid-approvals`, Id = `triggerOutputs()?['body/ID']`):
 
 - Adaptive Card: `cards/02-status.json` com tokens iniciais (0/N, barra vazia).
 - **Importante:** guarde o Id da mensagem retornado em `varStatusMsgId`
-  (`body('Post_card_Status')?['messageId']`).
+  (`body('Post_card_Status')?['id']`; prefira selecionar **Message ID** no conteúdo dinâmico).
 
 **11) Salvar StatusCardMessageId na Round row** — _Update item_ (renomeie para `Update_StatusMsgId`):
 
@@ -367,40 +379,74 @@ sobre `variables('varApprovers')`:
 
 - **Settings → Concurrency Control: On**, Degree of Parallelism ≈ **20**.
 
-Dentro do loop:
+Todos os cards continuam no **mesmo chat em grupo**. Não use `varResponded`: ela seria compartilhada
+pelas iterações paralelas. Cada iteração encerra somente quando o e-mail retornado pelo **seu próprio
+card** for o e-mail do aprovador esperado.
 
-**13.1) Inicializar** (variáveis de escopo do loop): `varResponded` (Boolean) = `false`.
+**13.1) Do Until** — renomeie para `Do_until_valid_response`. Depois de adicionar as ações internas,
+configure a condição (modo avançado) abaixo. O `coalesce(...,'')` também mantém a condição falsa
+quando o card expira sem resposta:
 
-**13.2) Do Until** `varResponded` **is equal to** `true`
+```
+@equals(
+  toLower(coalesce(body('Post_card_and_wait')?['responder']?['email'],'')),
+  toLower(items('Apply_to_each')?['email'])
+)
+```
 
-- Limits: Count `3650`, Timeout `P30D`.
+- Limits: Count `3650`, Timeout **`P30D`** (exatamente assim, **sem `T`**). `P30D` significa 30
+  dias; `PT30D` é inválido porque, depois de `T`, só podem aparecer unidades de tempo (`H`, `M`,
+  `S`). Já o timeout de 24 horas da ação do card usa `PT24H`, que é válido.
 
 Dentro do Do Until:
 
-**a) Post adaptive card and wait for a response** — Teams:
+**a) Post adaptive card and wait for a response** — Teams (`Post_card_and_wait`):
 
-- Post in: _Group chat_ · Chat: `variables('varChatId')`
-- Update message: (deixe como está)
+- Post as: _Flow bot_ · Post in: _Group chat_ · Chat: `variables('varChatId')`
+- Update message: `Resposta recebida e enviada ao fluxo para validação.`
 - Adaptive Card: `cards/03-approver.json` com tokens do aprovador atual (§4.3).
 - **Settings → Timeout: `PT24H`** (para permitir o lembrete de 24h).
 
-**b) Condition:** a ação retornou resposta? (não deu timeout)
+> A ação espera uma resposta de **qualquer usuário** do chat e cada card aceita apenas **uma**
+> submissão. Por isso, um clique errado consome aquele card. Ele não pode ser reativado; quando a
+> condição do Do Until permanece falsa, a iteração seguinte executa `Post_card_and_wait` novamente
+> e publica **um card novo da mesma pessoa** no mesmo chat.
 
-- Teste: `empty(body('Post_card_and_wait')?['responder']?['email'])` → `false` = houve resposta.
+**b) Condition `Condition_response_received`** — a ação retornou resposta?
 
-- **Se houve resposta:**
-  - **Condition de segurança:** `toLower(body('Post_card_and_wait')?['responder']?['email'])`
-    **is equal to** `toLower(items('Apply_to_each')?['email'])`
-    - **Sim (aprovador correto):** _Set variable_ `varResponded` = `true`.
-    - **Não (outra pessoa clicou):** _Post message in a chat_ →
-      "⚠️ Apenas **{name}** pode aprovar este item." (loop repete e reposta o card).
+- Condição (modo avançado):
+  `@not(empty(body('Post_card_and_wait')?['responder']?['email']))`.
+- Em **Configure run after**, marque **is successful** e **has timed out** para que o lembrete também
+  rode quando `Post_card_and_wait` expirar após 24 horas.
 
-- **Se deu timeout (sem resposta):**
-  - Teams → **Get an @mention token for a user** (usuário = `items('Apply_to_each')?['email']`).
-  - Teams → **Post message in a chat** →
-    "🔔 @{mention}, sua aprovação do BID **{varBidNumber}** ainda está pendente." (loop repete).
+- **If yes (houve clique):** adicione `Condition_correct_approver`:
+
+  ```
+  @equals(
+    toLower(body('Post_card_and_wait')?['responder']?['email']),
+    toLower(items('Apply_to_each')?['email'])
+  )
+  ```
+
+  - **If yes:** não defina variável; pode deixar o ramo vazio. Ao terminar a iteração, a condição
+    do `Do_until_valid_response` será verdadeira e somente esse aprovador seguirá para o passo 14.
+  - **If no:** Teams → **Post message in a chat or channel** (`Post_msg_wrong_approver`), no chat
+    `variables('varChatId')`:
+    `⚠️ Resposta ignorada: apenas **@{items('Apply_to_each')?['name']}** pode aprovar este item. Um novo card foi enviado abaixo.`
+    Ao fim do ramo, o Do Until vê `false`, repete e publica o novo card.
+
+- **If no (timeout, sem resposta):**
+  - Teams → **Get an @mention token for a user** (`Get_mention_approver`), usuário =
+    `items('Apply_to_each')?['email']`.
+  - Teams → **Post message in a chat or channel** (`Post_msg_reminder`), mesmo chat:
+    `🔔 @{body('Get_mention_approver')?['atMention']}, sua aprovação do BID **@{variables('varBidNumber')}** ainda está pendente.`
+  - Ao fim do ramo, o Do Until continua falso, repete e publica outro card.
 
 **14) Após o Do Until (aprovador respondeu):**
+
+Os passos **14.1 a 14.7 permanecem dentro do `Apply_to_each`**, logo abaixo do
+`Do_until_valid_response`. Qualquer ação que use `items('Apply_to_each')` fora desse contêiner causa
+o erro _“Apply_to_each must be a parent foreach scope”_.
 
 **14.1) Atualizar a Approver row** — SharePoint → **Get items** (renomeie para `Get_items_appr`):
 
@@ -414,13 +460,18 @@ Dentro do Do Until:
 
 - Filter: `RecordType eq 'Approver' and BidNumber eq '@{variables('varBidNumber')}' and RoundNumber eq @{variables('varRound')}`
 - Order By: `Sector asc, ID asc` (mantém a "sequência natural").
-- **Total:** _Set variable_ `varTotalCount` = `length(body('Get_items_all')?['value'])`.
+- **Total desta leitura:** `length(body('Get_items_all')?['value'])`.
 - **Aprovados:** o Power Automate **não** tem função `filter()` em expressões — use uma ação
   **Filter array** (`filAprovados`):
   - From: `body('Get_items_all')?['value']`
-  - Condition (modo avançado): `@equals(item()?['ApprovalStatus']?['Value'], 'Approved')`
-    (se a choice vier como string simples: `@equals(item()?['ApprovalStatus'], 'Approved')`)
-  - Depois: _Set variable_ `varApprovedCount` = `length(body('filAprovados'))`.
+  - Condition (modo avançado):
+    `@contains(toLower(string(item()?['ApprovalStatus'])), 'approved')`.
+    Essa forma funciona nos dois formatos devolvidos pelo SharePoint: string (`Approved`) ou objeto
+    Choice (`{"Value":"Approved"}`).
+  - **Aprovados desta leitura:** `length(body('filAprovados'))`.
+
+> Não copie essas contagens para variáveis globais: ramos paralelos poderiam sobrescrever um valor
+> mais novo com uma leitura mais antiga. Os passos seguintes usam diretamente as saídas deste ramo.
 
 **14.3) Montar o markdown do card** — _Select_ (`selStatusMD`, modo texto) sobre as linhas ordenadas
 (`body('Get_items_all')?['value']`), mapeando cada uma para uma linha de texto, e depois _Join_
@@ -428,19 +479,19 @@ Dentro do Do Until:
 literal **não** funciona). Expressão do _Map_:
 
 ```
-if(equals(item()?['ApprovalStatus']?['Value'],'Approved'),
+if(contains(toLower(string(item()?['ApprovalStatus'])),'approved'),
    concat('✅ **', item()?['ApproverName'], '** · ', item()?['SectorLabel'], ' — aprovado ', formatDateTime(item()?['RespondedDate'],'HH:mm')),
    concat('⏳ **', item()?['ApproverName'], '** · ', item()?['SectorLabel']))
 ```
 
-Depois, _Set variable_ `varApproverListMD` = `body('joinStatusMD')`.
+O resultado pronto é `body('joinStatusMD')`; não o copie para variável global.
 
-**14.4) Barra de progresso** — _Compose_ `varProgressBar`:
+**14.4) Barra de progresso** — _Compose_ `comProgressBar`:
 
 ```
 concat(
-  substring('▓▓▓▓▓▓▓▓▓▓', 0, div(mul(variables('varApprovedCount'),10), variables('varTotalCount'))),
-  substring('░░░░░░░░░░', 0, sub(10, div(mul(variables('varApprovedCount'),10), variables('varTotalCount'))))
+  substring('▓▓▓▓▓▓▓▓▓▓', 0, div(mul(length(body('filAprovados')),10), length(body('Get_items_all')?['value']))),
+  substring('░░░░░░░░░░', 0, sub(10, div(mul(length(body('filAprovados')),10), length(body('Get_items_all')?['value']))))
 )
 ```
 
@@ -451,7 +502,7 @@ concat(
 
 **14.6) Postar confirmação** — Teams → **Post message in a chat**:
 
-- `✅ **@{items('Apply_to_each')?['name']}** (@{items('Apply_to_each')?['sectorLabel']}) aprovou — @{variables('varApprovedCount')}/@{variables('varTotalCount')}`
+- `✅ **@{items('Apply_to_each')?['name']}** (@{items('Apply_to_each')?['sectorLabel']}) aprovou — @{length(body('filAprovados'))}/@{length(body('Get_items_all')?['value'])}`
 
 **14.7) Write-back incremental no BID.** **Não é um fluxo novo** — é uma sub-rotina montada
 **inline, logo após o 14.6, ainda dentro do `Apply_to_each`**. Marca a aprovação **daquela** pessoa
@@ -471,12 +522,42 @@ como `approved` no `jsondata` do BID. Há duas formas (detalhes e expressões na
 
 ### Fase 4 — Conclusão (após o Apply to each terminar = todos aprovaram)
 
-**15) Atualizar o Status Card** → `cards/02-status.json` com badge "✅ Concluído", barra cheia.
+Tudo desta fase fica **fora e abaixo** do `Apply_to_each`. Não reutilize `Get_items_all` nem
+`joinStatusMD`, pois são ações filhas do loop e não podem ser referenciadas de fora dele.
 
-**16) Postar o card final** — Teams → **Post card in a chat** → `cards/04-final.json` (§4.4).
+**15.1) Buscar o estado final** — SharePoint → **Get items** (`Get_items_final_status`), lista
+`smartbid-approvals`:
+
+- Filter: `RecordType eq 'Approver' and BidNumber eq '@{variables('varBidNumber')}' and RoundNumber eq @{variables('varRound')}`
+- Order By: `Sector asc, ID asc`.
+
+**15.2) Montar a lista final** — _Select_ `selStatusMD_final` (modo texto), From =
+`body('Get_items_final_status')?['value']`, Map:
+
+```
+concat('✅ **', item()?['ApproverName'], '** · ', item()?['SectorLabel'], ' — aprovado ', formatDateTime(item()?['RespondedDate'],'HH:mm'))
+```
+
+Depois, _Join_ `joinStatusMD_final`:
+
+- **From:** `body('selStatusMD_final')`
+- **Join with:** expressão `decodeUriComponent('%0A')`.
+
+**15.3) Atualizar o Status Card** — Teams → **Update an adaptive card in a chat or channel**
+(`Update_StatusCard_final`):
+
+- Post as: _Flow bot_ · Post in: _Group chat_
+- Chat: `variables('varChatId')` · Message Id: `variables('varStatusMsgId')`
+- Adaptive Card: `cards/02-status.json` com badge `✅ Concluído`, barra `▓▓▓▓▓▓▓▓▓▓`, contagens
+  `length(body('Get_items_final_status')?['value'])` e lista `body('joinStatusMD_final')` (§4.2).
+
+**16) Postar o card final** — Teams → **Post card in a chat or channel** (`Post_card_Final`):
+
+- Post as: _Flow bot_ · Post in: _Group chat_ · Chat: `variables('varChatId')`
+- Adaptive Card: `cards/04-final.json` com as expressões da §4.4.
 
 **17) Montar as linhas do e-mail** — _Select_ (`selEmailRows`, modo texto) + _Join_ (`joinEmailRows`)
-sobre as Approver rows (`body('Get_items_all')?['value']`). Expressão do _Map_:
+sobre as Approver rows finais (`body('Get_items_final_status')?['value']`). Expressão do _Map_:
 
 ```
 concat('<tr><td style="padding:10px 12px;border-bottom:1px solid #eef2f7;">', item()?['ApproverName'],
@@ -567,21 +648,23 @@ Power Automate resolve o `@{...}` em tempo de execução.
 
 ### 4.2 `02-status.json` (passos 10, 14.5 e 15)
 
-| Token                  | Expressão (`@{...}`)                                                                                       |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `[[BID_NUMBER]]`       | `@{variables('varBidNumber')}`                                                                             |
-| `[[CLIENT]]`           | `@{variables('varClient')}`                                                                                |
-| `[[STATUS_BADGE]]`     | `@{if(equals(variables('varApprovedCount'),variables('varTotalCount')),'✅ Concluído','⏳ Em andamento')}` |
-| `[[PROGRESS_BAR]]`     | `@{outputs('varProgressBar')}`                                                                             |
-| `[[APPROVED_COUNT]]`   | `@{variables('varApprovedCount')}`                                                                         |
-| `[[TOTAL_COUNT]]`      | `@{variables('varTotalCount')}`                                                                            |
-| `[[APPROVER_LIST_MD]]` | `@{variables('varApproverListMD')}`                                                                        |
-| `[[UPDATED_AT]]`       | `@{formatDateTime(utcNow(),'dd/MM HH:mm')}`                                                                |
+Os tokens comuns aos três usos são:
 
-> **No primeiro post (passo 10)** as contagens ainda não existem. Use: `[[APPROVED_COUNT]]` = `0`,
-> `[[TOTAL_COUNT]]` = `@{length(variables('varApprovers'))}`, `[[APPROVER_LIST_MD]]` =
-> `@{outputs('comAprovadoresMD')}`, `[[STATUS_BADGE]]` = `⏳ Em andamento` e `[[PROGRESS_BAR]]` =
-> barra vazia (`░░░░░░░░░░`).
+| Token            | Expressão (`@{...}`)                        |
+| ---------------- | ------------------------------------------- |
+| `[[BID_NUMBER]]` | `@{variables('varBidNumber')}`              |
+| `[[CLIENT]]`     | `@{variables('varClient')}`                 |
+| `[[UPDATED_AT]]` | `@{formatDateTime(utcNow(),'dd/MM HH:mm')}` |
+
+Use os valores abaixo para os tokens de estado:
+
+| Token                  | Passo 10 — inicial                     | Passo 14.5 — ramo atual                      | Passo 15 — final                                      |
+| ---------------------- | -------------------------------------- | -------------------------------------------- | ----------------------------------------------------- |
+| `[[STATUS_BADGE]]`     | `⏳ Em andamento`                      | `⏳ Em andamento`                            | `✅ Concluído`                                        |
+| `[[PROGRESS_BAR]]`     | `░░░░░░░░░░`                           | `@{outputs('comProgressBar')}`               | `▓▓▓▓▓▓▓▓▓▓`                                          |
+| `[[APPROVED_COUNT]]`   | `0`                                    | `@{length(body('filAprovados'))}`            | `@{length(body('Get_items_final_status')?['value'])}` |
+| `[[TOTAL_COUNT]]`      | `@{length(variables('varApprovers'))}` | `@{length(body('Get_items_all')?['value'])}` | `@{length(body('Get_items_final_status')?['value'])}` |
+| `[[APPROVER_LIST_MD]]` | `@{outputs('comAprovadoresMD')}`       | `@{body('joinStatusMD')}`                    | `@{body('joinStatusMD_final')}`                       |
 
 ### 4.3 `03-approver.json` (passo 13.2)
 
@@ -605,10 +688,10 @@ Power Automate resolve o `@{...}` em tempo de execução.
 | ---------------------- | --------------------------------------------------------------------------------------------------------- |
 | `[[BID_NUMBER]]`       | `@{variables('varBidNumber')}`                                                                            |
 | `[[CLIENT]]`           | `@{variables('varClient')}`                                                                               |
-| `[[TOTAL_COUNT]]`      | `@{variables('varTotalCount')}`                                                                           |
+| `[[TOTAL_COUNT]]`      | `@{length(body('Get_items_final_status')?['value'])}`                                                     |
 | `[[COMPLETED_AT]]`     | `@{formatDateTime(utcNow(),'dd/MM/yyyy HH:mm')}`                                                          |
 | `[[DURATION]]`         | `@{concat(div(sub(ticks(utcNow()),ticks(body('Parse_JSON')?['requestedDate'])),864000000000),' dia(s)')}` |
-| `[[APPROVER_LIST_MD]]` | `@{variables('varApproverListMD')}`                                                                       |
+| `[[APPROVER_LIST_MD]]` | `@{body('joinStatusMD_final')}`                                                                           |
 | `[[DEEP_LINK]]`        | `@{variables('varDeepLink')}`                                                                             |
 
 > **`[[DURATION]]`**: `ticks()` conta intervalos de 100 ns; `864000000000` = 1 dia. A expressão
@@ -746,7 +829,7 @@ O arquivo [`email/completion-email.html`](./email/completion-email.html) já tra
 | `[[DEEP_LINK]]`          | `@{variables('varDeepLink')}`                                                                             |
 
 **As linhas da tabela (`[[APPROVER_ROWS_HTML]]`)** são montadas no passo 17. Configure o _Select_
-`selEmailRows` em **modo texto** (§7.4), From = `body('Get_items_all')?['value']`, e no Map:
+`selEmailRows` em **modo texto** (§7.4), From = `body('Get_items_final_status')?['value']`, e no Map:
 
 ```
 concat(
@@ -822,6 +905,60 @@ Aparece quando o **Body** é uma **expressão que devolve objeto** (`setProperty
 que o `parameters/body` ficou `@setProperty(...)`. Se preferir zero atrito, use a **versão simples**
 (ação **Update item** com `jsondata` = `string(outputs('comBidFinal'))`), que não tem esse validador.
 
+### 7.8 Clique no card errado mostra "Thanks for your response" e não aparece outro card
+
+O conector documenta que **Post adaptive card and wait for a response** espera a resposta de
+**qualquer usuário**. A documentação de Adaptive Cards também informa que cada card aceita apenas
+**uma submissão**. Portanto, após qualquer clique, o card original é consumido e substituído pelo
+texto de _Update message_; ele não pode ser reativado.
+
+Isso **não exige chats individuais**. O `Do_until_valid_response` do passo 13 compara o e-mail do
+respondente com o aprovador esperado. Se forem diferentes, publica o aviso e inicia outra iteração;
+essa nova iteração executa `Post_card_and_wait` novamente e posta **um novo card da mesma pessoa no
+mesmo chat em grupo**.
+
+Se todos os cards desaparecerem após apenas um clique correto, ainda existe uma `varResponded` no
+fluxo. Exclua tanto o _Initialize variable_ quanto qualquer _Set variable_ dela e use a condição
+direta do passo 13. A variável é global ao run: um único `true` encerraria todos os loops paralelos.
+
+Referências oficiais:
+
+- [Microsoft Teams connector — Post adaptive card and wait for a response](https://learn.microsoft.com/en-us/connectors/teams/#post-adaptive-card-and-wait-for-a-response)
+- [Create flows that post adaptive cards — cada card aceita uma única submissão](https://learn.microsoft.com/en-us/power-automate/create-adaptive-cards#troubleshooting-tips-for-adaptive-cards)
+
+### 7.9 O aprovador correto clicou, mas o Status Card continuou em `0/N`
+
+O card de ação fechar sem mensagem de bloqueio confirma apenas que a identidade passou na
+`Condition_correct_approver`. Abra o histórico do run, expanda a iteração dessa pessoa em
+`Apply_to_each` e encontre a primeira ação não verde entre `Get_items_appr` e
+`Update_StatusCard`:
+
+1. `Get_items_appr` deve retornar exatamente uma linha; se retornar zero, revise o Filter Query.
+2. `Update_ApproverRow` deve gravar `ApprovalStatus = Approved` e `RespondedDate`.
+3. `filAprovados` deve retornar essa linha. Use a condição robusta
+   `@contains(toLower(string(item()?['ApprovalStatus'])), 'approved')` para aceitar Choice como
+   string ou objeto.
+4. `varStatusMsgId` deve conter o campo **`id`** retornado por `Post_card_Status`, e não
+   `messageId`: `body('Post_card_Status')?['id']`. Se estiver vazio, `Update_StatusCard` falha e
+   `Post_msg_confirm` fica _Skipped_. Prefira inserir **Message ID** pelo conteúdo dinâmico.
+5. Confirme que 14.1–14.7 estão dentro da mesma iteração de `Apply_to_each`.
+
+Se não apareceu nem a confirmação `✅ Fulano aprovou`, a execução parou/falhou antes do 14.6; não
+é apenas um problema visual do card.
+
+### 7.10 `PT30D is not a valid TimeSpan value` no Do Until
+
+No campo **Timeout** dos limites do `Do_until_valid_response`, use **`P30D`**, não `PT30D`:
+
+- `P30D` = período de 30 dias — válido.
+- `PT720H` = 720 horas — equivalente e válido.
+- `PT30D` = inválido; `D` pertence à parte de data, antes do `T`.
+- `PT24H` = 24 horas — válido para o timeout da ação `Post_card_and_wait`.
+
+Quando esse erro ocorre, o card e as condições internas podem aparecer verdes, mas o contêiner
+`Do Until` termina como **Failed**. Todos os passos 14.1–14.7 ficam _Skipped_; consequentemente,
+`Update_ApproverRow` não executa e todas as linhas permanecem `ApprovalStatus = Pending`.
+
 ---
 
 ## 8. Testes de aceitação
@@ -830,7 +967,9 @@ que o `parameters/body` ficou `@setProperty(...)`. Se preferir zero atrito, use 
 2. Aprovar **fora de ordem** (fura-fila) → status card atualiza a cada clique; contagem correta.
 3. Aprovar **2 ao mesmo tempo** → nenhuma aprovação perdida (conferir Approver rows e `jsondata` do BID).
 4. Deixar 1 pendente por 24h → chega lembrete com @mention.
-5. Clicar "Aprovar" logado como outra pessoa → mensagem de bloqueio; a aprovação **não** conta.
+5. Clicar "Aprovar" no card de outra pessoa → o card antigo é consumido, aparece a mensagem de
+   bloqueio e um **novo card daquele aprovador** é postado no mesmo chat; a aprovação não conta.
+   Depois, o aprovador correto clica no novo card → somente a linha dele muda para `Approved`.
 6. Todos aprovam → card final + e-mail + BID `currentStatus = Completed` + Round row `Approved`.
 7. Reabrir o BID no app → aba Approval mostra tudo aprovado, sem conflito com o auto-complete client-side.
 

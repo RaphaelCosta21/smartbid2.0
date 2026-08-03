@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Check, X, Clock, Circle, RefreshCw } from "lucide-react";
 import { IBidApproval } from "../../models";
 import { formatDate } from "../../utils/formatters";
 import styles from "./BidApprovalPanel.module.scss";
@@ -14,13 +15,29 @@ export const BidApprovalPanel: React.FC<BidApprovalPanelProps> = ({
   onRequestApproval,
   className,
 }) => {
-  const statusIcons: Record<string, { icon: string; color: string }> = {
-    approved: { icon: "✅", color: "#10B981" },
-    rejected: { icon: "❌", color: "#EF4444" },
-    pending: { icon: "⏳", color: "#F59E0B" },
-    "not-started": { icon: "⚪", color: "#94A3B8" },
-    "revision-requested": { icon: "🔄", color: "#F97316" },
-  };
+  const statusIcons: Record<string, { icon: React.ReactNode; color: string }> =
+    {
+      approved: {
+        icon: <Check size={16} style={{ verticalAlign: "-3px" }} />,
+        color: "var(--success)",
+      },
+      rejected: {
+        icon: <X size={16} style={{ verticalAlign: "-3px" }} />,
+        color: "var(--danger)",
+      },
+      pending: {
+        icon: <Clock size={16} style={{ verticalAlign: "-3px" }} />,
+        color: "var(--warning)",
+      },
+      "not-started": {
+        icon: <Circle size={16} style={{ verticalAlign: "-3px" }} />,
+        color: "var(--text-muted)",
+      },
+      "revision-requested": {
+        icon: <RefreshCw size={16} style={{ verticalAlign: "-3px" }} />,
+        color: "var(--warning)",
+      },
+    };
 
   return (
     <div className={`${styles.container} ${className || ""}`}>
@@ -44,11 +61,13 @@ export const BidApprovalPanel: React.FC<BidApprovalPanelProps> = ({
                 key={approval.id}
                 className={styles.item}
                 style={{
-                  border: `1px solid ${color}30`,
-                  background: `${color}08`,
+                  border: `1px solid color-mix(in srgb, ${color} 20%, transparent)`,
+                  background: `color-mix(in srgb, ${color} 5%, transparent)`,
                 }}
               >
-                <span className={styles.itemIcon}>{icon}</span>
+                <span className={styles.itemIcon} style={{ color }}>
+                  {icon}
+                </span>
                 <div className={styles.itemInfo}>
                   <div className={styles.itemName}>
                     {approval.stakeholder.name}

@@ -12,11 +12,14 @@ export const ApprovalBadge: React.FC<ApprovalBadgeProps> = ({
   className,
 }) => {
   const config: Record<ApprovalStatus, { label: string; color: string }> = {
-    pending: { label: "Pending", color: "#F59E0B" },
-    approved: { label: "Approved", color: "#10B981" },
-    rejected: { label: "Rejected", color: "#EF4444" },
-    "revision-requested": { label: "Revision Requested", color: "#F97316" },
-    "not-started": { label: "Not Started", color: "#94A3B8" },
+    pending: { label: "Pending", color: "var(--warning)" },
+    approved: { label: "Approved", color: "var(--success)" },
+    rejected: { label: "Rejected", color: "var(--danger)" },
+    "revision-requested": {
+      label: "Revision Requested",
+      color: "var(--warning)",
+    },
+    "not-started": { label: "Not Started", color: "var(--text-muted)" },
   };
 
   const { label, color } = config[status] || config["not-started"];
@@ -25,9 +28,9 @@ export const ApprovalBadge: React.FC<ApprovalBadgeProps> = ({
     <span
       className={`${styles.badge} ${className || ""}`}
       style={{
-        background: `${color}20`,
+        background: `color-mix(in srgb, ${color} 12%, transparent)`,
         color,
-        border: `1px solid ${color}40`,
+        border: `1px solid color-mix(in srgb, ${color} 25%, transparent)`,
       }}
     >
       {label}

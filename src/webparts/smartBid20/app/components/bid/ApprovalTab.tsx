@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Check, X, Clock, Circle, RefreshCw } from "lucide-react";
 import { IBid, IApprovalRound } from "../../models/IBid";
 import { IBidApproval } from "../../models/IBid";
 import { IApprovalSectorGroup } from "../../models/IBidApproval";
@@ -176,15 +177,31 @@ const SECTOR_CONFIGS: SectorConfig[] = [
 
 const STATUS_DISPLAY: Record<
   string,
-  { icon: string; color: string; label: string }
+  { icon: React.ReactNode; color: string; label: string }
 > = {
-  approved: { icon: "✅", color: "#10B981", label: "Approved" },
-  rejected: { icon: "❌", color: "#EF4444", label: "Rejected" },
-  pending: { icon: "⏳", color: "#F59E0B", label: "Pending" },
-  "not-started": { icon: "⚪", color: "#94A3B8", label: "Not Started" },
+  approved: {
+    icon: <Check size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--success)",
+    label: "Approved",
+  },
+  rejected: {
+    icon: <X size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--danger)",
+    label: "Rejected",
+  },
+  pending: {
+    icon: <Clock size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--warning)",
+    label: "Pending",
+  },
+  "not-started": {
+    icon: <Circle size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--text-muted)",
+    label: "Not Started",
+  },
   "revision-requested": {
-    icon: "🔄",
-    color: "#F97316",
+    icon: <RefreshCw size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--warning)",
     label: "Revision Requested",
   },
 };
@@ -546,8 +563,8 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
           <div
             className={styles.summaryStatusBadge}
             style={{
-              background: `${overallStatus.color}18`,
-              border: `1px solid ${overallStatus.color}50`,
+              background: `color-mix(in srgb, ${overallStatus.color} 10%, transparent)`,
+              border: `1px solid color-mix(in srgb, ${overallStatus.color} 30%, transparent)`,
               color: overallStatus.color,
             }}
           >
@@ -599,7 +616,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
                   <span
                     className={styles.trackingSectorStatus}
                     style={{
-                      background: `${sectorStatus.color}18`,
+                      background: `color-mix(in srgb, ${sectorStatus.color} 10%, transparent)`,
                       color: sectorStatus.color,
                     }}
                   >

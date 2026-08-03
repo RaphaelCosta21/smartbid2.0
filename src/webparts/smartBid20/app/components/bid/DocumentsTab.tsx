@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Paperclip } from "lucide-react";
 import { IBid, IBidAttachment, IActivityLogEntry } from "../../models";
 import { StatusBadge } from "../common/StatusBadge";
 import { GlassCard } from "../common/GlassCard";
@@ -173,7 +174,8 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
                       fontSize: 12,
                     }}
                   >
-                    📎 Choose Files
+                    <Paperclip size={14} style={{ verticalAlign: "-2px" }} />{" "}
+                    Choose Files
                   </button>
                   <input
                     ref={fileInputRef}

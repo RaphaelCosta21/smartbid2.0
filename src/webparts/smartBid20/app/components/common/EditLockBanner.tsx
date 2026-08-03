@@ -3,6 +3,7 @@
  * Used by BidDetailPage tabs that require concurrent edit control.
  */
 import * as React from "react";
+import { Pencil, Check } from "lucide-react";
 import { EditControlState } from "../../hooks/useEditControl";
 import styles from "./EditLockBanner.module.scss";
 
@@ -59,14 +60,20 @@ export const EditToolbar: React.FC<{
             disabled={editControl.loading}
             onClick={() => editControl.startEditing()}
           >
-            {editControl.loading ? "Checking..." : "✏️ Edit"}
+            {editControl.loading ? (
+              "Checking..."
+            ) : (
+              <>
+                <Pencil size={14} style={{ verticalAlign: "-2px" }} /> Edit
+              </>
+            )}
           </button>
         ) : (
           <button
             className={styles.finishEditBtn}
             onClick={() => editControl.stopEditing()}
           >
-            ✅ Finish Editing
+            <Check size={14} style={{ verticalAlign: "-2px" }} /> Finish Editing
           </button>
         )}
       </div>

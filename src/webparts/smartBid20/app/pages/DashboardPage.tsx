@@ -1,22 +1,23 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useBidStore } from "../stores/useBidStore";
-import { useNotificationStore } from "../stores/useNotificationStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useKPIs } from "../hooks/useKPIs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { PageHeader } from "../components/common/PageHeader";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { SkeletonLoader } from "../components/common/SkeletonLoader";
+import { EmptyState } from "../components/common/EmptyState";
 import { DashboardKPIRow } from "../components/dashboard/DashboardKPIRow";
-import { RecentActivity } from "../components/dashboard/RecentActivity";
+import { DashboardActivity } from "../components/dashboard/DashboardActivity";
+import { EngHoursRanking } from "../components/dashboard/EngHoursRanking";
 import { UpcomingDeadlines } from "../components/dashboard/UpcomingDeadlines";
 import { BidsByStatusChart } from "../components/dashboard/BidsByStatusChart";
 import { BidsByDivisionChart } from "../components/dashboard/BidsByDivisionChart";
 import { ApprovalsPending } from "../components/dashboard/ApprovalsPending";
 import { DashboardService } from "../services/DashboardService";
 import { differenceInDays, format } from "date-fns";
-import { isActiveBid } from "../utils/bidHelpers";
+import { isActiveBid, getEngineeringHours } from "../utils/bidHelpers";
 import { useStatusColors } from "../hooks/useStatusColors";
 import { getPhaseDef } from "../config/status.config";
 import styles from "./DashboardPage.module.scss";
@@ -26,7 +27,6 @@ export const DashboardPage: React.FC = () => {
   const bids = useBidStore((s) => s.bids);
   const config = useConfigStore((s) => s.config);
   const currentUser = useCurrentUser();
-  const notifications = useNotificationStore((s) => s.notifications);
   const kpis = useKPIs();
   const { getPhaseColor, getStatusColor, getPriorityColor, getDivisionColor } =
     useStatusColors();
@@ -41,19 +41,28 @@ export const DashboardPage: React.FC = () => {
 
   // KPI Calculations
   const activeBids = bids.filter((b) => isActiveBid(b));
-  const completedBids = bids.filter(
-    (b) =>
-      b.currentStatus === "Completed" ||
-      b.currentStatus === "Returned to Commercial",
-  );
-  const totalEngHours = activeBids.reduce(
-    (sum, b) => sum + (b.hoursSummary?.grandTotalHours || 0),
+  const closedBids = bids.filter((b) => !isActiveBid(b));
+
+  // Engineering hours delivered on already-closed BIDs
+  const engHoursClosed = closedBids.reduce(
+    (sum, b) => sum + getEngineeringHours(b),
     0,
   );
-  const onTimeCount = completedBids.filter((b) => !b.kpis.isOverdue).length;
+
+  // On-time delivery — computed from real completion vs. due dates
+  const deliveredBids = bids.filter(
+    (b) =>
+      (b.currentStatus === "Completed" ||
+        b.currentStatus === "Returned to Commercial") &&
+      !!b.dueDate,
+  );
+  const onTimeCount = deliveredBids.filter((b) => {
+    const end = b.completedDate || b.lastModified;
+    return end ? new Date(end) <= new Date(b.dueDate) : false;
+  }).length;
   const onTimePercent =
-    completedBids.length > 0
-      ? Math.round((onTimeCount / completedBids.length) * 100)
+    deliveredBids.length > 0
+      ? Math.round((onTimeCount / deliveredBids.length) * 100)
       : 100;
 
   // Status chart data — from config subStatuses
@@ -68,7 +77,8 @@ export const DashboardPage: React.FC = () => {
           .length,
         color: status.color || "#94A3B8",
       }))
-      .filter((d) => d.count > 0);
+      .filter((d) => d.count > 0)
+      .sort((a, b) => b.count - a.count);
   }, [config, activeBids]);
 
   // Division chart data — from config divisions
@@ -130,14 +140,14 @@ export const DashboardPage: React.FC = () => {
               {greeting}, {currentUser.displayName.split(" ")[0]}
             </h2>
             <p>
-              BID Tracker Overview · Last updated:{" "}
+              Engineering overview · Last updated:{" "}
               {format(now, "MMM d, yyyy HH:mm")}
             </p>
           </div>
 
           {/* Page Header */}
           <PageHeader
-            title="BID Tracker · Overview"
+            title="Engineering Dashboard"
             subtitle={`${activeBids.length} active BIDs across ${new Set(activeBids.map((b) => b.division)).size} divisions`}
             icon={
               <svg
@@ -162,8 +172,9 @@ export const DashboardPage: React.FC = () => {
           <DashboardKPIRow
             activeBids={kpis.activeBids}
             overdueBids={kpis.overdueBids}
-            totalHours={totalEngHours}
+            engHoursClosed={engHoursClosed}
             onTimePercent={onTimePercent}
+            avgCycleDays={Math.round(kpis.avgCycleTimeDays)}
             winRate={Math.round(kpis.winRate)}
             wonCount={kpis.wonBids}
             lostCount={kpis.lostBids}
@@ -176,23 +187,38 @@ export const DashboardPage: React.FC = () => {
             <BidsByDivisionChart data={divisionChartData} />
           </div>
 
-          {/* Activity + Deadlines + Approvals Row */}
+          {/* Engineering Hours ranking + Deadlines */}
           <div className={styles.activityRow}>
-            <RecentActivity notifications={notifications} maxItems={8} />
+            <EngHoursRanking
+              bids={bids}
+              onBidClick={(bidNumber) => navigate(`/bid/${bidNumber}`)}
+            />
             <UpcomingDeadlines
               bids={activeBids}
-              maxItems={5}
+              maxItems={6}
               onBidClick={(bid) => navigate(`/bid/${bid.bidNumber}`)}
             />
           </div>
 
-          {/* Approvals Pending */}
-          {pendingApprovals.length > 0 && (
-            <ApprovalsPending
-              approvals={pendingApprovals}
-              onView={(bidNumber) => navigate(`/bid/${bidNumber}`)}
+          {/* Activity + Approvals Row */}
+          <div className={styles.activityRow}>
+            <DashboardActivity
+              bids={bids}
+              onBidClick={(bidNumber) => navigate(`/bid/${bidNumber}`)}
             />
-          )}
+            {pendingApprovals.length > 0 ? (
+              <ApprovalsPending
+                approvals={pendingApprovals}
+                onView={(bidNumber) => navigate(`/bid/${bidNumber}`)}
+              />
+            ) : (
+              <EmptyState
+                variant="glass"
+                title="No pending approvals"
+                description="All caught up — nothing awaiting approval."
+              />
+            )}
+          </div>
 
           {/* BID Tracker Table */}
           <div className={styles.tableSection}>
