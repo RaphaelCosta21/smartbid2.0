@@ -293,6 +293,13 @@ export class RequestService {
       },
       qualificationTables: [],
       clarifications: [],
+      ernNumber: null,
+      ernId: null,
+      ernStatus: null,
+      ernDueDate: null,
+      ernFinishDate: null,
+      ernLinkedBy: null,
+      ernLinkedDate: null,
     };
     return await BidService.create(bid);
   }

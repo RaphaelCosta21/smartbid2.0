@@ -15,9 +15,12 @@ import { UpcomingDeadlines } from "../components/dashboard/UpcomingDeadlines";
 import { BidsByStatusChart } from "../components/dashboard/BidsByStatusChart";
 import { BidsByDivisionChart } from "../components/dashboard/BidsByDivisionChart";
 import { ApprovalsPending } from "../components/dashboard/ApprovalsPending";
+import { ErnDashboardSection } from "../components/dashboard/ErnDashboardSection";
 import { DashboardService } from "../services/DashboardService";
 import { differenceInDays, format } from "date-fns";
 import { isActiveBid, getEngineeringHours } from "../utils/bidHelpers";
+import { getErnLinks } from "../utils/ernHelpers";
+import { getPhaseProgressByIndex } from "../utils/phaseHelpers";
 import { useStatusColors } from "../hooks/useStatusColors";
 import { getPhaseDef } from "../config/status.config";
 import styles from "./DashboardPage.module.scss";
@@ -187,6 +190,9 @@ export const DashboardPage: React.FC = () => {
             <BidsByDivisionChart data={divisionChartData} />
           </div>
 
+          {/* ERN overview */}
+          <ErnDashboardSection bids={bids} />
+
           {/* Engineering Hours ranking + Deadlines */}
           <div className={styles.activityRow}>
             <EngHoursRanking
@@ -239,6 +245,7 @@ export const DashboardPage: React.FC = () => {
                     <th>Priority</th>
                     <th>Phase</th>
                     <th>Status</th>
+                    <th>ERN</th>
                     <th>Progress</th>
                   </tr>
                 </thead>
@@ -302,6 +309,37 @@ export const DashboardPage: React.FC = () => {
                           />
                         </td>
                         <td>
+                          {(() => {
+                            const links = getErnLinks(bid);
+                            if (links.length === 0)
+                              return (
+                                <StatusBadge
+                                  status="TBD"
+                                  color="var(--warning)"
+                                />
+                              );
+                            return (
+                              <span
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 2,
+                                }}
+                              >
+                                {links.map((l) => (
+                                  <span
+                                    key={l.ernNumber}
+                                    className={styles.mono}
+                                  >
+                                    {l.ernNumber}
+                                    {l.division ? ` · ${l.division}` : ""}
+                                  </span>
+                                ))}
+                              </span>
+                            );
+                          })()}
+                        </td>
+                        <td>
                           <div
                             style={{
                               width: 80,
@@ -313,7 +351,7 @@ export const DashboardPage: React.FC = () => {
                             <div
                               style={{
                                 height: "100%",
-                                width: `${bid.kpis?.phaseCompletionPercentage || 0}%`,
+                                width: `${getPhaseProgressByIndex(bid)}%`,
                                 background: "var(--primary-accent)",
                                 borderRadius: 3,
                               }}

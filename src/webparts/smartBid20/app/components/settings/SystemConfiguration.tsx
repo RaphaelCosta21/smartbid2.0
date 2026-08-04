@@ -365,6 +365,7 @@ const SystemConfiguration: React.FC = () => {
     label: "",
     color: "#3b82f6",
     category: "",
+    projectNumber: "",
   });
   const [message, setMessage] = React.useState<{
     type: "success" | "error";
@@ -491,7 +492,12 @@ const SystemConfiguration: React.FC = () => {
   ): void => {
     setEditItem(null);
     setPanelConfigKey(configKey);
-    setPanelForm({ label: "", color: "#3b82f6", category: category || "" });
+    setPanelForm({
+      label: "",
+      color: "#3b82f6",
+      category: category || "",
+      projectNumber: "",
+    });
     setShowPanel(true);
   };
 
@@ -505,6 +511,7 @@ const SystemConfiguration: React.FC = () => {
       label: item.label,
       color: item.color || "#3b82f6",
       category: (item.category as string) || "",
+      projectNumber: (item.projectNumber as string) || "",
     });
     setShowPanel(true);
   };
@@ -559,6 +566,7 @@ const SystemConfiguration: React.FC = () => {
               value: panelForm.label,
               color: panelForm.color,
               category: panelForm.category || undefined,
+              projectNumber: panelForm.projectNumber || undefined,
             }
           : o,
       );
@@ -573,6 +581,7 @@ const SystemConfiguration: React.FC = () => {
         order: list.length + 1,
         color: panelForm.color,
         category: panelForm.category || undefined,
+        projectNumber: panelForm.projectNumber || undefined,
       };
       updateConfig({ [key]: [...list, newItem] });
       showMsg("success", `"${panelForm.label}" added`);
@@ -1277,6 +1286,11 @@ const SystemConfiguration: React.FC = () => {
                     />
                   )}
                   <span className={styles.divisionName}>{div.label}</span>
+                  {div.projectNumber ? (
+                    <span className={styles.projectNumberTag}>
+                      PN: {String(div.projectNumber)}
+                    </span>
+                  ) : null}
                   {!div.isActive && (
                     <span className={styles.inactiveTag}>Inactive</span>
                   )}
@@ -1335,6 +1349,11 @@ const SystemConfiguration: React.FC = () => {
                         />
                       )}
                       <span className={styles.optionLabel}>{opt.label}</span>
+                      {opt.projectNumber ? (
+                        <span className={styles.projectNumberTag}>
+                          PN: {String(opt.projectNumber)}
+                        </span>
+                      ) : null}
                       {!opt.isActive && (
                         <span className={styles.inactiveTag}>Inactive</span>
                       )}
@@ -3203,6 +3222,37 @@ const SystemConfiguration: React.FC = () => {
                         </option>
                       ))}
                   </select>
+                </div>
+              )}
+              {(panelConfigKey === "serviceLines" ||
+                panelConfigKey === "divisions") && (
+                <div className={styles.fieldGroup}>
+                  <label>ERN Project Number</label>
+                  <input
+                    type="text"
+                    value={panelForm.projectNumber}
+                    placeholder="e.g. 0000249206"
+                    onChange={(e) =>
+                      setPanelForm({
+                        ...panelForm,
+                        projectNumber: e.currentTarget.value,
+                      })
+                    }
+                  />
+                  <p
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      margin: "4px 0 0",
+                    }}
+                  >
+                    Pre-fills the Project Number when creating an ERN for BIDs
+                    in this{" "}
+                    {panelConfigKey === "divisions"
+                      ? "division"
+                      : "service line"}
+                    . Always editable at creation time.
+                  </p>
                 </div>
               )}
               {panelConfigKey === "subStatuses" && editItem && config && (

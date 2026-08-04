@@ -29,6 +29,29 @@ export function getOverallProgress(bid: IBid): number {
   return Math.round((completedCount / allTasks.length) * 100);
 }
 
+/**
+ * Progress based on the BID's current phase position in the main workflow
+ * (Request Submitted → Close Out). Reflects phase advancement even when tasks
+ * are not tracked. Terminal statuses report 100%; Rework maps to its base phase.
+ */
+export function getPhaseProgressByIndex(bid: IBid): number {
+  // Main workflow phases, ordered (Rework excluded — it's a side branch)
+  const mainPhases = PHASE_CONFIGS.filter((p) => p.id !== "Rework").sort(
+    (a, b) => a.order - b.order,
+  );
+  const lastIndex = mainPhases.length - 1;
+  if (lastIndex <= 0) return 0;
+
+  let idx = mainPhases.findIndex((p) => p.id === bid.currentPhase);
+  // Rework or unknown phase → derive from the last completed main phase order
+  if (idx < 0) {
+    const cfg = PHASE_CONFIGS.find((p) => p.id === bid.currentPhase);
+    idx = cfg ? Math.min(cfg.order, lastIndex) : 0;
+  }
+  const pct = Math.round((idx / lastIndex) * 100);
+  return Math.max(0, Math.min(100, pct));
+}
+
 export function getPhaseIndex(phase: string): number {
   const idx = PHASE_CONFIGS.findIndex((p) => p.id === phase);
   return idx >= 0 ? idx : -1;

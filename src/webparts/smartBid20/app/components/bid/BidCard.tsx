@@ -3,6 +3,8 @@ import { StickyNote } from "lucide-react";
 import { IBid, IQuickNote } from "../../models";
 import { StatusBadge } from "../common/StatusBadge";
 import { getPhaseDef } from "../../config/status.config";
+import { getPhaseProgressByIndex } from "../../utils/phaseHelpers";
+import { getErnLinks } from "../../utils/ernHelpers";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useStatusColors } from "../../hooks/useStatusColors";
 import { differenceInDays, format } from "date-fns";
@@ -40,6 +42,7 @@ export const BidCard: React.FC<BidCardProps> = ({
     .map((e) => e.name)
     .filter(Boolean);
   const analysts = (bid.analyst || []).map((a) => a.name).filter(Boolean);
+  const ernLinks = getErnLinks(bid);
 
   const handleAddNote = (e: React.MouseEvent): void => {
     e.stopPropagation();
@@ -96,12 +99,22 @@ export const BidCard: React.FC<BidCardProps> = ({
             {analysts.join(", ")}
           </span>
         )}
+        <span>
+          ERN:{" "}
+          {ernLinks.length === 0
+            ? "TBD"
+            : ernLinks
+                .map((l) =>
+                  l.division ? `${l.ernNumber} (${l.division})` : l.ernNumber,
+                )
+                .join(", ")}
+        </span>
       </div>
 
       <div className={styles.progressBar}>
         <div
           className={styles.progressFill}
-          style={{ width: `${bid.kpis?.phaseCompletionPercentage || 0}%` }}
+          style={{ width: `${getPhaseProgressByIndex(bid)}%` }}
         />
       </div>
 

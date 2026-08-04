@@ -53,6 +53,7 @@ import {
 import { PRIORITY_COLORS } from "../utils/constants";
 import { formatDate, formatDaysLeft } from "../utils/formatters";
 import { isTerminalStatus } from "../utils/statusHelpers";
+import { getErnLinks } from "../utils/ernHelpers";
 import { makeId } from "../utils/idGenerator";
 import { useAccessLevel } from "../hooks/useAccessLevel";
 import { useConfigPhases } from "../hooks/useConfigPhases";
@@ -480,6 +481,23 @@ export const BidDetailPage: React.FC = () => {
           <div className={styles.bidHeaderMeta}>
             <span>
               CRM: <span className={styles.monoValue}>{bid.crmNumber}</span>
+            </span>
+            <span className={styles.headerSep}>|</span>
+            <span>
+              ERN:{" "}
+              <span className={styles.monoValue}>
+                {(() => {
+                  const links = getErnLinks(bid);
+                  if (links.length === 0) return "TBD";
+                  return links
+                    .map((l) =>
+                      l.division
+                        ? `${l.ernNumber} (${l.division})`
+                        : l.ernNumber,
+                    )
+                    .join(", ");
+                })()}
+              </span>
             </span>
             <span className={styles.headerSep}>|</span>
             <StatusBadge status={bid.currentStatus} />

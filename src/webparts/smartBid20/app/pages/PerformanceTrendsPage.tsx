@@ -39,6 +39,7 @@ import {
   completionTimeTrend,
   winRateTrend,
   otdTrend,
+  ernTrend,
   periodDelta,
   Delta,
 } from "../utils/analyticsHelpers";
@@ -101,6 +102,7 @@ export const PerformanceTrendsPage: React.FC = () => {
     [filtered, gran],
   );
   const otd = React.useMemo(() => otdTrend(filtered, gran), [filtered, gran]);
+  const erns = React.useMemo(() => ernTrend(filtered, gran), [filtered, gran]);
 
   const createdSpark = vol.map((p) => p.created);
   const compSpark = comp.map((p) => p.avgDays);
@@ -506,6 +508,56 @@ export const PerformanceTrendsPage: React.FC = () => {
                   maxBarSize={44}
                 />
               </BarChart>
+            </ResponsiveContainer>
+          </GlassCard>
+
+          <GlassCard
+            title="ERNs Criadas ao Longo do Tempo"
+            subtitle="Volume de ERNs vinculadas por período (respeita os filtros)"
+            accentColor={chart.info}
+            className={styles.spanAll}
+          >
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart
+                data={erns}
+                margin={{ top: 8, right: 16, bottom: 4, left: -8 }}
+              >
+                <defs>
+                  <linearGradient id="ernFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="5%"
+                      stopColor={chart.info}
+                      stopOpacity={0.35}
+                    />
+                    <stop offset="95%" stopColor={chart.info} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} stroke={chart.grid} />
+                <XAxis
+                  dataKey="period"
+                  tick={axisTick}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={axisTick}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  cursor={{ fill: chart.referenceFill }}
+                  content={<ChartTooltip />}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="erns"
+                  name="ERNs"
+                  stroke={chart.info}
+                  strokeWidth={2}
+                  fill="url(#ernFill)"
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </GlassCard>
 

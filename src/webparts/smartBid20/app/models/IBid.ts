@@ -865,4 +865,38 @@ export interface IBid {
   kpis: IBidKPIs;
   qualificationTables: IQualificationTable[];
   clarifications: IClarificationItem[];
+  /* ── ERN (Engineering Request Number) — one ERN per BID ── */
+  /** ERN Number, e.g. "ERN-42" (null = TBD, not yet created) */
+  ernNumber?: string | null;
+  /** SharePoint item Id of the ERN in "Engineering Requestt" */
+  ernId?: number | null;
+  /** Snapshot of the ERN status (live value fetched on screen open) */
+  ernStatus?: string | null;
+  /** Snapshot of the ERN Engineering Due Date (drives deadline reminders) — ISO */
+  ernDueDate?: string | null;
+  /** Snapshot of the ERN Released / Finish Date — ISO */
+  ernFinishDate?: string | null;
+  /** Who linked/created the ERN */
+  ernLinkedBy?: IPersonRef | null;
+  /** When the ERN was linked/created — ISO */
+  ernLinkedDate?: string | null;
+  /**
+   * Multiple ERN links — used for Integrated BIDs (one ERN per division:
+   * ROV + SURVEY). For non-integrated BIDs there is a single entry with
+   * division = null. Falls back to the legacy single ern* fields above.
+   */
+  ernLinks?: IBidErnLink[];
+}
+
+/** A single ERN linked to a BID (supports one-per-division for Integrated). */
+export interface IBidErnLink {
+  /** Division this ERN covers (Integrated BIDs). null = single ERN. */
+  division: "ROV" | "SURVEY" | null;
+  ernNumber: string;
+  ernId: number;
+  ernStatus: string;
+  ernDueDate: string;
+  ernFinishDate?: string;
+  linkedBy?: IPersonRef | null;
+  linkedDate?: string;
 }

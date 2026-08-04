@@ -35,7 +35,7 @@ import { useConfigStore } from "../stores/useConfigStore";
 import { TeamMemberStats, teamWorkload } from "../utils/analyticsHelpers";
 import styles from "./TeamAnalyticsPage.module.scss";
 
-type Metric = "workload" | "throughput" | "cycle" | "winrate";
+type Metric = "workload" | "throughput" | "cycle" | "winrate" | "erns";
 type ViewMode = "chart" | "leaderboard";
 type BidRoleFilter = "all" | "contributor" | "analyst";
 
@@ -50,6 +50,7 @@ const METRIC_SEGMENTS: SegmentOption<Metric>[] = [
   { value: "throughput", label: "Entregues" },
   { value: "cycle", label: "Ciclo" },
   { value: "winrate", label: "Win Rate" },
+  { value: "erns", label: "ERNs" },
 ];
 
 const VIEW_SEGMENTS: SegmentOption<ViewMode>[] = [
@@ -115,6 +116,7 @@ export const TeamAnalyticsPage: React.FC = () => {
       if (metric === "throughput") return s.completed;
       if (metric === "cycle") return s.avgCycleDays;
       if (metric === "winrate") return s.winRate;
+      if (metric === "erns") return s.ernsCreated;
       return s.active;
     },
     [metric],
@@ -127,7 +129,9 @@ export const TeamAnalyticsPage: React.FC = () => {
         ? chart.accentTertiary
         : metric === "winrate"
           ? chart.success
-          : chart.accentSecondary;
+          : metric === "erns"
+            ? chart.info
+            : chart.accentSecondary;
   const metricSuffix =
     metric === "cycle" ? "d" : metric === "winrate" ? "%" : "";
   const metricLabel =
@@ -495,6 +499,12 @@ export const TeamAnalyticsPage: React.FC = () => {
                           {s.winRate}%
                         </span>
                         <span className={styles.leaderStatLabel}>Win</span>
+                      </div>
+                      <div className={styles.leaderStat}>
+                        <span className={styles.leaderStatValue}>
+                          {s.ernsCreated}
+                        </span>
+                        <span className={styles.leaderStatLabel}>ERNs</span>
                       </div>
                     </div>
                     <div className={styles.leaderBar}>

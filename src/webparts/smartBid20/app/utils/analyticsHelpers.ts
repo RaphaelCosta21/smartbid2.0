@@ -6,6 +6,7 @@
  * the page via useStatusColors — helpers return raw dimension keys + numbers.
  */
 import { IBid, BidPhase, ITeamMember, IPersonRef } from "../models";
+import { getErnLinks } from "./ernHelpers";
 
 export type Granularity = "week" | "month" | "quarter";
 export type DurationStat = "avg" | "median" | "max";
@@ -31,8 +32,18 @@ export const DEFAULT_TERMINAL_STATUSES = [
 ];
 
 const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 const MS_PER_DAY = 86400000;
@@ -193,6 +204,36 @@ export function volumeTrend(bids: IBid[], gran: Granularity): VolumePoint[] {
   }));
 }
 
+export interface ErnTrendPoint {
+  key: string;
+  period: string;
+  erns: number;
+}
+
+/**
+ * ERN volume over time — counts ERN links per period, keyed by when each ERN
+ * was linked/created (falls back to the BID's created date).
+ */
+export function ernTrend(bids: IBid[], gran: Granularity): ErnTrendPoint[] {
+  const dates: Date[] = [];
+  const counts: { [k: string]: number } = {};
+  bids.forEach((b) => {
+    getErnLinks(b).forEach((l) => {
+      const d = toDate(l.linkedDate || b.createdDate);
+      if (!d) return;
+      dates.push(d);
+      const k = periodKey(d, gran);
+      counts[k] = (counts[k] || 0) + 1;
+    });
+  });
+  const keys = buildPeriodSequence(dates, gran);
+  return keys.map((k) => ({
+    key: k,
+    period: periodLabel(k, gran),
+    erns: counts[k] || 0,
+  }));
+}
+
 export interface CompletionPoint {
   key: string;
   period: string;
@@ -220,9 +261,7 @@ export function completionTimeTrend(
     return {
       key: k,
       period: periodLabel(k, gran),
-      avgDays: vals.length
-        ? Math.round(aggregate(vals, "avg") * 10) / 10
-        : 0,
+      avgDays: vals.length ? Math.round(aggregate(vals, "avg") * 10) / 10 : 0,
       count: vals.length,
     };
   });
@@ -243,8 +282,7 @@ export function winRateTrend(bids: IBid[], gran: Granularity): WinRatePoint[] {
   bids.forEach((b) => {
     const outcome = b.bidResult?.outcome;
     if (outcome !== "Won" && outcome !== "Loss") return;
-    const ref =
-      toDate(b.bidResult?.outcomeDate) || toDate(b.completedDate);
+    const ref = toDate(b.bidResult?.outcomeDate) || toDate(b.completedDate);
     if (!ref) return;
     const k = periodKey(ref, gran);
     if (outcome === "Won") won[k] = (won[k] || 0) + 1;
@@ -321,9 +359,7 @@ export function durationByPhase(
   bids.forEach((b) => {
     (b.phaseHistory || []).forEach((e) => {
       if (e.durationHours != null && e.durationHours >= 0) {
-        (buckets[e.phase] = buckets[e.phase] || []).push(
-          e.durationHours / 24,
-        );
+        (buckets[e.phase] = buckets[e.phase] || []).push(e.durationHours / 24);
       }
     });
   });
@@ -369,7 +405,9 @@ export interface HeatmapMatrix {
   divisions: string[];
   phases: BidPhase[];
   /** cells[division][phase] = { days, count } */
-  cells: { [division: string]: { [phase: string]: { days: number; count: number } } };
+  cells: {
+    [division: string]: { [phase: string]: { days: number; count: number } };
+  };
   maxDays: number;
 }
 
@@ -482,7 +520,11 @@ export function divisionLoad(
   bids.forEach((b) => {
     if (!isBidActive(b, terminalStatuses)) return;
     const div = b.division || "—";
-    const row = (map[div] = map[div] || { division: div, active: 0, overdue: 0 });
+    const row = (map[div] = map[div] || {
+      division: div,
+      active: 0,
+      overdue: 0,
+    });
     row.active++;
     const due = toDate(b.desiredDueDate) || toDate(b.dueDate);
     if (due && due.getTime() < now.getTime()) row.overdue++;
@@ -503,6 +545,7 @@ export interface TeamMemberStats {
   total: number;
   avgCycleDays: number;
   winRate: number;
+  ernsCreated: number;
 }
 
 function bidHasRole(bid: IBid, email: string, role: TeamRole): boolean {
@@ -532,12 +575,28 @@ export function teamWorkload(
         (b) => b.completedDate && b.createdDate,
       );
       const cycles = completedBids.map((b) =>
-        daysBetween(new Date(b.createdDate), new Date(b.completedDate as string)),
+        daysBetween(
+          new Date(b.createdDate),
+          new Date(b.completedDate as string),
+        ),
       );
       const decided = owned.filter(
-        (b) => b.bidResult?.outcome === "Won" || b.bidResult?.outcome === "Loss",
+        (b) =>
+          b.bidResult?.outcome === "Won" || b.bidResult?.outcome === "Loss",
       );
       const won = decided.filter((b) => b.bidResult?.outcome === "Won").length;
+      // ERNs created by this member (across all bids in the set)
+      let ernsCreated = 0;
+      bids.forEach((b) => {
+        getErnLinks(b).forEach((l) => {
+          if (
+            l.linkedBy?.email &&
+            l.linkedBy.email.toLowerCase() === m.email.toLowerCase()
+          ) {
+            ernsCreated++;
+          }
+        });
+      });
       return {
         member: m,
         active,
@@ -547,9 +606,10 @@ export function teamWorkload(
           ? Math.round(aggregate(cycles, "avg") * 10) / 10
           : 0,
         winRate: decided.length ? Math.round((won / decided.length) * 100) : 0,
+        ernsCreated,
       };
     })
-    .filter((s) => s.total > 0)
+    .filter((s) => s.total > 0 || s.ernsCreated > 0)
     .sort((a, b) => b.active - a.active);
 }
 

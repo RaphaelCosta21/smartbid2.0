@@ -57,6 +57,7 @@ export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
       isActive: true,
       order: 1,
       color: "#3b82f6",
+      projectNumber: "0000249114",
     },
     {
       id: "div-2",
@@ -123,6 +124,7 @@ export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
       isActive: true,
       order: 7,
       category: "SSR",
+      projectNumber: "0000249206",
     },
     {
       id: "sl-3",
@@ -131,6 +133,7 @@ export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
       isActive: true,
       order: 8,
       category: "SSR",
+      projectNumber: "0000249202",
     },
     {
       id: "sl-12",

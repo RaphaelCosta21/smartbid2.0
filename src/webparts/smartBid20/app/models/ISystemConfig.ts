@@ -9,6 +9,8 @@ export interface IConfigOption {
   order?: number;
   color?: string;
   category?: string;
+  /** ERN Project Number assigned to this Division / Service Line (used to pre-fill ERN creation) */
+  projectNumber?: string;
   [key: string]: unknown;
 }
 

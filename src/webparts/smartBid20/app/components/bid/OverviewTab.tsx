@@ -32,6 +32,17 @@ import { EmptySection } from "./EmptySection";
 import { getPhaseLabelForBid } from "../../utils/phaseHelpers";
 import { calcElapsedDays } from "../../utils/durationHelpers";
 import { getCurrentRevisionLetter, hasActiveRevision } from "./RevisionsTab";
+import { ErnCreateModal } from "./ErnCreateModal";
+import { ErnDetailsModal } from "./ErnDetailsModal";
+import { ErnSearchModal } from "./ErnSearchModal";
+import {
+  getErnDeadlineState,
+  getErnSlots,
+  getErnLinkForSlot,
+  getLinkedErnTitles,
+  ErnDivision,
+} from "../../utils/ernHelpers";
+import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import styles from "../../pages/BidDetailPage.module.scss";
 
 /* ─── Helpers ─── */
@@ -357,6 +368,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const isClosed = isTerminalStatus(bid.currentStatus);
   const spfxContext = useSpfxContext();
 
+  // ERN modals
+  const [ernCreate, setErnCreate] = React.useState<{
+    division: ErnDivision;
+  } | null>(null);
+  const [ernSearch, setErnSearch] = React.useState<{
+    division: ErnDivision;
+  } | null>(null);
+  const [ernDetails, setErnDetails] = React.useState<string | null>(null);
+  const ernSlots = getErnSlots(bid);
+  const ernAppUrl = SHAREPOINT_CONFIG.ern.appUrl;
+
   // Photo loading for Key People
   const [photoMap, setPhotoMap] = React.useState<Record<string, string>>({});
   const [membersMap, setMembersMap] = React.useState<
@@ -657,7 +679,16 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     border: "none",
   };
   const cancelBtnStyle: React.CSSProperties = { ...editBtnStyle };
-
+  const ernLinkBtnStyle: React.CSSProperties = {
+    ...editBtnStyle,
+    padding: "2px 8px",
+    fontSize: 11,
+  };
+  const ernCreateBtnStyle: React.CSSProperties = {
+    ...saveBtnStyle,
+    padding: "2px 8px",
+    fontSize: 11,
+  };
   const EditInput: React.FC<{
     value: string;
     onChange: (v: string) => void;
@@ -929,8 +960,143 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               label="Status"
               value={<StatusBadge status={bid.currentStatus} />}
             />
+            {ernSlots.map((slot) => {
+              const link = getErnLinkForSlot(bid, slot.division);
+              const slotLabel = slot.label
+                ? `ERN (${slot.label})`
+                : "ERN Number";
+              const slotDeadline = link
+                ? getErnDeadlineState(link.ernDueDate, link.ernStatus)
+                : "none";
+              return (
+                <InfoRow
+                  key={slot.label || "single"}
+                  label={slotLabel}
+                  value={
+                    link ? (
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span className={styles.monoValue}>
+                          {link.ernNumber}
+                        </span>
+                        <button
+                          type="button"
+                          style={ernLinkBtnStyle}
+                          onClick={() => setErnDetails(link.ernNumber)}
+                        >
+                          View details
+                        </button>
+                        {slotDeadline === "overdue" && (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: "var(--danger)",
+                            }}
+                          >
+                            ERN OVERDUE
+                          </span>
+                        )}
+                        {slotDeadline === "due-soon" && (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: "var(--warning)",
+                            }}
+                          >
+                            ERN due soon
+                          </span>
+                        )}
+                        {(slotDeadline === "overdue" ||
+                          slotDeadline === "due-soon") && (
+                          <a
+                            href={ernAppUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: "var(--primary-accent)",
+                            }}
+                          >
+                            Open ERN app ↗
+                          </a>
+                        )}
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <StatusBadge status="TBD" color="var(--warning)" />
+                        {canEdit && (
+                          <>
+                            <button
+                              type="button"
+                              style={ernCreateBtnStyle}
+                              onClick={() =>
+                                setErnCreate({ division: slot.division })
+                              }
+                            >
+                              Create ERN
+                            </button>
+                            <button
+                              type="button"
+                              style={ernLinkBtnStyle}
+                              onClick={() =>
+                                setErnSearch({ division: slot.division })
+                              }
+                            >
+                              Select existing
+                            </button>
+                          </>
+                        )}
+                      </span>
+                    )
+                  }
+                />
+              );
+            })}
           </div>
         </div>
+
+        {ernCreate && (
+          <ErnCreateModal
+            bid={bid}
+            isOpen={!!ernCreate}
+            division={ernCreate.division}
+            onDismiss={() => setErnCreate(null)}
+            onCreated={() => setErnCreate(null)}
+          />
+        )}
+        {ernSearch && (
+          <ErnSearchModal
+            bid={bid}
+            isOpen={!!ernSearch}
+            division={ernSearch.division}
+            excludeTitles={getLinkedErnTitles(bid)}
+            onDismiss={() => setErnSearch(null)}
+            onSelected={() => setErnSearch(null)}
+          />
+        )}
+        {ernDetails && (
+          <ErnDetailsModal
+            ernNumber={ernDetails}
+            isOpen={!!ernDetails}
+            onDismiss={() => setErnDetails(null)}
+          />
+        )}
 
         {/* Operational Summary */}
         <div className={styles.infoSection}>

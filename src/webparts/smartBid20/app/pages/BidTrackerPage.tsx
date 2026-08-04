@@ -4,6 +4,8 @@ import { useBidStore, ViewMode } from "../stores/useBidStore";
 import { useBids } from "../hooks/useBids";
 import { useStatusColors } from "../hooks/useStatusColors";
 import { isActiveBid } from "../utils/bidHelpers";
+import { getPhaseProgressByIndex } from "../utils/phaseHelpers";
+import { getErnLinks } from "../utils/ernHelpers";
 import { useConfigStore } from "../stores/useConfigStore";
 import { getPhaseDef } from "../config/status.config";
 import { PageHeader } from "../components/common/PageHeader";
@@ -13,6 +15,7 @@ import { StatusBadge } from "../components/common/StatusBadge";
 import { BidCard } from "../components/bid/BidCard";
 import { IBid, IQuickNote } from "../models";
 import { BidService } from "../services/BidService";
+import { useErnStore } from "../stores/useErnStore";
 import { useDebounce } from "../hooks/useDebounce";
 import { differenceInDays, format } from "date-fns";
 import styles from "./BidTrackerPage.module.scss";
@@ -55,6 +58,20 @@ export const BidTrackerPage: React.FC = () => {
   const [searchInput, setSearchInput] = React.useState(filters.search);
   const debouncedSearch = useDebounce(searchInput, 300);
   const now = new Date();
+
+  // Load ERNs once so we can show live status in the tracker
+  const erns = useErnStore((s) => s.erns);
+  const loadErns = useErnStore((s) => s.loadAll);
+  React.useEffect(() => {
+    loadErns().catch(console.error);
+  }, [loadErns]);
+  const ernByTitle = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    erns.forEach((e) => {
+      map[e.title] = e.status;
+    });
+    return map;
+  }, [erns]);
 
   React.useEffect(() => {
     setFilters({ search: debouncedSearch });
@@ -272,18 +289,52 @@ export const BidTrackerPage: React.FC = () => {
       ),
     },
     {
+      key: "ern",
+      header: "ERN",
+      render: (bid: IBid) => {
+        const links = getErnLinks(bid);
+        if (links.length === 0) {
+          return <StatusBadge status="TBD" color="var(--warning)" />;
+        }
+        return (
+          <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {links.map((l) => {
+              const liveStatus = ernByTitle[l.ernNumber] || l.ernStatus || "";
+              return (
+                <span
+                  key={l.ernNumber}
+                  style={{ display: "flex", flexDirection: "column" }}
+                >
+                  <span className={styles.mono}>
+                    {l.ernNumber}
+                    {l.division ? ` · ${l.division}` : ""}
+                  </span>
+                  {liveStatus && (
+                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      {liveStatus}
+                    </span>
+                  )}
+                </span>
+              );
+            })}
+          </span>
+        );
+      },
+    },
+    {
       key: "progress",
       header: "Progress",
-      render: (bid: IBid) => (
-        <div className={styles.progressBarTrack}>
-          <div
-            className={styles.progressBarFill}
-            style={{
-              width: `${bid.kpis?.phaseCompletionPercentage || 0}%`,
-            }}
-          />
-        </div>
-      ),
+      render: (bid: IBid) => {
+        const pct = getPhaseProgressByIndex(bid);
+        return (
+          <div className={styles.progressBarTrack} title={`${pct}%`}>
+            <div
+              className={styles.progressBarFill}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        );
+      },
     },
   ];
 

@@ -13,8 +13,9 @@ export const SHAREPOINT_CONFIG = {
     templates: "smartbid-templates",
     quotations: "smartbid-quotations",
     clarificationsDatabase: "Clarifications Database",
+    /** Engineering Request Number list (same-site) — note the double "t" */
+    erns: "Engineering Requestt",
   },
-
   libraries: {
     attachments: "SmartBidAttachments",
   },
@@ -108,6 +109,44 @@ export const SHAREPOINT_CONFIG = {
   /** Path to the Queries.xlsx Excel catalog in SharePoint */
   queriesExcelPath:
     "/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Queries/Queries.xlsx",
+
+  /**
+   * ERN (Engineering Request Number) integration — the list lives on the same
+   * site. The list Title differs from its URL segment, so access it by its
+   * server-relative URL via web.getList (getByTitle('Engineering Requestt')
+   * returns 404). Internal field names below.
+   */
+  ern: {
+    /** Server-relative URL of the ERN list (used with web.getList) */
+    listUrl: "/sites/G-OPGSSRBrazilEngineering/Lists/Engineering Requestt",
+    /** Deep link to the external ERN Power App (used in deadline reminders) */
+    appUrl:
+      "https://apps.powerapps.com/play/e/default-97525e9a-595d-472c-8248-0dc58f852d61/a/1b08a7bc-4e21-42a3-b729-676c303eb16a?tenantId=97525e9a-595d-472c-8248-0dc58f852d61&source=sharebutton",
+    /** Days-before-due threshold that triggers the "due soon" warning */
+    dueSoonDays: 5,
+    fields: {
+      status: "field_1",
+      dueDate: "field_4",
+      finishDate: "FinishDate",
+      projectTitle: "ProjectTitle",
+      projectNumber: "field_14",
+      description: "field_2",
+      deliverableType: "field_20",
+      typeOfRequest: "field_12",
+      serviceLine: "ServiceLine",
+      contentAction: "field_28",
+      revisionReason: "RevisionReason",
+      projectName: "field_15",
+      checkerDueDate: "CheckerDueDate",
+      leadDate: "LeadDate",
+      resource1: "Resource1",
+      emailResource1: "EmailResource1",
+      resource3: "Resource3",
+      emailChecker: "EmailChecker",
+      lead: "Lead",
+      leadEmail: "LeadEmail",
+    },
+  },
 
   fields: {
     title: "Title",

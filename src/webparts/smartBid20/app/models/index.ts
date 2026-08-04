@@ -26,6 +26,7 @@ export {
   type IQuickNote,
   type IOpportunityInfo,
   type IExchangeRateSnapshot,
+  type IBidErnLink,
   type IPhaseHistoryEntry,
   type IStatusHistoryEntry,
   type IBidTask,
@@ -183,3 +184,9 @@ export {
   type BomCostSource,
 } from "./IBomCostAnalysis";
 export { type IQuotationItem, type QuotationType } from "./IQuotationItem";
+export {
+  type IErn,
+  type IErnCreateData,
+  type IErnCreateResult,
+  type ErnDeadlineState,
+} from "./IErn";

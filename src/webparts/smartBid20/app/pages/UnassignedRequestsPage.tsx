@@ -15,10 +15,12 @@ import { RequestService } from "../services/RequestService";
 import { BidService } from "../services/BidService";
 import { useBidStore } from "../stores/useBidStore";
 import { IBidRequest } from "../models/IBidRequest";
-import { IPersonRef } from "../models";
+import { IPersonRef, IBid } from "../models";
 import { ITeamMember } from "../models/ITeamMember";
 import { PRIORITY_COLORS } from "../utils/constants";
 import { useStatusColors } from "../hooks/useStatusColors";
+import { ErnCreateModal } from "../components/bid/ErnCreateModal";
+import { isIntegratedBid } from "../utils/ernHelpers";
 import { format } from "date-fns";
 import styles from "./UnassignedRequestsPage.module.scss";
 
@@ -83,6 +85,19 @@ export const UnassignedRequestsPage: React.FC = () => {
   );
   const [selectedAnalysts, setSelectedAnalysts] = React.useState<string[]>([]);
   const [saving, setSaving] = React.useState(false);
+  // ERN — optional creation right after assignment
+  const [createErnAfterAssign, setCreateErnAfterAssign] = React.useState(false);
+  const [ernModalBid, setErnModalBid] = React.useState<IBid | null>(null);
+  // Auto-scroll to the assign panel when it opens
+  const assignPanelRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (showAssignPanel && assignPanelRef.current) {
+      const el = assignPanelRef.current;
+      window.setTimeout(() => {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 60);
+    }
+  }, [showAssignPanel]);
   const [message, setMessage] = React.useState<{
     type: "success" | "error";
     text: string;
@@ -366,6 +381,10 @@ export const UnassignedRequestsPage: React.FC = () => {
       await loadRequests();
       // Refresh global bid store so other pages (BidTracker, Dashboard) see the update
       await useBidStore.getState().refreshBids();
+      // Optionally open the ERN creation modal for the freshly-assigned BID
+      if (createErnAfterAssign) {
+        setErnModalBid(bid);
+      }
     } catch (err) {
       console.error("Error assigning request:", err);
       showMsg("error", "Failed to assign request.");
@@ -385,7 +404,7 @@ export const UnassignedRequestsPage: React.FC = () => {
     const isSelf = isContributor && !isManager && !currentUser.isSuperAdmin;
 
     return (
-      <div className={styles.assignPanel}>
+      <div className={styles.assignPanel} ref={assignPanelRef}>
         <div className={styles.assignTitle}>
           <svg
             width="16"
@@ -568,6 +587,25 @@ export const UnassignedRequestsPage: React.FC = () => {
         </div>
 
         <div className={styles.assignActions}>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 13,
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+              marginBottom: 4,
+              width: "100%",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={createErnAfterAssign}
+              onChange={(e) => setCreateErnAfterAssign(e.target.checked)}
+            />
+            Create ERN right after confirming (optional)
+          </label>
           <button
             className={styles.btnPrimary}
             onClick={handleAssign}
@@ -1558,6 +1596,17 @@ export const UnassignedRequestsPage: React.FC = () => {
 
       {/* Detail Modal */}
       {selectedRequest && renderDetailModal()}
+
+      {/* ERN creation right after assignment (optional) */}
+      {ernModalBid && (
+        <ErnCreateModal
+          bid={ernModalBid}
+          isOpen={!!ernModalBid}
+          division={isIntegratedBid(ernModalBid) ? "ROV" : null}
+          onDismiss={() => setErnModalBid(null)}
+          onCreated={() => setErnModalBid(null)}
+        />
+      )}
     </div>
   );
 };
