@@ -42,6 +42,8 @@ function getActivityColor(type: string): string {
     APPROVAL_RESPONSE: "var(--success-color, #10B981)",
     COMMENT_ADDED: "var(--accent-cyan, #06B6D4)",
     BID_CREATED: "var(--success-color, #22C55E)",
+    ERN_LINKED: "var(--primary-accent, #3B82F6)",
+    ERN_CHANGED: "var(--warning-color, #F59E0B)",
   };
   return colors[type] || "var(--text-tertiary, #94A3B8)";
 }

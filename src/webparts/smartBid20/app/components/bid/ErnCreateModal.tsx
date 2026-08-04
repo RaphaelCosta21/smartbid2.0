@@ -197,6 +197,7 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
           ernDueDate: result.dueDate,
         },
         linkedBy,
+        "created",
       );
 
       addToast({

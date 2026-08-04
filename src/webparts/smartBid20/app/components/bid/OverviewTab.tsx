@@ -13,12 +13,14 @@ import { EditLockBanner } from "../common/EditLockBanner";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useConfigPhases } from "../../hooks/useConfigPhases";
 import { useEditControl } from "../../hooks/useEditControl";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useSpfxContext } from "../../config/SpfxContext";
 import { MembersService } from "../../services/MembersService";
 import { CurrencyService } from "../../services/CurrencyService";
 import { isTerminalStatus } from "../../utils/statusHelpers";
 import { PRIORITY_COLORS } from "../../utils/constants";
 import { createActivityLogEntry } from "../../utils/activityLogHelpers";
+import { canManageErn } from "../../utils/accessControl";
 import {
   formatDate,
   formatDateTime,
@@ -367,6 +369,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const config = useConfigStore((s) => s.config);
   const isClosed = isTerminalStatus(bid.currentStatus);
   const spfxContext = useSpfxContext();
+
+  // Only the Engineering team (or super admins) may create/select/change ERNs
+  const fullUser = useCurrentUser();
+  const canEditErn = !!canEdit && canManageErn(fullUser);
 
   // ERN modals
   const [ernCreate, setErnCreate] = React.useState<{
@@ -992,6 +998,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         >
                           View details
                         </button>
+                        {canEditErn && (
+                          <button
+                            type="button"
+                            style={ernLinkBtnStyle}
+                            onClick={() =>
+                              setErnSearch({ division: slot.division })
+                            }
+                          >
+                            Change
+                          </button>
+                        )}
                         {slotDeadline === "overdue" && (
                           <span
                             style={{
@@ -1040,7 +1057,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         }}
                       >
                         <StatusBadge status="TBD" color="var(--warning)" />
-                        {canEdit && (
+                        {canEditErn && (
                           <>
                             <button
                               type="button"

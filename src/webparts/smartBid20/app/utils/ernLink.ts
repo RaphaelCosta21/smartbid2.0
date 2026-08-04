@@ -5,7 +5,7 @@
 import { IBid, IBidErnLink, IPersonRef } from "../models";
 import { BidService } from "../services/BidService";
 import { useBidStore } from "../stores/useBidStore";
-import { getErnLinks, ErnDivision } from "./ernHelpers";
+import { getErnLinks, getErnLinkForSlot, ErnDivision } from "./ernHelpers";
 
 export interface IErnLinkInput {
   ernNumber: string;
@@ -15,15 +15,20 @@ export interface IErnLinkInput {
   ernFinishDate?: string;
 }
 
+/** How the ERN reached the BID — drives the activity log wording. */
+export type ErnLinkSource = "created" | "selected";
+
 /**
  * Attach an ERN to a BID for the given division slot (null = single ERN),
- * persist the patch, and refresh the global bid store.
+ * persist the patch, and refresh the global bid store. Records the action
+ * (created / linked / changed) in the BID activity log.
  */
 export async function linkErnToBid(
   bid: IBid,
   division: ErnDivision,
   link: IErnLinkInput,
   linkedBy: IPersonRef | null,
+  source: ErnLinkSource = "selected",
 ): Promise<void> {
   const now = new Date().toISOString();
 
@@ -38,6 +43,10 @@ export async function linkErnToBid(
     linkedDate: now,
   };
 
+  // Existing ERN in this slot (if any) — a different one means a reassignment
+  const previous = getErnLinkForSlot(bid, division);
+  const isChange = !!previous && previous.ernNumber !== link.ernNumber;
+
   // Replace any existing link for the same slot, keep the others
   const existing = getErnLinks(bid).filter(
     (l) => (l.division || null) !== (division || null),
@@ -46,6 +55,19 @@ export async function linkErnToBid(
 
   // Primary link drives the legacy single fields (non-integrated view fallbacks)
   const primary = ernLinks.find((l) => l.division === null) || ernLinks[0];
+
+  const divLabel = division ? ` (${division})` : "";
+  let logType: string;
+  let description: string;
+  if (isChange) {
+    logType = "ERN_CHANGED";
+    const suffix = source === "created" ? " (new ERN created)" : "";
+    description = `ERN changed from ${previous!.ernNumber} to ${link.ernNumber}${suffix}${divLabel}`;
+  } else {
+    logType = "ERN_LINKED";
+    const verb = source === "created" ? "created and linked" : "linked";
+    description = `ERN ${link.ernNumber} ${verb} to this BID${divLabel}`;
+  }
 
   const patch: Partial<IBid> = {
     ernLinks,
@@ -60,17 +82,17 @@ export async function linkErnToBid(
       ...(bid.activityLog || []),
       {
         id: `log-${Date.now()}-ern`,
-        type: "OTHER",
+        type: logType,
         timestamp: now,
         actor: linkedBy?.email || "",
         actorName: linkedBy?.name || "",
-        description: `ERN ${link.ernNumber} linked to this BID${
-          division ? ` (${division})` : ""
-        }`,
+        description,
         metadata: {
           ernNumber: link.ernNumber,
           ernStatus: link.ernStatus,
           division: division || "",
+          previousErn: isChange ? previous!.ernNumber : "",
+          source,
         },
       },
     ],

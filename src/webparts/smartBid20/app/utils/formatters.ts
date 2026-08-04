@@ -28,15 +28,21 @@ export function formatDate(
   dateStr: string,
   pattern: string = "MMM d, yyyy",
 ): string {
-  return format(new Date(dateStr), pattern);
+  const d = new Date(dateStr);
+  if (!dateStr || isNaN(d.getTime())) return "—";
+  return format(d, pattern);
 }
 
 export function formatDateTime(dateStr: string): string {
-  return format(new Date(dateStr), "MMM d, yyyy HH:mm");
+  const d = new Date(dateStr);
+  if (!dateStr || isNaN(d.getTime())) return "—";
+  return format(d, "MMM d, yyyy HH:mm");
 }
 
 export function formatRelativeTime(dateStr: string): string {
-  return formatDistanceToNow(new Date(dateStr), { addSuffix: true });
+  const d = new Date(dateStr);
+  if (!dateStr || isNaN(d.getTime())) return "—";
+  return formatDistanceToNow(d, { addSuffix: true });
 }
 
 export function formatDaysLeft(dueDate: string): {

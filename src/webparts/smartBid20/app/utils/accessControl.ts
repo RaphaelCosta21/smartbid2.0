@@ -114,3 +114,13 @@ export function canAccessKnowledge(user: IUser | undefined | null): boolean {
   if (user.isSuperAdmin || isSuperAdmin(user.email || "")) return true;
   return user.sector === "engineering";
 }
+
+/**
+ * Whether the user can create, select or change the ERN linked to a BID.
+ * Restricted to the Engineering team (plus super admins).
+ */
+export function canManageErn(user: IUser | undefined | null): boolean {
+  if (!user) return false;
+  if (user.isSuperAdmin || isSuperAdmin(user.email || "")) return true;
+  return user.sector === "engineering";
+}
