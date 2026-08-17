@@ -43,6 +43,8 @@ import {
   IHoursSummary,
   IBidComment,
   IActivityLogEntry,
+  IAIImportMeta,
+  IAISuggestedClarification,
 } from "../models";
 import { ITeamMember } from "../models/ITeamMember";
 import {
@@ -60,6 +62,8 @@ import { useConfigPhases } from "../hooks/useConfigPhases";
 import { EditControlService } from "../services/EditControlService";
 import { useEditControl } from "../hooks/useEditControl";
 import { EditableTabContent } from "../components/common/EditLockBanner";
+import { ClarificationSuggestionsModal } from "../components/bid/ClarificationSuggestionsModal";
+import { mapSuggestedClarification } from "../utils/aiClarificationMapper";
 import styles from "./BidDetailPage.module.scss";
 
 type BidTab =
@@ -212,8 +216,13 @@ export const BidDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = React.useState<BidTab>("overview");
   const [navCollapsed, setNavCollapsed] = React.useState(false);
   const [teamMembers, setTeamMembers] = React.useState<ITeamMember[]>([]);
+  const [aiClarSuggestions, setAiClarSuggestions] = React.useState<
+    IAISuggestedClarification[]
+  >([]);
+  const [aiClarModalOpen, setAiClarModalOpen] = React.useState(false);
   const currentUser = useCurrentUser();
   const setSidebarExpanded = useUIStore((s) => s.setSidebarExpanded);
+  const addToast = useUIStore((s) => s.addToast);
 
   // Collapse sidebar when entering BidDetail, restore on leave
   React.useEffect(() => {
@@ -448,6 +457,102 @@ export const BidDetailPage: React.FC = () => {
   // revision) or unassigned. All other users see these pages read-only.
   const canEditBidTabs = isEngineeringTeam && !isBidLocked && !isUnassigned;
 
+  /**
+   * Merge AI-generated scope items into the BID, tag them as AI-sourced, and
+   * record an activity-log entry describing what the AI produced and how the
+   * user edited it before importing. Shared by the AI tab and the in-scope AI
+   * modal so both paths log consistently in a single atomic save.
+   */
+  const importAiScope = (
+    aiItems: IScopeItem[],
+    meta: IAIImportMeta,
+    division?: "ROV" | "SURVEY" | "OPG" | null,
+  ): void => {
+    const existing = bid.scopeItems || [];
+    let nextLine =
+      existing.length > 0
+        ? Math.max.apply(
+            null,
+            existing.map((i) => i.lineNumber),
+          ) + 1
+        : 1;
+    const mapped: IScopeItem[] = [];
+    let currentSectionId: string | null = null;
+    aiItems.forEach((item) => {
+      const newId = makeId("ai");
+      const mappedItem: IScopeItem = {
+        ...item,
+        id: newId,
+        lineNumber: nextLine++,
+        sectionId: item.isSection ? null : currentSectionId,
+        importedFromTemplate: "ai-analysis",
+        source: "ai",
+        aiPendingReview: true,
+        integratedDivision: division || item.integratedDivision || "",
+      };
+      if (item.isSection) currentSectionId = newId;
+      mapped.push(mappedItem);
+    });
+
+    const editSummary =
+      meta.editedCount > 0 || meta.addedCount > 0 || meta.removedCount > 0
+        ? ` (${meta.editedCount} edited, ${meta.addedCount} added, ${meta.removedCount} removed before import)`
+        : "";
+    const logEntry: IActivityLogEntry = {
+      id: makeId("log"),
+      type: "ai-import",
+      timestamp: new Date().toISOString(),
+      actor: currentUser.email,
+      actorName: currentUser.displayName || currentUser.email,
+      description:
+        `AI Analysis: imported ${meta.finalItemCount} item${meta.finalItemCount === 1 ? "" : "s"} ` +
+        `from ${meta.sourceDocument}${editSummary}`,
+      metadata: {
+        sourceDocument: meta.sourceDocument,
+        promptVersion: meta.promptVersion || "backend-managed",
+        aiItemCount: meta.aiItemCount,
+        finalItemCount: meta.finalItemCount,
+        editedCount: meta.editedCount,
+        addedCount: meta.addedCount,
+        removedCount: meta.removedCount,
+        warnings: meta.warnings,
+      },
+    };
+
+    savePatch({
+      scopeItems: [...existing, ...mapped],
+      activityLog: [...(bid.activityLog || []), logEntry],
+    });
+
+    if (
+      meta.suggestedClarifications &&
+      meta.suggestedClarifications.length > 0
+    ) {
+      setAiClarSuggestions(meta.suggestedClarifications);
+      setAiClarModalOpen(true);
+    }
+  };
+
+  /**
+   * Accept AI-suggested clarifications (from a scope analysis) into the BID's
+   * clarifications list.
+   */
+  const acceptAiClarifications = (
+    accepted: IAISuggestedClarification[],
+  ): void => {
+    if (accepted.length > 0) {
+      const mapped = accepted.map((s) => mapSuggestedClarification(s));
+      savePatch({
+        clarifications: [...(bid.clarifications || []), ...mapped],
+      });
+      addToast({
+        type: "success",
+        title: `${mapped.length} clarification${mapped.length > 1 ? "s" : ""} added`,
+      });
+    }
+    setAiClarModalOpen(false);
+  };
+
   return (
     <div className={styles.bidDetail}>
       {/* Back Button */}
@@ -653,6 +758,9 @@ export const BidDetailPage: React.FC = () => {
                         scopeItems={filtered}
                         readOnly={!isEditing}
                         bidNumber={bid.bidNumber}
+                        onAiImport={(aiItems, meta) =>
+                          importAiScope(aiItems, meta, div)
+                        }
                         onSave={(items) => {
                           if (div) {
                             const others = (bid.scopeItems || []).filter(
@@ -1547,61 +1655,7 @@ export const BidDetailPage: React.FC = () => {
           {activeTab === "ai" && (
             <AITab
               bid={bid}
-              onImportItems={(items: IScopeItem[], sourceDoc: string) => {
-                const existing = bid.scopeItems || [];
-                let nextLine =
-                  existing.length > 0
-                    ? Math.max.apply(
-                        null,
-                        existing.map(function (i) {
-                          return i.lineNumber;
-                        }),
-                      ) + 1
-                    : 1;
-
-                const mapped: IScopeItem[] = [];
-                let currentSectionId: string | null = null;
-                items.forEach(function (item) {
-                  var newId = makeId("ai");
-                  if (item.isSection) {
-                    currentSectionId = newId;
-                    mapped.push({
-                      ...item,
-                      id: newId,
-                      lineNumber: nextLine++,
-                      sectionId: null,
-                      importedFromTemplate: "ai-analysis",
-                    });
-                  } else {
-                    mapped.push({
-                      ...item,
-                      id: newId,
-                      lineNumber: nextLine++,
-                      sectionId: currentSectionId,
-                      importedFromTemplate: "ai-analysis",
-                    });
-                  }
-                });
-
-                const mergedScope = [...existing, ...mapped];
-                const logEntry = {
-                  id: makeId("log"),
-                  type: "ai-import",
-                  timestamp: new Date().toISOString(),
-                  actor: currentUser.email,
-                  actorName: currentUser.displayName || currentUser.email,
-                  description:
-                    "AI Analysis: imported " +
-                    mapped.filter(function (i) {
-                      return !i.isSection;
-                    }).length +
-                    " items from " +
-                    sourceDoc,
-                  metadata: { source: sourceDoc } as Record<string, unknown>,
-                };
-                const updatedLog = [...(bid.activityLog || []), logEntry];
-                savePatch({ scopeItems: mergedScope, activityLog: updatedLog });
-              }}
+              onImportItems={(items, meta) => importAiScope(items, meta)}
             />
           )}
           {activeTab === "activity" && (
@@ -1640,6 +1694,14 @@ export const BidDetailPage: React.FC = () => {
         {/* end tabContent */}
       </div>
       {/* end detailLayout */}
+
+      {aiClarModalOpen && (
+        <ClarificationSuggestionsModal
+          suggestions={aiClarSuggestions}
+          onAccept={acceptAiClarifications}
+          onClose={() => setAiClarModalOpen(false)}
+        />
+      )}
     </div>
   );
 };

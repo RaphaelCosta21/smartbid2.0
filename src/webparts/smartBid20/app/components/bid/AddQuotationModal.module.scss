@@ -97,6 +97,36 @@
   }
 }
 
+.aiExtractBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--accent-color);
+  background: var(--card-bg-elevated, rgba(255, 255, 255, 0.03));
+  color: var(--accent-color);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: var(--accent-color);
+    color: #fff;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
 .linesSection {
   margin-top: 8px;
 }

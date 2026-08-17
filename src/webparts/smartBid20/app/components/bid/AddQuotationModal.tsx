@@ -17,25 +17,22 @@ import {
   IFavoriteGroup,
   IExchangeRate,
 } from "../../models";
+import { IActivityLogEntry } from "../../models/IActivityLog";
+import { AIAnalysisService } from "../../services/AIAnalysisService";
+import { ActivityLogService } from "../../services/ActivityLogService";
+import { isAiConfigured } from "../../config/ai.config";
+import {
+  IQuotationLineDraft,
+  mapExtractedQuotationLines,
+} from "../../utils/aiQuotationMapper";
 import styles from "./AddQuotationModal.module.scss";
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
 }
 
-interface ILineItem {
+interface ILineItem extends IQuotationLineDraft {
   _key: string;
-  groupId: string;
-  subGroupId: string;
-  partNumber: string;
-  description: string;
-  supplier: string;
-  leadTimeDays: number;
-  quotationDate: string;
-  type: QuotationType;
-  cost: number;
-  currency: string;
-  notes: string;
 }
 
 function blankLineItem(partNumber?: string, description?: string): ILineItem {
@@ -63,6 +60,10 @@ export interface AddQuotationModalProps {
   defaultPartNumber?: string;
   /** Pre-fill description */
   defaultDescription?: string;
+  /** Pre-selected file to attach / extract from (e.g. dropped on the page) */
+  initialFile?: File;
+  /** When true and a file is provided, run AI extraction automatically on open */
+  autoExtract?: boolean;
 }
 
 export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
@@ -70,6 +71,8 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
   onSaved,
   defaultPartNumber,
   defaultDescription,
+  initialFile,
+  autoExtract,
 }) => {
   const config = useConfigStore((s) => s.config);
   const currentUser = useCurrentUser();
@@ -87,11 +90,14 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
     return opts;
   }, [exchangeRates]);
 
-  const [file, setFile] = React.useState<File | null>(null);
+  const [file, setFile] = React.useState<File | null>(initialFile || null);
   const [saving, setSaving] = React.useState(false);
+  const [extracting, setExtracting] = React.useState(false);
+  const aiUsedRef = React.useRef(false);
   const [lines, setLines] = React.useState<ILineItem[]>([
     blankLineItem(defaultPartNumber, defaultDescription),
   ]);
+  const aiEnabled = isAiConfigured();
 
   const addLine = (): void =>
     setLines((prev) => prev.concat([blankLineItem()]));
@@ -130,6 +136,55 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
     );
     return { costUSD, rate: rateObj ? rateObj.rate : 1 };
   };
+
+  const draftToLine = (d: IQuotationLineDraft): ILineItem => ({
+    _key: genId(),
+    ...d,
+  });
+
+  const handleExtract = async (): Promise<void> => {
+    if (!file || extracting) return;
+    if (!aiEnabled) {
+      addToast({ type: "error", title: "AI analysis is not configured." });
+      return;
+    }
+    setExtracting(true);
+    try {
+      const result = await AIAnalysisService.extractQuotation(file, {});
+      const drafts = mapExtractedQuotationLines(result.items || [], groups);
+      if (drafts.length > 0) {
+        setLines(drafts.map(draftToLine));
+        aiUsedRef.current = true;
+        addToast({
+          type: "success",
+          title: `${drafts.length} item${drafts.length > 1 ? "s" : ""} extracted — review before saving`,
+        });
+      } else {
+        addToast({
+          type: "warning",
+          title: "No line items could be extracted from this document",
+        });
+      }
+      (result.warnings || []).forEach((w) =>
+        addToast({ type: "warning", title: w }),
+      );
+    } catch (e) {
+      addToast({
+        type: "error",
+        title: e instanceof Error ? e.message : "AI extraction failed",
+      });
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (autoExtract && initialFile && aiEnabled) {
+      void handleExtract();
+    }
+    // Run once on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSave = async (): Promise<void> => {
     for (const line of lines) {
@@ -213,6 +268,22 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
         title: `${newItems.length} quotation item${newItems.length > 1 ? "s" : ""} added`,
       });
 
+      if (aiUsedRef.current) {
+        const logEntry: IActivityLogEntry = {
+          id: genId(),
+          type: "ai-quotation-extract",
+          timestamp: now,
+          actor: currentUser?.email || currentUser?.displayName || "system",
+          actorName: currentUser?.displayName || "Unknown",
+          description: `Imported ${newItems.length} AI-extracted quotation item${newItems.length > 1 ? "s" : ""}${file ? ` from ${file.name}` : ""}`,
+          metadata: {
+            sourceDocument: file ? file.name : "",
+            itemCount: newItems.length,
+          },
+        };
+        void ActivityLogService.addEntry(logEntry).catch(() => undefined);
+      }
+
       if (onSaved) onSaved(newItems);
       onClose();
     } catch {
@@ -262,6 +333,37 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
                   style={{ display: "none" }}
                 />
               </label>
+              {aiEnabled && (
+                <button
+                  type="button"
+                  className={styles.aiExtractBtn}
+                  onClick={handleExtract}
+                  disabled={!file || extracting}
+                  title={
+                    file
+                      ? "Extract line items from this document with AI"
+                      : "Select a file first"
+                  }
+                >
+                  {extracting ? (
+                    <span>Extracting…</span>
+                  ) : (
+                    <>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M12 3v3m0 12v3M5.6 5.6l2.1 2.1m8.6 8.6l2.1 2.1M3 12h3m12 0h3M5.6 18.4l2.1-2.1m8.6-8.6l2.1-2.1" />
+                      </svg>
+                      <span>Extract with AI</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 

@@ -117,10 +117,6 @@ export const TemplatesPage: React.FC = () => {
   };
 
   const handleAIImport = (items: IScopeItem[]): void => {
-    // Delete the placeholder row (it was only used for AI polling)
-    if (aiTemplateId) {
-      TemplateService.deleteTemplate(aiTemplateId).catch(() => {});
-    }
     // Create a new template pre-populated with AI-generated scope items
     const tpl: IBidTemplate = {
       id: makeId("tpl"),
@@ -349,27 +345,9 @@ export const TemplatesPage: React.FC = () => {
           </button>
 
           <button
-            onClick={async () => {
-              const tempId = makeId("tpl");
-              // Create placeholder row in smartbid-templates so the flow can write AIResponse
-              await TemplateService.create({
-                id: tempId,
-                name: "AI Placeholder",
-                description: "",
-                division: "",
-                serviceLine: "",
-                category: "",
-                scopeItems: [],
-                createdBy: "",
-                createdDate: new Date().toISOString(),
-                lastModified: new Date().toISOString(),
-                lastModifiedBy: "",
-                version: 0,
-                usageCount: 0,
-                isActive: false,
-                tags: ["ai-pending"],
-              }).catch(() => {});
-              setAiTemplateId(tempId);
+            onClick={() => {
+              // Traceability id for the request; no SharePoint row needed anymore
+              setAiTemplateId(makeId("tpl"));
               setShowAIAnalyzer(true);
             }}
             className={styles.aiGenerateBtn}
@@ -557,11 +535,6 @@ export const TemplatesPage: React.FC = () => {
               <button
                 className={styles.modalCloseBtn}
                 onClick={() => {
-                  if (aiTemplateId) {
-                    TemplateService.deleteTemplate(aiTemplateId).catch(
-                      () => {},
-                    );
-                  }
                   setShowAIAnalyzer(false);
                   setAiTemplateId("");
                 }}

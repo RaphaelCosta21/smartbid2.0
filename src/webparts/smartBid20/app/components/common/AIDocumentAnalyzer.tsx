@@ -1,7 +1,8 @@
 import * as React from "react";
 import { IScopeItem } from "../../models";
 import { AIAnalysisService } from "../../services/AIAnalysisService";
-import { IAIAnalysisResult } from "../../models/IAIAnalysis";
+import { IAIAnalysisResult, IAIImportMeta } from "../../models/IAIAnalysis";
+import { useConfigStore } from "../../stores/useConfigStore";
 import { ScopeOfSupplyTab } from "../bid/ScopeOfSupplyTab";
 import { formatFileSize } from "../../utils/formatters";
 import styles from "./AIDocumentAnalyzer.module.scss";
@@ -15,8 +16,10 @@ interface AIDocumentAnalyzerProps {
   division?: string;
   /** BID service line for context display */
   serviceLine?: string;
-  /** Callback when user imports items */
-  onImport: (items: IScopeItem[]) => void;
+  /** Richer context summary for RAG grounding (division, client, project…) */
+  contextSummary?: string;
+  /** Callback when user imports items (with metadata about AI vs user edits) */
+  onImport: (items: IScopeItem[], meta: IAIImportMeta) => void;
   /** Label for the import button */
   importLabel?: string;
   /** Whether the component is in compact/modal mode */
@@ -37,6 +40,7 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
   templateId,
   division,
   serviceLine,
+  contextSummary,
   onImport,
   importLabel = "Import All to Scope",
   compact = false,
@@ -50,6 +54,15 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
 
   const abortRef = React.useRef<AbortController | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const config = useConfigStore((s) => s.config);
+  const resourceTypes = React.useMemo(
+    () =>
+      (config?.resourceTypes || [])
+        .filter((r) => r.isActive)
+        .map((r) => r.label),
+    [config],
+  );
 
   const isValidFile = (f: File): boolean => {
     if (ACCEPTED_TYPES.indexOf(f.type) >= 0) return true;
@@ -108,16 +121,24 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
 
     try {
       let analysisResult: IAIAnalysisResult;
+      const analysisContext = {
+        division,
+        serviceLine,
+        resourceTypes,
+        contextSummary,
+      };
       if (templateId) {
         analysisResult = await AIAnalysisService.analyzeDocumentForTemplate(
           file,
           templateId,
+          analysisContext,
           abortRef.current.signal,
         );
       } else {
         analysisResult = await AIAnalysisService.analyzeDocument(
           file,
           bidNumber || "",
+          analysisContext,
           abortRef.current.signal,
         );
       }
@@ -145,9 +166,67 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
     setState("upload");
   };
 
+  /** Whether the user changed any key field of an AI item during review. */
+  const scopeItemChanged = (a: IScopeItem, b: IScopeItem): boolean => {
+    const norm = (v: unknown): string =>
+      v === undefined || v === null ? "" : String(v);
+    const fields: (keyof IScopeItem)[] = [
+      "description",
+      "clientDocRef",
+      "compliance",
+      "resourceType",
+      "resourceSubType",
+      "equipmentOffer",
+      "partNumber",
+      "qtyOperational",
+      "qtySpare",
+      "clientRequirement",
+      "comments",
+    ];
+    if (fields.some((f) => norm(a[f]) !== norm(b[f]))) return true;
+    return (a.clientSpecs || []).join("|") !== (b.clientSpecs || []).join("|");
+  };
+
+  /** Compare the AI's original output against the (possibly edited) preview. */
+  const computeImportMeta = (): IAIImportMeta => {
+    const original = (result?.scopeItems || []).filter((i) => !i.isSection);
+    const finalItems = previewItems.filter((i) => !i.isSection);
+    const originalById: Record<string, IScopeItem> = {};
+    original.forEach((i) => {
+      originalById[i.id] = i;
+    });
+    const finalIds: Record<string, true> = {};
+    let edited = 0;
+    let added = 0;
+    finalItems.forEach((fi) => {
+      finalIds[fi.id] = true;
+      const orig = originalById[fi.id];
+      if (!orig) {
+        added++;
+      } else if (scopeItemChanged(orig, fi)) {
+        edited++;
+      }
+    });
+    let removed = 0;
+    original.forEach((oi) => {
+      if (!finalIds[oi.id]) removed++;
+    });
+    return {
+      sourceDocument: result?.sourceDocument || (file ? file.name : ""),
+      promptVersion: result?.promptVersion,
+      aiItemCount: original.length,
+      finalItemCount: finalItems.length,
+      editedCount: edited,
+      addedCount: added,
+      removedCount: removed,
+      warnings: result?.warnings || [],
+      suggestedClarifications: result?.suggestedClarifications || [],
+    };
+  };
+
   const handleImport = (): void => {
     if (previewItems.length > 0) {
-      onImport(previewItems);
+      onImport(previewItems, computeImportMeta());
     }
   };
 
@@ -302,9 +381,9 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
           <h3 className={styles.analyzingTitle}>Analyzing Document...</h3>
           <p className={styles.analyzingFile}>{file?.name}</p>
           <p className={styles.analyzingHint}>
-            The document was uploaded to SharePoint. The AI is reading and
-            extracting scope items via Power Automate. This may take up to 5
-            minutes for large documents.
+            The document is being sent securely to the Azure AI service, which
+            reads it and extracts the scope items. This may take a little while
+            for large documents.
           </p>
           <button className={styles.cancelBtn} onClick={handleCancel}>
             Cancel

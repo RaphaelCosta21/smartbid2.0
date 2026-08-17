@@ -155,37 +155,4 @@ export class TemplateService {
     }
     return null;
   }
-
-  /**
-   * Read the AIResponse column for a template.
-   */
-  public static async getAIResponse(
-    templateId: string,
-  ): Promise<string | null> {
-    const items = await TemplateService._list.items
-      .filter("Title eq '" + templateId + "'")
-      .select("AIResponse")
-      .top(1)();
-
-    if (items.length > 0 && (items[0] as { AIResponse: string }).AIResponse) {
-      return (items[0] as { AIResponse: string }).AIResponse;
-    }
-    return null;
-  }
-
-  /**
-   * Clear the AIResponse column for a template.
-   */
-  public static async clearAIResponse(templateId: string): Promise<void> {
-    const items = await TemplateService._list.items
-      .filter("Title eq '" + templateId + "'")
-      .select("Id")
-      .top(1)();
-
-    if (items.length > 0) {
-      await TemplateService._list.items
-        .getById((items[0] as { Id: number }).Id)
-        .update({ AIResponse: "" });
-    }
-  }
 }

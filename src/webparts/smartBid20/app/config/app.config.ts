@@ -22,8 +22,6 @@ export const APP_CONFIG = {
     patchNotes: "PATCH_NOTES",
   },
   superAdminEmails: ["rcosta1@oceaneering.com"],
-  /** Power Automate HTTP trigger URL for AI document analysis */
-  aiFlowUrl: "",
   defaults: {
     pageSize: 25,
     debounceMs: 300,

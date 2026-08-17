@@ -3,6 +3,7 @@
  * Static singleton pattern (padrão SmartFlow).
  */
 import { spfi, SPFI, SPFx } from "@pnp/sp";
+import { WebPartContext } from "@microsoft/sp-webpart-base";
 import "@pnp/sp/webs";
 import "@pnp/sp/lists";
 import "@pnp/sp/items";
@@ -13,9 +14,11 @@ import "@pnp/sp/site-users/web";
 
 export class SPService {
   private static _sp: SPFI | null = null;
+  private static _context: WebPartContext | null = null;
   private static _isInitialized = false;
 
-  public static init(context: any): void {
+  public static init(context: WebPartContext): void {
+    SPService._context = context;
     SPService._sp = spfi().using(SPFx(context));
     SPService._isInitialized = true;
   }
@@ -27,6 +30,19 @@ export class SPService {
       );
     }
     return SPService._sp;
+  }
+
+  /**
+   * Raw SPFx WebPartContext — used for Entra ID-authenticated calls
+   * (AadHttpClientFactory) to the Azure AI backend, Teams SDK, etc.
+   */
+  public static get context(): WebPartContext {
+    if (!SPService._context) {
+      throw new Error(
+        "SPService not initialized. Call SPService.init(context) first.",
+      );
+    }
+    return SPService._context;
   }
 
   public static get isInitialized(): boolean {

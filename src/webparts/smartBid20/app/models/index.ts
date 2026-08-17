@@ -159,6 +159,12 @@ export {
   type IAIAnalysisRequest,
   type IAIAnalysisResult,
   type IAIAnalysisError,
+  type IAIAnalysisContext,
+  type AIUseCase,
+  type IAISuggestedClarification,
+  type IExtractedQuotationLine,
+  type IQuotationExtractionResult,
+  type IAIImportMeta,
 } from "./IAIAnalysis";
 export {
   type IActiveRegisteredItem,

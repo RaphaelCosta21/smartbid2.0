@@ -89,7 +89,6 @@ export const SHAREPOINT_CONFIG = {
     approvalsFolder: "Approvals",
     exports: "Exports",
     templates: "Templates",
-    aiAnalysis: "AI-Analysis",
   },
 
   configKeys: {
@@ -155,6 +154,5 @@ export const SHAREPOINT_CONFIG = {
     dueDate: "DueDate",
     configValue: "ConfigValue",
     changeType: "ChangeType",
-    aiResponse: "AIResponse",
   },
 } as const;

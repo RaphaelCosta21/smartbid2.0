@@ -9,6 +9,7 @@ import {
   IEngineeringHoursItem,
   IResourceAllocation,
   IAssetBreakdownItem,
+  IAIImportMeta,
 } from "../../models";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
@@ -28,6 +29,12 @@ interface ScopeOfSupplyTabProps {
   clarifications?: IClarificationItem[];
   /** BID number for AI analysis (enables the AI Generate button) */
   bidNumber?: string;
+  /**
+   * Optional handler for AI-generated scope items. When provided, the AI modal
+   * routes items here (so the parent can merge, tag and log the import in one
+   * atomic save) instead of merging locally.
+   */
+  onAiImport?: (aiItems: IScopeItem[], meta: IAIImportMeta) => void;
   /** Template ID — used for attachment uploads when inside a template */
   templateId?: string;
   /** Tab-level notes/comments */
@@ -125,6 +132,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   readOnly = false,
   clarifications = [],
   bidNumber,
+  onAiImport,
   templateId,
   tabNotes = "",
   onSaveTabNotes,
@@ -3844,10 +3852,14 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
             </div>
             <AIDocumentAnalyzer
               bidNumber={bidNumber}
-              onImport={(aiItems: IScopeItem[]) => {
-                const merged = [...items, ...aiItems];
-                setItems(merged);
-                persist(merged);
+              onImport={(aiItems: IScopeItem[], meta: IAIImportMeta) => {
+                if (onAiImport) {
+                  onAiImport(aiItems, meta);
+                } else {
+                  const merged = [...items, ...aiItems];
+                  setItems(merged);
+                  persist(merged);
+                }
                 setShowAIModal(false);
               }}
               importLabel="Import AI Items to Scope"

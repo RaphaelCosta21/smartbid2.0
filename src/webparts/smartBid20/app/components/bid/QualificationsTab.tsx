@@ -1,18 +1,25 @@
 import * as React from "react";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Sparkles } from "lucide-react";
 import {
   IBid,
   IClarificationItem,
   IQualificationTable,
   IQualificationItem,
+  IAISuggestedClarification,
 } from "../../models";
 import { GlassCard } from "../common/GlassCard";
 import { EditToolbar } from "../common/EditLockBanner";
 import { EmptySection } from "./EmptySection";
 import { ExportClarificationModal } from "./ExportClarificationModal";
 import { ImportClarificationModal } from "./ImportClarificationModal";
+import { ClarificationSuggestionsModal } from "./ClarificationSuggestionsModal";
 import { useEditControl } from "../../hooks/useEditControl";
 import { makeId } from "../../utils/idGenerator";
+import { isAiConfigured } from "../../config/ai.config";
+import { AIAnalysisService } from "../../services/AIAnalysisService";
+import { buildAiContext, buildRequirementsText } from "../../utils/aiContext";
+import { mapSuggestedClarification } from "../../utils/aiClarificationMapper";
+import { useUIStore } from "../../stores/useUIStore";
 import styles from "../../pages/BidDetailPage.module.scss";
 
 export interface QualificationsTabProps {
@@ -33,6 +40,15 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   // Export / import modal state
   const [exportModalOpen, setExportModalOpen] = React.useState(false);
   const [importModalOpen, setImportModalOpen] = React.useState(false);
+
+  // AI clarification suggestions
+  const [aiModalOpen, setAiModalOpen] = React.useState(false);
+  const [aiLoading, setAiLoading] = React.useState(false);
+  const [aiSuggestions, setAiSuggestions] = React.useState<
+    IAISuggestedClarification[]
+  >([]);
+  const aiEnabled = isAiConfigured();
+  const addToast = useUIStore((s) => s.addToast);
 
   // Edit lock hooks — separate locks for Qualifications and Clarifications
   const qualLock = useEditControl(bid.bidNumber, "qualifications");
@@ -196,6 +212,50 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
 
   const handleImportFromDb = (imported: IClarificationItem[]): void => {
     saveClarifications([...localClarifications, ...imported]);
+  };
+
+  const handleSuggestClarifications = async (): Promise<void> => {
+    setAiSuggestions([]);
+    setAiModalOpen(true);
+    setAiLoading(true);
+    try {
+      const requirementsText = buildRequirementsText(bid);
+      if (!requirementsText.trim()) {
+        addToast({
+          type: "warning",
+          title: "Add scope items before requesting AI clarifications",
+        });
+        setAiModalOpen(false);
+        return;
+      }
+      const suggestions = await AIAnalysisService.suggestClarifications(
+        requirementsText,
+        buildAiContext(bid),
+      );
+      setAiSuggestions(suggestions);
+    } catch (e) {
+      addToast({
+        type: "error",
+        title: e instanceof Error ? e.message : "AI suggestion failed",
+      });
+      setAiModalOpen(false);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleAcceptSuggestions = (
+    accepted: IAISuggestedClarification[],
+  ): void => {
+    if (accepted.length > 0) {
+      const mapped = accepted.map((s) => mapSuggestedClarification(s));
+      saveClarifications([...localClarifications, ...mapped]);
+      addToast({
+        type: "success",
+        title: `${mapped.length} clarification${mapped.length > 1 ? "s" : ""} added`,
+      });
+    }
+    setAiModalOpen(false);
   };
 
   // Qualification tables
@@ -555,6 +615,29 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
             also add manual entries.
           </p>
           <div style={{ display: "flex", gap: 8 }}>
+            {canEditClar && aiEnabled && (
+              <button
+                onClick={handleSuggestClarifications}
+                disabled={aiLoading}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 8,
+                  border: "1px solid var(--primary-accent)",
+                  background: "var(--card-bg-elevated)",
+                  color: "var(--primary-accent)",
+                  cursor: aiLoading ? "not-allowed" : "pointer",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <Sparkles size={14} />
+                {aiLoading ? "Suggesting…" : "Suggest with AI"}
+              </button>
+            )}
             {canEditClar && (
               <button
                 onClick={() => setImportModalOpen(true)}
@@ -1001,6 +1084,16 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
         <ImportClarificationModal
           onClose={() => setImportModalOpen(false)}
           onImport={handleImportFromDb}
+        />
+      )}
+
+      {/* AI Clarification Suggestions Modal */}
+      {aiModalOpen && (
+        <ClarificationSuggestionsModal
+          suggestions={aiSuggestions}
+          loading={aiLoading}
+          onAccept={handleAcceptSuggestions}
+          onClose={() => setAiModalOpen(false)}
         />
       )}
     </div>

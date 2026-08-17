@@ -1,18 +1,18 @@
 import * as React from "react";
 import { GlassCard } from "../common/GlassCard";
 import { AIDocumentAnalyzer } from "../common/AIDocumentAnalyzer";
-import { IBid, IScopeItem } from "../../models";
+import { IBid, IScopeItem, IAIImportMeta } from "../../models";
+import { buildAiContext } from "../../utils/aiContext";
 
 interface AITabProps {
   bid: IBid;
-  onImportItems: (items: IScopeItem[], sourceDocument: string) => void;
+  onImportItems: (items: IScopeItem[], meta: IAIImportMeta) => void;
 }
 
 export const AITab: React.FC<AITabProps> = ({ bid, onImportItems }) => {
   const handleImport = React.useCallback(
-    (items: IScopeItem[]) => {
-      const sourceDoc = "AI Analysis";
-      onImportItems(items, sourceDoc);
+    (items: IScopeItem[], meta: IAIImportMeta) => {
+      onImportItems(items, meta);
     },
     [onImportItems],
   );
@@ -23,6 +23,7 @@ export const AITab: React.FC<AITabProps> = ({ bid, onImportItems }) => {
         bidNumber={bid.bidNumber}
         division={bid.division}
         serviceLine={bid.serviceLine}
+        contextSummary={buildAiContext(bid).contextSummary}
         onImport={handleImport}
         importLabel="Import to Scope of Supply"
       />

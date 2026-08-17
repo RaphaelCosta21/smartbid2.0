@@ -36,6 +36,51 @@
   align-items: center;
 }
 
+.aiDropZone {
+  margin-top: 14px;
+  border: 1.5px dashed var(--border-subtle);
+  border-radius: 12px;
+  background: var(--card-bg);
+  transition:
+    border-color 200ms,
+    background 200ms;
+
+  &:hover {
+    border-color: var(--primary-accent);
+  }
+}
+
+.aiDropZoneActive {
+  border-color: var(--primary-accent);
+  background: var(--card-bg-elevated);
+}
+
+.aiDropInner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  cursor: pointer;
+  color: var(--primary-accent);
+}
+
+.aiDropText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  strong {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  span {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+}
+
 .searchInput {
   padding: 8px 14px;
   border-radius: 8px;
