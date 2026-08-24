@@ -12,6 +12,14 @@ export type AIUseCase =
   | "chat"
   | "clarification";
 
+/** A resource type with its configured sub-type values, for AI mapping. */
+export interface IAIResourceTypeOption {
+  /** Parent resource-type label (matches the grid's resourceType option). */
+  label: string;
+  /** Active sub-type values under this parent (match the grid's subType options). */
+  subTypes: string[];
+}
+
 /** BID/template context passed from the UI into an analysis request. */
 export interface IAIAnalysisContext {
   /** BID division (e.g. "SSR-ROV") — guides categorization. */
@@ -20,6 +28,8 @@ export interface IAIAnalysisContext {
   serviceLine?: string;
   /** Active resource-type labels from system config (guides mapping). */
   resourceTypes?: string[];
+  /** Active resource types WITH sub-types (guides resourceType + resourceSubType). */
+  resourceTypeOptions?: IAIResourceTypeOption[];
   /** Optional extra context (KB summaries, past-bid hints). */
   contextSummary?: string;
 }

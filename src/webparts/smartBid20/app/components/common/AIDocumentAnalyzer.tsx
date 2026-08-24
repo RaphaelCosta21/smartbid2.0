@@ -63,6 +63,18 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
         .map((r) => r.label),
     [config],
   );
+  const resourceTypeOptions = React.useMemo(
+    () =>
+      (config?.resourceTypes || [])
+        .filter((r) => r.isActive)
+        .map((r) => ({
+          label: r.label,
+          subTypes: (r.subTypes || [])
+            .filter((s) => s.isActive !== false)
+            .map((s) => s.value),
+        })),
+    [config],
+  );
 
   const isValidFile = (f: File): boolean => {
     if (ACCEPTED_TYPES.indexOf(f.type) >= 0) return true;
@@ -125,6 +137,7 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
         division,
         serviceLine,
         resourceTypes,
+        resourceTypeOptions,
         contextSummary,
       };
       if (templateId) {

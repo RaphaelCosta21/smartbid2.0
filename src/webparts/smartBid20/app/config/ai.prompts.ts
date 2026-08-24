@@ -10,8 +10,10 @@
  * Bump the *_VERSION whenever a prompt changes so results stay traceable.
  */
 
+import { IAIResourceTypeOption } from "../models/IAIAnalysis";
+
 /** Version tag sent alongside the Scope of Supply prompt. */
-export const SCOPE_OF_SUPPLY_PROMPT_VERSION = "scope-of-supply-v2";
+export const SCOPE_OF_SUPPLY_PROMPT_VERSION = "scope-of-supply-v3";
 
 /** Version tag sent alongside the quotation extraction prompt. */
 export const QUOTATION_EXTRACTION_PROMPT_VERSION = "quotation-extraction-v1";
@@ -29,10 +31,19 @@ export const BID_CHAT_PROMPT_VERSION = "bid-chat-v1";
  * @param resourceTypes Active resource-type labels from system config. The model
  *   must map every item to one of these labels (or "" when none fits).
  */
-export function buildScopeOfSupplyPrompt(resourceTypes: string[]): string {
+export function buildScopeOfSupplyPrompt(
+  resourceTypes: IAIResourceTypeOption[],
+): string {
   const resourceTypeBlock =
     resourceTypes && resourceTypes.length > 0
-      ? resourceTypes.map((t) => `  - ${t}`).join("\n")
+      ? resourceTypes
+          .map((rt) => {
+            const subs = (rt.subTypes || []).filter(Boolean);
+            return subs.length > 0
+              ? `  - ${rt.label} → sub-types: ${subs.join(" | ")}`
+              : `  - ${rt.label} → sub-types: (none configured — leave resourceSubType empty)`;
+          })
+          .join("\n")
       : "  (No resource-type list was provided — leave resourceType and resourceSubType empty.)";
 
   return `You are a senior BID engineer at Oceaneering, specializing in ROV, Survey, Tooling, OPG (Offshore Projects Group), and Engineering Solutions for the oil and gas industry. You have deep knowledge of subsea equipment, ROV systems, tooling, sensors and oil & gas tender documents.
@@ -45,7 +56,7 @@ REFERENCE MATERIAL: the backend may append a "REFERENCE MATERIAL" section below,
   • Past accepted clarifications/qualifications — the basis for the "suggestedClarifications" you propose.
 Use this material ONLY to categorize, map and disambiguate. It must NEVER introduce requirements that are not in the client document, and you must NEVER invent equipment, part numbers or specifications.
 
-RESOURCE TYPES (from current system configuration — use ONLY these labels for "resourceType"):
+RESOURCE TYPES (from current system configuration — for "resourceType" use ONLY a parent label below; for "resourceSubType" use ONLY a sub-type listed under the chosen parent):
 ${resourceTypeBlock}
 
 ═══════════════════════════════════════════════
@@ -63,7 +74,7 @@ LINE ITEM RULES
 6. "clientDocRef": document section prefix + exact clause number (GOOD: "Seção L — 4.4.1.i"; BAD: "4.4").
 7. "clientRequirement": the ORIGINAL requirement text from the document, in its original language, not a paraphrase. Max 250 chars.
 8. "clientSpecs": array of specific, measurable requirements. Each entry starts with its clause reference, then the requirement text (GOOD: "5.5.3.ii — Acurácia mínima @ 1m/s: ±0,2% ± 0,1 cm/s"). Only the FIRST item under a shared parent requirement carries the full clientSpecs array; sibling items that share it use [].
-9. "resourceType" / "resourceSubType": match against the RESOURCE TYPES list above. Use "" when no match.
+9. "resourceType": use ONLY a parent label from the RESOURCE TYPES list above. "resourceSubType": use ONLY one of the sub-types listed for the CHOSEN resourceType (after "→ sub-types:"). Use "" when no sub-type fits or none are configured.
 10. "qtyOperational": exact quantity from the document (e.g. "03 câmeras" → 3). Default 1 if unspecified.
 11. "qtySpare": default 0 unless explicitly stated as spare/backup.
 12. "compliance": always null.

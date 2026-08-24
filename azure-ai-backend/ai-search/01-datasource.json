@@ -1,0 +1,11 @@
+{
+  "name": "smartbid-docs-datasource",
+  "type": "sharepoint",
+  "credentials": {
+    "connectionString": "SharePointOnlineEndpoint=https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering;ApplicationId=<APP_B_CLIENT_ID>;ApplicationSecret=<APP_B_CLIENT_SECRET>;TenantId=<TENANT_ID>"
+  },
+  "container": {
+    "name": "useQuery",
+    "query": "includeFolder=oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Datasheets;includeFolder=oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Manuals and Catalogs;additionalColumns=DocType,DocCategory,Manufacturer,DocModel,DocKeywords,DocDescription,DocRevision"
+  }
+}

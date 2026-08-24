@@ -49,17 +49,18 @@ export interface IAiConfig {
     generateScope: string;
     /** Supplier quotation PDF → structured quotation fields. */
     extractQuotation: string;
-    /** Current BID requirements → suggested clarifications/qualifications (RAG). */
-    suggestClarifications: string;
-    /** Free-form Q&A over a BID's documents (future). */
-    chat: string;
+    // --- Future endpoints (not wired yet — uncomment when the backend adds them) ---
+    // /** Current BID requirements → suggested clarifications/qualifications (RAG). */
+    // suggestClarifications: string;
+    // /** Free-form Q&A over a BID's documents. */
+    // chat: string;
   };
 }
 
 export const AI_CONFIG: IAiConfig = {
   enabled: false,
-  apimBaseUrl: "", //a URL base do gateway APIM.
-  aadResource: "", //o Application ID URI do app registrado no Entra (auth recomendada). Ou, para teste rápido, uma subscription key temporária.
+  apimBaseUrl: "", //APIM gateway base URL                                     (e.g. https://<apim>.azure-api.net/smartbid).
+  aadResource: "", //Entra ID App ID URI the gateway validates tokens for (e.g. api://<app-id>). Needs the matching API permission approved in the tenant.
   subscriptionKey: "",
   subscriptionKeyHeaderName: "Ocp-Apim-Subscription-Key",
   requestTimeoutMs: 120000,
@@ -67,8 +68,9 @@ export const AI_CONFIG: IAiConfig = {
   endpoints: {
     generateScope: "/scope/generate",
     extractQuotation: "/quotation/extract",
-    suggestClarifications: "/clarifications/suggest",
-    chat: "/chat",
+    // --- Future endpoints (uncomment when the backend routes exist) ---
+    // suggestClarifications: "/clarifications/suggest",
+    // chat: "/chat",
   },
 };
 

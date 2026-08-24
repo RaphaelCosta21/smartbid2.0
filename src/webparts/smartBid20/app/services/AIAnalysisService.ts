@@ -28,8 +28,9 @@ import {
   SCOPE_OF_SUPPLY_PROMPT_VERSION,
   buildQuotationExtractionPrompt,
   QUOTATION_EXTRACTION_PROMPT_VERSION,
-  buildClarificationSuggestionPrompt,
-  CLARIFICATION_SUGGESTION_PROMPT_VERSION,
+  // Future: clarification suggestions (endpoint not wired yet)
+  // buildClarificationSuggestionPrompt,
+  // CLARIFICATION_SUGGESTION_PROMPT_VERSION,
 } from "../config/ai.prompts";
 import {
   AadHttpClient,
@@ -257,6 +258,9 @@ export class AIAnalysisService {
   ): Promise<IAIAnalysisRequest> {
     const fileContent = await AIAnalysisService.fileToBase64(file);
     const resourceTypes = context.resourceTypes || [];
+    const resourceTypeOptions =
+      context.resourceTypeOptions ||
+      resourceTypes.map((label) => ({ label, subTypes: [] }));
 
     const request: IAIAnalysisRequest = {
       fileName: file.name,
@@ -272,7 +276,7 @@ export class AIAnalysisService {
 
     if (AI_CONFIG.sendPromptFromClient) {
       if (useCase === "scope-of-supply") {
-        request.systemPrompt = buildScopeOfSupplyPrompt(resourceTypes);
+        request.systemPrompt = buildScopeOfSupplyPrompt(resourceTypeOptions);
         request.promptVersion = SCOPE_OF_SUPPLY_PROMPT_VERSION;
       } else if (useCase === "quotation") {
         request.systemPrompt = buildQuotationExtractionPrompt();
@@ -286,7 +290,7 @@ export class AIAnalysisService {
   /**
    * POST a JSON payload to an AI endpoint. Uses the Entra ID-authenticated
    * AadHttpClient when aadResource is set; otherwise falls back to HttpClient
-   * (optionally with an APIM subscription key — testing only).
+   * (optionally with an APIM subscription key, testing only).
    */
   private static async postJson(
     endpointPath: string,
@@ -558,35 +562,12 @@ export class AIAnalysisService {
     context: IAIAnalysisContext = {},
     abortSignal?: AbortSignal,
   ): Promise<IAISuggestedClarification[]> {
-    AIAnalysisService.ensureConfigured();
-    const request: IAIAnalysisRequest = {
-      fileName: "",
-      fileContent: "",
-      documentText: requirementsText,
-      division: context.division || "",
-      serviceLine: context.serviceLine || "",
-      resourceTypes: context.resourceTypes || [],
-      contextSummary: context.contextSummary || "",
-      useCase: "clarification",
-    };
-    if (AI_CONFIG.sendPromptFromClient) {
-      request.systemPrompt = buildClarificationSuggestionPrompt();
-      request.promptVersion = CLARIFICATION_SUGGESTION_PROMPT_VERSION;
-    }
-    const data = await AIAnalysisService.postJson(
-      AI_CONFIG.endpoints.suggestClarifications,
-      request,
-      abortSignal,
-    );
-    const raw = data as Record<string, unknown>;
-    if (raw.error) {
-      const errMsg = raw.details
-        ? `${raw.error}: ${raw.details}`
-        : String(raw.error);
-      throw new Error(errMsg);
-    }
-    return AIAnalysisService.parseClarifications(
-      raw.suggestedClarifications || raw.items,
-    );
+    // Future: the /clarifications/suggest endpoint is not wired yet. Re-enable
+    // AI_CONFIG.endpoints.suggestClarifications (ai.config.ts) + the clarification
+    // prompt imports above, then restore the request/postJson body (see git history).
+    void requirementsText;
+    void context;
+    void abortSignal;
+    throw new Error("AI clarification suggestions are not available yet.");
   }
 }

@@ -1,0 +1,19 @@
+{
+  "name": "smartbid-docs-indexer",
+  "dataSourceName": "smartbid-docs-datasource",
+  "targetIndexName": "smartbid-docs-index",
+  "skillsetName": "smartbid-docs-skillset",
+  "schedule": { "interval": "PT24H", "startTime": "2026-08-22T03:00:00Z" },
+  "parameters": {
+    "batchSize": 10,
+    "maxFailedItems": 10,
+    "maxFailedItemsPerBatch": 10,
+    "configuration": {
+      "indexedFileNameExtensions": ".pdf,.docx,.doc,.pptx,.xlsx,.txt",
+      "excludedFileNameExtensions": ".png,.jpg,.jpeg,.gif",
+      "dataToExtract": "contentAndMetadata",
+      "failOnUnsupportedContentType": false
+    }
+  },
+  "fieldMappings": []
+}
