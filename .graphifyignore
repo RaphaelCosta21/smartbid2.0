@@ -1,0 +1,6 @@
+# graphify ignore — trim noise (build output already excluded via .gitignore)
+
+\*_/_.backup
+Inspiration/
+presentation/
+.github/prompts/

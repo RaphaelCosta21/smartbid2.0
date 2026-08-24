@@ -32,3 +32,7 @@ obj
 
 # Styles Generated Code
 *.scss.ts
+
+# graphify (commit the graph; keep local-only cost + cache out)
+graphify-out/cost.json
+graphify-out/cache/
