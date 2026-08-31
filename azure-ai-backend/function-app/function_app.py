@@ -1,13 +1,13 @@
 """
 SmartBid AI backend — Azure Functions (Python v2 programming model).
 
-Two HTTP endpoints behind the APIM gateway:
+Two HTTP endpoints (Function App, EasyAuth-protected):
   • POST /scope/generate   → Scope of Supply (RAG grounded on the docs index)
   • POST /quotation/extract → Supplier quotation → structured line items (no RAG)
 
 Auth is Entra ID / Managed Identity end to end — no API keys, no Key Vault.
 SmartBid ALWAYS sends its own system prompt (from app/config/ai.prompts.ts).
-Scanned/image PDFs are read with gpt-5.1-mini vision .
+Scanned/image PDFs are read with gpt-5-mini vision.
 """
 import os
 import io
@@ -27,7 +27,7 @@ from docx import Document         # python-docx — Word text
 
 app = func.FunctionApp()
 
-# Auth via Managed Identity (Entra ID) — no API keys, no Key Vault
+# Auth via Managed Identity (Entra ID)
 credential = DefaultAzureCredential()
 token_provider = get_bearer_token_provider(
     credential, "https://cognitiveservices.azure.com/.default"
@@ -37,7 +37,7 @@ token_provider = get_bearer_token_provider(
 openai_client = AzureOpenAI(
     azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
     azure_ad_token_provider=token_provider,
-    api_version="2024-10-21",  # adjust to the version your gpt-5.1-mini deployment requires
+    api_version="2024-10-21",  # adjust to the version gpt-5-mini deployment requires
 )
 
 # Azure AI Search client (Entra ID / RBAC instead of an API key)
@@ -47,7 +47,7 @@ search_client = SearchClient(
     credential=credential,
 )
 
-CHAT_DEPLOYMENT = os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"]  # "gpt-5.1-mini"
+CHAT_DEPLOYMENT = os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"]  # "gpt-5-mini"
 TEXT_MIN_CHARS = 20  # below this we treat the document as scanned/image-only
 
 
@@ -70,7 +70,7 @@ def extract_text_or_images(file_bytes: bytes, file_name: str) -> Tuple[str, List
 
 def ensure_text(text: str, images: List[bytes]) -> str:
     """Guarantee plain text. If we only have page images (scanned document),
-    use gpt-5.1-mini's vision as the OCR engine to transcribe them."""
+    use gpt-5-mini's vision as the OCR engine to transcribe them."""
     if text:
         return text
     if not images:
@@ -112,7 +112,7 @@ def _unreadable() -> func.HttpResponse:
 @app.route(route="scope/generate", methods=["POST"])
 def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
     # Scope of Supply generation, grounded with RAG.
-    # SmartBid ALWAYS sends its own system prompt (scope-of-supply-v2).
+    # SmartBid ALWAYS sends its own system prompt (scope-of-supply-v3).
     try:
         body = req.get_json()
 
@@ -149,7 +149,7 @@ def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
             "=== END REFERENCE MATERIAL ==="
         )
 
-        # 4) Call the chat model (gpt-5.1-mini) with JSON output
+        # 4) Call the chat model (gpt-5-mini) with JSON output
         completion = openai_client.chat.completions.create(
             model=CHAT_DEPLOYMENT,
             response_format={"type": "json_object"},

@@ -193,7 +193,7 @@ export class AIAnalysisService {
   private static ensureConfigured(): void {
     if (!isAiConfigured()) {
       throw new Error(
-        "The AI service is not configured yet. Ask IT for the APIM endpoint, then set apimBaseUrl (and aadResource) in app/config/ai.config.ts and set AI_CONFIG.enabled to true.",
+        "The AI service is not configured yet. Ask IT for the Function App endpoint, then set apiBaseUrl (and aadResource) in app/config/ai.config.ts and set AI_CONFIG.enabled to true.",
       );
     }
   }
@@ -289,8 +289,7 @@ export class AIAnalysisService {
 
   /**
    * POST a JSON payload to an AI endpoint. Uses the Entra ID-authenticated
-   * AadHttpClient when aadResource is set; otherwise falls back to HttpClient
-   * (optionally with an APIM subscription key, testing only).
+   * AadHttpClient when aadResource is set; otherwise falls back to HttpClient.
    */
   private static async postJson(
     endpointPath: string,
@@ -302,9 +301,6 @@ export class AIAnalysisService {
       "Content-Type": "application/json",
       Accept: "application/json",
     };
-    if (AI_CONFIG.subscriptionKey) {
-      headers[AI_CONFIG.subscriptionKeyHeaderName] = AI_CONFIG.subscriptionKey;
-    }
     const options: IHttpClientOptions = {
       headers,
       body: JSON.stringify(body),
@@ -565,9 +561,6 @@ export class AIAnalysisService {
     // Future: the /clarifications/suggest endpoint is not wired yet. Re-enable
     // AI_CONFIG.endpoints.suggestClarifications (ai.config.ts) + the clarification
     // prompt imports above, then restore the request/postJson body (see git history).
-    void requirementsText;
-    void context;
-    void abortSignal;
     throw new Error("AI clarification suggestions are not available yet.");
   }
 }

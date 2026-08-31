@@ -1,0 +1,964 @@
+O conteúdo gerado por IA pode estar incorreto
+
+Travis Gan
+0 minutos 5 segundos0:05
+Travis Gan 0 minutos 5 segundos
+OK, so it has this right inside here and then from here it now it has another Azure state function app. So and then of course we have something else that is outside.
+Travis Gan 0 minutos 24 segundos
+This is the log analytic.
+Travis Gan 0 minutos 30 segundos
+And we have another set inside. Okay, so and then what else we have? Okay, I'm just changing some stuff in the meantime too. So okay, we have AI, we have app, this one I'm gonna take it up. Keyboard monitoring is what we have the log and app inside permission, just the DBA permission.
+Travis Gan 0 minutos 54 segundos
+Search is the A I search. OK, and that's it. OK, cool. So we pretty much have these resources. That was one more. What am I missing?
+
+Maninder Singh Bajwa
+1 minuto 6 segundos1:06
+Maninder Singh Bajwa 1 minuto 6 segundos
+We also have that service principle that need to be integrate with the SharePoint.
+
+Travis Gan
+1 minuto 12 segundos1:12
+Travis Gan 1 minuto 12 segundos
+OK, yeah, correct. So that is the one that I want to discuss with you guys. So I'm just is that is there a way I can make a different looking? I don't know man, give me one.
+Travis Gan 1 minuto 51 segundos
+Serious.
+Travis Gan 2 minutos 1 segundo
+Okay, so let's say this thing.
+Travis Gan 2 minutos 8 segundos
+Their name OK, so.
+Travis Gan 2 minutos 13 segundos
+I think I know one thing.
+Travis Gan 2 minutos 30 segundos
+Okay, so this is a I search.
+Travis Gan 2 minutos 36 segundos
+And then.
+Travis Gan 2 minutos 48 segundos
+This is the.
+Travis Gan 2 minutos 52 segundos
+Okay, so this AI search is the app registration, right? So what we have done, so I'm just going to move this thing out.
+Travis Gan 3 minutos 3 segundos
+And then this thing now.
+Travis Gan 3 minutos 11 segundos
+OK, so AI search this right here is going to go to SharePoint.
+Travis Gan 3 minutos 23 segundos
+So we haven't done that yet, but we need to, we need to work with Dan.
+Travis Gan 3 minutos 30 segundos
+To get this going.
+Travis Gan 3 minutos 33 segundos
+Right, that principle. So this guy's supposed to be, you remember that I told you guys last time, but it doesn't seem to work for my test, so we might not be able to do this. We will see. It's supposed to use this managed identity to map to this.
+Travis Gan 3 minutos 53 segundos
+Guy to go here, but if it if this mapping the federal identity doesn't work, then we might have to just.
+Travis Gan 4 minutos 5 segundos
+We might have to, we might have to just do this right using the using like whatever the client secret or is it current secret?
+
+Maninder Singh Bajwa
+4 minutos 19 segundos4:19
+Maninder Singh Bajwa 4 minutos 19 segundos
+Yes, the client and the secret.
+
+Travis Gan
+4 minutos 22 segundos4:22
+Travis Gan 4 minutos 22 segundos
+Yeah, I think the current secure or something right. So either way, so either this one, if this one doesn't work, then we might have to use this one and then go here. So and then of course, then we have to do something here. So this is one thing. We have the all this created and then of course from here.
+Travis Gan 4 minutos 41 segundos
+It also come to here for this text embedding using this account. Same thing, right? So.
+Travis Gan 5 minutos
+Okay, so like this, right? so.
+Travis Gan 5 minutos 4 segundos
+You go to here, you come here too. And then from what he has, I think, is...
+Travis Gan 5 minutos 12 segundos
+This is a different, so I'm gonna put it here. This is the SharePoint his.
+Travis Gan 5 minutos 19 segundos
+SharePoint web part.
+Travis Gan 5 minutos 22 segundos
+So this is going to use.
+Travis Gan 5 minutos 31 segundos
+Something like this.
+Travis Gan 5 minutos 34 segundos
+So we will call it.
+Travis Gan 5 minutos 37 segundos
+I don't know, it's a shape and way part.
+Travis Gan 5 minutos 50 segundos
+And then come here.
+Travis Gan 5 minutos 54 segundos
+So how he want to how he want to do it from here to here I am I don't know yet because this is depending on how his code on the function app, right? But this function app is going to require some authentication. So we so this function app.
+Travis Gan 6 minutos 15 segundos
+We also has a registration, so this is function I have it. So you think, think of it like whatever the API kind of stuff, right? So as your ADM.
+Travis Gan 6 minutos 29 segundos
+A Pi.
+Travis Gan 6 minutos 33 segundos
+Right, so it will expose and permissions and then this thing, this will need a permissions. I mean it will have granted their permissions so that it can come to here as authenticated method. You know, similar like what you guys used to do for the whatever the APM.
+Travis Gan 6 minutos 53 segundos
+API, so in this case you expose you have another Azure ID app and then it expose an API permission. So any application that need to access to this can grant that permission to say what you guys do in API API, but in this case.
+Travis Gan 7 minutos 11 segundos
+Is that permission is for this, right? And then it so it come.
+Travis Gan 7 minutos 19 segundos
+So this one come here and from here.
+Travis Gan 7 minutos 24 segundos
+How does it call this? What type of authentication? I don't know what he has yet because it it would depending on his SharePoint code. That's why I would like him to be here. But he's still not here. But anyway, so there are there are few method. I don't know if because he's using a lot of his I think.
+Travis Gan 7 minutos 43 segundos
+From here to here, I think there's multiple methods. You can use API key, the AI search API key for this to come here. Of course, we have a keyboard, right? Another keyboard somewhere.
+Travis Gan 7 minutos 58 segundos
+So she might need to keyboard and then get to here. She can do that, but usually we don't want to do that. She can use the service.
+Travis Gan 8 minutos 9 segundos
+Whatever the...
+Travis Gan 8 minutos 11 segundos
+What do you call it? The system management identity of function app.
+Travis Gan 8 minutos 18 segundos
+To come here, then we have to grant these permissions the whatever the A I search users here, right? And the 3rd way is.
+Travis Gan 8 minutos 32 segundos
+From here, we use they call it the on behalf of Flow. I think to Chendra and I don't know is it Maninder that was working with us? I forgot the you know like the Copilot canvas thing on the web part that Victor was doing. So is you have an app.
+Travis Gan 8 minutos 51 segundos
+And then the and then you go and then the separate app, which is the Copathot app, which is in this case this app will do it on behalf of flow to get the permission of AI search to go here. So that is 3 at least 3 method that I.
+Travis Gan 9 minutos 10 segundos
+Thing is possible API key service principal, sorry, the system manage identity or the on behalf of flow token to here. So that means depending on which method that this is using, we will have to grant those account permission here.
+Travis Gan 9 minutos 31 segundos
+API key by default is already have permission, so we don't need to do anything. If we is if it's going to use a system identity, then we need to grant this as a user here. If it's using on behalf of flow, then we need to grant the users here. Right now I thought he was directly using this.
+Travis Gan 9 minutos 50 segundos
+Previously, so I have granted those users here, but if he's using the...
+Travis Gan 9 minutos 57 segundos
+If it's using the on the on behalf of flow, then it should be able to go in access here because those user already granted their permissions here. Any questions so far for this?
+Travis Gan 10 minutos 16 segundos
+OK, cool. So similarly in his Azure functions, he will have this line as well, correct? So same thing, is it gonna be using API key for this? So this function come to here.
+Travis Gan 10 minutos 36 segundos
+The reason AI search go to here is because of this embedding thing, but for this to come here, the main reason is because they want to use this.
+Travis Gan 10 minutos 48 segundos
+The GBT right so and then of course the authentication of course it depending on that 3 factor as well. Is it going to be the system managed identity or the on behalf of flow or the API key? So in general in Azure side that is how.
+Travis Gan 11 minutos 7 segundos
+This would become and then of course on his web part.
+Travis Gan 11 minutos 13 segundos
+We don't really know the coding on the web part side. Do you have a deal with the SharePoint team? How he gonna get the permissions from this app to come to function app?
+Travis Gan 11 minutos 27 segundos
+Okay, so any questions so far?
+Travis Gan 11 minutos 33 segundos
+No, pretty.
+
+Maninder Singh Bajwa
+11 minutos 34 segundos11:34
+Maninder Singh Bajwa 11 minutos 34 segundos
+So he is going to decide that which method he is going to utilise.
+
+
+Travis Gan 13 minutos 17 segundos
+You know, when you send a request, I haven't called for a while now, you know, when you send a request, your request, how does it the request that you send is also using the system manage identity, right? I think that's the case, Maninder, do you know?
+Travis Gan 13 minutos 38 segundos
+On the coding perspective, OK, yeah, that's fine. So I know that in the SDK or something, when you send a request to some stuff, the SDK, I think sometime will allow you if you are gonna use. OIDC token.
+
+Maninder Singh Bajwa
+13 minutos 40 segundos13:40
+Maninder Singh Bajwa 13 minutos 40 segundos
+no.
+
+Travis Gan
+13 minutos 58 segundos13:58
+Travis Gan 13 minutos 58 segundos
+Or are you going to use the system managed identity that the code doesn't see, right? And stuff like that. So that has to be that has to be coded inside.
+Travis Gan 14 minutos 9 segundos
+This code.
+Travis Gan 14 minutos 13 segundos
+So yeah, so no matter what he's gonna send, he has to code it here. So one the of course, I don't think we want to use a A Pi key. So one way is to use that. If not, he will have to also write a code to get.
+Travis Gan 14 minutos 31 segundos
+that on behalf of Token here.
+Travis Gan 14 minutos 41 segundos
+OK, because this doesn't anything else he need to have a code to get the token from here. If he's going to use the Omnia token, he will need to write a code here. We can provide whatever the. The app registration information for him.
+Travis Gan 14 minutos 58 segundos
+But he will need to write that code to perform the on behalf of all using the system manage identity to access the downstream.
+Travis Gan 15 minutos 9 segundos
+So right now what open item that we can do is we can this account. So far I have created most almost everything in the. Terraform, but I think I'm gonna remove the SharePoint app one which is this one because I think what you guys usually do.
+Travis Gan 15 minutos 31 segundos
+I don't know. Usually, all the registration you guys do it manually, right?
+
+Maninder Singh Bajwa
+15 minutos 37 segundos15:37
+Maninder Singh Bajwa 15 minutos 37 segundos
+Right.
+
+Travis Gan
+15 minutos 38 segundos15:38
+Travis Gan 15 minutos 38 segundos
+On Azure portal, so I we can code it in the Terraform. The only complication that I think of is I don't know how to put a DBA tag in Terraform for this app one thing and second thing if you need to add additional.
+
+Maninder Singh Bajwa
+15 minutos 39 segundos15:39
+Maninder Singh Bajwa 15 minutos 39 segundos
+Yes.
+
+Travis Gan
+15 minutos 59 segundos15:59
+Travis Gan 15 minutos 59 segundos
+Redirect URL in the future or something, then you need to go to Terraform to do it instead of doing on the Azure portal.
+Travis Gan 16 minutos 6 segundos
+Right, so we can create this manually, that's fine, but this 1I if he is not using the on behalf of flow, I think this one maybe can create it from the Terraform because this is tied to this, right? And then and then does expose there and then this and any.
+Travis Gan 16 minutos 27 segundos
+Any manual app that we created for the for the client can can use those. But I don't know, I mean either way we can create it manually as well. It doesn't really matter, but. I think I I'm thinking this one, maybe we can just do the maybe manually.
+Travis Gan 16 minutos 47 segundos
+or something so this account is so this app is also there as well. What we need to do is he has a site select. I think he has a site selected.
+Travis Gan 17 minutos 5 segundos
+So you can see there is a so this is a there's a FA function app, there's a search as a SharePoint too. So this this is all from coming from the Terraform this API permission. I believe we have this. Yeah, we need to get the infra to grant and stuff and then ask them to grant the re permission for the site that they gave us.
+Travis Gan 17 minutos 31 segundos
+For this one.
+Travis Gan 17 minutos 34 segundos
+So there's a lot of moving part around. I don't know that guy actually know that so but we don't really care. So he I will ask him to work more with you, especially deploying the code like you guys have a pipeline, let him do his code. We are not dealing with his code.
+Travis Gan 17 minutos 52 segundos
+He can publish whatever he want to publish to his A I think stuff. Actually, this one, if you look at this one, yeah, so they have to have.
+Travis Gan 18 minutos 4 segundos
+I am surprised it doesn't have...
+Travis Gan 18 minutos 8 segundos
+Yeah, maybe this one. See again, I haven't looked at his code, so I don't know.
+Travis Gan 18 minutos 16 segundos
+Oh, he's doing this thing.
+Travis Gan 18 minutos 34 segundos
+So I don't know this specific code.
+Travis Gan 18 minutos 43 segundos
+Is this, is this?
+Travis Gan 18 minutos 48 segundos
+Is this what do you call that system manage identity? Maybe I'm not sure. But anyway, when he's doing the Azure way, there's only 2 way.
+Travis Gan 19 minutos 6 segundos
+One is the on behalf, the other one is the...
+Travis Gan 19 minutos 13 segundos
+The other one is the...
+Travis Gan 19 minutos 21 segundos
+Why does it generate stuff?
+Travis Gan 19 minutos 26 segundos
+Anyway, yeah, I'm not, I'm not reading his code right, but we just need to know what type of thing he's doing here so that we can grant the proper account permissions here.
+Travis Gan 19 minutos 47 segundos
+OK, so any so this is the part we can do, but I will ask him to work with you guys for the Azure function deployment. And also I think he said that he might also has some indexes stuff ready that can be.
+Travis Gan 20 minutos 7 segundos
+used to set up, I don't know, I mean, look at all those things can set up in a I search like, you know, remember that we were talking about the.
+Travis Gan 20 minutos 16 segundos
+Yeah.
+Travis Gan 20 minutos 24 segundos
+OK, so by the way, for information last time, I think everyone should have permission now. You can check the permissions.
+Travis Gan 20 minutos 40 segundos
+So we are contributor now this group. So if you look at a member, we should have everyone in this, everyone here, Puni Maninder, Pathap.
+Travis Gan 20 minutos 52 segundos
+I don't know, how can't you tindra is not here?
+Travis Gan 21 minutos 5 segundos
+OK, so Jitendra and myself is here, so but everyone's supposed to be here. You guys have act contributor role for the entire resource group and this one you know first thing is they need to create index here. So he said that he has something already he can.
+Travis Gan 21 minutos 25 segundos
+Work with you, work with us for this to put it here. So this is the thing I tend to maybe help help the team here. Do do we want to give him the permission to do it himself here through the Azure portal or he work with us and then we put it here ourselves?
+
+
+Jitendra Acharya
+21 minutos 41 segundos21:41
+Jitendra Acharya 21 minutos 41 segundos
+No, we are going to do this.
+
+Travis Gan
+21 minutos 44 segundos21:44
+Travis Gan 21 minutos 44 segundos
+OK, so he does have to work with us. If you need to change anything, he just come to us and then we put it here, right? OK.
+
+Jitendra Acharya
+21 minutos 45 segundos21:45
+Jitendra Acharya 21 minutos 45 segundos
+Yeah.
+Jitendra Acharya 21 minutos 47 segundos
+Yeah.
+Jitendra Acharya 21 minutos 50 segundos
+Right, but Travis, just a question since you're connecting from here, isn't there a direct tool which give us ability to without even login to the portal, we can directly create these indexes?
+
+Travis Gan
+21 minutos 53 segundos21:53
+Travis Gan 21 minutos 53 segundos
+Yeah.
+Travis Gan 22 minutos 4 segundos
+Yeah, you can. I mean, I always find GUI the easiest, especially when we are all learning you. There's a there's a CLI that you can use. I believe that you can use to create things here. So I don't know if you want to venture into that.
+
+Jitendra Acharya
+22 minutos 13 segundos22:13
+Jitendra Acharya 22 minutos 13 segundos
+Okay.
+
+Travis Gan
+22 minutos 23 segundos22:23
+Travis Gan 22 minutos 23 segundos
+To make it into a pipeline, that's also OK. And then I think all this they because to create all these things you can just pass in a JSON file. Or for for the index creation indexer is the same thing you can pass in a JSON file so all so all this you can do it from the programmatic way.
+Travis Gan 22 minutos 45 segundos
+It's just passing the JSON that you that you already built into here.
+
+Jitendra Acharya
+22 minutos 49 segundos22:49
+Jitendra Acharya 22 minutos 49 segundos
+So he only need a production environment, right? There is no dev.
+
+Travis Gan
+22 minutos 53 segundos22:53
+Travis Gan 22 minutos 53 segundos
+That's what you guys have at the moment, only product. So yeah, I don't know. I mean, how, I mean, if you need, we can provision the other one, that's not a big deal, but whatever he need, right?
+
+Jitendra Acharya
+22 minutos 58 segundos22:58
+Jitendra Acharya 22 minutos 58 segundos
+Okay.
+Jitendra Acharya 23 minutos 7 segundos
+ideally, ideally there should be a dev environment.
+
+Travis Gan
+23 minutos 12 segundos23:12
+Travis Gan 23 minutos 12 segundos
+Exactly. The only thing is everyone over keep on saying that we only have one environment in SharePoint. I mean, it doesn't matter, right? I mean, if your code, you need to test your code, you should have a dev like we can talk to him and then see if you need a dev, you can get a dev. But yeah, I agree with you. Ideally, it's supposed to be in a dev so that he can have some sort of access.
+
+Jitendra Acharya
+23 minutos 22 segundos23:22
+Jitendra Acharya 23 minutos 22 segundos
+Yeah.
+Jitendra Acharya 23 minutos 26 segundos
+Right.
+
+Travis Gan
+23 minutos 32 segundos23:32
+Travis Gan 23 minutos 32 segundos
+In a way, but anyway, so all of this you can see you can pass it in JSON. That means you can done it programmatically and data source as data source you can do it too. If you if you don't know how to do it, we can add a data source. OK, so this one we have upgraded to basic so it has the SharePoint now.
+
+Jitendra Acharya
+23 minutos 33 segundos23:33
+Jitendra Acharya 23 minutos 33 segundos
+Right.
+
+Travis Gan
+23 minutos 54 segundos23:54
+Travis Gan 23 minutos 54 segundos
+OK, you can change your name, whatever you can put all these things. So this is the one I was talking about. If you put a system assign and then you put the identity of that of this manage identity, it's supposed to work, but for my test it doesn't work. I don't know why it's like I think it's somehow not capture the value here.
+Travis Gan 24 minutos 15 segundos
+Every time you open it, so it's never safe, I guess, but I'm not sure if you do it through the CLI way it might work or not, but those are the options. If you're not doing that option, there's a auto connection string that you can use. the.
+Travis Gan 24 minutos 34 segundos
+the client secret thing here. I mean you can you can look at the documents that then you can see what type of connection stream you can build here. OK, so all this thing can be done through JSON file if you need to and then so 4 things minimum it has to be done right and then the skill set.
+
+
+Travis Gan
+25 minutos 32 segundos25:32
+Travis Gan 25 minutos 32 segundos
+OK, so those are the 2 thing. Those are the so this thing so I will let him know. Azure function is there. He can work with you guys to deploy it and then also we just and then we just need to know what type of authentication that his function is using to talk to the back end.
+Travis Gan 25 minutos 54 segundos
+Because we need to structures our app registration as well as the gate, I mean as well as the permissions. And the second thing will be here.
+Travis Gan 26 minutos 4 segundos
+That you guys can help him do that. I mean, so all this thing is coming from him, his stuff. I guess in the meantime, you guys can learn something from the AI search as well.
+
+Jitendra Acharya
+26 minutos 14 segundos26:14
+Jitendra Acharya 26 minutos 14 segundos
+Right.
+
+Travis Gan
+26 minutos 16 segundos26:16
+Travis Gan 26 minutos 16 segundos
+So the Asia open line I did also went ahead because to create not from a Telraform but manually I don't know if it's still there because I've been doing it destroy and stuff thing is still there.
+Travis Gan 26 minutos 45 segundos
+Yeah, so I think it's still there. So this these 2 are there, right? So this model are already there that for now what I have done is I grant you remember that I grant that developer group permissions to this so their account has.
+Travis Gan 27 minutos 3 segundos
+But the service principle, sorry, the managed identity of the function app doesn't have that yet. But again, depending on what type of authentication, I can remove this or I can add the service principle, sorry, the service, the system managed identity here as these users.
+Travis Gan 27 minutos 25 segundos
+OK, so far that is our progress. One of the one of the reason it takes that long is because Cloud can just finished the module for the Azure function. So by the way, just to let you know the Azure function that he's using is not the regular Azure functions that we have been using, he's using.
+Travis Gan 27 minutos 47 segundos
+What do you call that? I don't know if it can come out.
+Travis Gan 27 minutos 52 segundos
+Yeah, he is using the flex consumptions.
+Travis Gan 27 minutos 57 segundos
+Mean.
+
+Jitendra Acharya
+27 minutos 58 segundos27:58
+Jitendra Acharya 27 minutos 58 segundos
+Like some consumption, I think we use utilise it somewhere in some way, yeah.
+
+Travis Gan
+28 minutos 3 segundos28:03
+Travis Gan 28 minutos 3 segundos
+Do we? Because we didn't have a module.
+
+Jitendra Acharya
+28 minutos 7 segundos28:07
+Jitendra Acharya 28 minutos 7 segundos
+We had a module I don't recall right now, but I think we utilised it in one of the project.
+
+Travis Gan
+28 minutos 18 segundos28:18
+Travis Gan 28 minutos 18 segundos
+This I don't know if it if it said here.
+
+Maninder Singh Bajwa
+28 minutos 20 segundos28:20
+Maninder Singh Bajwa 28 minutos 20 segundos
+I think with the postcrease or something.
+
+Jitendra Acharya
+28 minutos 23 segundos28:23
+Jitendra Acharya 28 minutos 23 segundos
+Yeah, they on the Brazil or somewhere there was a application.
+
+Travis Gan
+28 minutos 25 segundos28:25
+Travis Gan 28 minutos 25 segundos
+Postgres. What's the name of the project?
+
+Jitendra Acharya
+28 minutos 33 segundos28:33
+Jitendra Acharya 28 minutos 33 segundos
+I don't have your call.
+
+Travis Gan
+28 minutos 35 segundos28:35
+Travis Gan 28 minutos 35 segundos
+Yeah, we can look at the way they provision in the Terraform, but we didn't have a module. So keep just finish their module, I think yesterday. Oh, that's how we are able to do it. And then also in the cloud side, they are changing a lot of things at the same time.
+
+Jitendra Acharya
+28 minutos 45 segundos28:45
+Jitendra Acharya 28 minutos 45 segundos
+Okay.
+
+Travis Gan
+28 minutos 53 segundos28:53
+Travis Gan 28 minutos 53 segundos
+I was telling Maninder like Maninder need another module for the new Azure managed Redis.
+
+Jitendra Acharya
+29 minutos 2 segundos29:02
+Jitendra Acharya 29 minutos 2 segundos
+Yeah, right.
+
+Maninder Singh Bajwa
+29 minutos 2 segundos29:02
+Maninder Singh Bajwa 29 minutos 2 segundos
+Right.
+
+Travis Gan
+29 minutos 5 segundos29:05
+Travis Gan 29 minutos 5 segundos
+Since it's using the thing is that sometime we do the same thing like what we used to do like for Azure function there's a OI module. So I just told can you just duplicate that Azure function, the Linux function app and then just modify the inside which is very similar like the flags.
+Travis Gan 29 minutos 24 segundos
+And then change the variable and output and then should be good to go, right? So that's what he did. But then for the AVM thing, he instead of coming up with a very, very simple configuration module, they are thinking a lot of things.
+Travis Gan 29 minutos 43 segundos
+They might thinking of I told my end of forking the AVM into ocean ring and change things in the fog. They are thinking maybe not doing that, but doing their patterns way so their pattern way is additional thing that they can.
+Travis Gan 30 minutos 2 segundos
+Put in default and stuff like that. We are not using pattern stuff. So far, there's nothing coming out from there. So I told Anandha maybe for now it is what it is right now. But yeah, so anyway, so.
+Travis Gan 30 minutos 21 segundos
+For this project so far, that is the that is the progress. So I will let him know to talk to you guys for those 2 things.
+
+
+Maninder Singh Bajwa
+30 minutos 54 segundos30:54
+Maninder Singh Bajwa 30 minutos 54 segundos
+Yeah.
+
+Travis Gan
+30 minutos 56 segundos30:56
+Travis Gan 30 minutos 56 segundos
+Wait, sorry, go go ahead. Do we need to wait for what?
+
+Maninder Singh Bajwa
+30 minutos 59 segundos30:59
+Maninder Singh Bajwa 30 minutos 59 segundos
+Wait for Raphael.
+Maninder Singh Bajwa 31 minutos 4 segundos
+For this.
+
+Travis Gan
+31 minutos 5 segundos31:05
+Travis Gan 31 minutos 5 segundos
+I know, so you're talking about this one, right?
+
+Maninder Singh Bajwa
+31 minutos 7 segundos31:07
+Maninder Singh Bajwa 31 minutos 7 segundos
+Yeah, right, this one.
+
+Travis Gan
+31 minutos 9 segundos31:09
+Travis Gan 31 minutos 9 segundos
+OK, this one for sure we are using this. This one account is transparent than his access from the SharePoint web part.
+Travis Gan 31 minutos 18 segundos
+Yeah, this account is for AI search to go. So this is this, yeah, this one is has this is the way. So no matter what, yeah, we will this other account already there, we'll just need to let then. Well, first of all, we need to ask infra to grant that admin consent and then give them to for the read access for their SharePoint site.
+
+Maninder Singh Bajwa
+31 minutos 40 segundos31:40
+Maninder Singh Bajwa 31 minutos 40 segundos
+okay.
+
+Travis Gan
+31 minutos 41 segundos31:41
+Travis Gan 31 minutos 41 segundos
+Yeah, so the one that we are waiting for him is this one, it potentially affecting this one.
+Travis Gan 31 minutos 52 segundos
+Right, if it's using on behalf of flow, then we need to do something else for this to get the on behalf of flow.
+Travis Gan 32 minutos 2 segundos
+Like what I'm trying to say is...
+Travis Gan 32 minutos 8 segundos
+So let's say this is OBE, you know, with RPG.
+Travis Gan 32 minutos 15 segundos
+Learn that. So the function app, right? So this function app right now it expose a scope that the SharePoint app granted, right?
+Travis Gan 32 minutos 26 segundos
+So this one right now doesn't have any permission yet, but if he's doing the on behalf of flow, it need the permissions from the community service, which is Microsoft doesn't have the I search before it was pretty bad.
+Travis Gan 32 minutos 45 segundos
+No, what is it again?
+Travis Gan 32 minutos 53 segundos
+What is the AI search again?
+Travis Gan 32 minutos 58 segundos
+Yeah, so that there are some API permission here that we need to grant to get that stuff.
+Travis Gan 33 minutos 8 segundos
+Okay, I think one is from Microsoft, one is Microsoft. I mean, I spend a lot of stupid time on this Microsoft cognitive service. Yeah, so it's not an Azure connected service because the scope, if you actually look at the scope for my Microsoft, is saying.
+Travis Gan 33 minutos 26 segundos
+It needs to have that.
+Travis Gan 33 minutos 30 segundos
+It needs to have that it's not this, right? It actually it's not this. It needs a cognitive service like actually AI told him to from my testing, I think just now we saw it the AI did tell him as well. So when I was testing it, man, Microsoft sometime really screw up.
+Travis Gan 33 minutos 50 segundos
+For example, I what is this code?
+Travis Gan 33 minutos 56 segundos
+I thought I saw that audience thing.
+Travis Gan 34 minutos 8 segundos
+So this is the scope for open AI. OK, this is what I have searched and that's not what I have tested too. I was searching this. It's supposed to be called Azure cognitive service, but Microsoft somehow doesn't expose that at all. But I was trying this.
+
+Maninder Singh Bajwa
+34 minutos 8 segundos34:08
+Maninder Singh Bajwa 34 minutos 8 segundos
+This one, right?
+
+Travis Gan
+34 minutos 27 segundos34:27
+Travis Gan 34 minutos 27 segundos
+Microsoft Connected Service with a completely different audience and it work.
+Travis Gan 34 minutos 34 segundos
+So this is how Microsoft squad. So what we do is it grant this and the user in personation. So this is the token that you will get to have that audience to access the Azure Open AI with the user from the user perspective, right?
+Travis Gan 34 minutos 55 segundos
+So that is one thing I forgot what is the search now.
+Travis Gan 35 minutos
+I don't think this is the one.
+Travis Gan 35 minutos 5 segundos
+Yeah, I need to find Asia search.
+Travis Gan 35 minutos 21 segundos
+Yeah, connective search this one. So this one is correct. The audience is correct. So they we need to. So if he is doing the on behalf of flow, we need to grant those 2 permissions in to that into this app.
+Travis Gan 35 minutos 40 segundos
+Right, which is the function app to get the token to send it to the resource.
+Travis Gan 35 minutos 50 segundos
+Does it make sense, Amanda?
+
+Maninder Singh Bajwa
+35 minutos 53 segundos35:53
+Maninder Singh Bajwa 35 minutos 53 segundos
+Yes, FI, he choose the second that method.
+
+Travis Gan
+35 minutos 54 segundos35:54
+Travis Gan 35 minutos 54 segundos
+OK.
+Travis Gan 35 minutos 58 segundos
+Yeah, correct. I I'm not sure about. I'm not sure about a service managed identity way of sending it because I have I haven't tested those, but what I was saying just time also the SharePoint app which is from the SharePoint.
+Travis Gan 36 minutos 18 segundos
+This SharePoint app is not a I search to SharePoint, but this is the his SharePoint web part, right? He this account has been granted this permission which is the function app permissions. So for Jitendra, this is very similar like the copilot canvas thing. The canvas grant has the permission to the copilot.
+Travis Gan 36 minutos 41 segundos
+App, I'm sorry, Copilot bought permissions and then the Copilot bought Azure ADF is doing the graph permissions, remember?
+
+
+Jitendra Acharya
+36 minutos 48 segundos36:48
+Jitendra Acharya 36 minutos 48 segundos
+On be aap ho.
+
+Travis Gan
+36 minutos 50 segundos36:50
+Travis Gan 36 minutos 50 segundos
+Correct.
+Travis Gan 36 minutos 54 segundos
+Who work on the copilot thing? You and who else?
+
+Jitendra Acharya
+37 minutos37:00
+Jitendra Acharya 37 minutos
+Yeah, Puneet and I think Harvinder.
+
+Travis Gan
+37 minutos 3 segundos37:03
+Travis Gan 37 minutos 3 segundos
+Okay, I mean, okay, so Puneet, you understand this flow, right?
+Travis Gan 37 minutos 14 segundos
+Is that correct, Puneet?
+
+Puneet Kumar Sharma
+37 minutos 16 segundos37:16
+Puneet Kumar Sharma 37 minutos 16 segundos
+Airtress, yes.
+
+Travis Gan
+37 minutos 17 segundos37:17
+Travis Gan 37 minutos 17 segundos
+OK, cool. So yeah, so this is so maybe this is the first time that you will you see this kind of flow. so.
+Travis Gan 37 minutos 28 segundos
+But yeah, if it is using that flow, we do have those experience, but the coder, they need to write the code properly to do that too.
+
+Maninder Singh Bajwa
+37 minutos 37 segundos37:37
+Maninder Singh Bajwa 37 minutos 37 segundos
+No, okay.
+
+Travis Gan
+37 minutos 37 segundos37:37
+Travis Gan 37 minutos 37 segundos
+OK, so that is but anything of that is here. So this is set in stone in a way as long as the redirect UL is correct, then we will tell him that you need you will need this scope, you will need this scope.
+Travis Gan 37 minutos 58 segundos
+For your SharePoint web part to get a token, right? Yeah, to call the and then the and then of course the whatever the.
+
+Maninder Singh Bajwa
+37 minutos 59 segundos37:59
+Maninder Singh Bajwa 37 minutos 59 segundos
+In their code.
+Maninder Singh Bajwa 38 minutos 2 segundos
+Right.
+
+Travis Gan
+38 minutos 7 segundos38:07
+Travis Gan 38 minutos 7 segundos
+Azure functions URL, which is this one. So he will need to call this URL with whatever, whatever the route that he has, I don't know. And then this thing right here have, I don't know, have you guys Aninda, have you work with a Azure function that require authentication?
+Travis Gan 38 minutos 29 segundos
+Maybe now.
+
+Maninder Singh Bajwa
+38 minutos 32 segundos38:32
+Maninder Singh Bajwa 38 minutos 32 segundos
+Currently, don't think so, but will review if I worked with this part or not.
+
+Travis Gan
+38 minutos 35 segundos38:35
+Travis Gan 38 minutos 35 segundos
+OK.
+Travis Gan 38 minutos 40 segundos
+Okay, that's fine. So I know that we have something like that like is the one that for the nuclear newsletters, the app service one, we that that was the first time that they the reason they use the app service is because they put the easy on this. Okay, so this is called the easy off from the Azure function. So any app service like.
+Travis Gan 39 minutos 2 segundos
+I think even container app, I think an app service or Azure functions, there are something called easy off which is this authentication here is before you hit their code inside the app, you will need to be authenticated first before you hit the app.
+Travis Gan 39 minutos 21 segundos
+So what does that mean is your app doesn't even have to worry about authentication thing. You don't even have to code anything for authentication because this services itself already perform the authentication for you.
+Travis Gan 39 minutos 35 segundos
+Right, so this is called the easy off. So here is where we say we enable it. In this case, we say that it depends how you do it in the newsletter way is if it's unauthenticated, it routed to it prompt the Azure AD login screen for them to.
+Travis Gan 39 minutos 54 segundos
+Login, but in this case, because this is more like a API, I didn't return to a login page. I return for one directly saying that this is unauthorized. And then we say that this require authentication and what does it require? What type of authentication? It is this is using the app ID which is.
+Travis Gan 40 minutos 16 segundos
+This particular one, right? And then it is, this is our URL for our tenant and he's saying that it need to.
+Travis Gan 40 minutos 27 segundos
+Have this audience in the token to allow it to be authenticated at the same time. So that is how you can do this other things too. I haven't done any of this because I mainly just look at this.
+Travis Gan 40 minutos 49 segundos
+And restrict to the issuers, which is our issuers, these 2. So it doesn't really look at the talk, the scope scoping, but the audience thing is it need the audience to be correct.
+Travis Gan 41 minutos 4 segundos
+So this is how the easy off work from the App Service.
+Travis Gan 41 minutos 12 segundos
+Which is, which is this right here. So it expose the A Pi here, it gets in here. Do I still have that? I don't, I don't have that anymore. Yeah, so it get a token and then it come in here and the easy of modify the audience and then the issuers.
+Travis Gan 41 minutos 33 segundos
+Okay.
+Travis Gan 41 minutos 34 segundos
+Anymore questions because this there's a few things that is new to the team. That's why I want to make sure that and at the same time if if we have 3 Azure AD app in this case, I just want to make sure that we know which one is which one.
+Travis Gan 41 minutos 55 segundos
+Okay.
+
+Gurpartap Singh
+41 minutos 55 segundos41:55
+Gurpartap Singh 41 minutos 55 segundos
+Yeah, Travis, hello.
+
+Travis Gan
+41 minutos 58 segundos41:58
+Travis Gan 41 minutos 58 segundos
+Yeah.
+
+Gurpartap Singh
+42 minutos42:00
+Gurpartap Singh 42 minutos
+Okay, so like Raphael mentioned, that only I guess 4 member of his team is gonna use this a I search.
+Gurpartap Singh 42 minutos 12 segundos
+So we so this easy author we so how that gonna be accomplished? So we gonna do it or he gonna do it in his court?
+
+
+Travis Gan
+42 minutos 27 segundos42:27
+Travis Gan 42 minutos 27 segundos
+OK, just want to make sure everything how the how the request is requested is always done on a code. But how does he get the token on the Azure AD side we had to set up right? So that will be on our side. So as long as we know what type of method that he's using from his code to request.
+Travis Gan 42 minutos 48 segundos
+Then we need to set it up on our side. So for your question is from here, that for user is the one that invoking is the one that getting the token here, correct from here. So that means in the SharePoint app.
+
+Gurpartap Singh
+43 minutos43:00
+Gurpartap Singh 43 minutos
+OK.
+
+Travis Gan
+43 minutos 6 segundos43:06
+Travis Gan 43 minutos 6 segundos
+For OPTB.
+Travis Gan 43 minutos 11 segundos
+For this SharePoint app, we will need to make sure those 4 people are in here.
+Travis Gan 43 minutos 21 segundos
+Which is, well, I guess, yeah, I, you know what, I'm gonna take this guys out.
+Travis Gan 43 minutos 28 segundos
+OK, so this for people so the so as long as they can they are able to get the access to they have the correct. OITC flow to get a token from the SharePoint app. You know so this is the one that we set up.
+Travis Gan 43 minutos 47 segundos
+I'm going to delete this. I was testing something. So this is where they hosted their stuff. They say that, right? So as long as the URL is the same and these are the 4 user that is requesting it, then they are able to get the access token.
+
+Gurpartap Singh
+44 minutos 3 segundos44:03
+Gurpartap Singh 44 minutos 3 segundos
+OK.
+
+Travis Gan
+44 minutos 3 segundos44:03
+Travis Gan 44 minutos 3 segundos
+Here and then it will send it to here and this one said OK, your access token has that audience which is coming from here, right? This is the token that the token that he has this then he's going to be able to.
+Travis Gan 44 minutos 22 segundos
+Then he can authenticate into here. Now from here, if he is using the own behalf of flow, then he's going to use this app. To get.
+Travis Gan 44 minutos 39 segundos
+Yeah, he's gonna you.
+Travis Gan 44 minutos 45 segundos
+He's going to use this, he's going to use this app to get the access token from the user. So in this app, I believe we will also have to add the user for the function app. So the function app in this case, we'll also need those users in enterprise.
+Travis Gan 45 minutos 4 segundos
+Whatever the application to add the user at the moment, I haven't add anything. I haven't add any user for this app yet, but he will need to get that and then once this app get the user token.
+Travis Gan 45 minutos 19 segundos
+For with the audience that is for AI search, it will send it to the AI search and then in the AI search, it will, we will need to make sure that the AI search has the.
+Travis Gan 45 minutos 33 segundos
+Has the permission granted to them?
+
+Gurpartap Singh
+45 minutos 37 segundos45:37
+Gurpartap Singh 45 minutos 37 segundos
+OK.
+
+Travis Gan
+45 minutos 38 segundos45:38
+Travis Gan 45 minutos 38 segundos
+Right, so that token that I was showing you guys, the connective service audience and then the search dot Azure dot search. What they are doing is just pretty much coming here to make sure that you have the correct rose in here. So if you have.
+Travis Gan 45 minutos 57 segundos
+Like a developer.
+Travis Gan 46 minutos 1 segundo
+In this case, has this permissions and then so the access token will come in with that scope with whatever the search.asia.com audience and then the IT will match the user with this row here. Then it's OK, so this user has been granted the row.
+Travis Gan 46 minutos 19 segundos
+Any so you can use this service.
+Travis Gan 46 minutos 24 segundos
+So that is the entire flow from here to here to here.
+
+Gurpartap Singh
+46 minutos 31 segundos46:31
+Gurpartap Singh 46 minutos 31 segundos
+Okay, yeah, got it.
+
+Travis Gan
+46 minutos 34 segundos46:34
+Travis Gan 46 minutos 34 segundos
+OK, but but if it's using system managed identity then the user only need to be here because the moment that he authenticated here this call this request to here is using the system managed identity. Then we just need to grant this access to here that the user role then it then it's good enough.
+Travis Gan 46 minutos 53 segundos
+Then we don't need to do, we don't need to add a user, we don't need to add the audience here, right? Because he is using this.
+
+Maninder Singh Bajwa
+47 minutos 5 segundos47:05
+Maninder Singh Bajwa 47 minutos 5 segundos
+Then we don't require this function your API, right? If he is going with the if he is going with the managed entity, then we don't require this function your API.
+
+Travis Gan
+47 minutos 10 segundos47:10
+Travis Gan 47 minutos 10 segundos
+Say again, we don't hear what?
+Travis Gan 47 minutos 19 segundos
+This one.
+
+Maninder Singh Bajwa
+47 minutos 19 segundos47:19
+Maninder Singh Bajwa 47 minutos 19 segundos
+Right, this one.
+
+Travis Gan
+47 minutos 22 segundos47:22
+Travis Gan 47 minutos 22 segundos
+we still need this, no matter what, we still need this because this is this is for this to come in here.
+Travis Gan 47 minutos 29 segundos
+Right, this one is exposing an API permission for this right for this all this thing is authenticated based on the API permission that exposed from here.
+
+
+Maninder Singh Bajwa
+47 minutos 29 segundos47:29
+Maninder Singh Bajwa 47 minutos 29 segundos
+Okay.
+Maninder Singh Bajwa 47 minutos 44 segundos
+Okay, got it.
+
+Travis Gan
+47 minutos 46 segundos47:46
+Travis Gan 47 minutos 46 segundos
+Yeah, but with on behalf of flow, then this need to this app need to do one more task, which is to get the on behalf of token.
+Travis Gan 47 minutos 56 segundos
+If you if you're using this, then it just doesn't, then it doesn't need to be configured to do the additional on behalf of ORDC flow.
+
+Maninder Singh Bajwa
+48 minutos 8 segundos48:08
+Maninder Singh Bajwa 48 minutos 8 segundos
+Okay.
+
+Travis Gan
+48 minutos 13 segundos48:13
+Travis Gan 48 minutos 13 segundos
+Okay, so man, I mean, so it's like sometime when you look at the his architecture, yeah, it's just, you know, it's just easy, right? It only have this, but then the moment you include authentication, then it get.
+Travis Gan 48 minutos 27 segundos
+It get a little bit complicated stuff.
+Travis Gan 48 minutos 33 segundos
+But I will try to design a little bit better view and then I will then I will share with you guys and so you guys have a better idea. The most important thing is they are, in this case, 3 different app app registrations.
+
+Gurpartap Singh
+48 minutos 54 segundos48:54
+Gurpartap Singh 48 minutos 54 segundos
+OK, one more thing, like the code he gonna deploy on function app. So what will be the like a goal for that functionality?
+
+Maninder Singh Bajwa
+48 minutos 55 segundos48:55
+Maninder Singh Bajwa 48 minutos 55 segundos
+So if he.
+
+Travis Gan
+49 minutos 10 segundos49:10
+Travis Gan 49 minutos 10 segundos
+We will have to ask him what he has. This is the code that she has. First thing I believe he's doing multiple type of routing, right? And because some traffic need to route to a I search, some routing need to do route to the other stuff. He is also doing.
+
+Gurpartap Singh
+49 minutos 25 segundos49:25
+Gurpartap Singh 49 minutos 25 segundos
+Okay.
+
+Travis Gan
+49 minutos 29 segundos49:29
+Travis Gan 49 minutos 29 segundos
+Some sort of this, I I'm not sure why he's doing that here. I guess I guess, well, I guess he's not doing it on the SharePoint side, he's doing it on the Azure function side to vectorise the query or the document means means that let's say.
+
+Gurpartap Singh
+49 minutos 47 segundos49:47
+Gurpartap Singh 49 minutos 47 segundos
+Okay.
+
+Travis Gan
+49 minutos 49 segundos49:49
+Travis Gan 49 minutos 49 segundos
+He is searching like PDM documents, right? He want to find out which PDF files or our Word documents have information about PDM installation, for example. So when you user search for PDM installations, that thing need to be.
+Travis Gan 50 minutos 9 segundos
+Split up and then vectorize because the index is vectorized. So your search also has to vectorize. So I believe in this case he's also vectorized the user's search query inside of Asia function before you send it to the index. I'm sorry, before you send it to the AI search index. So I think that is one thing I don't know.
+Travis Gan 50 minutos 30 segundos
+I just search, I just see something like this, right? And then it is also, I don't know what this means. He's doing PDF OCI read. Maybe I don't know like he's passing the PDF or passing the Word document into.
+Travis Gan 50 minutos 50 segundos
+Some text to send it to the open A I as well. I think if I read this correctly, so he's doing some stuff in his Azure function, right? And then of course the routing that I was telling you about and in this case you see that you also yeah, this is what was I was saying that he's.
+Travis Gan 51 minutos 10 segundos
+Extracting the text and images from the file. I guess he is sending a PDF file directly to the agent function for you to pass before you send it to the index or a open AI. And then.
+Travis Gan 51 minutos 26 segundos
+It is also trying to get a Azure token, I think, to send all these things. I see this is the vectorized query thing. I haven't looked at those things but and then he's also including the prompt for the open AI for the GPTI guess in this case of.
+Travis Gan 51 minutos 46 segundos
+you know, that's a lot of problem, right? Like you send things to the A I, you tell it what to do. So you usually have a system problem. He will include all those system problem. Yeah, I guess right here he said that in the Azure function so that the web part doesn't see any of that. Before that, I think he's trying to put it on his web part.
+Travis Gan 52 minutos 7 segundos
+But I think now he's, I don't know, maybe he's putting it on inside the Asia functions so that the air path doesn't even have that and the and then send it to.
+Travis Gan 52 minutos 21 segundos
+And then send it there and this is the routing I was talking about. I don't know. Yeah, does that answer your question, teacher? I'm gonna go back up.
+
+Maninder Singh Bajwa
+52 minutos 31 segundos52:31
+Maninder Singh Bajwa 52 minutos 31 segundos
+I think he is on hold, maybe with someone other call.
+
+Travis Gan
+52 minutos 39 segundos52:39
+Travis Gan 52 minutos 39 segundos
+Is on a call? No.
+
+Maninder Singh Bajwa
+52 minutos 40 segundos52:40
+Maninder Singh Bajwa 52 minutos 40 segundos
+Yes, he's an.
+Maninder Singh Bajwa 52 minutos 44 segundos
+Enterprise, we yes, currently is not here. We are using that keyword like so we are not passing any secret the API key right now. If they are going to utilise the API key then we want we will restore.
+
+Travis Gan
+52 minutos 44 segundos52:44
+Travis Gan 52 minutos 44 segundos
+he's not here, right?
+Travis Gan 52 minutos 48 segundos
+Okay.
+
+Maninder Singh Bajwa
+53 minutos 4 segundos53:04
+Maninder Singh Bajwa 53 minutos 4 segundos
+Store this value to the keyword and otherwise we don't have to store anything in the keyword, right?
+
+Travis Gan
+53 minutos 11 segundos53:11
+Travis Gan 53 minutos 11 segundos
+Correct. Right now the keyboard doesn't have any API key at all and I don't encourage anyone to use API key for so no as you've seen so far, nothing use API key. We were saying that one of the option is for you to use API key, but that will be the last last option, right? But if it's using API key, then yeah, of course.
+Travis Gan 53 minutos 31 segundos
+We will have to save it here and then expose it to the function app for it for the app to use. But for now, we don't have anything in keyword.
+
+Maninder Singh Bajwa
+53 minutos 41 segundos53:41
+Maninder Singh Bajwa 53 minutos 41 segundos
+And if we are not going to use with the API key, then still we require the keyboard or we can remove that option.
+
+Travis Gan
+53 minutos 48 segundos53:48
+Travis Gan 53 minutos 48 segundos
+no, yeah, this keyboard is just, you know, it's that ROKV, the read only keyboard that for the telephone thing. Yeah, the default keyboard. Yeah, that's the only one. Yeah, we don't have any additional one.
+
+Maninder Singh Bajwa
+53 minutos 53 segundos53:53
+Maninder Singh Bajwa 53 minutos 53 segundos
+OK.
+Maninder Singh Bajwa 53 minutos 55 segundos
+The default keyboard.
+Maninder Singh Bajwa 54 minutos 2 segundos
+OK.
+
+Travis Gan
+54 minutos 7 segundos54:07
+Travis Gan 54 minutos 7 segundos
+Yeah, and then all access like you see or AI access to this, if they're all using the managed identity, right? We do not want to have any key. This one can use key to access, but we want to use the, we want to use this.
+
+Maninder Singh Bajwa
+54 minutos 25 segundos54:25
+Maninder Singh Bajwa 54 minutos 25 segundos
+Okay.
+
+Travis Gan
+54 minutos 30 segundos54:30
+Travis Gan 54 minutos 30 segundos
+Okay, so I is there any more questions? Puneet, you have any questions?
+
+Puneet Kumar Sharma
+54 minutos 37 segundos54:37
+Puneet Kumar Sharma 54 minutos 37 segundos
+I am not drivers.
+
+Travis Gan
+54 minutos 42 segundos54:42
+Travis Gan 54 minutos 42 segundos
+Good, Puneet.
+
+Puneet Kumar Sharma
+54 minutos 44 segundos54:44
+Puneet Kumar Sharma 54 minutos 44 segundos
+Yeah, Travis, nothing from my end.
+
+Travis Gan
+54 minutos 48 segundos54:48
+Travis Gan 54 minutos 48 segundos
+Okay, cool. Okay, so I will let him know to work with you guys for that 2 things that we were talking about, the pipeline for deployment as well as the AI search setup for indexes, skill set and stuff like that. And then we just need to know, like ask him, we just need to know.
+Travis Gan 55 minutos 8 segundos
+What type of method this code is actually using to the from function app to the AI search and Azure OpenAI, then we can grant the proper permission or if we need set up the function app, Azure AD app with on behalf of Flow.
+
+Maninder Singh Bajwa
+55 minutos 27 segundos55:27
+Maninder Singh Bajwa 55 minutos 27 segundos
+Okay.
+
+Travis Gan
+55 minutos 29 segundos55:29
+Travis Gan 55 minutos 29 segundos
+OK, all right. I think that's it guys. So thank you for joining. I will. I'll talk to you guys soon.
+
+Maninder Singh Bajwa
+55 minutos 39 segundos55:39
+Maninder Singh Bajwa 55 minutos 39 segundos
+Thank you, Travis.
+
+Travis Gan
+55 minutos 40 segundos55:40
+Travis Gan 55 minutos 40 segundos
+Okay. All right. Bye. Bye. Bye.
+
+Puneet Kumar Sharma
+55 minutos 40 segundos55:40
+Puneet Kumar Sharma 55 minutos 40 segundos
+Thank you, Travis.

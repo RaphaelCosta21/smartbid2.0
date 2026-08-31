@@ -3,17 +3,18 @@
 Provisioning package for the SmartBid AI integration. Hand this folder to the
 Azure/IT team. Nothing here ships in the SPFx bundle — it is deployed to Azure.
 
-The SmartBid web part talks to **one** secure gateway (APIM → Function App) that
-fronts **Azure OpenAI** + **Azure AI Search**. Auth is **Entra ID / Managed
-Identity** end to end — no API keys, no Key Vault.
+The SmartBid web part calls the **Azure Function App directly** (protected by
+**EasyAuth / App Service Authentication** — there is no APIM). It fronts **Azure
+OpenAI** + **Azure AI Search**. Auth is **Entra ID / Managed Identity** end to
+end — no API keys, no Key Vault.
 
 ```
 Browser (SmartBid SPFx)
-   │  Entra ID user token (AadHttpClient)  ── App A ──►  APIM gateway
+   │  Entra ID user token (AadHttpClient)  ── App A ──►  Function App EasyAuth
    │                                                        │
    │                                                        ▼
    │                                                   Function App (Python)
-   │                                     Managed Identity ├──► Azure OpenAI (gpt-5.1-mini)
+   │                                     Managed Identity ├──► Azure OpenAI (gpt-5-mini)
    │                                     Managed Identity └──► Azure AI Search (smartbid-docs-index)
    │
 AI Search Indexer ── App B ──►  SharePoint  (reads smartBidDocs: Datasheets + Manuals and Catalogs)
@@ -48,6 +49,14 @@ AI Search Indexer ── App B ──►  SharePoint  (reads smartBidDocs: Datas
 
 App B needs **admin consent** for the Graph application permissions.
 
+> There is also a **third** app registration — the Function App's own API app
+> (`opgbbes-prd-fa-aadapp`), which EasyAuth uses to validate the caller's token
+> (audience `api://opgbbes-prd-fa-aadapp.oceaneering.com`). App A is
+> `opgbbes-prd-sharepoint-aadapp` (web-part client), App B is
+> `opgbbes-prd-search-aadapp` (indexer). Downstream, the Function reaches Azure
+> OpenAI + AI Search via its **system-assigned Managed Identity** (see §4) —
+> not on-behalf-of, not API keys.
+
 ---
 
 ## 2. Azure AI Search — the reference index
@@ -60,8 +69,8 @@ App B needs **admin consent** for the Graph application permissions.
 
 **Fill the placeholders** (`<...>`) in the JSON files:
 
-- `01-datasource.json` → `<APP_B_CLIENT_ID>`, `<APP_B_CLIENT_SECRET>`, `<TENANT_ID>` (or use a federated credential — see below)
-- `02-index.json` and `03-skillset.json` → `<AZURE_OPENAI_ENDPOINT>`, `<EMBEDDING_DEPLOYMENT_NAME>`, `<EMBEDDING_MODEL_NAME>`
+- `01-datasource.json` → `<APP_B_CLIENT_ID>`, `<APP_B_CLIENT_SECRET>`, `<TENANT_ID>` (App B = `opgbbes-prd-search-aadapp`; or use a federated credential — see below)
+- `02-index.json` and `03-skillset.json` → already filled for `cog-opgb-bes-prd-ai-openai` / `text-embedding-3-small` (1536 dims)
 
 **Deploy order** (REST, `Content-Type: application/json`, `api-key: <search-admin-key>`):
 
@@ -91,14 +100,14 @@ Renaming those folders breaks incremental indexing and requires updating the que
 
 ### Recommended stack
 
-| Setting           | Value                                                                                                                              |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Language          | **Python 3.11** (3.12 also fine)                                                                                                   |
-| Functions runtime | **v4**, Python **programming model v2** (decorators)                                                                               |
-| OS                | **Linux** (required for Python)                                                                                                    |
-| Hosting plan      | **Flex Consumption** or **Elastic Premium (EP1)** — avoid plain Consumption (short timeout + cold starts for document + LLM calls) |
-| Identity          | **system-assigned Managed Identity** enabled                                                                                       |
-| Timeout           | `functionTimeout` 5–10 min (`host.json` set to 10)                                                                                 |
+| Setting           | Value                                                                                                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Language          | **Python 3.11 or 3.12** (3.13 is the newest Azure Functions supports — **3.14 is not supported yet**; also confirm PyMuPDF/Azure SDK wheels exist for the chosen version) |
+| Functions runtime | **v4**, Python **programming model v2** (decorators)                                                                                                                      |
+| OS                | **Linux** (required for Python)                                                                                                                                           |
+| Hosting plan      | **Flex Consumption** or **Elastic Premium (EP1)** — avoid plain Consumption (short timeout + cold starts for document + LLM calls)                                        |
+| Identity          | **system-assigned Managed Identity** enabled                                                                                                                              |
+| Timeout           | `functionTimeout` 5–10 min (`host.json` set to 10)                                                                                                                        |
 
 **Why Python (not TypeScript, even though the web part is TS):** the Function App is a
 **standalone HTTP microservice** — it shares only a JSON contract with the frontend, no
@@ -120,18 +129,21 @@ SmartBid **always sends its own system prompt** (`systemPrompt` + `promptVersion
 ### Scanned documents
 
 Text-based PDFs/DOCX are parsed with **PyMuPDF** / **python-docx**. Scanned/image PDFs
-are read with **gpt-5.1-mini vision** (the model transcribes page images) — **no Azure AI
+are read with **gpt-5-mini vision** (the model transcribes page images) — **no Azure AI
 Document Intelligence required**.
 
 ### App settings (Configuration → Application settings)
 
 ```
 FUNCTIONS_WORKER_RUNTIME       = python
-AZURE_OPENAI_ENDPOINT          = https://<your-openai>.openai.azure.com
-AZURE_OPENAI_CHAT_DEPLOYMENT   = gpt-5.1-mini
-AZURE_SEARCH_ENDPOINT          = https://<your-search>.search.windows.net
+AZURE_OPENAI_ENDPOINT          = https://cog-opgb-bes-prd-ai-openai.openai.azure.com
+AZURE_OPENAI_CHAT_DEPLOYMENT   = gpt-5-mini
+AZURE_SEARCH_ENDPOINT          = https://srch-opgbbes-prd.search.windows.net
 AZURE_SEARCH_INDEX             = smartbid-docs-index
 ```
+
+The Function reads these at runtime via `os.environ[...]` — endpoints are **never hardcoded**
+in `function_app.py`, so IT can change a resource without editing or redeploying code.
 
 No embedding deployment is set here — the embedding model is referenced only by the
 AI Search index vectorizer and skillset, never by the Function App.
@@ -152,9 +164,10 @@ AI Search index vectorizer and skillset, never by the Function App.
 
 In `src/webparts/smartBid20/app/config/ai.config.ts`:
 
-- `apimBaseUrl` = the APIM gateway base URL
-- `aadResource` = the App A **App ID URI** (e.g. `api://<app-a-id>`)
+- `apimBaseUrl` = the Function App base URL (`https://fa-opgb-bes-prd-fa.azurewebsites.net/api`) — no APIM
+- `aadResource` = the Function App **App ID URI** (`api://opgbbes-prd-fa-aadapp.oceaneering.com`, the EasyAuth audience)
 - `enabled` = `true`
 
-And approve the matching `webApiPermissionRequests` (App A) in
-SharePoint Admin → Advanced → API access.
+Approve the matching `webApiPermissionRequests` (resource `opgbbes-prd-fa-aadapp`, scope `user_impersonation`) in
+SharePoint Admin → Advanced → API access. This uses the standard SPFx `AadHttpClient` (the shared "SharePoint Online
+Client Extensibility" principal), so **no custom web-part app registration is required**.

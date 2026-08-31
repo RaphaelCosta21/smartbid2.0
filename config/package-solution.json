@@ -35,8 +35,8 @@
     ],
     "webApiPermissionRequests": [
       {
-        "resource": "APP_DISPLAY_NAME",
-        "scope": "SCOPE_NAME"
+        "resource": "opgbbes-prd-fa-aadapp",
+        "scope": "user_impersonation"
       }
     ]
   },

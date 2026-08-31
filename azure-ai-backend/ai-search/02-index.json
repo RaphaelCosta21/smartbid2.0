@@ -126,9 +126,9 @@
         "name": "smartbid-openai-vectorizer",
         "kind": "azureOpenAI",
         "azureOpenAIParameters": {
-          "resourceUri": "<AZURE_OPENAI_ENDPOINT>",
-          "deploymentId": "<EMBEDDING_DEPLOYMENT_NAME>",
-          "modelName": "<EMBEDDING_MODEL_NAME>"
+          "resourceUri": "https://cog-opgb-bes-prd-ai-openai.openai.azure.com",
+          "deploymentId": "text-embedding-3-small",
+          "modelName": "text-embedding-3-small"
         }
       }
     ],
