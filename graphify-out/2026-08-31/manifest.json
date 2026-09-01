@@ -30,16 +30,16 @@
     "semantic_hash": "cbde7c276ce95843f67c3f3783baaaf8"
   },
   "azure-ai-backend/ai-search/02-index.json": {
-    "mtime": 1787941188.2593632,
-    "seen": 1788174751.027182,
-    "ast_hash": "a2830756c2885c2ed997a6bd33e4bbed",
-    "semantic_hash": ""
+    "mtime": 1787332437.155855,
+    "seen": 1787592695.0684142,
+    "ast_hash": "4f8a86c4c17f59d414627c3e308d89d5",
+    "semantic_hash": "4f8a86c4c17f59d414627c3e308d89d5"
   },
   "azure-ai-backend/ai-search/03-skillset.json": {
-    "mtime": 1787941188.26111,
-    "seen": 1788174751.0271883,
-    "ast_hash": "45c3e76766378ec03ffd109fa1ba3e69",
-    "semantic_hash": ""
+    "mtime": 1787332437.161854,
+    "seen": 1787592695.06842,
+    "ast_hash": "01ff439803cb80aaa471292059f5a301",
+    "semantic_hash": "01ff439803cb80aaa471292059f5a301"
   },
   "azure-ai-backend/ai-search/04-indexer.json": {
     "mtime": 1787332436.4073637,
@@ -48,10 +48,10 @@
     "semantic_hash": "4531eab4abb88e7cc3080f028f9b576a"
   },
   "azure-ai-backend/function-app/function_app.py": {
-    "mtime": 1787942887.9899356,
-    "seen": 1788174751.0271971,
-    "ast_hash": "3a7b20fb6aaf4e99406a05d4dc6d8ebd",
-    "semantic_hash": ""
+    "mtime": 1787332431.8836553,
+    "seen": 1787592695.068428,
+    "ast_hash": "c336b769594e46a8d4323eeef01df692",
+    "semantic_hash": "c336b769594e46a8d4323eeef01df692"
   },
   "azure-ai-backend/function-app/host.json": {
     "mtime": 1787332437.161854,
@@ -72,10 +72,10 @@
     "semantic_hash": "29ac15e15f5981a48fdc8280d3f74306"
   },
   "config/package-solution.json": {
-    "mtime": 1787941188.2450762,
-    "seen": 1788174751.0272088,
-    "ast_hash": "e4e6902fd2d3134a8062af883754a12a",
-    "semantic_hash": ""
+    "mtime": 1787245453.1687348,
+    "seen": 1787592695.0684447,
+    "ast_hash": "d6d4efdb5dcfeb965b3a49799460e665",
+    "semantic_hash": "d6d4efdb5dcfeb965b3a49799460e665"
   },
   "config/sass.json": {
     "mtime": 1775565023.7470112,
@@ -852,10 +852,10 @@
     "semantic_hash": "3d993cda15c1bb62db078fdb88942aa8"
   },
   "src/webparts/smartBid20/app/config/ai.config.ts": {
-    "mtime": 1787942888.5567787,
-    "seen": 1788174751.0275974,
-    "ast_hash": "b470703437b395a9eaf575be2f8f6886",
-    "semantic_hash": ""
+    "mtime": 1787334263.355236,
+    "seen": 1787592695.0689855,
+    "ast_hash": "945aecc5d57bf5bef7e34f69e5a52a8b",
+    "semantic_hash": "945aecc5d57bf5bef7e34f69e5a52a8b"
   },
   "src/webparts/smartBid20/app/config/ai.prompts.ts": {
     "mtime": 1787334263.2706323,
@@ -1476,10 +1476,10 @@
     "semantic_hash": "82c0e4643cc17be9e04710de38d1056c"
   },
   "src/webparts/smartBid20/app/services/AIAnalysisService.ts": {
-    "mtime": 1787942888.6548991,
-    "seen": 1788174751.02785,
-    "ast_hash": "d31f08c79d089ec9abdd2311957e42aa",
-    "semantic_hash": ""
+    "mtime": 1787334263.3362982,
+    "seen": 1787592695.069401,
+    "ast_hash": "e5bf5b8a870ba53e958a43524869f14a",
+    "semantic_hash": "e5bf5b8a870ba53e958a43524869f14a"
   },
   "src/webparts/smartBid20/app/services/ActivityLogService.ts": {
     "mtime": 1776170585.385389,
@@ -1974,9 +1974,9 @@
     "semantic_hash": ""
   },
   "azure-ai-backend/README.md": {
-    "mtime": 1787943008.5683095,
-    "seen": 1788174751.0280962,
-    "ast_hash": "1231c04960e191ab85b7dc0032ccb01a",
+    "mtime": 1787332436.961795,
+    "seen": 1787594126.5927389,
+    "ast_hash": "522a27ee6066eb72245b41faae295f4b",
     "semantic_hash": ""
   },
   "azure-ai-backend/function-app/requirements.txt": {
@@ -2487,132 +2487,6 @@
     "mtime": 1775565024.146735,
     "seen": 1787594126.5928347,
     "ast_hash": "2f466993c4f51d26e80c1dfd032ccd67",
-    "semantic_hash": ""
-  },
-  "PRODFLOW-PROJECT-PLAN.md": {
-    "mtime": 1787962272.8218803,
-    "seen": 1788174751.0280805,
-    "ast_hash": "15c631508f3b8bbdd0b794963d7fc422",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/meeting pipeline smartbid.txt": {
-    "mtime": 1787939680.221937,
-    "seen": 1788174751.0281026,
-    "ast_hash": "b45206f7569f30bf0831629bca816887",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/1.png": {
-    "mtime": 1787939809.9796467,
-    "seen": 1788174751.0281198,
-    "ast_hash": "b4d2041fed753306ad4d0470386528d1",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/10.png": {
-    "mtime": 1787939866.5387282,
-    "seen": 1788174751.0281222,
-    "ast_hash": "32ad65bc5706062f24d07588cfcb40c6",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/11.png": {
-    "mtime": 1787939872.9996336,
-    "seen": 1788174751.0281248,
-    "ast_hash": "3e13cf83f1b8aae1274f71f8560d76e5",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/12.png": {
-    "mtime": 1787939878.5976532,
-    "seen": 1788174751.0281267,
-    "ast_hash": "6d903ccf52af08a22b8c5a8c0829fa96",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/13.png": {
-    "mtime": 1787939884.4229443,
-    "seen": 1788174751.0281289,
-    "ast_hash": "8d204a26528a4bfe7f41c773ce809bd4",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/14.png": {
-    "mtime": 1787939889.8522213,
-    "seen": 1788174751.0281305,
-    "ast_hash": "9733cd43341bd3b5459ef3ce9278fe52",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/15.png": {
-    "mtime": 1787939895.597947,
-    "seen": 1788174751.0281327,
-    "ast_hash": "2c0d4cccab2c3bc49aa29ce3ef9a4249",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/16.png": {
-    "mtime": 1787939901.0344176,
-    "seen": 1788174751.0281346,
-    "ast_hash": "e9b866c4e0b378ac05c865c030859f8f",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/17.png": {
-    "mtime": 1787939908.3413072,
-    "seen": 1788174751.0281367,
-    "ast_hash": "a70c2e9d624bdc58e663a60650425a16",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/18.png": {
-    "mtime": 1787939914.007166,
-    "seen": 1788174751.0281386,
-    "ast_hash": "e970ccf64707bc0254dbc6bef2410d73",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/19.png": {
-    "mtime": 1787939920.0329094,
-    "seen": 1788174751.0281408,
-    "ast_hash": "7228a473ae40aab6ff3b857a9810f2b2",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/2.png": {
-    "mtime": 1787939816.9390068,
-    "seen": 1788174751.028143,
-    "ast_hash": "dccb1251c8b68e9d4774289f6b7d2f10",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/3.png": {
-    "mtime": 1787939824.197789,
-    "seen": 1788174751.0281446,
-    "ast_hash": "25a8a96fa9758e7b8d0ef6b7edff9b3e",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/4.png": {
-    "mtime": 1787939830.6851268,
-    "seen": 1788174751.0281465,
-    "ast_hash": "0f50868027749003a282df0ab7e63eaa",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/5.png": {
-    "mtime": 1787939836.0245302,
-    "seen": 1788174751.0281484,
-    "ast_hash": "2864f410fe150ae5fb0e6f6e2872162f",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/6.png": {
-    "mtime": 1787939841.967486,
-    "seen": 1788174751.0281503,
-    "ast_hash": "0bceab9bcad2d6f01c5ecee6b7dfcb78",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/7.png": {
-    "mtime": 1787939848.167616,
-    "seen": 1788174751.028152,
-    "ast_hash": "e65b637e64f2dc636e896113c250ff82",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/8.png": {
-    "mtime": 1787939854.87489,
-    "seen": 1788174751.028154,
-    "ast_hash": "6d0de779b7071f9b5b19c335a663878a",
-    "semantic_hash": ""
-  },
-  "azure-ai-backend/pipeline meeting/9.png": {
-    "mtime": 1787939861.4031892,
-    "seen": 1788174751.0281558,
-    "ast_hash": "4d69e08a531bb2bf0afac8a670b410f6",
     "semantic_hash": ""
   }
 }

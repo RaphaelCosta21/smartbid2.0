@@ -23,6 +23,7 @@ import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
 import { APP_CONFIG } from "../../config/app.config";
+import { EntraTokenTest } from "../common/EntraTokenTest";
 
 /* ------------------------------------------------------------------ */
 /* NAV STRUCTURE                                                      */
@@ -146,6 +147,7 @@ const NAV_GROUPS: INavGroup[] = [
     items: [
       { key: "access", label: "Access Levels", icon: "🔐" },
       { key: "notifications", label: "Notifications", icon: "🔔" },
+      { key: "apiDiagnostics", label: "API Diagnostics", icon: "🧪" },
     ],
   },
 ];
@@ -1949,6 +1951,23 @@ const SystemConfiguration: React.FC = () => {
     );
   };
 
+  /* ---- API Diagnostics (Entra ID delegated token) ---------------- */
+
+  const renderApiDiagnostics = (): React.ReactElement => (
+    <div>
+      <div className={styles.sectionHeader}>
+        <h3>API Diagnostics — Entra ID Delegated Token</h3>
+        <p>
+          Verifies that the SPFx AadHttpClient carries the signed-in user&apos;s
+          Entra ID identity when calling the SmartBid Azure API. Block 0 works
+          without any tenant approval; blocks A and B require the
+          webApiPermissionRequest to be granted.
+        </p>
+      </div>
+      <EntraTokenTest />
+    </div>
+  );
+
   /* ---- Phases & Sub-Statuses ------------------------------------ */
 
   const renderPhasesAndSubStatuses = (): React.ReactElement => {
@@ -2984,6 +3003,8 @@ const SystemConfiguration: React.FC = () => {
         return renderAccessLevels();
       case "notifications":
         return renderNotifications();
+      case "apiDiagnostics":
+        return renderApiDiagnostics();
       case "phases":
         return renderPhasesAndSubStatuses();
       case "resourceTypes":

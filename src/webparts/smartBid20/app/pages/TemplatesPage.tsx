@@ -11,7 +11,6 @@ import { IBidTemplate } from "../models/IBidTemplate";
 import { IScopeItem } from "../models";
 import { DIVISIONS, SERVICE_LINES } from "../utils/constants";
 import { makeId } from "../utils/idGenerator";
-import { TemplateService } from "../services/TemplateService";
 import styles from "./TemplatesPage.module.scss";
 
 type ViewMode = "grid" | "list";

@@ -6,6 +6,7 @@ Two HTTP endpoints (Function App, EasyAuth-protected):
   • POST /quotation/extract → Supplier quotation → structured line items (no RAG)
 
 Auth is Entra ID / Managed Identity end to end — no API keys, no Key Vault.
+Callers are authorized per-user (App Role "SmartBid.User" or UPN allowlist).
 SmartBid ALWAYS sends its own system prompt (from app/config/ai.prompts.ts).
 Scanned/image PDFs are read with gpt-5-mini vision.
 """
@@ -15,7 +16,7 @@ import json
 import base64
 import logging
 from datetime import datetime, timezone
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import azure.functions as func
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
@@ -109,10 +110,72 @@ def _unreadable() -> func.HttpResponse:
     )
 
 
+# ---------------------------------------------------------------------------
+# Authorization — EasyAuth authenticates the caller (App Service injects the
+# identity into request headers); we authorize per-user here so only approved
+# users can reach the AI. The SPFx web API permission grant is tenant-wide, so
+# authorization MUST happen here (plus "Assignment required" on the app).
+# ---------------------------------------------------------------------------
+REQUIRED_APP_ROLE = os.environ.get("REQUIRED_APP_ROLE", "SmartBid.User")
+ALLOWED_UPNS = {
+    u.strip().lower()
+    for u in os.environ.get("ALLOWED_UPNS", "").split(",")
+    if u.strip()
+}
+_UPN_CLAIM_TYPES = (
+    "preferred_username",
+    "upn",
+    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn",
+)
+
+
+def _caller_identity(req: func.HttpRequest) -> Tuple[str, List[str]]:
+    """Return (upn, roles) for the authenticated caller from the EasyAuth
+    X-MS-CLIENT-PRINCIPAL header. External requests can't set this header —
+    only App Service Authentication sets it, after validating the token."""
+    upn = req.headers.get("X-MS-CLIENT-PRINCIPAL-NAME", "")
+    roles: List[str] = []
+    raw = req.headers.get("X-MS-CLIENT-PRINCIPAL")
+    if raw:
+        try:
+            principal = json.loads(base64.b64decode(raw).decode("utf-8"))
+            claims = principal.get("claims", []) or []
+            roles = [c.get("val", "") for c in claims if c.get("typ") == "roles"]
+            if not upn:
+                upn = next(
+                    (c.get("val", "") for c in claims if c.get("typ") in _UPN_CLAIM_TYPES),
+                    "",
+                )
+        except Exception:
+            logging.exception("Failed to decode X-MS-CLIENT-PRINCIPAL")
+    return upn.lower(), roles
+
+
+def _authorize(req: func.HttpRequest) -> Optional[func.HttpResponse]:
+    """Return a 403 response if the caller isn't approved, else None. Authorized
+    by App Role first, then an optional UPN allowlist. Default-deny."""
+    upn, roles = _caller_identity(req)
+    authorized = (REQUIRED_APP_ROLE in roles) or (bool(ALLOWED_UPNS) and upn in ALLOWED_UPNS)
+    if not authorized:
+        logging.warning("Unauthorized AI call — caller=%s roles=%s", upn or "<unknown>", roles)
+        return func.HttpResponse(
+            json.dumps({
+                "error": "Not authorized",
+                "details": "Your account is not permitted to use the SmartBid AI service.",
+            }),
+            status_code=403, mimetype="application/json",
+        )
+    logging.info("Authorized AI call — caller=%s", upn or "<unknown>")
+    return None
+
+
 @app.route(route="scope/generate", methods=["POST"])
 def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
     # Scope of Supply generation, grounded with RAG.
     # SmartBid ALWAYS sends its own system prompt (scope-of-supply-v3).
+    denied = _authorize(req)
+    if denied is not None:
+        return denied
     try:
         body = req.get_json()
 
@@ -184,6 +247,9 @@ def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
 def extract_quotation(req: func.HttpRequest) -> func.HttpResponse:
     # Supplier quotation extraction (no RAG).
     # SmartBid ALWAYS sends its own system prompt (quotation-extraction-v1).
+    denied = _authorize(req)
+    if denied is not None:
+        return denied
     try:
         body = req.get_json()
 

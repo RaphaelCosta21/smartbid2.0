@@ -1,16 +1,16 @@
-# Graph Report - smartbid2.0  (2026-08-24)
+# Graph Report - smartbid2.0  (2026-08-31)
 
 ## Corpus Check
-- 331 files · ~492,604 words
+- 332 files · ~774,246 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1837 nodes · 5324 edges · 106 communities (81 shown, 25 thin omitted)
+- 1904 nodes · 5374 edges · 112 communities (85 shown, 27 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 10 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `cce6a163`
+- Built from commit: `fb4fa770`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -19,15 +19,15 @@
 - BidDetailsReportPage.tsx
 - useConfigStore
 - analyticsHelpers.ts
-- BidTrackerPage.tsx
+- DashboardPage.tsx
 - BidDetailPage.tsx
-- TemplatesPage.tsx
-- useStatusColors
+- TemplateEditor.tsx
+- ProdFlow — CIDEQ Production Management System
 - pnp-sp.d.ts
 - QualificationsTab.tsx
 - compilerOptions
-- approvalHelpers.ts
-- TeamAnalyticsPage.tsx
+- ApprovalTab.tsx
+- GlassCard.tsx
 - SystemConfiguration.tsx
 - CreateRequestPage.tsx
 - IPersonRef
@@ -35,36 +35,36 @@
 - devDependencies
 - .eslintrc.js
 - solution
-- IScopeItem
-- AppLayout.tsx
+- AssetsBreakdownTab.tsx
+- PatchNotesPage.tsx
 - dependencies
-- BidHoursTable.tsx
-- formatDateTime
+- formatters.ts
 - makeId
+- CertificationsBreakdownTab.tsx
 - sharepoint.config.ts
-- FavoritesPage.tsx
+- useQueryCatalogStore.ts
 - costCalculations.ts
-- ImportClarificationModal.tsx
-- DashboardService.ts
-- DocLibraryCatalog.tsx
-- RequestService.ts
+- ClarificationsDbPage.tsx
 - IBid
-- PreparationMobilizationTab.tsx
-- DashboardPage.tsx
+- DocLibraryCatalog.tsx
+- IBidStatus.ts
+- useFavoritesStore.ts
+- QueryConsultingPage.tsx
+- FavoritesPage.tsx
 - PeriodPerformancePage.tsx
 - BottleneckAnalysisPage.tsx
 - OverviewTab.tsx
-- BidTimeline.tsx
-- useEditControl.ts
-- FollowUpPage.tsx
-- useUIStore
-- MembersManagement.tsx
+- SmartBid 2.0 — Azure AI Backend
+- CurrencyService
+- TeamAnalyticsPage.tsx
+- AppLayout.tsx
+- ApprovalStatus
 - LinksRecommendationsPage.tsx
-- TemplateEditor.tsx
+- FavoritesService
 - BomCostsPage.tsx
 - IErn
-- EquipmentImportModal.tsx
-- ErnCreateModal.tsx
+- ScopeOfSupplyTab.tsx
+- ernHelpers.ts
 - useCurrentUser
 - Sidebar.tsx
 - SmartBid20WebPart.manifest.json
@@ -72,24 +72,27 @@
 - useSpfxContext
 - phaseHelpers.ts
 - extract_quotation
-- ImportSourceModal.tsx
+- IScopeItem
 - xlsx.d.ts
-- useBidStore.ts
+- 21. Roadmap de Implementação (Fases 0–7)
 - package.json
-- BidEquipmentTable.tsx
-- ExportService.ts
+- 7. Fluxo Ponta a Ponta
+- defaultFavoriteGroups.ts
 - NotificationService
-- useConfigPhases.ts
+- 12. Modelo de Status
 - RecentActivity.tsx
 - config.json
 - copilot-instructions.md
 - SmartBid20WebPart
+- 17. UI/UX (Design Premium — "UI/UX Pro Max")
 - IntegratedDivisionTabs.tsx
+- BidTaskChecklist.tsx
 - deploy-azure-storage.json
 - 01-welcome.json
 - 03-approver.json
 - 04-final.json
-- HeatmapGrid.tsx
+- FaqPage.tsx
+- UserService
 - serve.json
 - 02-status.json
 - PricingService
@@ -115,103 +118,106 @@
 - xlsx
 - zustand
 - svg.d.ts
+- 10. SLA & Prazos
+- 11. Modelo de Dados
+- 15. Arquitetura
 
 ## God Nodes (most connected - your core abstractions)
 1. `IBid` - 101 edges
 2. `useConfigStore` - 86 edges
 3. `makeId()` - 59 edges
 4. `useCurrentUser()` - 46 edges
-5. `IScopeItem` - 36 edges
-6. `useBids()` - 36 edges
+5. `useBids()` - 36 edges
+6. `IScopeItem` - 35 edges
 7. `IPersonRef` - 34 edges
 8. `formatDate()` - 33 edges
 9. `PageHeader()` - 33 edges
 10. `BomCostsPage()` - 31 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `ISectorDef` --references--> `Sector`  [EXTRACTED]
-  src/webparts/smartBid20/app/config/sectors.config.ts → src/webparts/smartBid20/app/models/IUser.ts
-- `Sector` --references--> `SectorApprovalStat`  [EXTRACTED]
-  src/webparts/smartBid20/app/models/IUser.ts → src/webparts/smartBid20/app/utils/approvalHelpers.ts
-- `FormData` --references--> `IPersonRef`  [EXTRACTED]
-  src/webparts/smartBid20/app/pages/CreateRequestPage.tsx → src/webparts/smartBid20/app/models/IUser.ts
-- `BidStatusPhasePanelProps` --references--> `IBid`  [EXTRACTED]
-  src/webparts/smartBid20/app/components/bid/BidStatusPhasePanel.tsx → src/webparts/smartBid20/app/models/IBid.ts
-- `BidTaskChecklistProps` --references--> `IBidTask`  [EXTRACTED]
-  src/webparts/smartBid20/app/components/bid/BidTaskChecklist.tsx → src/webparts/smartBid20/app/models/IBid.ts
+- `BidCommentsProps` --references--> `IBidComment`  [EXTRACTED]
+  src/webparts/smartBid20/app/components/bid/BidComments.tsx → src/webparts/smartBid20/app/models/IBid.ts
+- `IPhaseTask` --references--> `BidPhase`  [EXTRACTED]
+  src/webparts/smartBid20/app/config/phases.config.ts → src/webparts/smartBid20/app/models/IBidStatus.ts
+- `BidPhase` --references--> `FunnelRow`  [EXTRACTED]
+  src/webparts/smartBid20/app/models/IBidStatus.ts → src/webparts/smartBid20/app/utils/analyticsHelpers.ts
+- `BidPhase` --references--> `HeatmapMatrix`  [EXTRACTED]
+  src/webparts/smartBid20/app/models/IBidStatus.ts → src/webparts/smartBid20/app/utils/analyticsHelpers.ts
+- `BidPhase` --references--> `PhaseDurationRow`  [EXTRACTED]
+  src/webparts/smartBid20/app/models/IBidStatus.ts → src/webparts/smartBid20/app/utils/analyticsHelpers.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (106 total, 25 thin omitted)
+## Communities (112 total, 27 thin omitted)
 
 ### Community 0 - "models/index.ts"
 Cohesion: 0.06
-Nodes (57): AIAnalysisReviewStatus, IAssetsCostSummary, IAssetSubCost, IAvailabilitySplit, IBidAIAnalysis, IBidComment, IBidErnLink, IBidKPIs (+49 more)
+Nodes (56): HoursRowProps, MOB_TYPES, PreparationMobilizationTabProps, RTS_TYPES, AIAnalysisReviewStatus, IAssetsCostSummary, IAssetSubCost, IAvailabilitySplit (+48 more)
 
 ### Community 1 - "BidDetailsReportPage.tsx"
-Cohesion: 0.18
-Nodes (19): ChartTooltip(), ExportBar(), ExportBarProps, getSectorColor(), BidDetailsReportPage(), CHART_SECTIONS, CHART_SECTIONS, OperationalSummaryPage() (+11 more)
+Cohesion: 0.11
+Nodes (29): ChartTooltip(), ChartTooltipEntry, ChartTooltipProps, ExportBar(), ExportBarProps, getSectorColor(), useExport(), IExportColumn (+21 more)
 
 ### Community 2 - "useConfigStore"
-Cohesion: 0.11
-Nodes (30): CountdownTimer(), CountdownTimerProps, DataTable(), DataTableColumn, DataTableProps, DivisionBadge(), DivisionBadgeProps, PhaseBadge() (+22 more)
+Cohesion: 0.07
+Nodes (45): CountdownTimer(), CountdownTimerProps, DataTable(), DataTableColumn, DataTableProps, DivisionBadge(), DivisionBadgeProps, PageHeader() (+37 more)
 
 ### Community 3 - "analyticsHelpers.ts"
-Cohesion: 0.10
-Nodes (40): Sparkline(), SparklineProps, GRAN_SEGMENTS, lastDelta(), PerformanceTrendsPage(), addPeriod(), bidHasRole(), buildPeriodSequence() (+32 more)
+Cohesion: 0.08
+Nodes (51): Sparkline(), SparklineProps, KPICard(), KPICardProps, DashboardKPIRow(), DashboardKPIRowProps, ROUTES, useChartTheme() (+43 more)
 
-### Community 4 - "BidTrackerPage.tsx"
-Cohesion: 0.17
-Nodes (21): BidCard(), BidStatusDropdown(), BidStatusDropdownProps, FilterPanel(), FilterPanelProps, StatusBadge(), StatusBadgeProps, BID_STATUSES (+13 more)
+### Community 4 - "DashboardPage.tsx"
+Cohesion: 0.07
+Nodes (43): BidCard(), BidCardProps, BidStatusDropdown(), BidStatusDropdownProps, EmptyState(), EmptyStateProps, FilterPanel(), FilterPanelProps (+35 more)
 
 ### Community 5 - "BidDetailPage.tsx"
-Cohesion: 0.16
-Nodes (15): BidExportButton(), BidExportButtonProps, BidDetailPage(), BidTab, DivisionEditWrap(), EMPTY_HOURS_SUMMARY, INavGroup, INavItem (+7 more)
-
-### Community 6 - "TemplatesPage.tsx"
 Cohesion: 0.14
-Nodes (13): BidTemplateImportProps, TemplateCard(), TemplateCardProps, TemplateImportWizardProps, TemplatePreview(), TemplatePreviewProps, useTemplates(), IBidTemplate (+5 more)
+Nodes (17): BidExportButton(), BidExportButtonProps, BidPhaseProgress(), BidPhaseProgressProps, useConfigPhases(), BidDetailPage(), BidTab, EMPTY_HOURS_SUMMARY (+9 more)
 
-### Community 7 - "useStatusColors"
-Cohesion: 0.21
-Nodes (10): DashboardActivity(), DashboardActivityProps, FeedRow, Mode, MODE_SEGMENTS, useAccessLevel(), StatusColorLookup, useStatusColors() (+2 more)
+### Community 6 - "TemplateEditor.tsx"
+Cohesion: 0.06
+Nodes (34): BidTemplateImportProps, EditableTabContent(), EditLockBanner(), EditToolbar(), ImportSourceModal(), PriorityBadgeProps, TemplateCard(), TemplateCardProps (+26 more)
+
+### Community 7 - "ProdFlow — CIDEQ Production Management System"
+Cohesion: 0.09
+Nodes (22): 13. Modelo Financeiro, 14. KPIs (Dashboard), 16. Listas SharePoint & Colunas, 18. Stack Tecnológica, 19. Requisitos Não-Funcionais, 1. Sumário Executivo, 20. Graphify (Grafo de Conhecimento), 22. Verificação / Aceite (+14 more)
 
 ### Community 8 - "pnp-sp.d.ts"
 Cohesion: 0.05
 Nodes (13): @pnp/sp, SPCurrentUser, SPFI, SPFile, SPFiles, SPFolder, SPItem, SPItems (+5 more)
 
 ### Community 9 - "QualificationsTab.tsx"
-Cohesion: 0.06
-Nodes (45): AITab(), AITabProps, ClarificationSuggestionsModal(), ClarificationSuggestionsModalProps, ExportClarificationModal(), ExportClarificationModalProps, ExportMode, ImportClarificationModalProps (+37 more)
+Cohesion: 0.07
+Nodes (33): AITab(), AITabProps, ClarificationSuggestionsModal(), ClarificationSuggestionsModalProps, QualificationsTab(), QualificationsTabProps, ACCEPTED_TYPES, AIDocumentAnalyzer() (+25 more)
 
 ### Community 10 - "compilerOptions"
 Cohesion: 0.05
 Nodes (36): dom, es2015.collection, es2015.core, es2015.iterable, es2015.promise, es2016.array.include, es2017.object, es2017.string (+28 more)
 
-### Community 11 - "approvalHelpers.ts"
-Cohesion: 0.19
-Nodes (13): BY_LABEL, BY_VALUE, getSectorLabel(), ISectorDef, sectorFromLabel(), SECTORS, ApprovalFilter, computeRoundSectorDurations() (+5 more)
+### Community 11 - "ApprovalTab.tsx"
+Cohesion: 0.11
+Nodes (30): ApprovalTab(), ApprovalTabProps, SECTOR_CONFIGS, SectorConfig, STATUS_DISPLAY, BidApprovalPanel(), BidApprovalPanelProps, BY_LABEL (+22 more)
 
-### Community 12 - "TeamAnalyticsPage.tsx"
-Cohesion: 0.09
-Nodes (32): ChartTooltipEntry, ChartTooltipProps, EmptyState(), EmptyStateProps, GlassCard(), GlassCardProps, KPICard(), KPICardProps (+24 more)
+### Community 12 - "GlassCard.tsx"
+Cohesion: 0.12
+Nodes (18): BidTimeline(), getPhaseTotalHours(), useLiveElapsed(), GlassCard(), GlassCardProps, ApprovalsPending(), ApprovalsPendingProps, BidsByDivisionChart() (+10 more)
 
 ### Community 13 - "SystemConfiguration.tsx"
-Cohesion: 0.06
-Nodes (36): ACCESS_AREAS, ALL_NAV_ITEMS, INavGroup, INavItem, KPI_META, NAV_GROUPS, NOTIFICATION_LABELS, PERM_CYCLE (+28 more)
+Cohesion: 0.11
+Nodes (16): ACCESS_AREAS, ALL_NAV_ITEMS, INavGroup, INavItem, KPI_META, NAV_GROUPS, NOTIFICATION_LABELS, PERM_CYCLE (+8 more)
 
 ### Community 14 - "CreateRequestPage.tsx"
-Cohesion: 0.10
-Nodes (20): ConfirmDialog(), ConfirmDialogProps, FileUpload(), FileUploadProps, PersonaCard(), PersonaCardProps, RichTextEditor(), RichTextEditorProps (+12 more)
+Cohesion: 0.06
+Nodes (34): ConfirmDialog(), ConfirmDialogProps, FileUpload(), FileUploadProps, PersonaCard(), PersonaCardProps, RichTextEditor(), RichTextEditorProps (+26 more)
 
 ### Community 15 - "IPersonRef"
-Cohesion: 0.09
-Nodes (23): ApprovalBadgeProps, ApprovalMatrixProps, ApprovalRequestCardProps, ApprovalTimelineProps, ApprovalTab(), ApprovalTabProps, SECTOR_CONFIGS, STATUS_DISPLAY (+15 more)
+Cohesion: 0.16
+Nodes (10): ApprovalMatrixProps, ApprovalRequestCardProps, ApprovalTimelineProps, IApprovalChain, IApprovalChainStep, IApprovalSectorGroup, IBidApprovalState, IBidCommentDef (+2 more)
 
 ### Community 16 - "BidStatusPhasePanel.tsx"
-Cohesion: 0.22
-Nodes (13): BidStatusPhasePanel(), BidStatusPhasePanelProps, BidTaskChecklist(), BidTaskChecklistProps, canStartRevision(), getActiveRevision(), getCurrentRevisionLetter(), getRevisionLetter() (+5 more)
+Cohesion: 0.18
+Nodes (18): BidComments(), BidCommentsProps, BidStatusPhasePanel(), BidStatusPhasePanelProps, AnalysisNotesCard(), OverviewTab(), canStartRevision(), getActiveRevision() (+10 more)
 
 ### Community 17 - "devDependencies"
 Cohesion: 0.07
@@ -225,129 +231,125 @@ Nodes (27): RATIONALE: The "module" keyword is deprecated except when describing
 Cohesion: 0.07
 Nodes (26): mpnId, name, privacyUrl, termsOfUseUrl, websiteUrl, default, categories, longDescription (+18 more)
 
-### Community 20 - "IScopeItem"
-Cohesion: 0.17
-Nodes (23): applyContingency(), AssetsBreakdownTab(), AssetsBreakdownTabProps, blankAsset(), blankSubCost(), blankSubItemCost(), blankTransitSubCost(), calcContingencyPct() (+15 more)
+### Community 20 - "AssetsBreakdownTab.tsx"
+Cohesion: 0.18
+Nodes (20): applyContingency(), AssetsBreakdownTab(), AssetsBreakdownTabProps, blankAsset(), blankSubCost(), blankSubItemCost(), blankTransitSubCost(), calcContingencyPct() (+12 more)
 
-### Community 21 - "AppLayout.tsx"
-Cohesion: 0.09
-Nodes (24): PageHeader(), PageHeaderProps, Toast, ToastContainer(), ToastContainerProps, GuestModeBanner(), PatchNote, PatchNotes() (+16 more)
+### Community 21 - "PatchNotesPage.tsx"
+Cohesion: 0.50
+Nodes (3): PatchNote, PatchNotes(), PatchNotesPage()
 
 ### Community 22 - "dependencies"
 Cohesion: 0.08
 Nodes (25): date-fns, @fluentui/react, lucide-react, @microsoft/sp-core-library, @microsoft/sp-lodash-subset, @microsoft/sp-webpart-base, dependencies, date-fns (+17 more)
 
-### Community 23 - "BidHoursTable.tsx"
-Cohesion: 0.14
-Nodes (19): BidHoursTable(), BidHoursTableProps, blankHoursItem(), HoursRow(), HoursRowProps, SectionKey, EditItemModalState, EngineeringHoursSection() (+11 more)
+### Community 23 - "formatters.ts"
+Cohesion: 0.18
+Nodes (15): BidEquipmentTable(), BidEquipmentTableProps, BidHoursTable(), blankHoursItem(), HoursRow(), SectionKey, EditItemModalState, EngineeringHoursSection() (+7 more)
 
-### Community 24 - "formatDateTime"
-Cohesion: 0.21
-Nodes (11): BidComments(), BidCommentsProps, DocumentsTab(), DocumentsTabProps, EmptySection(), NotesTab(), NotesTabProps, AnalysisNotesCard() (+3 more)
+### Community 24 - "makeId"
+Cohesion: 0.20
+Nodes (14): DocumentsTab(), DocumentsTabProps, EmptySection(), NotesTab(), NotesTabProps, blankConsumable(), blankMob(), blankRTS() (+6 more)
 
-### Community 25 - "makeId"
-Cohesion: 0.17
-Nodes (17): blankItem(), blankSection(), CertificationsBreakdownTab(), CertificationsBreakdownTabProps, SECTION_COLORS, blankItem(), LogisticsBreakdownTab(), LogisticsBreakdownTabProps (+9 more)
+### Community 25 - "CertificationsBreakdownTab.tsx"
+Cohesion: 0.24
+Nodes (11): blankItem(), blankSection(), CertificationsBreakdownTab(), CertificationsBreakdownTabProps, SECTION_COLORS, blankItem(), LogisticsBreakdownTab(), LogisticsBreakdownTabProps (+3 more)
 
 ### Community 26 - "sharepoint.config.ts"
-Cohesion: 0.23
-Nodes (6): SHAREPOINT_CONFIG, NOTE: This list uses real SharePoint columns (not a JSON blob)., IPriceEntry, SPService, ChangeType, IStatusTrackerEntry
+Cohesion: 0.20
+Nodes (7): SHAREPOINT_CONFIG, NOTE: This list uses real SharePoint columns (not a JSON blob)., EMPTY_DATA, IPriceEntry, SPService, ChangeType, IStatusTrackerEntry
 
-### Community 27 - "FavoritesPage.tsx"
-Cohesion: 0.05
-Nodes (55): AdvancedCatalogSearch(), AdvancedCatalogSearchProps, getPhotoUrl(), TabKey, PartNumberAutocomplete(), PartNumberAutocompleteProps, SectionDef, SECTIONS (+47 more)
+### Community 27 - "useQueryCatalogStore.ts"
+Cohesion: 0.15
+Nodes (18): CostSearchModal(), IActiveRegisteredItem, IBomCostResult, IBomSheetItem, IPeopleSoftFinancialsItem, IQueryCatalogData, IRawTabData, IExchangeRate (+10 more)
 
 ### Community 28 - "costCalculations.ts"
 Cohesion: 0.26
 Nodes (21): BidCostSummary(), BidCostSummaryProps, CapexOpexVerticalChart(), applyContingencySplit(), applyContingencyToCost(), buildCostSummary(), calculateAssetsByResourceType(), calculateAssetsTotals() (+13 more)
 
-### Community 29 - "ImportClarificationModal.tsx"
-Cohesion: 0.20
-Nodes (9): ImportClarificationModal(), toClarificationItem(), useDebounce(), ClarificationBaseType, IClarificationDbItem, ClarificationsDbPage(), emptyItem(), toDateInput() (+1 more)
+### Community 29 - "ClarificationsDbPage.tsx"
+Cohesion: 0.28
+Nodes (6): ClarificationBaseType, IClarificationDbItem, ClarificationsDbPage(), emptyItem(), toDateInput(), ClarificationDbService
 
-### Community 30 - "DashboardService.ts"
-Cohesion: 0.16
-Nodes (11): DivisionWorkloadProps, MonthlyVolumeChartProps, DEFAULT_KPI_TARGETS, IKPIDef, KPI_DEFINITIONS, IDashboardData, IDashboardKPI, IDivisionWorkload (+3 more)
+### Community 30 - "IBid"
+Cohesion: 0.06
+Nodes (32): BidTimelineProps, ExportClarificationModal(), ExportClarificationModalProps, ExportMode, DashboardActivityProps, DivisionWorkloadProps, EngHoursRankingProps, ErnDashboardSectionProps (+24 more)
 
 ### Community 31 - "DocLibraryCatalog.tsx"
-Cohesion: 0.18
-Nodes (9): DocLibraryCatalog(), DocLibraryCatalogProps, EMPTY_META(), stripExt(), ViewMode, DocCatalogType, IDocLibraryItem, IDocLibraryMetadata (+1 more)
+Cohesion: 0.10
+Nodes (19): ImportClarificationModal(), ImportClarificationModalProps, toClarificationItem(), DocLibraryCatalog(), DocLibraryCatalogProps, EMPTY_META(), stripExt(), ViewMode (+11 more)
 
-### Community 32 - "RequestService.ts"
-Cohesion: 0.23
-Nodes (11): mockRequests, useRequests(), IBidRequest, IRequestAttachment, IRequestPhase, BidPriority, BidType, Division (+3 more)
+### Community 32 - "IBidStatus.ts"
+Cohesion: 0.14
+Nodes (18): mockRequests, useRequests(), IBidRequest, IRequestAttachment, IRequestPhase, IBidResultDef, BidPriority, BidResultOutcome (+10 more)
 
-### Community 33 - "IBid"
-Cohesion: 0.15
-Nodes (11): OverviewTabProps, EngHoursRankingProps, ErnDashboardSectionProps, IBid, getAvatarColor(), getInitials(), UnassignedRequestsPage(), ViewMode (+3 more)
+### Community 33 - "useFavoritesStore.ts"
+Cohesion: 0.16
+Nodes (17): PartNumberAutocomplete(), PartNumberAutocompleteProps, SectionDef, SECTIONS, SOURCE_LABELS, EMPTY_RESULTS, useQuerySearch(), UseQuerySearchOptions (+9 more)
 
-### Community 34 - "PreparationMobilizationTab.tsx"
-Cohesion: 0.23
-Nodes (13): blankConsumable(), blankMob(), blankRTS(), MOB_TYPES, PreparationMobilizationTab(), buildOrdered(), moveItemInList(), PreparationMobilizationTabProps (+5 more)
+### Community 34 - "QueryConsultingPage.tsx"
+Cohesion: 0.16
+Nodes (17): applyAllFilters(), applyMultipleFilters(), calcLeadTimeDays(), convertExcelDate(), emptyTabData(), extractBUs(), formatAsUSD(), getPhotoUrl() (+9 more)
 
-### Community 35 - "DashboardPage.tsx"
-Cohesion: 0.11
-Nodes (9): SkeletonLoader(), SkeletonLoaderProps, ApprovalsPending(), ApprovalsPendingProps, EngHoursRanking(), ErnDashboardSection(), UpcomingDeadlines(), UpcomingDeadlinesProps (+1 more)
+### Community 35 - "FavoritesPage.tsx"
+Cohesion: 0.17
+Nodes (12): AdvancedCatalogSearch(), AdvancedCatalogSearchProps, getPhotoUrl(), TabKey, PhotoLightbox(), PhotoLightboxProps, IFavoriteEquipment, EditEquipmentModal() (+4 more)
 
 ### Community 36 - "PeriodPerformancePage.tsx"
 Cohesion: 0.13
 Nodes (28): categoricalColor(), CHART_SECTIONS, PeriodPerformancePage(), BidTableRow, bidTableRows(), byCommercialRequester(), ClientPerformance, clientPerformanceByDivision() (+20 more)
 
 ### Community 37 - "BottleneckAnalysisPage.tsx"
-Cohesion: 0.15
-Nodes (19): ProgressBar(), ProgressBarProps, AIInsightsPanel(), AIInsightsPanelProps, BottleneckAnalysisPage(), DIM_SEGMENTS, Dimension, Scope (+11 more)
+Cohesion: 0.12
+Nodes (23): heatColor(), HeatmapColumn, HeatmapGrid(), HeatmapGridProps, hexToRgb(), AIInsightsPanel(), AIInsightsPanelProps, BottleneckAnalysisPage() (+15 more)
 
 ### Community 38 - "OverviewTab.tsx"
-Cohesion: 0.16
-Nodes (14): ErnDetailsModal(), ErnDetailsModalProps, stateColor, APPROVAL_STATUS_DISPLAY, ExchangeRatesCard(), OverviewTab(), hasActiveRevision(), canManageErn() (+6 more)
+Cohesion: 0.21
+Nodes (7): ErnDetailsModal(), ErnDetailsModalProps, stateColor, APPROVAL_STATUS_DISPLAY, ExchangeRatesCard(), OverviewTabProps, getErnDeadlineState()
 
-### Community 39 - "BidTimeline.tsx"
-Cohesion: 0.18
-Nodes (12): BidTimeline(), BidTimelineProps, getPhaseTotalHours(), useLiveElapsed(), PriorityBadgeProps, PRIORITY_COLORS, formatDurationFromHours(), formatLiveElapsed() (+4 more)
+### Community 39 - "SmartBid 2.0 — Azure AI Backend"
+Cohesion: 0.17
+Nodes (11): 1. Two Entra ID app registrations (they are different on purpose), 2. Azure AI Search — the reference index, 3. Function App — the two endpoints, 4. RBAC (replaces API keys / Key Vault), 5. Frontend wiring (after the backend is live), App settings (Configuration → Application settings), Contents, Endpoints (+3 more)
 
-### Community 40 - "useEditControl.ts"
-Cohesion: 0.24
-Nodes (7): EditableTabContent(), EditLockBanner(), EditToolbar(), EditControlState, useEditControl(), IEditLock, EditControlService
+### Community 40 - "CurrencyService"
+Cohesion: 0.27
+Nodes (5): BCB_CURRENCY_TYPES, CurrencyService, IBCBCurrencyResponse, IBCBDollarResponse, ICurrencyRate
 
-### Community 41 - "FollowUpPage.tsx"
-Cohesion: 0.20
-Nodes (14): AnalyticsFilterBar(), AnalyticsFilterBarProps, PRESETS, MultiSelectDropdown(), MultiSelectDropdownProps, MultiSelectOption, AnalyticsFilters, DatePreset (+6 more)
+### Community 41 - "TeamAnalyticsPage.tsx"
+Cohesion: 0.10
+Nodes (24): ProgressBar(), ProgressBarProps, SkeletonLoader(), SkeletonLoaderProps, AnalyticsFilterBar(), AnalyticsFilterBarProps, PRESETS, MultiSelectDropdown() (+16 more)
 
-### Community 42 - "useUIStore"
-Cohesion: 0.18
-Nodes (12): Footer(), oiiBlueLogo, oiiWhiteLogo, smartBidIcon, smartBidIconDark, Header(), Breakpoints, useResponsive() (+4 more)
+### Community 42 - "AppLayout.tsx"
+Cohesion: 0.11
+Nodes (26): Toast, ToastContainer(), ToastContainerProps, AppLayout(), RequireEngineering(), CommandPalette(), ICommandItem, Footer() (+18 more)
 
-### Community 43 - "MembersManagement.tsx"
-Cohesion: 0.14
-Nodes (19): SectorConfig, BID_ROLE_META, BL_COLORS, BUSINESS_LINES, getAvatarColor(), getInitials(), IBidRoleMeta, IPeopleResult (+11 more)
+### Community 43 - "ApprovalStatus"
+Cohesion: 0.29
+Nodes (6): ApprovalBadgeProps, mockApprovals, IApprovalFlow, IApprovalFlowChain, IApprovalFlowStep, ApprovalStatus
 
 ### Community 44 - "LinksRecommendationsPage.tsx"
 Cohesion: 0.27
 Nodes (8): IBidLink, IBidRecommendation, ILinksRecommendationsData, LinkModal, LinksRecommendationsPage(), RecModal, EMPTY_DATA, LinksRecommendationsService
 
-### Community 45 - "TemplateEditor.tsx"
-Cohesion: 0.16
-Nodes (11): TemplateEditor(), TemplateEditorProps, IBidAttachment, AttachmentService, ACQUISITION_TYPES, BID_SIZE_COLORS, BID_SIZES, BID_TYPES (+3 more)
-
 ### Community 46 - "BomCostsPage.tsx"
 Cohesion: 0.06
-Nodes (56): AddQuotationModal(), AddQuotationModalProps, blankLineItem(), genId(), ILineItem, CostSearchModal(), isAiConfigured(), IActivityLog (+48 more)
+Nodes (54): AddQuotationModal(), AddQuotationModalProps, blankLineItem(), genId(), ILineItem, isAiConfigured(), IActivityLog, IActivityLogEntry (+46 more)
 
 ### Community 47 - "IErn"
-Cohesion: 0.22
+Cohesion: 0.21
 Nodes (9): useErn(), UseErnResult, ErnDeadlineState, IErn, IErnCreateData, IErnCreateResult, ErnService, ErnState (+1 more)
 
-### Community 48 - "EquipmentImportModal.tsx"
-Cohesion: 0.20
-Nodes (12): EquipmentImportModal(), EquipmentImportModalProps, IImportSubItem, TabDef, TabId, TABS, IAssetCatalogItem, AssetsCatalogPage() (+4 more)
+### Community 48 - "ScopeOfSupplyTab.tsx"
+Cohesion: 0.18
+Nodes (13): EquipmentImportModal(), EquipmentImportModalProps, IImportSubItem, TabDef, TabId, TABS, blankItem(), blankSection() (+5 more)
 
-### Community 49 - "ErnCreateModal.tsx"
-Cohesion: 0.23
-Nodes (12): ErnCreateModal(), ErnCreateModalProps, personToPicked(), toInputDate(), ernNum(), ErnSearchModal(), ErnSearchModalProps, ERN_REVISION_REASONS (+4 more)
+### Community 49 - "ernHelpers.ts"
+Cohesion: 0.17
+Nodes (19): ErnCreateModal(), ErnCreateModalProps, personToPicked(), toInputDate(), ernNum(), ErnSearchModal(), ErnSearchModalProps, ERN_REVISION_REASONS (+11 more)
 
 ### Community 50 - "useCurrentUser"
-Cohesion: 0.12
-Nodes (22): AppLayout(), RequireEngineering(), CommandPalette(), ICommandItem, Sidebar(), useCurrentUser(), useIsGuest(), IUser (+14 more)
+Cohesion: 0.16
+Nodes (18): useCurrentUser(), useIsGuest(), IUser, UserRole, DatasheetsPage(), FavoritesPage(), ManualsCatalogsPage(), AuthState (+10 more)
 
 ### Community 51 - "Sidebar.tsx"
 Cohesion: 0.17
@@ -373,49 +375,57 @@ Nodes (11): getAllTasks(), getPhaseConfig(), getPhaseLabel(), getPhaseTasks(), I
 Cohesion: 0.31
 Nodes (12): ensure_text(), extract_quotation(), extract_text_or_images(), generate_scope(), _now_iso(), SmartBid AI backend — Azure Functions (Python v2 programming model). Two HTTP…, Prefer extracted text (cheap). For scanned/image PDFs with no text, return page…, Guarantee plain text. If we only have page images (scanned document), use… (+4 more)
 
-### Community 57 - "ImportSourceModal.tsx"
-Cohesion: 0.24
-Nodes (12): IImportSource, ImportSourceList(), ImportSourceListProps, ImportMode, ImportSourceModal(), ImportSourceModalProps, IScopeImportResult, ScopeImportPreview() (+4 more)
+### Community 57 - "IScopeItem"
+Cohesion: 0.17
+Nodes (19): BidHoursTableProps, ScopeOfSupplyTabProps, HoursCategory, HoursImportPreview(), HoursImportPreviewProps, SelectionState, IImportSource, ImportSourceList() (+11 more)
 
 ### Community 58 - "xlsx.d.ts"
 Cohesion: 0.17
 Nodes (4): CellObject, WorkBook, WorkSheet, xlsx
 
-### Community 59 - "useBidStore.ts"
-Cohesion: 0.21
-Nodes (10): BidCardProps, ApprovalSummary, useApprovals(), IQuickNote, BidState, DEFAULT_FILTERS, useBidStore, ViewMode (+2 more)
+### Community 59 - "21. Roadmap de Implementação (Fases 0–7)"
+Cohesion: 0.22
+Nodes (9): 21. Roadmap de Implementação (Fases 0–7), Fase 0 — Fundação & Scaffold, Fase 1 — Domínio & Camada de Dados, Fase 2 — FID & Orçamentação, Fase 3 — Fabricação & Montagem, Fase 4 — QR Code / Smart Labels, Fase 5 — Dashboards, Planner & Gantt, Fase 6 — Config, Members, Notificações & RBAC (+1 more)
 
 ### Community 60 - "package.json"
 Cohesion: 0.18
 Nodes (10): engines, node, main, name, private, scripts, build, clean (+2 more)
 
-### Community 61 - "BidEquipmentTable.tsx"
-Cohesion: 0.67
-Nodes (3): BidEquipmentTable(), BidEquipmentTableProps, IEquipmentItem
+### Community 61 - "7. Fluxo Ponta a Ponta"
+Cohesion: 0.33
+Nodes (6): 7.1 Fase 1 — Orçamentação, 7.2 Fase 2 — Fabricação & Montagem (WO-cêntrica), 7.3 Kanban atual (referência — NÃO copiar), 7.4 Roteiro por sub-item (cada sub-item, um caminho — times diferentes), 7.5 Import & Mapeamento da BOM (PLM / Windchill), 7. Fluxo Ponta a Ponta
 
-### Community 62 - "ExportService.ts"
-Cohesion: 0.36
-Nodes (6): useExport(), IExportColumn, IExportOptions, IExportResult, IExportTab, ExportService
+### Community 62 - "defaultFavoriteGroups.ts"
+Cohesion: 0.53
+Nodes (4): getDefaultFavoriteGroups(), makeGroup(), nextId(), DEFAULT_SYSTEM_CONFIG
 
 ### Community 63 - "NotificationService"
 Cohesion: 0.25
 Nodes (4): NotificationService, ToastCallback, ToastOptions, ToastType
 
-### Community 64 - "useConfigPhases.ts"
-Cohesion: 0.38
-Nodes (5): BidPhaseProgress(), BidPhaseProgressProps, BID_PHASES, IConfigPhase, useConfigPhases()
+### Community 64 - "12. Modelo de Status"
+Cohesion: 0.50
+Nodes (4): 12.1 FID (macro) — máquina de estados, 12.2 Sub-item — por fase e dependente do Make/Buy, 12.3 Checklists de micro-etapas (com data + autor), 12. Modelo de Status
 
 ### Community 65 - "RecentActivity.tsx"
-Cohesion: 0.19
-Nodes (8): RecentActivityProps, TYPE_COLORS, MOCK_NOTIFICATIONS, INotification, ICON_MAP, NotificationsPage(), NotificationState, useNotificationStore
+Cohesion: 0.24
+Nodes (5): RecentActivityProps, TYPE_COLORS, MOCK_NOTIFICATIONS, INotification, NotificationState
 
 ### Community 66 - "config.json"
 Cohesion: 0.22
 Nodes (8): bundles, smart-bid-20-web-part, externals, localizedResources, SmartBid20WebPartStrings, $schema, components, version
 
+### Community 69 - "17. UI/UX (Design Premium — "UI/UX Pro Max")"
+Cohesion: 0.50
+Nodes (4): 17.1 QR Code / Smart Labels, 17.2 Dashboards & Gráficos, 17.3 Demo de conceito (aprovação), 17. UI/UX (Design Premium — "UI/UX Pro Max")
+
 ### Community 70 - "IntegratedDivisionTabs.tsx"
 Cohesion: 0.32
 Nodes (7): IntegratedDivision, IntegratedDivisionTabs(), IntegratedDivisionTabsProps, OPG_SERVICE_LINES, resolveTabs(), tabBarStyle, tabStyle()
+
+### Community 71 - "BidTaskChecklist.tsx"
+Cohesion: 0.67
+Nodes (3): BidTaskChecklist(), BidTaskChecklistProps, IBidTask
 
 ### Community 72 - "deploy-azure-storage.json"
 Cohesion: 0.33
@@ -433,9 +443,9 @@ Nodes (5): actions, body, $schema, type, version
 Cohesion: 0.33
 Nodes (5): actions, body, $schema, type, version
 
-### Community 77 - "HeatmapGrid.tsx"
-Cohesion: 0.47
-Nodes (5): heatColor(), HeatmapColumn, HeatmapGrid(), HeatmapGridProps, hexToRgb()
+### Community 76 - "FaqPage.tsx"
+Cohesion: 0.50
+Nodes (3): FAQ_ITEMS, FaqPage(), IFaqItem
 
 ### Community 78 - "serve.json"
 Cohesion: 0.40
@@ -445,25 +455,37 @@ Nodes (4): https, initialPage, port, $schema
 Cohesion: 0.40
 Nodes (4): body, $schema, type, version
 
+### Community 107 - "10. SLA & Prazos"
+Cohesion: 0.67
+Nodes (3): 10.1 SLA de resposta do orçamento (meta interna — apresentar orçamento à Petrobras), 10.2 Prazo de entrega da fabricação (cotado no orçamento), 10. SLA & Prazos
+
+### Community 108 - "11. Modelo de Dados"
+Cohesion: 0.67
+Nodes (3): 11.1 Interfaces TypeScript (esboço para bootstrap), 11.2 Mapeamento com a planilha de controle atual (~40 colunas), 11. Modelo de Dados
+
+### Community 109 - "15. Arquitetura"
+Cohesion: 0.67
+Nodes (3): 15.1 Estrutura de Pastas & Organização do Código, 15.2 Customização do Agente (`.github`) — copilot-instructions, AGENTS & skill `ui-ux-pro-max`, 15. Arquitetura
+
 ## Knowledge Gaps
-- **403 isolated node(s):** `graphify`, `IDivisionCost`, `IDivisionHoursTotals`, `EmptyStateProps`, `ExportBarProps` (+398 more)
+- **458 isolated node(s):** `Plano de Projeto & Especificação Técnica (documento autocontido para bootstrap)`, `1. Sumário Executivo`, `2. Contexto de Negócio`, `3. Identidade do Produto`, `4. Atores / Times / Papéis` (+453 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **25 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **27 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `IBid` connect `IBid` to `models/index.ts`, `BidDetailsReportPage.tsx`, `useConfigStore`, `analyticsHelpers.ts`, `BidTrackerPage.tsx`, `BidDetailPage.tsx`, `useStatusColors`, `QualificationsTab.tsx`, `approvalHelpers.ts`, `TeamAnalyticsPage.tsx`, `IPersonRef`, `BidStatusPhasePanel.tsx`, `formatDateTime`, `sharepoint.config.ts`, `FavoritesPage.tsx`, `costCalculations.ts`, `DashboardService.ts`, `RequestService.ts`, `DashboardPage.tsx`, `PeriodPerformancePage.tsx`, `OverviewTab.tsx`, `BidTimeline.tsx`, `FollowUpPage.tsx`, `MembersManagement.tsx`, `ErnCreateModal.tsx`, `phaseHelpers.ts`, `ImportSourceModal.tsx`, `useBidStore.ts`, `ExportService.ts`?**
-  _High betweenness centrality (0.065) - this node is a cross-community bridge._
-- **Why does `useConfigStore` connect `useConfigStore` to `BidDetailsReportPage.tsx`, `analyticsHelpers.ts`, `BidTrackerPage.tsx`, `BidDetailPage.tsx`, `TemplatesPage.tsx`, `useStatusColors`, `QualificationsTab.tsx`, `TeamAnalyticsPage.tsx`, `SystemConfiguration.tsx`, `CreateRequestPage.tsx`, `BidStatusPhasePanel.tsx`, `IScopeItem`, `AppLayout.tsx`, `BidHoursTable.tsx`, `makeId`, `FavoritesPage.tsx`, `IBid`, `DashboardPage.tsx`, `PeriodPerformancePage.tsx`, `BottleneckAnalysisPage.tsx`, `OverviewTab.tsx`, `BidTimeline.tsx`, `FollowUpPage.tsx`, `TemplateEditor.tsx`, `BomCostsPage.tsx`, `ErnCreateModal.tsx`, `useCurrentUser`, `ImportSourceModal.tsx`, `useConfigPhases.ts`?**
-  _High betweenness centrality (0.030) - this node is a cross-community bridge._
-- **Why does `makeId()` connect `makeId` to `RequestService.ts`, `PreparationMobilizationTab.tsx`, `BidDetailPage.tsx`, `TemplatesPage.tsx`, `QualificationsTab.tsx`, `LinksRecommendationsPage.tsx`, `TemplateEditor.tsx`, `SystemConfiguration.tsx`, `IScopeItem`, `AppLayout.tsx`, `BidHoursTable.tsx`, `formatDateTime`, `ImportSourceModal.tsx`, `FavoritesPage.tsx`, `ImportClarificationModal.tsx`?**
-  _High betweenness centrality (0.013) - this node is a cross-community bridge._
-- **What connects `graphify`, `IDivisionCost`, `IDivisionHoursTotals` to the rest of the system?**
-  _403 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Why does `useConfigStore` connect `useConfigStore` to `BidDetailsReportPage.tsx`, `analyticsHelpers.ts`, `DashboardPage.tsx`, `BidDetailPage.tsx`, `TemplateEditor.tsx`, `QualificationsTab.tsx`, `GlassCard.tsx`, `SystemConfiguration.tsx`, `CreateRequestPage.tsx`, `BidStatusPhasePanel.tsx`, `AssetsBreakdownTab.tsx`, `formatters.ts`, `CertificationsBreakdownTab.tsx`, `useQueryCatalogStore.ts`, `QueryConsultingPage.tsx`, `FavoritesPage.tsx`, `PeriodPerformancePage.tsx`, `BottleneckAnalysisPage.tsx`, `OverviewTab.tsx`, `TeamAnalyticsPage.tsx`, `AppLayout.tsx`, `BomCostsPage.tsx`, `ScopeOfSupplyTab.tsx`, `ernHelpers.ts`, `useCurrentUser`, `IScopeItem`?**
+  _High betweenness centrality (0.039) - this node is a cross-community bridge._
+- **Why does `IBid` connect `IBid` to `models/index.ts`, `BidDetailsReportPage.tsx`, `useConfigStore`, `analyticsHelpers.ts`, `DashboardPage.tsx`, `BidDetailPage.tsx`, `QualificationsTab.tsx`, `ApprovalTab.tsx`, `GlassCard.tsx`, `IPersonRef`, `BidStatusPhasePanel.tsx`, `makeId`, `sharepoint.config.ts`, `costCalculations.ts`, `IBidStatus.ts`, `FavoritesPage.tsx`, `PeriodPerformancePage.tsx`, `OverviewTab.tsx`, `TeamAnalyticsPage.tsx`, `ApprovalStatus`, `ernHelpers.ts`, `phaseHelpers.ts`, `IScopeItem`?**
+  _High betweenness centrality (0.032) - this node is a cross-community bridge._
+- **Why does `makeId()` connect `makeId` to `models/index.ts`, `IBidStatus.ts`, `FavoritesPage.tsx`, `BidDetailPage.tsx`, `TemplateEditor.tsx`, `QualificationsTab.tsx`, `AppLayout.tsx`, `LinksRecommendationsPage.tsx`, `ScopeOfSupplyTab.tsx`, `useCurrentUser`, `AssetsBreakdownTab.tsx`, `IBid`, `formatters.ts`, `IScopeItem`, `CertificationsBreakdownTab.tsx`, `DocLibraryCatalog.tsx`?**
+  _High betweenness centrality (0.011) - this node is a cross-community bridge._
+- **What connects `Plano de Projeto & Especificação Técnica (documento autocontido para bootstrap)`, `1. Sumário Executivo`, `2. Contexto de Negócio` to the rest of the system?**
+  _458 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `models/index.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.06010230179028133 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.061072261072261075 - nodes in this community are weakly interconnected._
+- **Should `BidDetailsReportPage.tsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.11341463414634147 - nodes in this community are weakly interconnected._
 - **Should `useConfigStore` be split into smaller, more focused modules?**
-  _Cohesion score 0.11212121212121212 - nodes in this community are weakly interconnected._
-- **Should `analyticsHelpers.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.09523809523809523 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06873706004140787 - nodes in this community are weakly interconnected._

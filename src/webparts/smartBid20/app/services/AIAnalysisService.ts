@@ -34,9 +34,7 @@ import {
 } from "../config/ai.prompts";
 import {
   AadHttpClient,
-  HttpClient,
   IHttpClientOptions,
-  HttpClientResponse,
 } from "@microsoft/sp-http";
 
 export class AIAnalysisService {
@@ -288,8 +286,8 @@ export class AIAnalysisService {
   }
 
   /**
-   * POST a JSON payload to an AI endpoint. Uses the Entra ID-authenticated
-   * AadHttpClient when aadResource is set; otherwise falls back to HttpClient.
+   * POST a JSON payload to an AI endpoint using the Entra ID-authenticated
+   * AadHttpClient, so each request carries the signed-in user's token.
    */
   private static async postJson(
     endpointPath: string,
@@ -306,23 +304,20 @@ export class AIAnalysisService {
       body: JSON.stringify(body),
     };
 
-    let requestPromise: Promise<HttpClientResponse>;
-    if (AI_CONFIG.aadResource) {
-      const client = await SPService.context.aadHttpClientFactory.getClient(
-        AI_CONFIG.aadResource,
-      );
-      requestPromise = client.post(
-        url,
-        AadHttpClient.configurations.v1,
-        options,
-      );
-    } else {
-      requestPromise = SPService.context.httpClient.post(
-        url,
-        HttpClient.configurations.v1,
-        options,
+    // aadResource is required so every request carries the signed-in user's Entra ID token.
+    if (!AI_CONFIG.aadResource) {
+      throw new Error(
+        "AI is misconfigured: aadResource (the Function App App ID URI) is required so each request carries the signed-in user's Entra ID token. Set it in app/config/ai.config.ts.",
       );
     }
+    const client = await SPService.context.aadHttpClientFactory.getClient(
+      AI_CONFIG.aadResource,
+    );
+    const requestPromise = client.post(
+      url,
+      AadHttpClient.configurations.v1,
+      options,
+    );
 
     const response = await AIAnalysisService.withAbort(requestPromise, signal);
     const text = await response.text();

@@ -126,6 +126,13 @@ SmartBid **always sends its own system prompt** (`systemPrompt` + `promptVersion
 `src/webparts/smartBid20/app/models/IAIAnalysis.ts` (the source of truth) and
 `SmartBid-AI-Backend-API-Contract.md`.
 
+### Per-user authorization
+
+EasyAuth authenticates the caller and injects the identity into request headers; the Function then
+**authorizes per user** — it returns **403** unless the caller carries the `SmartBid.User` app role
+(or is listed in `ALLOWED_UPNS`), and logs the caller UPN on every call. This is required because
+the SPFx permission grant is tenant-wide (see §6 for the Entra setup that makes this effective).
+
 ### Scanned documents
 
 Text-based PDFs/DOCX are parsed with **PyMuPDF** / **python-docx**. Scanned/image PDFs
@@ -140,6 +147,8 @@ AZURE_OPENAI_ENDPOINT          = https://cog-opgb-bes-prd-ai-openai.openai.azure
 AZURE_OPENAI_CHAT_DEPLOYMENT   = gpt-5-mini
 AZURE_SEARCH_ENDPOINT          = https://srch-opgbbes-prd.search.windows.net
 AZURE_SEARCH_INDEX             = smartbid-docs-index
+REQUIRED_APP_ROLE              = SmartBid.User          # app role a caller's token must carry (see §6)
+ALLOWED_UPNS                   =                        # optional comma-separated UPN allowlist (fallback/bootstrap)
 ```
 
 The Function reads these at runtime via `os.environ[...]` — endpoints are **never hardcoded**
@@ -171,3 +180,35 @@ In `src/webparts/smartBid20/app/config/ai.config.ts`:
 Approve the matching `webApiPermissionRequests` (resource `opgbbes-prd-fa-aadapp`, scope `user_impersonation`) in
 SharePoint Admin → Advanced → API access. This uses the standard SPFx `AadHttpClient` (the shared "SharePoint Online
 Client Extensibility" principal), so **no custom web-part app registration is required**.
+
+---
+
+## 6. Restrict access to the approved users (App Role + assignment required)
+
+The SPFx `webApiPermissionRequests` grant is **tenant-wide** — any client-side code in the tenant
+can _request_ a token for the Function App. Authentication alone is therefore not enough; we also
+**restrict who Entra will issue a token to**, and re-check in code. Two layers:
+
+**Layer 1 — Entra ID (blocks token issuance to everyone except the approved users):**
+
+1. **Create the App Role** — Entra ID → App registrations → `opgbbes-prd-fa-aadapp` → **App roles**
+   → **Create app role**:
+   - Display name: `SmartBid User`
+   - Allowed member types: **Users/Groups**
+   - Value: `SmartBid.User` ← becomes the `roles` claim the Function checks
+   - Enable, then **Apply**.
+2. **Require assignment** — Entra ID → **Enterprise applications** → `opgbbes-prd-fa-aadapp` →
+   **Properties** → **Assignment required? = Yes** → **Save**. Entra then issues tokens for the
+   Function App **only** to assigned users — non-assigned users can't get a token at all.
+3. **Assign the approved users** — same Enterprise application → **Users and groups** → **Add
+   user/group** → select the approved users (or an Entra security group) → role **SmartBid User**
+   → **Assign**.
+
+**Layer 2 — Function App code (defense-in-depth):** `function_app.py` reads the EasyAuth
+`X-MS-CLIENT-PRINCIPAL` header and returns **403** unless the caller has the `SmartBid.User` role
+(or is in `ALLOWED_UPNS`). It logs the caller UPN on every call. Configure via the
+`REQUIRED_APP_ROLE` / `ALLOWED_UPNS` app settings (§3). **Default-deny:** with neither an assigned
+role nor an allowlist entry, all calls are rejected.
+
+> This is what limits AI usage to the approved users despite the tenant-wide grant, and gives
+> per-user visibility (who called, when, errors) — without any extra integration layer.

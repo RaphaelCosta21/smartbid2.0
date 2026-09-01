@@ -378,6 +378,25 @@
     padding-right: 0 !important;
   }
 
+  // ========================================
+  // FULL-BLEED HARDENING
+  // SmartBid owns the whole page. When the host section has more than one
+  // column — or the workbench edit mode injects an empty phantom column —
+  // a flex/grid CanvasZone splits the web part to half width. Force the
+  // sections to stack at full width so the app is never squeezed to ~50%.
+  // ========================================
+  .CanvasZone {
+    display: block !important;
+  }
+
+  .CanvasSection,
+  div[class*="CanvasSection-col"] {
+    float: none !important;
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
   // Hide CommentsWrapper
   .CommentsWrapper {
     display: none !important;
