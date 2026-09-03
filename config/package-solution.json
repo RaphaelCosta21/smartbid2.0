@@ -32,12 +32,6 @@
         "id": "12d66f87-6959-4437-b2d8-d6e6ea07861c",
         "version": "1.0.0.0"
       }
-    ],
-    "webApiPermissionRequests": [
-      {
-        "resource": "opgbbes-prd-fa-aadapp",
-        "scope": "user_impersonation"
-      }
     ]
   },
   "paths": {

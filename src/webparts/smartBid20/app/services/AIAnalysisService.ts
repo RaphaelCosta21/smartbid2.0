@@ -1,8 +1,9 @@
 /**
  * AIAnalysisService — Sends a client document to the secure Azure AI gateway
- * (APIM → Function App) and returns a structured Scope of Supply for human
- * review. Requests are authenticated with the signed-in user's Entra ID token
- * via the SPFx AadHttpClient; model keys never reach the browser.
+ * (Function App behind EasyAuth) and returns a structured Scope of Supply for
+ * human review. Requests are authenticated with the signed-in user's Entra ID
+ * token acquired by AiAuthService (MSAL, authorization code + PKCE); model keys
+ * never reach the browser.
  *
  * Configure the endpoint in app/config/ai.config.ts. The prompt lives in
  * app/config/ai.prompts.ts and is sent with each request when
@@ -10,7 +11,7 @@
  *
  * Supports both BIDs and Templates. Static singleton pattern.
  */
-import { SPService } from "./SPService";
+import { AiAuthService } from "./AiAuthService";
 import { IScopeItem } from "../models";
 import {
   IAIAnalysisResult,
@@ -32,10 +33,6 @@ import {
   // buildClarificationSuggestionPrompt,
   // CLARIFICATION_SUGGESTION_PROMPT_VERSION,
 } from "../config/ai.prompts";
-import {
-  AadHttpClient,
-  IHttpClientOptions,
-} from "@microsoft/sp-http";
 
 export class AIAnalysisService {
   /**
@@ -191,7 +188,7 @@ export class AIAnalysisService {
   private static ensureConfigured(): void {
     if (!isAiConfigured()) {
       throw new Error(
-        "The AI service is not configured yet. Ask IT for the Function App endpoint, then set apiBaseUrl (and aadResource) in app/config/ai.config.ts and set AI_CONFIG.enabled to true.",
+        "AI is not available yet — IT is still finishing the Azure setup (Function App + app registration). Please try again later or contact IT.",
       );
     }
   }
@@ -286,8 +283,8 @@ export class AIAnalysisService {
   }
 
   /**
-   * POST a JSON payload to an AI endpoint using the Entra ID-authenticated
-   * AadHttpClient, so each request carries the signed-in user's token.
+   * POST a JSON payload to an AI endpoint with the signed-in user's Entra ID
+   * access token (MSAL, authorization code + PKCE) in the Authorization header.
    */
   private static async postJson(
     endpointPath: string,
@@ -295,29 +292,20 @@ export class AIAnalysisService {
     signal?: AbortSignal,
   ): Promise<unknown> {
     const url = buildAiUrl(endpointPath);
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    };
-    const options: IHttpClientOptions = {
-      headers,
-      body: JSON.stringify(body),
-    };
+    const accessToken = await AiAuthService.getAccessToken();
 
-    // aadResource is required so every request carries the signed-in user's Entra ID token.
-    if (!AI_CONFIG.aadResource) {
-      throw new Error(
-        "AI is misconfigured: aadResource (the Function App App ID URI) is required so each request carries the signed-in user's Entra ID token. Set it in app/config/ai.config.ts.",
-      );
-    }
-    const client = await SPService.context.aadHttpClientFactory.getClient(
-      AI_CONFIG.aadResource,
-    );
-    const requestPromise = client.post(
-      url,
-      AadHttpClient.configurations.v1,
-      options,
-    );
+    const requestPromise = fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: "Bearer " + accessToken,
+      },
+      body: JSON.stringify(body),
+      // The token is the only credential — never send SharePoint cookies cross-origin.
+      credentials: "omit",
+      signal,
+    });
 
     const response = await AIAnalysisService.withAbort(requestPromise, signal);
     const text = await response.text();

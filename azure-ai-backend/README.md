@@ -6,11 +6,13 @@ Azure/IT team. Nothing here ships in the SPFx bundle — it is deployed to Azure
 The SmartBid web part calls the **Azure Function App directly** (protected by
 **EasyAuth / App Service Authentication** — there is no APIM). It fronts **Azure
 OpenAI** + **Azure AI Search**. Auth is **Entra ID / Managed Identity** end to
-end — no API keys, no Key Vault.
+end — no API keys, no Key Vault. The browser signs in with **MSAL
+(authorization code + PKCE)** against SmartBid's own SPA app registration — the
+tenant-wide SharePoint "Client Extensibility" grant is **not** used.
 
 ```
-Browser (SmartBid SPFx)
-   │  Entra ID user token (AadHttpClient)  ── App A ──►  Function App EasyAuth
+Browser (SmartBid SPFx + MSAL PKCE)
+   │  Entra ID user token (App A, SPA)  ─────────────►  Function App EasyAuth
    │                                                        │
    │                                                        ▼
    │                                                   Function App (Python)
@@ -41,13 +43,33 @@ AI Search Indexer ── App B ──►  SharePoint  (reads smartBidDocs: Datas
 
 |                 | **App A** — web part → gateway  | **App B** — AI Search → SharePoint                     |
 | --------------- | ------------------------------- | ------------------------------------------------------ |
-| Guards          | user → APIM/Function            | the indexer reading SharePoint                         |
+| Guards          | user → Function App             | the indexer reading SharePoint                         |
 | Permission type | delegated (signed-in user)      | **application**                                        |
 | Permissions     | custom API scope on the gateway | Microsoft Graph `Files.Read.All` + `Sites.Read.All`    |
-| Lives in        | the browser (SPFx)              | only inside Azure (data source connection string)      |
-| Credential      | none (SSO)                      | client secret **or** federated credential (secretless) |
+| Lives in        | the browser (SPFx + MSAL)       | only inside Azure (data source connection string)      |
+| Credential      | none (PKCE, public client)      | client secret **or** federated credential (secretless) |
 
 App B needs **admin consent** for the Graph application permissions.
+
+**App A must be configured as a SPA public client:**
+
+- Authentication → **Add a platform → Single-page application** → redirect URI =
+  the value set in `AI_CONFIG.auth.redirectUri` (a single fixed SharePoint page,
+  e.g. `https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/_layouts/15/blank.aspx`).
+  The SPA platform is what enables authorization code + PKCE; **do not** use the
+  "Web" platform (it would require a client secret).
+- Allow public client flows: not needed. No client secret is ever created.
+- API permissions → **My APIs** → `opgbbes-prd-fa-aadapp` → delegated
+  `user_impersonation`. Grant admin consent (or pre-authorize App A on the API
+  app under **Expose an API → Authorized client applications** so users never
+  see a consent prompt).
+- The consent is scoped to **this app only** — no tenant-wide SharePoint API
+  access approval, unlike the previous `AadHttpClient` design.
+
+> If EasyAuth is configured with an **allowed client applications** list on the
+> Function App, add App A's client id to it (and remove the SharePoint Online
+> Client Extensibility principal `08e18876-6177-487e-b8b5-cf950c1e598c` once the
+> switch is validated).
 
 > There is also a **third** app registration — the Function App's own API app
 > (`opgbbes-prd-fa-aadapp`), which EasyAuth uses to validate the caller's token
@@ -90,9 +112,16 @@ Renaming those folders breaks incremental indexing and requires updating the que
 > `...;ApplicationId=<APP_B_CLIENT_ID>;TenantId=<TENANT_ID>;FederatedCredentialApplicationId=<managed-identity-client-id>`.
 > See the SharePoint indexer docs, Step 3 (Configuring the registered application with a managed identity).
 
-> **SharePoint Lists are not supported** by this indexer. `Assets Catalog_` and
-> `Clarifications Database` (both Lists) need a separate mechanism later (push via the
-> Function App, or export to Blob + blob indexer). Out of scope for this package.
+> **SharePoint Lists ARE supported** since the `2026-05-01-preview` REST API — the version this
+> package already targets. `Assets Catalog_` and `Clarifications Database` can be indexed by a
+> second data source with `"container": { "name": "allSiteLists" }` (or `allSiteContent` to cover
+> libraries + lists + pages in one indexer). No push mechanism or Blob export needed. Two
+> caveats: the index key must map from `metadata_spo_site_asset_item_id` with `base64Encode`, and
+> there is **no auto-mapping** for it — declare the `fieldMappings` entry explicitly. Each list
+> column becomes a source field you map individually; item content also lands in `content` as
+> JSON. Permissions are the same `Files.Read.All` + `Sites.Read.All` App B already holds.
+> See "Index SharePoint lists" in the indexer docs. Not wired yet — planned for the
+> `/clarifications/suggest` flow.
 
 ---
 
@@ -100,14 +129,14 @@ Renaming those folders breaks incremental indexing and requires updating the que
 
 ### Recommended stack
 
-| Setting           | Value                                                                                                                                                                     |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Language          | **Python 3.11 or 3.12** (3.13 is the newest Azure Functions supports — **3.14 is not supported yet**; also confirm PyMuPDF/Azure SDK wheels exist for the chosen version) |
-| Functions runtime | **v4**, Python **programming model v2** (decorators)                                                                                                                      |
-| OS                | **Linux** (required for Python)                                                                                                                                           |
-| Hosting plan      | **Flex Consumption** or **Elastic Premium (EP1)** — avoid plain Consumption (short timeout + cold starts for document + LLM calls)                                        |
-| Identity          | **system-assigned Managed Identity** enabled                                                                                                                              |
-| Timeout           | `functionTimeout` 5–10 min (`host.json` set to 10)                                                                                                                        |
+| Setting           | Value                                                                                                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Language          | **Python 3.11 or 3.12** (3.13 is the newest Azure Functions supports — **3.14 is not supported yet**; also confirm pypdfium2/Azure SDK wheels exist for the chosen version) |
+| Functions runtime | **v4**, Python **programming model v2** (decorators)                                                                                                                        |
+| OS                | **Linux** (required for Python)                                                                                                                                             |
+| Hosting plan      | **Flex Consumption** or **Elastic Premium (EP1)** — avoid plain Consumption (short timeout + cold starts for document + LLM calls)                                          |
+| Identity          | **system-assigned Managed Identity** enabled                                                                                                                                |
+| Timeout           | `functionTimeout` 5–10 min (`host.json` set to 10)                                                                                                                          |
 
 **Why Python (not TypeScript, even though the web part is TS):** the Function App is a
 **standalone HTTP microservice** — it shares only a JSON contract with the frontend, no
@@ -122,20 +151,24 @@ Node.js/TypeScript and C#/.NET are equally supported if the team prefers one lan
 
 SmartBid **always sends its own system prompt** (`systemPrompt` + `promptVersion`) from
 `src/webparts/smartBid20/app/config/ai.prompts.ts`. The backend appends the retrieved
-**Reference Material** to it for the scope flow. The full request/response contract is
+**Reference Material** to it for the scope flow, plus a **BID CONTEXT** block built from the
+`division` / `serviceLine` / `resourceTypes` / `contextSummary` fields — which are also prepended
+to the AI Search query so retrieval favours the BID's business area. The full request/response
+contract is
 `src/webparts/smartBid20/app/models/IAIAnalysis.ts` (the source of truth) and
 `SmartBid-AI-Backend-API-Contract.md`.
 
 ### Per-user authorization
 
 EasyAuth authenticates the caller and injects the identity into request headers; the Function then
-**authorizes per user** — it returns **403** unless the caller carries the `SmartBid.User` app role
-(or is listed in `ALLOWED_UPNS`), and logs the caller UPN on every call. This is required because
-the SPFx permission grant is tenant-wide (see §6 for the Entra setup that makes this effective).
+**authorizes per user** — it returns **403** unless the caller carries the `SmartBid.User` app role,
+and logs the caller UPN on every call (see §6 for the Entra setup that makes this effective).
+The Entra app role assignment is the **single source of truth**: there is no UPN allowlist and no
+bypass, and a missing/misconfigured role name fails **closed**.
 
 ### Scanned documents
 
-Text-based PDFs/DOCX are parsed with **PyMuPDF** / **python-docx**. Scanned/image PDFs
+Text-based PDFs/DOCX are parsed with **pypdfium2** / **python-docx**. Scanned/image PDFs
 are read with **gpt-5-mini vision** (the model transcribes page images) — **no Azure AI
 Document Intelligence required**.
 
@@ -145,10 +178,12 @@ Document Intelligence required**.
 FUNCTIONS_WORKER_RUNTIME       = python
 AZURE_OPENAI_ENDPOINT          = https://cog-opgb-bes-prd-ai-openai.openai.azure.com
 AZURE_OPENAI_CHAT_DEPLOYMENT   = gpt-5-mini
+AZURE_OPENAI_API_VERSION       = 2024-10-21             # confirm the version gpt-5-mini requires
 AZURE_SEARCH_ENDPOINT          = https://srch-opgbbes-prd.search.windows.net
 AZURE_SEARCH_INDEX             = smartbid-docs-index
 REQUIRED_APP_ROLE              = SmartBid.User          # app role a caller's token must carry (see §6)
-ALLOWED_UPNS                   =                        # optional comma-separated UPN allowlist (fallback/bootstrap)
+MAX_DOC_CHARS                  = 200000                 # optional — cap on analyzed text
+MAX_VISION_PAGES               = 20                     # optional — cap on pages sent to vision OCR
 ```
 
 The Function reads these at runtime via `os.environ[...]` — endpoints are **never hardcoded**
@@ -173,20 +208,26 @@ AI Search index vectorizer and skillset, never by the Function App.
 
 In `src/webparts/smartBid20/app/config/ai.config.ts`:
 
-- `apimBaseUrl` = the Function App base URL (`https://fa-opgb-bes-prd-fa.azurewebsites.net/api`) — no APIM
-- `aadResource` = the Function App **App ID URI** (`api://opgbbes-prd-fa-aadapp.oceaneering.com`, the EasyAuth audience)
+- `apiBaseUrl` = the Function App base URL (`https://fa-opgb-bes-prd-fa.azurewebsites.net/api`) — no APIM
+- `auth.clientId` = App A client id (`opgbbes-prd-sharepoint-aadapp`)
+- `auth.scopes` = `["api://opgbbes-prd-fa-aadapp.oceaneering.com/user_impersonation"]` (the EasyAuth audience)
+- `auth.redirectUri` = the SPA redirect URI registered on App A
+- `auth.tenantId` = leave empty (taken from the SharePoint page context)
 - `enabled` = `true`
 
-Approve the matching `webApiPermissionRequests` (resource `opgbbes-prd-fa-aadapp`, scope `user_impersonation`) in
-SharePoint Admin → Advanced → API access. This uses the standard SPFx `AadHttpClient` (the shared "SharePoint Online
-Client Extensibility" principal), so **no custom web-part app registration is required**.
+Also required on the Function App: **CORS** must allow the SharePoint origin
+(`https://oceaneering.sharepoint.com`) with the `Authorization` header, since the
+browser now calls it with a plain `fetch` + bearer token.
+
+No SharePoint Admin → API access approval is needed — `webApiPermissionRequests`
+was removed from `config/package-solution.json`.
 
 ---
 
 ## 6. Restrict access to the approved users (App Role + assignment required)
 
-The SPFx `webApiPermissionRequests` grant is **tenant-wide** — any client-side code in the tenant
-can _request_ a token for the Function App. Authentication alone is therefore not enough; we also
+MSAL/PKCE already narrows the caller to SmartBid's own SPA app registration, but any user of
+that app could still _request_ a token. Authentication alone is therefore not enough; we also
 **restrict who Entra will issue a token to**, and re-check in code. Two layers:
 
 **Layer 1 — Entra ID (blocks token issuance to everyone except the approved users):**
@@ -205,10 +246,11 @@ can _request_ a token for the Function App. Authentication alone is therefore no
    → **Assign**.
 
 **Layer 2 — Function App code (defense-in-depth):** `function_app.py` reads the EasyAuth
-`X-MS-CLIENT-PRINCIPAL` header and returns **403** unless the caller has the `SmartBid.User` role
-(or is in `ALLOWED_UPNS`). It logs the caller UPN on every call. Configure via the
-`REQUIRED_APP_ROLE` / `ALLOWED_UPNS` app settings (§3). **Default-deny:** with neither an assigned
-role nor an allowlist entry, all calls are rejected.
+`X-MS-CLIENT-PRINCIPAL` header and returns **403** unless the caller has the `SmartBid.User` role.
+It logs the caller UPN on every call. Configure the role name via the `REQUIRED_APP_ROLE` app
+setting (§3). **Default-deny:** no role claim, no header, or an unset role name → every call is
+rejected. There is deliberately **no UPN allowlist** — access is granted only in Entra ID, so it
+stays auditable and follows the user's lifecycle.
 
-> This is what limits AI usage to the approved users despite the tenant-wide grant, and gives
-> per-user visibility (who called, when, errors) — without any extra integration layer.
+> This is what limits AI usage to the approved users, and gives per-user visibility (who
+> called, when, errors) — without any extra integration layer.

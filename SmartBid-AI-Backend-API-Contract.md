@@ -31,7 +31,7 @@ flowchart TD
   SVC --> CFG{"isAiConfigured?"}
   CFG -- no --> STOP["Clear error; AI UI hidden"]
   CFG -- yes --> REQ["buildRequest: file → base64 + prompt + version"]
-  REQ --> POST["postJson → buildAiUrl → AadHttpClient or HttpClient"]
+  REQ --> POST["postJson → buildAiUrl → fetch + MSAL bearer token"]
   POST --> APIM["APIM gateway → Function App"]
   APIM --> AOAI["extract text + OCR/vision + RAG + GPT-4o-mini"]
   AOAI --> RESP["structured JSON"]
@@ -100,8 +100,8 @@ with an endpoint path.
   `extractQuotation(file, context, signal)`,
   `suggestClarifications(requirementsText, context, signal)`.
 - Private plumbing: `ensureConfigured()` (guards `isAiConfigured`), `buildRequest()`
-  (`fileToBase64` + attaches prompt/version), `postJson()` (picks `AadHttpClient` when
-  `aadResource` is set, else `HttpClient` + optional subscription key), `withAbort()` (timeout +
+  (`fileToBase64` + attaches prompt/version), `postJson()` (`fetch` with the user's Entra ID
+  bearer token from `AiAuthService`), `withAbort()` (timeout +
   cancel), `validateResponse()` / `validateQuotationResult()` / `parseClarifications()` (normalize
   and tag `source:"ai"`, `aiPendingReview:true`), `describeHttpError()` (maps 401/403/422/429/500
   to friendly messages).
@@ -152,10 +152,9 @@ with an endpoint path.
    endpoint" error (and the button wouldn't have shown anyway).
 4. `buildRequest()` converts the file to **base64** (`fileContent`) and — because
    `sendPromptFromClient` is true — attaches `systemPrompt` + `promptVersion`.
-5. `postJson('/scope/generate', request)` builds the URL with `buildAiUrl()` and POSTs. With
-   `aadResource` set it uses the **AadHttpClient** (per-user Entra ID token); otherwise
-   **HttpClient** with the optional subscription key. `withAbort()` enforces the timeout /
-   cancellation.
+5. `postJson('/scope/generate', request)` builds the URL with `buildAiUrl()`, asks
+   `AiAuthService` for the signed-in user's access token (MSAL, authorization code + PKCE) and
+   POSTs it as `Authorization: Bearer …`. `withAbort()` enforces the timeout / cancellation.
 6. On a non-2xx, `describeHttpError()` turns the status into a friendly message. On success the
    JSON is parsed.
 7. `validateResponse()` normalizes items (assigns `id` / `lineNumber`, tags `source:"ai"`,
@@ -171,7 +170,8 @@ Quotation and clarification flows have the same shape: `AddQuotationModal.handle
 `extractQuotation` → `mapExtractedQuotationLines` (fills the form), and `QualificationsTab` →
 `suggestClarifications` → `ClarificationSuggestionsModal`.
 
-> **In short:** IT gives us `apimBaseUrl` + `aadResource` and implements the three endpoints and
+> **In short:** IT gives us `apiBaseUrl` + the SPA app registration (`auth.clientId`,
+> `auth.scopes`, `auth.redirectUri`) and implements the endpoints and
 > the RAG index described in Part 2. We set those in `ai.config.ts`, flip `enabled = true`, and
 > every screen above lights up.
 
@@ -208,17 +208,19 @@ Application Insights, Log Analytics. **No Document Intelligence, no Power Automa
 
 ## 2. Authentication
 
-- Calls go through the **APIM gateway** (`AI_CONFIG.apimBaseUrl`) which fronts the Function App.
-- **Preferred:** per-user **Entra ID** token acquired by SPFx `AadHttpClient` for the configured
-  `aadResource` (App ID URI). Same SSO/MFA identity as SharePoint; no key in the browser.
-- **Testing only:** an APIM **subscription key** sent in the `Ocp-Apim-Subscription-Key` header
-  (`AI_CONFIG.subscriptionKey`). Must stay empty in shared/production builds.
-- The backend reads the Azure OpenAI credential from **Key Vault** via **Managed Identity**.
-- Transport: **HTTPS** only.
+- Calls go directly to the **Function App** (`AI_CONFIG.apiBaseUrl`), protected by EasyAuth.
+- Per-user **Entra ID** token acquired in the browser with **MSAL — authorization code + PKCE**
+  against SmartBid's own **SPA app registration** (`AI_CONFIG.auth.clientId`), requesting
+  `AI_CONFIG.auth.scopes` (the Function App's `user_impersonation` scope). Same SSO/MFA identity
+  as SharePoint; **no key and no client secret in the browser**.
+- The tenant-wide SPFx `webApiPermissionRequests` / `AadHttpClient` path is **no longer used** —
+  the API permission is scoped to the SmartBid app registration only.
+- The backend reaches Azure OpenAI / AI Search with its **Managed Identity**.
+- Transport: **HTTPS** only. The Function App must allow CORS for the SharePoint origin
+  (`https://oceaneering.sharepoint.com`) including the `Authorization` header.
 
 ```
-Authorization: Bearer <Entra ID access token>   (AadHttpClient path)
-Ocp-Apim-Subscription-Key: <key>                (testing path only)
+Authorization: Bearer <Entra ID access token>   (MSAL auth code + PKCE)
 Content-Type: application/json
 ```
 
@@ -386,8 +388,16 @@ iterate on it (`src/webparts/smartBid20/app/config/ai.prompts.ts`).
 delimited "Reference Material" block** to our prompt at the agreed marker, then calls the model.
 The frontend never sees the retrieved chunks.
 
+The backend also **uses the BID metadata we send** (`division`, `serviceLine`, `resourceTypes`,
+`contextSummary`): it prepends them to the AI Search query so retrieval is biased towards the
+right business area, and injects them into the prompt as a "BID CONTEXT" block.
+
 ```
 <our system prompt …>
+
+=== BID CONTEXT (from SmartBid) ===
+Division / Service line / Resource types / BID context summary
+=== END BID CONTEXT ===
 
 === REFERENCE MATERIAL (retrieved by backend — do not invent beyond this) ===
 [Datasheet/manual excerpts]

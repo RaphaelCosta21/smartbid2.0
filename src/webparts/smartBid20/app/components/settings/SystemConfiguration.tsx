@@ -1958,10 +1958,11 @@ const SystemConfiguration: React.FC = () => {
       <div className={styles.sectionHeader}>
         <h3>API Diagnostics — Entra ID Delegated Token</h3>
         <p>
-          Verifies that the SPFx AadHttpClient carries the signed-in user&apos;s
-          Entra ID identity when calling the SmartBid Azure API. Block 0 works
-          without any tenant approval; blocks A and B require the
-          webApiPermissionRequest to be granted.
+          Verifies that the MSAL sign-in (authorization code + PKCE) carries the
+          signed-in user&apos;s Entra ID identity when calling the SmartBid
+          Azure API. Block 0 works without any approval; blocks A and B require
+          the SmartBid SPA app registration and its API permission to be in
+          place.
         </p>
       </div>
       <EntraTokenTest />

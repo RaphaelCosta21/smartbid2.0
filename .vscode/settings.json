@@ -10,5 +10,10 @@
     "**/lib-amd": true,
     "src/**/*.scss.ts": true
   },
-  "typescript.tsdk": ".\\node_modules\\typescript\\lib"
+  "typescript.tsdk": ".\\node_modules\\typescript\\lib",
+
+  // SPFx 1.20 exige Node 18; prefixa o PATH do terminal para nao depender de `nvm use` (que precisa de admin).
+  "terminal.integrated.env.windows": {
+    "PATH": "${env:LOCALAPPDATA}\\nvm\\v18.20.8;${env:PATH}"
+  }
 }

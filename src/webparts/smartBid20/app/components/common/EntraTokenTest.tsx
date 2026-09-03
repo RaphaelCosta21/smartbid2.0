@@ -4,23 +4,23 @@
  * Proves the REAL scenario against SmartBid's own Azure API (the Function App
  * behind `api://…oceaneering.com`), NOT Microsoft Graph. It shows both sides:
  *
- *   A) AadHttpClient / AadTokenProvider trying to acquire a PER-USER Entra ID
- *      token for OUR API resource (AI_CONFIG.aadResource). If the tenant has
- *      already approved the webApiPermissionRequest, you see the token + the
- *      user identity claims inside it. If NOT approved yet, you see the exact
- *      refusal returned by Entra ID.
+ *   A) MSAL (authorization code + PKCE) acquiring a PER-USER Entra ID token for
+ *      OUR API scope (AI_CONFIG.auth.scopes) through the SmartBid SPA app
+ *      registration. If consent/assignment is in place you see the token + the
+ *      user identity claims inside it; otherwise you see the exact refusal
+ *      returned by Entra ID.
  *
- *   B) A real POST through AadHttpClient to the configured endpoint, showing
- *      the HTTP status/body the Function App (EasyAuth) sends back — or the
- *      refusal if a token could not be minted.
+ *   B) A real POST carrying that token to the configured endpoint, showing the
+ *      HTTP status/body the Function App (EasyAuth) sends back — or the refusal
+ *      if a token could not be minted.
  *
  * Either way the evidence is authentic: the SAME code path the app uses in
  * production. Rendered by the "API Diagnostics" tab in System Configuration
  * (System group), which is its only mount point.
  */
 import * as React from "react";
-import { AadHttpClient } from "@microsoft/sp-http";
 import { SPService } from "../../services/SPService";
+import { AiAuthService } from "../../services/AiAuthService";
 import { AI_CONFIG, buildAiUrl } from "../../config/ai.config";
 
 /** Decode a JWT payload (base64url + UTF-8) without any dependency. */
@@ -49,7 +49,7 @@ function claim(
   return String(claims[key]);
 }
 
-/** URLs the SPFx token machinery hits while acquiring a token. */
+/** URLs the MSAL token machinery hits while acquiring a token. */
 const AUTH_URL_RE =
   /login\.microsoftonline\.com|oauth2|SP\.OAuth\.Token|\/_api\/.*[Tt]oken|adal|msal/i;
 
@@ -98,7 +98,7 @@ const EMPTY: IState = {
 export const EntraTokenTest: React.FC = () => {
   const [state, setState] = React.useState<IState>(EMPTY);
 
-  const resource = AI_CONFIG.aadResource;
+  const resource = AI_CONFIG.auth.scopes.join(" ");
   const apiUrl = buildAiUrl(AI_CONFIG.endpoints.generateScope);
 
   // The session identity Entra ID resolves the user by — readable BEFORE any
@@ -126,16 +126,15 @@ export const EntraTokenTest: React.FC = () => {
       sessionIdentity,
     );
 
-    // ── Probe A: acquire a PER-USER token for OUR API resource ──────────────
+    // ── Probe A: acquire a PER-USER token for OUR API scope via MSAL ────────
     let tokenProbe: IProbe;
+    let accessToken: string | undefined;
     try {
-      const provider =
-        await SPService.context.aadTokenProviderFactory.getTokenProvider();
-      const token = await provider.getToken(resource);
-      const claims = decodeJwtPayload(token);
-      console.log("[EntraApiTest] Token for", resource, ":", token);
+      accessToken = await AiAuthService.getAccessToken();
+      const claims = decodeJwtPayload(accessToken);
+      console.log("[EntraApiTest] Token for", resource, ":", accessToken);
       console.log("[EntraApiTest] Decoded claims:", claims);
-      tokenProbe = { ok: true, token, claims };
+      tokenProbe = { ok: true, token: accessToken, claims };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("[EntraApiTest] Token acquisition REFUSED:", msg);
@@ -145,16 +144,18 @@ export const EntraTokenTest: React.FC = () => {
     const authCalls = authCallsSince(mark);
     console.log("[EntraApiTest] Auth network calls attempted:", authCalls);
 
-    // ── Probe B: real POST through AadHttpClient to OUR endpoint ─────────────
+    // ── Probe B: real POST carrying that token to OUR endpoint ──────────────
     let apiProbe: IProbe;
     try {
-      const client =
-        await SPService.context.aadHttpClientFactory.getClient(resource);
-      const res = await client.post(apiUrl, AadHttpClient.configurations.v1, {
+      if (!accessToken) throw new Error("No access token was issued.");
+      const res = await fetch(apiUrl, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          Authorization: "Bearer " + accessToken,
         },
+        credentials: "omit",
         body: JSON.stringify({ probe: "entra-token-test" }),
       });
       const httpBody = await res.text();
@@ -268,7 +269,11 @@ export const EntraTokenTest: React.FC = () => {
 
       <div style={panel}>
         <div style={row}>
-          <span style={label}>resource</span>
+          <span style={label}>client id (SPA app)</span>
+          <span style={val}>{AI_CONFIG.auth.clientId || "(not set)"}</span>
+        </div>
+        <div style={row}>
+          <span style={label}>scope</span>
           <span style={val}>{resource || "(not set)"}</span>
         </div>
         <div style={row}>
@@ -297,7 +302,7 @@ export const EntraTokenTest: React.FC = () => {
         {state.tokenProbe && (
           <>
             <div style={blockTitle}>
-              A) AadHttpClient token acquisition{" "}
+              A) MSAL (auth code + PKCE) token acquisition{" "}
               {state.tokenProbe.ok ? (
                 <span style={okBadge}>ISSUED ✓</span>
               ) : (
@@ -340,7 +345,7 @@ export const EntraTokenTest: React.FC = () => {
         {state.authCalls.length > 0 && (
           <>
             <div style={blockTitle}>
-              A2) Auth calls the SPFx client attempted
+              A2) Auth calls the MSAL client attempted
             </div>
             <div style={codeBox}>{state.authCalls.join("\n\n")}</div>
           </>

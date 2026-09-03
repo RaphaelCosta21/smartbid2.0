@@ -15,7 +15,6 @@ import { ImportClarificationModal } from "./ImportClarificationModal";
 import { ClarificationSuggestionsModal } from "./ClarificationSuggestionsModal";
 import { useEditControl } from "../../hooks/useEditControl";
 import { makeId } from "../../utils/idGenerator";
-import { isAiConfigured } from "../../config/ai.config";
 import { AIAnalysisService } from "../../services/AIAnalysisService";
 import { buildAiContext, buildRequirementsText } from "../../utils/aiContext";
 import { mapSuggestedClarification } from "../../utils/aiClarificationMapper";
@@ -47,7 +46,6 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   const [aiSuggestions, setAiSuggestions] = React.useState<
     IAISuggestedClarification[]
   >([]);
-  const aiEnabled = isAiConfigured();
   const addToast = useUIStore((s) => s.addToast);
 
   // Edit lock hooks — separate locks for Qualifications and Clarifications
@@ -615,7 +613,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
             also add manual entries.
           </p>
           <div style={{ display: "flex", gap: 8 }}>
-            {canEditClar && aiEnabled && (
+            {canEditClar && (
               <button
                 onClick={handleSuggestClarifications}
                 disabled={aiLoading}

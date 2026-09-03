@@ -10,7 +10,6 @@ import { QuotationService } from "../services/QuotationService";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { convertToUSD } from "../utils/costCalculations";
 import { AddQuotationModal } from "../components/bid/AddQuotationModal";
-import { isAiConfigured } from "../config/ai.config";
 import {
   IQuotationItem,
   QuotationType,
@@ -228,7 +227,6 @@ export const QuotationsPage: React.FC = () => {
   const [editItem, setEditItem] = React.useState<IQuotationItem | null>(null);
   const [aiImportFile, setAiImportFile] = React.useState<File | null>(null);
   const [aiDragOver, setAiDragOver] = React.useState(false);
-  const aiEnabled = isAiConfigured();
 
   // ─── Config-derived data ───
   const groups: IFavoriteGroup[] = config?.favoriteGroups || [];
@@ -959,50 +957,47 @@ export const QuotationsPage: React.FC = () => {
         </div>
       </div>
 
-      {aiEnabled && (
-        <div
-          className={`${styles.aiDropZone} ${aiDragOver ? styles.aiDropZoneActive : ""}`}
-          onDragOver={(e) => {
-            e.preventDefault();
-            if (!aiDragOver) setAiDragOver(true);
-          }}
-          onDragLeave={() => setAiDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setAiDragOver(false);
-            handleAiFiles(e.dataTransfer.files);
-          }}
-        >
-          <label className={styles.aiDropInner}>
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M12 3v3m0 12v3M5.6 5.6l2.1 2.1m8.6 8.6l2.1 2.1M3 12h3m12 0h3M5.6 18.4l2.1-2.1m8.6-8.6l2.1-2.1" />
-            </svg>
-            <div className={styles.aiDropText}>
-              <strong>Extract quotations with AI</strong>
-              <span>
-                Drop a supplier quote (PDF, image, Excel…) here or click to
-                browse
-              </span>
-            </div>
-            <input
-              type="file"
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.msg,.eml"
-              onChange={(e) => {
-                handleAiFiles(e.target.files);
-                e.target.value = "";
-              }}
-              style={{ display: "none" }}
-            />
-          </label>
-        </div>
-      )}
+      <div
+        className={`${styles.aiDropZone} ${aiDragOver ? styles.aiDropZoneActive : ""}`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!aiDragOver) setAiDragOver(true);
+        }}
+        onDragLeave={() => setAiDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setAiDragOver(false);
+          handleAiFiles(e.dataTransfer.files);
+        }}
+      >
+        <label className={styles.aiDropInner}>
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M12 3v3m0 12v3M5.6 5.6l2.1 2.1m8.6 8.6l2.1 2.1M3 12h3m12 0h3M5.6 18.4l2.1-2.1m8.6-8.6l2.1-2.1" />
+          </svg>
+          <div className={styles.aiDropText}>
+            <strong>Extract quotations with AI</strong>
+            <span>
+              Drop a supplier quote (PDF, image, Excel…) here or click to browse
+            </span>
+          </div>
+          <input
+            type="file"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.msg,.eml"
+            onChange={(e) => {
+              handleAiFiles(e.target.files);
+              e.target.value = "";
+            }}
+            style={{ display: "none" }}
+          />
+        </label>
+      </div>
 
       {/* Content */}
       {isLoading ? (
