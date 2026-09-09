@@ -26,9 +26,70 @@ import {
 import { SPService } from "./SPService";
 import { AI_CONFIG } from "../config/ai.config";
 
+/** One recorded step of a token acquisition attempt. */
+export interface IAiAuthTraceEntry {
+  at: number;
+  step: string;
+  outcome: "info" | "ok" | "warn" | "fail";
+  detail?: string;
+}
+
+/**
+ * Outcome of asking Entra ID about a candidate scope.
+ *   works       — a token came back silently; this scope is ready to use
+ *   exists      — the scope resolves but needs consent or interaction
+ *   missing     — the resource exists, this scope name does not (AADSTS65005)
+ *   no-resource — the Application ID URI itself is unknown to the tenant
+ */
+export type ScopeProbeVerdict =
+  | "works"
+  | "exists"
+  | "missing"
+  | "no-resource"
+  | "unknown";
+
+export interface IScopeProbeResult {
+  scope: string;
+  verdict: ScopeProbeVerdict;
+  detail: string;
+}
+
 export class AiAuthService {
   private static _app: PublicClientApplication | null = null;
   private static _initPromise: Promise<PublicClientApplication> | null = null;
+
+  /** Rolling log of the last token attempts — read by the API Diagnostics tab. */
+  public static trace: IAiAuthTraceEntry[] = [];
+
+  public static resetTrace(): void {
+    AiAuthService.trace = [];
+  }
+
+  private static log(
+    step: string,
+    outcome: IAiAuthTraceEntry["outcome"],
+    detail?: unknown,
+  ): void {
+    let text: string | undefined;
+    if (detail instanceof Error) {
+      const code = (detail as { errorCode?: string }).errorCode;
+      text = (code ? code + " — " : "") + detail.message;
+    } else if (typeof detail === "string") {
+      text = detail;
+    } else if (detail !== undefined) {
+      try {
+        text = JSON.stringify(detail);
+      } catch {
+        text = String(detail);
+      }
+    }
+    AiAuthService.trace.push({ at: Date.now(), step, outcome, detail: text });
+    if (AiAuthService.trace.length > 60) AiAuthService.trace.shift();
+    const line = "[SmartBid AI][auth] " + step + (text ? " — " + text : "");
+    if (outcome === "fail") console.error(line);
+    else if (outcome === "warn") console.warn(line);
+    else console.log(line);
+  }
 
   /** True when the SPA app registration and scopes have been configured. */
   public static isConfigured(): boolean {
@@ -80,12 +141,25 @@ export class AiAuthService {
       );
     }
 
+    const authority = AiAuthService.getAuthority();
+    const redirectUri = AiAuthService.getRedirectUri();
+    AiAuthService.log(
+      "init: creating MSAL client",
+      "info",
+      "clientId=" +
+        AI_CONFIG.auth.clientId +
+        " authority=" +
+        authority +
+        " redirectUri=" +
+        redirectUri,
+    );
+
     AiAuthService._initPromise = (async () => {
       const app = new PublicClientApplication({
         auth: {
           clientId: AI_CONFIG.auth.clientId,
-          authority: AiAuthService.getAuthority(),
-          redirectUri: AiAuthService.getRedirectUri(),
+          authority,
+          redirectUri,
           navigateToLoginRequestUrl: false,
         },
         cache: {
@@ -106,6 +180,7 @@ export class AiAuthService {
       // Completes a redirect-based sign-in if one is in flight (popup is the default).
       await app.handleRedirectPromise();
       AiAuthService._app = app;
+      AiAuthService.log("init: MSAL client ready", "ok");
       return app;
     })();
 
@@ -113,6 +188,7 @@ export class AiAuthService {
       return await AiAuthService._initPromise;
     } catch (e) {
       AiAuthService._initPromise = null;
+      AiAuthService.log("init: MSAL client FAILED", "fail", e);
       throw e;
     }
   }
@@ -141,27 +217,60 @@ export class AiAuthService {
     const scopes = AI_CONFIG.auth.scopes;
     const loginHint = AiAuthService.getLoginHint();
     const account = AiAuthService.pickAccount(app);
+    AiAuthService.log(
+      "token: requesting",
+      "info",
+      "scopes=" +
+        scopes.join(" ") +
+        " loginHint=" +
+        (loginHint || "(none)") +
+        " cachedAccount=" +
+        (account ? account.username : "(none)"),
+    );
 
     let result: AuthenticationResult | undefined;
 
     if (account) {
       try {
         result = await app.acquireTokenSilent({ scopes, account });
+        AiAuthService.log("token: acquireTokenSilent succeeded", "ok");
       } catch (e) {
-        if (!(e instanceof InteractionRequiredAuthError)) throw e;
+        if (!(e instanceof InteractionRequiredAuthError)) {
+          AiAuthService.log("token: acquireTokenSilent FAILED", "fail", e);
+          throw e;
+        }
+        AiAuthService.log(
+          "token: acquireTokenSilent needs interaction",
+          "warn",
+          e,
+        );
       }
     }
 
     if (!result) {
       try {
         result = await app.ssoSilent({ scopes, loginHint });
-      } catch {
+        AiAuthService.log("token: ssoSilent succeeded", "ok");
+      } catch (e) {
         // Third-party cookies blocked, no session, or consent needed — go interactive.
+        AiAuthService.log(
+          "token: ssoSilent failed, going interactive",
+          "warn",
+          e,
+        );
         result = await AiAuthService.acquireInteractive(app, loginHint);
       }
     }
 
     app.setActiveAccount(result.account);
+    AiAuthService.log(
+      "token: issued",
+      "ok",
+      "account=" +
+        (result.account ? result.account.username : "(unknown)") +
+        " expiresOn=" +
+        String(result.expiresOn || "—"),
+    );
     return result.accessToken;
   }
 
@@ -169,12 +278,16 @@ export class AiAuthService {
     app: PublicClientApplication,
     loginHint: string,
   ): Promise<AuthenticationResult> {
+    AiAuthService.log("token: opening sign-in popup", "info");
     try {
-      return await app.acquireTokenPopup({
+      const result = await app.acquireTokenPopup({
         scopes: AI_CONFIG.auth.scopes,
         loginHint,
       });
+      AiAuthService.log("token: acquireTokenPopup succeeded", "ok");
+      return result;
     } catch (e) {
+      AiAuthService.log("token: acquireTokenPopup FAILED", "fail", e);
       if (
         e instanceof BrowserAuthError &&
         (e.errorCode === "popup_window_error" ||
@@ -208,5 +321,54 @@ export class AiAuthService {
     } catch {
       /* Interactive sign-in will happen on the first real AI request. */
     }
+  }
+
+  /**
+   * Drop every cached token so the next call re-reads the claims from Entra.
+   * Needed after an app role assignment: a token minted before it stays valid
+   * for ~1 h and still carries no `roles` claim.
+   */
+  public static async clearTokenCache(): Promise<void> {
+    try {
+      const app = await AiAuthService.getApp();
+      await app.clearCache();
+      AiAuthService.log("cache: cleared", "ok");
+    } catch (e) {
+      AiAuthService.log("cache: clear failed", "warn", e);
+    }
+  }
+
+  /**
+   * Ask Entra ID about ONE candidate scope without ever showing a pop-up.
+   *
+   * ssoSilent still resolves the resource server-side, so the error code tells
+   * us whether the scope exists — which is how we discover the real scope name
+   * without waiting on IT to read it out of the portal.
+   */
+  public static async probeScope(scope: string): Promise<IScopeProbeResult> {
+    let detail = "";
+    try {
+      const app = await AiAuthService.getApp();
+      await app.ssoSilent({
+        scopes: [scope],
+        loginHint: AiAuthService.getLoginHint(),
+      });
+      return { scope, verdict: "works", detail: "Token issued silently." };
+    } catch (e) {
+      detail = e instanceof Error ? e.message : String(e);
+    }
+
+    let verdict: ScopeProbeVerdict = "unknown";
+    if (/AADSTS65005/.test(detail)) verdict = "missing";
+    else if (/AADSTS500011|AADSTS650057/.test(detail)) verdict = "no-resource";
+    else if (
+      /AADSTS65001|consent_required|interaction_required|login_required|AADSTS50058|AADSTS50076/.test(
+        detail,
+      )
+    )
+      verdict = "exists";
+
+    AiAuthService.log("scope probe: " + scope, "info", verdict);
+    return { scope, verdict, detail };
   }
 }

@@ -1956,13 +1956,13 @@ const SystemConfiguration: React.FC = () => {
   const renderApiDiagnostics = (): React.ReactElement => (
     <div>
       <div className={styles.sectionHeader}>
-        <h3>API Diagnostics — Entra ID Delegated Token</h3>
+        <h3>API Diagnostics — SmartBid AI backend</h3>
         <p>
-          Verifies that the MSAL sign-in (authorization code + PKCE) carries the
-          signed-in user&apos;s Entra ID identity when calling the SmartBid
-          Azure API. Block 0 works without any approval; blocks A and B require
-          the SmartBid SPA app registration and its API permission to be in
-          place.
+          Runs the production code path end to end in six steps: configuration,
+          session identity, Entra ID token (MSAL, authorization code + PKCE),
+          token claims, endpoint reachability/CORS, and a real Azure OpenAI
+          round trip with a sample document. Each step reports pass/fail
+          separately, so a failure points at exactly one cause.
         </p>
       </div>
       <EntraTokenTest />

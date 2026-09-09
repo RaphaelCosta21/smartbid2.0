@@ -1,27 +1,32 @@
 /**
- * EntraTokenTest — TEMPORARY, DEV-ONLY proof module. REMOVE after validating.
+ * EntraTokenTest — end-to-end diagnostic for the SmartBid AI backend.
  *
- * Proves the REAL scenario against SmartBid's own Azure API (the Function App
- * behind `api://…oceaneering.com`), NOT Microsoft Graph. It shows both sides:
+ * Runs the SAME code path the app uses in production, one step at a time, so a
+ * failure points at exactly one cause:
  *
- *   A) MSAL (authorization code + PKCE) acquiring a PER-USER Entra ID token for
- *      OUR API scope (AI_CONFIG.auth.scopes) through the SmartBid SPA app
- *      registration. If consent/assignment is in place you see the token + the
- *      user identity claims inside it; otherwise you see the exact refusal
- *      returned by Entra ID.
+ *   1) Configuration     — ai.config.ts values are well formed
+ *   2) Session identity  — who SharePoint thinks the user is
+ *   3) Token             — MSAL (auth code + PKCE) mints a per-user token
+ *   4) Token claims      — the audience matches the configured API scope
+ *   5) Reachability/CORS — an UNAUTHENTICATED call, to separate a CORS problem
+ *                          (fetch throws) from an auth problem (HTTP 401)
+ *   6) AI round trip     — a real POST to /quotation/extract with a sample
+ *                          quotation. That route is a straight Azure OpenAI
+ *                          call (no AI Search), so the result isolates auth and
+ *                          the model without the retrieval pipeline.
  *
- *   B) A real POST carrying that token to the configured endpoint, showing the
- *      HTTP status/body the Function App (EasyAuth) sends back — or the refusal
- *      if a token could not be minted.
- *
- * Either way the evidence is authentic: the SAME code path the app uses in
- * production. Rendered by the "API Diagnostics" tab in System Configuration
- * (System group), which is its only mount point.
+ * Every step is mirrored to the browser console as [SmartBid AI]. Rendered by
+ * the "API Diagnostics" tab in System Configuration, its only mount point.
  */
 import * as React from "react";
 import { SPService } from "../../services/SPService";
 import { AiAuthService } from "../../services/AiAuthService";
 import { AI_CONFIG, buildAiUrl } from "../../config/ai.config";
+import {
+  buildQuotationExtractionPrompt,
+  QUOTATION_EXTRACTION_PROMPT_VERSION,
+} from "../../config/ai.prompts";
+import { IAIAnalysisRequest } from "../../models/IAIAnalysis";
 
 /** Decode a JWT payload (base64url + UTF-8) without any dependency. */
 function decodeJwtPayload(token: string): Record<string, unknown> | undefined {
@@ -41,141 +46,644 @@ function decodeJwtPayload(token: string): Record<string, unknown> | undefined {
   }
 }
 
-function claim(
+function claimText(
   claims: Record<string, unknown> | undefined,
   key: string,
 ): string {
   if (!claims || claims[key] === undefined || claims[key] === null) return "—";
-  return String(claims[key]);
+  const value = claims[key];
+  if (Array.isArray(value))
+    return value.length > 0 ? value.join(", ") : "(empty array)";
+  return String(value);
 }
 
-/** URLs the MSAL token machinery hits while acquiring a token. */
-const AUTH_URL_RE =
-  /login\.microsoftonline\.com|oauth2|SP\.OAuth\.Token|\/_api\/.*[Tt]oken|adal|msal/i;
-
-/**
- * Auth-related network calls made after `since`, read from the Resource Timing
- * API. Works even when the token is refused — the attempt is still recorded.
- */
-function authCallsSince(since: number): string[] {
-  const out: string[] = [];
-  try {
-    const entries = performance.getEntriesByType(
-      "resource",
-    ) as PerformanceResourceTiming[];
-    entries.forEach((e) => {
-      if (e.startTime >= since && AUTH_URL_RE.test(e.name)) out.push(e.name);
-    });
-  } catch {
-    /* Resource Timing unavailable — fall back to the DevTools Network tab */
+/** First claim that carries the UPN — the name differs between v1 and v2 tokens. */
+function upnClaim(claims: Record<string, unknown> | undefined): string {
+  const keys = ["upn", "preferred_username", "unique_name", "email"];
+  for (let i = 0; i < keys.length; i++) {
+    const v = claimText(claims, keys[i]);
+    if (v !== "—") return v + "  (claim: " + keys[i] + ")";
   }
-  return out;
+  return "— NO UPN CLAIM IN TOKEN";
 }
 
-interface IProbe {
-  ok: boolean;
-  token?: string;
-  claims?: Record<string, unknown>;
-  httpStatus?: number;
-  httpBody?: string;
-  error?: string;
+/** "api://x/user_impersonation" -> "api://x" (the audience Entra will stamp). */
+function resourceFromScope(scope: string): string {
+  const slash = scope.lastIndexOf("/");
+  return slash > "api://".length ? scope.substring(0, slash) : scope;
 }
 
-interface IState {
-  loading: boolean;
-  tokenProbe?: IProbe;
-  apiProbe?: IProbe;
-  authCalls: string[];
+const GUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function errorText(e: unknown): string {
+  if (e instanceof Error) {
+    const code = (e as { errorCode?: string }).errorCode;
+    return (code ? code + " — " : "") + e.message;
+  }
+  return String(e);
 }
 
-const EMPTY: IState = {
-  loading: false,
-  tokenProbe: undefined,
-  apiProbe: undefined,
-  authCalls: [],
+/** fetch() with a hard timeout so a hung backend cannot freeze the diagnostic. */
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function prettyJson(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2) as string;
+  } catch {
+    return text;
+  }
+}
+
+type StepStatus = "running" | "ok" | "warn" | "fail" | "skipped";
+
+/** App role the Function App demands (REQUIRED_APP_ROLE in function_app.py). */
+const REQUIRED_APP_ROLE = "SmartBid.User";
+
+interface IStep {
+  id: string;
+  label: string;
+  status: StepStatus;
+  /** One-line verdict shown next to the label. */
+  summary?: string;
+  /** Key/value evidence rendered as rows. */
+  rows?: Array<[string, string]>;
+  /** Raw payload rendered in a monospace block. */
+  raw?: string;
+  /** Actionable next step when the verdict is warn/fail. */
+  hint?: string;
+  durationMs?: number;
+}
+
+const STEP_ORDER = [
+  "config",
+  "identity",
+  "token",
+  "scopeProbe",
+  "claims",
+  "cors",
+  "ai",
+];
+
+const STEP_LABEL: Record<string, string> = {
+  config: "1) Configuration (ai.config.ts)",
+  identity: "2) SharePoint session identity",
+  token: "3) Entra ID token (MSAL, auth code + PKCE)",
+  scopeProbe: "3b) Scope discovery — which scope does Entra accept?",
+  claims: "4) Token claims & audience match",
+  cors: "5) Endpoint reachability / CORS",
+  ai: "6) AI round trip (Azure OpenAI — quotation extract)",
 };
 
-export const EntraTokenTest: React.FC = () => {
-  const [state, setState] = React.useState<IState>(EMPTY);
-
-  const resource = AI_CONFIG.auth.scopes.join(" ");
-  const apiUrl = buildAiUrl(AI_CONFIG.endpoints.generateScope);
-
-  // The session identity Entra ID resolves the user by — readable BEFORE any
-  // approval, and stamped verbatim into the token as oid / tid / upn.
-  const pc = SPService.context.pageContext;
-  const sessionIdentity: Array<[string, string]> = [
-    ["displayName", String(pc.user.displayName || "—")],
-    ["loginName (upn)", String(pc.user.loginName || "—")],
-    ["email", String(pc.user.email || "—")],
-    ["Entra object id (oid)", String(pc.aadInfo?.userId || "—")],
-    ["Entra tenant id (tid)", String(pc.aadInfo?.tenantId || "—")],
+/**
+ * Scope names to try when the configured one is rejected. Entra answers each
+ * without a pop-up, so one run tells us the real name instead of an email
+ * round trip with IT. Kept short — every probe costs a hidden-iframe round trip.
+ */
+function candidateScopes(): string[] {
+  const resource =
+    resourceFromScope(AI_CONFIG.auth.scopes[0] || "") ||
+    "api://opgbbes-prd-sharepoint-aadapp.oceaneering.com";
+  const out = [
+    resource + "/.default",
+    resource + "/access_as_user",
+    resource + "/user_impersonation",
+    "api://opgbbes-prd-fa-aadapp.oceaneering.com/.default",
   ];
+  return out.filter((s, i) => out.indexOf(s) === i);
+}
 
-  const run = async (): Promise<void> => {
-    setState({
-      loading: true,
-      tokenProbe: undefined,
-      apiProbe: undefined,
-      authCalls: [],
-    });
-    const mark = performance.now();
+/**
+ * Tiny supplier quotation. The /quotation/extract route is a straight OpenAI
+ * call — no AI Search — so a failure here is the model or the plumbing, never
+ * the retrieval index.
+ */
+const SAMPLE_DOCUMENT = [
+  "SUPPLIER QUOTATION - SMARTBID DIAGNOSTIC SAMPLE",
+  "",
+  "Supplier: Subsea Components Ltda",
+  "Quotation No: SC-2026-0142",
+  "Date: 2026-03-11",
+  "Currency: USD",
+  "",
+  "Item  Description                              Qty   Unit Price   Total",
+  "1     ROV tether, 300 m, with termination kit    2      12,500.00   25,000.00",
+  "2     Hydraulic manipulator spare parts kit      1       8,750.00    8,750.00",
+  "3     USBL transponder, rated 3000 msw           4       3,200.00   12,800.00",
+  "",
+  "Subtotal: 46,550.00",
+  "Delivery: 8 weeks ex-works",
+  "Validity: 30 days",
+  "",
+].join("\n");
 
+/** Trace rows from the MSAL service, shown inline with the token step. */
+function traceRows(): Array<[string, string]> {
+  return AiAuthService.trace.map(
+    (t) =>
+      [t.outcome.toUpperCase() + " " + t.step, t.detail || "—"] as [
+        string,
+        string,
+      ],
+  );
+}
+
+export const EntraTokenTest: React.FC = () => {
+  const [steps, setSteps] = React.useState<IStep[]>([]);
+  const [running, setRunning] = React.useState(false);
+
+  const scope = AI_CONFIG.auth.scopes.join(" ");
+  // Quotation extraction is a plain OpenAI call, so it isolates auth + model
+  // without dragging AI Search retrieval into the result.
+  const apiUrl = buildAiUrl(AI_CONFIG.endpoints.extractQuotation);
+
+  /** Add or replace a step, keeping the declared order. */
+  const push = (step: IStep): void => {
     console.log(
-      "[EntraApiTest] Session identity (pre-token):",
-      sessionIdentity,
+      "[SmartBid AI] " + step.label + " -> " + step.status.toUpperCase(),
+      step.summary || "",
     );
-
-    // ── Probe A: acquire a PER-USER token for OUR API scope via MSAL ────────
-    let tokenProbe: IProbe;
-    let accessToken: string | undefined;
-    try {
-      accessToken = await AiAuthService.getAccessToken();
-      const claims = decodeJwtPayload(accessToken);
-      console.log("[EntraApiTest] Token for", resource, ":", accessToken);
-      console.log("[EntraApiTest] Decoded claims:", claims);
-      tokenProbe = { ok: true, token: accessToken, claims };
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error("[EntraApiTest] Token acquisition REFUSED:", msg);
-      tokenProbe = { ok: false, error: msg };
-    }
-
-    const authCalls = authCallsSince(mark);
-    console.log("[EntraApiTest] Auth network calls attempted:", authCalls);
-
-    // ── Probe B: real POST carrying that token to OUR endpoint ──────────────
-    let apiProbe: IProbe;
-    try {
-      if (!accessToken) throw new Error("No access token was issued.");
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: "Bearer " + accessToken,
-        },
-        credentials: "omit",
-        body: JSON.stringify({ probe: "entra-token-test" }),
-      });
-      const httpBody = await res.text();
-      console.log("[EntraApiTest] API", res.status, "->", httpBody);
-      apiProbe = { ok: res.ok, httpStatus: res.status, httpBody };
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error("[EntraApiTest] API call REFUSED:", msg);
-      apiProbe = { ok: false, error: msg };
-    }
-
-    setState({ loading: false, tokenProbe, apiProbe, authCalls });
+    setSteps((prev) => {
+      const next = prev.filter((s) => s.id !== step.id).concat(step);
+      next.sort((a, b) => STEP_ORDER.indexOf(a.id) - STEP_ORDER.indexOf(b.id));
+      return next;
+    });
   };
 
-  const copyToken = (): void => {
-    if (state.tokenProbe?.token && navigator.clipboard) {
-      navigator.clipboard.writeText(state.tokenProbe.token).catch(() => {
-        /* clipboard blocked — use the console copy instead */
+  const run = async (): Promise<void> => {
+    setRunning(true);
+    setSteps([]);
+    AiAuthService.resetTrace();
+    console.log(
+      "%c[SmartBid AI] Diagnostic started",
+      "font-weight:bold",
+      new Date().toISOString(),
+    );
+
+    // ── 1) Configuration ────────────────────────────────────────────────────
+    const configProblems: string[] = [];
+    if (!GUID_RE.test(AI_CONFIG.auth.clientId.trim()))
+      configProblems.push("auth.clientId is not a bare GUID.");
+    if (!/^api:\/\/.+\/.+$/.test(scope))
+      configProblems.push(
+        'auth.scopes should look like "api://<app-id-uri>/<scopeName>" (or end in /.default).',
+      );
+    if (!/^https:\/\//i.test(AI_CONFIG.apiBaseUrl))
+      configProblems.push("apiBaseUrl must be an https URL.");
+    if (!AI_CONFIG.enabled)
+      configProblems.push(
+        "AI_CONFIG.enabled is false, so AI features stay hidden in the app. This diagnostic bypasses the flag — flip it to true once every step below passes.",
+      );
+
+    push({
+      id: "config",
+      label: STEP_LABEL.config,
+      status: configProblems.length === 0 ? "ok" : "warn",
+      summary:
+        configProblems.length === 0
+          ? "All values well formed"
+          : configProblems.length + " item(s) to review",
+      rows: [
+        ["enabled", String(AI_CONFIG.enabled)],
+        ["apiBaseUrl", AI_CONFIG.apiBaseUrl || "(not set)"],
+        ["endpoint under test", apiUrl],
+        ["auth.clientId", AI_CONFIG.auth.clientId || "(not set)"],
+        [
+          "auth.tenantId",
+          AI_CONFIG.auth.tenantId || "(from SharePoint context)",
+        ],
+        ["auth.scopes", scope || "(not set)"],
+        [
+          "auth.redirectUri",
+          AI_CONFIG.auth.redirectUri || "(current page URL)",
+        ],
+        ["sendPromptFromClient", String(AI_CONFIG.sendPromptFromClient)],
+        ["promptVersion", QUOTATION_EXTRACTION_PROMPT_VERSION],
+      ],
+      hint: configProblems.length > 0 ? configProblems.join("\n") : undefined,
+    });
+
+    // ── 2) Session identity ─────────────────────────────────────────────────
+    const pc = SPService.context.pageContext;
+    push({
+      id: "identity",
+      label: STEP_LABEL.identity,
+      status: "ok",
+      summary: "Read from the SPFx page context — no approval needed",
+      rows: [
+        ["displayName", String(pc.user.displayName || "—")],
+        ["loginName (upn)", String(pc.user.loginName || "—")],
+        ["email", String(pc.user.email || "—")],
+        ["Entra object id (oid)", String(pc.aadInfo?.userId || "—")],
+        ["Entra tenant id (tid)", String(pc.aadInfo?.tenantId || "—")],
+      ],
+    });
+
+    // ── 3) Token ────────────────────────────────────────────────────────────
+    let accessToken: string | undefined;
+    const tokenStart = Date.now();
+    try {
+      accessToken = await AiAuthService.getAccessToken();
+      push({
+        id: "token",
+        label: STEP_LABEL.token,
+        status: "ok",
+        summary: "Token issued",
+        durationMs: Date.now() - tokenStart,
+        rows: traceRows(),
+      });
+    } catch (e) {
+      const msg = errorText(e);
+      let hint =
+        "Send this exact message to IT together with the client id and scope shown in step 1.";
+      if (/AADSTS65001|consent/i.test(msg))
+        hint =
+          "Admin consent is missing. Ask IT to grant admin consent for the API permission on the SmartBid SPA app registration.";
+      else if (
+        /AADSTS500011|AADSTS650057|invalid_resource|invalid_scope/i.test(msg)
+      )
+        hint =
+          "The scope does not resolve. Ask IT for the exact scope name under Expose an API, or try api://<app-id-uri>/.default.";
+      else if (/AADSTS50011|redirect_uri/i.test(msg))
+        hint =
+          "The redirect URI does not match. It must be registered under the SPA platform, byte for byte: " +
+          (AI_CONFIG.auth.redirectUri || window.location.href);
+      else if (/popup|blocked/i.test(msg))
+        hint = "Allow pop-ups for this site and run the diagnostic again.";
+
+      push({
+        id: "token",
+        label: STEP_LABEL.token,
+        status: "fail",
+        summary: "Token REFUSED",
+        durationMs: Date.now() - tokenStart,
+        rows: traceRows(),
+        raw: msg,
+        hint,
       });
     }
+
+    // ── 3b) Scope discovery — only worth running when the token was refused ──
+    if (accessToken) {
+      push({
+        id: "scopeProbe",
+        label: STEP_LABEL.scopeProbe,
+        status: "skipped",
+        summary: "Not needed — the configured scope already works",
+      });
+    } else {
+      const probeStart = Date.now();
+      const candidates = candidateScopes();
+      push({
+        id: "scopeProbe",
+        label: STEP_LABEL.scopeProbe,
+        status: "running",
+        summary: "Asking Entra ID about " + candidates.length + " candidates…",
+      });
+
+      const rows: Array<[string, string]> = [];
+      const accepted: string[] = [];
+      let resourceFound = false;
+      for (let i = 0; i < candidates.length; i++) {
+        const r = await AiAuthService.probeScope(candidates[i]);
+        if (r.verdict !== "no-resource") resourceFound = true;
+        if (r.verdict === "works" || r.verdict === "exists")
+          accepted.push(r.scope);
+        const verdictText =
+          r.verdict === "works"
+            ? "ACCEPTED — token issued"
+            : r.verdict === "exists"
+              ? "ACCEPTED — exists, needs consent"
+              : r.verdict === "missing"
+                ? "scope name does not exist"
+                : r.verdict === "no-resource"
+                  ? "resource/App ID URI unknown to the tenant"
+                  : "inconclusive: " + r.detail.substring(0, 120);
+        rows.push([r.scope, verdictText]);
+      }
+
+      let hint: string;
+      if (accepted.length > 0)
+        hint =
+          "Set auth.scopes in ai.config.ts to:\n  " +
+          accepted[0] +
+          "\nthen run the diagnostic again.";
+      else if (!resourceFound)
+        hint =
+          "None of the Application ID URIs exist in this tenant. Ask IT for the exact Application ID URI shown under Expose an API on the app registration that the Function App EasyAuth uses.";
+      else
+        hint =
+          "The app registration exists but exposes no scope under any common name. Ask IT to open Expose an API on opgbbes-prd-sharepoint-aadapp, add a delegated scope (user_impersonation is the convention), grant admin consent, and send the full scope string.";
+
+      push({
+        id: "scopeProbe",
+        label: STEP_LABEL.scopeProbe,
+        status: accepted.length > 0 ? "ok" : "fail",
+        summary:
+          accepted.length > 0
+            ? accepted.length + " scope(s) accepted by Entra ID"
+            : "No candidate scope was accepted",
+        durationMs: Date.now() - probeStart,
+        rows,
+        hint,
+      });
+    }
+
+    // ── 4) Token claims ─────────────────────────────────────────────────────
+    if (!accessToken) {
+      push({
+        id: "claims",
+        label: STEP_LABEL.claims,
+        status: "skipped",
+        summary: "No token to inspect",
+      });
+    } else {
+      const claims = decodeJwtPayload(accessToken);
+      const aud = claimText(claims, "aud");
+      const expectedAud = resourceFromScope(AI_CONFIG.auth.scopes[0] || "");
+      const audMatches =
+        aud === expectedAud ||
+        aud === expectedAud.replace(/^api:\/\//, "") ||
+        aud === AI_CONFIG.auth.clientId;
+      const oidMatches =
+        claimText(claims, "oid").toLowerCase() ===
+        String(pc.aadInfo?.userId || "")
+          .replace(/[{}]/g, "")
+          .toLowerCase();
+      const roles = claims && Array.isArray(claims.roles) ? claims.roles : [];
+      const hasRole = roles.indexOf(REQUIRED_APP_ROLE) >= 0;
+
+      const problems: string[] = [];
+      if (!audMatches)
+        problems.push(
+          "EasyAuth validates the aud claim. Ask IT to confirm the allowedAudiences on fa-opgb-bes-prd-fa includes: " +
+            aud,
+        );
+      if (!hasRole)
+        problems.push(
+          'The token carries no "' +
+            REQUIRED_APP_ROLE +
+            '" app role, and the Function App denies every call without it (default-deny by design). Ask IT to assign this user — or a group containing them — to the ' +
+            REQUIRED_APP_ROLE +
+            " app role on the opgbbes-prd-fa-aadapp enterprise application.",
+        );
+
+      push({
+        id: "claims",
+        label: STEP_LABEL.claims,
+        status: audMatches && hasRole ? "ok" : "warn",
+        summary:
+          audMatches && hasRole
+            ? "Audience matches and the required app role is present"
+            : !audMatches
+              ? "Audience does NOT match the configured scope"
+              : "Missing the " + REQUIRED_APP_ROLE + " app role",
+        rows: [
+          ["token version (ver)", claimText(claims, "ver")],
+          ["name", claimText(claims, "name")],
+          ["upn / email", upnClaim(claims)],
+          ["object id (oid)", claimText(claims, "oid")],
+          ["oid matches SharePoint user", oidMatches ? "yes" : "no"],
+          ["tenant (tid)", claimText(claims, "tid")],
+          ["audience (aud)", aud],
+          ["expected audience", expectedAud],
+          ["scope (scp)", claimText(claims, "scp")],
+          [
+            "app roles (roles)",
+            hasRole
+              ? claimText(claims, "roles")
+              : claimText(claims, "roles") +
+                "  \u2014 required: " +
+                REQUIRED_APP_ROLE,
+          ],
+          ["groups", claimText(claims, "groups")],
+          ["app id (appid)", claimText(claims, "appid")],
+        ],
+        hint: problems.length > 0 ? problems.join("\n\n") : undefined,
+      });
+    }
+
+    // ── 5) Reachability / CORS (deliberately unauthenticated) ───────────────
+    const corsStart = Date.now();
+    try {
+      const res = await fetchWithTimeout(
+        apiUrl,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "omit",
+          body: JSON.stringify({ probe: "cors" }),
+        },
+        20000,
+      );
+      push({
+        id: "cors",
+        label: STEP_LABEL.cors,
+        status: "ok",
+        summary: "Reachable — the CORS preflight passed",
+        durationMs: Date.now() - corsStart,
+        rows: [
+          ["HTTP status (no token)", String(res.status)],
+          [
+            "interpretation",
+            res.status === 401 || res.status === 403
+              ? "EasyAuth is active and rejects anonymous calls — correct"
+              : "Endpoint answered anonymously — confirm with IT that auth is enforced",
+          ],
+        ],
+      });
+    } catch (e) {
+      push({
+        id: "cors",
+        label: STEP_LABEL.cors,
+        status: "fail",
+        summary: "The browser blocked the call before it reached the backend",
+        durationMs: Date.now() - corsStart,
+        raw: errorText(e),
+        hint: "This is almost always CORS. Ask IT to add https://oceaneering.sharepoint.com to the Function App allowed origins (Settings → CORS) and to allow the Authorization and Content-Type headers.",
+      });
+    }
+
+    // ── 6) Real AI round trip ───────────────────────────────────────────────
+    if (!accessToken) {
+      push({
+        id: "ai",
+        label: STEP_LABEL.ai,
+        status: "skipped",
+        summary: "No token — cannot call the AI endpoint",
+      });
+    } else {
+      const aiStart = Date.now();
+      const request: IAIAnalysisRequest = {
+        fileName: "smartbid-diagnostic-quotation.txt",
+        fileContent: btoa(SAMPLE_DOCUMENT),
+        documentText: SAMPLE_DOCUMENT,
+        division: "SSR-ROV",
+        serviceLine: "ROV",
+        resourceTypes: [],
+        contextSummary:
+          "SmartBid connectivity diagnostic — synthetic quotation, not a real BID.",
+        bidNumber: "DIAGNOSTIC",
+        useCase: "quotation",
+      };
+      if (AI_CONFIG.sendPromptFromClient) {
+        request.systemPrompt = buildQuotationExtractionPrompt();
+        request.promptVersion = QUOTATION_EXTRACTION_PROMPT_VERSION;
+      }
+      console.log("[SmartBid AI] POST " + apiUrl, {
+        ...request,
+        fileContent: "(" + request.fileContent.length + " base64 chars)",
+        systemPrompt: request.systemPrompt
+          ? "(" + request.systemPrompt.length + " chars)"
+          : undefined,
+      });
+
+      try {
+        const res = await fetchWithTimeout(
+          apiUrl,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: "Bearer " + accessToken,
+            },
+            credentials: "omit",
+            body: JSON.stringify(request),
+          },
+          AI_CONFIG.requestTimeoutMs,
+        );
+        const body = await res.text();
+        console.log("[SmartBid AI] HTTP " + res.status, body);
+
+        let itemCount = "—";
+        try {
+          const parsed = JSON.parse(body) as Record<string, unknown>;
+          const items = parsed.items || parsed.quotations || parsed.scopeItems;
+          if (Array.isArray(items)) itemCount = String(items.length);
+        } catch {
+          /* not JSON — the raw body is shown below */
+        }
+
+        let hint: string | undefined;
+        if (res.status === 401)
+          hint =
+            "EasyAuth rejected the token itself. The aud claim from step 4 must be listed in the Function App allowedAudiences.";
+        else if (res.status === 403)
+          hint =
+            'The token was accepted, then the Function App denied the call because it carries no "' +
+            REQUIRED_APP_ROLE +
+            '" app role (see step 4). This is default-deny by design, not a misconfiguration. Ask IT to assign the user to that app role on the opgbbes-prd-fa-aadapp enterprise application.';
+        else if (res.status === 404)
+          hint =
+            "The route does not exist. Confirm the exact path with IT — ai.config.ts currently uses " +
+            AI_CONFIG.endpoints.extractQuotation +
+            ".";
+        else if (res.status >= 500)
+          hint =
+            "The Function App failed internally. Ask IT for the Application Insights trace at " +
+            new Date().toISOString() +
+            ".";
+        else if (res.status === 429)
+          hint = "Azure OpenAI throttled the request. Retry in a moment.";
+
+        push({
+          id: "ai",
+          label: STEP_LABEL.ai,
+          status: res.ok ? "ok" : "fail",
+          summary: res.ok
+            ? "HTTP " +
+              res.status +
+              " — AI responded with " +
+              itemCount +
+              " quotation line(s)"
+            : "HTTP " + res.status + " — request rejected",
+          durationMs: Date.now() - aiStart,
+          rows: [
+            ["HTTP status", String(res.status)],
+            ["response size", body.length + " chars"],
+            ["quotation lines returned", itemCount],
+          ],
+          raw: prettyJson(body) || "(empty body)",
+          hint,
+        });
+      } catch (e) {
+        push({
+          id: "ai",
+          label: STEP_LABEL.ai,
+          status: "fail",
+          summary: "The request never completed",
+          durationMs: Date.now() - aiStart,
+          raw: errorText(e),
+          hint:
+            "If step 5 passed, this is a timeout or a dropped connection. Current timeout: " +
+            AI_CONFIG.requestTimeoutMs +
+            " ms.",
+        });
+      }
+    }
+
+    console.log("%c[SmartBid AI] Diagnostic finished", "font-weight:bold");
+    setRunning(false);
+  };
+
+  const copyReport = (): void => {
+    const lines: string[] = [
+      "SmartBid AI diagnostic — " + new Date().toISOString(),
+      "",
+    ];
+    steps.forEach((s) => {
+      lines.push(
+        "[" +
+          s.status.toUpperCase() +
+          "] " +
+          s.label +
+          (s.summary ? " — " + s.summary : ""),
+      );
+      (s.rows || []).forEach(([k, v]) => lines.push("    " + k + ": " + v));
+      if (s.hint) lines.push("    HINT: " + s.hint);
+      if (s.raw) lines.push("    ---", s.raw);
+      lines.push("");
+    });
+    const full = lines.join("\n");
+    console.log(full);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(full).catch(() => {
+        /* clipboard blocked — the report is in the console above */
+      });
+    }
+  };
+
+  const statusColor = (s: StepStatus): string => {
+    if (s === "ok") return "var(--success)";
+    if (s === "fail") return "var(--danger)";
+    if (s === "warn") return "var(--warning, #f59e0b)";
+    return "var(--text-muted)";
+  };
+
+  const statusLabel = (s: StepStatus): string => {
+    if (s === "ok") return "PASS ✓";
+    if (s === "fail") return "FAIL ✗";
+    if (s === "warn") return "REVIEW ⚠";
+    if (s === "skipped") return "SKIPPED";
+    return "…";
+  };
+
+  const runFresh = async (): Promise<void> => {
+    await AiAuthService.clearTokenCache();
+    await run();
   };
 
   const wrap: React.CSSProperties = {
@@ -215,29 +723,28 @@ export const EntraTokenTest: React.FC = () => {
     wordBreak: "break-all",
     fontFamily: "Consolas, monospace",
   };
-  const blockTitle: React.CSSProperties = {
-    margin: "20px 0 8px",
-    color: "var(--text-primary)",
+  const ghostBtn: React.CSSProperties = {
+    ...btn,
+    background: "transparent",
+    color: "var(--text-secondary)",
+    border: "1px solid var(--border)",
+  };
+  const stepHead: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    gap: 12,
+    margin: "20px 0 6px",
     fontWeight: 600,
   };
-  const okBadge: React.CSSProperties = {
-    color: "var(--success)",
-    fontWeight: 700,
-  };
-  const badBadge: React.CSSProperties = {
-    color: "var(--danger)",
-    fontWeight: 700,
-  };
-  const errBox: React.CSSProperties = {
+  const hintBox: React.CSSProperties = {
     marginTop: 8,
     padding: 12,
     background: "var(--main-bg)",
-    border: "1px solid var(--danger)",
-    borderRadius: 8,
-    color: "var(--danger)",
+    borderLeft: "3px solid var(--primary-accent)",
+    borderRadius: 6,
+    color: "var(--text-primary)",
     whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-    fontFamily: "Consolas, monospace",
     fontSize: 12,
   };
   const codeBox: React.CSSProperties = {
@@ -251,133 +758,72 @@ export const EntraTokenTest: React.FC = () => {
     wordBreak: "break-word",
     fontFamily: "Consolas, monospace",
     fontSize: 12,
-    maxHeight: 200,
+    maxHeight: 260,
     overflow: "auto",
   };
 
   return (
     <div style={wrap}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <button style={btn} onClick={run} disabled={state.loading}>
-          {state.loading ? "Running…" : "▶ Run diagnostic"}
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <button style={btn} onClick={run} disabled={running}>
+          {running ? "Running…" : "▶ Run full diagnostic"}
         </button>
+        <button style={ghostBtn} onClick={runFresh} disabled={running}>
+          ↻ Clear token cache & run
+        </button>
+        {steps.length > 0 && !running && (
+          <button style={ghostBtn} onClick={copyReport}>
+            Copy report for IT
+          </button>
+        )}
         <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
-          Results are also written to the browser console (F12) as
-          [EntraApiTest].
+          Use “Clear token cache” after any Entra ID change — a cached token
+          keeps the old claims for about an hour.
         </span>
       </div>
 
-      <div style={panel}>
-        <div style={row}>
-          <span style={label}>client id (SPA app)</span>
-          <span style={val}>{AI_CONFIG.auth.clientId || "(not set)"}</span>
-        </div>
-        <div style={row}>
-          <span style={label}>scope</span>
-          <span style={val}>{resource || "(not set)"}</span>
-        </div>
-        <div style={row}>
-          <span style={label}>endpoint</span>
-          <span style={val}>{apiUrl}</span>
-        </div>
-
-        {/* ── Probe 0: readable WITHOUT any approval ────────────────── */}
-        <div style={blockTitle}>
-          0) Session identity Entra ID resolves the user by{" "}
-          <span style={okBadge}>NO APPROVAL NEEDED</span>
-        </div>
-        {sessionIdentity.map(([display, value]) => (
-          <div style={row} key={display}>
-            <span style={label}>{display}</span>
-            <span style={val}>{value}</span>
-          </div>
-        ))}
-        <div style={codeBox}>
-          These exact values are what Entra ID stamps into the token as oid /
-          tid / upn. After approval, compare with block A — they match, proving
-          the token carries THIS user.
-        </div>
-
-        {/* ── Probe A ─────────────────────────────────── */}
-        {state.tokenProbe && (
-          <>
-            <div style={blockTitle}>
-              A) MSAL (auth code + PKCE) token acquisition{" "}
-              {state.tokenProbe.ok ? (
-                <span style={okBadge}>ISSUED ✓</span>
-              ) : (
-                <span style={badBadge}>REFUSED ✗</span>
-              )}
-            </div>
-
-            {state.tokenProbe.ok && state.tokenProbe.claims && (
-              <>
-                {[
-                  ["name", "name"],
-                  ["upn / email", "preferred_username"],
-                  ["upn (alt)", "upn"],
-                  ["object id (oid)", "oid"],
-                  ["tenant (tid)", "tid"],
-                  ["audience (aud)", "aud"],
-                  ["scope (scp)", "scp"],
-                  ["app id (appid)", "appid"],
-                ].map(([display, key]) => (
-                  <div style={row} key={key}>
-                    <span style={label}>{display}</span>
-                    <span style={val}>
-                      {claim(state.tokenProbe!.claims!, key)}
-                    </span>
-                  </div>
-                ))}
-                <button style={{ ...btn, marginTop: 12 }} onClick={copyToken}>
-                  Copy raw token (paste into https://jwt.ms)
-                </button>
-              </>
-            )}
-
-            {!state.tokenProbe.ok && (
-              <div style={errBox}>{state.tokenProbe.error}</div>
-            )}
-          </>
-        )}
-
-        {/* ── Auth calls actually attempted — visible even when refused ── */}
-        {state.authCalls.length > 0 && (
-          <>
-            <div style={blockTitle}>
-              A2) Auth calls the MSAL client attempted
-            </div>
-            <div style={codeBox}>{state.authCalls.join("\n\n")}</div>
-          </>
-        )}
-
-        {/* ── Probe B ─────────────────────────────────── */}
-        {state.apiProbe && (
-          <>
-            <div style={blockTitle}>
-              B) Real POST to the Function App{" "}
-              {state.apiProbe.ok ? (
-                <span style={okBadge}>{state.apiProbe.httpStatus} OK ✓</span>
-              ) : state.apiProbe.httpStatus ? (
-                <span style={badBadge}>
-                  {state.apiProbe.httpStatus} REJECTED ✗
+      {steps.length > 0 && (
+        <div style={panel}>
+          {steps.map((s) => (
+            <div key={s.id}>
+              <div style={stepHead}>
+                <span>{s.label}</span>
+                <span
+                  style={{
+                    color: statusColor(s.status),
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {statusLabel(s.status)}
+                  {typeof s.durationMs === "number"
+                    ? " · " + s.durationMs + " ms"
+                    : ""}
                 </span>
-              ) : (
-                <span style={badBadge}>REFUSED ✗</span>
-              )}
-            </div>
-
-            {typeof state.apiProbe.httpStatus === "number" && (
-              <div style={codeBox}>
-                {state.apiProbe.httpBody || "(empty body)"}
               </div>
-            )}
-            {state.apiProbe.error && (
-              <div style={errBox}>{state.apiProbe.error}</div>
-            )}
-          </>
-        )}
-      </div>
+              {s.summary && (
+                <div style={{ color: "var(--text-secondary)", fontSize: 12 }}>
+                  {s.summary}
+                </div>
+              )}
+              {(s.rows || []).map(([k, v]) => (
+                <div style={row} key={k}>
+                  <span style={label}>{k}</span>
+                  <span style={val}>{v}</span>
+                </div>
+              ))}
+              {s.raw && <div style={codeBox}>{s.raw}</div>}
+              {s.hint && <div style={hintBox}>{s.hint}</div>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
