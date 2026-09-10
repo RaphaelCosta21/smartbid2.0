@@ -14,6 +14,14 @@
  *                          quotation. That route is a straight Azure OpenAI
  *                          call (no AI Search), so the result isolates auth and
  *                          the model without the retrieval pipeline.
+ *   7) Scope + RAG       — POST to /scope/generate with pre-extracted text
+ *                          (documentText), so the only thing it adds over step 6
+ *                          is AI Search retrieval.
+ *   8) Scope + real file — optional POST to /scope/generate with a document the
+ *                          user picks. Adds backend PDF/DOCX parsing on top of 7.
+ *
+ * Steps 6 → 7 → 8 add exactly one moving part each, so the first one that fails
+ * names the broken stage without reading Application Insights.
  *
  * Every step is mirrored to the browser console as [SmartBid AI]. Rendered by
  * the "API Diagnostics" tab in System Configuration, its only mount point.
@@ -25,7 +33,10 @@ import { AI_CONFIG, buildAiUrl } from "../../config/ai.config";
 import {
   buildQuotationExtractionPrompt,
   QUOTATION_EXTRACTION_PROMPT_VERSION,
+  buildScopeOfSupplyPrompt,
+  SCOPE_OF_SUPPLY_PROMPT_VERSION,
 } from "../../config/ai.prompts";
+import { useConfigStore } from "../../stores/useConfigStore";
 import { IAIAnalysisRequest } from "../../models/IAIAnalysis";
 
 /** Decode a JWT payload (base64url + UTF-8) without any dependency. */
@@ -107,10 +118,29 @@ function prettyJson(text: string): string {
   }
 }
 
-type StepStatus = "running" | "ok" | "warn" | "fail" | "skipped";
+/** Same encoding AIAnalysisService uses before POSTing a document. */
+async function fileToBase64(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunk = 8192; // chunked to stay under the argument limit of String.fromCharCode
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(
+      null,
+      Array.prototype.slice.call(bytes.subarray(i, i + chunk)) as number[],
+    );
+  }
+  return btoa(binary);
+}
 
-/** App role the Function App demands (REQUIRED_APP_ROLE in function_app.py). */
-const REQUIRED_APP_ROLE = "SmartBid.User";
+/** Short, human-readable file size. */
+function fileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+}
+
+type StepStatus = "running" | "ok" | "warn" | "fail" | "skipped";
 
 interface IStep {
   id: string;
@@ -135,6 +165,8 @@ const STEP_ORDER = [
   "claims",
   "cors",
   "ai",
+  "scopeRag",
+  "scopeFile",
 ];
 
 const STEP_LABEL: Record<string, string> = {
@@ -145,6 +177,8 @@ const STEP_LABEL: Record<string, string> = {
   claims: "4) Token claims & audience match",
   cors: "5) Endpoint reachability / CORS",
   ai: "6) AI round trip (Azure OpenAI — quotation extract)",
+  scopeRag: "7) Scope of Supply + RAG (AI Search) — pre-extracted text",
+  scopeFile: "8) Scope of Supply with your own document (backend parsing)",
 };
 
 /**
@@ -189,6 +223,30 @@ const SAMPLE_DOCUMENT = [
   "",
 ].join("\n");
 
+/**
+ * Tiny client technical specification. Sent to /scope/generate as PRE-EXTRACTED
+ * text (documentText), so that route differs from step 6 only by the AI Search
+ * retrieval block — a failure here points straight at RAG.
+ */
+const SAMPLE_SCOPE_DOCUMENT = [
+  "CLIENT TECHNICAL SPECIFICATION - SMARTBID DIAGNOSTIC SAMPLE",
+  "",
+  "Project: Subsea inspection campaign",
+  "Scope of supply requested from the contractor:",
+  "",
+  "1. One (1) work class ROV system rated to 3000 msw, including launch and",
+  "   recovery system, umbilical winch and control cabin.",
+  "2. One (1) hydraulic manipulator, 7-function, with spare jaws.",
+  "3. Survey sensor package: multibeam echo sounder, USBL transponder and",
+  "   cathodic protection probe.",
+  "4. Offshore crew: 2 ROV supervisors, 4 ROV pilots/technicians, 1 data",
+  "   coordinator, on a 12-hour rotation.",
+  "5. Mobilization and demobilization of all equipment at Macae base.",
+  "",
+  "All equipment shall be certified and delivered with valid class documents.",
+  "",
+].join("\n");
+
 /** Trace rows from the MSAL service, shown inline with the token step. */
 function traceRows(): Array<[string, string]> {
   return AiAuthService.trace.map(
@@ -203,11 +261,38 @@ function traceRows(): Array<[string, string]> {
 export const EntraTokenTest: React.FC = () => {
   const [steps, setSteps] = React.useState<IStep[]>([]);
   const [running, setRunning] = React.useState(false);
+  const [scopeFile, setScopeFile] = React.useState<File | undefined>(undefined);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const config = useConfigStore((s) => s.config);
+  // Same taxonomy AIDocumentAnalyzer sends, so the prompt is byte-identical to production.
+  const resourceTypeOptions = React.useMemo(
+    () =>
+      (config?.resourceTypes || [])
+        .filter((r) => r.isActive)
+        .map((r) => ({
+          label: r.label,
+          subTypes: (r.subTypes || [])
+            .filter((s) => s.isActive !== false)
+            .map((s) => s.value),
+        })),
+    [config],
+  );
+  // Same taxonomy AddQuotationModal sends with a quotation extraction.
+  const groupOptions = React.useMemo(
+    () =>
+      (config?.favoriteGroups || []).map((g) => ({
+        name: g.name,
+        subGroups: (g.subGroups || []).map((sg) => sg.name),
+      })),
+    [config],
+  );
 
   const scope = AI_CONFIG.auth.scopes.join(" ");
   // Quotation extraction is a plain OpenAI call, so it isolates auth + model
   // without dragging AI Search retrieval into the result.
   const apiUrl = buildAiUrl(AI_CONFIG.endpoints.extractQuotation);
+  const scopeUrl = buildAiUrl(AI_CONFIG.endpoints.generateScope);
 
   /** Add or replace a step, keeping the declared order. */
   const push = (step: IStep): void => {
@@ -422,34 +507,14 @@ export const EntraTokenTest: React.FC = () => {
         String(pc.aadInfo?.userId || "")
           .replace(/[{}]/g, "")
           .toLowerCase();
-      const roles = claims && Array.isArray(claims.roles) ? claims.roles : [];
-      const hasRole = roles.indexOf(REQUIRED_APP_ROLE) >= 0;
-
-      const problems: string[] = [];
-      if (!audMatches)
-        problems.push(
-          "EasyAuth validates the aud claim. Ask IT to confirm the allowedAudiences on fa-opgb-bes-prd-fa includes: " +
-            aud,
-        );
-      if (!hasRole)
-        problems.push(
-          'The token carries no "' +
-            REQUIRED_APP_ROLE +
-            '" app role, and the Function App denies every call without it (default-deny by design). Ask IT to assign this user — or a group containing them — to the ' +
-            REQUIRED_APP_ROLE +
-            " app role on the opgbbes-prd-fa-aadapp enterprise application.",
-        );
 
       push({
         id: "claims",
         label: STEP_LABEL.claims,
-        status: audMatches && hasRole ? "ok" : "warn",
-        summary:
-          audMatches && hasRole
-            ? "Audience matches and the required app role is present"
-            : !audMatches
-              ? "Audience does NOT match the configured scope"
-              : "Missing the " + REQUIRED_APP_ROLE + " app role",
+        status: audMatches ? "ok" : "warn",
+        summary: audMatches
+          ? "Audience matches the configured scope"
+          : "Audience does NOT match the configured scope",
         rows: [
           ["token version (ver)", claimText(claims, "ver")],
           ["name", claimText(claims, "name")],
@@ -460,18 +525,14 @@ export const EntraTokenTest: React.FC = () => {
           ["audience (aud)", aud],
           ["expected audience", expectedAud],
           ["scope (scp)", claimText(claims, "scp")],
-          [
-            "app roles (roles)",
-            hasRole
-              ? claimText(claims, "roles")
-              : claimText(claims, "roles") +
-                "  \u2014 required: " +
-                REQUIRED_APP_ROLE,
-          ],
+          ["app roles (roles)", claimText(claims, "roles")],
           ["groups", claimText(claims, "groups")],
           ["app id (appid)", claimText(claims, "appid")],
         ],
-        hint: problems.length > 0 ? problems.join("\n\n") : undefined,
+        hint: audMatches
+          ? undefined
+          : "EasyAuth validates the aud claim. Ask IT to confirm the allowedAudiences on fa-opgb-bes-prd-fa includes: " +
+            aud,
       });
     }
 
@@ -517,6 +578,7 @@ export const EntraTokenTest: React.FC = () => {
     }
 
     // ── 6) Real AI round trip ───────────────────────────────────────────────
+    let quotationOk = false;
     if (!accessToken) {
       push({
         id: "ai",
@@ -539,7 +601,7 @@ export const EntraTokenTest: React.FC = () => {
         useCase: "quotation",
       };
       if (AI_CONFIG.sendPromptFromClient) {
-        request.systemPrompt = buildQuotationExtractionPrompt();
+        request.systemPrompt = buildQuotationExtractionPrompt(groupOptions);
         request.promptVersion = QUOTATION_EXTRACTION_PROMPT_VERSION;
       }
       console.log("[SmartBid AI] POST " + apiUrl, {
@@ -583,9 +645,7 @@ export const EntraTokenTest: React.FC = () => {
             "EasyAuth rejected the token itself. The aud claim from step 4 must be listed in the Function App allowedAudiences.";
         else if (res.status === 403)
           hint =
-            'The token was accepted, then the Function App denied the call because it carries no "' +
-            REQUIRED_APP_ROLE +
-            '" app role (see step 4). This is default-deny by design, not a misconfiguration. Ask IT to assign the user to that app role on the opgbbes-prd-fa-aadapp enterprise application.';
+            "EasyAuth accepted the token but the Function App refused the call. Check the Application Insights log for this timestamp — the request never reached the model.";
         else if (res.status === 404)
           hint =
             "The route does not exist. Confirm the exact path with IT — ai.config.ts currently uses " +
@@ -619,6 +679,7 @@ export const EntraTokenTest: React.FC = () => {
           raw: prettyJson(body) || "(empty body)",
           hint,
         });
+        quotationOk = res.ok;
       } catch (e) {
         push({
           id: "ai",
@@ -633,6 +694,219 @@ export const EntraTokenTest: React.FC = () => {
             " ms.",
         });
       }
+    }
+
+    // ── 7 & 8) Scope of Supply ──────────────────────────────────────────────
+    // Same endpoint the BID "Generate with AI" button uses. Step 7 sends
+    // pre-extracted text (documentText), so the backend skips PDF parsing and
+    // the ONLY thing it adds over step 6 is AI Search retrieval. Step 8 then
+    // adds parsing back by sending a real file.
+    const buildScopeRequest = (
+      fileName: string,
+      fileContent: string,
+      documentText?: string,
+    ): IAIAnalysisRequest => {
+      const request: IAIAnalysisRequest = {
+        fileName,
+        fileContent,
+        documentText,
+        division: "SSR-ROV",
+        serviceLine: "ROV",
+        resourceTypes: resourceTypeOptions.map((r) => r.label),
+        contextSummary:
+          "SmartBid connectivity diagnostic — synthetic scope request, not a real BID.",
+        bidNumber: "DIAGNOSTIC",
+        useCase: "scope-of-supply",
+      };
+      if (AI_CONFIG.sendPromptFromClient) {
+        request.systemPrompt = buildScopeOfSupplyPrompt(resourceTypeOptions);
+        request.promptVersion = SCOPE_OF_SUPPLY_PROMPT_VERSION;
+      }
+      return request;
+    };
+
+    /** POST to /scope/generate and render the verdict. Returns res.ok. */
+    const runScopeProbe = async (
+      id: string,
+      request: IAIAnalysisRequest,
+      extraRows: Array<[string, string]>,
+      interpret: (
+        status: number,
+        body: string,
+        elapsedMs: number,
+      ) => string | undefined,
+    ): Promise<boolean> => {
+      const start = Date.now();
+      console.log("[SmartBid AI] POST " + scopeUrl, {
+        ...request,
+        fileContent: "(" + request.fileContent.length + " base64 chars)",
+        documentText: request.documentText
+          ? "(" + request.documentText.length + " chars)"
+          : undefined,
+        systemPrompt: request.systemPrompt
+          ? "(" + request.systemPrompt.length + " chars)"
+          : undefined,
+      });
+      try {
+        const res = await fetchWithTimeout(
+          scopeUrl,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: "Bearer " + accessToken,
+            },
+            credentials: "omit",
+            body: JSON.stringify(request),
+          },
+          AI_CONFIG.requestTimeoutMs,
+        );
+        const body = await res.text();
+        console.log("[SmartBid AI] HTTP " + res.status, body);
+        const elapsedMs = Date.now() - start;
+
+        let itemCount = "—";
+        let warningText = "—";
+        try {
+          const parsed = JSON.parse(body) as Record<string, unknown>;
+          if (Array.isArray(parsed.scopeItems))
+            itemCount = String((parsed.scopeItems as unknown[]).length);
+          if (Array.isArray(parsed.warnings) && parsed.warnings.length > 0)
+            warningText = (parsed.warnings as string[]).join(" | ");
+        } catch {
+          /* not JSON — the raw body is shown below */
+        }
+
+        push({
+          id,
+          label: STEP_LABEL[id],
+          status: res.ok ? "ok" : "fail",
+          summary: res.ok
+            ? "HTTP " + res.status + " — " + itemCount + " scope item(s) returned"
+            : "HTTP " + res.status + " — request rejected",
+          durationMs: elapsedMs,
+          rows: ([
+            ["endpoint", scopeUrl],
+            ["HTTP status", String(res.status)],
+            ["request size", JSON.stringify(request).length + " chars"],
+            ["scope items returned", itemCount],
+            ["backend warnings", warningText],
+          ] as Array<[string, string]>).concat(extraRows),
+          raw: prettyJson(body) || "(empty body)",
+          hint: interpret(res.status, body, elapsedMs),
+        });
+        return res.ok;
+      } catch (e) {
+        push({
+          id,
+          label: STEP_LABEL[id],
+          status: "fail",
+          summary: "The request never completed",
+          durationMs: Date.now() - start,
+          rows: extraRows,
+          raw: errorText(e),
+          hint:
+            "No HTTP status came back — the call timed out or was dropped. Scope generation is the slowest route (parsing + retrieval + model). Current timeout: " +
+            AI_CONFIG.requestTimeoutMs +
+            " ms.",
+        });
+        return false;
+      }
+    };
+
+    let scopeRagOk = false;
+    if (!accessToken) {
+      push({
+        id: "scopeRag",
+        label: STEP_LABEL.scopeRag,
+        status: "skipped",
+        summary: "No token — cannot call the AI endpoint",
+      });
+    } else {
+      scopeRagOk = await runScopeProbe(
+        "scopeRag",
+        buildScopeRequest(
+          "smartbid-diagnostic-scope.txt",
+          btoa(SAMPLE_SCOPE_DOCUMENT),
+          SAMPLE_SCOPE_DOCUMENT,
+        ),
+        [
+          ["document", "synthetic text, sent as documentText"],
+          ["resource types in prompt", String(resourceTypeOptions.length)],
+        ],
+        (status, body, elapsedMs) => {
+          if (status < 400) {
+            return /could not be searched/i.test(body)
+              ? "The call succeeded but AI Search did NOT answer, so the result is not grounded on the reference library. Check the index name, the vectorizer and the Function App's Search Index Data Reader role."
+              : undefined;
+          }
+          if (status === 422)
+            return "The backend could not read the sample text — it is ignoring documentText. Ask IT to confirm the deployed function_app.py matches this repo.";
+          if (status === 404)
+            return (
+              "The route does not exist. ai.config.ts uses " +
+              AI_CONFIG.endpoints.generateScope +
+              "."
+            );
+          if (status >= 500) {
+            if (!quotationOk)
+              return "Step 6 failed too, so this is NOT specific to scope generation — the shared part (Azure OpenAI deployment, API version or the Function App itself) is broken. Start from step 6.";
+            const timing =
+              elapsedMs < 3000
+                ? "It failed in " +
+                  elapsedMs +
+                  " ms — far too fast for a model call (step 6 took seconds), so it broke BEFORE Azure OpenAI was reached. "
+                : "";
+            return (
+              "DIAGNOSIS: step 6 passed with the same auth, model and document text. The only extra component in this route is AI SEARCH RETRIEVAL. " +
+              timing +
+              "Checklist for IT on srch-opgbbes-prd, in order of likelihood:\n" +
+              "  (1) Keys → API access control must be 'Both' or 'Role-based access control'. It is KEY-ONLY by default, and in that mode a managed-identity token is rejected even with the role assigned — this is the most common cause.\n" +
+              "  (2) Role assignment: the Function App's system-assigned identity (fa-opgb-bes-prd-fa) needs 'Search Index Data Reader' on the search service. The indexer running fine proves nothing here — it uses a different identity.\n" +
+              "  (3) App settings AZURE_SEARCH_ENDPOINT and AZURE_SEARCH_INDEX must match the real service and the index name 'smartbid-docs-index'.\n" +
+              "  (4) The index needs the azureOpenAI vectorizer on field text_vector, and the embedding deployment it points to must exist — the vectorizer is only used at QUERY time, so a broken one does not show up in the indexer history."
+            );
+          }
+          return undefined;
+        },
+      );
+    }
+
+    if (!accessToken || !scopeFile) {
+      push({
+        id: "scopeFile",
+        label: STEP_LABEL.scopeFile,
+        status: "skipped",
+        summary: !accessToken
+          ? "No token — cannot call the AI endpoint"
+          : "No document selected",
+        hint: accessToken
+          ? "Select the exact document that failed in the BID and run again — this step reproduces the production call, including backend PDF/DOCX parsing."
+          : undefined,
+      });
+    } else {
+      const base64 = await fileToBase64(scopeFile);
+      await runScopeProbe(
+        "scopeFile",
+        buildScopeRequest(scopeFile.name, base64),
+        [
+          ["file name", scopeFile.name],
+          ["file size", fileSize(scopeFile.size)],
+          ["file type", scopeFile.type || "(unknown)"],
+        ],
+        (status) => {
+          if (status < 400) return undefined;
+          if (status === 422)
+            return "The backend extracted no text. If this is a scanned PDF, vision OCR also failed — check the gpt-5-mini deployment quota and MAX_VISION_PAGES.";
+          if (status >= 500) {
+            return scopeRagOk
+              ? "DIAGNOSIS: step 7 passed with the same endpoint and prompt, so retrieval and the model are fine. The extra component here is BACKEND DOCUMENT PARSING of this file — a corrupt/encrypted PDF, an unsupported extension, or a file large enough to blow the model context. Try a small text-based PDF to confirm."
+              : "Step 7 failed too — fix that one first; it is the simpler case.";
+          }
+          return undefined;
+        },
+      );
     }
 
     console.log("%c[SmartBid AI] Diagnostic finished", "font-weight:bold");
@@ -786,6 +1060,55 @@ export const EntraTokenTest: React.FC = () => {
         <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
           Use “Clear token cache” after any Entra ID change — a cached token
           keeps the old claims for about an hour.
+        </span>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+          flexWrap: "wrap",
+          marginTop: 12,
+        }}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.doc,.docx"
+          style={{ display: "none" }}
+          onChange={(e) =>
+            setScopeFile(
+              e.target.files && e.target.files.length > 0
+                ? e.target.files[0]
+                : undefined,
+            )
+          }
+        />
+        <button
+          style={ghostBtn}
+          onClick={() => fileInputRef.current?.click()}
+          disabled={running}
+        >
+          📄 Attach the document that failed (step 8)
+        </button>
+        {scopeFile && (
+          <>
+            <span style={{ fontFamily: "Consolas, monospace", fontSize: 12 }}>
+              {scopeFile.name} · {fileSize(scopeFile.size)}
+            </span>
+            <button
+              style={ghostBtn}
+              onClick={() => setScopeFile(undefined)}
+              disabled={running}
+            >
+              ✕ Remove
+            </button>
+          </>
+        )}
+        <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
+          Optional. Step 8 replays the exact production call for that file,
+          including backend PDF/Word parsing.
         </span>
       </div>
 

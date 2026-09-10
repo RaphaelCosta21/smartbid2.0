@@ -6,12 +6,14 @@ Two HTTP endpoints (Function App, EasyAuth-protected):
   • POST /quotation/extract → Supplier quotation → structured line items (no RAG)
 
 Auth is Entra ID / Managed Identity end to end — no API keys, no Key Vault.
-Callers must carry the "SmartBid.User" app role — no allowlist, no bypass.
+Access is restricted in Entra ID: only the approved group can obtain a token for
+the Function App's API scope, and EasyAuth rejects anything else.
 SmartBid ALWAYS sends its own system prompt (from app/config/ai.prompts.ts).
 Scanned/image PDFs are read with gpt-5-mini vision.
 """
 import os
 import io
+import re
 import json
 import base64
 import logging
@@ -43,7 +45,7 @@ openai_client = AzureOpenAI(
     azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
     azure_ad_token_provider=token_provider,
     # App setting so IT can move to the version gpt-5-mini requires without a redeploy.
-    api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-10-21"),
+    api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2025-04-01-preview"),
 )
 
 # Azure AI Search client (Entra ID / RBAC instead of an API key)
@@ -62,6 +64,12 @@ MAX_VISION_PAGES = int(os.environ.get("MAX_VISION_PAGES", "20"))
 VISION_DPI = 150
 SEARCH_QUERY_CHARS = 8000   # AI Search query budget (context hint + document text)
 CONTEXT_HINT_CHARS = 1500
+# When true, the 500 payload also carries the upstream error message. Keep it off
+# in steady state; turn it on to triage without Application Insights access.
+DEBUG_ERRORS = os.environ.get("AI_DEBUG_ERRORS", "").lower() in ("1", "true", "yes")
+# Azure AI Search simple-query operators. Raw document text routinely contains
+# unbalanced quotes/parentheses, which make the query parser reject the request.
+_SEARCH_OPERATORS = re.compile(r'["()|+*?\\]')
 
 # PDFium is not thread-safe, and the Functions host runs invocations concurrently.
 _pdfium_lock = threading.Lock()
@@ -154,15 +162,34 @@ def _bad_request() -> func.HttpResponse:
     )
 
 
-def _server_error(message: str) -> func.HttpResponse:
-    # Never echo the exception to the caller — details stay in Application Insights.
+def _server_error(
+    message: str, stage: str = "", exc: Optional[BaseException] = None
+) -> func.HttpResponse:
+    # The stage tells IT where to look; the exception text is only echoed when
+    # AI_DEBUG_ERRORS is on — otherwise it stays in Application Insights.
+    details = "An internal error occurred. Please contact IT if it persists."
+    if stage:
+        details = f"Failed during {stage}. {details}"
+    if exc is not None:
+        details = f"{details} [{type(exc).__name__}]"
+        if DEBUG_ERRORS:
+            details = f"{details} {str(exc)[:500]}"
     return func.HttpResponse(
-        json.dumps({
-            "error": message,
-            "details": "An internal error occurred. Please contact IT if it persists.",
-        }),
+        json.dumps({"error": message, "details": details}),
         status_code=500, mimetype="application/json",
     )
+
+
+def _model_json(completion: Any, stage: str) -> Dict[str, Any]:
+    """Parse the model's JSON answer. A reasoning model can return an empty
+    message (e.g. the token budget was spent on reasoning) — fail loudly instead
+    of letting json.loads(None) surface as an opaque TypeError."""
+    choice = (completion.choices or [None])[0]
+    content = (getattr(choice.message, "content", None) or "").strip() if choice else ""
+    if not content:
+        finish = getattr(choice, "finish_reason", "<none>") if choice else "<none>"
+        raise ValueError(f"{stage}: model returned no content (finish_reason={finish})")
+    return json.loads(content)
 
 
 def _document_text(
@@ -221,91 +248,77 @@ def _retrieval_query(context_lines: List[str], document_text: str) -> str:
     an unrelated business area doesn't outrank a relevant one."""
     hint = " ".join(context_lines)[:CONTEXT_HINT_CHARS]
     body_text = document_text[: max(0, SEARCH_QUERY_CHARS - len(hint) - 1)]
-    return f"{hint}\n{body_text}".strip() if hint else body_text
+    query = f"{hint}\n{body_text}".strip() if hint else body_text
+    return re.sub(r"\s+", " ", _SEARCH_OPERATORS.sub(" ", query)).strip()
+
+
+def _reference_material(query_text: str) -> Tuple[str, List[str]]:
+    """Hybrid (keyword + vector) retrieval. Retrieval is an enhancement, not a
+    hard dependency: if AI Search is unavailable the analysis still runs, with a
+    warning, instead of failing the whole request."""
+    try:
+        vector_query = VectorizableTextQuery(
+            text=query_text, k_nearest_neighbors=5, fields="text_vector"
+        )
+        results = search_client.search(
+            search_text=query_text,
+            vector_queries=[vector_query],
+            select=["title", "chunk", "sourceUrl", "manufacturer", "docModel"],
+            top=5,
+        )
+        return "\n\n---\n\n".join(
+            f"[{r.get('title', 'Untitled')}] ({r.get('sourceUrl', '')})\n{r.get('chunk', '')}"
+            for r in results
+        ), []
+    except Exception:
+        logging.exception("scope/generate — AI Search retrieval failed")
+        return "", [
+            "The reference library could not be searched — the analysis is based "
+            "only on the uploaded document. Review the results carefully."
+        ]
 
 
 # ---------------------------------------------------------------------------
-# Authorization — EasyAuth authenticates the caller (App Service injects the
-# identity into request headers); we re-check the app role here. The Entra app
-# role assignment is the SINGLE source of truth: no UPN allowlist, no bypass,
-# default-deny. Pair it with "Assignment required" on the enterprise app so
-# Entra refuses to issue a token to unassigned users in the first place.
+# Caller identity — for logging only. Authorization lives in Entra ID: the
+# SharePoint client app registration is assignment-restricted to the approved
+# group, so only those users can obtain a token for this API's aud/scope, and
+# EasyAuth validates it before the request reaches this code. Downstream calls
+# to Azure OpenAI / AI Search use the Function App's system-assigned identity,
+# not on-behalf-of, so no per-user grant is needed there either.
 # ---------------------------------------------------------------------------
-REQUIRED_APP_ROLE = os.environ.get("REQUIRED_APP_ROLE", "SmartBid.User").strip()
 _UPN_CLAIM_TYPES = (
     "preferred_username",
     "upn",
     "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn",
 )
-# v2 tokens use "roles"; v1 tokens use the long WS-Fed URI. EasyAuth also reports
-# the actual type it mapped roles to in the principal's "role_typ".
-_ROLE_CLAIM_TYPES = (
-    "roles",
-    "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
-)
 
 
-def _caller_identity(req: func.HttpRequest) -> Tuple[str, List[str]]:
-    """Return (upn, roles) for the authenticated caller from the EasyAuth
-    X-MS-CLIENT-PRINCIPAL header. External requests can't set this header —
-    only App Service Authentication sets it, after validating the token."""
+def _caller_upn(req: func.HttpRequest) -> str:
+    """UPN of the authenticated caller, from the EasyAuth X-MS-CLIENT-PRINCIPAL
+    header. External requests can't set this header — only App Service
+    Authentication sets it, after validating the token."""
     upn = req.headers.get("X-MS-CLIENT-PRINCIPAL-NAME", "")
-    roles: List[str] = []
+    if upn:
+        return upn.lower()
     raw = req.headers.get("X-MS-CLIENT-PRINCIPAL")
-    if raw:
-        try:
-            principal = json.loads(base64.b64decode(raw).decode("utf-8"))
-            claims = principal.get("claims", []) or []
-            role_types = set(_ROLE_CLAIM_TYPES)
-            if principal.get("role_typ"):
-                role_types.add(principal["role_typ"])
-            roles = [
-                c.get("val", "").strip()
-                for c in claims
-                if c.get("typ") in role_types and c.get("val", "").strip()
-            ]
-            if not upn:
-                upn = next(
-                    (c.get("val", "") for c in claims if c.get("typ") in _UPN_CLAIM_TYPES),
-                    "",
-                )
-        except Exception:
-            logging.exception("Failed to decode X-MS-CLIENT-PRINCIPAL")
-    return upn.lower(), roles
-
-
-def _forbidden() -> func.HttpResponse:
-    return func.HttpResponse(
-        json.dumps({
-            "error": "Not authorized",
-            "details": "Your account is not permitted to use the SmartBid AI service.",
-        }),
-        status_code=403, mimetype="application/json",
-    )
-
-
-def _authorize(req: func.HttpRequest) -> Optional[func.HttpResponse]:
-    """Return a 403 response unless the caller carries the required app role."""
-    if not REQUIRED_APP_ROLE:
-        # Misconfiguration must fail closed, never open.
-        logging.error("REQUIRED_APP_ROLE is not set — denying every AI call.")
-        return _forbidden()
-    upn, roles = _caller_identity(req)
-    if REQUIRED_APP_ROLE not in roles:
-        logging.warning("Unauthorized AI call — caller=%s roles=%s", upn or "<unknown>", roles)
-        return _forbidden()
-    logging.info("Authorized AI call — caller=%s", upn or "<unknown>")
-    return None
+    if not raw:
+        return ""
+    try:
+        principal = json.loads(base64.b64decode(raw).decode("utf-8"))
+        claims = principal.get("claims", []) or []
+        upn = next(
+            (c.get("val", "") for c in claims if c.get("typ") in _UPN_CLAIM_TYPES),
+            "",
+        )
+    except Exception:
+        logging.exception("Failed to decode X-MS-CLIENT-PRINCIPAL")
+    return upn.lower()
 
 
 @app.route(route="scope/generate", methods=["POST"], auth_level=ANONYMOUS)
 def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
     # Scope of Supply generation, grounded with RAG.
     # SmartBid ALWAYS sends its own system prompt (scope-of-supply-v3).
-    denied = _authorize(req)
-    if denied is not None:
-        return denied
-
     try:
         body, file_name, file_bytes, system_prompt, override = _parse_request(req, "document")
     except (ValueError, KeyError, TypeError) as e:
@@ -313,11 +326,13 @@ def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
         return _bad_request()
 
     logging.info(
-        "scope/generate — bid=%s promptVersion=%s",
+        "scope/generate — caller=%s bid=%s promptVersion=%s",
+        _caller_upn(req) or "<unknown>",
         body.get("bidNumber") or body.get("templateId") or "<none>",
         body.get("promptVersion") or "<none>",
     )
 
+    stage = "document parsing"
     try:
         # 1) Get text (vision-OCR only if the PDF is scanned)
         document_text, warnings = _document_text(file_bytes, file_name, override)
@@ -325,21 +340,11 @@ def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
             return _unreadable()
 
         # 2) RAG retrieval — AI Search vectorizes the query text itself
+        stage = "reference retrieval"
         context_lines = _context_lines(body)
         query_text = _retrieval_query(context_lines, document_text)
-        vector_query = VectorizableTextQuery(
-            text=query_text, k_nearest_neighbors=5, fields="text_vector"
-        )
-        results = search_client.search(
-            search_text=query_text,   # hybrid: keyword + vector
-            vector_queries=[vector_query],
-            select=["title", "chunk", "sourceUrl", "manufacturer", "docModel"],
-            top=5,
-        )
-        reference_material = "\n\n---\n\n".join(
-            f"[{r.get('title', 'Untitled')}] ({r.get('sourceUrl', '')})\n{r.get('chunk', '')}"
-            for r in results
-        )
+        reference_material, retrieval_warnings = _reference_material(query_text)
+        warnings.extend(retrieval_warnings)
 
         # 3) Append the BID context and retrieved Reference Material to OUR system prompt
         bid_context = (
@@ -356,6 +361,7 @@ def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
         )
 
         # 4) Call the chat model (gpt-5-mini) with JSON output
+        stage = "the model call"
         completion = openai_client.chat.completions.create(
             model=CHAT_DEPLOYMENT,
             response_format={"type": "json_object"},
@@ -364,7 +370,7 @@ def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
                 {"role": "user", "content": document_text},
             ],
         )
-        model_json = json.loads(completion.choices[0].message.content)
+        model_json = _model_json(completion, "scope/generate")
 
         # 5) Shape to IAIAnalysisResult (frontend assigns id/lineNumber)
         response = {
@@ -378,19 +384,16 @@ def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
         }
         return func.HttpResponse(json.dumps(response), mimetype="application/json", status_code=200)
 
-    except Exception:
-        logging.exception("scope/generate failed")
-        return _server_error("Analysis failed")
+    except Exception as e:
+        logging.exception("scope/generate failed during %s", stage)
+        return _server_error("Analysis failed", stage, e)
 
 
 @app.route(route="quotation/extract", methods=["POST"], auth_level=ANONYMOUS)
 def extract_quotation(req: func.HttpRequest) -> func.HttpResponse:
     # Supplier quotation extraction (no RAG).
-    # SmartBid ALWAYS sends its own system prompt (quotation-extraction-v1).
-    denied = _authorize(req)
-    if denied is not None:
-        return denied
-
+    # SmartBid ALWAYS sends its own system prompt (see promptVersion in the body),
+    # including the configured Group/SubGroup taxonomy used to classify each line.
     try:
         body, file_name, file_bytes, system_prompt, override = _parse_request(req, "quotation")
     except (ValueError, KeyError, TypeError) as e:
@@ -398,14 +401,18 @@ def extract_quotation(req: func.HttpRequest) -> func.HttpResponse:
         return _bad_request()
 
     logging.info(
-        "quotation/extract — promptVersion=%s", body.get("promptVersion") or "<none>"
+        "quotation/extract — caller=%s promptVersion=%s",
+        _caller_upn(req) or "<unknown>",
+        body.get("promptVersion") or "<none>",
     )
 
+    stage = "document parsing"
     try:
         document_text, warnings = _document_text(file_bytes, file_name, override)
         if len(document_text) < TEXT_MIN_CHARS:
             return _unreadable()
 
+        stage = "the model call"
         completion = openai_client.chat.completions.create(
             model=CHAT_DEPLOYMENT,
             response_format={"type": "json_object"},
@@ -414,7 +421,7 @@ def extract_quotation(req: func.HttpRequest) -> func.HttpResponse:
                 {"role": "user", "content": document_text},
             ],
         )
-        model_json = json.loads(completion.choices[0].message.content)
+        model_json = _model_json(completion, "quotation/extract")
 
         # Shape to IQuotationExtractionResult
         response = {
@@ -425,6 +432,6 @@ def extract_quotation(req: func.HttpRequest) -> func.HttpResponse:
         }
         return func.HttpResponse(json.dumps(response), mimetype="application/json", status_code=200)
 
-    except Exception:
-        logging.exception("quotation/extract failed")
-        return _server_error("Extraction failed")
+    except Exception as e:
+        logging.exception("quotation/extract failed during %s", stage)
+        return _server_error("Extraction failed", stage, e)

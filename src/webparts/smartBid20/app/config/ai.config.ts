@@ -79,15 +79,12 @@ export interface IAiConfig {
 }
 
 export const AI_CONFIG: IAiConfig = {
-  enabled: false,
+  enabled: true,
   apiBaseUrl: "https://fa-opgb-bes-prd-fa.azurewebsites.net/api", // Azure Function App base URL (EasyAuth-protected; there is no APIM).
   auth: {
     clientId: "d2c88fcf-f519-4656-94b0-19d23182beb0", // opgbbes-prd-sharepoint-aadapp (client only — exposes no API)
     tenantId: "", // Empty = use the SharePoint tenant id from the SPFx page context.
-    // The API lives on a separate app registration (opgbbes-prd-fa-aadapp), which
-    // exposes no named scope — /.default requests whatever is already consented.
-    scopes: ["api://opgbbes-prd-fa-aadapp.oceaneering.com/.default"],
-    // Must match a redirect URI registered as "SPA" byte for byte.
+    scopes: ["api://opgbbes-prd-fa-aadapp.oceaneering.com/user_impersonation"],
     redirectUri:
       "https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering",
   },

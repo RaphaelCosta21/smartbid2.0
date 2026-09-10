@@ -10,13 +10,13 @@
  * Bump the *_VERSION whenever a prompt changes so results stay traceable.
  */
 
-import { IAIResourceTypeOption } from "../models/IAIAnalysis";
+import { IAIGroupOption, IAIResourceTypeOption } from "../models/IAIAnalysis";
 
 /** Version tag sent alongside the Scope of Supply prompt. */
 export const SCOPE_OF_SUPPLY_PROMPT_VERSION = "scope-of-supply-v3";
 
 /** Version tag sent alongside the quotation extraction prompt. */
-export const QUOTATION_EXTRACTION_PROMPT_VERSION = "quotation-extraction-v1";
+export const QUOTATION_EXTRACTION_PROMPT_VERSION = "quotation-extraction-v2";
 
 /** Version tag sent alongside the clarification suggestion prompt. */
 export const CLARIFICATION_SUGGESTION_PROMPT_VERSION =
@@ -127,9 +127,29 @@ Respond concisely and factually.`;
  * quotation (which may list several items) and returns structured fields for the
  * Add Quotation form. Group / sub-group come back as NAMES; the UI maps them to
  * configured ids.
+ *
+ * @param groupOptions Configured Group/SubGroup taxonomy from system config. The
+ *   model must classify every line using ONLY these names.
  */
-export function buildQuotationExtractionPrompt(): string {
+export function buildQuotationExtractionPrompt(
+  groupOptions: IAIGroupOption[],
+): string {
+  const taxonomyBlock =
+    groupOptions && groupOptions.length > 0
+      ? groupOptions
+          .map((g) => {
+            const subs = (g.subGroups || []).filter(Boolean);
+            return subs.length > 0
+              ? `  - ${g.name} → sub-groups: ${subs.join(" | ")}`
+              : `  - ${g.name} → sub-groups: (none configured — leave suggestedSubGroupName empty)`;
+          })
+          .join("\n")
+      : "  (No group list was provided — leave suggestedGroupName and suggestedSubGroupName empty.)";
+
   return `You are a procurement assistant at Oceaneering. Read the supplier quotation document and extract EVERY quoted line item as structured data for our quotation register.
+
+EQUIPMENT CATEGORIES (from current system configuration — for "suggestedGroupName" use ONLY a group name below; for "suggestedSubGroupName" use ONLY a sub-group listed under the chosen group):
+${taxonomyBlock}
 
 RULES
 1. Extract one entry per quoted item. A single quotation may list several items.
@@ -142,8 +162,10 @@ RULES
 8. "leadTimeDays": lead time converted to whole days (e.g. "2 weeks" → 14). 0 if unspecified.
 9. "quotationDate": the quotation date as ISO (YYYY-MM-DD). "" if unspecified.
 10. "notes": any relevant condition (MOQ, incoterm, validity, warranty). "" if none.
-11. "suggestedGroupName" / "suggestedSubGroupName": your best guess for the category NAME (not id). "" if unsure.
-12. Never invent prices or part numbers. Only extract what the document states.
+11. "suggestedGroupName": classify the item into the CLOSEST group from the list above and copy the name VERBATIM (same spelling, accents and casing). Never invent a group name, never translate it, never return an id. Use "" only when no group is remotely applicable.
+12. "suggestedSubGroupName": pick the closest sub-group listed under the group you chose in rule 11, copied VERBATIM. Use "" when the chosen group has no sub-groups or none fits.
+13. Classify each line independently — a single quotation may mix items from different groups.
+14. Never invent prices or part numbers. Only extract what the document states.
 
 OUTPUT FORMAT
 Return ONLY valid JSON — no markdown, no backticks, no explanation:

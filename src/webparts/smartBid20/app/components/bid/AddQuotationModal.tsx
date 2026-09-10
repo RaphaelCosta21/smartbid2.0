@@ -144,15 +144,27 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
     if (!file || extracting) return;
     setExtracting(true);
     try {
-      const result = await AIAnalysisService.extractQuotation(file, {});
+      const result = await AIAnalysisService.extractQuotation(file, {
+        groupOptions: groups.map((g) => ({
+          name: g.name,
+          subGroups: (g.subGroups || []).map((sg) => sg.name),
+        })),
+      });
       const drafts = mapExtractedQuotationLines(result.items || [], groups);
       if (drafts.length > 0) {
         setLines(drafts.map(draftToLine));
         aiUsedRef.current = true;
+        const uncategorized = drafts.filter((d) => !d.groupId).length;
         addToast({
           type: "success",
           title: `${drafts.length} item${drafts.length > 1 ? "s" : ""} extracted — review before saving`,
         });
+        if (uncategorized > 0) {
+          addToast({
+            type: "warning",
+            title: `${uncategorized} item${uncategorized > 1 ? "s" : ""} could not be matched to a Group — select it manually`,
+          });
+        }
       } else {
         addToast({
           type: "warning",

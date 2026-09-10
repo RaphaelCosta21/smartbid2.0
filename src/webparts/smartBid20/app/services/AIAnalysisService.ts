@@ -274,7 +274,9 @@ export class AIAnalysisService {
         request.systemPrompt = buildScopeOfSupplyPrompt(resourceTypeOptions);
         request.promptVersion = SCOPE_OF_SUPPLY_PROMPT_VERSION;
       } else if (useCase === "quotation") {
-        request.systemPrompt = buildQuotationExtractionPrompt();
+        request.systemPrompt = buildQuotationExtractionPrompt(
+          context.groupOptions || [],
+        );
         request.promptVersion = QUOTATION_EXTRACTION_PROMPT_VERSION;
       }
     }

@@ -160,6 +160,7 @@ export {
   type IAIAnalysisResult,
   type IAIAnalysisError,
   type IAIAnalysisContext,
+  type IAIGroupOption,
   type AIUseCase,
   type IAISuggestedClarification,
   type IExtractedQuotationLine,

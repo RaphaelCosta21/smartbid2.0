@@ -1958,11 +1958,13 @@ const SystemConfiguration: React.FC = () => {
       <div className={styles.sectionHeader}>
         <h3>API Diagnostics — SmartBid AI backend</h3>
         <p>
-          Runs the production code path end to end in six steps: configuration,
-          session identity, Entra ID token (MSAL, authorization code + PKCE),
-          token claims, endpoint reachability/CORS, and a real Azure OpenAI
-          round trip with a sample document. Each step reports pass/fail
-          separately, so a failure points at exactly one cause.
+          Runs the production code path end to end: configuration, session
+          identity, Entra ID token (MSAL, authorization code + PKCE), token
+          claims, endpoint reachability/CORS, a quotation extraction round trip
+          (Azure OpenAI only) and a Scope of Supply round trip (Azure OpenAI +
+          AI Search retrieval). Each step adds one moving part, so the first
+          failure names the broken component. Attach the document that failed in
+          a BID to also test the backend PDF/Word parsing.
         </p>
       </div>
       <EntraTokenTest />

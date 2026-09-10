@@ -25,28 +25,64 @@ export interface IQuotationLineDraft {
   notes: string;
 }
 
+/** Normalize a taxonomy name for tolerant comparison (case/spacing/punctuation). */
+function normalizeName(value: string): string {
+  return (value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
 /**
  * Resolve an AI-suggested group / sub-group NAME to configured ids.
- * Matching is case-insensitive. Returns blank ids when there is no match.
+ *
+ * Matching is tolerant of case, spacing and punctuation, and falls back to a
+ * "contains" match. When the group name is missing or unknown but the sub-group
+ * name matches, the parent group is inferred from it. Returns blank ids when
+ * nothing matches, so the user picks manually.
  */
 export function resolveQuotationGroup(
   groupName: string | undefined,
   subGroupName: string | undefined,
   groups: IFavoriteGroup[],
 ): { groupId: string; subGroupId: string } {
-  if (!groupName) return { groupId: "", subGroupId: "" };
-  const target = groupName.trim().toLowerCase();
-  const group = (groups || []).find(
-    (g) => (g.name || "").trim().toLowerCase() === target,
-  );
+  const list = groups || [];
+  const target = normalizeName(groupName || "");
+  const subTarget = normalizeName(subGroupName || "");
+
+  let group: IFavoriteGroup | undefined;
+  if (target) {
+    group = list.find((g) => normalizeName(g.name) === target);
+    if (!group) {
+      group = list.find((g) => {
+        const candidate = normalizeName(g.name);
+        return (
+          !!candidate &&
+          (candidate.indexOf(target) >= 0 || target.indexOf(candidate) >= 0)
+        );
+      });
+    }
+  }
+
+  // No group match: infer the parent group from the suggested sub-group.
+  if (!group && subTarget) {
+    group = list.find((g) =>
+      (g.subGroups || []).some((s) => normalizeName(s.name) === subTarget),
+    );
+  }
   if (!group) return { groupId: "", subGroupId: "" };
 
   let subGroupId = "";
-  if (subGroupName) {
-    const subTarget = subGroupName.trim().toLowerCase();
-    const sub = (group.subGroups || []).find(
-      (s) => (s.name || "").trim().toLowerCase() === subTarget,
-    );
+  if (subTarget) {
+    const subs = group.subGroups || [];
+    let sub = subs.find((s) => normalizeName(s.name) === subTarget);
+    if (!sub) {
+      sub = subs.find((s) => {
+        const candidate = normalizeName(s.name);
+        return (
+          !!candidate &&
+          (candidate.indexOf(subTarget) >= 0 ||
+            subTarget.indexOf(candidate) >= 0)
+        );
+      });
+    }
     if (sub) subGroupId = sub.id;
   }
   return { groupId: group.id, subGroupId };

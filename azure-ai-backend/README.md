@@ -178,12 +178,13 @@ Document Intelligence required**.
 FUNCTIONS_WORKER_RUNTIME       = python
 AZURE_OPENAI_ENDPOINT          = https://cog-opgb-bes-prd-ai-openai.openai.azure.com
 AZURE_OPENAI_CHAT_DEPLOYMENT   = gpt-5-mini
-AZURE_OPENAI_API_VERSION       = 2024-10-21             # confirm the version gpt-5-mini requires
+AZURE_OPENAI_API_VERSION       = 2025-04-01-preview     # gpt-5-mini needs a 2025 preview version; GA versions (e.g. 2024-10-21) reject the model
 AZURE_SEARCH_ENDPOINT          = https://srch-opgbbes-prd.search.windows.net
 AZURE_SEARCH_INDEX             = smartbid-docs-index
 REQUIRED_APP_ROLE              = SmartBid.User          # app role a caller's token must carry (see §6)
 MAX_DOC_CHARS                  = 200000                 # optional — cap on analyzed text
 MAX_VISION_PAGES               = 20                     # optional — cap on pages sent to vision OCR
+AI_DEBUG_ERRORS                = false                  # optional — when true, HTTP 500 responses echo the upstream error message (triage only)
 ```
 
 The Function reads these at runtime via `os.environ[...]` — endpoints are **never hardcoded**

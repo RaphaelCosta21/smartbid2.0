@@ -15,7 +15,7 @@
     {
       "@odata.type": "#Microsoft.Skills.Text.AzureOpenAIEmbeddingSkill",
       "name": "embedding-skill",
-      "resourceUri": "https://cog-opgb-bes-prd-ai-openai.openai.azure.com",
+      "resourceUri": "https://cog-opgbbes-openai-prd.openai.azure.com/",
       "deploymentId": "text-embedding-3-small",
       "modelName": "text-embedding-3-small",
       "dimensions": 1536,
