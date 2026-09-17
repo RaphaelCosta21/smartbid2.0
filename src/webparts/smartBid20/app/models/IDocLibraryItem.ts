@@ -1,8 +1,13 @@
 /**
  * IDocLibraryItem — A catalogued document stored in the smartBidDocs library
- * (Datasheets, Manuals & Catalogs). Metadata lives on the library columns.
+ * (Datasheets, Manuals & Catalogs, Technical Proposals). Metadata lives on the
+ * library columns.
  */
-export type DocCatalogType = "Datasheet" | "Manual" | "Catalog";
+export type DocCatalogType =
+  | "Datasheet"
+  | "Manual"
+  | "Catalog"
+  | "Technical Proposal";
 
 export interface IDocLibraryItem {
   /** SharePoint list item Id of the file */
@@ -24,7 +29,10 @@ export interface IDocLibraryItem {
   // ─── Catalog metadata (library columns) ───
   title: string;
   docType: DocCatalogType | "";
-  category: string;
+  /** IFavoriteGroup id (same Group/SubGroup taxonomy as Quotations/Favorites) */
+  groupId: string;
+  /** IFavoriteSubGroup id, scoped to groupId */
+  subGroupId: string;
   manufacturer: string;
   model: string;
   keywords: string;
@@ -36,7 +44,10 @@ export interface IDocLibraryItem {
 export interface IDocLibraryMetadata {
   title: string;
   docType: DocCatalogType | "";
-  category: string;
+  groupId: string;
+  subGroupId: string;
+  /** "Group / SubGroup" names, mirrored from the ids so AI Search can index them. */
+  category?: string;
   manufacturer: string;
   model: string;
   keywords: string;

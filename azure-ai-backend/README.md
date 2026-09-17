@@ -36,6 +36,7 @@ AI Search Indexer ── App B ──►  SharePoint  (reads smartBidDocs: Datas
 | `function-app/requirements.txt`            | Python dependencies                                                            |
 | `function-app/host.json`                   | Functions host config (10-min timeout)                                         |
 | `function-app/local.settings.json.example` | App settings template                                                          |
+| `CHATBOT-BACKEND-PLAN.md`                  | Backlog: new `POST /chat` route + retrieval/indexing fixes (not implemented)   |
 
 ---
 

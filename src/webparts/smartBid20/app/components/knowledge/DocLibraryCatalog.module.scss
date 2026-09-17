@@ -453,6 +453,12 @@
   color: var(--text-secondary);
 }
 
+.formGroupRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 .formInput,
 .formSelect,
 .formTextarea {
@@ -577,4 +583,169 @@
 
 .emptyWrap {
   padding: 40px 0;
+}
+
+/* ─── AI extraction ─── */
+.aiExtractBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--primary-accent);
+  background: var(--card-bg-elevated);
+  color: var(--primary-accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: var(--primary-accent);
+    color: #fff;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+/* ─── Bulk selection & bulk AI bar (list view) ─── */
+.bulkActionBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-bg-elevated);
+}
+
+.bulkActionCount {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bulkActionWarning {
+  font-size: 12.5px;
+  color: var(--danger, #ef4444);
+}
+
+.bulkActionButtons {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* ─── Bulk AI review modal ─── */
+.bulkReviewModal {
+  max-width: 780px;
+}
+
+.bulkRowCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card-bg-elevated);
+}
+
+.bulkRowHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.bulkRowIncludeLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.bulkStatusBadge {
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.bulkStatus_extracted {
+  color: var(--success, #22c55e);
+  border-color: var(--success, #22c55e);
+}
+
+.bulkStatus_error {
+  color: var(--danger, #ef4444);
+  border-color: var(--danger, #ef4444);
+}
+
+.bulkStatus_extracting {
+  color: var(--primary-accent);
+  border-color: var(--primary-accent);
+}
+
+.bulkSavedBadge {
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--success, #22c55e);
+}
+
+/* ─── AI extraction loading state (Add Document / Edit Metadata / bulk rows) ─── */
+.formFieldsWrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formFieldsFading {
+  > *:not(.formFieldsOverlay) {
+    opacity: 0.35;
+    pointer-events: none;
+    filter: blur(1px);
+    transition:
+      opacity 200ms,
+      filter 200ms;
+  }
+}
+
+.formFieldsOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--primary-accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.overlaySpinner {
+  width: 26px;
+  height: 26px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }

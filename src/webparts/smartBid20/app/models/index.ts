@@ -168,6 +168,13 @@ export {
   type IAIImportMeta,
 } from "./IAIAnalysis";
 export {
+  type ChatRole,
+  type IChatCitation,
+  type IChatRetrievedDoc,
+  type IChatMessage,
+  type IChatAnswer,
+} from "./IAiChat";
+export {
   type IActiveRegisteredItem,
   type IPeopleSoftFinancialsItem,
   type IBomSheetItem,

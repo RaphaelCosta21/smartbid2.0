@@ -1,8 +1,15 @@
 import * as React from "react";
 import { IScopeItem } from "../../models";
 import { AIAnalysisService } from "../../services/AIAnalysisService";
-import { IAIAnalysisResult, IAIImportMeta } from "../../models/IAIAnalysis";
+import { AssetCatalogService } from "../../services/AssetCatalogService";
+import {
+  IAIAnalysisResult,
+  IAIAssetCatalogOption,
+  IAIAssetSubItemOption,
+  IAIImportMeta,
+} from "../../models/IAIAnalysis";
 import { useConfigStore } from "../../stores/useConfigStore";
+import { useFavoritesStore } from "../../stores/useFavoritesStore";
 import { ScopeOfSupplyTab } from "../bid/ScopeOfSupplyTab";
 import { formatFileSize } from "../../utils/formatters";
 import styles from "./AIDocumentAnalyzer.module.scss";
@@ -76,6 +83,64 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
     [config],
   );
 
+  // The Assets Catalog list is not in the AI Search index, so it travels in the
+  // prompt — it is the only source the model may use for part numbers.
+  const favoritesData = useFavoritesStore((s) => s.data);
+  const loadFavorites = useFavoritesStore((s) => s.loadFavorites);
+  const assetCatalogRef = React.useRef<IAIAssetCatalogOption[] | undefined>(
+    undefined,
+  );
+
+  /** Sub-items live in Favorites (equipment rows with a parentId), keyed by parent PN. */
+  const subItemsByParentPn = (): Record<string, IAIAssetSubItemOption[]> => {
+    const equipment = favoritesData?.equipment || [];
+    const byId: Record<string, string> = {};
+    equipment.forEach((e) => {
+      if (e.partNumber) byId[e.id] = e.partNumber.toUpperCase();
+    });
+    const map: Record<string, IAIAssetSubItemOption[]> = {};
+    equipment.forEach((e) => {
+      if (!e.parentId || !e.partNumber) return;
+      const parentPn = byId[e.parentId];
+      if (!parentPn) return;
+      if (!map[parentPn]) map[parentPn] = [];
+      map[parentPn].push({
+        name: e.description || e.partNumber,
+        partNumber: e.partNumber,
+      });
+    });
+    return map;
+  };
+
+  const loadAssetCatalog = async (): Promise<IAIAssetCatalogOption[]> => {
+    if (assetCatalogRef.current) return assetCatalogRef.current;
+    try {
+      await loadFavorites();
+      const subsByPn = subItemsByParentPn();
+      const assets = await AssetCatalogService.getAll();
+      const options: IAIAssetCatalogOption[] = [];
+      for (let i = 0; i < assets.length; i++) {
+        const a = assets[i];
+        if (!a.pn || !a.title) continue;
+        const aka = [a.keyword, a.commonlyUsedNames].filter(Boolean).join(", ");
+        const specs = [a.subtitle, a.description, a.features1]
+          .filter(Boolean)
+          .join(" — ");
+        options.push({
+          name: a.title,
+          partNumber: a.pn,
+          keywords: aka.substring(0, 200),
+          description: specs.substring(0, 300),
+          subItems: subsByPn[a.pn.toUpperCase()],
+        });
+      }
+      assetCatalogRef.current = options;
+      return options;
+    } catch {
+      return []; // the catalog is an enhancement — never block the analysis
+    }
+  };
+
   const isValidFile = (f: File): boolean => {
     if (ACCEPTED_TYPES.indexOf(f.type) >= 0) return true;
     const ext = f.name.split(".").pop();
@@ -138,6 +203,7 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
         serviceLine,
         resourceTypes,
         resourceTypeOptions,
+        assetCatalogOptions: await loadAssetCatalog(),
         contextSummary,
       };
       if (templateId) {

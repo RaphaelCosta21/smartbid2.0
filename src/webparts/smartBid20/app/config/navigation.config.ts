@@ -113,6 +113,14 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     requiredAccess: "engineering",
   },
   {
+    key: "technical-proposals",
+    label: "Technical Proposals",
+    icon: "FileSignature",
+    route: "/knowledge/technical-proposals",
+    section: "knowledge",
+    requiredAccess: "engineering",
+  },
+  {
     key: "clarifications-db",
     label: "Clarif. & Qualif.",
     icon: "MessageSquare",

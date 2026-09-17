@@ -18,6 +18,8 @@ import {
 } from "../../models";
 import { SystemConfigService } from "../../services/SystemConfigService";
 import { CurrencyService } from "../../services/CurrencyService";
+import { BidService } from "../../services/BidService";
+import { QuotationService } from "../../services/QuotationService";
 // DEFAULT_SYSTEM_CONFIG removed — all data loaded from SharePoint JSON
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useConfigStore } from "../../stores/useConfigStore";
@@ -1953,6 +1955,29 @@ const SystemConfiguration: React.FC = () => {
 
   /* ---- API Diagnostics (Entra ID delegated token) ---------------- */
 
+  // TEMPORARY — one-off provisioning of the AI Search columns. Remove once every
+  // environment has been migrated.
+  const [provisioning, setProvisioning] = React.useState(false);
+  const [provisionResult, setProvisionResult] = React.useState("");
+
+  const handleProvisionColumns = async (): Promise<void> => {
+    setProvisioning(true);
+    setProvisionResult("");
+    try {
+      await BidService.ensureColumns();
+      await QuotationService.ensureColumns();
+      setProvisionResult(
+        "OK — columns created on smartbid-tracker (BidClient, BidProjectName, BidDivision, BidScopeSummary) and smartbid-quotations (20 quotation columns). Existing rows only fill in as they are saved.",
+      );
+    } catch (err) {
+      setProvisionResult(
+        `Failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      setProvisioning(false);
+    }
+  };
+
   const renderApiDiagnostics = (): React.ReactElement => (
     <div>
       <div className={styles.sectionHeader}>
@@ -1968,6 +1993,34 @@ const SystemConfiguration: React.FC = () => {
         </p>
       </div>
       <EntraTokenTest />
+
+      <div className={styles.sectionHeader} style={{ marginTop: 24 }}>
+        <h3>Provision AI Search columns (one-off)</h3>
+        <p>
+          Creates the plain columns that let AI Search index bids and quotations
+          without parsing their JSON. Safe to run more than once — existing
+          columns are skipped. Delete this panel once every environment has been
+          migrated.
+        </p>
+      </div>
+      <button
+        type="button"
+        className={`${styles.actionBtn} ${styles.primary}`}
+        onClick={() => void handleProvisionColumns()}
+        disabled={provisioning}
+      >
+        {provisioning ? "Creating columns…" : "Create columns"}
+      </button>
+      {provisionResult && (
+        <div
+          className={`${styles.messageBar} ${
+            provisionResult.indexOf("OK") === 0 ? styles.success : styles.error
+          }`}
+          style={{ marginTop: 12 }}
+        >
+          {provisionResult}
+        </div>
+      )}
     </div>
   );
 

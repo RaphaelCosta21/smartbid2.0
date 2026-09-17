@@ -538,6 +538,10 @@ export const EntraTokenTest: React.FC = () => {
 
     // ── 5) Reachability / CORS (deliberately unauthenticated) ───────────────
     const corsStart = Date.now();
+    console.log(
+      "%c[SmartBid AI] The next POST is sent WITHOUT a token on purpose — a 401 in the console is the expected, correct result.",
+      "color:#f59e0b",
+    );
     try {
       const res = await fetchWithTimeout(
         apiUrl,
@@ -560,7 +564,7 @@ export const EntraTokenTest: React.FC = () => {
           [
             "interpretation",
             res.status === 401 || res.status === 403
-              ? "EasyAuth is active and rejects anonymous calls — correct"
+              ? "EasyAuth is active and rejects anonymous calls — correct. The red 401 in the browser console belongs to THIS probe, not to a real failure."
               : "Endpoint answered anonymously — confirm with IT that auth is enforced",
           ],
         ],
@@ -783,16 +787,22 @@ export const EntraTokenTest: React.FC = () => {
           label: STEP_LABEL[id],
           status: res.ok ? "ok" : "fail",
           summary: res.ok
-            ? "HTTP " + res.status + " — " + itemCount + " scope item(s) returned"
+            ? "HTTP " +
+              res.status +
+              " — " +
+              itemCount +
+              " scope item(s) returned"
             : "HTTP " + res.status + " — request rejected",
           durationMs: elapsedMs,
-          rows: ([
-            ["endpoint", scopeUrl],
-            ["HTTP status", String(res.status)],
-            ["request size", JSON.stringify(request).length + " chars"],
-            ["scope items returned", itemCount],
-            ["backend warnings", warningText],
-          ] as Array<[string, string]>).concat(extraRows),
+          rows: (
+            [
+              ["endpoint", scopeUrl],
+              ["HTTP status", String(res.status)],
+              ["request size", JSON.stringify(request).length + " chars"],
+              ["scope items returned", itemCount],
+              ["backend warnings", warningText],
+            ] as Array<[string, string]>
+          ).concat(extraRows),
           raw: prettyJson(body) || "(empty body)",
           hint: interpret(res.status, body, elapsedMs),
         });
@@ -865,7 +875,8 @@ export const EntraTokenTest: React.FC = () => {
               "  (1) Keys → API access control must be 'Both' or 'Role-based access control'. It is KEY-ONLY by default, and in that mode a managed-identity token is rejected even with the role assigned — this is the most common cause.\n" +
               "  (2) Role assignment: the Function App's system-assigned identity (fa-opgb-bes-prd-fa) needs 'Search Index Data Reader' on the search service. The indexer running fine proves nothing here — it uses a different identity.\n" +
               "  (3) App settings AZURE_SEARCH_ENDPOINT and AZURE_SEARCH_INDEX must match the real service and the index name 'smartbid-docs-index'.\n" +
-              "  (4) The index needs the azureOpenAI vectorizer on field text_vector, and the embedding deployment it points to must exist — the vectorizer is only used at QUERY time, so a broken one does not show up in the indexer history."
+              "  (4) The index needs the azureOpenAI vectorizer on field text_vector, and the embedding deployment it points to must exist — the vectorizer is only used at QUERY time, so a broken one does not show up in the indexer history.\n" +
+              "  (5) Networking: if the search service has public network access disabled or an IP firewall, the Function App must be allowed through (VNet integration or a firewall rule)."
             );
           }
           return undefined;

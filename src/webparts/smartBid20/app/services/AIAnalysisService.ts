@@ -12,7 +12,7 @@
  * Supports both BIDs and Templates. Static singleton pattern.
  */
 import { AiAuthService } from "./AiAuthService";
-import { IScopeItem } from "../models";
+import { IScopeItem, IScopeSubItem } from "../models";
 import {
   IAIAnalysisResult,
   IAIAnalysisRequest,
@@ -20,8 +20,17 @@ import {
   IAISuggestedClarification,
   IExtractedQuotationLine,
   IQuotationExtractionResult,
+  IExtractedDocumentMetadata,
+  IDocumentMetadataExtractionResult,
+  IAIGroupOption,
   AIUseCase,
 } from "../models/IAIAnalysis";
+import {
+  IChatAnswer,
+  IChatCitation,
+  IChatMessage,
+  IChatRetrievedDoc,
+} from "../models/IAiChat";
 import { makeId } from "../utils/idGenerator";
 import { AI_CONFIG, buildAiUrl, isAiConfigured } from "../config/ai.config";
 import {
@@ -29,12 +38,44 @@ import {
   SCOPE_OF_SUPPLY_PROMPT_VERSION,
   buildQuotationExtractionPrompt,
   QUOTATION_EXTRACTION_PROMPT_VERSION,
+  buildDocumentMetadataExtractionPrompt,
+  DOCUMENT_METADATA_EXTRACTION_PROMPT_VERSION,
+  buildKnowledgeChatPrompt,
+  KNOWLEDGE_CHAT_PROMPT_VERSION,
   // Future: clarification suggestions (endpoint not wired yet)
   // buildClarificationSuggestionPrompt,
   // CLARIFICATION_SUGGESTION_PROMPT_VERSION,
 } from "../config/ai.prompts";
 
+/** Only same-tenant SharePoint links are rendered as citations. */
+const CHAT_CITATION_ORIGIN = "https://oceaneering.sharepoint.com/";
+const CHAT_MAX_ANSWER_CHARS = 4000;
+const CHAT_MAX_CITATIONS = 5;
+const CHAT_MAX_FOLLOW_UPS = 3;
+
 export class AIAnalysisService {
+  /** Normalize the sub-items (consumables, spares, accessories) of one scope item. */
+  private static normalizeSubItems(raw: unknown): IScopeSubItem[] | undefined {
+    if (!Array.isArray(raw) || raw.length === 0) return undefined;
+    const subs: IScopeSubItem[] = [];
+    raw.forEach((entry) => {
+      const sub = entry as Record<string, unknown>;
+      const description = String(sub.description || "");
+      const partNumber = String(sub.partNumber || "");
+      if (!description && !partNumber) return;
+      subs.push({
+        id: makeId("ai"),
+        description,
+        subType: String(sub.subType || ""),
+        equipmentOffer: String(sub.equipmentOffer || ""),
+        partNumber,
+        qty: typeof sub.qty === "number" ? sub.qty : 1,
+        comments: String(sub.comments || ""),
+      });
+    });
+    return subs.length > 0 ? subs : undefined;
+  }
+
   /**
    * Validate and normalize the structured JSON returned by the AI backend.
    */
@@ -116,7 +157,7 @@ export class AIAnalysisService {
               : null,
           resourceType: String(item.resourceType || ""),
           resourceSubType: String(item.resourceSubType || ""),
-          equipmentOffer: "",
+          equipmentOffer: String(item.equipmentOffer || ""),
           partNumber: String(item.oiiPartNumber || item.partNumber || ""),
           qtyOperational:
             typeof item.qtyOperational === "number" ? item.qtyOperational : 1,
@@ -129,6 +170,7 @@ export class AIAnalysisService {
           clientSpecs: Array.isArray(item.clientSpecs)
             ? (item.clientSpecs as string[])
             : [],
+          subItems: AIAnalysisService.normalizeSubItems(item.subItems),
           source: "ai",
           aiPendingReview: true,
         });
@@ -271,13 +313,22 @@ export class AIAnalysisService {
 
     if (AI_CONFIG.sendPromptFromClient) {
       if (useCase === "scope-of-supply") {
-        request.systemPrompt = buildScopeOfSupplyPrompt(resourceTypeOptions);
+        request.systemPrompt = buildScopeOfSupplyPrompt(
+          resourceTypeOptions,
+          context.assetCatalogOptions || [],
+        );
         request.promptVersion = SCOPE_OF_SUPPLY_PROMPT_VERSION;
       } else if (useCase === "quotation") {
         request.systemPrompt = buildQuotationExtractionPrompt(
           context.groupOptions || [],
         );
         request.promptVersion = QUOTATION_EXTRACTION_PROMPT_VERSION;
+      } else if (useCase === "document-metadata") {
+        request.systemPrompt = buildDocumentMetadataExtractionPrompt(
+          context.docTypeOptions || [],
+          context.groupOptions || [],
+        );
+        request.promptVersion = DOCUMENT_METADATA_EXTRACTION_PROMPT_VERSION;
       }
     }
 
@@ -413,6 +464,125 @@ export class AIAnalysisService {
     return result;
   }
 
+  // ───────────────────────────────────────────────────────────────────
+  // Knowledge chat
+  // ───────────────────────────────────────────────────────────────────
+
+  /**
+   * Keep only citations that point at a document in our own SharePoint tenant —
+   * the model must never be able to render a javascript:/data: link.
+   */
+  private static parseChatCitations(raw: unknown): IChatCitation[] {
+    if (!Array.isArray(raw)) return [];
+    const out: IChatCitation[] = [];
+    const seen: Record<string, boolean> = {};
+    raw.forEach((entry) => {
+      const c = (entry || {}) as Record<string, unknown>;
+      const title = String(c.title || "").trim();
+      const url = String(c.url || "").trim();
+      if (!title || url.toLowerCase().indexOf(CHAT_CITATION_ORIGIN) !== 0) {
+        return;
+      }
+      if (seen[url]) return;
+      seen[url] = true;
+      const detail = String(c.detail || "").trim();
+      out.push({ title, url, detail: detail || undefined });
+    });
+    return out.slice(0, CHAT_MAX_CITATIONS);
+  }
+
+  private static parseChatFollowUps(raw: unknown): string[] {
+    if (!Array.isArray(raw)) return [];
+    const out: string[] = [];
+    raw.forEach((entry) => {
+      const text = String(entry || "").trim();
+      if (text) out.push(text.substring(0, 120));
+    });
+    return out.slice(0, CHAT_MAX_FOLLOW_UPS);
+  }
+
+  /** Excerpts the search returned, reported by the backend so retrieval can be inspected. */
+  private static parseChatRetrieved(raw: unknown): IChatRetrievedDoc[] {
+    if (!Array.isArray(raw)) return [];
+    const out: IChatRetrievedDoc[] = [];
+    raw.forEach((entry) => {
+      const r = (entry || {}) as Record<string, unknown>;
+      const title = String(r.title || "").trim();
+      if (!title) return;
+      out.push({
+        title,
+        url: String(r.url || "").trim(),
+        snippet: String(r.snippet || "")
+          .trim()
+          .substring(0, 200),
+      });
+    });
+    return out.slice(0, 20);
+  }
+
+  /** Parse the flat response returned by the dedicated /chat route. */
+  private static parseChatAnswer(data: unknown): IChatAnswer {
+    const raw = (data || {}) as Record<string, unknown>;
+    if (raw.error) {
+      throw new Error(
+        raw.details ? `${raw.error}: ${raw.details}` : String(raw.error),
+      );
+    }
+    const answer = String(raw.answer || "").trim();
+    if (!answer) {
+      throw new Error(
+        "The assistant could not produce an answer. Please rephrase your question and try again.",
+      );
+    }
+    const refused = raw.refused === true;
+    return {
+      answer: answer.substring(0, CHAT_MAX_ANSWER_CHARS),
+      refused,
+      citations: refused
+        ? []
+        : AIAnalysisService.parseChatCitations(raw.citations),
+      followUps: AIAnalysisService.parseChatFollowUps(raw.followUps),
+      retrieved: AIAnalysisService.parseChatRetrieved(raw.retrieved),
+    };
+  }
+
+  /**
+   * Ask the knowledge assistant a question, grounded on the AI Search library.
+   *
+   * @param question - The user's question
+   * @param history - Earlier turns of the conversation, oldest first
+   * @param abortSignal - Optional AbortSignal for cancellation
+   */
+  public static async chat(
+    question: string,
+    history: IChatMessage[] = [],
+    abortSignal?: AbortSignal,
+  ): Promise<IChatAnswer> {
+    AIAnalysisService.ensureConfigured();
+
+    const text = String(question || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .substring(0, AI_CONFIG.chat.maxQuestionChars);
+
+    const messages = history
+      .filter((m) => m.text)
+      .map((m) => ({ role: m.role, content: m.text }));
+    messages.push({ role: "user", content: text });
+
+    const data = await AIAnalysisService.postJson(
+      AI_CONFIG.endpoints.chat,
+      {
+        messages,
+        systemPrompt: buildKnowledgeChatPrompt(),
+        promptVersion: KNOWLEDGE_CHAT_PROMPT_VERSION,
+        topK: AI_CONFIG.chat.topK,
+      },
+      abortSignal,
+    );
+    return AIAnalysisService.parseChatAnswer(data);
+  }
+
   /**
    * Normalize the AI's suggestedClarifications array into typed objects.
    */
@@ -528,6 +698,95 @@ export class AIAnalysisService {
       abortSignal,
     );
     return AIAnalysisService.validateQuotationResult(data, file.name);
+  }
+
+  /**
+   * Validate and normalize the document metadata extraction response.
+   */
+  private static validateDocumentMetadataResult(
+    data: unknown,
+    fileName: string,
+  ): IDocumentMetadataExtractionResult {
+    const raw = data as Record<string, unknown>;
+    if (raw.error) {
+      const errMsg = raw.details
+        ? `${raw.error}: ${raw.details}`
+        : String(raw.error);
+      throw new Error(errMsg);
+    }
+    const rawItems = raw.items;
+    const list = Array.isArray(rawItems) ? rawItems : [];
+    const items: IExtractedDocumentMetadata[] = [];
+    list.forEach((entry: Record<string, unknown>) => {
+      const it = entry || {};
+      items.push({
+        title: String(it.title || ""),
+        docType: String(it.docType || ""),
+        groupName: String(it.groupName || "Other"),
+        subGroupName: String(it.subGroupName || "Other"),
+        suggestedNewGroupName: it.suggestedNewGroupName
+          ? String(it.suggestedNewGroupName)
+          : undefined,
+        suggestedNewSubGroupName: it.suggestedNewSubGroupName
+          ? String(it.suggestedNewSubGroupName)
+          : undefined,
+        manufacturer: String(it.manufacturer || ""),
+        model: String(it.model || ""),
+        keywords: String(it.keywords || ""),
+        description: String(it.description || ""),
+        revision: String(it.revision || ""),
+      });
+    });
+    const warnings = Array.isArray(raw.warnings)
+      ? raw.warnings.map(String)
+      : [];
+    if (items.length === 0) {
+      warnings.push(
+        "No metadata could be extracted. Try a clearer file or fill the fields manually.",
+      );
+    }
+    return {
+      items,
+      warnings,
+      sourceDocument: raw.sourceDocument
+        ? String(raw.sourceDocument)
+        : fileName,
+      extractedAt: raw.extractedAt
+        ? String(raw.extractedAt)
+        : new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Extract catalog metadata (title, type, group/sub-group, manufacturer, model,
+   * keywords, description, revision) from a datasheet/manual/catalog/proposal
+   * document. Reuses the `/quotation/extract` endpoint — a generic file → items[]
+   * passthrough — with a dedicated prompt, so no backend change is required.
+   *
+   * @param file - Document file (PDF/Word/image)
+   * @param docTypeOptions - Allowed "docType" values for the current catalog
+   * @param groupOptions - Configured Group/SubGroup taxonomy (system config favoriteGroups)
+   * @param abortSignal - Optional AbortSignal for cancellation
+   */
+  public static async extractDocumentMetadata(
+    file: File,
+    docTypeOptions: string[] = [],
+    groupOptions: IAIGroupOption[] = [],
+    abortSignal?: AbortSignal,
+  ): Promise<IDocumentMetadataExtractionResult> {
+    AIAnalysisService.ensureConfigured();
+    const request = await AIAnalysisService.buildRequest(
+      file,
+      "document-metadata",
+      { docTypeOptions, groupOptions },
+      {},
+    );
+    const data = await AIAnalysisService.postJson(
+      AI_CONFIG.endpoints.extractQuotation,
+      request,
+      abortSignal,
+    );
+    return AIAnalysisService.validateDocumentMetadataResult(data, file.name);
   }
 
   /**

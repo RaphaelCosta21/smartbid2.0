@@ -2,6 +2,11 @@ import * as React from "react";
 import { PageHeader } from "../common/PageHeader";
 import { EmptyState } from "../common/EmptyState";
 import { DocLibraryCatalogService } from "../../services/DocLibraryCatalogService";
+import { AIAnalysisService } from "../../services/AIAnalysisService";
+import { SystemConfigService } from "../../services/SystemConfigService";
+import { useConfigStore } from "../../stores/useConfigStore";
+import { IExtractedDocumentMetadata } from "../../models/IAIAnalysis";
+import { IFavoriteGroup, IFavoriteSubGroup } from "../../models";
 import {
   IDocLibraryItem,
   IDocLibraryMetadata,
@@ -9,7 +14,42 @@ import {
 } from "../../models/IDocLibraryItem";
 import { useDebounce } from "../../hooks/useDebounce";
 import { formatFileSize } from "../../utils/formatters";
+import { makeId } from "../../utils/idGenerator";
 import styles from "./DocLibraryCatalog.module.scss";
+
+/** UI labels for the shared catalog columns, overridable per document family */
+export interface IDocLibraryFieldLabels {
+  group: string;
+  manufacturer: string;
+  model: string;
+  keywords: string;
+  revision: string;
+  description: string;
+  /** Short forms used in the card meta rows and list-view headers */
+  groupShort: string;
+  manufacturerShort: string;
+  manufacturerColumn: string;
+  modelShort: string;
+  revisionShort: string;
+  searchPlaceholder: string;
+  allManufacturers: string;
+}
+
+const DEFAULT_FIELD_LABELS: IDocLibraryFieldLabels = {
+  group: "Group / Sub-Group",
+  manufacturer: "Manufacturer / Brand",
+  model: "Model / Equipment",
+  keywords: "Keywords / Tags",
+  revision: "Revision / Date",
+  description: "Description",
+  groupShort: "Group",
+  manufacturerShort: "Mfr",
+  manufacturerColumn: "Manufacturer",
+  modelShort: "Model",
+  revisionShort: "Rev",
+  searchPlaceholder: "Search by title, manufacturer, keyword...",
+  allManufacturers: "All Manufacturers",
+};
 
 export interface DocLibraryCatalogProps {
   title: string;
@@ -18,20 +58,221 @@ export interface DocLibraryCatalogProps {
   docTypeOptions: DocCatalogType[];
   defaultDocType: DocCatalogType;
   canManage: boolean;
+  fieldLabels?: Partial<IDocLibraryFieldLabels>;
+  /** Pins every document to this Group; the sub-group stays free for the AI to fill. */
+  lockedGroupName?: string;
 }
 
 type ViewMode = "grid" | "list";
 
+/** Name used for the catch-all Group/Sub-Group when nothing configured fits */
+const OTHER_GROUP_NAME = "Other";
+
 const EMPTY_META = (docType: DocCatalogType): IDocLibraryMetadata => ({
   title: "",
   docType,
-  category: "",
+  groupId: "",
+  subGroupId: "",
   manufacturer: "",
   model: "",
   keywords: "",
   description: "",
   revision: "",
 });
+
+/**
+ * Mirror the Group/Sub-Group ids into a readable name before saving — the ids are
+ * opaque, so only this column makes Discipline/Scope searchable in AI Search.
+ */
+const withCategory = (
+  meta: IDocLibraryMetadata,
+  lockedGroupId?: string,
+): IDocLibraryMetadata => {
+  const groups = useConfigStore.getState().config?.favoriteGroups || [];
+  const groupId = lockedGroupId || meta.groupId;
+  const group = groups.filter((g) => g.id === groupId)[0];
+  if (!group) return { ...meta, groupId, category: "" };
+  const sub = (group.subGroups || []).filter(
+    (s) => s.id === meta.subGroupId,
+  )[0];
+  return {
+    ...meta,
+    groupId,
+    category: sub ? `${group.name} / ${sub.name}` : group.name,
+  };
+};
+
+/** Maximum number of documents that can be selected for a bulk AI fill at once */
+const MAX_BULK_AI_SELECTION = 10;
+
+/** How many AI extraction/save calls run at the same time during a bulk fill */
+const BULK_AI_CONCURRENCY = 3;
+
+/** Status of one row inside the bulk AI review panel */
+type BulkAiStatus = "pending" | "extracting" | "extracted" | "error";
+
+/** A new Group/Sub-Group the AI proposed instead of falling back to "Other" */
+interface IGroupSuggestion {
+  groupName: string;
+  subGroupName: string;
+}
+
+interface IBulkAiRow {
+  item: IDocLibraryItem;
+  meta: IDocLibraryMetadata;
+  status: BulkAiStatus;
+  error?: string;
+  include: boolean;
+  saved?: boolean;
+  saveError?: string;
+  suggestion?: IGroupSuggestion;
+}
+
+/** Find a configured group/sub-group by name (case-insensitive), if any */
+const findGroupByName = (
+  groups: IFavoriteGroup[],
+  name: string,
+): IFavoriteGroup | undefined =>
+  groups.find((g) => g.name.toLowerCase() === name.trim().toLowerCase());
+
+const findSubGroupByName = (
+  group: IFavoriteGroup | undefined,
+  name: string,
+): IFavoriteSubGroup | undefined =>
+  group
+    ? group.subGroups.find(
+        (sg) => sg.name.toLowerCase() === name.trim().toLowerCase(),
+      )
+    : undefined;
+
+/**
+ * Merge AI-extracted fields into existing metadata. Group/SubGroup are resolved
+ * against the configured taxonomy (falling back to "Other"); when the AI thinks
+ * a brand-new Group/Sub-Group would fit better, that is returned separately as
+ * a suggestion instead of being applied automatically.
+ */
+const mergeExtractedMetadata = (
+  current: IDocLibraryMetadata,
+  extracted: IExtractedDocumentMetadata,
+  docTypeOptions: DocCatalogType[],
+  groups: IFavoriteGroup[],
+): { meta: IDocLibraryMetadata; suggestion?: IGroupSuggestion } => {
+  const matchedType =
+    docTypeOptions.indexOf(extracted.docType as DocCatalogType) >= 0
+      ? (extracted.docType as DocCatalogType)
+      : current.docType;
+
+  const matchedGroup = findGroupByName(groups, extracted.groupName || "");
+  const matchedSubGroup = findSubGroupByName(
+    matchedGroup,
+    extracted.subGroupName || "",
+  );
+  const otherGroup = findGroupByName(groups, OTHER_GROUP_NAME);
+  const otherSubGroup = findSubGroupByName(otherGroup, OTHER_GROUP_NAME);
+
+  const groupId = matchedGroup
+    ? matchedGroup.id
+    : otherGroup
+      ? otherGroup.id
+      : current.groupId;
+  const subGroupId = matchedSubGroup
+    ? matchedSubGroup.id
+    : otherSubGroup
+      ? otherSubGroup.id
+      : current.subGroupId;
+
+  const suggestion =
+    !matchedGroup &&
+    extracted.suggestedNewGroupName &&
+    extracted.suggestedNewGroupName.trim()
+      ? {
+          groupName: extracted.suggestedNewGroupName.trim(),
+          subGroupName:
+            (extracted.suggestedNewSubGroupName || "").trim() ||
+            OTHER_GROUP_NAME,
+        }
+      : undefined;
+
+  return {
+    meta: {
+      title: extracted.title || current.title,
+      docType: matchedType,
+      groupId,
+      subGroupId,
+      manufacturer: extracted.manufacturer || current.manufacturer,
+      model: extracted.model || current.model,
+      keywords: extracted.keywords || current.keywords,
+      description: extracted.description || current.description,
+      revision: extracted.revision || current.revision,
+    },
+    suggestion,
+  };
+};
+
+/** Create (or reuse) a Group/Sub-Group by name in system config and persist it immediately */ const createFavoriteGroupAndSave =
+  async (
+    groupName: string,
+    subGroupName: string,
+  ): Promise<{ groupId: string; subGroupId: string }> => {
+    const config = useConfigStore.getState().config;
+    if (!config) throw new Error("System configuration is not loaded yet.");
+    const groups = config.favoriteGroups || [];
+
+    let groupId = "";
+    let subGroupId = "";
+    let nextGroups = groups;
+
+    const existingGroup = findGroupByName(groups, groupName);
+    if (existingGroup) {
+      groupId = existingGroup.id;
+    } else {
+      groupId = makeId("grp");
+      nextGroups = nextGroups.concat([
+        { id: groupId, name: groupName, subGroups: [] },
+      ]);
+    }
+
+    nextGroups = nextGroups.map((g) => {
+      if (g.id !== groupId) return g;
+      const existingSub = findSubGroupByName(g, subGroupName);
+      if (existingSub) {
+        subGroupId = existingSub.id;
+        return g;
+      }
+      subGroupId = makeId("sgrp");
+      return {
+        ...g,
+        subGroups: g.subGroups.concat([
+          { id: subGroupId, name: subGroupName, groupId },
+        ]),
+      };
+    });
+
+    const updatedConfig = { ...config, favoriteGroups: nextGroups };
+    await SystemConfigService.update(updatedConfig);
+    SystemConfigService.clearCache();
+    useConfigStore.getState().setConfig(updatedConfig);
+    return { groupId, subGroupId };
+  };
+
+/** Run async work over a list with a bounded number of workers active at once */
+const runWithConcurrency = async <T,>(
+  list: T[],
+  limit: number,
+  worker: (entry: T, index: number) => Promise<void>,
+): Promise<void> => {
+  let cursor = 0;
+  const runNext = async (): Promise<void> => {
+    const i = cursor++;
+    if (i >= list.length) return;
+    await worker(list[i], i);
+    return runNext();
+  };
+  const runners: Promise<void>[] = [];
+  for (let k = 0; k < Math.min(limit, list.length); k++)
+    runners.push(runNext());
+  await Promise.all(runners);
+};
 
 const stripExt = (name: string): string => {
   const i = name.lastIndexOf(".");
@@ -76,84 +317,149 @@ const DocThumb: React.FC<{ item: IDocLibraryItem; className: string }> = ({
 const MetadataFields: React.FC<{
   meta: IDocLibraryMetadata;
   docTypeOptions: DocCatalogType[];
+  labels: IDocLibraryFieldLabels;
+  groups: IFavoriteGroup[];
+  lockedGroupId?: string;
   onChange: (patch: Partial<IDocLibraryMetadata>) => void;
-}> = ({ meta, docTypeOptions, onChange }) => (
-  <>
-    <div className={styles.formRow}>
-      <label className={styles.formLabel}>Title</label>
-      <input
-        className={styles.formInput}
-        value={meta.title}
-        onChange={(e) => onChange({ title: e.target.value })}
-      />
-    </div>
-    <div className={styles.formRow}>
-      <label className={styles.formLabel}>Type</label>
-      <select
-        className={styles.formSelect}
-        value={meta.docType}
-        onChange={(e) =>
-          onChange({ docType: e.target.value as DocCatalogType })
-        }
+}> = ({ meta, docTypeOptions, labels, groups, lockedGroupId, onChange }) => {
+  const effectiveGroupId = lockedGroupId || meta.groupId;
+  const selectedGroup = groups.find((g) => g.id === effectiveGroupId);
+  const subGroupOptions = selectedGroup ? selectedGroup.subGroups : [];
+  return (
+    <>
+      <div className={styles.formRow}>
+        <label className={styles.formLabel}>Title</label>
+        <input
+          className={styles.formInput}
+          value={meta.title}
+          onChange={(e) => onChange({ title: e.target.value })}
+        />
+      </div>
+      <div className={styles.formRow}>
+        <label className={styles.formLabel}>Type</label>
+        <select
+          className={styles.formSelect}
+          value={meta.docType}
+          onChange={(e) =>
+            onChange({ docType: e.target.value as DocCatalogType })
+          }
+        >
+          <option value="">—</option>
+          {docTypeOptions.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className={styles.formRow}>
+        <label className={styles.formLabel}>{labels.group}</label>
+        <div className={styles.formGroupRow}>
+          <select
+            className={styles.formSelect}
+            value={effectiveGroupId}
+            disabled={!!lockedGroupId}
+            onChange={(e) =>
+              onChange({ groupId: e.target.value, subGroupId: "" })
+            }
+          >
+            <option value="">—</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className={styles.formSelect}
+            value={meta.subGroupId}
+            disabled={!effectiveGroupId}
+            onChange={(e) => onChange({ subGroupId: e.target.value })}
+          >
+            <option value="">—</option>
+            {subGroupOptions.map((sg) => (
+              <option key={sg.id} value={sg.id}>
+                {sg.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className={styles.formRow}>
+        <label className={styles.formLabel}>{labels.manufacturer}</label>
+        <input
+          className={styles.formInput}
+          value={meta.manufacturer}
+          onChange={(e) => onChange({ manufacturer: e.target.value })}
+        />
+      </div>
+      <div className={styles.formRow}>
+        <label className={styles.formLabel}>{labels.model}</label>
+        <input
+          className={styles.formInput}
+          value={meta.model}
+          onChange={(e) => onChange({ model: e.target.value })}
+        />
+      </div>
+      <div className={styles.formRow}>
+        <label className={styles.formLabel}>{labels.keywords}</label>
+        <input
+          className={styles.formInput}
+          placeholder="comma-separated"
+          value={meta.keywords}
+          onChange={(e) => onChange({ keywords: e.target.value })}
+        />
+      </div>
+      <div className={styles.formRow}>
+        <label className={styles.formLabel}>{labels.revision}</label>
+        <input
+          className={styles.formInput}
+          value={meta.revision}
+          onChange={(e) => onChange({ revision: e.target.value })}
+        />
+      </div>
+      <div className={styles.formRow}>
+        <label className={styles.formLabel}>{labels.description}</label>
+        <textarea
+          className={styles.formTextarea}
+          value={meta.description}
+          onChange={(e) => onChange({ description: e.target.value })}
+        />
+      </div>
+    </>
+  );
+};
+
+/** Inline banner offering to create the AI-suggested Group/Sub-Group, or fall back to "Other" */
+const GroupSuggestionBanner: React.FC<{
+  suggestion: IGroupSuggestion;
+  busy: boolean;
+  onAccept: () => void;
+  onUseOther: () => void;
+}> = ({ suggestion, busy, onAccept, onUseOther }) => (
+  <div className={styles.replaceNote}>
+    ✨ AI suggests creating a new group <strong>{suggestion.groupName}</strong>{" "}
+    → <strong>{suggestion.subGroupName}</strong> for this document — no existing
+    group fit well.
+    <div className={styles.bulkActionButtons}>
+      <button
+        type="button"
+        className={styles.btnPrimary}
+        onClick={onAccept}
+        disabled={busy}
       >
-        <option value="">—</option>
-        {docTypeOptions.map((t) => (
-          <option key={t} value={t}>
-            {t}
-          </option>
-        ))}
-      </select>
+        Create &amp; use it
+      </button>
+      <button
+        type="button"
+        className={styles.btnSecondary}
+        onClick={onUseOther}
+        disabled={busy}
+      >
+        Use &quot;Other&quot; instead
+      </button>
     </div>
-    <div className={styles.formRow}>
-      <label className={styles.formLabel}>Category</label>
-      <input
-        className={styles.formInput}
-        value={meta.category}
-        onChange={(e) => onChange({ category: e.target.value })}
-      />
-    </div>
-    <div className={styles.formRow}>
-      <label className={styles.formLabel}>Manufacturer / Brand</label>
-      <input
-        className={styles.formInput}
-        value={meta.manufacturer}
-        onChange={(e) => onChange({ manufacturer: e.target.value })}
-      />
-    </div>
-    <div className={styles.formRow}>
-      <label className={styles.formLabel}>Model / Equipment</label>
-      <input
-        className={styles.formInput}
-        value={meta.model}
-        onChange={(e) => onChange({ model: e.target.value })}
-      />
-    </div>
-    <div className={styles.formRow}>
-      <label className={styles.formLabel}>Keywords / Tags</label>
-      <input
-        className={styles.formInput}
-        placeholder="comma-separated"
-        value={meta.keywords}
-        onChange={(e) => onChange({ keywords: e.target.value })}
-      />
-    </div>
-    <div className={styles.formRow}>
-      <label className={styles.formLabel}>Revision / Date</label>
-      <input
-        className={styles.formInput}
-        value={meta.revision}
-        onChange={(e) => onChange({ revision: e.target.value })}
-      />
-    </div>
-    <div className={styles.formRow}>
-      <label className={styles.formLabel}>Description</label>
-      <textarea
-        className={styles.formTextarea}
-        value={meta.description}
-        onChange={(e) => onChange({ description: e.target.value })}
-      />
-    </div>
-  </>
+  </div>
 );
 
 export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
@@ -163,12 +469,42 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
   docTypeOptions,
   defaultDocType,
   canManage,
+  fieldLabels,
+  lockedGroupName,
 }) => {
+  const labels = React.useMemo(
+    () => ({ ...DEFAULT_FIELD_LABELS, ...(fieldLabels || {}) }),
+    [fieldLabels],
+  );
+  const config = useConfigStore((s) => s.config);
+  const groups: IFavoriteGroup[] = config?.favoriteGroups || [];
+  const lockedGroupId = React.useMemo(() => {
+    if (!lockedGroupName) return "";
+    const g = findGroupByName(groups, lockedGroupName);
+    return g ? g.id : "";
+  }, [groups, lockedGroupName]);
+  const otherEnsuredRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!config || otherEnsuredRef.current) return;
+    const other = findGroupByName(
+      config.favoriteGroups || [],
+      OTHER_GROUP_NAME,
+    );
+    if (other && findSubGroupByName(other, OTHER_GROUP_NAME)) {
+      otherEnsuredRef.current = true;
+      return;
+    }
+    otherEnsuredRef.current = true;
+    createFavoriteGroupAndSave(OTHER_GROUP_NAME, OTHER_GROUP_NAME).catch(
+      (err) => console.error("Failed to provision the 'Other' group:", err),
+    );
+  }, [config]);
+
   const [items, setItems] = React.useState<IDocLibraryItem[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [filterType, setFilterType] = React.useState("all");
-  const [filterCategory, setFilterCategory] = React.useState("all");
+  const [filterGroup, setFilterGroup] = React.useState("all");
   const [filterManufacturer, setFilterManufacturer] = React.useState("all");
   const [viewMode, setViewMode] = React.useState<ViewMode>("grid");
   const debouncedSearch = useDebounce(searchTerm, 300);
@@ -194,6 +530,23 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
   const [allowOverwrite, setAllowOverwrite] = React.useState(false);
   const [replaceConfirm, setReplaceConfirm] = React.useState<File | null>(null);
 
+  // AI metadata extraction — single item (Add Document / Edit Metadata modals)
+  const [uploadAiExtracting, setUploadAiExtracting] = React.useState(false);
+  const [editAiExtracting, setEditAiExtracting] = React.useState(false);
+  const [editAiError, setEditAiError] = React.useState("");
+  const [uploadSuggestion, setUploadSuggestion] =
+    React.useState<IGroupSuggestion | null>(null);
+  const [editSuggestion, setEditSuggestion] =
+    React.useState<IGroupSuggestion | null>(null);
+  const [suggestionBusy, setSuggestionBusy] = React.useState(false);
+
+  // AI metadata extraction — bulk (list view multi-select)
+  const [selectedIds, setSelectedIds] = React.useState<Set<number>>(new Set());
+  const [selectionWarning, setSelectionWarning] = React.useState("");
+  const [bulkReviewOpen, setBulkReviewOpen] = React.useState(false);
+  const [bulkRows, setBulkRows] = React.useState<IBulkAiRow[]>([]);
+  const [bulkSaving, setBulkSaving] = React.useState(false);
+
   const loadItems = React.useCallback(() => {
     setIsLoading(true);
     setError("");
@@ -217,13 +570,17 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
     loadItems();
   }, [loadItems]);
 
-  const categories = React.useMemo(() => {
-    const set: Record<string, boolean> = {};
-    items.forEach((i) => {
-      if (i.category) set[i.category] = true;
-    });
-    return Object.keys(set).sort();
-  }, [items]);
+  const categories = React.useMemo(
+    () => groups.slice().sort((a, b) => a.name.localeCompare(b.name)),
+    [groups],
+  );
+
+  const groupName = (item: IDocLibraryItem): string =>
+    groups.find((g) => g.id === item.groupId)?.name || "";
+  const subGroupName = (item: IDocLibraryItem): string =>
+    groups
+      .find((g) => g.id === item.groupId)
+      ?.subGroups.find((sg) => sg.id === item.subGroupId)?.name || "";
 
   const manufacturers = React.useMemo(() => {
     const set: Record<string, boolean> = {};
@@ -238,8 +595,8 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
     if (filterType !== "all") {
       result = result.filter((i) => i.docType === filterType);
     }
-    if (filterCategory !== "all") {
-      result = result.filter((i) => i.category === filterCategory);
+    if (filterGroup !== "all") {
+      result = result.filter((i) => i.groupId === filterGroup);
     }
     if (filterManufacturer !== "all") {
       result = result.filter((i) => i.manufacturer === filterManufacturer);
@@ -250,7 +607,8 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
         (i) =>
           i.title.toLowerCase().indexOf(q) >= 0 ||
           i.fileName.toLowerCase().indexOf(q) >= 0 ||
-          i.category.toLowerCase().indexOf(q) >= 0 ||
+          groupName(i).toLowerCase().indexOf(q) >= 0 ||
+          subGroupName(i).toLowerCase().indexOf(q) >= 0 ||
           i.manufacturer.toLowerCase().indexOf(q) >= 0 ||
           i.model.toLowerCase().indexOf(q) >= 0 ||
           i.keywords.toLowerCase().indexOf(q) >= 0 ||
@@ -258,18 +616,25 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
       );
     }
     return result;
-  }, [items, filterType, filterCategory, filterManufacturer, debouncedSearch]);
+  }, [
+    items,
+    filterType,
+    filterGroup,
+    filterManufacturer,
+    debouncedSearch,
+    groups,
+  ]);
 
   const hasFilters =
     searchTerm !== "" ||
     filterType !== "all" ||
-    filterCategory !== "all" ||
+    filterGroup !== "all" ||
     filterManufacturer !== "all";
 
   const clearFilters = (): void => {
     setSearchTerm("");
     setFilterType("all");
-    setFilterCategory("all");
+    setFilterGroup("all");
     setFilterManufacturer("all");
   };
 
@@ -379,6 +744,45 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
     }
   };
 
+  const runAiExtractForUpload = async (): Promise<void> => {
+    if (!uploadFile || uploadAiExtracting) return;
+    setUploadAiExtracting(true);
+    setUploadError("");
+    setUploadSuggestion(null);
+    try {
+      const result = await AIAnalysisService.extractDocumentMetadata(
+        uploadFile,
+        docTypeOptions,
+        groups.map((g) => ({
+          name: g.name,
+          subGroups: g.subGroups.map((sg) => sg.name),
+        })),
+      );
+      const extracted = result.items[0];
+      if (extracted) {
+        const { meta, suggestion } = mergeExtractedMetadata(
+          uploadMeta,
+          extracted,
+          docTypeOptions,
+          groups,
+        );
+        setUploadMeta(meta);
+        setUploadSuggestion(suggestion || null);
+      } else {
+        setUploadError(
+          result.warnings[0] ||
+            "No metadata could be extracted from this file.",
+        );
+      }
+    } catch (err) {
+      setUploadError(
+        err instanceof Error ? err.message : "AI extraction failed.",
+      );
+    } finally {
+      setUploadAiExtracting(false);
+    }
+  };
+
   const submitUpload = (): void => {
     if (!uploadFile) return;
     if (isDuplicateName(uploadFile.name) && !allowOverwrite) {
@@ -392,7 +796,7 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
     DocLibraryCatalogService.uploadFile(
       folderServerRelativeUrl,
       uploadFile,
-      uploadMeta,
+      withCategory(uploadMeta, lockedGroupId),
       allowOverwrite,
     )
       .then(() => {
@@ -418,10 +822,13 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
 
   const openEdit = (item: IDocLibraryItem): void => {
     setEditItem(item);
+    setEditAiError("");
+    setEditSuggestion(null);
     setEditMeta({
       title: item.title,
       docType: item.docType,
-      category: item.category,
+      groupId: item.groupId,
+      subGroupId: item.subGroupId,
       manufacturer: item.manufacturer,
       model: item.model,
       keywords: item.keywords,
@@ -430,10 +837,111 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
     });
   };
 
+  const runAiExtractForEdit = async (): Promise<void> => {
+    if (!editItem || editAiExtracting) return;
+    setEditAiExtracting(true);
+    setEditAiError("");
+    setEditSuggestion(null);
+    try {
+      const file = await DocLibraryCatalogService.downloadFileAsFile(
+        editItem.fileServerRelativeUrl,
+        editItem.fileName,
+      );
+      const result = await AIAnalysisService.extractDocumentMetadata(
+        file,
+        docTypeOptions,
+        groups.map((g) => ({
+          name: g.name,
+          subGroups: g.subGroups.map((sg) => sg.name),
+        })),
+      );
+      const extracted = result.items[0];
+      if (extracted) {
+        const { meta, suggestion } = mergeExtractedMetadata(
+          editMeta,
+          extracted,
+          docTypeOptions,
+          groups,
+        );
+        setEditMeta(meta);
+        setEditSuggestion(suggestion || null);
+      } else {
+        setEditAiError(
+          result.warnings[0] ||
+            "No metadata could be extracted from this file.",
+        );
+      }
+    } catch (err) {
+      setEditAiError(
+        err instanceof Error ? err.message : "AI extraction failed.",
+      );
+    } finally {
+      setEditAiExtracting(false);
+    }
+  };
+
+  /** Resolve the ids of the catch-all "Other" Group/Sub-Group (provisioned on mount) */
+  const otherGroupIds = (): { groupId: string; subGroupId: string } => {
+    const g = findGroupByName(groups, OTHER_GROUP_NAME);
+    const sg = findSubGroupByName(g, OTHER_GROUP_NAME);
+    return { groupId: g ? g.id : "", subGroupId: sg ? sg.id : "" };
+  };
+
+  const acceptUploadSuggestion = async (): Promise<void> => {
+    if (!uploadSuggestion) return;
+    setSuggestionBusy(true);
+    try {
+      const { groupId, subGroupId } = await createFavoriteGroupAndSave(
+        lockedGroupName || uploadSuggestion.groupName,
+        uploadSuggestion.subGroupName,
+      );
+      setUploadMeta((m) => ({ ...m, groupId, subGroupId }));
+      setUploadSuggestion(null);
+    } catch (err) {
+      setUploadError(
+        err instanceof Error ? err.message : "Failed to create the group.",
+      );
+    } finally {
+      setSuggestionBusy(false);
+    }
+  };
+
+  const useOtherForUpload = (): void => {
+    setUploadMeta((m) => ({ ...m, ...otherGroupIds() }));
+    setUploadSuggestion(null);
+  };
+
+  const acceptEditSuggestion = async (): Promise<void> => {
+    if (!editSuggestion) return;
+    setSuggestionBusy(true);
+    try {
+      const { groupId, subGroupId } = await createFavoriteGroupAndSave(
+        lockedGroupName || editSuggestion.groupName,
+        editSuggestion.subGroupName,
+      );
+      setEditMeta((m) => ({ ...m, groupId, subGroupId }));
+      setEditSuggestion(null);
+    } catch (err) {
+      setEditAiError(
+        err instanceof Error ? err.message : "Failed to create the group.",
+      );
+    } finally {
+      setSuggestionBusy(false);
+    }
+  };
+
+  const useOtherForEdit = (): void => {
+    setEditMeta((m) => ({ ...m, ...otherGroupIds() }));
+    setEditSuggestion(null);
+  };
+
   const submitEdit = (): void => {
     if (!editItem) return;
     setSaving(true);
-    DocLibraryCatalogService.updateMetadata(editItem.id, editMeta)
+    DocLibraryCatalogService.updateMetadata(
+      editItem.id,
+      withCategory(editMeta, lockedGroupId),
+    )
       .then(() => {
         setSaving(false);
         setEditItem(null);
@@ -467,6 +975,255 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
       .split(",")
       .map((k) => k.trim())
       .filter((k) => k);
+
+  // ─── Bulk selection (list view) ───
+  const toggleSelect = (id: number): void => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        setSelectionWarning("");
+      } else {
+        if (next.size >= MAX_BULK_AI_SELECTION) {
+          setSelectionWarning(
+            `You can select up to ${MAX_BULK_AI_SELECTION} documents at a time.`,
+          );
+          return prev;
+        }
+        next.add(id);
+        setSelectionWarning("");
+      }
+      return next;
+    });
+  };
+
+  const allVisibleSelected =
+    filteredItems.length > 0 &&
+    filteredItems.every((i) => selectedIds.has(i.id));
+
+  const toggleSelectAllVisible = (): void => {
+    if (allVisibleSelected) {
+      setSelectedIds(new Set());
+      setSelectionWarning("");
+      return;
+    }
+    const capped = filteredItems.slice(0, MAX_BULK_AI_SELECTION);
+    setSelectedIds(new Set(capped.map((i) => i.id)));
+    setSelectionWarning(
+      filteredItems.length > MAX_BULK_AI_SELECTION
+        ? `Only the first ${MAX_BULK_AI_SELECTION} documents were selected (limit reached).`
+        : "",
+    );
+  };
+
+  const clearSelection = (): void => {
+    setSelectedIds(new Set());
+    setSelectionWarning("");
+  };
+
+  // ─── Bulk AI fill (list view) ───
+  const extractBulkRow = async (
+    row: IBulkAiRow,
+    index: number,
+  ): Promise<void> => {
+    setBulkRows((prev) =>
+      prev.map((r, i) =>
+        i === index ? { ...r, status: "extracting", error: undefined } : r,
+      ),
+    );
+    try {
+      const file = await DocLibraryCatalogService.downloadFileAsFile(
+        row.item.fileServerRelativeUrl,
+        row.item.fileName,
+      );
+      const result = await AIAnalysisService.extractDocumentMetadata(
+        file,
+        docTypeOptions,
+        groups.map((g) => ({
+          name: g.name,
+          subGroups: g.subGroups.map((sg) => sg.name),
+        })),
+      );
+      const extracted = result.items[0];
+      setBulkRows((prev) =>
+        prev.map((r, i) => {
+          if (i !== index) return r;
+          if (!extracted) {
+            return {
+              ...r,
+              status: "error",
+              error:
+                result.warnings[0] ||
+                "No metadata could be extracted from this file.",
+            };
+          }
+          const { meta, suggestion } = mergeExtractedMetadata(
+            r.meta,
+            extracted,
+            docTypeOptions,
+            groups,
+          );
+          return { ...r, status: "extracted", meta, suggestion };
+        }),
+      );
+    } catch (err) {
+      setBulkRows((prev) =>
+        prev.map((r, i) =>
+          i === index
+            ? {
+                ...r,
+                status: "error",
+                error:
+                  err instanceof Error ? err.message : "AI extraction failed.",
+              }
+            : r,
+        ),
+      );
+    }
+  };
+
+  const openBulkAi = (): void => {
+    const rows: IBulkAiRow[] = items
+      .filter((i) => selectedIds.has(i.id))
+      .map((item) => ({
+        item,
+        meta: {
+          title: item.title,
+          docType: item.docType,
+          groupId: item.groupId,
+          subGroupId: item.subGroupId,
+          manufacturer: item.manufacturer,
+          model: item.model,
+          keywords: item.keywords,
+          description: item.description,
+          revision: item.revision,
+        },
+        status: "pending" as BulkAiStatus,
+        include: true,
+      }));
+    setBulkRows(rows);
+    setBulkReviewOpen(true);
+    void runWithConcurrency(rows, BULK_AI_CONCURRENCY, extractBulkRow);
+  };
+
+  const retryBulkRow = (index: number): void => {
+    const row = bulkRows[index];
+    if (!row) return;
+    void extractBulkRow(row, index);
+  };
+
+  const toggleBulkRowInclude = (index: number): void => {
+    setBulkRows((prev) =>
+      prev.map((r, i) => (i === index ? { ...r, include: !r.include } : r)),
+    );
+  };
+
+  const updateBulkRowMeta = (
+    index: number,
+    patch: Partial<IDocLibraryMetadata>,
+  ): void => {
+    setBulkRows((prev) =>
+      prev.map((r, i) =>
+        i === index ? { ...r, meta: { ...r.meta, ...patch } } : r,
+      ),
+    );
+  };
+
+  const acceptBulkRowSuggestion = async (index: number): Promise<void> => {
+    const row = bulkRows[index];
+    if (!row || !row.suggestion) return;
+    setSuggestionBusy(true);
+    try {
+      const { groupId, subGroupId } = await createFavoriteGroupAndSave(
+        lockedGroupName || row.suggestion.groupName,
+        row.suggestion.subGroupName,
+      );
+      setBulkRows((prev) =>
+        prev.map((r, i) =>
+          i === index
+            ? {
+                ...r,
+                meta: { ...r.meta, groupId, subGroupId },
+                suggestion: undefined,
+              }
+            : r,
+        ),
+      );
+    } catch (err) {
+      setBulkRows((prev) =>
+        prev.map((r, i) =>
+          i === index
+            ? {
+                ...r,
+                error:
+                  err instanceof Error
+                    ? err.message
+                    : "Failed to create the group.",
+              }
+            : r,
+        ),
+      );
+    } finally {
+      setSuggestionBusy(false);
+    }
+  };
+
+  const useOtherForBulkRow = (index: number): void => {
+    setBulkRows((prev) =>
+      prev.map((r, i) =>
+        i === index
+          ? {
+              ...r,
+              meta: { ...r.meta, ...otherGroupIds() },
+              suggestion: undefined,
+            }
+          : r,
+      ),
+    );
+  };
+
+  const closeBulkAi = (): void => {
+    setBulkReviewOpen(false);
+    setBulkRows([]);
+  };
+
+  const saveBulkAi = async (): Promise<void> => {
+    setBulkSaving(true);
+    const rowsToSave = bulkRows.filter(
+      (r) => r.include && r.status === "extracted",
+    );
+    await runWithConcurrency(rowsToSave, BULK_AI_CONCURRENCY, async (row) => {
+      try {
+        await DocLibraryCatalogService.updateMetadata(
+          row.item.id,
+          withCategory(row.meta, lockedGroupId),
+        );
+        setBulkRows((prev) =>
+          prev.map((r) =>
+            r.item.id === row.item.id
+              ? { ...r, saved: true, saveError: undefined }
+              : r,
+          ),
+        );
+      } catch (err) {
+        setBulkRows((prev) =>
+          prev.map((r) =>
+            r.item.id === row.item.id
+              ? {
+                  ...r,
+                  saved: false,
+                  saveError:
+                    err instanceof Error ? err.message : "Save failed.",
+                }
+              : r,
+          ),
+        );
+      }
+    });
+    setBulkSaving(false);
+    loadItems();
+    clearSelection();
+  };
 
   return (
     <div
@@ -525,7 +1282,7 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
           </svg>
           <input
             className={styles.searchInput}
-            placeholder="Search by title, manufacturer, keyword..."
+            placeholder={labels.searchPlaceholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -557,13 +1314,13 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
           )}
           <select
             className={styles.filterSelect}
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
+            value={filterGroup}
+            onChange={(e) => setFilterGroup(e.target.value)}
           >
-            <option value="all">All Categories</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
+            <option value="all">All Groups</option>
+            {categories.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
               </option>
             ))}
           </select>
@@ -572,7 +1329,7 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
             value={filterManufacturer}
             onChange={(e) => setFilterManufacturer(e.target.value)}
           >
-            <option value="all">All Manufacturers</option>
+            <option value="all">{labels.allManufacturers}</option>
             {manufacturers.map((m) => (
               <option key={m} value={m}>
                 {m}
@@ -670,22 +1427,24 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
                 <div className={styles.cardMeta}>
                   {item.manufacturer && (
                     <span className={styles.cardMetaRow}>
-                      <strong>Mfr:</strong> {item.manufacturer}
+                      <strong>{labels.manufacturerShort}:</strong>{" "}
+                      {item.manufacturer}
                     </span>
                   )}
                   {item.model && (
                     <span className={styles.cardMetaRow}>
-                      <strong>Model:</strong> {item.model}
+                      <strong>{labels.modelShort}:</strong> {item.model}
                     </span>
                   )}
-                  {item.category && (
+                  {groupName(item) && (
                     <span className={styles.cardMetaRow}>
-                      <strong>Category:</strong> {item.category}
+                      <strong>{labels.groupShort}:</strong> {groupName(item)}
+                      {subGroupName(item) ? ` / ${subGroupName(item)}` : ""}
                     </span>
                   )}
                   {item.revision && (
                     <span className={styles.cardMetaRow}>
-                      <strong>Rev:</strong> {item.revision}
+                      <strong>{labels.revisionShort}:</strong> {item.revision}
                     </span>
                   )}
                 </div>
@@ -736,67 +1495,119 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
           ))}
         </div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table className={styles.listTable}>
-            <thead>
-              <tr>
-                <th style={{ width: 60 }} />
-                <th>Title</th>
-                <th>Type</th>
-                <th>Manufacturer</th>
-                <th>Category</th>
-                <th>Rev</th>
-                <th>Size</th>
-                <th style={{ width: 130 }} />
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <DocThumb item={item} className={styles.listThumb} />
-                  </td>
-                  <td>{item.title}</td>
-                  <td>{item.docType || "—"}</td>
-                  <td>{item.manufacturer || "—"}</td>
-                  <td>{item.category || "—"}</td>
-                  <td>{item.revision || "—"}</td>
-                  <td>{formatFileSize(item.size)}</td>
-                  <td>
-                    <div className={styles.cardActions}>
-                      <a
-                        className={styles.actionBtn}
-                        href={item.fileAbsoluteUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Open"
-                      >
-                        ↗
-                      </a>
-                      {canManage && (
-                        <>
-                          <button
-                            className={styles.actionBtn}
-                            onClick={() => openEdit(item)}
-                            title="Edit metadata"
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            className={`${styles.actionBtn} ${styles.deleteBtn}`}
-                            onClick={() => setDeleteItem(item)}
-                            title="Delete"
-                          >
-                            🗑
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
+        <div>
+          {canManage && (selectedIds.size > 0 || selectionWarning) && (
+            <div className={styles.bulkActionBar}>
+              <span className={styles.bulkActionCount}>
+                {selectedIds.size} selected
+              </span>
+              {selectionWarning && (
+                <span className={styles.bulkActionWarning}>
+                  {selectionWarning}
+                </span>
+              )}
+              <div className={styles.bulkActionButtons}>
+                <button
+                  className={styles.aiExtractBtn}
+                  onClick={openBulkAi}
+                  disabled={selectedIds.size === 0}
+                >
+                  Run AI on {selectedIds.size} selected
+                </button>
+                <button
+                  className={styles.btnSecondary}
+                  onClick={clearSelection}
+                >
+                  Clear selection
+                </button>
+              </div>
+            </div>
+          )}
+          <div style={{ overflowX: "auto" }}>
+            <table className={styles.listTable}>
+              <thead>
+                <tr>
+                  {canManage && (
+                    <th style={{ width: 36 }}>
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={toggleSelectAllVisible}
+                        title={`Select up to ${MAX_BULK_AI_SELECTION} for bulk AI fill`}
+                      />
+                    </th>
+                  )}
+                  <th style={{ width: 60 }} />
+                  <th>Title</th>
+                  <th>Type</th>
+                  <th>{labels.manufacturerColumn}</th>
+                  <th>{labels.groupShort}</th>
+                  <th>{labels.revisionShort}</th>
+                  <th>Size</th>
+                  <th style={{ width: 130 }} />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredItems.map((item) => (
+                  <tr key={item.id}>
+                    {canManage && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(item.id)}
+                          onChange={() => toggleSelect(item.id)}
+                        />
+                      </td>
+                    )}
+                    <td>
+                      <DocThumb item={item} className={styles.listThumb} />
+                    </td>
+                    <td>{item.title}</td>
+                    <td>{item.docType || "—"}</td>
+                    <td>{item.manufacturer || "—"}</td>
+                    <td>
+                      {groupName(item)
+                        ? `${groupName(item)}${subGroupName(item) ? ` / ${subGroupName(item)}` : ""}`
+                        : "—"}
+                    </td>
+                    <td>{item.revision || "—"}</td>
+                    <td>{formatFileSize(item.size)}</td>
+                    <td>
+                      <div className={styles.cardActions}>
+                        <a
+                          className={styles.actionBtn}
+                          href={item.fileAbsoluteUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Open"
+                        >
+                          ↗
+                        </a>
+                        {canManage && (
+                          <>
+                            <button
+                              className={styles.actionBtn}
+                              onClick={() => openEdit(item)}
+                              title="Edit metadata"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              className={`${styles.actionBtn} ${styles.deleteBtn}`}
+                              onClick={() => setDeleteItem(item)}
+                              title="Delete"
+                            >
+                              🗑
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -822,6 +1633,19 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
                     <div className={styles.fileName}>{uploadFile.name}</div>
                   )}
                 </div>
+                <button
+                  type="button"
+                  className={styles.aiExtractBtn}
+                  onClick={runAiExtractForUpload}
+                  disabled={!uploadFile || uploadAiExtracting}
+                  title={
+                    uploadFile
+                      ? "Fill the fields below from this document with AI"
+                      : "Choose a file first"
+                  }
+                >
+                  {uploadAiExtracting ? "Extracting…" : "✨ Extract with AI"}
+                </button>
               </div>
               {uploadFile &&
                 isDuplicateName(uploadFile.name) &&
@@ -845,11 +1669,36 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
               {uploadError && (
                 <div className={styles.dupWarning}>{uploadError}</div>
               )}
-              <MetadataFields
-                meta={uploadMeta}
-                docTypeOptions={docTypeOptions}
-                onChange={(patch) => setUploadMeta((m) => ({ ...m, ...patch }))}
-              />
+              {uploadSuggestion && (
+                <GroupSuggestionBanner
+                  suggestion={uploadSuggestion}
+                  busy={suggestionBusy}
+                  onAccept={acceptUploadSuggestion}
+                  onUseOther={useOtherForUpload}
+                />
+              )}
+              <div
+                className={`${styles.formFieldsWrapper} ${
+                  uploadAiExtracting ? styles.formFieldsFading : ""
+                }`}
+              >
+                <MetadataFields
+                  meta={uploadMeta}
+                  docTypeOptions={docTypeOptions}
+                  labels={labels}
+                  groups={groups}
+                  lockedGroupId={lockedGroupId}
+                  onChange={(patch) =>
+                    setUploadMeta((m) => ({ ...m, ...patch }))
+                  }
+                />
+                {uploadAiExtracting && (
+                  <div className={styles.formFieldsOverlay}>
+                    <div className={styles.overlaySpinner} />
+                    <span>Extracting with AI…</span>
+                  </div>
+                )}
+              </div>
             </div>
             <div className={styles.modalFooter}>
               <button
@@ -918,11 +1767,46 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
               </button>
             </div>
             <div className={styles.modalBody}>
-              <MetadataFields
-                meta={editMeta}
-                docTypeOptions={docTypeOptions}
-                onChange={(patch) => setEditMeta((m) => ({ ...m, ...patch }))}
-              />
+              <button
+                type="button"
+                className={styles.aiExtractBtn}
+                onClick={runAiExtractForEdit}
+                disabled={editAiExtracting}
+                title="Re-read this document with AI and fill the fields below"
+              >
+                {editAiExtracting ? "Extracting…" : "✨ Extract with AI"}
+              </button>
+              {editAiError && (
+                <div className={styles.dupWarning}>{editAiError}</div>
+              )}
+              {editSuggestion && (
+                <GroupSuggestionBanner
+                  suggestion={editSuggestion}
+                  busy={suggestionBusy}
+                  onAccept={acceptEditSuggestion}
+                  onUseOther={useOtherForEdit}
+                />
+              )}
+              <div
+                className={`${styles.formFieldsWrapper} ${
+                  editAiExtracting ? styles.formFieldsFading : ""
+                }`}
+              >
+                <MetadataFields
+                  meta={editMeta}
+                  docTypeOptions={docTypeOptions}
+                  labels={labels}
+                  groups={groups}
+                  lockedGroupId={lockedGroupId}
+                  onChange={(patch) => setEditMeta((m) => ({ ...m, ...patch }))}
+                />
+                {editAiExtracting && (
+                  <div className={styles.formFieldsOverlay}>
+                    <div className={styles.overlaySpinner} />
+                    <span>Extracting with AI…</span>
+                  </div>
+                )}
+              </div>
             </div>
             <div className={styles.modalFooter}>
               <button
@@ -937,6 +1821,123 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
                 disabled={saving}
               >
                 {saving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk AI Review Modal (list view, multi-select) */}
+      {bulkReviewOpen && (
+        <div className={styles.modalOverlay}>
+          <div className={`${styles.modal} ${styles.bulkReviewModal}`}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>
+                Run AI on {bulkRows.length} document
+                {bulkRows.length > 1 ? "s" : ""}
+              </h3>
+              <button className={styles.modalClose} onClick={closeBulkAi}>
+                ✕
+              </button>
+            </div>
+            <div className={styles.modalBody}>
+              {bulkRows.map((row, index) => (
+                <div key={row.item.id} className={styles.bulkRowCard}>
+                  <div className={styles.bulkRowHeader}>
+                    <label className={styles.bulkRowIncludeLabel}>
+                      <input
+                        type="checkbox"
+                        checked={row.include}
+                        onChange={() => toggleBulkRowInclude(index)}
+                      />
+                      <span>{row.item.fileName}</span>
+                    </label>
+                    <span
+                      className={`${styles.bulkStatusBadge} ${styles[`bulkStatus_${row.status}`]}`}
+                    >
+                      {row.status === "pending" && "Waiting…"}
+                      {row.status === "extracting" && "Extracting…"}
+                      {row.status === "extracted" && "Ready"}
+                      {row.status === "error" && "Failed"}
+                    </span>
+                    {row.saved && (
+                      <span className={styles.bulkSavedBadge}>Saved ✓</span>
+                    )}
+                    {row.status === "error" && (
+                      <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        onClick={() => retryBulkRow(index)}
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </div>
+                  {row.error && (
+                    <div className={styles.dupWarning}>{row.error}</div>
+                  )}
+                  {row.saveError && (
+                    <div className={styles.dupWarning}>
+                      Save failed: {row.saveError}
+                    </div>
+                  )}
+                  {row.suggestion && (
+                    <GroupSuggestionBanner
+                      suggestion={row.suggestion}
+                      busy={suggestionBusy}
+                      onAccept={() => acceptBulkRowSuggestion(index)}
+                      onUseOther={() => useOtherForBulkRow(index)}
+                    />
+                  )}
+                  <div
+                    className={`${styles.formFieldsWrapper} ${
+                      row.status === "pending" || row.status === "extracting"
+                        ? styles.formFieldsFading
+                        : ""
+                    }`}
+                  >
+                    <MetadataFields
+                      meta={row.meta}
+                      docTypeOptions={docTypeOptions}
+                      labels={labels}
+                      groups={groups}
+                      lockedGroupId={lockedGroupId}
+                      onChange={(patch) => updateBulkRowMeta(index, patch)}
+                    />
+                    {(row.status === "pending" ||
+                      row.status === "extracting") && (
+                      <div className={styles.formFieldsOverlay}>
+                        <div className={styles.overlaySpinner} />
+                        <span>
+                          {row.status === "extracting"
+                            ? "Extracting with AI…"
+                            : "Waiting…"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className={styles.modalFooter}>
+              <span className={styles.bulkActionCount}>
+                {bulkRows.filter((r) => r.status === "extracted").length} ready
+                · {bulkRows.filter((r) => r.status === "error").length} failed ·{" "}
+                {bulkRows.filter((r) => r.saved).length} saved
+              </span>
+              <button className={styles.btnSecondary} onClick={closeBulkAi}>
+                Close
+              </button>
+              <button
+                className={styles.btnPrimary}
+                onClick={saveBulkAi}
+                disabled={
+                  bulkSaving ||
+                  bulkRows.filter((r) => r.include && r.status === "extracted")
+                    .length === 0
+                }
+              >
+                {bulkSaving ? "Saving…" : "Save All"}
               </button>
             </div>
           </div>

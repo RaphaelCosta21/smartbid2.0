@@ -34,18 +34,59 @@ export const SHAREPOINT_CONFIG = {
     folders: {
       datasheets: "Datasheets",
       manualsCatalogs: "Manuals and Catalogs",
+      // Subfolder of Datasheets so the existing AI Search datasource (whose
+      // includeFolder filter is recursive) picks it up without redeployment.
+      technicalProposals: "Datasheets/Technical Proposals",
     },
   },
 
   /** Internal field names for the smartBidDocs catalog columns (auto-created if missing) */
   docCatalogFields: {
     docType: "DocType",
+    groupId: "DocGroupId",
+    subGroupId: "DocSubGroupId",
+    // Human-readable "Group / SubGroup"; the ids above are opaque and useless to search.
     category: "DocCategory",
     manufacturer: "Manufacturer",
     model: "DocModel",
     keywords: "DocKeywords",
     description: "DocDescription",
     revision: "DocRevision",
+  },
+
+  /**
+   * Plain columns mirrored from the bid JSON blob on smartbid-tracker, so AI
+   * Search can index a bid without parsing `jsondata`.
+   */
+  bidTrackerFields: {
+    client: "BidClient",
+    projectName: "BidProjectName",
+    division: "BidDivision",
+    scopeSummary: "BidScopeSummary",
+  },
+
+  /** Internal field names for the smartbid-quotations columns (one row per quotation) */
+  quotationFields: {
+    quotationId: "QuotationId",
+    groupId: "GroupId",
+    subGroupId: "SubGroupId",
+    partNumber: "PartNumber",
+    supplier: "Supplier",
+    quantity: "Quantity",
+    leadTimeDays: "LeadTimeDays",
+    quotationDate: "QuotationDate",
+    quotationType: "QuotationType",
+    cost: "Cost",
+    currency: "Currency",
+    costUSD: "CostUSD",
+    exchangeRateUsed: "ExchangeRateUsed",
+    notes: "Notes",
+    isFavorite: "IsFavorite",
+    fileUrl: "FileUrl",
+    fileName: "FileName",
+    createdByName: "CreatedByName",
+    createdDate: "CreatedDate",
+    lastModifiedDate: "LastModifiedDate",
   },
 
   /**

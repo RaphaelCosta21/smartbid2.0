@@ -49,6 +49,26 @@ export interface IAiAuthConfig {
   redirectUri: string;
 }
 
+/** Tunables for the floating knowledge chat assistant. */
+export interface IAiChatConfig {
+  /** Earlier turns sent as context inside the system prompt. */
+  maxHistoryTurns: number;
+  /** Reset the conversation after this much inactivity. */
+  idleResetMs: number;
+  /** Hard cap on questions per conversation, to bound token spend. */
+  maxMessagesPerSession: number;
+  /** Abort a chat request after this many ms (the global timeout targets file analysis). */
+  requestTimeoutMs: number;
+  /** Reject questions shorter than this before spending a token. */
+  minQuestionChars: number;
+  /** Truncate questions longer than this. */
+  maxQuestionChars: number;
+  /** Chunks the backend retrieves before deduplicating per document. */
+  topK: number;
+  /** Show which excerpts the search returned, to diagnose retrieval quality. */
+  showRetrievalDebug: boolean;
+}
+
 export interface IAiConfig {
   /** Master switch. Keep false until apiBaseUrl is set and the backend is live. */
   enabled: boolean;
@@ -58,6 +78,8 @@ export interface IAiConfig {
   auth: IAiAuthConfig;
   /** Abort a request after this many ms. */
   requestTimeoutMs: number;
+  /** Settings for the floating knowledge chat assistant. */
+  chat: IAiChatConfig;
   /**
    * When true, SmartBid sends its own prompt (from ai.prompts.ts) + promptVersion
    * with each request, so the prompt lives in THIS repo and the team can iterate
@@ -70,6 +92,8 @@ export interface IAiConfig {
     generateScope: string;
     /** Supplier quotation PDF → structured quotation fields. */
     extractQuotation: string;
+    /** Free-form Q&A over the indexed document library. */
+    chat: string;
     // --- Future endpoints (not wired yet — uncomment when the backend adds them) ---
     // /** Current BID requirements → suggested clarifications/qualifications (RAG). */
     // suggestClarifications: string;
@@ -88,11 +112,22 @@ export const AI_CONFIG: IAiConfig = {
     redirectUri:
       "https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering",
   },
-  requestTimeoutMs: 120000,
+  requestTimeoutMs: 280000,
+  chat: {
+    maxHistoryTurns: 3,
+    idleResetMs: 600000,
+    maxMessagesPerSession: 20,
+    requestTimeoutMs: 60000,
+    minQuestionChars: 5,
+    maxQuestionChars: 500,
+    topK: 25,
+    showRetrievalDebug: true,
+  },
   sendPromptFromClient: true,
   endpoints: {
     generateScope: "/scope/generate",
     extractQuotation: "/quotation/extract",
+    chat: "/chat",
     // --- Future endpoints (uncomment when the backend routes exist) ---
     // suggestClarifications: "/clarifications/suggest",
     // chat: "/chat",

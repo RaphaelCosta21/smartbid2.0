@@ -68,7 +68,7 @@ export const useQuotationStore = create<QuotationState>((set, get) => ({
     const updated = current.concat(newItems);
     set({ items: updated });
     try {
-      await QuotationService.save(updated);
+      await QuotationService.addItems(newItems);
     } catch (err) {
       // Rollback on failure
       set({ items: current });
@@ -84,7 +84,7 @@ export const useQuotationStore = create<QuotationState>((set, get) => ({
     updated[idx] = item;
     set({ items: updated });
     try {
-      await QuotationService.save(updated);
+      await QuotationService.updateItem(item);
     } catch (err) {
       set({ items: current });
       throw err;
@@ -96,7 +96,7 @@ export const useQuotationStore = create<QuotationState>((set, get) => ({
     const updated = current.filter((q) => q.id !== id);
     set({ items: updated });
     try {
-      await QuotationService.save(updated);
+      await QuotationService.deleteItem(id);
     } catch (err) {
       set({ items: current });
       throw err;
@@ -119,7 +119,7 @@ export const useQuotationStore = create<QuotationState>((set, get) => ({
     set({ items: updated });
 
     try {
-      await QuotationService.save(updated);
+      await QuotationService.updateItem(updated[idx]);
 
       if (newFav) {
         // Add to Favorites catalog with dataSource = "quotation"

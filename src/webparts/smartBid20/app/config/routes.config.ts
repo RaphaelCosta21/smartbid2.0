@@ -16,6 +16,7 @@ export const ROUTES = {
   assetsCatalog: "/knowledge/assets-catalog",
   datasheets: "/knowledge/datasheets",
   manualsCatalogs: "/knowledge/manuals",
+  technicalProposals: "/knowledge/technical-proposals",
   clarificationsDb: "/knowledge/clarifications",
   linksRecommendations: "/knowledge/links",
   analytics: "/analytics",

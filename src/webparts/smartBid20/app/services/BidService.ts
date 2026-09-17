@@ -3,14 +3,84 @@
  * Static singleton pattern (padrão SmartFlow).
  */
 import { SPService } from "./SPService";
+import "@pnp/sp/fields";
 import { IBid } from "../models";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
+
+const F = SHAREPOINT_CONFIG.bidTrackerFields;
+
+/** Runs at most once per session; the columns only need provisioning the first time. */
+let ensureColumnsPromise: Promise<void> | undefined;
 
 export class BidService {
   private static get _list() {
     return SPService.sp.web.lists.getByTitle(
       SHAREPOINT_CONFIG.lists.bidTracker,
     );
+  }
+
+  /**
+   * Create the plain search columns if they are missing. Writing to a column
+   * that does not exist makes SharePoint reject the whole item, so this must
+   * succeed before the first create/update of a session.
+   */
+  public static async ensureColumns(): Promise<void> {
+    if (!ensureColumnsPromise) {
+      ensureColumnsPromise = BidService._provisionColumns().catch((err) => {
+        // Let a later write retry instead of caching the failure forever.
+        ensureColumnsPromise = undefined;
+        throw err;
+      });
+    }
+    return ensureColumnsPromise;
+  }
+
+  private static async _provisionColumns(): Promise<void> {
+    const listApi = BidService._list as any;
+    let existing: string[] = [];
+    try {
+      const fields = await listApi.fields.select("InternalName")();
+      existing = (fields as { InternalName: string }[]).map(
+        (f) => f.InternalName,
+      );
+    } catch (err) {
+      console.warn("BidService.ensureColumns: cannot read fields", err);
+      return;
+    }
+    const add = async (name: string, multiline: boolean): Promise<void> => {
+      if (existing.indexOf(name) >= 0) return;
+      try {
+        if (multiline) await listApi.fields.addMultilineText(name);
+        else await listApi.fields.addText(name);
+      } catch (e) {
+        /* ignore — concurrent run or insufficient permission */
+      }
+    };
+    await add(F.client, false);
+    await add(F.projectName, false);
+    await add(F.division, false);
+    await add(F.scopeSummary, true);
+  }
+
+  /**
+   * Flatten the searchable parts of a bid into plain columns. The JSON blob
+   * stays the source of truth; these only exist so the bid is findable.
+   */
+  private static _searchColumns(bid: IBid): Record<string, string> {
+    const opp = bid.opportunityInfo;
+    const scope = (bid.scopeItems || [])
+      .filter((s) => !s.isSection && s.description)
+      .map((s) => s.description)
+      .join("; ");
+    const summary = [opp ? opp.projectDescription : "", scope]
+      .filter(Boolean)
+      .join(" — ");
+    return {
+      [F.client]: (opp ? opp.client : "") || "",
+      [F.projectName]: (opp ? opp.projectName : "") || "",
+      [F.division]: bid.division || "",
+      [F.scopeSummary]: summary.substring(0, 30000),
+    };
   }
 
   public static async getAll(): Promise<IBid[]> {
@@ -40,21 +110,25 @@ export class BidService {
   }
 
   public static async create(bid: IBid): Promise<number> {
+    await BidService.ensureColumns();
     const result = await BidService._list.items.add({
       Title: bid.bidNumber,
       jsondata: JSON.stringify(bid),
       Status: bid.currentStatus,
       DueDate: bid.desiredDueDate || bid.dueDate,
+      ...BidService._searchColumns(bid),
     });
     return ((result as any).data as { Id: number }).Id;
   }
 
   public static async update(id: number, bid: IBid): Promise<void> {
+    await BidService.ensureColumns();
     await BidService._list.items.getById(id).update({
       Title: bid.bidNumber,
       jsondata: JSON.stringify(bid),
       Status: bid.currentStatus,
       DueDate: bid.desiredDueDate || bid.dueDate,
+      ...BidService._searchColumns(bid),
     });
   }
 
@@ -79,6 +153,7 @@ export class BidService {
     await BidService._list.items.getById(spItemId).update({
       Title: newBidNumber,
       jsondata: JSON.stringify(bid),
+      ...BidService._searchColumns(bid),
     });
   }
 
@@ -127,6 +202,7 @@ export class BidService {
     const merged = { ...bid, ...patch };
     await BidService._list.items.getById(row.Id).update({
       jsondata: JSON.stringify(merged),
+      ...BidService._searchColumns(merged),
     });
   }
 }

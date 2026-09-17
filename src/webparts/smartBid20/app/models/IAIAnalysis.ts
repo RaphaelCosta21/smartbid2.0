@@ -9,6 +9,7 @@ import { IScopeItem } from "./IBid";
 export type AIUseCase =
   | "scope-of-supply"
   | "quotation"
+  | "document-metadata"
   | "chat"
   | "clarification";
 
@@ -28,6 +29,30 @@ export interface IAIGroupOption {
   subGroups: string[];
 }
 
+/**
+ * An Assets Catalog record, sent so the model can fill equipmentOffer/partNumber
+ * from real Oceaneering equipment. The SharePoint list is not in the AI Search
+ * index, so the catalog travels with the request instead of via RAG.
+ */
+export interface IAIAssetCatalogOption {
+  /** Equipment name (Assets Catalog "Title"). */
+  name: string;
+  /** Oceaneering part number — copied verbatim into partNumber. */
+  partNumber: string;
+  /** Keywords and commonly used names, to help the model match client wording. */
+  keywords: string;
+  /** Short description/specs, trimmed to keep the prompt small. */
+  description: string;
+  /** Consumables/spares/accessories registered under this equipment. */
+  subItems?: IAIAssetSubItemOption[];
+}
+
+/** A consumable/spare/accessory registered under a catalog equipment. */
+export interface IAIAssetSubItemOption {
+  name: string;
+  partNumber: string;
+}
+
 /** BID/template context passed from the UI into an analysis request. */
 export interface IAIAnalysisContext {
   /** BID division (e.g. "SSR-ROV") — guides categorization. */
@@ -40,6 +65,12 @@ export interface IAIAnalysisContext {
   resourceTypeOptions?: IAIResourceTypeOption[];
   /** Configured Group/SubGroup taxonomy (guides quotation categorization). */
   groupOptions?: IAIGroupOption[];
+  /** Assets Catalog records (guides equipmentOffer + partNumber). */
+  assetCatalogOptions?: IAIAssetCatalogOption[];
+  /** Allowed "docType" values for the current document catalog. */
+  docTypeOptions?: string[];
+  /** Pins document classification to a single group (e.g. "Operation KIT"). */
+  lockedGroupName?: string;
   /** Optional extra context (KB summaries, past-bid hints). */
   contextSummary?: string;
 }
@@ -172,6 +203,44 @@ export interface IExtractedQuotationLine {
 export interface IQuotationExtractionResult {
   /** Extracted line items (may be more than one per document). */
   items: IExtractedQuotationLine[];
+  /** Warnings from the extraction (low confidence, unreadable, …). */
+  warnings: string[];
+  /** Original file name that was analyzed. */
+  sourceDocument: string;
+  /** ISO timestamp of when the extraction was performed. */
+  extractedAt: string;
+}
+
+/** Catalog metadata fields extracted from a datasheet/manual/catalog/proposal file. */
+export interface IExtractedDocumentMetadata {
+  /** Document title (short, human-readable). */
+  title: string;
+  /** Document type — must match one of the catalog's configured doc types, or "". */
+  docType: string;
+  /** Matched Group name from the configured Group/SubGroup taxonomy, or "Other". */
+  groupName: string;
+  /** Matched Sub-Group name under groupName, or "Other". */
+  subGroupName: string;
+  /** Set only when no existing group fits well — a new Group name the AI proposes instead of "Other". */
+  suggestedNewGroupName?: string;
+  /** Set alongside suggestedNewGroupName — the proposed new Sub-Group name. */
+  suggestedNewSubGroupName?: string;
+  /** Manufacturer / brand (or client name, for proposals). */
+  manufacturer: string;
+  /** Model / equipment (or proposal/BID number, for proposals). */
+  model: string;
+  /** Comma-separated search keywords. */
+  keywords: string;
+  /** Short 1-2 sentence summary. */
+  description: string;
+  /** Revision or document date, as written in the file. */
+  revision: string;
+}
+
+/** Result of extracting catalog metadata from a document. */
+export interface IDocumentMetadataExtractionResult {
+  /** Extracted metadata (one entry per document sent). */
+  items: IExtractedDocumentMetadata[];
   /** Warnings from the extraction (low confidence, unreadable, …). */
   warnings: string[];
   /** Original file name that was analyzed. */

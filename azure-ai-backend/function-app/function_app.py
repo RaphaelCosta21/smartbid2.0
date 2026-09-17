@@ -1,9 +1,10 @@
 """
 SmartBid AI backend — Azure Functions (Python v2 programming model).
 
-Two HTTP endpoints (Function App, EasyAuth-protected):
+ Three HTTP endpoints (Function App, EasyAuth-protected):
   • POST /scope/generate   → Scope of Supply (RAG grounded on the docs index)
   • POST /quotation/extract → Supplier quotation → structured line items (no RAG)
+  • POST /chat              → Knowledge Q&A (deduplicated RAG over the docs index)
 
 Auth is Entra ID / Managed Identity end to end — no API keys, no Key Vault.
 Access is restricted in Entra ID: only the approved group can obtain a token for
@@ -64,6 +65,18 @@ MAX_VISION_PAGES = int(os.environ.get("MAX_VISION_PAGES", "20"))
 VISION_DPI = 150
 SEARCH_QUERY_CHARS = 8000   # AI Search query budget (context hint + document text)
 CONTEXT_HINT_CHARS = 1500
+# Knowledge chat retrieval. `top` counts chunks, so it must be far larger than the
+# number of documents we want back once duplicates from the same file are dropped.
+SEMANTIC_CONFIG = os.environ.get("AZURE_SEARCH_SEMANTIC_CONFIG", "smartbid-semantic-config")
+CHAT_DEFAULT_TOP_K = int(os.environ.get("CHAT_DEFAULT_TOP_K", "20"))
+CHAT_MAX_TOP_K = int(os.environ.get("CHAT_MAX_TOP_K", "50"))
+CHAT_MAX_DOCUMENTS = int(os.environ.get("CHAT_MAX_DOCUMENTS", "8"))
+CHAT_MAX_CONTEXT_CHARS = int(os.environ.get("CHAT_MAX_CONTEXT_CHARS", "40000"))
+CHAT_MAX_HISTORY = int(os.environ.get("CHAT_MAX_HISTORY", "6"))
+CHAT_SELECT_FIELDS = [
+    "title", "chunk", "sourceUrl", "parent_id", "docType", "docCategory",
+    "manufacturer", "docModel", "docKeywords", "docDescription", "docRevision",
+]
 # When true, the 500 payload also carries the upstream error message. Keep it off
 # in steady state; turn it on to triage without Application Insights access.
 DEBUG_ERRORS = os.environ.get("AI_DEBUG_ERRORS", "").lower() in ("1", "true", "yes")
@@ -157,6 +170,16 @@ def _bad_request() -> func.HttpResponse:
         json.dumps({
             "error": "Invalid request",
             "details": "Expected JSON with fileContent (base64) and systemPrompt.",
+        }),
+        status_code=400, mimetype="application/json",
+    )
+
+
+def _chat_bad_request() -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps({
+            "error": "Invalid chat request",
+            "details": "Expected JSON with messages and systemPrompt.",
         }),
         status_code=400, mimetype="application/json",
     )
@@ -435,3 +458,216 @@ def extract_quotation(req: func.HttpRequest) -> func.HttpResponse:
     except Exception as e:
         logging.exception("quotation/extract failed during %s", stage)
         return _server_error("Extraction failed", stage, e)
+
+
+# ---------------------------------------------------------------------------
+# Knowledge chat
+#
+# Retrieval here is tuned the opposite way from scope generation: the query is
+# one short question instead of a long client document, and the goal is "which
+# documents mention X" instead of "categorise these items". So it gets its own
+# helper — do NOT refactor the two into one.
+# ---------------------------------------------------------------------------
+
+
+def _chat_document_block(r: Dict[str, Any]) -> str:
+    """Render one retrieved document with the catalogued metadata. Without this
+    header the model only sees a file name and can only guess the client,
+    proposal number or revision."""
+    meta_line = " | ".join(
+        f"{label}: {r.get(field)}"
+        for label, field in (
+            ("Type", "docType"),
+            ("Client", "manufacturer"),
+            ("Ref", "docModel"),
+            ("Rev", "docRevision"),
+        )
+        if r.get(field)
+    )
+    extra_line = " | ".join(
+        f"{label}: {r.get(field)}"
+        for label, field in (
+            ("Discipline", "docCategory"),
+            ("Keywords", "docKeywords"),
+        )
+        if r.get(field)
+    )
+    parts = [f"[{r.get('title', 'Untitled')}] ({r.get('sourceUrl', '')})"]
+    if meta_line:
+        parts.append(meta_line)
+    if extra_line:
+        parts.append(extra_line)
+    if r.get("docDescription"):
+        parts.append(f"Scope: {r.get('docDescription')}")
+    parts.append("--- excerpt ---")
+    parts.append(r.get("chunk", ""))
+    return "\n".join(parts)
+
+
+def _chat_search(query_text: str, top_k: int, doc_type: Optional[str], semantic: bool):
+    """One hybrid search pass. Semantic ranking is billed per tier, so the caller
+    retries without it rather than losing grounding entirely."""
+    search_args: Dict[str, Any] = {
+        "search_text": query_text,
+        "vector_queries": [
+            VectorizableTextQuery(
+                text=query_text, k_nearest_neighbors=top_k, fields="text_vector"
+            )
+        ],
+        "select": CHAT_SELECT_FIELDS,
+        "top": top_k,
+    }
+    if semantic:
+        search_args["query_type"] = "semantic"
+        search_args["semantic_configuration_name"] = SEMANTIC_CONFIG
+    if doc_type:
+        search_args["filter"] = "docType eq '{}'".format(doc_type.replace("'", "''"))
+    return search_client.search(**search_args)
+
+
+def _chat_reference_material(
+    query_text: str, top_k: int, doc_type: Optional[str]
+) -> Tuple[str, List[Dict[str, str]], List[str]]:
+    """Hybrid retrieval for chat, deduplicated per document.
+
+    `top` counts CHUNKS, not documents, so a single long PDF can otherwise fill
+    every slot with near-identical cover pages. Keeping the best chunk per
+    parent_id is what makes "which proposals mention X" answerable.
+    Returns (reference_block, retrieved_for_diagnostics, warnings).
+    """
+    warnings: List[str] = []
+    try:
+        try:
+            results = _chat_search(query_text, top_k, doc_type, semantic=True)
+            results = list(results)
+        except Exception:
+            logging.warning(
+                "chat — semantic ranking unavailable, falling back to hybrid",
+                exc_info=True,
+            )
+            results = list(_chat_search(query_text, top_k, doc_type, semantic=False))
+
+        seen: set = set()
+        blocks: List[str] = []
+        retrieved: List[Dict[str, str]] = []
+        budget = 0
+        for r in results:
+            parent = r.get("parent_id") or r.get("sourceUrl") or r.get("title")
+            if parent in seen:
+                continue
+            chunk = r.get("chunk") or ""
+            if budget + len(chunk) > CHAT_MAX_CONTEXT_CHARS and blocks:
+                break
+            seen.add(parent)
+            budget += len(chunk)
+            blocks.append(_chat_document_block(r))
+            retrieved.append(
+                {
+                    "title": str(r.get("title") or "Untitled"),
+                    "url": str(r.get("sourceUrl") or ""),
+                    "snippet": chunk[:200],
+                }
+            )
+            if len(blocks) >= CHAT_MAX_DOCUMENTS:
+                break
+        return "\n\n---\n\n".join(blocks), retrieved, warnings
+    except Exception:
+        logging.exception("chat — AI Search retrieval failed")
+        return "", [], [
+            "The reference library could not be searched — the answer is not "
+            "grounded in any document."
+        ]
+
+
+def _chat_messages(body: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Normalize the conversation, keeping only the most recent turns."""
+    raw = body.get("messages")
+    if not isinstance(raw, list):
+        return []
+    messages: List[Dict[str, str]] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        role = "assistant" if entry.get("role") == "assistant" else "user"
+        content = str(entry.get("content") or "").strip()
+        if content:
+            messages.append({"role": role, "content": content})
+    return messages[-CHAT_MAX_HISTORY:]
+
+
+@app.route(route="chat", methods=["POST"], auth_level=ANONYMOUS)
+def chat(req: func.HttpRequest) -> func.HttpResponse:
+    # Free-form Q&A over the indexed document library.
+    # SmartBid ALWAYS sends its own system prompt (see promptVersion in the body).
+    try:
+        body: Dict[str, Any] = req.get_json()
+        system_prompt = body["systemPrompt"]
+    except (ValueError, KeyError, TypeError) as e:
+        logging.warning("Malformed chat request: %s", e)
+        return _chat_bad_request()
+
+    messages = _chat_messages(body)
+    last_user = next(
+        (m["content"] for m in reversed(messages) if m["role"] == "user"), ""
+    )
+    if not last_user:
+        return _chat_bad_request()
+
+    try:
+        top_k = int(body.get("topK") or CHAT_DEFAULT_TOP_K)
+    except (TypeError, ValueError):
+        top_k = CHAT_DEFAULT_TOP_K
+    top_k = max(5, min(top_k, CHAT_MAX_TOP_K))
+    doc_type = str(body.get("docTypeFilter") or "").strip() or None
+
+    logging.info(
+        "chat — caller=%s promptVersion=%s topK=%s docType=%s turns=%s",
+        _caller_upn(req) or "<unknown>",
+        body.get("promptVersion") or "<none>",
+        top_k,
+        doc_type or "<any>",
+        len(messages),
+    )
+
+    stage = "reference retrieval"
+    try:
+        # Retrieval follows the LAST question only; older turns drag it off topic.
+        query_text = re.sub(r"\s+", " ", _SEARCH_OPERATORS.sub(" ", last_user)).strip()
+        reference_material, retrieved, warnings = _chat_reference_material(
+            query_text, top_k, doc_type
+        )
+
+        grounded_prompt = (
+            f"{system_prompt}\n\n"
+            "=== REFERENCE MATERIAL (retrieved by backend — do not invent beyond this) ===\n"
+            f"{reference_material}\n"
+            "=== END REFERENCE MATERIAL ==="
+        )
+
+        stage = "the model call"
+        completion = openai_client.chat.completions.create(
+            model=CHAT_DEPLOYMENT,
+            response_format={"type": "json_object"},
+            messages=[{"role": "system", "content": grounded_prompt}] + messages,
+        )
+        model_json = _model_json(completion, "chat")
+
+        answer = str(model_json.get("answer") or "").strip()
+        refused = bool(model_json.get("refused"))
+        response = {
+            "answer": answer,
+            "refused": refused,
+            "citations": [] if refused else model_json.get("citations", []),
+            "followUps": model_json.get("followUps", []),
+            # Produced here rather than asked of the model: exact, and free.
+            "retrieved": retrieved,
+            "warnings": warnings,
+            "answeredAt": _now_iso(),
+        }
+        return func.HttpResponse(
+            json.dumps(response), mimetype="application/json", status_code=200
+        )
+
+    except Exception as e:
+        logging.exception("chat failed during %s", stage)
+        return _server_error("Chat failed", stage, e)

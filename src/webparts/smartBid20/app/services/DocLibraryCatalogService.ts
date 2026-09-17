@@ -1,8 +1,8 @@
 /**
  * DocLibraryCatalogService — Reads/writes catalogued documents in the
- * `smartBidDocs` library (Datasheets, Manuals & Catalogs). Catalog metadata is
- * stored as columns on the library and auto-provisioned if missing.
- * Static singleton pattern.
+ * `smartBidDocs` library (Datasheets, Manuals & Catalogs, Technical Proposals).
+ * Catalog metadata is stored as columns on the library and auto-provisioned if
+ * missing. Static singleton pattern.
  */
 import { SPService } from "./SPService";
 import "@pnp/sp/fields";
@@ -15,6 +15,13 @@ import {
 
 const LIB = SHAREPOINT_CONFIG.docLibrary.name;
 const F = SHAREPOINT_CONFIG.docCatalogFields;
+
+const DOC_TYPE_CHOICES: DocCatalogType[] = [
+  "Datasheet",
+  "Manual",
+  "Catalog",
+  "Technical Proposal",
+];
 
 export class DocLibraryCatalogService {
   private static get _list() {
@@ -66,12 +73,31 @@ export class DocLibraryCatalogService {
     if (!has(F.docType)) {
       try {
         await fieldsApi.addChoice(F.docType, {
-          Choices: ["Datasheet", "Manual", "Catalog"],
+          Choices: DOC_TYPE_CHOICES,
         });
       } catch (e) {
         /* ignore */
       }
+    } else {
+      // Field provisioned by an earlier version may be missing newer choices.
+      try {
+        const field = fieldsApi.getByInternalNameOrTitle(F.docType);
+        const current = await field.select("Choices")();
+        const choices: string[] =
+          (current as { Choices?: string[] }).Choices || [];
+        const missing = DOC_TYPE_CHOICES.filter((c) => choices.indexOf(c) < 0);
+        if (missing.length > 0) {
+          await field.update(
+            { Choices: choices.concat(missing) },
+            "SP.FieldChoice",
+          );
+        }
+      } catch (e) {
+        /* ignore — user may lack permission to manage columns */
+      }
     }
+    await addText(F.groupId);
+    await addText(F.subGroupId);
     await addText(F.category);
     await addText(F.manufacturer);
     await addText(F.model);
@@ -124,7 +150,8 @@ export class DocLibraryCatalogService {
         modified: f.TimeLastModified,
         title: laf.Title || fileName,
         docType: (laf[F.docType] || "") as DocCatalogType | "",
-        category: laf[F.category] || "",
+        groupId: laf[F.groupId] || "",
+        subGroupId: laf[F.subGroupId] || "",
         manufacturer: laf[F.manufacturer] || "",
         model: laf[F.model] || "",
         keywords: laf[F.keywords] || "",
@@ -141,7 +168,9 @@ export class DocLibraryCatalogService {
     return {
       Title: metadata.title,
       [F.docType]: metadata.docType || null,
-      [F.category]: metadata.category,
+      [F.groupId]: metadata.groupId,
+      [F.subGroupId]: metadata.subGroupId,
+      [F.category]: metadata.category || "",
       [F.manufacturer]: metadata.manufacturer,
       [F.model]: metadata.model,
       [F.keywords]: metadata.keywords,
@@ -186,5 +215,16 @@ export class DocLibraryCatalogService {
     await SPService.sp.web
       .getFileByServerRelativePath(fileServerRelativeUrl)
       .delete();
+  }
+
+  /** Download an existing library file as a `File`, for re-running AI extraction on it */
+  public static async downloadFileAsFile(
+    fileServerRelativeUrl: string,
+    fileName: string,
+  ): Promise<File> {
+    const buffer = await SPService.sp.web
+      .getFileByServerRelativePath(fileServerRelativeUrl)
+      .getBuffer();
+    return new File([buffer], fileName);
   }
 }

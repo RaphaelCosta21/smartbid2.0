@@ -1,0 +1,131 @@
+{
+  "name": "smartbid-docs-skillset",
+  "description": "Split documents into large chunks (6000 chars, 1000 overlap) and generate embeddings for the SmartBid docs index. Large chunks keep an equipment section together with its specification table and dilute the repeated page header/footer boilerplate that made every proposal look alike.",
+  "skills": [
+    {
+      "@odata.type": "#Microsoft.Skills.Text.SplitSkill",
+      "name": "split-skill",
+      "context": "/document",
+      "defaultLanguageCode": "en",
+      "textSplitMode": "pages",
+      "maximumPageLength": 6000,
+      "pageOverlapLength": 1000,
+      "maximumPagesToTake": 0,
+      "unit": "characters",
+      "inputs": [
+        {
+          "name": "text",
+          "source": "/document/content",
+          "inputs": []
+        }
+      ],
+      "outputs": [
+        {
+          "name": "textItems",
+          "targetName": "pages"
+        }
+      ]
+    },
+    {
+      "@odata.type": "#Microsoft.Skills.Text.AzureOpenAIEmbeddingSkill",
+      "name": "embedding-skill",
+      "context": "/document/pages/*",
+      "resourceUri": "https://cog-opgbbes-openai-prd.openai.azure.com",
+      "deploymentId": "text-embedding-3-small",
+      "dimensions": 1536,
+      "modelName": "text-embedding-3-small",
+      "inputs": [
+        {
+          "name": "text",
+          "source": "/document/pages/*",
+          "inputs": []
+        }
+      ],
+      "outputs": [
+        {
+          "name": "embedding",
+          "targetName": "text_vector"
+        }
+      ]
+    }
+  ],
+  "indexProjections": {
+    "selectors": [
+      {
+        "targetIndexName": "smartbid-docs-index",
+        "parentKeyFieldName": "parent_id",
+        "sourceContext": "/document/pages/*",
+        "mappings": [
+          {
+            "name": "chunk",
+            "source": "/document/pages/*",
+            "inputs": []
+          },
+          {
+            "name": "text_vector",
+            "source": "/document/pages/*/text_vector",
+            "inputs": []
+          },
+          {
+            "name": "title",
+            "source": "/document/metadata_spo_item_name",
+            "inputs": []
+          },
+          {
+            "name": "sourceUrl",
+            "source": "/document/metadata_spo_item_weburi",
+            "inputs": []
+          },
+          {
+            "name": "filePath",
+            "source": "/document/metadata_spo_item_path",
+            "inputs": []
+          },
+          {
+            "name": "lastModified",
+            "source": "/document/metadata_spo_item_last_modified",
+            "inputs": []
+          },
+          {
+            "name": "docType",
+            "source": "/document/DocType",
+            "inputs": []
+          },
+          {
+            "name": "docCategory",
+            "source": "/document/DocCategory",
+            "inputs": []
+          },
+          {
+            "name": "manufacturer",
+            "source": "/document/Manufacturer",
+            "inputs": []
+          },
+          {
+            "name": "docModel",
+            "source": "/document/DocModel",
+            "inputs": []
+          },
+          {
+            "name": "docKeywords",
+            "source": "/document/DocKeywords",
+            "inputs": []
+          },
+          {
+            "name": "docDescription",
+            "source": "/document/DocDescription",
+            "inputs": []
+          },
+          {
+            "name": "docRevision",
+            "source": "/document/DocRevision",
+            "inputs": []
+          }
+        ]
+      }
+    ],
+    "parameters": {
+      "projectionMode": "skipIndexingParentDocuments"
+    }
+  }
+}

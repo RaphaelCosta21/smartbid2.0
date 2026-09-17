@@ -43,6 +43,7 @@ import { TemplatesPage } from "../../pages/TemplatesPage";
 import { AssetsCatalogPage } from "../../pages/AssetsCatalogPage";
 import { DatasheetsPage } from "../../pages/DatasheetsPage";
 import { ManualsCatalogsPage } from "../../pages/ManualsCatalogsPage";
+import { TechnicalProposalsPage } from "../../pages/TechnicalProposalsPage";
 import { ClarificationsDbPage } from "../../pages/ClarificationsDbPage";
 import { LinksRecommendationsPage } from "../../pages/LinksRecommendationsPage";
 import { AnalyticsPage } from "../../pages/AnalyticsPage";
@@ -62,6 +63,7 @@ import { PatchNotesPage } from "../../pages/PatchNotesPage";
 import { FaqPage } from "../../pages/FaqPage";
 import { CommandPalette } from "./CommandPalette";
 import { ToastContainer } from "../common/ToastContainer";
+import { ChatAssistant } from "../common/ChatAssistant";
 
 /** Route guard — only the Engineering team may access Knowledge Base pages */
 const RequireEngineering: React.FC<{ children: React.ReactElement }> = ({
@@ -192,6 +194,7 @@ const AppLayoutInner: React.FC<{
       </div>
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      <ChatAssistant />
 
       <div className={styles.mainArea}>
         <div className={styles.headerArea}>
@@ -241,6 +244,14 @@ const AppLayoutInner: React.FC<{
               element={
                 <RequireEngineering>
                   <ManualsCatalogsPage />
+                </RequireEngineering>
+              }
+            />
+            <Route
+              path={ROUTES.technicalProposals}
+              element={
+                <RequireEngineering>
+                  <TechnicalProposalsPage />
                 </RequireEngineering>
               }
             />
