@@ -1621,8 +1621,24 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           className={`${styles.subRow}${sicIsNotOffered ? ` ${styles.notOfferedRow}` : ""}`}
         >
           <div className={`${styles.subCell} ${styles.subNum}`}>{idx + 1}</div>
-          <div className={styles.subCell}>
-            {sub.description || sub.equipmentOffer || "—"}
+          <div className={`${styles.subCell} ${styles.subCellOffer}`}>
+            <span className={styles.subCellText}>
+              {sub.equipmentOffer || sub.description || "—"}
+            </span>
+            {!!sub.description && (
+              <span
+                className={`${styles.specsIndicator} ${styles.subDescHint}`}
+                onClick={(e) => e.stopPropagation()}
+                onMouseEnter={handleSpecsHover}
+                title=""
+              >
+                <span className={styles.specsIndicatorIcon}>ℹ️</span>
+                <div className={styles.specsTooltip}>
+                  <div className={styles.specsTooltipTitle}>Description</div>
+                  {sub.description}
+                </div>
+              </span>
+            )}
           </div>
           <div className={styles.subCell}>{sub.subType || "—"}</div>
           <div className={`${styles.subCell} ${styles.subCellMono}`}>
@@ -6612,7 +6628,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                             <div className={styles.subTblWrap}>
                               <div className={styles.subTblHead}>
                                 <div className={styles.subTh}>#</div>
-                                <div className={styles.subTh}>Description</div>
+                                <div className={styles.subTh}>
+                                  Equipment Offer
+                                </div>
                                 <div className={styles.subTh}>Sub-Type</div>
                                 <div className={styles.subTh}>OII / MFG PN</div>
                                 <div className={styles.subTh}>Qty</div>
@@ -6708,7 +6726,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                             <div className={styles.subTblWrap}>
                               <div className={styles.subTblHead}>
                                 <div className={styles.subTh}>#</div>
-                                <div className={styles.subTh}>Description</div>
+                                <div className={styles.subTh}>
+                                  Equipment Offer
+                                </div>
                                 <div className={styles.subTh}>Sub-Type</div>
                                 <div className={styles.subTh}>OII / MFG PN</div>
                                 <div className={styles.subTh}>Qty</div>

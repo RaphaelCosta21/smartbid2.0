@@ -260,6 +260,8 @@ export const ScopeImportPreview: React.FC<ScopeImportPreviewProps> = ({
             ...srcEng,
             id: makeId("eng"),
             scopeItemId: newScopeId,
+            source: "scope",
+            integratedDivision: item.integratedDivision,
             deliverables: newDeliverables,
           });
         } else {
@@ -267,12 +269,14 @@ export const ScopeImportPreview: React.FC<ScopeImportPreviewProps> = ({
           cloned.push({
             id: makeId("eng"),
             scopeItemId: newScopeId,
+            source: "scope",
             description: item.description || "",
             equipmentOffer: item.equipmentOffer || "",
             sectionName: "",
             notes: "",
             deliverables: [],
             totalHours: 0,
+            integratedDivision: item.integratedDivision,
           });
         }
       });

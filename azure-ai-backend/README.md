@@ -20,23 +20,26 @@ Browser (SmartBid SPFx + MSAL PKCE)
    │                                     Managed Identity └──► Azure AI Search (smartbid-docs-index)
    │
 AI Search Indexer ── App B ──►  SharePoint  (reads smartBidDocs: Datasheets + Manuals and Catalogs)
+        └──── Managed Identity ──►  Function App  (POST /skills/chunk — section-aware chunking)
 ```
 
 ---
 
 ## Contents
 
-| Path                                       | What it is                                                                     |
-| ------------------------------------------ | ------------------------------------------------------------------------------ |
-| `ai-search/01-datasource.json`             | SharePoint data source — scoped to the two folders only                        |
-| `ai-search/02-index.json`                  | Vector index (`smartbid-docs-index`) + integrated vectorizer + semantic config |
-| `ai-search/03-skillset.json`               | Split + Azure OpenAI embedding + index projections                             |
-| `ai-search/04-indexer.json`                | Ties it together; daily schedule (`PT24H`)                                     |
-| `function-app/function_app.py`             | The two HTTP endpoints (Python v2 model)                                       |
-| `function-app/requirements.txt`            | Python dependencies                                                            |
-| `function-app/host.json`                   | Functions host config (10-min timeout)                                         |
-| `function-app/local.settings.json.example` | App settings template                                                          |
-| `CHATBOT-BACKEND-PLAN.md`                  | Backlog: new `POST /chat` route + retrieval/indexing fixes (not implemented)   |
+| Path                                                           | What it is                                                                           |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `ai-search/01-datasource.json`                                 | SharePoint data source — scoped to the two folders only                              |
+| `ai-search/ai-search-updated/smartbid-docs-index.json`         | Vector index + vectorizer + semantic config + `sectionPath` (current)                |
+| `ai-search/ai-search-updated/smartbid-docs-skillset.json`      | Custom chunking skill + Azure OpenAI embedding + index projections (current)         |
+| `ai-search/ai-search-updated/smartbid-docs-indexer.json`       | Ties it together; `PT6H` schedule (current)                                          |
+| `ai-search/02-index.json` `03-skillset.json` `04-indexer.json` | **Superseded** by `ai-search-updated/` — kept only as reference                      |
+| `function-app/function_app.py`                                 | The four HTTP routes (Python v2 model)                                               |
+| `function-app/document_structure.py`                           | Section-aware Markdown chunking used by `POST /skills/chunk` (standard library only) |
+| `function-app/requirements.txt`                                | Python dependencies                                                                  |
+| `function-app/host.json`                                       | Functions host config (10-min timeout)                                               |
+| `function-app/local.settings.json.example`                     | App settings template                                                                |
+| `CHATBOT-BACKEND-PLAN.md`                                      | Original chatbot backlog — `/chat` and the retrieval fixes are now implemented       |
 
 ---
 
@@ -93,14 +96,36 @@ App B needs **admin consent** for the Graph application permissions.
 **Fill the placeholders** (`<...>`) in the JSON files:
 
 - `01-datasource.json` → `<APP_B_CLIENT_ID>`, `<APP_B_CLIENT_SECRET>`, `<TENANT_ID>` (App B = `opgbbes-prd-search-aadapp`; or use a federated credential — see below)
-- `02-index.json` and `03-skillset.json` → already filled for `cog-opgb-bes-prd-ai-openai` / `text-embedding-3-small` (1536 dims)
+- `ai-search-updated/*.json` → already filled for `cog-opgbbes-openai-prd` / `text-embedding-3-small` (1536 dims), for the search service `srch-opgbbes-prd` and for the Function App `fa-opgb-bes-prd-fa`
 
-**Deploy order** (REST, `Content-Type: application/json`, `api-key: <search-admin-key>`):
+**Chunking is done by our own custom skill**, not by the built-in `SplitSkill`. The
+SharePoint indexer never exposes `/document/file_data`, so the built-in **Document Layout**
+skill cannot run against this data source. `smartbid-docs-skillset.json` therefore calls
+`POST /skills/chunk` on the Function App, which rebuilds each document's outline as Markdown,
+drops the header/footer that repeats on every page, and emits one chunk per section plus a
+per-document outline chunk. Before deploying the skillset:
+
+1. Enable the **system-assigned managed identity** on `srch-opgbbes-prd` and note its client id.
+2. If the Function App's API app registration (`opgbbes-prd-fa-aadapp`) has
+   **Assignment required = Yes**, assign that managed identity to the enterprise application.
+3. If EasyAuth uses an **allowed client applications** list, add the same client id.
+
+The skill's `authResourceId` is already set to `api://opgbbes-prd-fa-aadapp.oceaneering.com`.
+
+**Deploy order** (REST, `api-version=2026-05-01-preview`, `Content-Type: application/json`, `api-key: <search-admin-key>`):
 
 1. `POST /datasources` ← `01-datasource.json`
-2. `POST /indexes` ← `02-index.json`
-3. `POST /skillsets` ← `03-skillset.json`
-4. `POST /indexers` ← `04-indexer.json`
+2. `POST /indexes` ← `ai-search-updated/smartbid-docs-index.json`
+3. `POST /skillsets` ← `ai-search-updated/smartbid-docs-skillset.json`
+4. `POST /indexers` ← `ai-search-updated/smartbid-docs-indexer.json`
+5. `POST /indexers/smartbid-docs-indexer/reset` then `POST /indexers/smartbid-docs-indexer/run`
+
+> **Updating an existing index:** Azure AI Search lets you add fields but not change
+> `searchable` on an existing one, and this definition flips `docRevision` to searchable and
+> adds `sectionPath`. So a `PUT` over the previous index fails — delete and recreate it. The
+> index holds only data derived from SharePoint, so nothing is lost; the library is fully
+> rebuilt by the indexer run. The `reset` is mandatory whenever the chunking strategy changes,
+> otherwise only modified files are reprocessed.
 
 **Scope:** only the `Datasheets` and `Manuals and Catalogs` folders of `smartBidDocs`
 are indexed (via `includeFolder`). `photos`, `Queries`, `Quotations` are excluded.
@@ -126,7 +151,7 @@ Renaming those folders breaks incremental indexing and requires updating the que
 
 ---
 
-## 3. Function App — the two endpoints
+## 3. Function App — the HTTP routes
 
 ### Recommended stack
 
@@ -147,8 +172,25 @@ Node.js/TypeScript and C#/.NET are equally supported if the team prefers one lan
 
 ### Endpoints
 
+Called by the web part:
+
 - `POST /scope/generate` — client document → Scope of Supply (RAG grounded on `smartbid-docs-index`).
 - `POST /quotation/extract` — supplier quotation → structured line items (no RAG).
+- `POST /chat` — knowledge Q&A over the indexed library. Retrieval runs on the **last question
+  only**, uses the semantic ranker with a hybrid fallback, groups hits per document and returns
+  the excerpts it used so retrieval can be inspected from the UI.
+
+Called by the AI Search indexer (managed identity, never by the browser):
+
+- `POST /skills/chunk` — [custom Web API skill](https://learn.microsoft.com/azure/search/cognitive-search-custom-skill-web-api).
+  Receives `/document/content` plus the catalogue columns and returns one chunk per section.
+  Each chunk carries `text` (stored and shown to the model) and `content` (the same text
+  prefixed with the document metadata, which is what gets embedded). A failing record is
+  reported on its own and never fails the batch.
+
+Retrieval is deliberately tuned differently per route: `/scope/generate` keeps 5 focused
+excerpts and skips the outline chunks, while `/chat` pulls many chunks and deduplicates them
+per document. Do not merge the two helpers.
 
 SmartBid **always sends its own system prompt** (`systemPrompt` + `promptVersion`) from
 `src/webparts/smartBid20/app/config/ai.prompts.ts`. The backend appends the retrieved
@@ -161,11 +203,12 @@ contract is
 
 ### Per-user authorization
 
-EasyAuth authenticates the caller and injects the identity into request headers; the Function then
-**authorizes per user** — it returns **403** unless the caller carries the `SmartBid.User` app role,
-and logs the caller UPN on every call (see §6 for the Entra setup that makes this effective).
-The Entra app role assignment is the **single source of truth**: there is no UPN allowlist and no
-bypass, and a missing/misconfigured role name fails **closed**.
+EasyAuth is the gate: Entra ID only issues a token for this API to users assigned to the
+Function App's app registration (see §6), and EasyAuth rejects anything else before the request
+reaches the code. The Function itself **logs the caller UPN on every call** from the
+`X-MS-CLIENT-PRINCIPAL` header, for per-user visibility — it does not re-check an app role
+today. There is deliberately no UPN allowlist: access is granted only in Entra ID, so it stays
+auditable and follows the user's lifecycle.
 
 ### Scanned documents
 
@@ -177,16 +220,36 @@ Document Intelligence required**.
 
 ```
 FUNCTIONS_WORKER_RUNTIME       = python
-AZURE_OPENAI_ENDPOINT          = https://cog-opgb-bes-prd-ai-openai.openai.azure.com
+AZURE_OPENAI_ENDPOINT          = https://cog-opgbbes-openai-prd.openai.azure.com
 AZURE_OPENAI_CHAT_DEPLOYMENT   = gpt-5-mini
 AZURE_OPENAI_API_VERSION       = 2025-04-01-preview     # gpt-5-mini needs a 2025 preview version; GA versions (e.g. 2024-10-21) reject the model
 AZURE_SEARCH_ENDPOINT          = https://srch-opgbbes-prd.search.windows.net
 AZURE_SEARCH_INDEX             = smartbid-docs-index
-REQUIRED_APP_ROLE              = SmartBid.User          # app role a caller's token must carry (see §6)
+AZURE_SEARCH_SEMANTIC_CONFIG   = smartbid-semantic-config   # optional — semantic ranker used by /chat
 MAX_DOC_CHARS                  = 200000                 # optional — cap on analyzed text
 MAX_VISION_PAGES               = 20                     # optional — cap on pages sent to vision OCR
 AI_DEBUG_ERRORS                = false                  # optional — when true, HTTP 500 responses echo the upstream error message (triage only)
 ```
+
+Optional tuning for `/chat` and for the indexer skill — all have working defaults, so set them
+only to change behaviour without a redeploy:
+
+```
+CHAT_DEFAULT_TOP_K             = 20      # chunks requested per question
+CHAT_MAX_TOP_K                 = 50
+CHAT_MAX_DOCUMENTS             = 8       # distinct documents kept after grouping
+CHAT_MAX_CHUNKS_PER_DOC        = 2       # sections kept per document
+CHAT_MAX_CONTEXT_CHARS         = 40000
+CHAT_MAX_HISTORY               = 6       # conversation turns forwarded to the model
+SKILL_CHUNK_MAX_CHARS          = 4000    # ceiling; a section is only split above this
+SKILL_CHUNK_MIN_CHARS          = 1200    # floor; small consecutive sections are merged
+SKILL_CHUNK_OVERLAP_CHARS      = 400     # applies only when a section has to be split
+SKILL_MAX_DOC_CHARS            = 400000  # oversized documents are truncated, not failed
+```
+
+> Chunk size is **adaptive**: the section is the unit, and these three values are only
+> guardrails. On a 14-page technical proposal the resulting chunks measured 900–2,100
+> characters and the 4,000 ceiling was never reached.
 
 The Function reads these at runtime via `os.environ[...]` — endpoints are **never hardcoded**
 in `function_app.py`, so IT can change a resource without editing or redeploying code.
@@ -203,6 +266,9 @@ AI Search index vectorizer and skillset, never by the Function App.
 | Function App managed identity | `Cognitive Services OpenAI User` | Azure OpenAI                                                          |
 | Function App managed identity | `Search Index Data Reader`       | Azure AI Search                                                       |
 | AI Search managed identity    | `Cognitive Services OpenAI User` | Azure OpenAI (for the vectorizer/skillset embeddings during indexing) |
+
+The indexer also calls the Function App's custom skill. That one is **not** an Azure RBAC role:
+it is an Entra ID assignment on the `opgbbes-prd-fa-aadapp` app registration — see §2.
 
 ---
 
@@ -247,12 +313,10 @@ that app could still _request_ a token. Authentication alone is therefore not en
    user/group** → select the approved users (or an Entra security group) → role **SmartBid User**
    → **Assign**.
 
-**Layer 2 — Function App code (defense-in-depth):** `function_app.py` reads the EasyAuth
-`X-MS-CLIENT-PRINCIPAL` header and returns **403** unless the caller has the `SmartBid.User` role.
-It logs the caller UPN on every call. Configure the role name via the `REQUIRED_APP_ROLE` app
-setting (§3). **Default-deny:** no role claim, no header, or an unset role name → every call is
-rejected. There is deliberately **no UPN allowlist** — access is granted only in Entra ID, so it
-stays auditable and follows the user's lifecycle.
+**Layer 2 — Function App code:** `function_app.py` reads the EasyAuth `X-MS-CLIENT-PRINCIPAL`
+header and **logs the caller UPN on every call**. A second in-code check of the `SmartBid.User`
+role (`REQUIRED_APP_ROLE`) is **not implemented today** — Layer 1 is what restricts access. Add
+it if defence-in-depth is required; until then, do not rely on the app setting.
 
 > This is what limits AI usage to the approved users, and gives per-user visibility (who
 > called, when, errors) — without any extra integration layer.

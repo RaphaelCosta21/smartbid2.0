@@ -17,7 +17,7 @@
   border-radius: 4px;
   background: var(--input-bg, rgba(255, 255, 255, 0.08));
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.4;
 
   &:focus {
@@ -34,13 +34,13 @@
 
 .monoText {
   font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
-  font-size: 13px;
+  font-size: 11px;
   color: var(--text-primary);
   letter-spacing: 0.3px;
 }
 
 .plainText {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--text-primary);
 }
 

@@ -137,6 +137,10 @@ export const useQueryCatalogStore = create<QueryCatalogState>((set, get) => ({
     if (get().isLoaded || get().isLoading) return;
     set({ isLoading: true, error: null });
     try {
+      // Let the loading banner paint before the XLSX parse blocks the main thread.
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => setTimeout(resolve, 0)),
+      );
       const data = await QueryCatalogService.loadCatalog();
 
       // Build prefix indexes (3-char key) for fast lookup

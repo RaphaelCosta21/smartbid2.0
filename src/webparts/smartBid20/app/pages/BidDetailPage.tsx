@@ -31,7 +31,10 @@ import {
   getSectionFromPatch,
   appendRevisionChanges,
 } from "../utils/revisionHelpers";
-import { IntegratedDivisionTabs } from "../components/common/IntegratedDivisionTabs";
+import {
+  IntegratedDivisionTabs,
+  resolveDivisions,
+} from "../components/common/IntegratedDivisionTabs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useUIStore } from "../stores/useUIStore";
 import { useConfigStore } from "../stores/useConfigStore";
@@ -63,6 +66,7 @@ import { EditControlService } from "../services/EditControlService";
 import { useEditControl } from "../hooks/useEditControl";
 import { EditableTabContent } from "../components/common/EditLockBanner";
 import { ClarificationSuggestionsModal } from "../components/bid/ClarificationSuggestionsModal";
+import { CollapsibleSidebar } from "../components/common/CollapsibleSidebar";
 import { mapSuggestedClarification } from "../utils/aiClarificationMapper";
 import styles from "./BidDetailPage.module.scss";
 
@@ -319,10 +323,32 @@ export const BidDetailPage: React.FC = () => {
         });
       } catch (err) {
         console.error("Failed to save BID:", err);
-        useBidStore.getState().setBids(currentBids);
+        // PnP keeps the SharePoint error text in the raw response, not in message
+        const httpErr = err as { response?: { text?: () => Promise<string> } };
+        if (httpErr?.response?.text) {
+          httpErr.response
+            .text()
+            .then((body) => console.error("SharePoint response:", body))
+            .catch(() => {});
+        }
+        // Roll back only this BID so other edits made meanwhile are kept
+        useBidStore
+          .getState()
+          .setBids(
+            useBidStore
+              .getState()
+              .bids.map((b) => (b.bidNumber === id ? currentBid : b)),
+          );
+        addToast({
+          type: "error",
+          title: "Changes were not saved",
+          message:
+            (err instanceof Error ? err.message : String(err)) ||
+            "SharePoint rejected the update. Your last change was reverted.",
+        });
       }
     },
-    [id, currentUser],
+    [id, currentUser, addToast],
   );
 
   /** Builds a human-readable description of the patch for activity log */
@@ -649,15 +675,17 @@ export const BidDetailPage: React.FC = () => {
       </div>
 
       {/* Sidebar + Content Layout */}
-      <div
-        className={`${styles.detailLayout} ${navCollapsed ? styles.detailLayoutCollapsed : ""}`}
-      >
+      <div className={styles.detailLayout}>
         {/* Sidebar Nav */}
-        <nav
-          className={`${styles.sideNav} ${navCollapsed ? styles.sideNavCollapsed : ""}`}
-        >
-          {navCollapsed
-            ? visibleGroups.map((group) =>
+        <CollapsibleSidebar
+          label="BID sections"
+          collapsed={navCollapsed}
+          onToggle={() => setNavCollapsed((collapsed) => !collapsed)}
+          sticky
+          stickyTop={16}
+          collapsedContent={
+            <nav className={`${styles.sideNav} ${styles.sideNavCollapsed}`}>
+              {visibleGroups.map((group) =>
                 group.items.map((item) => (
                   <button
                     key={item.key}
@@ -668,23 +696,28 @@ export const BidDetailPage: React.FC = () => {
                     <span className={styles.navIcon}>{item.icon}</span>
                   </button>
                 )),
-              )
-            : visibleGroups.map((group) => (
-                <div key={group.group} className={styles.navGroup}>
-                  <div className={styles.navGroupLabel}>{group.group}</div>
-                  {group.items.map((item) => (
-                    <button
-                      key={item.key}
-                      className={`${styles.navItem} ${activeTab === item.key ? styles.navItemActive : ""}`}
-                      onClick={() => setActiveTab(item.key)}
-                    >
-                      <span className={styles.navIcon}>{item.icon}</span>
-                      <span className={styles.navLabel}>{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-              ))}
-        </nav>
+              )}
+            </nav>
+          }
+        >
+          <nav className={styles.sideNav}>
+            {visibleGroups.map((group) => (
+              <div key={group.group} className={styles.navGroup}>
+                <div className={styles.navGroupLabel}>{group.group}</div>
+                {group.items.map((item) => (
+                  <button
+                    key={item.key}
+                    className={`${styles.navItem} ${activeTab === item.key ? styles.navItemActive : ""}`}
+                    onClick={() => setActiveTab(item.key)}
+                  >
+                    <span className={styles.navIcon}>{item.icon}</span>
+                    <span className={styles.navLabel}>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </nav>
+        </CollapsibleSidebar>
 
         {/* Main Content */}
         <div className={styles.tabContent}>
@@ -1320,7 +1353,13 @@ export const BidDetailPage: React.FC = () => {
                       items: typeof fullSummary.engineeringHours.engineeringItems,
                     ) =>
                       _div && items
-                        ? items.filter((i) => engScopeIds.has(i.scopeItemId))
+                        ? items.filter((i) =>
+                            i.source === "manual" || !i.scopeItemId
+                              ? // Standalone items predating division tagging stay visible
+                                !i.integratedDivision ||
+                                i.integratedDivision === _div
+                              : engScopeIds.has(i.scopeItemId),
+                          )
                         : items;
 
                     const filteredSummary: typeof fullSummary = _div
@@ -1463,9 +1502,15 @@ export const BidDetailPage: React.FC = () => {
                                     return acc;
                                   }, []),
                               );
-                              const others = origItems.filter((i) =>
-                                otherScopeIds.has(i.scopeItemId),
-                              );
+                              const others = origItems.filter((i) => {
+                                if (i.source === "manual" || !i.scopeItemId) {
+                                  return (
+                                    !!i.integratedDivision &&
+                                    i.integratedDivision !== _div
+                                  );
+                                }
+                                return otherScopeIds.has(i.scopeItemId);
+                              });
                               return [...others, ...updItems];
                             };
 
@@ -1558,6 +1603,7 @@ export const BidDetailPage: React.FC = () => {
                           }
                         }}
                         integratedDivision={_div}
+                        availableDivisions={resolveDivisions(bid.serviceLine)}
                         scopeItems={filteredScope}
                         tabNotes={
                           (bid.bidNotes as Record<string, string>)?.hours || ""

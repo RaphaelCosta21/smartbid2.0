@@ -76,7 +76,11 @@ export interface IAiConfig {
   apiBaseUrl: string;
   /** Entra ID (MSAL) settings used to obtain the per-user access token. */
   auth: IAiAuthConfig;
-  /** Abort a request after this many ms. */
+  /**
+   * Abort a request after this many ms. Must stay under 230 s: that is the Azure
+   * Load Balancer idle timeout, and an HTTP-triggered Function cannot respond
+   * after it regardless of `functionTimeout`.
+   */
   requestTimeoutMs: number;
   /** Settings for the floating knowledge chat assistant. */
   chat: IAiChatConfig;
@@ -112,7 +116,7 @@ export const AI_CONFIG: IAiConfig = {
     redirectUri:
       "https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering",
   },
-  requestTimeoutMs: 280000,
+  requestTimeoutMs: 230000,
   chat: {
     maxHistoryTurns: 3,
     idleResetMs: 600000,

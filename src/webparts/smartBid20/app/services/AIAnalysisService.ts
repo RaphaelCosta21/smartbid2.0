@@ -512,6 +512,7 @@ export class AIAnalysisService {
       out.push({
         title,
         url: String(r.url || "").trim(),
+        section: String(r.section || "").trim(),
         snippet: String(r.snippet || "")
           .trim()
           .substring(0, 200),
@@ -625,15 +626,34 @@ export class AIAnalysisService {
     const rawItems = raw.items || raw.quotations;
     const list = Array.isArray(rawItems) ? rawItems : [];
     const items: IExtractedQuotationLine[] = [];
+    let foldedCount = 0;
     list.forEach((entry: Record<string, unknown>) => {
       const it = entry || {};
       const description = String(it.description || "").trim();
       const cost = typeof it.cost === "number" ? it.cost : Number(it.cost) || 0;
       if (!description && cost <= 0) return;
+      const partNumber = String(it.partNumber || it.oiiPartNumber || "");
+      const included = String(it.includedComponents || "").trim();
+      // Quotation tables bundle accessories/spec rows priced 0 under the
+      // position above them. When the model still returns them as standalone
+      // entries, fold them back into the parent instead of registering extra
+      // catalog items.
+      const parent = items[items.length - 1];
+      if (cost <= 0 && parent && parent.cost > 0) {
+        const label = [partNumber, description].filter(Boolean).join(" - ");
+        if (label) {
+          parent.includedComponents = parent.includedComponents
+            ? `${parent.includedComponents}; ${label}`
+            : label;
+          foldedCount += 1;
+        }
+        return;
+      }
       items.push({
-        partNumber: String(it.partNumber || it.oiiPartNumber || ""),
+        partNumber,
         description,
         supplier: String(it.supplier || ""),
+        reference: String(it.reference || it.quotationRef || "").trim(),
         cost,
         currency: String(it.currency || "USD").toUpperCase(),
         leadTimeDays:
@@ -642,6 +662,7 @@ export class AIAnalysisService {
             : Number(it.leadTimeDays) || 0,
         quotationDate: String(it.quotationDate || ""),
         type: it.type === "rental" ? "rental" : "acquisition",
+        includedComponents: included || undefined,
         notes: String(it.notes || ""),
         suggestedGroupName: it.suggestedGroupName
           ? String(it.suggestedGroupName)
@@ -656,6 +677,11 @@ export class AIAnalysisService {
     const warnings = Array.isArray(raw.warnings)
       ? raw.warnings.map(String)
       : [];
+    if (foldedCount > 0) {
+      warnings.push(
+        `${foldedCount} zero-priced row${foldedCount > 1 ? "s were" : " was"} merged into the item above as included components.`,
+      );
+    }
     if (items.length === 0) {
       warnings.push(
         "No quotation items could be extracted. Try a clearer file or enter them manually.",

@@ -17,7 +17,7 @@ import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { makeId } from "../../utils/idGenerator";
 import { AIDocumentAnalyzer } from "../common/AIDocumentAnalyzer";
 import { PartNumberAutocomplete } from "../common/PartNumberAutocomplete";
-import { EquipmentImportModal } from "./EquipmentImportModal";
+import { EquipmentImportModal, IImportPick } from "./EquipmentImportModal";
 import { ImportSourceModal } from "../common/ImportSourceModal";
 import { AttachmentService } from "../../services/AttachmentService";
 import styles from "./ScopeOfSupplyTab.module.scss";
@@ -311,6 +311,12 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     itemId: string;
     subId: string;
   } | null>(null);
+  const [catalogImportSectionId, setCatalogImportSectionId] = React.useState<
+    string | null
+  >(null);
+  const [catalogSubImportItemId, setCatalogSubImportItemId] = React.useState<
+    string | null
+  >(null);
 
   // Debounced save to prevent input lag
   const saveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -412,6 +418,37 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       newItem.resourceType = resourceTypeFilter;
     }
     persist([...items, newItem]);
+  };
+
+  /** Create one row per catalog record picked in the Import Equipment modal */
+  const addItemsFromCatalog = (
+    sectionId: string | null,
+    picks: IImportPick[],
+  ): void => {
+    const newItems = picks.map((pick, idx) => {
+      const newItem = blankItem(sectionId, items.length + idx + 1);
+      newItem.equipmentOffer = pick.description;
+      newItem.partNumber = pick.partNumber;
+      newItem.qtyOperational = 1;
+      newItem.qtySpare = 0;
+      // Pre-fill resource type when adding from a filtered view
+      if (resourceTypeFilter !== "all") {
+        newItem.resourceType = resourceTypeFilter;
+      }
+      if (pick.subItems && pick.subItems.length > 0) {
+        newItem.subItems = pick.subItems.map((s) => ({
+          id: makeId("sub"),
+          description: s.description,
+          subType: "Accessory",
+          equipmentOffer: s.description,
+          partNumber: s.partNumber,
+          qty: 1,
+          comments: "",
+        }));
+      }
+      return newItem;
+    });
+    persist([...items, ...newItems]);
   };
 
   const duplicateSection = (sectionId: string): void => {
@@ -895,6 +932,36 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     const updated = items.map((i) =>
       i.id === itemId
         ? { ...i, subItems: [...(i.subItems || []), blankSubItem()] }
+        : i,
+    );
+    persist(updated);
+  };
+
+  /** Create one sub-item per catalog record picked in the Import Equipment modal */
+  const addSubItemsFromCatalog = (
+    itemId: string,
+    picks: IImportPick[],
+  ): void => {
+    const newSubs: IScopeSubItem[] = [];
+    picks.forEach((pick) => {
+      newSubs.push({
+        ...blankSubItem(),
+        equipmentOffer: pick.description,
+        partNumber: pick.partNumber,
+      });
+      // Sub-items cannot nest, so a pick's children land as siblings
+      (pick.subItems || []).forEach((child) => {
+        newSubs.push({
+          ...blankSubItem(),
+          subType: "Accessory",
+          equipmentOffer: child.description,
+          partNumber: child.partNumber,
+        });
+      });
+    });
+    const updated = items.map((i) =>
+      i.id === itemId
+        ? { ...i, subItems: [...(i.subItems || []), ...newSubs] }
         : i,
     );
     persist(updated);
@@ -1555,6 +1622,15 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                   onClick={() => addItem(item.id)}
                                 >
                                   + Item
+                                </button>
+                                <button
+                                  className={`${styles.actionBtn} ${styles.edit}`}
+                                  onClick={() =>
+                                    setCatalogImportSectionId(item.id)
+                                  }
+                                  title="Add Items from Catalog"
+                                >
+                                  + From Catalog
                                 </button>
                                 <select
                                   className={styles.setAllSelect}
@@ -2244,7 +2320,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                           </select>
                         )}
                       </td>
-                      <td>
+                      <td className={styles.subTypeCell}>
                         {readOnly ? (
                           item.resourceSubType || "—"
                         ) : (
@@ -2676,6 +2752,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                             <option value="Spare Part">
                                               Spare Part
                                             </option>
+                                            <option value="Part">Part</option>
                                             <option value="Accessory">
                                               Accessory
                                             </option>
@@ -2794,6 +2871,9 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                                 </option>
                                                 <option value="Spare Part">
                                                   Spare Part
+                                                </option>
+                                                <option value="Part">
+                                                  Part
                                                 </option>
                                                 <option value="Accessory">
                                                   Accessory
@@ -3019,6 +3099,32 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </svg>
                                           Add Sub-Item
                                         </button>
+                                        <button
+                                          className={styles.addSubBtn}
+                                          onClick={() =>
+                                            setCatalogSubImportItemId(item.id)
+                                          }
+                                          title="Add Sub-Items from Catalog"
+                                        >
+                                          <svg
+                                            viewBox="0 0 24 24"
+                                            width="11"
+                                            height="11"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                          >
+                                            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                                            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                                            <line
+                                              x1="12"
+                                              y1="22.08"
+                                              x2="12"
+                                              y2="12"
+                                            />
+                                          </svg>
+                                          From Catalog
+                                        </button>
                                       </div>
                                     )}
                                   </div>
@@ -3029,33 +3135,63 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                       parts, or accessories below.
                                     </p>
                                     {!readOnly && (
-                                      <button
-                                        className={styles.addSubBtn}
-                                        onClick={() => addSubItem(item.id)}
+                                      <div
+                                        className={styles.drawerEmptyActions}
                                       >
-                                        <svg
-                                          viewBox="0 0 24 24"
-                                          width="11"
-                                          height="11"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
+                                        <button
+                                          className={styles.addSubBtn}
+                                          onClick={() => addSubItem(item.id)}
                                         >
-                                          <line
-                                            x1="12"
-                                            y1="5"
-                                            x2="12"
-                                            y2="19"
-                                          />
-                                          <line
-                                            x1="5"
-                                            y1="12"
-                                            x2="19"
-                                            y2="12"
-                                          />
-                                        </svg>
-                                        Add Sub-Item
-                                      </button>
+                                          <svg
+                                            viewBox="0 0 24 24"
+                                            width="11"
+                                            height="11"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                          >
+                                            <line
+                                              x1="12"
+                                              y1="5"
+                                              x2="12"
+                                              y2="19"
+                                            />
+                                            <line
+                                              x1="5"
+                                              y1="12"
+                                              x2="19"
+                                              y2="12"
+                                            />
+                                          </svg>
+                                          Add Sub-Item
+                                        </button>
+                                        <button
+                                          className={styles.addSubBtn}
+                                          onClick={() =>
+                                            setCatalogSubImportItemId(item.id)
+                                          }
+                                          title="Add Sub-Items from Catalog"
+                                        >
+                                          <svg
+                                            viewBox="0 0 24 24"
+                                            width="11"
+                                            height="11"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                          >
+                                            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                                            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                                            <line
+                                              x1="12"
+                                              y1="22.08"
+                                              x2="12"
+                                              y2="12"
+                                            />
+                                          </svg>
+                                          From Catalog
+                                        </button>
+                                      </div>
                                     )}
                                   </div>
                                 )}
@@ -3472,6 +3608,9 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                                 </option>
                                                 <option value="Spare Part">
                                                   Spare Part
+                                                </option>
+                                                <option value="Part">
+                                                  Part
                                                 </option>
                                                 <option value="Accessory">
                                                   Accessory
@@ -3920,6 +4059,30 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
             setImportSubTarget(null);
           }}
           onClose={() => setImportSubTarget(null)}
+        />
+      )}
+
+      {/* Bulk "Add Items from Catalog" — one new row per picked record */}
+      {catalogImportSectionId && (
+        <EquipmentImportModal
+          multiSelect
+          onSelectMany={(picks) => {
+            addItemsFromCatalog(catalogImportSectionId, picks);
+            setCatalogImportSectionId(null);
+          }}
+          onClose={() => setCatalogImportSectionId(null)}
+        />
+      )}
+
+      {/* Bulk "From Catalog" for sub-items — one new sub-item per picked record */}
+      {catalogSubImportItemId && (
+        <EquipmentImportModal
+          multiSelect
+          onSelectMany={(picks) => {
+            addSubItemsFromCatalog(catalogSubImportItemId, picks);
+            setCatalogSubImportItemId(null);
+          }}
+          onClose={() => setCatalogSubImportItemId(null)}
         />
       )}
 

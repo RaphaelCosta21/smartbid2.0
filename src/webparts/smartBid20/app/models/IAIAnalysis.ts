@@ -179,6 +179,8 @@ export interface IExtractedQuotationLine {
   description: string;
   /** Supplier / vendor name. */
   supplier: string;
+  /** Supplier's quotation number/reference (same for every line of a document). */
+  reference?: string;
   /** Unit cost or day rate in the original currency. */
   cost: number;
   /** ISO currency code (USD, BRL, EUR, …). */
@@ -189,6 +191,8 @@ export interface IExtractedQuotationLine {
   quotationDate: string;
   /** "acquisition" (buy) or "rental" (day rate). */
   type: "acquisition" | "rental";
+  /** Accessories/spares bundled in this position ("partNumber - description", "; " separated). */
+  includedComponents?: string;
   /** Free-form notes. */
   notes: string;
   /** AI-suggested group NAME (mapped to a config id in the UI). */

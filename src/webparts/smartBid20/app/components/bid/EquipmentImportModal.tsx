@@ -27,15 +27,25 @@ export interface IImportSubItem {
   description: string;
 }
 
+/** One catalog record picked in multi-select mode */
+export interface IImportPick {
+  partNumber: string;
+  description: string;
+  subItems?: IImportSubItem[];
+}
+
 export interface EquipmentImportModalProps {
-  /** Called when user picks an item — fills equipmentOffer (desc) + partNumber (pn), optionally with sub-items */
-  onSelect: (
+  /** Called when user picks an item — fills equipmentOffer (desc) + partNumber (pn), optionally with sub-items. Unused in multiSelect mode. */
+  onSelect?: (
     partNumber: string,
     description: string,
     subItems?: IImportSubItem[],
   ) => void;
   /** Close the modal without selection */
   onClose: () => void;
+  /** Pick several records at once; Confirm then fires onSelectMany instead of onSelect */
+  multiSelect?: boolean;
+  onSelectMany?: (picks: IImportPick[]) => void;
 }
 
 /* ────────── tab definition ────────── */
@@ -170,6 +180,8 @@ const TABS: TabDef[] = [
 export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   onSelect,
   onClose,
+  multiSelect = false,
+  onSelectMany,
 }) => {
   const [activeTab, setActiveTab] = React.useState<TabId>("favorites");
   const [search, setSearch] = React.useState("");
@@ -178,6 +190,8 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     desc: string;
     subs?: IImportSubItem[];
   } | null>(null);
+  // Multi-select picks survive tab changes so sources can be mixed in one import
+  const [selectedMany, setSelectedMany] = React.useState<IImportPick[]>([]);
 
   // ── Favorites store ──
   const favData = useFavoritesStore((s) => s.data);
@@ -342,8 +356,37 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     return searchWords.every((w) => lower.indexOf(w) >= 0);
   };
 
+  const pickKey = (pn: string, desc: string): string => `${pn}||${desc}`;
+
+  const isRowSelected = (pn: string, desc: string): boolean => {
+    if (multiSelect) {
+      const key = pickKey(pn, desc);
+      return selectedMany.some(
+        (p) => pickKey(p.partNumber, p.description) === key,
+      );
+    }
+    return selectedItem?.pn === pn && selectedItem?.desc === desc;
+  };
+
+  const togglePick = (
+    pn: string,
+    desc: string,
+    subs?: IImportSubItem[],
+  ): void => {
+    const key = pickKey(pn, desc);
+    setSelectedMany((prev) =>
+      prev.some((p) => pickKey(p.partNumber, p.description) === key)
+        ? prev.filter((p) => pickKey(p.partNumber, p.description) !== key)
+        : [...prev, { partNumber: pn, description: desc, subItems: subs }],
+    );
+  };
+
   const handleConfirm = (): void => {
-    if (selectedItem) {
+    if (multiSelect) {
+      if (selectedMany.length > 0 && onSelectMany) onSelectMany(selectedMany);
+      return;
+    }
+    if (selectedItem && onSelect) {
       onSelect(selectedItem.pn, selectedItem.desc, selectedItem.subs);
     }
   };
@@ -353,6 +396,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     desc: string,
     subs?: IImportSubItem[],
   ): void => {
+    if (multiSelect) {
+      togglePick(pn, desc, subs);
+      return;
+    }
     setSelectedItem({ pn, desc, subs });
   };
 
@@ -361,8 +408,41 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     desc: string,
     subs?: IImportSubItem[],
   ): void => {
-    onSelect(pn, desc, subs);
+    // In multi mode the two click events already toggled the row back and forth
+    if (multiSelect) return;
+    if (onSelect) onSelect(pn, desc, subs);
   };
+
+  /** Trailing cell of every result row: a checkbox in multi mode, instant-select button otherwise */
+  const renderSelectCell = (
+    pn: string,
+    desc: string,
+    subs?: IImportSubItem[],
+  ): JSX.Element => (
+    <div className={styles.colAction}>
+      {multiSelect ? (
+        <input
+          type="checkbox"
+          className={styles.rowCheckbox}
+          checked={isRowSelected(pn, desc)}
+          onClick={(e) => e.stopPropagation()}
+          onChange={() => togglePick(pn, desc, subs)}
+          title="Select"
+        />
+      ) : (
+        <button
+          className={styles.selectBtn}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onSelect) onSelect(pn, desc, subs);
+          }}
+          title="Select"
+        >
+          {CheckIcon}
+        </button>
+      )}
+    </div>
+  );
 
   /** Get child equipment items for a parent favorite */
   const getChildEquipment = (parentId: string): IFavoriteEquipment[] => {
@@ -505,9 +585,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                     const hasChildren = children.length > 0;
                     const isExpanded = expandedFavItems.has(eq.id);
                     const subsIncluded = includeSubItems.has(eq.id);
-                    const isSelected =
-                      selectedItem?.pn === eq.partNumber &&
-                      selectedItem?.desc === eq.description;
+                    const isSelected = isRowSelected(
+                      eq.partNumber,
+                      eq.description,
+                    );
 
                     const subsPayload = subsIncluded
                       ? buildSubItems(eq.id)
@@ -593,22 +674,11 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                               </span>
                             )}
                           </div>
-                          <div className={styles.colAction}>
-                            <button
-                              className={styles.selectBtn}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onSelect(
-                                  eq.partNumber,
-                                  eq.description,
-                                  subsPayload,
-                                );
-                              }}
-                              title="Select"
-                            >
-                              {CheckIcon}
-                            </button>
-                          </div>
+                          {renderSelectCell(
+                            eq.partNumber,
+                            eq.description,
+                            subsPayload,
+                          )}
                         </div>
 
                         {/* Sub-items expansion */}
@@ -621,15 +691,30 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                                   checked={subsIncluded}
                                   onChange={() => {
                                     toggleIncludeSubItems(eq.id);
-                                    // Update selection if this item is selected
-                                    if (isSelected) {
-                                      const nextInclude = !subsIncluded;
+                                    const nextSubs = !subsIncluded
+                                      ? buildSubItems(eq.id)
+                                      : undefined;
+                                    // Keep an already-made selection in sync with the new payload
+                                    if (multiSelect) {
+                                      const key = pickKey(
+                                        eq.partNumber,
+                                        eq.description,
+                                      );
+                                      setSelectedMany((prev) =>
+                                        prev.map((p) =>
+                                          pickKey(
+                                            p.partNumber,
+                                            p.description,
+                                          ) === key
+                                            ? { ...p, subItems: nextSubs }
+                                            : p,
+                                        ),
+                                      );
+                                    } else if (isSelected) {
                                       setSelectedItem({
                                         pn: eq.partNumber,
                                         desc: eq.description,
-                                        subs: nextInclude
-                                          ? buildSubItems(eq.id)
-                                          : undefined,
+                                        subs: nextSubs,
                                       });
                                     }
                                   }}
@@ -703,9 +788,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
             <div className={styles.colAction}></div>
           </div>
           {filtered.map((a) => {
-            const isSelected =
-              selectedItem?.pn === a.mainPartNumber &&
-              selectedItem?.desc === a.mainDescription;
+            const isSelected = isRowSelected(
+              a.mainPartNumber,
+              a.mainDescription,
+            );
             return (
               <div
                 key={a.id}
@@ -721,18 +807,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                   {a.mainPartNumber || "—"}
                 </div>
                 <div className={styles.colDesc}>{a.mainDescription || "—"}</div>
-                <div className={styles.colAction}>
-                  <button
-                    className={styles.selectBtn}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelect(a.mainPartNumber, a.mainDescription);
-                    }}
-                    title="Select"
-                  >
-                    {CheckIcon}
-                  </button>
-                </div>
+                {renderSelectCell(a.mainPartNumber, a.mainDescription)}
               </div>
             );
           })}
@@ -778,9 +853,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
             <div className={styles.colAction}></div>
           </div>
           {filtered.slice(0, 50).map((q) => {
-            const isSelected =
-              selectedItem?.pn === q.partNumber &&
-              selectedItem?.desc === q.description;
+            const isSelected = isRowSelected(q.partNumber, q.description);
             return (
               <div
                 key={q.id}
@@ -795,18 +868,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                 </div>
                 <div className={styles.colDesc}>{q.description || "—"}</div>
                 <div className={styles.colSupplier}>{q.supplier || "—"}</div>
-                <div className={styles.colAction}>
-                  <button
-                    className={styles.selectBtn}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelect(q.partNumber, q.description);
-                    }}
-                    title="Select"
-                  >
-                    {CheckIcon}
-                  </button>
-                </div>
+                {renderSelectCell(q.partNumber, q.description)}
               </div>
             );
           })}
@@ -1167,8 +1229,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                 const pn = String(row[pnColKey] || "").trim();
                 const desc = String(row[descColKey] || "").trim();
                 const photoUrl = pn ? getPhotoUrl(pn) : "";
-                const isSelected =
-                  selectedItem?.pn === pn && selectedItem?.desc === desc;
+                const isSelected = isRowSelected(pn, desc);
                 return (
                   <div
                     key={`q-${pageStart + i}`}
@@ -1208,18 +1269,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                         {String(row[col.key] ?? "")}
                       </div>
                     ))}
-                    <div className={styles.colAction}>
-                      <button
-                        className={styles.selectBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelect(pn, desc);
-                        }}
-                        title="Select"
-                      >
-                        {CheckIcon}
-                      </button>
-                    </div>
+                    {renderSelectCell(pn, desc)}
                   </div>
                 );
               })}
@@ -1340,9 +1390,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                 <div className={styles.colAction}></div>
               </div>
               {filtered.slice(0, 80).map((item) => {
-                const isSelected =
-                  selectedItem?.pn === item.pn &&
-                  selectedItem?.desc === (item.title || item.description);
+                const isSelected = isRowSelected(
+                  item.pn || "",
+                  item.title || item.description || "",
+                );
                 return (
                   <div
                     key={item.id}
@@ -1417,21 +1468,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                         </a>
                       )}
                     </div>
-                    <div className={styles.colAction}>
-                      <button
-                        className={styles.selectBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelect(
-                            item.pn || "",
-                            item.title || item.description || "",
-                          );
-                        }}
-                        title="Select"
-                      >
-                        {CheckIcon}
-                      </button>
-                    </div>
+                    {renderSelectCell(
+                      item.pn || "",
+                      item.title || item.description || "",
+                    )}
                   </div>
                 );
               })}
@@ -1482,7 +1522,9 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
                 <line x1="12" y1="22.08" x2="12" y2="12" />
               </svg>
-              <span>Import Equipment</span>
+              <span>
+                {multiSelect ? "Add Items from Catalog" : "Import Equipment"}
+              </span>
             </div>
             <button className={styles.closeBtn} onClick={onClose} title="Close">
               {CloseIcon}
@@ -1534,7 +1576,16 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
 
           {/* Footer */}
           <div className={styles.footer}>
-            {selectedItem && (
+            {multiSelect && selectedMany.length > 0 && (
+              <div className={styles.selectedPreview}>
+                <span className={styles.selectedLabel}>Selected:</span>
+                <span className={styles.selectedCount}>
+                  {selectedMany.length} item
+                  {selectedMany.length > 1 ? "s" : ""}
+                </span>
+              </div>
+            )}
+            {!multiSelect && selectedItem && (
               <div className={styles.selectedPreview}>
                 <span className={styles.selectedLabel}>Selected:</span>
                 <span className={`${styles.selectedPn} ${styles.mono}`}>
@@ -1558,11 +1609,17 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
               </button>
               <button
                 className={styles.confirmBtn}
-                disabled={!selectedItem}
+                disabled={
+                  multiSelect ? selectedMany.length === 0 : !selectedItem
+                }
                 onClick={handleConfirm}
               >
                 {CheckIcon}
-                <span>Confirm</span>
+                <span>
+                  {multiSelect && selectedMany.length > 0
+                    ? `Confirm (${selectedMany.length})`
+                    : "Confirm"}
+                </span>
               </button>
             </div>
           </div>

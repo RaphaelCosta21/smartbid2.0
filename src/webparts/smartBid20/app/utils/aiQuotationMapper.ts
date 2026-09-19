@@ -17,6 +17,7 @@ export interface IQuotationLineDraft {
   partNumber: string;
   description: string;
   supplier: string;
+  reference: string;
   leadTimeDays: number;
   quotationDate: string;
   type: QuotationType;
@@ -99,18 +100,25 @@ export function mapExtractedQuotationLine(
     groups,
   );
   const today = new Date().toISOString().slice(0, 10);
+  const included = (ai.includedComponents || "").trim();
+  const notes = included
+    ? [`Included: ${included}`, (ai.notes || "").trim()]
+        .filter(Boolean)
+        .join("\n")
+    : ai.notes || "";
   return {
     groupId,
     subGroupId,
     partNumber: ai.partNumber || "",
     description: ai.description || "",
     supplier: ai.supplier || "",
+    reference: ai.reference || "",
     leadTimeDays: ai.leadTimeDays || 0,
     quotationDate: ai.quotationDate ? ai.quotationDate.slice(0, 10) : today,
     type: ai.type === "rental" ? "rental" : "acquisition",
     cost: ai.cost || 0,
     currency: (ai.currency || "USD").toUpperCase(),
-    notes: ai.notes || "",
+    notes,
   };
 }
 

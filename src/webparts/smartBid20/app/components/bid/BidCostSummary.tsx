@@ -96,7 +96,11 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
           }
         });
       const engDeliverableHours = (hs?.engineeringHours?.engineeringItems || [])
-        .filter((ei) => divScopeIds.has(ei.scopeItemId))
+        .filter((ei) =>
+          ei.source === "manual" || !ei.scopeItemId
+            ? ei.integratedDivision === div
+            : divScopeIds.has(ei.scopeItemId),
+        )
         .reduce((sum, ei) => sum + (ei.totalHours || 0), 0);
 
       const onItems: IHoursItem[] = (hs?.onshoreHours?.items || []).filter(

@@ -21,6 +21,8 @@ interface BidHoursTableProps {
   onSave?: (updated: IHoursSummary) => void;
   /** For division-aware BIDs — when set, shows only Onshore/Offshore sections */
   integratedDivision?: "ROV" | "SURVEY" | "OPG" | null;
+  /** All divisions this BID covers — enables picking a line for standalone engineering items */
+  availableDivisions?: ("ROV" | "SURVEY" | "OPG")[];
   /** Scope items marked as needsEngineering — drives Engineering Hours section */
   scopeItems?: IScopeItem[];
   /** Tab-level notes/comments */
@@ -56,6 +58,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
   readOnly = false,
   onSave,
   integratedDivision,
+  availableDivisions,
   scopeItems = [],
   tabNotes = "",
   onSaveTabNotes,
@@ -587,6 +590,8 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
         scopeItems={engineeringScopeItems}
         readOnly={readOnly}
         onSave={onSave ? handleEngineeringSave : undefined}
+        integratedDivision={integratedDivision}
+        availableDivisions={availableDivisions}
       />
 
       {/* Onshore & Offshore — row-based sections */}

@@ -1,35 +1,67 @@
 {
   "name": "smartbid-docs-skillset",
-  "description": "Split documents into large chunks (6000 chars, 1000 overlap) and generate embeddings for the SmartBid docs index. Large chunks keep an equipment section together with its specification table and dilute the repeated page header/footer boilerplate that made every proposal look alike.",
+  "description": "Rebuilds each document's outline as Markdown and chunks it per section instead of every N characters, so a specification table stays with its heading and the page header/footer that repeats on every page is dropped. The embedded text carries the catalogue metadata; the stored chunk keeps the readable Markdown.",
   "skills": [
     {
-      "@odata.type": "#Microsoft.Skills.Text.SplitSkill",
-      "name": "split-skill",
+      "@odata.type": "#Microsoft.Skills.Custom.WebApiSkill",
+      "name": "section-chunk-skill",
+      "description": "Section-aware Markdown chunking (Function App: POST /api/skills/chunk).",
       "context": "/document",
-      "defaultLanguageCode": "en",
-      "textSplitMode": "pages",
-      "maximumPageLength": 6000,
-      "pageOverlapLength": 1000,
-      "maximumPagesToTake": 0,
-      "unit": "characters",
+      "uri": "https://fa-opgb-bes-prd-fa.azurewebsites.net/api/skills/chunk",
+      "httpMethod": "POST",
+      "timeout": "PT3M50S",
+      "batchSize": 1,
+      "degreeOfParallelism": 2,
+      "authResourceId": "api://opgbbes-prd-fa-aadapp.oceaneering.com",
       "inputs": [
         {
-          "name": "text",
-          "source": "/document/content",
-          "inputs": []
+          "name": "content",
+          "source": "/document/content"
+        },
+        {
+          "name": "title",
+          "source": "/document/metadata_spo_item_name"
+        },
+        {
+          "name": "docType",
+          "source": "/document/DocType"
+        },
+        {
+          "name": "docCategory",
+          "source": "/document/DocCategory"
+        },
+        {
+          "name": "manufacturer",
+          "source": "/document/Manufacturer"
+        },
+        {
+          "name": "docModel",
+          "source": "/document/DocModel"
+        },
+        {
+          "name": "docKeywords",
+          "source": "/document/DocKeywords"
+        },
+        {
+          "name": "docDescription",
+          "source": "/document/DocDescription"
+        },
+        {
+          "name": "docRevision",
+          "source": "/document/DocRevision"
         }
       ],
       "outputs": [
         {
-          "name": "textItems",
-          "targetName": "pages"
+          "name": "chunks",
+          "targetName": "chunks"
         }
       ]
     },
     {
       "@odata.type": "#Microsoft.Skills.Text.AzureOpenAIEmbeddingSkill",
       "name": "embedding-skill",
-      "context": "/document/pages/*",
+      "context": "/document/chunks/*",
       "resourceUri": "https://cog-opgbbes-openai-prd.openai.azure.com",
       "deploymentId": "text-embedding-3-small",
       "dimensions": 1536,
@@ -37,7 +69,7 @@
       "inputs": [
         {
           "name": "text",
-          "source": "/document/pages/*",
+          "source": "/document/chunks/*/content",
           "inputs": []
         }
       ],
@@ -54,16 +86,21 @@
       {
         "targetIndexName": "smartbid-docs-index",
         "parentKeyFieldName": "parent_id",
-        "sourceContext": "/document/pages/*",
+        "sourceContext": "/document/chunks/*",
         "mappings": [
           {
             "name": "chunk",
-            "source": "/document/pages/*",
+            "source": "/document/chunks/*/text",
             "inputs": []
           },
           {
             "name": "text_vector",
-            "source": "/document/pages/*/text_vector",
+            "source": "/document/chunks/*/text_vector",
+            "inputs": []
+          },
+          {
+            "name": "sectionPath",
+            "source": "/document/chunks/*/section",
             "inputs": []
           },
           {

@@ -8,14 +8,9 @@
 
 .detailLayout {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 20px;
   min-height: 0;
-  transition: grid-template-columns 0.2s ease;
-}
-
-.detailLayoutCollapsed {
-  grid-template-columns: 52px 1fr;
 }
 
 .sideNav {
@@ -24,12 +19,9 @@
   gap: 4px;
   background: var(--card-bg);
   border-radius: 12px;
-  padding: 12px 8px;
+  padding: 48px 8px 12px;
   border: 1px solid var(--border-subtle);
-  position: sticky;
-  top: 16px;
-  align-self: start;
-  max-height: calc(100vh - 200px);
+  max-height: 100%;
   overflow-y: auto;
   transition:
     width 0.2s ease,
@@ -37,7 +29,7 @@
 }
 
 .sideNavCollapsed {
-  padding: 8px 4px;
+  padding: 48px 4px 8px;
   align-items: center;
 }
 

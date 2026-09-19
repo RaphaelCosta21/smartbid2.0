@@ -42,6 +42,7 @@ function blankLineItem(partNumber?: string, description?: string): ILineItem {
     partNumber: partNumber || "",
     description: description || "",
     supplier: "",
+    reference: "",
     leadTimeDays: 0,
     quotationDate: new Date().toISOString().slice(0, 10),
     type: "acquisition" as QuotationType,
@@ -249,6 +250,7 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
           subGroupId: line.subGroupId,
           partNumber: line.partNumber.trim(),
           description: line.description.trim(),
+          reference: line.reference.trim(),
           quantity: 1,
           supplier: line.supplier.trim(),
           leadTimeDays: line.leadTimeDays,
@@ -489,6 +491,17 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
                       onChange={(e) =>
                         updateLine(line._key, "quotationDate", e.target.value)
                       }
+                    />
+                  </div>
+                  <div className={styles.formFieldSmall}>
+                    <label>Quotation REF</label>
+                    <input
+                      type="text"
+                      value={line.reference}
+                      onChange={(e) =>
+                        updateLine(line._key, "reference", e.target.value)
+                      }
+                      placeholder="Quote number..."
                     />
                   </div>
 

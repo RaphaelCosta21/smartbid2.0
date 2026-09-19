@@ -17,16 +17,21 @@ interface EngineeringHoursSectionProps {
   scopeItems: IScopeItem[];
   readOnly?: boolean;
   onSave?: (updated: IEngineeringHoursSection) => void;
+  integratedDivision?: "ROV" | "SURVEY" | "OPG" | null;
+  availableDivisions?: ("ROV" | "SURVEY" | "OPG")[];
 }
 
 interface EditItemModalState {
   open: boolean;
   mode: "add" | "edit";
   itemId?: string;
-  scopeItemId: string;
+  scopeItemId: string | null;
+  source: "scope" | "manual";
   description: string;
   equipmentOffer: string;
   sectionName: string;
+  /** Business line this standalone item belongs to (Integrated BIDs) */
+  itemDivision: "ROV" | "SURVEY" | "OPG" | "";
   notes: string;
   deliverables: IEngineeringDeliverable[];
   /** Hours grid: deliverableType -> resourceType -> hours */
@@ -38,10 +43,12 @@ interface EditItemModalState {
 const INITIAL_MODAL: EditItemModalState = {
   open: false,
   mode: "add",
-  scopeItemId: "",
+  scopeItemId: null,
+  source: "manual",
   description: "",
   equipmentOffer: "",
   sectionName: "",
+  itemDivision: "",
   notes: "",
   deliverables: [],
   hoursGrid: {},
@@ -50,7 +57,14 @@ const INITIAL_MODAL: EditItemModalState = {
 
 export const EngineeringHoursSection: React.FC<
   EngineeringHoursSectionProps
-> = ({ engineeringSection, scopeItems, readOnly = false, onSave }) => {
+> = ({
+  engineeringSection,
+  scopeItems,
+  readOnly = false,
+  onSave,
+  integratedDivision,
+  availableDivisions = [],
+}) => {
   const config = useConfigStore((s) => s.config);
   const engineerDeliverables = (config?.engineerDeliverables || []).filter(
     (d) => d.isActive !== false,
@@ -104,6 +118,7 @@ export const EngineeringHoursSection: React.FC<
       description: string;
       equipmentOffer: string;
       sectionId?: string;
+      integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
     }> = [];
     scopeItems.forEach((si) => {
       if (!si.isSection && si.needsEngineering) {
@@ -113,6 +128,7 @@ export const EngineeringHoursSection: React.FC<
             si.description || si.equipmentOffer || `Item #${si.lineNumber}`,
           equipmentOffer: si.equipmentOffer || "",
           sectionId: si.sectionId || undefined,
+          integratedDivision: si.integratedDivision,
         });
       }
       if (si.subItems) {
@@ -123,6 +139,7 @@ export const EngineeringHoursSection: React.FC<
               description: sub.description || "Sub-item",
               equipmentOffer: sub.equipmentOffer || "",
               sectionId: si.sectionId || undefined,
+              integratedDivision: si.integratedDivision,
             });
           }
         });
@@ -151,21 +168,28 @@ export const EngineeringHoursSection: React.FC<
         toAdd.push({
           id: makeId("eng"),
           scopeItemId: s.id,
+          source: "scope",
           description: s.description,
           equipmentOffer: s.equipmentOffer,
           sectionName: parentSection?.sectionTitle || "",
           notes: "",
           deliverables: [],
           totalHours: 0,
+          integratedDivision:
+            s.integratedDivision || parentSection?.integratedDivision,
         });
       });
 
-    const filtered = currentItems.filter((ei) =>
-      scopeIdsNeeding.has(ei.scopeItemId),
+    const filtered = currentItems.filter(
+      (ei) =>
+        ei.source === "manual" ||
+        !ei.scopeItemId ||
+        scopeIdsNeeding.has(ei.scopeItemId),
     );
 
     // Update description/equipmentOffer/sectionName from scope if changed
     const synced = filtered.map((ei) => {
+      if (ei.source === "manual" || !ei.scopeItemId) return ei;
       const si = scopeItems.find((s) => s.id === ei.scopeItemId);
       if (!si) return ei;
       const parentSection = scopeItems.find(
@@ -193,31 +217,6 @@ export const EngineeringHoursSection: React.FC<
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeItems]);
-
-  // Scope items available for manual add
-  const availableScopeItems = React.useMemo(() => {
-    const existingIds = new Set(engItems.map((ei) => ei.scopeItemId));
-    const results: IScopeItem[] = [];
-    scopeItems.forEach((si) => {
-      if (!si.isSection && si.needsEngineering && !existingIds.has(si.id)) {
-        results.push(si);
-      }
-      if (si.subItems) {
-        si.subItems.forEach((sub) => {
-          if (sub.needsEngineering && !existingIds.has(sub.id)) {
-            results.push({
-              ...si,
-              id: sub.id,
-              description: sub.description,
-              equipmentOffer: sub.equipmentOffer || "",
-              subItems: undefined,
-            } as any);
-          }
-        });
-      }
-    });
-    return results;
-  }, [scopeItems, engItems]);
 
   // Grand total
   const grandTotal = engItems.reduce((sum, item) => sum + item.totalHours, 0);
@@ -255,17 +254,15 @@ export const EngineeringHoursSection: React.FC<
   };
 
   const openAddModal = (): void => {
-    const first = availableScopeItems[0];
-    const parentSection = first
-      ? scopeItems.find((s) => s.isSection && s.id === first.sectionId)
-      : undefined;
     setModal({
       open: true,
       mode: "add",
-      scopeItemId: first?.id || "",
-      description: first?.description || "",
-      equipmentOffer: first?.equipmentOffer || "",
-      sectionName: parentSection?.sectionTitle || "",
+      scopeItemId: null,
+      source: "manual",
+      description: "",
+      equipmentOffer: "",
+      sectionName: "",
+      itemDivision: integratedDivision || "",
       notes: "",
       deliverables: [],
       hoursGrid: {},
@@ -289,9 +286,11 @@ export const EngineeringHoursSection: React.FC<
       mode: "edit",
       itemId: item.id,
       scopeItemId: item.scopeItemId,
+      source: item.source || (item.scopeItemId ? "scope" : "manual"),
       description: item.description,
       equipmentOffer: item.equipmentOffer || "",
       sectionName: item.sectionName || "",
+      itemDivision: item.integratedDivision || integratedDivision || "",
       notes: item.notes || "",
       deliverables: [...item.deliverables],
       hoursGrid: grid,
@@ -300,20 +299,6 @@ export const EngineeringHoursSection: React.FC<
   };
 
   const closeModal = (): void => setModal(INITIAL_MODAL);
-
-  const handleScopeItemChange = (scopeItemId: string): void => {
-    const scope = scopeItems.find((si) => si.id === scopeItemId);
-    const parentSection = scope
-      ? scopeItems.find((s) => s.isSection && s.id === scope.sectionId)
-      : undefined;
-    setModal((prev) => ({
-      ...prev,
-      scopeItemId,
-      description: scope?.description || "",
-      equipmentOffer: scope?.equipmentOffer || "",
-      sectionName: parentSection?.sectionTitle || "",
-    }));
-  };
 
   // Update a single cell in the hours grid
   const updateGridCell = (
@@ -399,14 +384,16 @@ export const EngineeringHoursSection: React.FC<
     if (modal.mode === "add") {
       const newItem: IEngineeringHoursItem = {
         id: makeId("eng"),
-        scopeItemId: modal.scopeItemId,
-        description: modal.description,
+        scopeItemId: null,
+        source: "manual",
+        description: modal.description.trim(),
         equipmentOffer: modal.equipmentOffer,
         sectionName: modal.sectionName,
         notes: modal.notes,
         deliverables: newDeliverables,
         totalHours: totalItemHours,
         includeManufacturing: modal.includeManufacturing,
+        integratedDivision: modal.itemDivision || undefined,
       };
       persist([...engItems, newItem]);
     } else {
@@ -415,6 +402,14 @@ export const EngineeringHoursSection: React.FC<
           item.id === modal.itemId
             ? {
                 ...item,
+                description:
+                  modal.source === "manual"
+                    ? modal.description.trim()
+                    : item.description,
+                integratedDivision:
+                  modal.source === "manual"
+                    ? modal.itemDivision || undefined
+                    : item.integratedDivision,
                 notes: modal.notes,
                 deliverables: newDeliverables,
                 totalHours: totalItemHours,
@@ -521,7 +516,8 @@ export const EngineeringHoursSection: React.FC<
           <p>No engineering items yet.</p>
           <p className={styles.emptyHint}>
             Mark items in Scope of Supply with the &quot;Eng?&quot; checkbox to
-            add them here automatically, then define deliverable hours for each.
+            add them automatically, or use &quot;+ Add Item&quot; for a
+            standalone engineering need.
           </p>
         </div>
       ) : (
@@ -555,6 +551,15 @@ export const EngineeringHoursSection: React.FC<
                           🔧 {item.equipmentOffer}
                         </span>
                       )}
+                      {(item.source === "manual" || !item.scopeItemId) && (
+                        <span className={styles.metaTag}>Manual</span>
+                      )}
+                      {availableDivisions.length > 1 &&
+                        item.integratedDivision && (
+                          <span className={styles.metaTag}>
+                            {item.integratedDivision}
+                          </span>
+                        )}
                       {item.deliverables.length > 0 && (
                         <span className={styles.metaCount}>
                           {item.deliverables.length} deliverable
@@ -791,28 +796,58 @@ export const EngineeringHoursSection: React.FC<
               {/* Compact item info row */}
               <div className={styles.modalInfoBar}>
                 <div className={styles.infoBarItem}>
-                  <span className={styles.infoBarLabel}>Item:</span>
-                  {modal.mode === "add" ? (
-                    <select
-                      className={styles.infoBarSelect}
-                      value={modal.scopeItemId}
-                      onChange={(e) => handleScopeItemChange(e.target.value)}
-                    >
-                      <option value="" disabled>
-                        Select a scope item...
-                      </option>
-                      {availableScopeItems.map((si) => (
-                        <option key={si.id} value={si.id}>
-                          {si.description || `Item #${si.lineNumber}`}
-                        </option>
-                      ))}
-                    </select>
+                  <span className={styles.infoBarLabel}>
+                    {modal.source === "manual" ? "Description:" : "Item:"}
+                  </span>
+                  {modal.source === "manual" ? (
+                    <input
+                      className={styles.infoBarInput}
+                      value={modal.description}
+                      placeholder="Describe the engineering need..."
+                      aria-label="Engineering item description"
+                      autoFocus={modal.mode === "add"}
+                      onChange={(e) =>
+                        setModal((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                    />
                   ) : (
                     <span className={styles.infoBarValue}>
                       {modal.description}
                     </span>
                   )}
                 </div>
+                {modal.source === "manual" && availableDivisions.length > 1 && (
+                  <div className={styles.infoBarItem}>
+                    <span className={styles.infoBarLabel}>Business Line:</span>
+                    <select
+                      className={styles.infoBarSelect}
+                      value={modal.itemDivision}
+                      aria-label="Business line"
+                      onChange={(e) =>
+                        setModal((prev) => ({
+                          ...prev,
+                          itemDivision: e.target
+                            .value as EditItemModalState["itemDivision"],
+                        }))
+                      }
+                    >
+                      {availableDivisions.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                    {integratedDivision &&
+                      modal.itemDivision !== integratedDivision && (
+                        <span className={styles.infoBarHint}>
+                          Will appear on the {modal.itemDivision} tab
+                        </span>
+                      )}
+                  </div>
+                )}
                 {modal.sectionName && (
                   <div className={styles.infoBarItem}>
                     <span className={styles.infoBarLabel}>Section:</span>
@@ -1007,7 +1042,11 @@ export const EngineeringHoursSection: React.FC<
               <button
                 className={styles.saveBtn}
                 onClick={handleSaveItem}
-                disabled={!modal.scopeItemId}
+                disabled={
+                  modal.source === "manual"
+                    ? !modal.description.trim()
+                    : !modal.scopeItemId
+                }
               >
                 {modal.mode === "add" ? "Add Item" : "Save Changes"}
               </button>

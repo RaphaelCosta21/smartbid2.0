@@ -10,6 +10,7 @@ import { QuotationService } from "../services/QuotationService";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { convertToUSD } from "../utils/costCalculations";
 import { AddQuotationModal } from "../components/bid/AddQuotationModal";
+import { CollapsibleSidebar } from "../components/common/CollapsibleSidebar";
 import {
   IQuotationItem,
   QuotationType,
@@ -32,6 +33,7 @@ function blankLineItem(): ILineItem {
     partNumber: "",
     description: "",
     supplier: "",
+    reference: "",
     leadTimeDays: 0,
     quotationDate: new Date().toISOString().slice(0, 10),
     type: "acquisition" as QuotationType,
@@ -48,6 +50,7 @@ interface ILineItem {
   partNumber: string;
   description: string;
   supplier: string;
+  reference: string;
   leadTimeDays: number;
   quotationDate: string;
   type: QuotationType;
@@ -217,8 +220,15 @@ export const QuotationsPage: React.FC = () => {
   // ─── Local state ───
   const [search, setSearch] = React.useState("");
   const debouncedSearch = useDebounce(search, 300);
-  const [groupFilter, setGroupFilter] = React.useState("all");
-  const [subGroupFilter, setSubGroupFilter] = React.useState("all");
+  const [selectedGroup, setSelectedGroup] = React.useState<string | null>(null);
+  const [selectedSubGroup, setSelectedSubGroup] = React.useState<string | null>(
+    null,
+  );
+  const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(
+    new Set(),
+  );
+  const [catalogSidebarCollapsed, setCatalogSidebarCollapsed] =
+    React.useState(false);
   const [typeFilter, setTypeFilter] = React.useState<"all" | QuotationType>(
     "all",
   );
@@ -227,9 +237,32 @@ export const QuotationsPage: React.FC = () => {
   const [editItem, setEditItem] = React.useState<IQuotationItem | null>(null);
   const [aiImportFile, setAiImportFile] = React.useState<File | null>(null);
   const [aiDragOver, setAiDragOver] = React.useState(false);
+  /** Table cells (description / notes) the user expanded by clicking. */
+  const [expandedCells, setExpandedCells] = React.useState<
+    Record<string, boolean>
+  >({});
+
+  const toggleCell = (key: string): void =>
+    setExpandedCells((prev) => {
+      const next = { ...prev };
+      next[key] = !prev[key];
+      return next;
+    });
 
   // ─── Config-derived data ───
-  const groups: IFavoriteGroup[] = config?.favoriteGroups || [];
+  const groups = React.useMemo<IFavoriteGroup[]>(
+    () =>
+      (config?.favoriteGroups || [])
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((group) => ({
+          ...group,
+          subGroups: (group.subGroups || [])
+            .slice()
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        })),
+    [config?.favoriteGroups],
+  );
   const exchangeRates: IExchangeRate[] =
     config?.currencySettings?.exchangeRates || [];
   const currencyOptions = React.useMemo(() => {
@@ -259,13 +292,6 @@ export const QuotationsPage: React.FC = () => {
     return m;
   }, [groups]);
 
-  // SubGroups for selected group filter
-  const filteredSubGroups = React.useMemo(() => {
-    if (groupFilter === "all") return [];
-    const grp = groups.find((g) => g.id === groupFilter);
-    return grp ? grp.subGroups : [];
-  }, [groupFilter, groups]);
-
   // ─── Load on mount ───
   React.useEffect(() => {
     loadQuotations();
@@ -274,10 +300,9 @@ export const QuotationsPage: React.FC = () => {
   // ─── Filtered data ───
   const filtered = React.useMemo(() => {
     let items = quotations;
-    if (groupFilter !== "all")
-      items = items.filter((q) => q.groupId === groupFilter);
-    if (subGroupFilter !== "all")
-      items = items.filter((q) => q.subGroupId === subGroupFilter);
+    if (selectedGroup) items = items.filter((q) => q.groupId === selectedGroup);
+    if (selectedSubGroup)
+      items = items.filter((q) => q.subGroupId === selectedSubGroup);
     if (typeFilter !== "all")
       items = items.filter((q) => q.type === typeFilter);
     if (debouncedSearch) {
@@ -286,13 +311,61 @@ export const QuotationsPage: React.FC = () => {
         (q) =>
           q.partNumber.toLowerCase().indexOf(lower) >= 0 ||
           q.description.toLowerCase().indexOf(lower) >= 0 ||
+          (q.reference || "").toLowerCase().indexOf(lower) >= 0 ||
           q.supplier.toLowerCase().indexOf(lower) >= 0,
       );
     }
     return items;
-  }, [quotations, groupFilter, subGroupFilter, typeFilter, debouncedSearch]);
+  }, [
+    quotations,
+    selectedGroup,
+    selectedSubGroup,
+    typeFilter,
+    debouncedSearch,
+  ]);
+
+  const categoryCounts = React.useMemo(() => {
+    let items = quotations;
+    if (typeFilter !== "all")
+      items = items.filter((q) => q.type === typeFilter);
+    if (debouncedSearch) {
+      const lower = debouncedSearch.toLowerCase();
+      items = items.filter(
+        (q) =>
+          q.partNumber.toLowerCase().indexOf(lower) >= 0 ||
+          q.description.toLowerCase().indexOf(lower) >= 0 ||
+          (q.reference || "").toLowerCase().indexOf(lower) >= 0 ||
+          q.supplier.toLowerCase().indexOf(lower) >= 0,
+      );
+    }
+
+    const group: Record<string, number> = {};
+    const subGroup: Record<string, number> = {};
+    items.forEach((item) => {
+      group[item.groupId] = (group[item.groupId] || 0) + 1;
+      subGroup[item.subGroupId] = (subGroup[item.subGroupId] || 0) + 1;
+    });
+    return { total: items.length, group, subGroup };
+  }, [quotations, typeFilter, debouncedSearch]);
 
   // ─── Handlers ───
+  const handleToggleGroupExpand = (groupId: string): void => {
+    setExpandedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
+  const handleSelectGroup = (
+    groupId: string | null,
+    subGroupId?: string | null,
+  ): void => {
+    setSelectedGroup(groupId);
+    setSelectedSubGroup(subGroupId || null);
+  };
+
   const handleToggleFavorite = async (id: string): Promise<void> => {
     try {
       await toggleFavorite(id, currentUser?.displayName || "Unknown");
@@ -343,6 +416,7 @@ export const QuotationsPage: React.FC = () => {
             partNumber: editingItem.partNumber,
             description: editingItem.description,
             supplier: editingItem.supplier,
+            reference: editingItem.reference || "",
             leadTimeDays: editingItem.leadTimeDays,
             quotationDate: editingItem.quotationDate
               ? editingItem.quotationDate.slice(0, 10)
@@ -459,6 +533,7 @@ export const QuotationsPage: React.FC = () => {
             partNumber: line.partNumber.trim(),
             description: line.description.trim(),
             supplier: line.supplier.trim(),
+            reference: line.reference.trim(),
             leadTimeDays: line.leadTimeDays,
             quotationDate: line.quotationDate,
             type: line.type,
@@ -482,6 +557,7 @@ export const QuotationsPage: React.FC = () => {
               subGroupId: line.subGroupId,
               partNumber: line.partNumber.trim(),
               description: line.description.trim(),
+              reference: line.reference.trim(),
               quantity: 1,
               supplier: line.supplier.trim(),
               leadTimeDays: line.leadTimeDays,
@@ -671,6 +747,17 @@ export const QuotationsPage: React.FC = () => {
                         onChange={(e) =>
                           updateLine(line._key, "quotationDate", e.target.value)
                         }
+                      />
+                    </div>
+                    <div className={styles.formFieldSmall}>
+                      <label>Quotation REF</label>
+                      <input
+                        type="text"
+                        value={line.reference}
+                        onChange={(e) =>
+                          updateLine(line._key, "reference", e.target.value)
+                        }
+                        placeholder="Quote number..."
                       />
                     </div>
 
@@ -882,237 +969,284 @@ export const QuotationsPage: React.FC = () => {
         }
       />
 
-      {/* Filter Bar */}
-      <div className={styles.filterBar}>
-        <input
-          type="text"
-          className={styles.searchInput}
-          placeholder="Search by PN, description, supplier..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-
-        <select
-          className={styles.filterSelect}
-          value={groupFilter}
-          onChange={(e) => {
-            setGroupFilter(e.target.value);
-            setSubGroupFilter("all");
-          }}
+      <div className={styles.catalogContent}>
+        <CollapsibleSidebar
+          label="Quotation groups"
+          collapsed={catalogSidebarCollapsed}
+          onToggle={() => setCatalogSidebarCollapsed((collapsed) => !collapsed)}
         >
-          <option value="all">All Groups</option>
-          {groups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
-
-        {filteredSubGroups.length > 0 && (
-          <select
-            className={styles.filterSelect}
-            value={subGroupFilter}
-            onChange={(e) => setSubGroupFilter(e.target.value)}
-          >
-            <option value="all">All SubGroups</option>
-            {filteredSubGroups.map((sg) => (
-              <option key={sg.id} value={sg.id}>
-                {sg.name}
-              </option>
-            ))}
-          </select>
-        )}
-
-        <div className={styles.typeFilterGroup}>
-          {(["all", "acquisition", "rental"] as const).map((t) => (
-            <button
-              key={t}
-              className={`${styles.typeFilterBtn} ${typeFilter === t ? styles.typeFilterBtnActive : ""}`}
-              onClick={() => setTypeFilter(t)}
+          <div className={styles.groupSidebar}>
+            <div className={styles.sidebarHeader}>
+              <span className={styles.sidebarTitle}>Groups</span>
+            </div>
+            <div
+              className={`${styles.groupItem} ${!selectedGroup ? styles.groupActive : ""}`}
+              onClick={() => handleSelectGroup(null)}
             >
-              {t === "all"
-                ? "All"
-                : t === "acquisition"
-                  ? "Acquisition"
-                  : "Rental"}
-            </button>
-          ))}
-        </div>
-
-        <div className={styles.viewToggle}>
-          <button
-            className={`${styles.viewBtn} ${viewMode === "list" ? styles.viewBtnActive : ""}`}
-            onClick={() => setViewMode("list")}
-            title="List view"
-          >
-            {ListIcon}
-          </button>
-          <button
-            className={`${styles.viewBtn} ${viewMode === "grid" ? styles.viewBtnActive : ""}`}
-            onClick={() => setViewMode("grid")}
-            title="Grid view"
-          >
-            {GridIcon}
-          </button>
-        </div>
-      </div>
-
-      <div
-        className={`${styles.aiDropZone} ${aiDragOver ? styles.aiDropZoneActive : ""}`}
-        onDragOver={(e) => {
-          e.preventDefault();
-          if (!aiDragOver) setAiDragOver(true);
-        }}
-        onDragLeave={() => setAiDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setAiDragOver(false);
-          handleAiFiles(e.dataTransfer.files);
-        }}
-      >
-        <label className={styles.aiDropInner}>
-          <svg
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M12 3v3m0 12v3M5.6 5.6l2.1 2.1m8.6 8.6l2.1 2.1M3 12h3m12 0h3M5.6 18.4l2.1-2.1m8.6-8.6l2.1-2.1" />
-          </svg>
-          <div className={styles.aiDropText}>
-            <strong>Extract quotations with AI</strong>
-            <span>
-              Drop a supplier quote (PDF, image, Excel…) here or click to browse
-            </span>
-          </div>
-          <input
-            type="file"
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.msg,.eml"
-            onChange={(e) => {
-              handleAiFiles(e.target.files);
-              e.target.value = "";
-            }}
-            style={{ display: "none" }}
-          />
-        </label>
-      </div>
-
-      {/* Content */}
-      {isLoading ? (
-        <div className={styles.loadingState}>Loading quotations...</div>
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          title="No quotations found"
-          description={
-            quotations.length === 0
-              ? "Add your first quotation using the button above."
-              : "Try adjusting your search or filters."
-          }
-        />
-      ) : viewMode === "grid" ? (
-        /* Grid View */
-        <div className={styles.grid}>
-          {filtered.map((q) => (
-            <QuotationCard key={q.id} item={q} />
-          ))}
-        </div>
-      ) : (
-        /* List / Table View */
-        <div className={styles.tableWrapper}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Group</th>
-                <th>SubGroup</th>
-                <th>PN</th>
-                <th>Description</th>
-                <th>Supplier</th>
-                <th>Lead Time</th>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Cost (USD)</th>
-                <th>Notes</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((q) => (
-                <tr key={q.id}>
-                  <td>{groupMap[q.groupId] || "—"}</td>
-                  <td>{subGroupMap[q.subGroupId] || "—"}</td>
-                  <td className={styles.bold}>{q.partNumber}</td>
-                  <td className={styles.descCell}>{q.description}</td>
-                  <td>{q.supplier}</td>
-                  <td>{q.leadTimeDays}d</td>
-                  <td>{formatDate(q.quotationDate)}</td>
-                  <td>
-                    <span
-                      className={`${styles.typeBadge} ${q.type === "rental" ? styles.rentalBadge : styles.acquisitionBadge}`}
+              <span>📁 All Quotations</span>
+              <span className={styles.groupCount}>{categoryCounts.total}</span>
+            </div>
+            {groups.map((group) => (
+              <div key={group.id}>
+                <div
+                  className={`${styles.groupItem} ${selectedGroup === group.id && !selectedSubGroup ? styles.groupActive : ""}`}
+                  onClick={() => handleSelectGroup(group.id)}
+                >
+                  <span
+                    className={styles.groupExpander}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleToggleGroupExpand(group.id);
+                    }}
+                  >
+                    {group.subGroups.length > 0
+                      ? expandedGroups.has(group.id)
+                        ? "▾"
+                        : "▸"
+                      : " "}
+                  </span>
+                  <span className={styles.groupName}>{group.name}</span>
+                  <span className={styles.groupCount}>
+                    {categoryCounts.group[group.id] || 0}
+                  </span>
+                </div>
+                {expandedGroups.has(group.id) &&
+                  group.subGroups.map((subGroup) => (
+                    <div
+                      key={subGroup.id}
+                      className={`${styles.subGroupItem} ${selectedSubGroup === subGroup.id ? styles.groupActive : ""}`}
+                      onClick={() => handleSelectGroup(group.id, subGroup.id)}
                     >
-                      {q.type === "rental" ? "Rental" : "Acq."}
-                    </span>
-                  </td>
-                  <td className={styles.costCell}>
-                    {formatCurrency(q.costUSD, "USD")}
-                    {q.currency !== "USD" && (
-                      <span className={styles.costOriginal}>
-                        {formatCurrency(q.cost, q.currency)}
+                      <span>{subGroup.name}</span>
+                      <span className={styles.groupCount}>
+                        {categoryCounts.subGroup[subGroup.id] || 0}
                       </span>
-                    )}
-                  </td>
-                  <td className={styles.notesCell} title={q.notes}>
-                    {q.notes
-                      ? q.notes.length > 30
-                        ? q.notes.slice(0, 30) + "…"
-                        : q.notes
-                      : "—"}
-                  </td>
-                  <td>
-                    <div className={styles.rowActions}>
-                      <button
-                        className={styles.iconBtn}
-                        onClick={() => handleToggleFavorite(q.id)}
-                        title={
-                          q.isFavorite
-                            ? "Remove from favorites"
-                            : "Add to favorites"
-                        }
-                      >
-                        <StarIcon filled={q.isFavorite} />
-                      </button>
-                      {q.fileUrl && (
-                        <button
-                          className={styles.iconBtn}
-                          onClick={() => openFile(q)}
-                          title="Open file"
-                        >
-                          {ExternalLinkIcon}
-                        </button>
-                      )}
-                      <button
-                        className={styles.iconBtn}
-                        onClick={() => setEditItem(q)}
-                        title="Edit"
-                      >
-                        {EditIcon}
-                      </button>
-                      <button
-                        className={`${styles.iconBtn} ${styles.dangerBtn}`}
-                        onClick={() => handleDelete(q.id)}
-                        title="Delete"
-                      >
-                        {TrashIcon}
-                      </button>
                     </div>
-                  </td>
-                </tr>
+                  ))}
+              </div>
+            ))}
+          </div>
+        </CollapsibleSidebar>
+
+        <div className={styles.mainArea}>
+          <div className={styles.toolbar}>
+            <input
+              type="text"
+              className={styles.searchInput}
+              placeholder="Search by PN, description, supplier..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+
+            <div className={styles.typeFilterGroup}>
+              {(["all", "acquisition", "rental"] as const).map((t) => (
+                <button
+                  key={t}
+                  className={`${styles.typeFilterBtn} ${typeFilter === t ? styles.typeFilterBtnActive : ""}`}
+                  onClick={() => setTypeFilter(t)}
+                >
+                  {t === "all"
+                    ? "All"
+                    : t === "acquisition"
+                      ? "Acquisition"
+                      : "Rental"}
+                </button>
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            <div className={styles.viewToggle}>
+              <button
+                className={`${styles.viewBtn} ${viewMode === "list" ? styles.viewBtnActive : ""}`}
+                onClick={() => setViewMode("list")}
+                title="List view"
+              >
+                {ListIcon}
+              </button>
+              <button
+                className={`${styles.viewBtn} ${viewMode === "grid" ? styles.viewBtnActive : ""}`}
+                onClick={() => setViewMode("grid")}
+                title="Grid view"
+              >
+                {GridIcon}
+              </button>
+            </div>
+          </div>
+
+          <div
+            className={`${styles.aiDropZone} ${aiDragOver ? styles.aiDropZoneActive : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!aiDragOver) setAiDragOver(true);
+            }}
+            onDragLeave={() => setAiDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setAiDragOver(false);
+              handleAiFiles(e.dataTransfer.files);
+            }}
+          >
+            <label className={styles.aiDropInner}>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M12 3v3m0 12v3M5.6 5.6l2.1 2.1m8.6 8.6l2.1 2.1M3 12h3m12 0h3M5.6 18.4l2.1-2.1m8.6-8.6l2.1-2.1" />
+              </svg>
+              <div className={styles.aiDropText}>
+                <strong>Extract quotations with AI</strong>
+                <span>
+                  Drop a supplier quote (PDF, image, Excel…) here or click to
+                  browse
+                </span>
+              </div>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.msg,.eml"
+                onChange={(e) => {
+                  handleAiFiles(e.target.files);
+                  e.target.value = "";
+                }}
+                style={{ display: "none" }}
+              />
+            </label>
+          </div>
+
+          {/* Content */}
+          {isLoading ? (
+            <div className={styles.loadingState}>Loading quotations...</div>
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              title="No quotations found"
+              description={
+                quotations.length === 0
+                  ? "Add your first quotation using the button above."
+                  : "Try adjusting your search or filters."
+              }
+            />
+          ) : viewMode === "grid" ? (
+            /* Grid View */
+            <div className={styles.grid}>
+              {filtered.map((q) => (
+                <QuotationCard key={q.id} item={q} />
+              ))}
+            </div>
+          ) : (
+            /* List / Table View */
+            <div className={styles.tableWrapper}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Group</th>
+                    <th>SubGroup</th>
+                    <th>PN</th>
+                    <th>REF</th>
+                    <th>Description</th>
+                    <th>Supplier</th>
+                    <th>Lead Time</th>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Cost (USD)</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((q) => (
+                    <tr key={q.id}>
+                      <td>{groupMap[q.groupId] || "—"}</td>
+                      <td>{subGroupMap[q.subGroupId] || "—"}</td>
+                      <td className={styles.bold}>{q.partNumber}</td>
+                      <td className={styles.refCell}>{q.reference || "—"}</td>
+                      <td
+                        className={`${styles.descCell} ${
+                          expandedCells[q.id + ":desc"]
+                            ? styles.cellExpanded
+                            : ""
+                        }`}
+                        title={q.description}
+                        onClick={() => toggleCell(q.id + ":desc")}
+                      >
+                        {q.description}
+                      </td>
+                      <td>{q.supplier}</td>
+                      <td>{q.leadTimeDays}d</td>
+                      <td>{formatDate(q.quotationDate)}</td>
+                      <td>
+                        <span
+                          className={`${styles.typeBadge} ${q.type === "rental" ? styles.rentalBadge : styles.acquisitionBadge}`}
+                        >
+                          {q.type === "rental" ? "Rental" : "Acq."}
+                        </span>
+                      </td>
+                      <td className={styles.costCell}>
+                        {formatCurrency(q.costUSD, "USD")}
+                        {q.currency !== "USD" && (
+                          <span className={styles.costOriginal}>
+                            {formatCurrency(q.cost, q.currency)}
+                          </span>
+                        )}
+                      </td>
+                      <td
+                        className={`${styles.notesCell} ${
+                          expandedCells[q.id + ":notes"]
+                            ? styles.cellExpanded
+                            : ""
+                        }`}
+                        title={q.notes}
+                        onClick={() => toggleCell(q.id + ":notes")}
+                      >
+                        {q.notes || "—"}
+                      </td>
+                      <td>
+                        <div className={styles.rowActions}>
+                          <button
+                            className={styles.iconBtn}
+                            onClick={() => handleToggleFavorite(q.id)}
+                            title={
+                              q.isFavorite
+                                ? "Remove from favorites"
+                                : "Add to favorites"
+                            }
+                          >
+                            <StarIcon filled={q.isFavorite} />
+                          </button>
+                          {q.fileUrl && (
+                            <button
+                              className={styles.iconBtn}
+                              onClick={() => openFile(q)}
+                              title="Open file"
+                            >
+                              {ExternalLinkIcon}
+                            </button>
+                          )}
+                          <button
+                            className={styles.iconBtn}
+                            onClick={() => setEditItem(q)}
+                            title="Edit"
+                          >
+                            {EditIcon}
+                          </button>
+                          <button
+                            className={`${styles.iconBtn} ${styles.dangerBtn}`}
+                            onClick={() => handleDelete(q.id)}
+                            title="Delete"
+                          >
+                            {TrashIcon}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Modals */}
       {showAddModal && <AddEditModal onClose={() => setShowAddModal(false)} />}

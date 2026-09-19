@@ -17,10 +17,10 @@ import {
 } from "../models/IAIAnalysis";
 
 /** Version tag sent alongside the Scope of Supply prompt. */
-export const SCOPE_OF_SUPPLY_PROMPT_VERSION = "scope-of-supply-v8";
+export const SCOPE_OF_SUPPLY_PROMPT_VERSION = "scope-of-supply-v9";
 
 /** Version tag sent alongside the quotation extraction prompt. */
-export const QUOTATION_EXTRACTION_PROMPT_VERSION = "quotation-extraction-v2";
+export const QUOTATION_EXTRACTION_PROMPT_VERSION = "quotation-extraction-v3";
 
 /** Version tag sent alongside the document metadata extraction prompt. */
 export const DOCUMENT_METADATA_EXTRACTION_PROMPT_VERSION =
@@ -88,6 +88,10 @@ REFERENCE MATERIAL: the backend may append a "REFERENCE MATERIAL" section below,
   • Past accepted clarifications/qualifications — the basis for the "suggestedClarifications" you propose.
 Use this material ONLY to categorize, map and disambiguate. It must NEVER introduce requirements that are not in the client document, and you must NEVER invent equipment, part numbers or specifications.
 
+HOW THE REFERENCE MATERIAL IS RENDERED: each document appears as a file name and URL, then metadata lines (Type / Client or manufacturer / Ref or equipment model / Rev, Discipline, Keywords, Scope), then one excerpt introduced by "--- excerpt — section: ... ---". The metadata lines come from our catalogue and are AUTHORITATIVE — prefer them over anything you infer from the file name, and use the section name to know which part of the document you are reading (a "Technical Data" section carries the measurable specifications). Excerpts are the most relevant parts of a document, never the whole of it, so the absence of a specification in an excerpt does NOT mean the equipment lacks it.
+
+MATCHING A CLIENT SPECIFICATION: when the client states a measurable requirement (accuracy, torque range, depth rating, class, interface) and an excerpt shows an Oceaneering item that meets it, use that evidence to fill "equipmentOffer" from the ASSETS CATALOG entry for the same equipment. When the closest item does NOT meet the stated figure, still map it, and raise a "Clarification" in "suggestedClarifications" stating the client figure and the figure our equipment achieves. Never present a near miss as compliant, and never restate a value the excerpts do not contain.
+
 RESOURCE TYPES (from current system configuration — for "resourceType" use ONLY a parent label below; for "resourceSubType" use ONLY a sub-type listed under the chosen parent):
 ${resourceTypeBlock}
 
@@ -119,7 +123,7 @@ LINE ITEM RULES
      • If the client asks for a component with NO catalog match, still return it, described in the client's own words, with "equipmentOffer" and "partNumber" left as "". The BID engineer will source it later — an item you omit is an item nobody prices.
      • Return ONLY what this requirement actually needs. Never dump the parent's whole ↳ list, and never invent a part number.
      • Use the client's quantities when stated, otherwise 1. Return [] when the requirement calls for no component.
-13.2. Sub-item shape: {"description":"...","subType":"Consumable"|"Spare Part"|"Accessory","equipmentOffer":"catalog name or empty","partNumber":"catalog PN or empty","qty":1,"comments":"clause reference when it comes from a specific clause"}
+13.2. Sub-item shape: {"description":"...","subType":"Consumable"|"Spare Part"|"Part"|"Accessory","equipmentOffer":"catalog name or empty","partNumber":"catalog PN or empty","qty":1,"comments":"clause reference when it comes from a specific clause"}
 
 ═══════════════════════════════════════════════
 CRITICAL QUALITY RULES
@@ -252,31 +256,40 @@ export function buildQuotationExtractionPrompt(
           .join("\n")
       : "  (No group list was provided — leave suggestedGroupName and suggestedSubGroupName empty.)";
 
-  return `You are a procurement assistant at Oceaneering. Read the supplier quotation document and extract EVERY quoted line item as structured data for our quotation register.
+  return `You are a procurement assistant at Oceaneering. Read the supplier quotation document and extract every COMMERCIAL POSITION as structured data for our quotation register.
 
 EQUIPMENT CATEGORIES (from current system configuration — for "suggestedGroupName" use ONLY a group name below; for "suggestedSubGroupName" use ONLY a sub-group listed under the chosen group):
 ${taxonomyBlock}
 
+WHAT COUNTS AS AN ITEM (read this FIRST — quotation tables bundle accessories under a single position)
+A. A table row starts a NEW entry ONLY when it carries its own position/item number (10, 20, 1, 2, …) AND its own unit price greater than zero. When the table has no position numbers, a new entry starts at each row that has its own unit price greater than zero.
+B. Rows with NO position number that follow a numbered row are NOT items. They belong to the position above them: bundled accessories, spare parts, configuration options, or a continuation of the description.
+C. Rows priced 0, blank, "included", "incl.", "free" or "n/a" are NEVER separate entries — they are included in the parent position. The same applies to rows that are pure specification text (e.g. "16GB memory", "ONLINE CABLE: 50.00 mtr", "AQD").
+D. Put every row you folded into the parent inside "includedComponents", formatted as "partNumber - description" and separated by "; ". Use "" when the position has nothing bundled. Never drop this information — it must survive in the parent entry.
+E. The parent entry's "partNumber" and "description" come from the numbered/priced row only, never from a folded child row.
+F. FINAL CHECK before answering: the number of entries must equal the number of distinct PRICED positions in the document. A quotation with 2 priced positions must return exactly 2 entries, even if its table has 12 visible rows. If you produced entries with empty partNumber or cost 0, you split a position by mistake — merge them back.
+
 RULES
-1. Extract one entry per quoted item. A single quotation may list several items.
+1. Extract one entry per commercial position, as defined above.
 2. "partNumber": the supplier's OII / manufacturer part number, exactly as written ("" if absent).
 3. "description": the item description, concise and faithful to the document.
 4. "supplier": the vendor/company that issued the quotation (same for every line of one document).
-5. "cost": the UNIT price as a number, with no currency symbol or thousands separator. Use a dot for decimals.
-6. "currency": ISO code (USD, BRL, EUR, GBP, …). Infer from the symbol or text; default "USD" only if truly unspecified.
-7. "type": "rental" when the price is a day/monthly rate, otherwise "acquisition".
-8. "leadTimeDays": lead time converted to whole days (e.g. "2 weeks" → 14). 0 if unspecified.
-9. "quotationDate": the quotation date as ISO (YYYY-MM-DD). "" if unspecified.
-10. "notes": any relevant condition (MOQ, incoterm, validity, warranty). "" if none.
-11. "suggestedGroupName": classify the item into the CLOSEST group from the list above and copy the name VERBATIM (same spelling, accents and casing). Never invent a group name, never translate it, never return an id. Use "" only when no group is remotely applicable.
-12. "suggestedSubGroupName": pick the closest sub-group listed under the group you chose in rule 11, copied VERBATIM. Use "" when the chosen group has no sub-groups or none fits.
-13. Classify each line independently — a single quotation may mix items from different groups.
-14. Never invent prices or part numbers. Only extract what the document states.
+5. "reference": the supplier's quotation number/reference as written (e.g. "14976" from "Quote – 14976", "Q-2024-881", "Proposal No. 4512"). Same value for every line of one document. "" if the document has none.
+6. "cost": the UNIT price ("price each") as a number, with no currency symbol or thousands separator. Use a dot for decimals. Never use the line total or the document total; when only a total and a quantity are shown, divide the total by the quantity.
+7. "currency": ISO code (USD, BRL, EUR, GBP, …). Infer from the symbol or text; default "USD" only if truly unspecified.
+8. "type": "rental" when the price is a day/monthly rate, otherwise "acquisition".
+9. "leadTimeDays": lead time converted to whole days (e.g. "2 weeks" → 14). 0 if unspecified.
+10. "quotationDate": the quotation date as ISO (YYYY-MM-DD). "" if unspecified.
+11. "notes": any relevant condition (MOQ, incoterm, validity, warranty). "" if none.
+12. "suggestedGroupName": classify the item into the CLOSEST group from the list above and copy the name VERBATIM (same spelling, accents and casing). Never invent a group name, never translate it, never return an id. Use "" only when no group is remotely applicable.
+13. "suggestedSubGroupName": pick the closest sub-group listed under the group you chose in rule 12, copied VERBATIM. Use "" when the chosen group has no sub-groups or none fits.
+14. Classify each position independently — a single quotation may mix items from different groups. Classify by the parent item, ignoring its bundled accessories.
+15. Never invent prices or part numbers. Only extract what the document states.
 
 OUTPUT FORMAT
 Return ONLY valid JSON — no markdown, no backticks, no explanation:
 
-{"items":[{"partNumber":"","description":"","supplier":"","cost":0,"currency":"USD","type":"acquisition","leadTimeDays":0,"quotationDate":"","notes":"","suggestedGroupName":"","suggestedSubGroupName":""}]}`;
+{"items":[{"partNumber":"","description":"","supplier":"","reference":"","cost":0,"currency":"USD","type":"acquisition","leadTimeDays":0,"quotationDate":"","includedComponents":"","notes":"","suggestedGroupName":"","suggestedSubGroupName":""}]}`;
 }
 
 /**

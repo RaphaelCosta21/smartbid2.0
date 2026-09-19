@@ -28,6 +28,8 @@ export interface IChatRetrievedDoc {
   title: string;
   url: string;
   snippet: string;
+  /** Heading breadcrumb of the chunk, e.g. "2 Scope > 2.2 ROV Systems". */
+  section?: string;
 }
 
 /** One message rendered in the chat panel. */

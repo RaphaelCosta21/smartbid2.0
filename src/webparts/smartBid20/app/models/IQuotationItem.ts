@@ -16,6 +16,8 @@ export interface IQuotationItem {
   subGroupId: string;
   /** OII / MFG Part Number */
   partNumber: string;
+  /** Supplier's quotation reference / quote number (e.g. "Quote – 14976") */
+  reference: string;
   /** Item description */
   description: string;
   /** Quantity — fixed at 1 */

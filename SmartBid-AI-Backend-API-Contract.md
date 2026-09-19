@@ -426,29 +426,31 @@ Context is the **global catalog** (no bid), so `contextSummary` may be empty.
 
 ### Response body — `IQuotationExtractionResult`
 
-| Field            | Type                        | Notes                                    |
-| ---------------- | --------------------------- | ---------------------------------------- |
-| `items`          | `IExtractedQuotationLine[]` | One entry per supplier line item         |
-| `warnings`       | `string[]`                  | Low confidence, unreadable regions, etc. |
-| `sourceDocument` | `string`                    | Echo of `fileName`                       |
-| `extractedAt`    | `string`                    | ISO timestamp                            |
+| Field            | Type                        | Notes                                                                                   |
+| ---------------- | --------------------------- | --------------------------------------------------------------------------------------- |
+| `items`          | `IExtractedQuotationLine[]` | One entry per **priced position** (bundled zero-priced rows are folded into the parent) |
+| `warnings`       | `string[]`                  | Low confidence, unreadable regions, etc.                                                |
+| `sourceDocument` | `string`                    | Echo of `fileName`                                                                      |
+| `extractedAt`    | `string`                    | ISO timestamp                                                                           |
 
 #### `IExtractedQuotationLine`
 
-| Field                   | Type                        | Notes                                                |
-| ----------------------- | --------------------------- | ---------------------------------------------------- |
-| `partNumber`            | `string`                    | OII / manufacturer part number                       |
-| `description`           | `string`                    | Item description                                     |
-| `supplier`              | `string`                    | Vendor name                                          |
-| `cost`                  | `number`                    | Unit cost or day rate in the original currency       |
-| `currency`              | `string`                    | ISO code (`USD`, `BRL`, `EUR`, …)                    |
-| `leadTimeDays`          | `number`                    | `0` when unspecified                                 |
-| `quotationDate`         | `string`                    | ISO date, or `""` when unspecified                   |
-| `type`                  | `"acquisition" \| "rental"` | Buy vs. day rate                                     |
-| `notes`                 | `string`                    | Free-form notes                                      |
-| `suggestedGroupName`    | `string`                    | Optional — mapped to a config group id in the UI     |
-| `suggestedSubGroupName` | `string`                    | Optional — mapped to a config sub-group id in the UI |
-| `confidence`            | `number`                    | Optional — 0..1                                      |
+| Field                   | Type                        | Notes                                                                     |
+| ----------------------- | --------------------------- | ------------------------------------------------------------------------- |
+| `partNumber`            | `string`                    | OII / manufacturer part number                                            |
+| `description`           | `string`                    | Item description                                                          |
+| `supplier`              | `string`                    | Vendor name                                                               |
+| `reference`             | `string`                    | Optional — supplier quotation number/reference                            |
+| `cost`                  | `number`                    | Unit cost or day rate in the original currency                            |
+| `currency`              | `string`                    | ISO code (`USD`, `BRL`, `EUR`, …)                                         |
+| `leadTimeDays`          | `number`                    | `0` when unspecified                                                      |
+| `quotationDate`         | `string`                    | ISO date, or `""` when unspecified                                        |
+| `type`                  | `"acquisition" \| "rental"` | Buy vs. day rate                                                          |
+| `includedComponents`    | `string`                    | Optional — accessories bundled in the position (`"PN - desc; PN - desc"`) |
+| `notes`                 | `string`                    | Free-form notes                                                           |
+| `suggestedGroupName`    | `string`                    | Optional — mapped to a config group id in the UI                          |
+| `suggestedSubGroupName` | `string`                    | Optional — mapped to a config sub-group id in the UI                      |
+| `confidence`            | `number`                    | Optional — 0..1                                                           |
 
 > The frontend maps `suggestedGroupName` / `suggestedSubGroupName` (names) to the configured
 > Favorite group/sub-group **ids** case-insensitively (`utils/aiQuotationMapper.ts`); unmatched

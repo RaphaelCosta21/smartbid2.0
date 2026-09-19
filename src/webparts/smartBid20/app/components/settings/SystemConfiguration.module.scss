@@ -99,8 +99,7 @@
 /* ---- Sidebar --------------------------------------------------- */
 
 .sidebar {
-  width: 240px;
-  flex-shrink: 0;
+  height: 100%;
   background: var(--card-bg);
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
@@ -109,9 +108,17 @@
   flex-direction: column;
   gap: 4px;
   overflow-y: auto;
-  max-height: calc(100vh - 260px);
-  position: sticky;
-  top: 24px;
+  max-height: 100%;
+}
+
+.sidebarCollapsed {
+  align-items: center;
+  padding: 48px 4px 8px;
+
+  .navItem {
+    justify-content: center;
+    padding: 8px;
+  }
 }
 
 .navGroup {

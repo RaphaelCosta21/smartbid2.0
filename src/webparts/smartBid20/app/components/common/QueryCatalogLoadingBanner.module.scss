@@ -1,0 +1,55 @@
+.container {
+  position: fixed;
+  right: 16px;
+  bottom: 88px;
+  z-index: var(--z-toast);
+  max-width: 340px;
+  pointer-events: none;
+}
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--info);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-card);
+}
+
+.spinner {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border: 2px solid var(--border);
+  border-top-color: var(--info);
+  border-radius: 50%;
+  animation: bannerSpin 0.8s linear infinite;
+}
+
+@keyframes bannerSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.message {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}

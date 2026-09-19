@@ -74,6 +74,7 @@ export class QuotationService {
     await add(F.groupId, "text");
     await add(F.subGroupId, "text");
     await add(F.partNumber, "text");
+    await add(F.reference, "text");
     await add(F.supplier, "text");
     await add(F.quantity, "number");
     await add(F.leadTimeDays, "number");
@@ -101,6 +102,7 @@ export class QuotationService {
       groupId: String(row[F.groupId] || ""),
       subGroupId: String(row[F.subGroupId] || ""),
       partNumber: String(row[F.partNumber] || ""),
+      reference: String(row[F.reference] || ""),
       description: String(row.Title || ""),
       quantity: num(row[F.quantity]) || 1,
       supplier: String(row[F.supplier] || ""),
@@ -129,6 +131,7 @@ export class QuotationService {
       [F.groupId]: item.groupId || "",
       [F.subGroupId]: item.subGroupId || "",
       [F.partNumber]: item.partNumber || "",
+      [F.reference]: item.reference || "",
       [F.supplier]: item.supplier || "",
       [F.quantity]: item.quantity || 1,
       [F.leadTimeDays]: item.leadTimeDays || 0,
@@ -206,6 +209,7 @@ export class QuotationService {
           F.groupId,
           F.subGroupId,
           F.partNumber,
+          F.reference,
           F.supplier,
           F.quantity,
           F.leadTimeDays,

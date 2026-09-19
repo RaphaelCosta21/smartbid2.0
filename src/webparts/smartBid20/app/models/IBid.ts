@@ -521,9 +521,11 @@ export interface IEngineeringDeliverable {
 /** An engineering scope item with its deliverable breakdown */
 export interface IEngineeringHoursItem {
   id: string;
-  /** FK to IScopeItem.id — links back to scope of supply */
-  scopeItemId: string;
-  /** Item description (copied from scope for display) */
+  /** Optional FK to IScopeItem.id — null for manually created items */
+  scopeItemId: string | null;
+  /** Whether this item was synchronized from Scope or created manually */
+  source?: "scope" | "manual";
+  /** Item description (copied from scope or entered manually) */
   description: string;
   /** Equipment offer info (copied from scope) */
   equipmentOffer?: string;
@@ -537,6 +539,8 @@ export interface IEngineeringHoursItem {
   totalHours: number;
   /** Whether Manufacturing Support (20%) is included in totalHours */
   includeManufacturing?: boolean;
+  /** Division ownership for standalone items in Integrated BIDs */
+  integratedDivision?: "ROV" | "SURVEY" | "OPG" | "";
 }
 
 /** Resource allocation for engineering hours planning */

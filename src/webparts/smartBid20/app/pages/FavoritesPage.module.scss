@@ -105,8 +105,7 @@
 
 /* ─── Group sidebar ─── */
 .groupSidebar {
-  width: 240px;
-  flex-shrink: 0;
+  height: 100%;
   background: var(--card-bg, rgba(255, 255, 255, 0.04));
   border-radius: 10px;
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));

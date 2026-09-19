@@ -6,6 +6,7 @@ import { BidCard } from "../components/bid/BidCard";
 import { PartNumberAutocomplete } from "../components/common/PartNumberAutocomplete";
 import { AdvancedCatalogSearch } from "../components/common/AdvancedCatalogSearch";
 import { PhotoLightbox } from "../components/common/PhotoLightbox";
+import { CollapsibleSidebar } from "../components/common/CollapsibleSidebar";
 import { useBids } from "../hooks/useBids";
 import { useFavoritesStore } from "../stores/useFavoritesStore";
 import { useConfigStore } from "../stores/useConfigStore";
@@ -53,6 +54,8 @@ export const FavoritesPage: React.FC = () => {
   const [selectedSubGroup, setSelectedSubGroup] = React.useState<string | null>(
     null,
   );
+  const [catalogSidebarCollapsed, setCatalogSidebarCollapsed] =
+    React.useState(false);
   const [searchText, setSearchText] = React.useState("");
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [addingParentId, setAddingParentId] = React.useState<string | null>(
@@ -625,57 +628,65 @@ export const FavoritesPage: React.FC = () => {
       {activeTab === "equipment" && (
         <div className={styles.equipContent}>
           {/* Sidebar — Group tree */}
-          <div className={styles.groupSidebar}>
-            <div className={styles.sidebarHeader}>
-              <span className={styles.sidebarTitle}>Groups</span>
-            </div>
-            <div
-              className={`${styles.groupItem} ${!selectedGroup ? styles.groupActive : ""}`}
-              onClick={() => handleSelectGroup(null)}
-            >
-              <span>📁 All Items</span>
-              <span className={styles.groupCount}>{equipment.length}</span>
-            </div>
-            {groups.map((g) => (
-              <div key={g.id}>
-                <div
-                  className={`${styles.groupItem} ${selectedGroup === g.id && !selectedSubGroup ? styles.groupActive : ""}`}
-                  onClick={() => handleSelectGroup(g.id)}
-                >
-                  <span
-                    className={styles.groupExpander}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleGroupExpand(g.id);
-                    }}
-                  >
-                    {g.subGroups.length > 0
-                      ? expandedGroups.has(g.id)
-                        ? "▾"
-                        : "▸"
-                      : " "}
-                  </span>
-                  <span className={styles.groupName}>{g.name}</span>
-                  <span className={styles.groupCount}>
-                    {getGroupCount(g.id)}
-                  </span>
-                </div>
-                {expandedGroups.has(g.id) &&
-                  g.subGroups.map((sg) => (
-                    <div
-                      key={sg.id}
-                      className={`${styles.subGroupItem} ${selectedSubGroup === sg.id ? styles.groupActive : ""}`}
-                      onClick={() => handleSelectGroup(g.id, sg.id)}
-                    >
-                      <span>{sg.name}</span>
-                      <span className={styles.groupCount}>
-                        {getSubGroupCount(sg.id)}
-                      </span>
-                    </div>
-                  ))}
+          <CollapsibleSidebar
+            label="Equipment catalog groups"
+            collapsed={catalogSidebarCollapsed}
+            onToggle={() =>
+              setCatalogSidebarCollapsed((collapsed) => !collapsed)
+            }
+          >
+            <div className={styles.groupSidebar}>
+              <div className={styles.sidebarHeader}>
+                <span className={styles.sidebarTitle}>Groups</span>
               </div>
-            ))}
-          </div>
+              <div
+                className={`${styles.groupItem} ${!selectedGroup ? styles.groupActive : ""}`}
+                onClick={() => handleSelectGroup(null)}
+              >
+                <span>📁 All Items</span>
+                <span className={styles.groupCount}>{equipment.length}</span>
+              </div>
+              {groups.map((g) => (
+                <div key={g.id}>
+                  <div
+                    className={`${styles.groupItem} ${selectedGroup === g.id && !selectedSubGroup ? styles.groupActive : ""}`}
+                    onClick={() => handleSelectGroup(g.id)}
+                  >
+                    <span
+                      className={styles.groupExpander}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleGroupExpand(g.id);
+                      }}
+                    >
+                      {g.subGroups.length > 0
+                        ? expandedGroups.has(g.id)
+                          ? "▾"
+                          : "▸"
+                        : " "}
+                    </span>
+                    <span className={styles.groupName}>{g.name}</span>
+                    <span className={styles.groupCount}>
+                      {getGroupCount(g.id)}
+                    </span>
+                  </div>
+                  {expandedGroups.has(g.id) &&
+                    g.subGroups.map((sg) => (
+                      <div
+                        key={sg.id}
+                        className={`${styles.subGroupItem} ${selectedSubGroup === sg.id ? styles.groupActive : ""}`}
+                        onClick={() => handleSelectGroup(g.id, sg.id)}
+                      >
+                        <span>{sg.name}</span>
+                        <span className={styles.groupCount}>
+                          {getSubGroupCount(sg.id)}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              ))}
+            </div>
+          </CollapsibleSidebar>
 
           {/* Main area */}
           <div className={styles.mainArea}>

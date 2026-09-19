@@ -28,12 +28,112 @@
   }
 }
 
-/* ─── Filter Bar ─── */
-.filterBar {
+/* ─── Catalog layout ─── */
+.catalogContent {
+  display: flex;
+  gap: 16px;
+  min-height: 500px;
+}
+
+.groupSidebar {
+  height: 100%;
+  overflow: hidden;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 10px 48px 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sidebarTitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.groupItem,
+.subGroupItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 250ms ease;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+}
+
+.groupItem {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.subGroupItem {
+  padding: 6px 12px 6px 32px;
+  font-size: 12px;
+  color: var(--text-muted);
+
+  span:first-child {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.groupActive {
+  background: var(--card-bg-elevated) !important;
+  color: var(--primary-accent) !important;
+  font-weight: 600;
+}
+
+.groupExpander {
+  width: 14px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+.groupName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.groupCount {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.mainArea {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 12px;
+}
+
+.toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
   align-items: center;
+  gap: 10px;
 }
 
 .aiDropZone {
@@ -93,22 +193,6 @@
   min-width: 200px;
   max-width: 340px;
   transition: border-color 200ms;
-
-  &:focus {
-    border-color: var(--primary-accent);
-  }
-}
-
-.filterSelect {
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-  background: var(--card-bg);
-  color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-  cursor: pointer;
-  min-width: 140px;
 
   &:focus {
     border-color: var(--primary-accent);
@@ -355,6 +439,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .costCell {
@@ -372,6 +457,23 @@
   white-space: nowrap;
   color: var(--text-muted);
   font-size: 12px;
+  cursor: pointer;
+}
+
+/* Click a Description / Notes cell to reveal its full text */
+.cellExpanded {
+  max-width: 420px;
+  white-space: pre-wrap;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+}
+
+.refCell {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .rowActions {
@@ -789,4 +891,14 @@
   font-size: 11px;
   color: var(--primary-accent);
   margin-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .catalogContent {
+    gap: 12px;
+  }
+
+  .searchInput {
+    max-width: none;
+  }
 }

@@ -172,6 +172,18 @@
       "synonymMaps": []
     },
     {
+      "name": "sectionPath",
+      "type": "Edm.String",
+      "searchable": true,
+      "filterable": true,
+      "retrievable": true,
+      "stored": true,
+      "sortable": false,
+      "facetable": false,
+      "key": false,
+      "synonymMaps": []
+    },
+    {
       "name": "text_vector",
       "type": "Collection(Edm.Single)",
       "searchable": true,
@@ -198,6 +210,7 @@
           "docDescription": 3,
           "docCategory": 3,
           "docType": 2,
+          "sectionPath": 2,
           "docRevision": 1,
           "filePath": 1,
           "chunk": 1
@@ -236,6 +249,9 @@
           "prioritizedKeywordsFields": [
             {
               "fieldName": "docKeywords"
+            },
+            {
+              "fieldName": "sectionPath"
             },
             {
               "fieldName": "docCategory"

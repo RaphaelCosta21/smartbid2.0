@@ -63,6 +63,7 @@ import { PatchNotesPage } from "../../pages/PatchNotesPage";
 import { FaqPage } from "../../pages/FaqPage";
 import { CommandPalette } from "./CommandPalette";
 import { ToastContainer } from "../common/ToastContainer";
+import { QueryCatalogLoadingBanner } from "../common/QueryCatalogLoadingBanner";
 import { ChatAssistant } from "../common/ChatAssistant";
 
 /** Route guard — only the Engineering team may access Knowledge Base pages */
@@ -194,6 +195,7 @@ const AppLayoutInner: React.FC<{
       </div>
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      <QueryCatalogLoadingBanner />
       <ChatAssistant />
 
       <div className={styles.mainArea}>

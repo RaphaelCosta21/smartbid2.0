@@ -71,6 +71,7 @@ export const SHAREPOINT_CONFIG = {
     groupId: "GroupId",
     subGroupId: "SubGroupId",
     partNumber: "PartNumber",
+    reference: "QuotationRef",
     supplier: "Supplier",
     quantity: "Quantity",
     leadTimeDays: "LeadTimeDays",

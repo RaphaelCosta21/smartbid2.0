@@ -26,6 +26,7 @@ import { useConfigStore } from "../../stores/useConfigStore";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
 import { APP_CONFIG } from "../../config/app.config";
 import { EntraTokenTest } from "../common/EntraTokenTest";
+import { CollapsibleSidebar } from "../common/CollapsibleSidebar";
 
 /* ------------------------------------------------------------------ */
 /* NAV STRUCTURE                                                      */
@@ -357,6 +358,7 @@ const SystemConfiguration: React.FC = () => {
   const favEquipment = useFavoritesStore((s) => s.data?.equipment || []);
 
   const [activeTab, setActiveTab] = React.useState<string>("kpi");
+  const [navigationCollapsed, setNavigationCollapsed] = React.useState(false);
   const [config, setConfig] = React.useState<ISystemConfig | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -2284,20 +2286,14 @@ const SystemConfiguration: React.FC = () => {
           }}
         >
           <h3 style={{ margin: 0 }}>Resource Types</h3>
-          <button
-            style={{
-              padding: "6px 14px",
-              borderRadius: 8,
-              border: "1px solid var(--border-subtle)",
-              background: "var(--accent-color)",
-              color: "#fff",
-              fontSize: 13,
-              cursor: "pointer",
-            }}
-            onClick={addResourceType}
-          >
-            + Add Resource Type
-          </button>
+          {canEdit && (
+            <button
+              className={`${styles.actionBtn} ${styles.primary}`}
+              onClick={addResourceType}
+            >
+              + Add Resource Type
+            </button>
+          )}
         </div>
         {resourceTypes.length === 0 && (
           <p style={{ color: "var(--text-secondary)" }}>
@@ -2402,20 +2398,14 @@ const SystemConfiguration: React.FC = () => {
                 >
                   Sub-Types ({rt.subTypes.length})
                 </span>
-                <button
-                  style={{
-                    fontSize: 11,
-                    background: "transparent",
-                    border: "1px solid var(--border-subtle)",
-                    borderRadius: 4,
-                    padding: "2px 8px",
-                    cursor: "pointer",
-                    color: "var(--accent-color)",
-                  }}
-                  onClick={() => addSubType(rt.id)}
-                >
-                  + Sub-Type
-                </button>
+                {canEdit && (
+                  <button
+                    className={styles.actionBtn}
+                    onClick={() => addSubType(rt.id)}
+                  >
+                    + Sub-Type
+                  </button>
+                )}
               </div>
               {rt.subTypes.map((st) => (
                 <div
@@ -3138,23 +3128,47 @@ const SystemConfiguration: React.FC = () => {
       ) : (
         <div className={styles.body}>
           {/* Sidebar */}
-          <nav className={styles.sidebar}>
-            {NAV_GROUPS.map((group) => (
-              <div key={group.group} className={styles.navGroup}>
-                <div className={styles.navGroupLabel}>{group.group}</div>
-                {group.items.map((item) => (
-                  <button
-                    key={item.key}
-                    className={`${styles.navItem} ${activeTab === item.key ? styles.active : ""}`}
-                    onClick={() => setActiveTab(item.key)}
-                  >
-                    <span className={styles.navIcon}>{item.icon}</span>
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </nav>
+          <CollapsibleSidebar
+            label="Configuration sections"
+            collapsed={navigationCollapsed}
+            onToggle={() => setNavigationCollapsed((collapsed) => !collapsed)}
+            sticky
+            stickyTop={24}
+            collapsedContent={
+              <nav className={`${styles.sidebar} ${styles.sidebarCollapsed}`}>
+                {NAV_GROUPS.map((group) =>
+                  group.items.map((item) => (
+                    <button
+                      key={item.key}
+                      className={`${styles.navItem} ${activeTab === item.key ? styles.active : ""}`}
+                      onClick={() => setActiveTab(item.key)}
+                      title={item.label}
+                    >
+                      <span className={styles.navIcon}>{item.icon}</span>
+                    </button>
+                  )),
+                )}
+              </nav>
+            }
+          >
+            <nav className={styles.sidebar}>
+              {NAV_GROUPS.map((group) => (
+                <div key={group.group} className={styles.navGroup}>
+                  <div className={styles.navGroupLabel}>{group.group}</div>
+                  {group.items.map((item) => (
+                    <button
+                      key={item.key}
+                      className={`${styles.navItem} ${activeTab === item.key ? styles.active : ""}`}
+                      onClick={() => setActiveTab(item.key)}
+                    >
+                      <span className={styles.navIcon}>{item.icon}</span>
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </nav>
+          </CollapsibleSidebar>
 
           {/* Content */}
           <div className={styles.content}>

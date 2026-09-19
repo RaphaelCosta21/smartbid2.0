@@ -16,6 +16,7 @@ import os
 import io
 import re
 import json
+import time
 import base64
 import logging
 import threading
@@ -29,6 +30,8 @@ from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizableTextQuery
 import pypdfium2 as pdfium     # PDF text + page rasterization (BSD/Apache)
 from docx import Document      # python-docx — Word text
+
+from document_structure import OUTLINE_SECTION, build_chunks
 
 app = func.FunctionApp()
 
@@ -65,18 +68,39 @@ MAX_VISION_PAGES = int(os.environ.get("MAX_VISION_PAGES", "20"))
 VISION_DPI = 150
 SEARCH_QUERY_CHARS = 8000   # AI Search query budget (context hint + document text)
 CONTEXT_HINT_CHARS = 1500
+# Scope generation: `top` counts chunks, so it is raised well above the number of
+# documents we want once duplicates from the same file are dropped. The
+# per-document outline chunk lists section titles rather than specifications —
+# useful for chat, dead weight here.
+SCOPE_TOP_K = int(os.environ.get("SCOPE_TOP_K", "20"))
+SCOPE_MAX_DOCUMENTS = int(os.environ.get("SCOPE_MAX_DOCUMENTS", "8"))
+SCOPE_MAX_CONTEXT_CHARS = int(os.environ.get("SCOPE_MAX_CONTEXT_CHARS", "30000"))
+SCOPE_SEARCH_FILTER = "sectionPath ne '{}'".format(OUTLINE_SECTION.replace("'", "''"))
 # Knowledge chat retrieval. `top` counts chunks, so it must be far larger than the
 # number of documents we want back once duplicates from the same file are dropped.
 SEMANTIC_CONFIG = os.environ.get("AZURE_SEARCH_SEMANTIC_CONFIG", "smartbid-semantic-config")
 CHAT_DEFAULT_TOP_K = int(os.environ.get("CHAT_DEFAULT_TOP_K", "20"))
 CHAT_MAX_TOP_K = int(os.environ.get("CHAT_MAX_TOP_K", "50"))
 CHAT_MAX_DOCUMENTS = int(os.environ.get("CHAT_MAX_DOCUMENTS", "8"))
+# Chunks are sections now, so two hits in the same file are usually two different
+# sections rather than the same cover page twice.
+CHAT_MAX_CHUNKS_PER_DOC = int(os.environ.get("CHAT_MAX_CHUNKS_PER_DOC", "2"))
 CHAT_MAX_CONTEXT_CHARS = int(os.environ.get("CHAT_MAX_CONTEXT_CHARS", "40000"))
 CHAT_MAX_HISTORY = int(os.environ.get("CHAT_MAX_HISTORY", "6"))
-CHAT_SELECT_FIELDS = [
+SEARCH_SELECT_FIELDS = [
     "title", "chunk", "sourceUrl", "parent_id", "docType", "docCategory",
     "manufacturer", "docModel", "docKeywords", "docDescription", "docRevision",
+    "sectionPath",
 ]
+# Indexer-side chunking (POST /skills/chunk).
+SKILL_MAX_DOC_CHARS = int(os.environ.get("SKILL_MAX_DOC_CHARS", "400000"))
+SKILL_CHUNK_MAX_CHARS = int(os.environ.get("SKILL_CHUNK_MAX_CHARS", "4000"))
+SKILL_CHUNK_MIN_CHARS = int(os.environ.get("SKILL_CHUNK_MIN_CHARS", "1200"))
+SKILL_CHUNK_OVERLAP_CHARS = int(os.environ.get("SKILL_CHUNK_OVERLAP_CHARS", "400"))
+SKILL_METADATA_FIELDS = (
+    "title", "docType", "docCategory", "manufacturer",
+    "docModel", "docKeywords", "docDescription", "docRevision",
+)
 # When true, the 500 payload also carries the upstream error message. Keep it off
 # in steady state; turn it on to triage without Application Insights access.
 DEBUG_ERRORS = os.environ.get("AI_DEBUG_ERRORS", "").lower() in ("1", "true", "yes")
@@ -220,8 +244,20 @@ def _document_text(
 ) -> Tuple[str, List[str]]:
     """Return (text, warnings), capping the length so a huge upload degrades
     into a partial analysis instead of a model context error."""
+    started = time.perf_counter()
     text, images, warnings = extract_text_or_images(file_bytes, file_name)
+    extracted = time.perf_counter()
     document_text = override or ensure_text(text, images)
+    # Vision OCR is a second, serial model call — the usual reason a scanned PDF
+    # takes minutes while a text PDF takes seconds.
+    logging.info(
+        "document parsing — file=%s extract=%.1fs vision=%.1fs visionPages=%d chars=%d",
+        file_name,
+        extracted - started,
+        time.perf_counter() - extracted,
+        len(images),
+        len(document_text),
+    )
     if len(document_text) > MAX_DOC_CHARS:
         document_text = document_text[:MAX_DOC_CHARS]
         warnings.append(
@@ -229,6 +265,16 @@ def _document_text(
             "Review the results and split the file if items are missing."
         )
     return document_text, warnings
+
+
+def _token_usage(completion: Any) -> Tuple[int, int]:
+    """Input vs output tokens — the two behave very differently: prefill is fast,
+    generation is not. Absent on some API versions, so never assume it is there."""
+    usage = getattr(completion, "usage", None)
+    return (
+        int(getattr(usage, "prompt_tokens", 0) or 0),
+        int(getattr(usage, "completion_tokens", 0) or 0),
+    )
 
 
 def _parse_request(
@@ -275,24 +321,75 @@ def _retrieval_query(context_lines: List[str], document_text: str) -> str:
     return re.sub(r"\s+", " ", _SEARCH_OPERATORS.sub(" ", query)).strip()
 
 
+def _document_block(doc: Dict[str, Any], chunks: List[Dict[str, Any]]) -> str:
+    """Render one retrieved document with the catalogued metadata, followed by
+    every excerpt retrieved from it. Without this header the model only sees a
+    file name and can only guess the client, proposal number or revision."""
+    meta_line = " | ".join(
+        f"{label}: {doc.get(field)}"
+        for label, field in (
+            ("Type", "docType"),
+            ("Client", "manufacturer"),
+            ("Ref", "docModel"),
+            ("Rev", "docRevision"),
+        )
+        if doc.get(field)
+    )
+    extra_line = " | ".join(
+        f"{label}: {doc.get(field)}"
+        for label, field in (
+            ("Discipline", "docCategory"),
+            ("Keywords", "docKeywords"),
+        )
+        if doc.get(field)
+    )
+    parts = [f"[{doc.get('title', 'Untitled')}] ({doc.get('sourceUrl', '')})"]
+    if meta_line:
+        parts.append(meta_line)
+    if extra_line:
+        parts.append(extra_line)
+    if doc.get("docDescription"):
+        parts.append(f"Scope: {doc.get('docDescription')}")
+    for chunk in chunks:
+        section = str(chunk.get("sectionPath") or "").strip()
+        parts.append(f"--- excerpt — section: {section} ---" if section else "--- excerpt ---")
+        parts.append(chunk.get("chunk", ""))
+    return "\n".join(parts)
+
+
 def _reference_material(query_text: str) -> Tuple[str, List[str]]:
     """Hybrid (keyword + vector) retrieval. Retrieval is an enhancement, not a
     hard dependency: if AI Search is unavailable the analysis still runs, with a
     warning, instead of failing the whole request."""
     try:
         vector_query = VectorizableTextQuery(
-            text=query_text, k_nearest_neighbors=5, fields="text_vector"
+            text=query_text, k_nearest_neighbors=SCOPE_TOP_K, fields="text_vector"
         )
         results = search_client.search(
             search_text=query_text,
             vector_queries=[vector_query],
-            select=["title", "chunk", "sourceUrl", "manufacturer", "docModel"],
-            top=5,
+            select=SEARCH_SELECT_FIELDS,
+            filter=SCOPE_SEARCH_FILTER,
+            top=SCOPE_TOP_K,
         )
-        return "\n\n---\n\n".join(
-            f"[{r.get('title', 'Untitled')}] ({r.get('sourceUrl', '')})\n{r.get('chunk', '')}"
-            for r in results
-        ), []
+        # Breadth matters more than depth here: eight different datasheets beat
+        # eight excerpts of the same one, so only the best chunk per file is kept.
+        blocks: List[str] = []
+        seen: set = set()
+        budget = 0
+        for r in results:
+            parent = r.get("parent_id") or r.get("sourceUrl") or r.get("title")
+            if parent in seen:
+                continue
+            chunk = r.get("chunk") or ""
+            if budget + len(chunk) > SCOPE_MAX_CONTEXT_CHARS and blocks:
+                break
+            seen.add(parent)
+            budget += len(chunk)
+            blocks.append(_document_block(r, [r]))
+            if len(blocks) >= SCOPE_MAX_DOCUMENTS:
+                break
+        return "\n\n---\n\n".join(blocks), []
     except Exception:
         logging.exception("scope/generate — AI Search retrieval failed")
         return "", [
@@ -356,11 +453,13 @@ def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
     )
 
     stage = "document parsing"
+    started = time.perf_counter()
     try:
         # 1) Get text (vision-OCR only if the PDF is scanned)
         document_text, warnings = _document_text(file_bytes, file_name, override)
         if len(document_text) < TEXT_MIN_CHARS:
             return _unreadable()
+        parsed_at = time.perf_counter()
 
         # 2) RAG retrieval — AI Search vectorizes the query text itself
         stage = "reference retrieval"
@@ -368,6 +467,7 @@ def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
         query_text = _retrieval_query(context_lines, document_text)
         reference_material, retrieval_warnings = _reference_material(query_text)
         warnings.extend(retrieval_warnings)
+        retrieved_at = time.perf_counter()
 
         # 3) Append the BID context and retrieved Reference Material to OUR system prompt
         bid_context = (
@@ -393,6 +493,7 @@ def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
                 {"role": "user", "content": document_text},
             ],
         )
+        answered_at = time.perf_counter()
         model_json = _model_json(completion, "scope/generate")
 
         # 5) Shape to IAIAnalysisResult (frontend assigns id/lineNumber)
@@ -405,10 +506,28 @@ def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
             "sourceDocument": file_name,
             "analyzedAt": _now_iso(),
         }
+        prompt_tokens, completion_tokens = _token_usage(completion)
+        # The 230 s Azure Load Balancer ceiling applies to the whole request, so
+        # these four numbers are what tells IT which phase to attack.
+        logging.info(
+            "scope/generate timing — parse=%.1fs retrieval=%.1fs model=%.1fs total=%.1fs "
+            "| docChars=%d refChars=%d promptTokens=%d completionTokens=%d items=%d",
+            parsed_at - started,
+            retrieved_at - parsed_at,
+            answered_at - retrieved_at,
+            time.perf_counter() - started,
+            len(document_text),
+            len(reference_material),
+            prompt_tokens,
+            completion_tokens,
+            len(response["scopeItems"]),
+        )
         return func.HttpResponse(json.dumps(response), mimetype="application/json", status_code=200)
 
     except Exception as e:
-        logging.exception("scope/generate failed during %s", stage)
+        logging.exception(
+            "scope/generate failed during %s after %.1fs", stage, time.perf_counter() - started
+        )
         return _server_error("Analysis failed", stage, e)
 
 
@@ -470,40 +589,6 @@ def extract_quotation(req: func.HttpRequest) -> func.HttpResponse:
 # ---------------------------------------------------------------------------
 
 
-def _chat_document_block(r: Dict[str, Any]) -> str:
-    """Render one retrieved document with the catalogued metadata. Without this
-    header the model only sees a file name and can only guess the client,
-    proposal number or revision."""
-    meta_line = " | ".join(
-        f"{label}: {r.get(field)}"
-        for label, field in (
-            ("Type", "docType"),
-            ("Client", "manufacturer"),
-            ("Ref", "docModel"),
-            ("Rev", "docRevision"),
-        )
-        if r.get(field)
-    )
-    extra_line = " | ".join(
-        f"{label}: {r.get(field)}"
-        for label, field in (
-            ("Discipline", "docCategory"),
-            ("Keywords", "docKeywords"),
-        )
-        if r.get(field)
-    )
-    parts = [f"[{r.get('title', 'Untitled')}] ({r.get('sourceUrl', '')})"]
-    if meta_line:
-        parts.append(meta_line)
-    if extra_line:
-        parts.append(extra_line)
-    if r.get("docDescription"):
-        parts.append(f"Scope: {r.get('docDescription')}")
-    parts.append("--- excerpt ---")
-    parts.append(r.get("chunk", ""))
-    return "\n".join(parts)
-
-
 def _chat_search(query_text: str, top_k: int, doc_type: Optional[str], semantic: bool):
     """One hybrid search pass. Semantic ranking is billed per tier, so the caller
     retries without it rather than losing grounding entirely."""
@@ -514,7 +599,7 @@ def _chat_search(query_text: str, top_k: int, doc_type: Optional[str], semantic:
                 text=query_text, k_nearest_neighbors=top_k, fields="text_vector"
             )
         ],
-        "select": CHAT_SELECT_FIELDS,
+        "select": SEARCH_SELECT_FIELDS,
         "top": top_k,
     }
     if semantic:
@@ -531,8 +616,9 @@ def _chat_reference_material(
     """Hybrid retrieval for chat, deduplicated per document.
 
     `top` counts CHUNKS, not documents, so a single long PDF can otherwise fill
-    every slot with near-identical cover pages. Keeping the best chunk per
-    parent_id is what makes "which proposals mention X" answerable.
+    every slot with near-identical cover pages. Grouping by parent_id and
+    capping the chunks kept per file is what makes "which proposals mention X"
+    answerable.
     Returns (reference_block, retrieved_for_diagnostics, warnings).
     """
     warnings: List[str] = []
@@ -547,29 +633,36 @@ def _chat_reference_material(
             )
             results = list(_chat_search(query_text, top_k, doc_type, semantic=False))
 
-        seen: set = set()
-        blocks: List[str] = []
+        order: List[Any] = []
+        grouped: Dict[Any, List[Dict[str, Any]]] = {}
+        headers: Dict[Any, Dict[str, Any]] = {}
         retrieved: List[Dict[str, str]] = []
         budget = 0
         for r in results:
             parent = r.get("parent_id") or r.get("sourceUrl") or r.get("title")
-            if parent in seen:
+            known = parent in grouped
+            if not known and len(order) >= CHAT_MAX_DOCUMENTS:
+                continue
+            if known and len(grouped[parent]) >= CHAT_MAX_CHUNKS_PER_DOC:
                 continue
             chunk = r.get("chunk") or ""
-            if budget + len(chunk) > CHAT_MAX_CONTEXT_CHARS and blocks:
+            if budget + len(chunk) > CHAT_MAX_CONTEXT_CHARS and order:
                 break
-            seen.add(parent)
             budget += len(chunk)
-            blocks.append(_chat_document_block(r))
+            if not known:
+                order.append(parent)
+                grouped[parent] = []
+                headers[parent] = r
+            grouped[parent].append(r)
             retrieved.append(
                 {
                     "title": str(r.get("title") or "Untitled"),
                     "url": str(r.get("sourceUrl") or ""),
+                    "section": str(r.get("sectionPath") or ""),
                     "snippet": chunk[:200],
                 }
             )
-            if len(blocks) >= CHAT_MAX_DOCUMENTS:
-                break
+        blocks = [_document_block(headers[p], grouped[p]) for p in order]
         return "\n\n---\n\n".join(blocks), retrieved, warnings
     except Exception:
         logging.exception("chat — AI Search retrieval failed")
@@ -671,3 +764,72 @@ def chat(req: func.HttpRequest) -> func.HttpResponse:
     except Exception as e:
         logging.exception("chat failed during %s", stage)
         return _server_error("Chat failed", stage, e)
+
+
+# ---------------------------------------------------------------------------
+# Indexer custom skill
+#
+# The SharePoint indexer never exposes /document/file_data, so the built-in
+# Document Layout skill cannot run against this data source. This route does the
+# equivalent work on the text the indexer already cracked: rebuild the outline as
+# Markdown, drop the header/footer that repeats on every page, and emit one chunk
+# per section instead of a fixed-size slice.
+#
+# Contract: https://learn.microsoft.com/azure/search/cognitive-search-custom-skill-web-api
+# A failing record must not fail the batch, so errors are reported per record.
+# ---------------------------------------------------------------------------
+
+
+@app.route(route="skills/chunk", methods=["POST"], auth_level=ANONYMOUS)
+def skill_chunk(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        records = req.get_json()["values"]
+        if not isinstance(records, list):
+            raise TypeError("'values' must be an array")
+    except (ValueError, KeyError, TypeError) as e:
+        logging.warning("Malformed skills/chunk request: %s", e)
+        return func.HttpResponse(
+            json.dumps({
+                "error": "Invalid skill request",
+                "details": "Expected JSON with a 'values' array of skill records.",
+            }),
+            status_code=400, mimetype="application/json",
+        )
+
+    values: List[Dict[str, Any]] = []
+    for record in records:
+        record = record if isinstance(record, dict) else {}
+        data = record.get("data") if isinstance(record.get("data"), dict) else {}
+        warnings: List[Dict[str, str]] = []
+        errors: List[Dict[str, str]] = []
+        chunks: List[Dict[str, Any]] = []
+        try:
+            content = str(data.get("content") or "")
+            if len(content) > SKILL_MAX_DOC_CHARS:
+                content = content[:SKILL_MAX_DOC_CHARS]
+                warnings.append({
+                    "message": f"Document exceeds {SKILL_MAX_DOC_CHARS} characters — "
+                               "only the first part was chunked."
+                })
+            chunks = build_chunks(
+                content,
+                {field: data.get(field) for field in SKILL_METADATA_FIELDS},
+                max_chars=SKILL_CHUNK_MAX_CHARS,
+                min_chars=SKILL_CHUNK_MIN_CHARS,
+                overlap_chars=SKILL_CHUNK_OVERLAP_CHARS,
+            )
+            if not chunks:
+                warnings.append({"message": "No text content to chunk."})
+        except Exception as e:
+            logging.exception("skills/chunk failed for record %s", record.get("recordId"))
+            errors.append({"message": f"Chunking failed [{type(e).__name__}]"})
+        values.append({
+            "recordId": str(record.get("recordId", "")),
+            "data": {"chunks": chunks},
+            "errors": errors,
+            "warnings": warnings,
+        })
+
+    return func.HttpResponse(
+        json.dumps({"values": values}), mimetype="application/json", status_code=200
+    )

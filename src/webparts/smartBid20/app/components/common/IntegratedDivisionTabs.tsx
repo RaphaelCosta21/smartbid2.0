@@ -52,7 +52,7 @@ const tabStyle = (isActive: boolean): React.CSSProperties => ({
 });
 
 /** Resolve which division tabs to show for a given serviceLine */
-function resolveTabs(serviceLine: string): IntegratedDivision[] {
+export function resolveDivisions(serviceLine: string): IntegratedDivision[] {
   if (serviceLine === "Integrated") return ["ROV", "SURVEY"];
   if (serviceLine === "ROV") return ["ROV"];
   if (serviceLine === "Survey") return ["SURVEY"];
@@ -64,13 +64,13 @@ export const IntegratedDivisionTabs: React.FC<IntegratedDivisionTabsProps> = ({
   serviceLine,
   children,
 }) => {
-  const tabs = resolveTabs(serviceLine);
+  const tabs = resolveDivisions(serviceLine);
   const [activeDivision, setActiveDivision] =
     React.useState<IntegratedDivision>(tabs[0] || "ROV");
 
   // Sync active tab when serviceLine changes
   React.useEffect(() => {
-    const newTabs = resolveTabs(serviceLine);
+    const newTabs = resolveDivisions(serviceLine);
     if (newTabs.length > 0 && !newTabs.includes(activeDivision)) {
       setActiveDivision(newTabs[0]);
     }
