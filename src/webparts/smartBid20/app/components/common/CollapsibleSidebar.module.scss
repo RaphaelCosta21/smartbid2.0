@@ -1,6 +1,6 @@
 .sidebar {
-  width: 240px;
-  min-width: 240px;
+  width: 200px;
+  min-width: 200px;
   flex-shrink: 0;
   position: relative;
   overflow: visible;
@@ -23,7 +23,12 @@
   position: sticky;
   top: var(--cs-sticky-top, 16px);
   align-self: start;
-  max-height: calc(100vh - var(--cs-sticky-top, 16px) - 24px);
+  /* Must fit inside the scroll viewport (not 100vh) — otherwise the sticky box is
+     taller than the space its containing block allows and gets clamped, which makes
+     the sidebar jump whenever the page content grows or shrinks. */
+  max-height: calc(
+    var(--app-scroll-height, 100vh) - var(--cs-sticky-top, 16px) - 24px
+  );
 }
 
 .content {

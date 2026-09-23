@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "branchName": "main",
+  "worktreePath": "C:\\Users\\RCosta1\\OneDrive - Oceaneering\\Pasta Principal\\Coding Projects\\smartbid2.0",
+  "upstream": "origin/main",
+  "mergeBase": "b6d954d3fb2bcd28a6d0d42e32c5105e73f92798",
+  "firstSeenHead": "b6d954d3fb2bcd28a6d0d42e32c5105e73f92798",
+  "lastSeenHead": "b6d954d3fb2bcd28a6d0d42e32c5105e73f92798",
+  "lastAnalyzedHead": "b6d954d3fb2bcd28a6d0d42e32c5105e73f92798",
+  "stale": false,
+  "staleReason": null,
+  "staleSince": null,
+  "lifecycleEvent": null,
+  "createdAt": "2026-09-19T00:11:16.829Z",
+  "updatedAt": "2026-09-19T00:11:16.829Z"
+}

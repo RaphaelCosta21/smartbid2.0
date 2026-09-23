@@ -217,6 +217,10 @@ export interface IAssetBreakdownItem {
   costCategory: "CAPEX" | "OPEX" | "";
   supplier: string;
   quoteReference: string | null;
+  /** Display label of the quotation this cost was imported from (e.g. "Quote – 14976") */
+  quotationReference?: string | null;
+  /** Server-relative URL of the quotation's uploaded file, if any — lets the user open it directly */
+  quotationFileUrl?: string | null;
   statusIndicator: string | null;
   notes: string;
   subCosts?: IAssetSubCost[];
@@ -365,6 +369,10 @@ export interface ISubItemCost {
   dailyRate?: number | null;
   rentalDays?: number | null;
   notes: string;
+  /** Display label of the quotation this cost was imported from (e.g. "Quote – 14976") */
+  quotationReference?: string | null;
+  /** Server-relative URL of the quotation's uploaded file, if any — lets the user open it directly */
+  quotationFileUrl?: string | null;
   /** Partial availability splits — when set, overrides main availability/cost fields */
   availabilitySplits?: IAvailabilitySplit[];
   /** Sub-costs (e.g. Transit Rate for Rental sub-items) */

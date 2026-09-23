@@ -37,6 +37,10 @@ export interface CostSearchImportItem {
   originalCurrency: string;
   costDate: string;
   supplier?: string;
+  /** Display label of the source quotation (e.g. "Quote – 14976"), set when selectedSource is "quote" */
+  quotationReference?: string;
+  /** Server-relative URL of the quotation's uploaded file, if any */
+  quotationFileUrl?: string;
 }
 
 interface CostSearchModalProps {
@@ -69,6 +73,8 @@ interface SearchRow {
     type: "rental" | "acquisition";
     supplier: string;
     quotationDate: string;
+    reference: string;
+    fileUrl?: string;
   } | null;
   selected: boolean;
   costOverride: number | null;
@@ -325,6 +331,8 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
               type: qi.type === "rental" ? "rental" : "acquisition",
               supplier: qi.supplier || "",
               quotationDate: qi.quotationDate || "",
+              reference: qi.reference || "",
+              fileUrl: qi.fileUrl,
             };
             break;
           }
@@ -441,6 +449,8 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
             originalCurrency: "USD",
             costDate: r.quoteResult.quotationDate,
             supplier: r.quoteResult.supplier || "",
+            quotationReference: r.quoteResult.reference || "Quote",
+            quotationFileUrl: r.quoteResult.fileUrl,
           };
         }
         // Default: catalog

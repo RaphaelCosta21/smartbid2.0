@@ -11,6 +11,7 @@ import {
   IExchangeRate,
   ISubItemCost,
   IAvailabilitySplit,
+  IAssetSubCost,
 } from "../models";
 
 /** Per-resource-type asset cost breakdown */
@@ -18,7 +19,68 @@ export interface IAssetResourceTypeCost {
   resourceType: string;
   capexUSD: number;
   opexUSD: number;
+  uncategorizedUSD: number;
   totalUSD: number;
+}
+
+/** Discount (%) assumed for a transit rate that doesn't carry one of its own. */
+export const TRANSIT_DEFAULT_DISCOUNT = 50;
+
+/** Effective cost bucket. "UNCATEGORIZED" is a real bucket, never silently folded into CAPEX. */
+export type CostCategory = "CAPEX" | "OPEX" | "UNCATEGORIZED";
+
+/** One costed node (asset, split, sub-item or PCF entry), with its fees kept separate. */
+export interface ICostNode {
+  /** Own cost before fees: unit x qty, or daily rate x days x qty */
+  base: number;
+  /** Sum of this node's own sub-costs (services & fees, transit rates included) */
+  fees: number;
+  total: number;
+  category: CostCategory;
+  /** Per-split nodes, when this node's cost is driven by availability splits */
+  splits: ICostNode[];
+}
+
+/** Full cost picture of one asset row, layer by layer. */
+export interface IAssetCostBreakdown {
+  /** The asset's own cost. `base` is 0 when splits or a roll-up drive the cost. */
+  main: ICostNode;
+  splits: ICostNode[];
+  subItems: ICostNode[];
+  pcf: ICostNode[];
+  splitsTotal: number;
+  subItemsTotal: number;
+  pcfTotal: number;
+  /** Asset-level fees left uncounted because the splits own the costs. */
+  orphanFees: number;
+  capex: number;
+  opex: number;
+  uncategorized: number;
+  total: number;
+}
+
+export interface IContingencyOpts {
+  perYear: number;
+  applied: boolean;
+}
+
+const NO_COST_AVAILABILITY = ["onboard", "call out", "not offered"];
+
+const norm = (v?: string): string => (v || "").toLowerCase().trim();
+
+/** Availability statuses that carry no equipment cost (services may still apply). */
+export function isNoCostAvailability(status?: string): boolean {
+  return NO_COST_AVAILABILITY.indexOf(norm(status)) !== -1;
+}
+
+/** Config ships suffixed values such as "Rental (ope)", so match on the prefix. */
+export function isRentalAcq(acqType?: string): boolean {
+  return norm(acqType).indexOf("rental") === 0;
+}
+
+/** Matches both "Workshop" and "Workshop/Refurbishment". */
+export function isWorkshopAcq(acqType?: string): boolean {
+  return norm(acqType).indexOf("workshop") === 0;
 }
 
 /** Apply contingency adjustment to a unit cost based on date reference age */
@@ -35,323 +97,281 @@ export function applyContingencyToCost(
   return unitCost * (1 + (years * pctPerYear) / 100);
 }
 
-/** Apply contingency to a split's unit cost */
-function applyContingencySplit(
-  split: IAvailabilitySplit,
-  pctPerYear: number,
+function contAdj(
+  cost: number,
+  dateRef: string | undefined,
+  cont?: IContingencyOpts,
 ): number {
-  const avail = (split.availabilityStatus || "").toLowerCase();
-  const acqType = (split.acquisitionType || "").toLowerCase();
-  const subCostsSum = (split.subCosts || []).reduce(
-    (s, sc) => s + (sc.costUSD || 0),
-    0,
-  );
-  const qty = split.qty || 0;
-  if (avail === "onboard" || avail === "call out" || avail === "not offered") {
-    return subCostsSum;
-  }
-  if (acqType === "workshop") return subCostsSum;
-  if (acqType === "rental") {
-    return (split.dailyRate || 0) * (split.rentalDays || 0) * qty + subCostsSum;
-  }
-  const adjUnit = applyContingencyToCost(
-    split.unitCostUSD || 0,
-    split.dateReference,
-    pctPerYear,
-  );
-  return adjUnit * qty + subCostsSum;
-}
-
-/** Compute the cost of a single availability split entry */
-export function getSplitCost(split: IAvailabilitySplit): number {
-  const avail = (split.availabilityStatus || "").toLowerCase();
-  const acqType = (split.acquisitionType || "").toLowerCase();
-  const subCostsSum = (split.subCosts || []).reduce(
-    (s, sc) => s + (sc.costUSD || 0),
-    0,
-  );
-  const qty = split.qty || 0;
-
-  if (avail === "onboard" || avail === "call out" || avail === "not offered") {
-    return subCostsSum;
-  }
-  if (acqType === "workshop") {
-    return subCostsSum;
-  }
-  if (acqType === "rental") {
-    return (split.dailyRate || 0) * (split.rentalDays || 0) * qty + subCostsSum;
-  }
-  return (split.unitCostUSD || 0) * qty + subCostsSum;
+  if (!cont || !cont.applied || cont.perYear <= 0 || cost <= 0) return cost;
+  return applyContingencyToCost(cost, dateRef, cont.perYear);
 }
 
 /**
- * Compute the effective total for a single asset's main cost (excludes subItemCosts),
- * matching the logic used in AssetsBreakdownTab.getEffectiveTotal.
+ * Amount of a single sub-cost. Transit rates are recomputed from the parent's daily rate rather
+ * than read from the persisted `costUSD`, so the formula shown and the value summed cannot diverge.
  */
-function getAssetMainCost(
-  a: IAssetBreakdownItem,
-  scopeItems: IScopeItem[],
+export function getSubCostAmount(
+  sc: IAssetSubCost,
+  parentDailyRate: number,
 ): number {
-  // Rolled-up items have no own cost — value lives in the sub-items (counted separately).
-  if (a.costFromSubItems) return 0;
-  // PCF-driven items: cost is the sum of pcfCosts
-  if (a.costFromPCF) {
-    const si = scopeItems.find((s) => s.id === a.scopeItemId);
-    return (a.pcfCosts || []).reduce(
-      (sum, pc) => sum + getSubItemCostTotal(pc, si),
-      0,
-    );
-  }
-  // If availability splits are active, use their individual costs
-  if (a.availabilitySplits && a.availabilitySplits.length > 0) {
-    return a.availabilitySplits.reduce(
-      (sum, split) => sum + getSplitCost(split),
-      0,
-    );
-  }
+  if (!sc) return 0;
+  if (!sc.isTransitRate) return sc.costUSD || 0;
+  const days = (sc.importDays || 0) + (sc.exportDays || 0);
+  const discount =
+    sc.transitDiscount === undefined || sc.transitDiscount === null
+      ? TRANSIT_DEFAULT_DISCOUNT
+      : sc.transitDiscount;
+  return (parentDailyRate || 0) * (1 - discount / 100) * days;
+}
 
-  const si = scopeItems.find((s) => s.id === a.scopeItemId);
-  const qty = (si ? (si.qtyOperational || 0) + (si.qtySpare || 0) : 0) || 1;
-  const avail = (a.availabilityStatus || "").toLowerCase();
-  const acqType = (a.acquisitionType || "").toLowerCase();
-  const subCostsSum = (a.subCosts || []).reduce(
-    (s, sc) => s + (sc.costUSD || 0),
+/** Sum of a node's services & fees. */
+export function getFeesTotal(
+  subCosts: IAssetSubCost[] | undefined,
+  parentDailyRate: number,
+): number {
+  return (subCosts || []).reduce(
+    (s, sc) => s + getSubCostAmount(sc, parentDailyRate),
     0,
   );
-
-  if (avail === "onboard" || avail === "call out" || avail === "not offered") {
-    return subCostsSum;
-  }
-  if (acqType === "workshop") {
-    return subCostsSum;
-  }
-  if (acqType === "rental") {
-    return (a.dailyRate || 0) * (a.rentalDays || 0) * qty + subCostsSum;
-  }
-  return (a.unitCostUSD || 0) * qty + subCostsSum;
 }
 
-/** Compute the effective total for a sub-item cost entry */
-function getSubItemCostTotal(
-  sic: ISubItemCost,
-  scopeItem: IScopeItem | undefined,
-): number {
-  // If availability splits are active, use their individual costs
-  if (sic.availabilitySplits && sic.availabilitySplits.length > 0) {
-    return sic.availabilitySplits.reduce(
-      (sum, split) => sum + getSplitCost(split),
-      0,
-    );
-  }
-
-  const avail = (sic.availabilityStatus || "").toLowerCase();
-  if (avail === "onboard" || avail === "call out" || avail === "not offered")
-    return 0;
-  // Search both subItems and pcfItems for the matching child
-  const sub = scopeItem
-    ? (scopeItem.subItems || []).find((s) => s.id === sic.subItemId) ||
-      ((scopeItem as any).pcfItems || []).find(
-        (s: any) => s.id === sic.subItemId,
-      )
-    : undefined;
-  const qty = sub?.qty || 1;
-  const isRental = (sic.acquisitionType || "").toLowerCase() === "rental";
-  if (isRental) return (sic.dailyRate || 0) * (sic.rentalDays || 0) * qty;
-  return (sic.unitCostUSD || 0) * qty;
-}
-
-/** Determine effective CAPEX/OPEX category for an asset */
-function getEffectiveCategory(a: {
+/** Determine effective CAPEX/OPEX bucket for any costed entity */
+export function getEffectiveCategory(a: {
   acquisitionType?: string;
   costCategory?: string;
-}): string {
-  const acqType = (a.acquisitionType || "").toLowerCase();
-  if (acqType === "rental" || acqType === "workshop") return "OPEX";
-  return a.costCategory || "CAPEX";
+}): CostCategory {
+  if (isRentalAcq(a.acquisitionType) || isWorkshopAcq(a.acquisitionType)) {
+    return "OPEX";
+  }
+  if (a.costCategory === "CAPEX") return "CAPEX";
+  if (a.costCategory === "OPEX") return "OPEX";
+  return "UNCATEGORIZED";
 }
 
-/** Calculate assets totals from breakdown array, matching AssetsBreakdownTab logic */
+function makeNode(
+  base: number,
+  fees: number,
+  category: CostCategory,
+  splits: ICostNode[],
+): ICostNode {
+  return { base, fees, total: base + fees, category, splits: splits || [] };
+}
+
+/** Add a node's money to the CAPEX/OPEX/uncategorized buckets, split by split when applicable. */
+function accumulateNode(
+  node: ICostNode,
+  add: (c: CostCategory, v: number) => void,
+): void {
+  if (node.splits.length > 0) {
+    node.splits.forEach((sn) => add(sn.category, sn.total));
+    if (node.fees) add(node.category, node.fees);
+    return;
+  }
+  add(node.category, node.total);
+}
+
+/** Cost node of a single availability split, its own fees included. */
+export function getSplitNode(
+  split: IAvailabilitySplit,
+  cont?: IContingencyOpts,
+): ICostNode {
+  const fees = getFeesTotal(split.subCosts, split.dailyRate || 0);
+  const qty = split.qty || 0;
+  let base = 0;
+  if (
+    isNoCostAvailability(split.availabilityStatus) ||
+    isWorkshopAcq(split.acquisitionType)
+  ) {
+    base = 0;
+  } else if (isRentalAcq(split.acquisitionType)) {
+    base = (split.dailyRate || 0) * (split.rentalDays || 0) * qty;
+  } else {
+    base = contAdj(split.unitCostUSD || 0, split.dateReference, cont) * qty;
+  }
+  return makeNode(base, fees, getEffectiveCategory(split), []);
+}
+
+/** Compute the cost of a single availability split entry */
+export function getSplitCost(
+  split: IAvailabilitySplit,
+  cont?: IContingencyOpts,
+): number {
+  return getSplitNode(split, cont).total;
+}
+
+/** qty of the scope child (sub-item or PCF item) a cost entry points at */
+function resolveChildQty(
+  scopeItem: IScopeItem | undefined,
+  subItemId: string,
+): number {
+  if (!scopeItem) return 1;
+  const sub =
+    (scopeItem.subItems || []).find((s) => s.id === subItemId) ||
+    ((scopeItem as any).pcfItems || []).find((s: any) => s.id === subItemId);
+  return (sub && sub.qty) || 1;
+}
+
+/** Cost node of a single sub-item / PCF entry, its own fees and splits included. */
+export function getSubItemNode(
+  sic: ISubItemCost,
+  scopeItem: IScopeItem | undefined,
+  cont?: IContingencyOpts,
+): ICostNode {
+  const fees = getFeesTotal(sic.subCosts, sic.dailyRate || 0);
+  const category = getEffectiveCategory(sic);
+  const splits = (sic.availabilitySplits || []).map((sp) =>
+    getSplitNode(sp, cont),
+  );
+  if (splits.length > 0) {
+    const base = splits.reduce((s, n) => s + n.total, 0);
+    return makeNode(base, fees, category, splits);
+  }
+  if (isNoCostAvailability(sic.availabilityStatus)) {
+    return makeNode(0, fees, category, []);
+  }
+  const qty = resolveChildQty(scopeItem, sic.subItemId);
+  const base = isRentalAcq(sic.acquisitionType)
+    ? (sic.dailyRate || 0) * (sic.rentalDays || 0) * qty
+    : contAdj(sic.unitCostUSD || 0, sic.dateReference, cont) * qty;
+  return makeNode(base, fees, category, []);
+}
+
+/** Compute the effective total for a sub-item / PCF cost entry */
+export function getSubItemCostTotal(
+  sic: ISubItemCost,
+  scopeItem: IScopeItem | undefined,
+  cont?: IContingencyOpts,
+): number {
+  return getSubItemNode(sic, scopeItem, cont).total;
+}
+
+/**
+ * Canonical cost breakdown for one asset row. Every total in the app — row cells, section headers,
+ * tab cards, Overview and the BID cost summary — must go through this so they cannot disagree.
+ */
+export function getAssetCostBreakdown(
+  asset: IAssetBreakdownItem,
+  scopeItem: IScopeItem | undefined,
+  cont?: IContingencyOpts,
+): IAssetCostBreakdown {
+  const splits = (asset.availabilitySplits || []).map((sp) =>
+    getSplitNode(sp, cont),
+  );
+  const hasSplits = splits.length > 0;
+  const subItems = (asset.subItemCosts || []).map((sic) =>
+    getSubItemNode(sic, scopeItem, cont),
+  );
+  const pcf = (asset.pcfCosts || []).map((pc) =>
+    getSubItemNode(pc, scopeItem, cont),
+  );
+
+  const assetFees = getFeesTotal(asset.subCosts, asset.dailyRate || 0);
+  const category = getEffectiveCategory(asset);
+  const isRollup = !!asset.costFromSubItems || !!asset.costFromPCF;
+
+  let main: ICostNode;
+  if (hasSplits) {
+    // Splits own the asset's costs, so asset-level fees are reported as orphans, not counted.
+    main = makeNode(0, 0, category, splits);
+  } else if (isRollup) {
+    main = makeNode(0, assetFees, category, []);
+  } else {
+    const qty =
+      (scopeItem
+        ? (scopeItem.qtyOperational || 0) + (scopeItem.qtySpare || 0)
+        : 0) || 1;
+    let base = 0;
+    if (
+      isNoCostAvailability(asset.availabilityStatus) ||
+      isWorkshopAcq(asset.acquisitionType)
+    ) {
+      base = 0;
+    } else if (isRentalAcq(asset.acquisitionType)) {
+      base = (asset.dailyRate || 0) * (asset.rentalDays || 0) * qty;
+    } else {
+      base = contAdj(asset.unitCostUSD || 0, asset.dateReference, cont) * qty;
+    }
+    main = makeNode(base, assetFees, category, []);
+  }
+
+  const buckets = { CAPEX: 0, OPEX: 0, UNCATEGORIZED: 0 };
+  const add = (c: CostCategory, v: number): void => {
+    buckets[c] += v;
+  };
+  accumulateNode(main, add);
+  subItems.forEach((n) => accumulateNode(n, add));
+  if (asset.costFromPCF) pcf.forEach((n) => accumulateNode(n, add));
+
+  return {
+    main,
+    splits,
+    subItems,
+    pcf,
+    splitsTotal: splits.reduce((s, n) => s + n.total, 0),
+    subItemsTotal: subItems.reduce((s, n) => s + n.total, 0),
+    pcfTotal: pcf.reduce((s, n) => s + n.total, 0),
+    orphanFees: hasSplits ? assetFees : 0,
+    capex: buckets.CAPEX,
+    opex: buckets.OPEX,
+    uncategorized: buckets.UNCATEGORIZED,
+    total: buckets.CAPEX + buckets.OPEX + buckets.UNCATEGORIZED,
+  };
+}
+
+/** Calculate assets totals from breakdown array */
 export function calculateAssetsTotals(
   assets: IAssetBreakdownItem[],
   ptax: number,
   scopeItems?: IScopeItem[],
-  contingency?: { perYear: number; applied: boolean },
-): { totalUSD: number; capexUSD: number; opexUSD: number; totalBRL: number } {
+  contingency?: IContingencyOpts,
+): {
+  totalUSD: number;
+  capexUSD: number;
+  opexUSD: number;
+  uncategorizedUSD: number;
+  totalBRL: number;
+} {
+  const scopeMap = new Map<string, IScopeItem>();
+  (scopeItems || []).forEach((si) => scopeMap.set(si.id, si));
+
   let capexUSD = 0;
   let opexUSD = 0;
-  const items = scopeItems || [];
-  const contActive =
-    contingency && contingency.applied && contingency.perYear > 0;
-  const contRate = contActive ? contingency.perYear : 0;
-
-  /** Apply contingency adjustment to a cost if active */
-  const adj = (cost: number, dateRef: string | undefined): number => {
-    if (!contActive || cost <= 0) return cost;
-    return applyContingencyToCost(cost, dateRef, contRate);
-  };
-
-  /** Get split cost with contingency applied */
-  const getSplitCostAdj = (split: IAvailabilitySplit): number => {
-    const avail = (split.availabilityStatus || "").toLowerCase();
-    const acqType = (split.acquisitionType || "").toLowerCase();
-    const subCostsSum = (split.subCosts || []).reduce(
-      (s, sc) => s + (sc.costUSD || 0),
-      0,
-    );
-    const qty = split.qty || 0;
-    if (
-      avail === "onboard" ||
-      avail === "call out" ||
-      avail === "not offered"
-    ) {
-      return subCostsSum;
-    }
-    if (acqType === "workshop") return subCostsSum;
-    if (acqType === "rental") {
-      return (
-        (split.dailyRate || 0) * (split.rentalDays || 0) * qty + subCostsSum
-      );
-    }
-    const adjUnit = adj(split.unitCostUSD || 0, split.dateReference);
-    return adjUnit * qty + subCostsSum;
-  };
+  let uncategorizedUSD = 0;
 
   (assets || []).forEach((a) => {
-    const si = items.find((s) => s.id === a.scopeItemId);
-
-    // If splits are active, categorize each split independently
-    if (a.availabilitySplits && a.availabilitySplits.length > 0) {
-      a.availabilitySplits.forEach((split) => {
-        const splitCost = contActive
-          ? getSplitCostAdj(split)
-          : getSplitCost(split);
-        const splitCat = getEffectiveCategory(split);
-        if (splitCat === "CAPEX") capexUSD += splitCost;
-        else opexUSD += splitCost;
-      });
-    } else {
-      const mainCost = contActive
-        ? getAssetMainCostAdj(a, items, contRate)
-        : getAssetMainCost(a, items);
-      const cat = getEffectiveCategory(a);
-      if (cat === "CAPEX") capexUSD += mainCost;
-      else opexUSD += mainCost;
-    }
-
-    // Categorize sub-item costs by their own category
-    (a.subItemCosts || []).forEach((sic) => {
-      // If sub-item has splits, categorize each split independently
-      if (sic.availabilitySplits && sic.availabilitySplits.length > 0) {
-        sic.availabilitySplits.forEach((split) => {
-          const splitCost = contActive
-            ? getSplitCostAdj(split)
-            : getSplitCost(split);
-          const splitCat = getEffectiveCategory(split);
-          if (splitCat === "CAPEX") capexUSD += splitCost;
-          else opexUSD += splitCost;
-        });
-      } else {
-        const sicCost = contActive
-          ? getSubItemCostTotalAdj(sic, si, contRate)
-          : getSubItemCostTotal(sic, si);
-        const sicCat = getEffectiveCategory(sic);
-        if (sicCat === "CAPEX") capexUSD += sicCost;
-        else opexUSD += sicCost;
-      }
-    });
+    const bd = getAssetCostBreakdown(
+      a,
+      scopeMap.get(a.scopeItemId),
+      contingency,
+    );
+    capexUSD += bd.capex;
+    opexUSD += bd.opex;
+    uncategorizedUSD += bd.uncategorized;
   });
 
-  const totalUSD = capexUSD + opexUSD;
-  return { totalUSD, capexUSD, opexUSD, totalBRL: totalUSD * (ptax || 1) };
-}
-
-/** Like getAssetMainCost but with contingency applied to unitCostUSD */
-function getAssetMainCostAdj(
-  a: IAssetBreakdownItem,
-  scopeItems: IScopeItem[],
-  pctPerYear: number,
-): number {
-  if (a.costFromSubItems) return 0;
-  // PCF-driven items: cost is the sum of pcfCosts (with contingency)
-  if (a.costFromPCF) {
-    const si = scopeItems.find((s) => s.id === a.scopeItemId);
-    return (a.pcfCosts || []).reduce(
-      (sum, pc) => sum + getSubItemCostTotalAdj(pc, si, pctPerYear),
-      0,
-    );
-  }
-  if (a.availabilitySplits && a.availabilitySplits.length > 0) {
-    // splits are handled separately in the caller
-    return 0;
-  }
-  const si = scopeItems.find((s) => s.id === a.scopeItemId);
-  const qty = (si ? (si.qtyOperational || 0) + (si.qtySpare || 0) : 0) || 1;
-  const avail = (a.availabilityStatus || "").toLowerCase();
-  const acqType = (a.acquisitionType || "").toLowerCase();
-  const subCostsSum = (a.subCosts || []).reduce(
-    (s, sc) => s + (sc.costUSD || 0),
-    0,
-  );
-  if (avail === "onboard" || avail === "call out" || avail === "not offered") {
-    return subCostsSum;
-  }
-  if (acqType === "workshop") return subCostsSum;
-  if (acqType === "rental") {
-    return (a.dailyRate || 0) * (a.rentalDays || 0) * qty + subCostsSum;
-  }
-  const adjUnit = applyContingencyToCost(
-    a.unitCostUSD || 0,
-    a.dateReference,
-    pctPerYear,
-  );
-  return adjUnit * qty + subCostsSum;
-}
-
-/** Like getSubItemCostTotal but with contingency applied */
-function getSubItemCostTotalAdj(
-  sic: ISubItemCost,
-  scopeItem: IScopeItem | undefined,
-  pctPerYear: number,
-): number {
-  if (sic.availabilitySplits && sic.availabilitySplits.length > 0) {
-    // splits handled separately
-    return 0;
-  }
-  const avail = (sic.availabilityStatus || "").toLowerCase();
-  if (avail === "onboard" || avail === "call out" || avail === "not offered")
-    return 0;
-  // Search both subItems and pcfItems for the matching child
-  const sub = scopeItem
-    ? (scopeItem.subItems || []).find((s) => s.id === sic.subItemId) ||
-      ((scopeItem as any).pcfItems || []).find(
-        (s: any) => s.id === sic.subItemId,
-      )
-    : undefined;
-  const qty = sub?.qty || 1;
-  const isRental = (sic.acquisitionType || "").toLowerCase() === "rental";
-  if (isRental) return (sic.dailyRate || 0) * (sic.rentalDays || 0) * qty;
-  const adjUnit = applyContingencyToCost(
-    sic.unitCostUSD || 0,
-    sic.dateReference,
-    pctPerYear,
-  );
-  return adjUnit * qty;
+  const totalUSD = capexUSD + opexUSD + uncategorizedUSD;
+  return {
+    totalUSD,
+    capexUSD,
+    opexUSD,
+    uncategorizedUSD,
+    totalBRL: totalUSD * (ptax || 1),
+  };
 }
 
 /** Calculate assets totals broken down by resource type (via scope item lookup) */
 export function calculateAssetsByResourceType(
   assets: IAssetBreakdownItem[],
   scopeItems: IScopeItem[],
-  contingency?: { perYear: number; applied: boolean },
+  contingency?: IContingencyOpts,
 ): IAssetResourceTypeCost[] {
   const scopeMap = new Map<string, IScopeItem>();
   (scopeItems || []).forEach((si) => scopeMap.set(si.id, si));
-  const items = scopeItems || [];
-  const contActive =
-    contingency && contingency.applied && contingency.perYear > 0;
-  const contRate = contActive ? contingency.perYear : 0;
 
-  const byType: Record<string, { capex: number; opex: number }> = {};
+  const byType: Record<
+    string,
+    { capex: number; opex: number; uncategorized: number }
+  > = {};
 
   (assets || []).forEach((a) => {
     const si = scopeMap.get(a.scopeItemId);
@@ -360,47 +380,12 @@ export function calculateAssetsByResourceType(
       (si && si.integratedDivision
         ? `${si.integratedDivision} Asset`
         : "Other");
-    if (!byType[rt]) byType[rt] = { capex: 0, opex: 0 };
+    if (!byType[rt]) byType[rt] = { capex: 0, opex: 0, uncategorized: 0 };
 
-    // If splits are active, categorize each split independently
-    if (a.availabilitySplits && a.availabilitySplits.length > 0) {
-      a.availabilitySplits.forEach((split) => {
-        const splitCost = contActive
-          ? applyContingencySplit(split, contRate)
-          : getSplitCost(split);
-        const splitCat = getEffectiveCategory(split);
-        if (splitCat === "OPEX") byType[rt].opex += splitCost;
-        else byType[rt].capex += splitCost;
-      });
-    } else {
-      const mainCost = contActive
-        ? getAssetMainCostAdj(a, items, contRate)
-        : getAssetMainCost(a, items);
-      const cat = getEffectiveCategory(a);
-      if (cat === "OPEX") byType[rt].opex += mainCost;
-      else byType[rt].capex += mainCost;
-    }
-
-    // Sub-item costs inherit resource type from parent scope item
-    (a.subItemCosts || []).forEach((sic) => {
-      if (sic.availabilitySplits && sic.availabilitySplits.length > 0) {
-        sic.availabilitySplits.forEach((split) => {
-          const splitCost = contActive
-            ? applyContingencySplit(split, contRate)
-            : getSplitCost(split);
-          const splitCat = getEffectiveCategory(split);
-          if (splitCat === "OPEX") byType[rt].opex += splitCost;
-          else byType[rt].capex += splitCost;
-        });
-      } else {
-        const sicCost = contActive
-          ? getSubItemCostTotalAdj(sic, si, contRate)
-          : getSubItemCostTotal(sic, si);
-        const sicCat = getEffectiveCategory(sic);
-        if (sicCat === "OPEX") byType[rt].opex += sicCost;
-        else byType[rt].capex += sicCost;
-      }
-    });
+    const bd = getAssetCostBreakdown(a, si, contingency);
+    byType[rt].capex += bd.capex;
+    byType[rt].opex += bd.opex;
+    byType[rt].uncategorized += bd.uncategorized;
   });
 
   const result: IAssetResourceTypeCost[] = [];
@@ -410,7 +395,8 @@ export function calculateAssetsByResourceType(
       resourceType: rt,
       capexUSD: entry.capex,
       opexUSD: entry.opex,
-      totalUSD: entry.capex + entry.opex,
+      uncategorizedUSD: entry.uncategorized,
+      totalUSD: entry.capex + entry.opex + entry.uncategorized,
     });
   });
   return result;

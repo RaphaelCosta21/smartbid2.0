@@ -66,6 +66,9 @@ interface ScopeOfSupplyTabProps {
   onClearEngineeringHours?: (scopeItemId: string) => void;
 }
 
+/** Duration of the drawer/section collapse exit animation — keep in sync with the CSS keyframes */
+const DRAWER_ANIM_MS = 180;
+
 const blankItem = (
   sectionId: string | null,
   lineNumber: number,
@@ -260,6 +263,10 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   const [collapsedSections, setCollapsedSections] = React.useState<Set<string>>(
     new Set(),
   );
+  // Ids mid-way through the collapse animation — kept rendered with a "closing" class
+  const [closingSectionIds, setClosingSectionIds] = React.useState<Set<string>>(
+    new Set(),
+  );
   const [editingCell, setEditingCell] = React.useState<{
     id: string;
     field: string;
@@ -279,6 +286,9 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
 
   // ─── Drawer state (combined sub-items + specs per item) ───
   const [openDrawers, setOpenDrawers] = React.useState<Set<string>>(new Set());
+  const [closingDrawers, setClosingDrawers] = React.useState<Set<string>>(
+    new Set(),
+  );
   const [drawerActiveTab, setDrawerActiveTab] = React.useState<
     Record<string, "subs" | "specs" | "attachments" | "pcf">
   >({});
@@ -663,12 +673,25 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   ];
 
   const toggleSection = (sectionId: string): void => {
-    setCollapsedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(sectionId)) next.delete(sectionId);
-      else next.add(sectionId);
-      return next;
-    });
+    const isExpanded = !collapsedSections.has(sectionId);
+    if (isExpanded) {
+      // Collapsing — keep the section's rows rendered while they fade out
+      setClosingSectionIds((prev) => new Set(prev).add(sectionId));
+      setTimeout(() => {
+        setCollapsedSections((prev) => new Set(prev).add(sectionId));
+        setClosingSectionIds((prev) => {
+          const next = new Set(prev);
+          next.delete(sectionId);
+          return next;
+        });
+      }, DRAWER_ANIM_MS);
+    } else {
+      setCollapsedSections((prev) => {
+        const next = new Set(prev);
+        next.delete(sectionId);
+        return next;
+      });
+    }
   };
 
   const allSectionsCollapsed =
@@ -714,11 +737,12 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     }
 
     return orderedItems.filter((item) => {
-      // Respect collapsed sections
+      // Respect collapsed sections (keep rows visible while their section fades out)
       if (
         !item.isSection &&
         item.sectionId &&
-        collapsedSections.has(item.sectionId)
+        collapsedSections.has(item.sectionId) &&
+        !closingSectionIds.has(item.sectionId)
       )
         return false;
       // Resource type filter
@@ -733,7 +757,13 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       }
       return true;
     });
-  }, [orderedItems, collapsedSections, resourceTypeFilter, dataItems]);
+  }, [
+    orderedItems,
+    collapsedSections,
+    closingSectionIds,
+    resourceTypeFilter,
+    dataItems,
+  ]);
 
   // ─── Toggle expanded cells ───
   const toggleCellExpand = (cellKey: string): void => {
@@ -817,12 +847,24 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
 
   // ─── Drawer toggle (combined sub-items + specs) ───
   const toggleDrawer = (itemId: string): void => {
-    setOpenDrawers((prev) => {
-      const next = new Set(prev);
-      if (next.has(itemId)) next.delete(itemId);
-      else next.add(itemId);
-      return next;
-    });
+    if (openDrawers.has(itemId)) {
+      // Collapsing — play the exit animation, then actually hide the drawer
+      setClosingDrawers((prev) => new Set(prev).add(itemId));
+      setTimeout(() => {
+        setOpenDrawers((prev) => {
+          const next = new Set(prev);
+          next.delete(itemId);
+          return next;
+        });
+        setClosingDrawers((prev) => {
+          const next = new Set(prev);
+          next.delete(itemId);
+          return next;
+        });
+      }, DRAWER_ANIM_MS);
+    } else {
+      setOpenDrawers((prev) => new Set(prev).add(itemId));
+    }
   };
 
   const setDrawerTab = (
@@ -2100,6 +2142,10 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                 const itemHasSpecs = hasSpecs(item);
                 const itemHasSubItems = hasSubItems(item);
                 const isDrawerOpen = openDrawers.has(item.id);
+                const isDrawerClosing = closingDrawers.has(item.id);
+                const isSectionClosing = item.sectionId
+                  ? closingSectionIds.has(item.sectionId)
+                  : false;
                 const activeTab = drawerActiveTab[item.id] || "subs";
                 const totalCols = columns.length + (!readOnly ? 1 : 0);
                 const isDragged = draggedId === item.id;
@@ -2107,7 +2153,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                 return (
                   <React.Fragment key={item.id}>
                     <tr
-                      className={`${styles.mainItemRow}${isDrawerOpen ? ` ${styles.drawerOpenRow}` : ""}${isDragOver ? ` ${styles.dragOverRow}` : ""}${isDragged ? ` ${styles.draggedRow}` : ""}`}
+                      className={`${styles.mainItemRow}${isDrawerOpen ? ` ${styles.drawerOpenRow}` : ""}${isDragOver ? ` ${styles.dragOverRow}` : ""}${isDragged ? ` ${styles.draggedRow}` : ""}${isSectionClosing ? ` ${styles.rowClosing}` : ""}`}
                       draggable={!readOnly && dragHandleActive === item.id}
                       onDragStart={(e) => handleDragStart(e, item.id)}
                       onDragOver={(e) => handleDragOver(e, item.id)}
@@ -2615,10 +2661,12 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                       )}
                     </tr>
                     {/* Combined drawer (sub-items + specs) */}
-                    {isDrawerOpen && (
+                    {(isDrawerOpen || isDrawerClosing) && (
                       <tr className={styles.drawerRow}>
                         <td colSpan={totalCols}>
-                          <div className={styles.drawerInner}>
+                          <div
+                            className={`${styles.drawerInner}${isDrawerClosing ? ` ${styles.drawerClosing}` : ""}`}
+                          >
                             {/* Drawer tabs */}
                             <div className={styles.drawerTabs}>
                               <div

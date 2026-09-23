@@ -1,0 +1,1706 @@
+{
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/.vscode/mcp.json": {
+    "mtime": 1788370408068.0354,
+    "hash": "29c910c2f99b0ed7681a9d6f9f7f57f1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/function-app/document_structure.py": {
+    "mtime": 1789670094184.809,
+    "hash": "36d7b4e501a7af788cda68d55e5f442a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/function-app/function_app.py": {
+    "mtime": 1789673735397.506,
+    "hash": "c541358d98bfd47581b49bba315881b1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/gulpfile.js": {
+    "mtime": 1788370408526.1697,
+    "hash": "dfc9d523d347e3fd566eb517019659f1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/index.ts": {
+    "mtime": 1788370408616.0498,
+    "hash": "4419ddc779773b508f262e0096a08964"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/typings/pnp-sp.d.ts": {
+    "mtime": 1788370408618.7903,
+    "hash": "5f41026d949a87bec0d9e844af9b4954"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/typings/svg.d.ts": {
+    "mtime": 1788370408622.336,
+    "hash": "787a09e63175cd97afaae39ffbb86c2a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/typings/xlsx.d.ts": {
+    "mtime": 1788370408624.337,
+    "hash": "388bada3e4f25345bb34e13d46b9d1c6"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/SmartBid20WebPart.ts": {
+    "mtime": 1788370408630.0464,
+    "hash": "00e158b85aad5067a1a0f735eb76070b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/approval/ApprovalBadge.tsx": {
+    "mtime": 1788370408636.9446,
+    "hash": "4ddd61e134a304b1f379f61bf6199d67"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/approval/ApprovalDecisionPanel.tsx": {
+    "mtime": 1788370408641.945,
+    "hash": "03883e55f69a15081ca48b2015e6e0f0"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/approval/ApprovalMatrix.tsx": {
+    "mtime": 1788370408647.5703,
+    "hash": "fb52001347ed6294059bbb51de2ff309"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/approval/ApprovalRequestCard.tsx": {
+    "mtime": 1788370408651.982,
+    "hash": "fe6785af5b24399d6b57f395d3b4d546"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/approval/ApprovalTimeline.tsx": {
+    "mtime": 1788370408657.9824,
+    "hash": "183ed87ad48fc836fde7d37db0ffd8c7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/AITab.tsx": {
+    "mtime": 1788370408662.2761,
+    "hash": "01c805dd0f6d216bcc6b2b01682b53b2"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/AddQuotationModal.tsx": {
+    "mtime": 1789675917260.5515,
+    "hash": "5c5780e5d231ce738b6c5855fce5ad46"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/ApprovalTab.tsx": {
+    "mtime": 1788370408672.898,
+    "hash": "3e40da153fe41d9462a490acabb9550c"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx": {
+    "mtime": 1789762627661.1228,
+    "hash": "7545564b99790bba83cca9fc5e8b1ad5"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/BidActivityLog.tsx": {
+    "mtime": 1788370408685.824,
+    "hash": "34bac6282fc17e83fbb0ff44d5a311df"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/BidApprovalPanel.tsx": {
+    "mtime": 1788370408690.8308,
+    "hash": "db0acc43bf268bc0a9adeee51a50acc3"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/BidCard.tsx": {
+    "mtime": 1788370408695.5408,
+    "hash": "5dd67ca5850791ed315a8d11c38b083d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/BidComments.tsx": {
+    "mtime": 1788370408700.9087,
+    "hash": "654d4c9be42356afb892822f1cc2d270"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/BidCostSummary.tsx": {
+    "mtime": 1789754706096.0205,
+    "hash": "95381eb12c324a546eb56d6f2b963375"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/BidEquipmentTable.tsx": {
+    "mtime": 1788370408712.2634,
+    "hash": "15f21e47f02803fe4c81418d0c344da9"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/BidExportButton.tsx": {
+    "mtime": 1788370408717.7722,
+    "hash": "8f2e6fdcbc51ed5f98505de5c5010070"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/BidHoursTable.tsx": {
+    "mtime": 1789754706145.011,
+    "hash": "28cf8ef383a5e27828725ae25482eae5"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/BidPhaseProgress.tsx": {
+    "mtime": 1788370408726.7585,
+    "hash": "5ac7980c3faf057453be2eb9d43da076"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/BidStatusDropdown.tsx": {
+    "mtime": 1788370408732.8289,
+    "hash": "492e4edc111e51231c6e0efd392e8acc"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/BidStatusPhasePanel.tsx": {
+    "mtime": 1788370408738.7815,
+    "hash": "67927cd8594a863e3bba1264f9b48949"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/BidTaskChecklist.tsx": {
+    "mtime": 1788370408743.444,
+    "hash": "3a3d30a9c4ea8df26998c149fca512e4"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/BidTemplateImport.tsx": {
+    "mtime": 1788370408748.34,
+    "hash": "77499deb60624ea3723b7c45d8b0d62c"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/BidTimeline.tsx": {
+    "mtime": 1788370408754.813,
+    "hash": "e1b3807b2b75ee319ac670f2e3ee8af5"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/CertificationsBreakdownTab.tsx": {
+    "mtime": 1788370408762.1394,
+    "hash": "55dc694b6f39486e3cc46c5612bb0dc7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/ClarificationSuggestionsModal.tsx": {
+    "mtime": 1788370408764.7822,
+    "hash": "73e9cf6dfacb2022db55118d7cb01af8"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/CostSearchModal.tsx": {
+    "mtime": 1788370408771.0127,
+    "hash": "4191ec4de465b2504bfc4e88d4fdbbfd"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/DocumentsTab.tsx": {
+    "mtime": 1788370408774.035,
+    "hash": "294682d18cf1b6c4e8b5faeab862fc86"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/EmptySection.tsx": {
+    "mtime": 1788370408776.4421,
+    "hash": "28ffb2ca0025a9e1521ca479b27369f2"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/EngineeringHoursSection.tsx": {
+    "mtime": 1789754705791.271,
+    "hash": "51be4f83d9bfc7ece659797d5a844cc0"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/EquipmentImportModal.tsx": {
+    "mtime": 1789760566302.2283,
+    "hash": "56337d8bd00c34676573c7c59ee96c97"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/ErnCreateModal.tsx": {
+    "mtime": 1788370408793.6902,
+    "hash": "d286b97fdf05f14eecdde59fd084a1a9"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/ErnDetailsModal.tsx": {
+    "mtime": 1788370408798.1494,
+    "hash": "d2e94b03af1749ad3cad410ecaaf38d7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/ErnSearchModal.tsx": {
+    "mtime": 1788370408805.1934,
+    "hash": "b187f14de357cf7fac3772e4a5f21285"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/ExportClarificationModal.tsx": {
+    "mtime": 1788370408810.6877,
+    "hash": "409761f3b2738deba2ca3310cccbdd6d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/ImportClarificationModal.tsx": {
+    "mtime": 1788370408815.7034,
+    "hash": "5fbc1b2662e0eb541ba7c0b9402ac6ca"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/LogisticsBreakdownTab.tsx": {
+    "mtime": 1788370408818.7034,
+    "hash": "7dbd54d6733c3e63b97f1b015274a05e"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/NotesTab.tsx": {
+    "mtime": 1788370408821.4573,
+    "hash": "b04c1bd0ab0a986d2c5903d904b42a65"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/OverviewTab.tsx": {
+    "mtime": 1788370408824.4646,
+    "hash": "636f25f527133dcd6a80eec46bf68dd7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/PreparationMobilizationTab.tsx": {
+    "mtime": 1788370408830.113,
+    "hash": "3e1689a3b3635349b845853a510a328d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/QualificationsTab.tsx": {
+    "mtime": 1788440327217.2383,
+    "hash": "03f8347cd455929ddf8583d43da8e9e1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/RevisionsTab.tsx": {
+    "mtime": 1788370408837.89,
+    "hash": "8f18ed40b7639bafb827b3168fd8be73"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/ScopeOfSupplyTab.tsx": {
+    "mtime": 1789763493481.9985,
+    "hash": "5ed4d57bc0392c21e231e6f139bd5480"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/charts/ChartTooltip.tsx": {
+    "mtime": 1788370408854.8225,
+    "hash": "688b371c6a3e17e3bb140e145ed76917"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/charts/HeatmapGrid.tsx": {
+    "mtime": 1788370408859.7998,
+    "hash": "3d19755efbc3977b0204ccf1bd9c5d99"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/charts/Sparkline.tsx": {
+    "mtime": 1788370408861.8662,
+    "hash": "75c5df0cf52e5e49c0cccb458bdf2afa"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/AIDocumentAnalyzer.tsx": {
+    "mtime": 1789067323397.18,
+    "hash": "20b84df4a9a68f6e2d452e96f669cf5f"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/AdvancedCatalogSearch.tsx": {
+    "mtime": 1788370408874.8413,
+    "hash": "dd5d5d5ec66707760d6095e4083dc521"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/ChatAssistant.tsx": {
+    "mtime": 1789567997916.816,
+    "hash": "333bcb66e2180feb77c4f45f84077da3"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/CollapsibleSidebar.tsx": {
+    "mtime": 1789762627230.7893,
+    "hash": "1d04b50c763a0e623192bb40986606ba"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/ConfirmDialog.tsx": {
+    "mtime": 1788370408879.4556,
+    "hash": "689bed4be4430657db36e7c58421aeac"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/CountdownTimer.tsx": {
+    "mtime": 1788370408884.3857,
+    "hash": "443bdf0324f8190f8f2fa5943291c129"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/DataTable.tsx": {
+    "mtime": 1788370408890.8972,
+    "hash": "50d639fda970ef5d3b1c2f3f33e08c94"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/DivisionBadge.tsx": {
+    "mtime": 1788370408897.5942,
+    "hash": "999df87d7c97053722bde0b37916bfbc"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/EditLockBanner.tsx": {
+    "mtime": 1788370408902.8882,
+    "hash": "a6550c63c898fb148e98af2c3ec051cf"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/EmptyState.tsx": {
+    "mtime": 1788370408908.0955,
+    "hash": "9917c48d7684feb6b7c6cba27019fa6b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/FileUpload.tsx": {
+    "mtime": 1788370408915.9033,
+    "hash": "4e4723255639b050a77347eb881af297"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/FilterPanel.tsx": {
+    "mtime": 1788370408921.9028,
+    "hash": "064a78917dc82f17601dabff8e994002"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/GlassCard.tsx": {
+    "mtime": 1788370408926.8618,
+    "hash": "3e4d6d539e89ff166c549051392062dc"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/HoursImportPreview.tsx": {
+    "mtime": 1788370408932.8684,
+    "hash": "09113257f863a8e7ff3a5d0bf06d70a7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/ImportSourceList.tsx": {
+    "mtime": 1788370408938.927,
+    "hash": "a2d282827597e12ea384a2296e6c9fd4"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/ImportSourceModal.tsx": {
+    "mtime": 1788370408945.6826,
+    "hash": "fb1615e2286eec88deff3ff8d4110ce6"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/IntegratedDivisionTabs.tsx": {
+    "mtime": 1789754705830.7341,
+    "hash": "2db65dcb364ea0481a86494f91ada066"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/KPICard.tsx": {
+    "mtime": 1788370408954.9792,
+    "hash": "c3070e1239e92d5b66382ce8fdab3596"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/PageHeader.tsx": {
+    "mtime": 1788370408961.3486,
+    "hash": "7f845c7ea92f3645eecd581814d0c259"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/PartNumberAutocomplete.tsx": {
+    "mtime": 1788370408966.8977,
+    "hash": "2c864a2b527833cb3bec6a4d8d588c4e"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/PeoplePicker.tsx": {
+    "mtime": 1788370408973.1414,
+    "hash": "28aa1e3d2adac85500920ec554ff2bc2"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/PersonaCard.tsx": {
+    "mtime": 1788370408981.0708,
+    "hash": "97212a5141a8c62f00cb5d917d026051"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/PhaseBadge.tsx": {
+    "mtime": 1788370408986.5127,
+    "hash": "ac714e2126aa14857eed97ddb4d8b839"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/PhotoLightbox.tsx": {
+    "mtime": 1788370408992.0022,
+    "hash": "e5ee75c7121b3171c7b4c6b510bdd6da"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/PriorityBadge.tsx": {
+    "mtime": 1788370408998.7642,
+    "hash": "171153f703752beb78e4061f742f53f5"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/ProgressBar.tsx": {
+    "mtime": 1788370409004.5168,
+    "hash": "d21d3e172665f1addf31b8e89daec0ec"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/QueryCatalogLoadingBanner.tsx": {
+    "mtime": 1789762627872.8506,
+    "hash": "c6ac582acc5e836607b8e02556813b6a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/RichTextEditor.tsx": {
+    "mtime": 1788370409009.7212,
+    "hash": "a891ed116b399702c47d0e0d4da7bedd"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/ScopeImportPreview.tsx": {
+    "mtime": 1789754705865.3635,
+    "hash": "cb42f3512edd53b8c36078db13644114"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/SkeletonLoader.tsx": {
+    "mtime": 1788370409023.061,
+    "hash": "24cd66b533aae52e7ab2e112e45340a3"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/StatusBadge.tsx": {
+    "mtime": 1788370409028.7236,
+    "hash": "f7034292ce2c54aa4cd0cc6c92f3a455"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/Timeline.tsx": {
+    "mtime": 1788370409032.7312,
+    "hash": "43520a20532c27408cfe252ac2d46131"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/common/ToastContainer.tsx": {
+    "mtime": 1789750463502.03,
+    "hash": "f85b425cff8bc711dedda6962adfce70"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/dashboard/ApprovalsPending.tsx": {
+    "mtime": 1788370409045.6924,
+    "hash": "a8d3cf5b3f87b9bc45a85230ce31aa09"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/dashboard/BidsByDivisionChart.tsx": {
+    "mtime": 1788370409052.218,
+    "hash": "9137ba84c25029ddbc1a595419ab9558"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/dashboard/BidsByStatusChart.tsx": {
+    "mtime": 1788370409057.6409,
+    "hash": "4f82147c3a20f233316d0cca4a7aa142"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/dashboard/DashboardActivity.tsx": {
+    "mtime": 1788370409062.832,
+    "hash": "286d45a44960049c84567d79c1607d58"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/dashboard/DashboardKPIRow.tsx": {
+    "mtime": 1788370409068.8323,
+    "hash": "cd13c98fac600c515f635a30d4a69643"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/dashboard/DivisionWorkload.tsx": {
+    "mtime": 1788370409074.098,
+    "hash": "7329f6189143a67fd9f566f72382d0f0"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/dashboard/EngHoursRanking.tsx": {
+    "mtime": 1788370409080.5022,
+    "hash": "82a14f83187f1a602f649e46d4377027"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/dashboard/ErnDashboardSection.tsx": {
+    "mtime": 1788370409085.537,
+    "hash": "ad3df2e4f8817314d9f671476e382249"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/dashboard/MonthlyVolumeChart.tsx": {
+    "mtime": 1788370409091.6619,
+    "hash": "0b4e3a8d9ddc04db4ea57ded7d7fa0af"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/dashboard/RecentActivity.tsx": {
+    "mtime": 1788370409096.677,
+    "hash": "4a571eea0d2ba7b525bd101112b842ba"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/dashboard/UpcomingDeadlines.tsx": {
+    "mtime": 1788370409101.948,
+    "hash": "a8551150f9af1550b105f1318bcd00ec"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/insights/AIInsightsPanel.tsx": {
+    "mtime": 1788370409109.584,
+    "hash": "ccf67d557164019e159b0a0d0a99623b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/insights/AnalyticsFilterBar.tsx": {
+    "mtime": 1788370409117.2727,
+    "hash": "e7dac2ead199442338c18f1c05acb91d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/insights/MultiSelectDropdown.tsx": {
+    "mtime": 1788370409122.2883,
+    "hash": "d667a166b3ee613e338be72cc16dc2a4"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/insights/SegmentedControl.tsx": {
+    "mtime": 1788370409129.3123,
+    "hash": "05d78e53d7a4fffa83e07107c3113fee"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/knowledge/DocLibraryCatalog.tsx": {
+    "mtime": 1789565835066.1626,
+    "hash": "9f2b5616632a75603575b81761b90dff"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/layout/AppLayout.tsx": {
+    "mtime": 1789762627243.4045,
+    "hash": "f740c123a622176c0497ff1c846a278c"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/layout/CommandPalette.tsx": {
+    "mtime": 1788370409149.4065,
+    "hash": "8b8083d45fb06215e5197e0a688019c4"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/layout/Footer.tsx": {
+    "mtime": 1788370409155.3906,
+    "hash": "426db641be80622c343cc9782b79c423"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/layout/GuestModeBanner.tsx": {
+    "mtime": 1788370409162.7488,
+    "hash": "a588b06cf0a1dcde10d5f4145ba43e70"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/layout/Header.tsx": {
+    "mtime": 1788370409167.7651,
+    "hash": "b6577024f44e540e112e1dce7b36738c"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/layout/Sidebar.tsx": {
+    "mtime": 1789083537858.286,
+    "hash": "e8c91e4a7c501f1b912fbf3e94716031"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/layout/SidebarItem.tsx": {
+    "mtime": 1788370409177.8062,
+    "hash": "5481701d26a9bfd670864115cfea8704"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/layout/SidebarSubmenu.tsx": {
+    "mtime": 1788370409181.819,
+    "hash": "be234d168d4c89cd008aedbccb8baa50"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/reports/BidDetailsReport.tsx": {
+    "mtime": 1788370409187.843,
+    "hash": "957e3eb7cecfbd197875002f9b2f568b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/reports/ExportBar.tsx": {
+    "mtime": 1788370409194.377,
+    "hash": "8636c04806c58dc36beb72fe29e0c03a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/reports/ExportOptions.tsx": {
+    "mtime": 1788370409200.403,
+    "hash": "2f58a8fc98142c6da768eff87179e3e3"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/reports/OperationalSummaryReport.tsx": {
+    "mtime": 1788370409205.2341,
+    "hash": "0340aa60672f0ccb005d8c061dbd6c1b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/reports/PeriodPerformanceReport.tsx": {
+    "mtime": 1788370409212.407,
+    "hash": "2895391c167101ebdd91eb5be4118734"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/reports/ReportsDashboard.tsx": {
+    "mtime": 1788370409217.4253,
+    "hash": "7551b5ebc84860991ec3bd964718faf4"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/settings/ApprovalRulesConfig.tsx": {
+    "mtime": 1788370409222.4534,
+    "hash": "f1fb28852ab8cc21681c40a07b8a6880"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/settings/MembersManagement.tsx": {
+    "mtime": 1788370409229.4722,
+    "hash": "b8ce3272761864e00bdfa07d189598b4"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/settings/PatchNotes.tsx": {
+    "mtime": 1788370409234.4878,
+    "hash": "144bef64398157cce4cb1969d2e87123"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx": {
+    "mtime": 1789762627195.9937,
+    "hash": "6be6340fc67dcdc503b3ad50bb06a630"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/template/TemplateCard.tsx": {
+    "mtime": 1788370409247.5544,
+    "hash": "e83ae089f62c7ecf9f0f8b07f78c859e"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/template/TemplateEditor.tsx": {
+    "mtime": 1788370409254.5784,
+    "hash": "e65677ad705beb2444c64981a5973266"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/template/TemplateImportWizard.tsx": {
+    "mtime": 1788370409260.4182,
+    "hash": "595644249741ea2b57df738835e64d8c"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/template/TemplatePreview.tsx": {
+    "mtime": 1788370409267.4622,
+    "hash": "06cad1d01d6dff24e57a2f9baedb1938"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/config/SpfxContext.ts": {
+    "mtime": 1788370409271.9944,
+    "hash": "3d993cda15c1bb62db078fdb88942aa8"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/config/ai.config.ts": {
+    "mtime": 1789673391052.8757,
+    "hash": "4cd6b25a4b3f990d77c54fb2455a8dbf"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/config/ai.prompts.ts": {
+    "mtime": 1789759971734.71,
+    "hash": "4eb34a529dd1ffa2e99b9b5f053c08fd"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/config/app.config.ts": {
+    "mtime": 1788370409279.0288,
+    "hash": "a2f1cb598c954ea500429a010a6f1ce6"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/config/defaultFavoriteGroups.ts": {
+    "mtime": 1788370409282.046,
+    "hash": "63701949f31e78041dd2422b53684d63"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/config/kpi.config.ts": {
+    "mtime": 1788370409284.0625,
+    "hash": "f1021cb66326fbb2e8e4fd605b0ad7ef"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/config/navigation.config.ts": {
+    "mtime": 1789083537732.9949,
+    "hash": "0577fe88dd4176cd4569f8f728eddc69"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/config/phases.config.ts": {
+    "mtime": 1788370409291.048,
+    "hash": "af11b7bab41fb8a3ff3855cee9686d48"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/config/routes.config.ts": {
+    "mtime": 1789083537716.955,
+    "hash": "0d6a4cb229c7e0cac84e7275810c5458"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/config/sectors.config.ts": {
+    "mtime": 1788370409296.5881,
+    "hash": "b37a7268bfb824e8e86f1cb39a99a828"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/config/sharepoint.config.ts": {
+    "mtime": 1789675917144.296,
+    "hash": "6559ab2312df4e5dfafacf206aed7ffb"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/config/status.config.ts": {
+    "mtime": 1788370409300.6094,
+    "hash": "b9221a592fcc6e091bf75a3906ad8200"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/data/defaultSystemConfig.ts": {
+    "mtime": 1788370409304.6208,
+    "hash": "2ce9e9332afdbc0a2b34c04c4c4b2423"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/data/mockApprovals.ts": {
+    "mtime": 1788370409307.8347,
+    "hash": "5d562d782bb7dfa5789a8a4d9ac80f48"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/data/mockNotifications.ts": {
+    "mtime": 1788370409309.84,
+    "hash": "81e19423a4f7d6f42cbc5de59811eabd"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/data/mockRequests.ts": {
+    "mtime": 1788370409312.8489,
+    "hash": "27a158d3fb7859e8fb53048f51ba6949"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/data/mockTemplates.ts": {
+    "mtime": 1788370409314.855,
+    "hash": "12f4f39a48bb5d91eac05174e0449082"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useAccessLevel.ts": {
+    "mtime": 1788370409317.8635,
+    "hash": "2aca8874d5fa432d77917ba6db13c683"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useAnalyticsFilters.ts": {
+    "mtime": 1788370409319.869,
+    "hash": "e7ddc66b35956d167bbb01a776b88ccb"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useApprovals.ts": {
+    "mtime": 1788370409322.8828,
+    "hash": "2353d518d289bf4ae7765185b88da042"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useBids.ts": {
+    "mtime": 1788370409326.8938,
+    "hash": "6b88062f087922d7c98de5762a4a50e2"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useChartTheme.ts": {
+    "mtime": 1788370409327.8987,
+    "hash": "f6f7b4d14f0cf3d1776c9ab762ea1312"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useConfigPhases.ts": {
+    "mtime": 1788370409331.9087,
+    "hash": "19378c049bd94bd8c8f52a112350bfe8"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useCurrentUser.ts": {
+    "mtime": 1788370409332.9143,
+    "hash": "98217832e9e3b8cf7f2e5902f3bd371a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useDebounce.ts": {
+    "mtime": 1788370409336.933,
+    "hash": "23dc112baecf6195cba20c9fe2fadf7d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useEditControl.ts": {
+    "mtime": 1788370409337.947,
+    "hash": "068b5ef007ca699eedb09a945cb7405f"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useErn.ts": {
+    "mtime": 1788370409341.9763,
+    "hash": "de7f96631228ac0f49ad4072ad526171"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useExport.ts": {
+    "mtime": 1788370409342.9834,
+    "hash": "0f6cef44ae6925ff54826d6d85744967"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useKPIs.ts": {
+    "mtime": 1788370409346.9944,
+    "hash": "6ce1596af0b7fe34ab0141168c863398"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useQuerySearch.ts": {
+    "mtime": 1788370409349.5083,
+    "hash": "1200ea54ca84a44b8f347281d0fc10db"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useRequests.ts": {
+    "mtime": 1788370409351.5132,
+    "hash": "f26e138589a87a80a08198f897af1557"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useResponsive.ts": {
+    "mtime": 1788370409353.2659,
+    "hash": "9123421cd1a7c9d550521c9cfba96aa2"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useStatusColors.ts": {
+    "mtime": 1788370409355.2778,
+    "hash": "5a230a1eb5e6eb4550e36bb6670d4be9"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useTeamMembers.ts": {
+    "mtime": 1788370409358.528,
+    "hash": "8e9da0c89848855bc004a37004599749"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/hooks/useTemplates.ts": {
+    "mtime": 1788370409360.534,
+    "hash": "f678cb44b2d9b88dc4eca9469ae5e3a2"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IAIAnalysis.ts": {
+    "mtime": 1789675917221.189,
+    "hash": "3cd0988ca6b501677d67a75900fc5322"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IActivityLog.ts": {
+    "mtime": 1788370409365.5696,
+    "hash": "a78aa403c30135feed3958a892fd21c5"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IAiChat.ts": {
+    "mtime": 1789652839902.3025,
+    "hash": "d17445d9d8b722a9cc9b20e9024b011a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IApprovalFlow.ts": {
+    "mtime": 1788370409368.5842,
+    "hash": "3aa19e4401c7dd5bdcd9d6920363f7cb"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IAssetCatalog.ts": {
+    "mtime": 1788370409370.5947,
+    "hash": "211500391bbc579517648485049ef343"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBid.ts": {
+    "mtime": 1789754706024.0796,
+    "hash": "eb6b2a18ee09cc47936b94f629ef4129"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBidApproval.ts": {
+    "mtime": 1788370409375.6206,
+    "hash": "194458693a91a9ee6c472d520e549734"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBidComment.ts": {
+    "mtime": 1788370409378.6426,
+    "hash": "f9df06d7ea8b068d2bbe2c2fd4cd5e94"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBidCost.ts": {
+    "mtime": 1788370409380.6462,
+    "hash": "1d0fc5d7d4fe50dd073f2f4a4dab800d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBidEquipment.ts": {
+    "mtime": 1788370409383.6526,
+    "hash": "f13793fcb90b3c7c7bf75315f0b61627"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBidExport.ts": {
+    "mtime": 1788370409385.6638,
+    "hash": "394c62325c6604e414d3a65d04dae5a9"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBidHours.ts": {
+    "mtime": 1788370409388.6873,
+    "hash": "7d67e92d9aa79fd861c68d6652275372"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBidNotes.ts": {
+    "mtime": 1788370409390.7034,
+    "hash": "c219f08dedae87b9923ff51f4294407a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBidOpportunityInfo.ts": {
+    "mtime": 1788370409394.4155,
+    "hash": "97028815d31f0993a5515a3996499775"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBidRequest.ts": {
+    "mtime": 1788370409396.4287,
+    "hash": "bfdaf7d5578189a841700f9a3423bf05"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBidResult.ts": {
+    "mtime": 1788370409399.447,
+    "hash": "dcfddc342ef25a5228aaee7999e4f47c"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBidStatus.ts": {
+    "mtime": 1788370409401.4492,
+    "hash": "710336d406821d74c7c2a256ec45ab24"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBidTask.ts": {
+    "mtime": 1788370409403.4587,
+    "hash": "04a30e234b8f58bcfde32d3df538af0a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBidTemplate.ts": {
+    "mtime": 1788370409405.4702,
+    "hash": "a073cda3aa1f1116e9b5149805408465"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IBomCostAnalysis.ts": {
+    "mtime": 1788370409408.4856,
+    "hash": "b4e2a0cbb6b32b95468ff62f6a4828b6"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IClarificationDb.ts": {
+    "mtime": 1788370409410.8347,
+    "hash": "48d059dc31717d622b3c03b920e146de"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IDashboard.ts": {
+    "mtime": 1788370409413.8467,
+    "hash": "c1f1e522f35e0193d0b276cf6c046a4c"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IDocLibraryItem.ts": {
+    "mtime": 1789410375576.3916,
+    "hash": "ce9f158d8522e466004960eea98a0841"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IEditLock.ts": {
+    "mtime": 1788370409418.8733,
+    "hash": "a7210e1451956c1c705db1812479e8c8"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IErn.ts": {
+    "mtime": 1788370409420.8853,
+    "hash": "004640ca4d994ca8b12f99ff75eae645"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IFavoriteItem.ts": {
+    "mtime": 1788370409422.8965,
+    "hash": "e09a16d96ada36d2d14259620bdc649f"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/ILinksRecommendations.ts": {
+    "mtime": 1788370409426.2815,
+    "hash": "7fca9634807b0b1cfc5f4e2763b9a2e1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/INotification.ts": {
+    "mtime": 1788370409429.604,
+    "hash": "89d2d163a3718d71e57c6d099e099394"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IQueryCatalog.ts": {
+    "mtime": 1788370409432.5005,
+    "hash": "9c876319ec4a6daf203bfda30277348b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IQuotationItem.ts": {
+    "mtime": 1789675916966.9907,
+    "hash": "797c93ff9538f63b2c2bef15634e5113"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/ISystemConfig.ts": {
+    "mtime": 1788370409436.9644,
+    "hash": "d0420af958a5beabe13861074959e12a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/ITeamMember.ts": {
+    "mtime": 1788370409439.982,
+    "hash": "a0fc475679ac308b4f4e4009e9aca675"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/IUser.ts": {
+    "mtime": 1788370409441.9998,
+    "hash": "66b7c47e23bd71fc997f916f50131734"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/models/index.ts": {
+    "mtime": 1789565834908.7444,
+    "hash": "30b0d0f476ee05cdabca7304e65540aa"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/AnalyticsPage.tsx": {
+    "mtime": 1788370409451.6335,
+    "hash": "fb228a16eb6ceaa73489532f48e51203"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/ApprovalsPage.tsx": {
+    "mtime": 1788370409456.66,
+    "hash": "5c3c5fde0c050c6ae32d7888067c0e69"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/AssetsCatalogPage.tsx": {
+    "mtime": 1788370409461.1794,
+    "hash": "21378bea702f1f0326c1c47c4035bac1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/BidBoardPage.tsx": {
+    "mtime": 1788370409466.2063,
+    "hash": "8564e8073e32e4ec777146bbca7086c2"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/BidDetailPage.tsx": {
+    "mtime": 1789762626951.1755,
+    "hash": "d3c0bc286dc6d8085ef9892a8386b3a1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/BidDetailsReportPage.tsx": {
+    "mtime": 1788370409478.2617,
+    "hash": "51cb80d08758a9e462f7a4623d9fde28"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/BidResultsPage.tsx": {
+    "mtime": 1788370409483.2844,
+    "hash": "210df52e95a005ce5c6f85802593b3f9"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/BidTrackerPage.tsx": {
+    "mtime": 1788370409488.3086,
+    "hash": "d20ff670eae2c2c09895d638ec45cd02"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/BomCostsPage.tsx": {
+    "mtime": 1788370409494.4482,
+    "hash": "cdef35b16de2cdb8685ec5ac42df399f"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/BottleneckAnalysisPage.tsx": {
+    "mtime": 1788370409499.4758,
+    "hash": "236dc6089fccaee1cdebe49e3f4ba30e"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/ClarificationsDbPage.tsx": {
+    "mtime": 1788370409504.4963,
+    "hash": "3b74369ab6dc06290d1f5113ace507b4"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/CreateRequestPage.tsx": {
+    "mtime": 1788370409509.511,
+    "hash": "e045faa79928504eb437270af36baa12"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/DashboardPage.tsx": {
+    "mtime": 1788370409515.1443,
+    "hash": "2858986f65c527866373fafbdbe48ca7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/DatasheetsPage.tsx": {
+    "mtime": 1788370409517.157,
+    "hash": "5e7e82b01860946d14d5f902ec009e8a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/FaqPage.tsx": {
+    "mtime": 1788370409522.1887,
+    "hash": "eb363371cf013e0b7b92a4edafa89769"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/FavoritesPage.tsx": {
+    "mtime": 1789751949230.0295,
+    "hash": "2c8b3c9f041e6d9b8face68045da665b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/FlowBoardPage.tsx": {
+    "mtime": 1788370409533.2305,
+    "hash": "2c20c2f6228e9860bc25907ef71bd9d7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/FollowUpPage.tsx": {
+    "mtime": 1788370409539.2666,
+    "hash": "ecac8bc719601b4740490c3718c38c7f"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/LinksRecommendationsPage.tsx": {
+    "mtime": 1788370409543.884,
+    "hash": "bfdd1e922ad4ba325215cb1afe01ebb2"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/ManualsCatalogsPage.tsx": {
+    "mtime": 1788370409545.8914,
+    "hash": "e2155bc359da6d494a2e15d2b3a41b5d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/MembersPage.tsx": {
+    "mtime": 1788370409549.479,
+    "hash": "2807a04aa72a271a74adb27abd5430a5"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/MyDashboardPage.tsx": {
+    "mtime": 1788370409553.7437,
+    "hash": "5bc18fb816a69a84202d84f52b423a4b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/NotificationsPage.tsx": {
+    "mtime": 1788370409558.7646,
+    "hash": "d8a7d58ace7e279d7906cc96400427a6"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/OperationalSummaryPage.tsx": {
+    "mtime": 1788370409564.4424,
+    "hash": "55fca93564eb2daa1c2df9a81494fe6f"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/PatchNotesPage.tsx": {
+    "mtime": 1788370409569.1016,
+    "hash": "70b6e572bd4a7f278cb896621f50bda1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/PerformanceTrendsPage.tsx": {
+    "mtime": 1788370409574.6387,
+    "hash": "46610dbbf70a9c45891b5fa0d9967bff"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/PeriodPerformancePage.tsx": {
+    "mtime": 1788370409581.6697,
+    "hash": "e42d3625e5854a60826ae89332239be0"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/PlaceholderPage.tsx": {
+    "mtime": 1788370409586.6968,
+    "hash": "e62c2145652918a1cf9f1457de2d0c55"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/QueryConsultingPage.tsx": {
+    "mtime": 1788370409591.7236,
+    "hash": "f6955ea0b45a1073d8c2b8cc469bf3f9"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/QuotationsPage.tsx": {
+    "mtime": 1789751949400.0427,
+    "hash": "e7bc42d89e030823983af58f141cef8e"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/ReportsPage.tsx": {
+    "mtime": 1788370409602.4272,
+    "hash": "2f4b751d316d4793c3c60a8bda3993a9"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/SystemConfigPage.tsx": {
+    "mtime": 1788370409604.4353,
+    "hash": "b9fda64cf2b7545b4c8b5cadca7da43e"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/TeamAnalyticsPage.tsx": {
+    "mtime": 1788370409609.2444,
+    "hash": "59052c5f3d9726f0d9658d5cdc7738b5"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/TechnicalProposalsPage.tsx": {
+    "mtime": 1789410948950.735,
+    "hash": "b29ae5b7bc47ca4705a3fc40c6b7b9e5"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/TemplatesPage.tsx": {
+    "mtime": 1788370409614.266,
+    "hash": "e3d2780b8c5f60dc9cbb1156e7809cd7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/TimelinePage.tsx": {
+    "mtime": 1788370409621.2993,
+    "hash": "6fcd3e2e2965d761559afab8d0c976aa"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/ToolingReportPage.tsx": {
+    "mtime": 1788370409626.3264,
+    "hash": "f7319e9bdbcd5b311aef50a544fba3ee"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/pages/UnassignedRequestsPage.tsx": {
+    "mtime": 1788370409631.3457,
+    "hash": "82c0e4643cc17be9e04710de38d1056c"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/AIAnalysisService.ts": {
+    "mtime": 1789675917195.1428,
+    "hash": "1b97ff2709a4d95c3d820f12476616e9"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/ActivityLogService.ts": {
+    "mtime": 1788370409636.9668,
+    "hash": "3dc7ac8b266d51298264ec6ca700cc1d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/AiAuthService.ts": {
+    "mtime": 1788918228074.1262,
+    "hash": "ab87470fd3067422909ad8d7bbed3e48"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/ApprovalService.ts": {
+    "mtime": 1788370409639.0815,
+    "hash": "d666f0470c0a0207f12d7adb15e19986"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/AssetCatalogService.ts": {
+    "mtime": 1788370409641.0945,
+    "hash": "9a98967d85252f26f26aea20b824aaa7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/AttachmentService.ts": {
+    "mtime": 1788370409644.111,
+    "hash": "bbdaf105cf1c807cf99ed8a6e76b402a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/BidService.ts": {
+    "mtime": 1789755492220.1292,
+    "hash": "7871f63456a8eea62a653bb49e6aa6a1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/BomCostAnalysisService.ts": {
+    "mtime": 1788370409649.7173,
+    "hash": "0d6062d5bbcff5be01c0ab27e396aa1a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/ClarificationDbService.ts": {
+    "mtime": 1788370409652.2334,
+    "hash": "db044cef0dcf8a491181302b59f541f2"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/CurrencyService.ts": {
+    "mtime": 1788370409653.9807,
+    "hash": "d1d23ffa393cec96984f92f866e7902d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/DashboardService.ts": {
+    "mtime": 1788370409655.9917,
+    "hash": "9825e01416572b23c2e33ce714bf144e"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/DocLibraryCatalogService.ts": {
+    "mtime": 1789410375500.7334,
+    "hash": "22518da17f783da5a6b6742ac6d51993"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/EditControlService.ts": {
+    "mtime": 1788370409661.0315,
+    "hash": "812c1b3eadb4d8c8a07722a2e2f047ed"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/ErnService.ts": {
+    "mtime": 1788370409664.055,
+    "hash": "450e7fd5c3a6a391756d64f5e3f41634"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/ExportService.ts": {
+    "mtime": 1788370409666.0647,
+    "hash": "39834d13ca3b91601775270d8a1396c5"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/FavoritesService.ts": {
+    "mtime": 1788370409669.1726,
+    "hash": "d9ac7aed43a587e09a343c62c30865c1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/LinksRecommendationsService.ts": {
+    "mtime": 1788370409671.442,
+    "hash": "b8c33b7bb51fb697661b92d5dc34e5f4"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/MembersService.ts": {
+    "mtime": 1788370409674.4539,
+    "hash": "7e2d80a2c5877fa4e2b27f041cc1e8ad"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/NotificationService.ts": {
+    "mtime": 1788370409676.4595,
+    "hash": "fd7209e89a012cad92ee9d1522e97117"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/PricingService.ts": {
+    "mtime": 1788370409679.469,
+    "hash": "c7a96afbfabcaf6b40380aeddda6ce3f"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/QueryCatalogService.ts": {
+    "mtime": 1788370409683.4758,
+    "hash": "78d0f7175c8e9bb28e0b92aea54477a5"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/QuotationService.ts": {
+    "mtime": 1789675917061.979,
+    "hash": "77af8e454eb61a20e44748c54f4cf4bf"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/RequestService.ts": {
+    "mtime": 1788370409689.5134,
+    "hash": "76487ecb1d74dde5eea93e250a33eacf"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/SPService.ts": {
+    "mtime": 1788370409691.517,
+    "hash": "765283141222b7aba0a3aec63e62d321"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/StatusTrackerService.ts": {
+    "mtime": 1788370409693.52,
+    "hash": "a018dfd51f5c01a7bd36010557f519e8"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/SystemConfigService.ts": {
+    "mtime": 1788370409694.5303,
+    "hash": "9d54e061f6099ff1c478b491bee824f7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/TemplateService.ts": {
+    "mtime": 1788370409696.5483,
+    "hash": "bdb4d1ad832cd84b981ea1d2ce368d1c"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/services/UserService.ts": {
+    "mtime": 1788370409699.0637,
+    "hash": "dd4a8b0d301056967a101ab1bcfbb546"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/stores/useAuthStore.ts": {
+    "mtime": 1788370409704.0815,
+    "hash": "591ac03164ee42002ecdee9e2ab3a16f"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/stores/useBidStore.ts": {
+    "mtime": 1788370409706.0867,
+    "hash": "cbdeb94b72476d016d3006fdf5968bc0"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/stores/useChatStore.ts": {
+    "mtime": 1789565834890.9485,
+    "hash": "d46879188d559db3e59ffadbbb715b11"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/stores/useConfigStore.ts": {
+    "mtime": 1788370409709.1057,
+    "hash": "28dac91f3633cbf8b8baab5372a8cc91"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/stores/useErnStore.ts": {
+    "mtime": 1788370409711.1748,
+    "hash": "efe7c71776cce15483f8afb3b979ac34"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/stores/useFavoritesStore.ts": {
+    "mtime": 1788370409714.1904,
+    "hash": "d3a61df9fc9f107a7d80789b92b6162c"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/stores/useNotificationStore.ts": {
+    "mtime": 1788370409716.198,
+    "hash": "58e3bcb32f42f86eb84440a6852d6fec"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/stores/useQueryCatalogStore.ts": {
+    "mtime": 1789762626842.0984,
+    "hash": "d5d64acf8190f634d15565607854e2b4"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/stores/useQuotationStore.ts": {
+    "mtime": 1789565835073.4385,
+    "hash": "64b82041460ae1182c35e05bea68eb33"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/stores/useRequestStore.ts": {
+    "mtime": 1788370409723.8384,
+    "hash": "6288be635c66cf23411b54c2415d1db4"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/stores/useTemplateStore.ts": {
+    "mtime": 1788370409727.8484,
+    "hash": "b4c1a0fbbae28a28cfd5add8e535a743"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/stores/useUIStore.ts": {
+    "mtime": 1788370409728.8547,
+    "hash": "aad7d3ccd2d939039a84f88b63c1eb42"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/accessControl.ts": {
+    "mtime": 1788370409747.942,
+    "hash": "9c6df73c45f55848722a5d26eab2e047"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/activityLogHelpers.ts": {
+    "mtime": 1788370409749.9536,
+    "hash": "b4a1cb07096c7854a8a018ae916feceb"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/aiClarificationMapper.ts": {
+    "mtime": 1788370409753.965,
+    "hash": "92c5e3a7b016c6f0edbaed0e6744b1b8"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/aiContext.ts": {
+    "mtime": 1788370409755.9722,
+    "hash": "5006390ea0c75ade6d2d0cede135bcba"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/aiQuotationMapper.ts": {
+    "mtime": 1789675916990.5066,
+    "hash": "6d91deb40adac88e116bd7458ab1cd81"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/analyticsHelpers.ts": {
+    "mtime": 1788370409764.527,
+    "hash": "00c02e2296f488fbbf6db3fa296f6b25"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/approvalHelpers.ts": {
+    "mtime": 1788370409769.6023,
+    "hash": "abc9ec42aed9bff08426b74ea697715b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/bidHelpers.ts": {
+    "mtime": 1788370409771.6084,
+    "hash": "9ea6f427d38af8f8986dd83bfe5d5807"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/bomParser.ts": {
+    "mtime": 1788370409776.2954,
+    "hash": "b357d1d816c57446485edb202d5fc334"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/businessDays.ts": {
+    "mtime": 1788370409781.407,
+    "hash": "568f3eecbad6709080002b31811b534b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/clarificationExport.ts": {
+    "mtime": 1788370409784.4185,
+    "hash": "a811f66a3873a1972f8725290e39cc8c"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/constants.ts": {
+    "mtime": 1788370409788.4348,
+    "hash": "ce31c98e119914a0a814b86f57adaa18"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/costCalculations.ts": {
+    "mtime": 1788370409791.9578,
+    "hash": "eacd44f7461524ea2b6415b4b5ba61dc"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/currencyHelpers.ts": {
+    "mtime": 1788370409794.4731,
+    "hash": "d496d310d6fe532112fb7777e72de46d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/durationHelpers.ts": {
+    "mtime": 1788370409798.4949,
+    "hash": "9b101aeb36d7dc9ad0f094933b642a20"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/ernHelpers.ts": {
+    "mtime": 1788370409802.5083,
+    "hash": "6b9b4c30ae68a8ed66dd975264bd53dd"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/ernLink.ts": {
+    "mtime": 1788370409803.5142,
+    "hash": "5c04e12a90150fb82302e54814a4b56b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/exportHelpers.ts": {
+    "mtime": 1788370409807.524,
+    "hash": "bafc3ff28fb196dc82f0256cf01bfe50"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/formatters.ts": {
+    "mtime": 1788370409808.9983,
+    "hash": "178403e6886cd4ef52c2d3c32ec82ee7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/idGenerator.ts": {
+    "mtime": 1788370409813.0305,
+    "hash": "a4421f2ad928c887850805a079df7236"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/pdfExport.ts": {
+    "mtime": 1788370409814.0452,
+    "hash": "f2d841d86c5f0080aa8e2fd488ac0d26"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/phaseHelpers.ts": {
+    "mtime": 1788370409818.0623,
+    "hash": "58f80c37416cde777cf0675f71e23169"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/reportHelpers.ts": {
+    "mtime": 1788370409821.0735,
+    "hash": "f7ea5321676238f56ca42b48f235301f"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/revisionHelpers.ts": {
+    "mtime": 1788370409824.087,
+    "hash": "2e9b38a6c1ee913173510c8c1fa0ae48"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/statusHelpers.ts": {
+    "mtime": 1788370409826.0977,
+    "hash": "623e68953b580218c24930ee6b6ef3db"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/utils/validators.ts": {
+    "mtime": 1788370409829.1147,
+    "hash": "6a8532050549fdb17e9f63006a4a2269"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/components/ISmartBid20Props.ts": {
+    "mtime": 1788370410236.6953,
+    "hash": "4501a2f580c3f1b27bbbabf5591434b5"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/components/SmartBid20.tsx": {
+    "mtime": 1788440326861.5981,
+    "hash": "e52c57980814d473bf8f63dff8592bf6"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/loc/en-us.js": {
+    "mtime": 1788370410244.5051,
+    "hash": "538b8a28640935efbb05f5fb825dc521"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/loc/mystrings.d.ts": {
+    "mtime": 1788370410247.511,
+    "hash": "a784c964d33f0be057cbd71b74f3ab8a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/.github/copilot-instructions.md": {
+    "mtime": 1788370407647.0515,
+    "hash": "2b23503628bf2ec71d067a85ca8948ab"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/.github/instructions/AGENTS.md": {
+    "mtime": 1788370407648.6184,
+    "hash": "f1ca9617a6c2c33677e4afb22b04ae93"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/.github/instructions/bid-feature.prompt.md": {
+    "mtime": 1788370407652.6316,
+    "hash": "fb5994288265911df3abe08d5c957c3e"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/.github/instructions/sharepoint-service.prompt.md": {
+    "mtime": 1788370407655.2432,
+    "hash": "36a79fca839be82b3f758f18be55df72"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/.github/instructions/smartbid-design-system.instructions.md": {
+    "mtime": 1788370407657.256,
+    "hash": "adf2c28674171a58b97b5124b075c9ce"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/.github/instructions/spfx-component.prompt.md": {
+    "mtime": 1788370407659.2617,
+    "hash": "0f135e2d7966e4f55f9c1de9f457f257"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/AGENTS.md": {
+    "mtime": 1788370408077.0796,
+    "hash": "f1ca9617a6c2c33677e4afb22b04ae93"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/PRODFLOW-PROJECT-PLAN.md": {
+    "mtime": 1788370408245.6108,
+    "hash": "15c631508f3b8bbdd0b794963d7fc422"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/README.md": {
+    "mtime": 1788370408249.2927,
+    "hash": "81c57f975171b279fab3d906d7c5cb3a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/SmartBid-AI-Backend-API-Contract.md": {
+    "mtime": 1789675916944.4258,
+    "hash": "ff34e87229ab63964c00d36cf4db8513"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/SmartBid-AI-BrowserOnly-Implementation-Plan.md": {
+    "mtime": 1788370408253.978,
+    "hash": "18236d5410e138b908da24ce42183e36"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/SmartBid-AI-Governance-Review-CheatSheet.md": {
+    "mtime": 1788370408255.9824,
+    "hash": "3f7d3ad33ce5f9de9c990ef7de2f3570"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/SmartBid-Leadership-Deck-Outline.md": {
+    "mtime": 1788370408257.9924,
+    "hash": "67fa7e21971aa8938023af4489bd474d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/CHATBOT-BACKEND-PLAN.md": {
+    "mtime": 1789565834826.37,
+    "hash": "21b004da1a38db115633e368ba5c8fd7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/README.md": {
+    "mtime": 1789668383589.6726,
+    "hash": "9479d699337a3f9152dfee35e68d7ba6"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/function-app/requirements.txt": {
+    "mtime": 1788453535523.2546,
+    "hash": "99cbd61ecaca89a37d0785e2b950c8a7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/meeting pipeline smartbid.txt": {
+    "mtime": 1788370408405.7942,
+    "hash": "b45206f7569f30bf0831629bca816887"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/build-out.txt": {
+    "mtime": 1788370408409.5374,
+    "hash": "8c9f9b4782eb8aac6b25c11e0863c21f"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/build2.txt": {
+    "mtime": 1788370408412.186,
+    "hash": "c2d749efbd3e0104da82631bd7974cc1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/build3.txt": {
+    "mtime": 1788370408415.948,
+    "hash": "c2d749efbd3e0104da82631bd7974cc1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/graphify-out/2026-08-24/GRAPH_REPORT.md": {
+    "mtime": 1788370408450.6445,
+    "hash": "6314aef80dfd289fc02332390b5ad0de"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/graphify-out/2026-08-31/GRAPH_REPORT.md": {
+    "mtime": 1788370408478.142,
+    "hash": "33c2fc0b9d81f550dcbb72633efdc31f"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/graphify-out/GRAPH_REPORT.md": {
+    "mtime": 1788370408500.047,
+    "hash": "8180508633e970e5a6e2ba992dabf9ca"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/graphify-out/graph.html": {
+    "mtime": 1788370408508.8237,
+    "hash": "8bc962983fd040005572300b4d29a4c3"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/power-automate/README.md": {
+    "mtime": 1788370408541.2544,
+    "hash": "4e685457701d627d592897c3b15e0b7b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/power-automate/email/completion-email.html": {
+    "mtime": 1788370408554.1482,
+    "hash": "181fe31420b092509ace8658a2b1d68f"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/app/components/bid/scope-of-supply-v2.html": {
+    "mtime": 1789759972950.981,
+    "hash": "2082c395057f1d690a09101008a95457"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/1.png": {
+    "mtime": 1788370408283.101,
+    "hash": "b4d2041fed753306ad4d0470386528d1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/10.png": {
+    "mtime": 1788370408294.2937,
+    "hash": "32ad65bc5706062f24d07588cfcb40c6"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/11.png": {
+    "mtime": 1788370408302.567,
+    "hash": "3e13cf83f1b8aae1274f71f8560d76e5"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/12.png": {
+    "mtime": 1788370408309.5264,
+    "hash": "6d903ccf52af08a22b8c5a8c0829fa96"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/13.png": {
+    "mtime": 1788370408316.542,
+    "hash": "8d204a26528a4bfe7f41c773ce809bd4"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/14.png": {
+    "mtime": 1788370408324.9065,
+    "hash": "9733cd43341bd3b5459ef3ce9278fe52"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/15.png": {
+    "mtime": 1788370408328.9868,
+    "hash": "2c0d4cccab2c3bc49aa29ce3ef9a4249"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/16.png": {
+    "mtime": 1788370408334.0024,
+    "hash": "e9b866c4e0b378ac05c865c030859f8f"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/17.png": {
+    "mtime": 1788370408337.0835,
+    "hash": "a70c2e9d624bdc58e663a60650425a16"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/18.png": {
+    "mtime": 1788370408340.106,
+    "hash": "e970ccf64707bc0254dbc6bef2410d73"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/19.png": {
+    "mtime": 1788370408345.1384,
+    "hash": "7228a473ae40aab6ff3b857a9810f2b2"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/2.png": {
+    "mtime": 1788370408355.2583,
+    "hash": "dccb1251c8b68e9d4774289f6b7d2f10"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/3.png": {
+    "mtime": 1788370408359.729,
+    "hash": "25a8a96fa9758e7b8d0ef6b7edff9b3e"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/4.png": {
+    "mtime": 1788370408365.7556,
+    "hash": "0f50868027749003a282df0ab7e63eaa"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/5.png": {
+    "mtime": 1788370408372.3433,
+    "hash": "2864f410fe150ae5fb0e6f6e2872162f"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/6.png": {
+    "mtime": 1788370408381.3892,
+    "hash": "0bceab9bcad2d6f01c5ecee6b7dfcb78"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/7.png": {
+    "mtime": 1788370408388.431,
+    "hash": "e65b637e64f2dc636e896113c250ff82"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/8.png": {
+    "mtime": 1788370408396.4854,
+    "hash": "6d0de779b7071f9b5b19c335a663878a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/azure-ai-backend/pipeline meeting/9.png": {
+    "mtime": 1788370408401.769,
+    "hash": "4d69e08a531bb2bf0afac8a670b410f6"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/OII-black-vetorizado.svg": {
+    "mtime": 1788370409833.1418,
+    "hash": "f7ec9b712556f6e468b35d0aa5fa2fc7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/OII-black.png": {
+    "mtime": 1788370409000,
+    "hash": "fd529c09d8cc713854ff6d8d0a6f332b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/OII-blue-vetorizado.svg": {
+    "mtime": 1788370409838.0332,
+    "hash": "5b71719548fb9d5f6284a0cf316bbdac"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/OII-blue.png": {
+    "mtime": 1788370409000,
+    "hash": "6119f80213e84dc6bf3246d0f5d35503"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/OII-white-transparent-vetorizado.svg": {
+    "mtime": 1788370409845.5332,
+    "hash": "e4224979bbedac98a0ac939e199277d1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/OII-white-vetorizado.svg": {
+    "mtime": 1788370409848.5312,
+    "hash": "e4224979bbedac98a0ac939e199277d1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/OII-white.png": {
+    "mtime": 1788370409000,
+    "hash": "2e23637e23af23d1e6e6e406e9dd699a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide1.PNG": {
+    "mtime": 1788370410000,
+    "hash": "b2936e11dd727b94ac188bff498d9f8a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide10.PNG": {
+    "mtime": 1788370410000,
+    "hash": "df6c66270de9478c288db69d2ffe3c79"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide11.PNG": {
+    "mtime": 1788370410000,
+    "hash": "12bec869c0735308701b125c25873222"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide12.PNG": {
+    "mtime": 1788370410000,
+    "hash": "56f3b8182af23d0a8704af024fb83ff0"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide13.PNG": {
+    "mtime": 1788370410000,
+    "hash": "b135dbe6fbfce8c4371641e4513867b9"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide14.PNG": {
+    "mtime": 1788370410000,
+    "hash": "659071b901eeacb5ab37954e00301358"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide15.PNG": {
+    "mtime": 1788370410000,
+    "hash": "98c20be9a2ab986fbe9d87ba3b903fe2"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide16.PNG": {
+    "mtime": 1788370410000,
+    "hash": "5b403dd1be646fd38701e042e3d9e544"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide17.PNG": {
+    "mtime": 1788370410000,
+    "hash": "351c2b6c1af130cdb336d46221bb2bb3"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide18.PNG": {
+    "mtime": 1788370410000,
+    "hash": "d1fced3167fcf23a0abcb4b3c7674dba"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide19.PNG": {
+    "mtime": 1788370410000,
+    "hash": "ae5aec41e469faddb48a42aa8fff4264"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide2.PNG": {
+    "mtime": 1788370410000,
+    "hash": "738a0330f73a3404f01dfd5607b51a0b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide20.PNG": {
+    "mtime": 1788370410000,
+    "hash": "156989d9ba62bf9e3eb24d4a06488515"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide21.PNG": {
+    "mtime": 1788370410000,
+    "hash": "488700a9c8aabf49b737515f7b8765af"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide22.PNG": {
+    "mtime": 1788370410000,
+    "hash": "7806349fa2e6243403b720c0edaca19d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide23.PNG": {
+    "mtime": 1788370410000,
+    "hash": "79aa79adf406b122e332a9ac3550c40c"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide24.PNG": {
+    "mtime": 1788370410000,
+    "hash": "c1769a5bb857639d95f38c431a56d204"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide25.PNG": {
+    "mtime": 1788370410000,
+    "hash": "99154cc397230d48041ee0b2f1fd7e85"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide26.PNG": {
+    "mtime": 1788370410000,
+    "hash": "944a92d953a33bc4b839c84ad5e8eae5"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide27.PNG": {
+    "mtime": 1788370410000,
+    "hash": "9e335a0df3cd1da5c47fece94f1bbe47"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide28.PNG": {
+    "mtime": 1788370410000,
+    "hash": "d0790031488266eec22a1a2eb79d169a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide29.PNG": {
+    "mtime": 1788370410000,
+    "hash": "fc6c00bfc518211ecdc5d957af85ab26"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide3.PNG": {
+    "mtime": 1788370410000,
+    "hash": "9cdbf652151733b0492c5ef04ece1c4e"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide30.PNG": {
+    "mtime": 1788370410000,
+    "hash": "962b54cfc56dfb4a7c50a84e77dde642"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide31.PNG": {
+    "mtime": 1788370410000,
+    "hash": "6b1fdc4f976e829ea294205df5ce9428"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide32.PNG": {
+    "mtime": 1788370410000,
+    "hash": "18ceaa77e842774bdedb239da96b0448"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide33.PNG": {
+    "mtime": 1788370410000,
+    "hash": "71e31fab279538197d30068ace22a177"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide34.PNG": {
+    "mtime": 1788370410000,
+    "hash": "fac56e7d1bf802baf46f23c7132a39d8"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide35.PNG": {
+    "mtime": 1788370410000,
+    "hash": "ed835273ba7d362eb862710d54882e0d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide36.PNG": {
+    "mtime": 1788370410000,
+    "hash": "3004a12113b7f7f215104f9f536847da"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide37.PNG": {
+    "mtime": 1788370410000,
+    "hash": "03a2437a90de64ec0ae3cc2ea0c6ccfa"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide38.PNG": {
+    "mtime": 1788370410000,
+    "hash": "408858cd7a49302e7ff7ce44736023f1"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide39.PNG": {
+    "mtime": 1788370410000,
+    "hash": "d248cbb405f98799ed1af4a691b7e87e"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide4.PNG": {
+    "mtime": 1788370410000,
+    "hash": "a72cdbb37317b29bbf3f686c70579b5d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide40.PNG": {
+    "mtime": 1788370410000,
+    "hash": "7006759a536c0d80eba04270f56e090a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide41.PNG": {
+    "mtime": 1788370410000,
+    "hash": "65294bcd3df7dbefc3a9f5702d889c86"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide42.PNG": {
+    "mtime": 1788370410000,
+    "hash": "3f323d66a086168f943537bb6729339d"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide43.PNG": {
+    "mtime": 1788370410000,
+    "hash": "6b569ea22f28a4a42b905a354566715e"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide44.PNG": {
+    "mtime": 1788370410000,
+    "hash": "377a648ccf6b494040558f583fe01b97"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide45.PNG": {
+    "mtime": 1788370410000,
+    "hash": "1bde735ff793949c2bea915bde77a920"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide46.PNG": {
+    "mtime": 1788370410000,
+    "hash": "cd25d88443f0933c1f68695696057d02"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide47.PNG": {
+    "mtime": 1788370410000,
+    "hash": "d7e598911b68c9eeb84af210de43e6eb"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide48.PNG": {
+    "mtime": 1788370410000,
+    "hash": "d848304705897ac1171ca952410ed2e3"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide49.PNG": {
+    "mtime": 1788370410000,
+    "hash": "de9c4d3cfc9b8c743dbacf848d20339c"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide5.PNG": {
+    "mtime": 1788370410000,
+    "hash": "2e98f740dbdb710904f15975ab293d71"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide50.PNG": {
+    "mtime": 1788370410000,
+    "hash": "bcc62afc2114cb912e4f82ed45a9daf9"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide51.PNG": {
+    "mtime": 1788370410000,
+    "hash": "48e10e94e3aadbfe8962527384b35b16"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide52.PNG": {
+    "mtime": 1788370410000,
+    "hash": "939bbf8ce96f36d98262470f943eb7b4"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide53.PNG": {
+    "mtime": 1788370410000,
+    "hash": "7157bd3757a8c9a62ea84a1eb09d16d8"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide54.PNG": {
+    "mtime": 1788370410000,
+    "hash": "a1082345c5ad196545d2b69a8b3f62c2"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide55.PNG": {
+    "mtime": 1788370410000,
+    "hash": "4a26a717c7251b20d851d9bf569e862e"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide56.PNG": {
+    "mtime": 1788370410000,
+    "hash": "399e6e402d9c7237273e7b25ea195455"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide57.PNG": {
+    "mtime": 1788370410000,
+    "hash": "e560f382d3baa790e1b0052ea95af36a"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide58.PNG": {
+    "mtime": 1788370410000,
+    "hash": "631b3a369185dbb4b6822639c4471719"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide59.PNG": {
+    "mtime": 1788370410000,
+    "hash": "247b9f1fac89dd30785eaf72caa7a282"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide6.PNG": {
+    "mtime": 1788370410000,
+    "hash": "565f6ed658aea0d3576d63a7e50fa0be"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide60.PNG": {
+    "mtime": 1788370410000,
+    "hash": "fe08fa69099ae2564b5e515855611232"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide61.PNG": {
+    "mtime": 1788370410000,
+    "hash": "bc51bb31756b6c697f1b25bfcd86dc5b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide7.PNG": {
+    "mtime": 1788370410000,
+    "hash": "4bc239cb0bd07377183bcf81ccce2a74"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide8.PNG": {
+    "mtime": 1788370410000,
+    "hash": "110783699700670687a666086aea1db7"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/presentation two/Slide9.PNG": {
+    "mtime": 1788370410000,
+    "hash": "26614569774b752dbebf689523503d0c"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/smartbid-favicon.svg": {
+    "mtime": 1788370410213.7578,
+    "hash": "1dd7dbed0d6e425957531e55cdfd4d39"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/smartbid-icon-dark.svg": {
+    "mtime": 1788370410216.754,
+    "hash": "2ae9413df7b794af5bbd96c3cf83185b"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/smartbid-icon-white.svg": {
+    "mtime": 1788370410218.755,
+    "hash": "10f9f574194648ff6b5ce39dd72a413e"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/smartbid-icon.svg": {
+    "mtime": 1788370410223.1975,
+    "hash": "6850e0f8a9f6c9f2c4d5c95440e49b41"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/smartbid-logo-compact.svg": {
+    "mtime": 1788370410226.4177,
+    "hash": "aec0fe8c454b6f824587270f1213d8a4"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/smartbid-logo-horizontal.svg": {
+    "mtime": 1788370410229.6816,
+    "hash": "8e53cc168851aada02ec81ed74a2a075"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/smartbid-logo-stacked.svg": {
+    "mtime": 1788370410231.686,
+    "hash": "bc07c8ab6a8ff4336defb145734e6457"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/src/webparts/smartBid20/assets/smartbid-logo-white.svg": {
+    "mtime": 1788370410233.6887,
+    "hash": "168bd4061f7508fef784eb7bafb7dd06"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/teams/58118fee-d0a0-4afd-b153-4adc954856ff_color.png": {
+    "mtime": 1788370410250.5347,
+    "hash": "d9462c5a997662a2112a8824b95e5146"
+  },
+  "C:/Users/RCosta1/OneDrive - Oceaneering/Pasta Principal/Coding Projects/smartbid2.0/teams/58118fee-d0a0-4afd-b153-4adc954856ff_outline.png": {
+    "mtime": 1788370410252.55,
+    "hash": "2f466993c4f51d26e80c1dfd032ccd67"
+  }
+}
