@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@azure/msal-browser": "^3.30.0",
+    "@easi/smartbid-modules": "file:vendor/easi-smartbid-modules-0.1.0.tgz",
     "@fluentui/react": "^8.106.4",
     "@microsoft/sp-component-base": "1.20.0",
     "@microsoft/sp-core-library": "1.20.0",

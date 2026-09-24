@@ -32,10 +32,13 @@ declare module "@pnp/sp" {
     select(...fields: string[]): SPItem;
     update(item: Record<string, unknown>): Promise<unknown>;
     delete(): Promise<void>;
-    attachmentFiles(): Promise<
-      { FileName: string; ServerRelativeUrl: string }[]
-    >;
+    attachmentFiles: SPAttachmentFiles;
     (): Promise<unknown>;
+  }
+  export interface SPAttachmentFiles {
+    (): Promise<{ FileName: string; ServerRelativeUrl: string }[]>;
+    add(name: string, content: unknown): Promise<unknown>;
+    getByName(name: string): { delete(): Promise<void> };
   }
   export interface SPFolder {
     files: SPFiles;

@@ -61,6 +61,10 @@ import { ToolingReportPage } from "../../pages/ToolingReportPage";
 import { QueryConsultingPage } from "../../pages/QueryConsultingPage";
 import { PatchNotesPage } from "../../pages/PatchNotesPage";
 import { FaqPage } from "../../pages/FaqPage";
+import { EasiPriceHistoryPage } from "../../pages/EasiPriceHistoryPage";
+import { EasiBidPresentationPage } from "../../pages/EasiBidPresentationPage";
+import { EasiBidComparatorPage } from "../../pages/EasiBidComparatorPage";
+import { EasiSuppliersPage } from "../../pages/EasiSuppliersPage";
 import { CommandPalette } from "./CommandPalette";
 import { ToastContainer } from "../common/ToastContainer";
 import { QueryCatalogLoadingBanner } from "../common/QueryCatalogLoadingBanner";
@@ -316,6 +320,22 @@ const AppLayoutInner: React.FC<{
             <Route
               path={ROUTES.queryConsulting}
               element={<QueryConsultingPage />}
+            />
+            <Route
+              path={ROUTES.easiPriceHistory}
+              element={<EasiPriceHistoryPage />}
+            />
+            <Route
+              path={ROUTES.easiBidPresentation}
+              element={<EasiBidPresentationPage />}
+            />
+            <Route
+              path={ROUTES.easiBidComparator}
+              element={<EasiBidComparatorPage />}
+            />
+            <Route
+              path={ROUTES.easiSuppliers}
+              element={<EasiSuppliersPage />}
             />
             <Route path={ROUTES.systemConfig} element={<SystemConfigPage />} />
             <Route path={ROUTES.members} element={<MembersPage />} />
