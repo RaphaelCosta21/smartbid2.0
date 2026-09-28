@@ -15,6 +15,8 @@ export const SHAREPOINT_CONFIG = {
     clarificationsDatabase: "Clarifications Database",
     /** Engineering Request Number list (same-site) — note the double "t" */
     erns: "Engineering Requestt",
+    /** Supplier registry (native CRUD form) — one row per supplier. */
+    suppliers: "smartbid-suppliers",
   },
   libraries: {
     attachments: "SmartBidAttachments",

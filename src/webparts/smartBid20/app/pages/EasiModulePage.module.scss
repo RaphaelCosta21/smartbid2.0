@@ -1,0 +1,61 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+// Container do módulo EASI: sem moldura própria — o módulo renderiza seus próprios
+// cards com a paleta nativa do SMART BID 2.0, então ele apenas ocupa a largura total.
+.island {
+  width: 100%;
+}
+
+// Empty state / loading nativos (mesma linguagem visual das outras telas do app).
+.stateBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  padding: 64px 24px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.stateIcon {
+  font-size: 40px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stateTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.stateText {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 440px;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary-accent);
+  animation: easiSpin 0.8s linear infinite;
+}
+
+@keyframes easiSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}

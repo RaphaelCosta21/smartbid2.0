@@ -12,6 +12,9 @@ import * as strings from "SmartBid20WebPartStrings";
 import SmartBid20 from "./components/SmartBid20";
 import { ISmartBid20Props } from "./components/ISmartBid20Props";
 import { SPService } from "./app/services/SPService";
+import { configureSmartBidModules, MockAdapter } from "@easi/smartbid-modules";
+import { EasiModulesAdapter } from "./app/services/EasiModulesAdapter";
+import { EASI_MODULES_CSS } from "./app/vendor/easiModulesCss";
 
 export interface ISmartBid20WebPartProps {
   description: string;
@@ -49,6 +52,20 @@ export default class SmartBid20WebPart extends BaseClientSideWebPart<ISmartBid20
       link.href =
         "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap";
       document.head.appendChild(link);
+    }
+
+    // Configure the EASI modules with real data (PnPjs) and inject their scoped CSS once.
+    // DEMO TEMPORÁRIO: com `true`, usa o MockAdapter (dados de exemplo do pacote) para
+    // visualizar os módulos POPULADOS no design nativo. Voltar para `false` antes de commitar.
+    const DEMO_WITH_MOCK_DATA = false;
+    configureSmartBidModules({
+      adapter: DEMO_WITH_MOCK_DATA ? new MockAdapter() : new EasiModulesAdapter(),
+    });
+    if (!document.getElementById("easi-modules-styles")) {
+      const style: HTMLStyleElement = document.createElement("style");
+      style.id = "easi-modules-styles";
+      style.textContent = EASI_MODULES_CSS;
+      document.head.appendChild(style);
     }
 
     return this._getEnvironmentMessage().then((message) => {

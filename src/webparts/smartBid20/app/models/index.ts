@@ -207,3 +207,8 @@ export {
   type IErnCreateResult,
   type ErnDeadlineState,
 } from "./IErn";
+export {
+  type ISupplier,
+  type ISupplierContact,
+  type ISupplierInput,
+} from "./ISupplier";

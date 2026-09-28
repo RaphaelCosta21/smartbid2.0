@@ -245,6 +245,34 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     section: "tools",
     externalRoute: "/tools/query-consulting-external",
   },
+  {
+    key: "easi-price-history",
+    label: "Price History",
+    icon: "TrendingUp",
+    route: "/tools/price-history",
+    section: "tools",
+  },
+  {
+    key: "easi-bid-presentation",
+    label: "BID Presentation",
+    icon: "PieChart",
+    route: "/tools/bid-presentation",
+    section: "tools",
+  },
+  {
+    key: "easi-bid-comparator",
+    label: "Bid Comparator",
+    icon: "LayoutGrid",
+    route: "/tools/bid-comparator",
+    section: "tools",
+  },
+  {
+    key: "easi-suppliers",
+    label: "Suppliers",
+    icon: "Package",
+    route: "/tools/suppliers",
+    section: "tools",
+  },
 
   // SETTINGS
   {
