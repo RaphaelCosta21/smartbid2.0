@@ -33,6 +33,7 @@
     font-weight: 700;
     color: #f1f5f9;
     margin: 0 0 4px;
+    white-space: nowrap;
   }
 
   p {
@@ -45,5 +46,7 @@
 .actions {
   display: flex;
   gap: 8px;
-  flex-shrink: 0;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }

@@ -1,7 +1,7 @@
 /**
  * useQueryCatalogStore — Zustand store for Query Catalog data.
- * Lazy-loads and caches the Queries.xlsx parsed data with prefix indexing
- * for fast PN lookups across 50K+ rows.
+ * Lazy-loads and caches the Queries.xlsx + Financials Active Registered CSV
+ * parsed data with prefix indexing for fast PN lookups across 300K+ rows.
  */
 import { create } from "zustand";
 import { QueryCatalogService } from "../services/QueryCatalogService";
@@ -13,6 +13,7 @@ import {
   ISearchResultItem,
   IBomCostResult,
   IExchangeRate,
+  FinancialsActiveRegisteredRow,
 } from "../models";
 
 interface QueryCatalogState {
@@ -24,7 +25,7 @@ interface QueryCatalogState {
   /** Load catalog from SharePoint (lazy, only once) */
   loadCatalog: () => Promise<void>;
 
-  /** Search by Part Number prefix across Active Registered + PeopleSoft Financials */
+  /** Search by Part Number prefix across Active Registered + PeopleSoft Financials (+ Financials Active Registered CSV) */
   searchByPN: (query: string, limit?: number) => ISearchResultItem[];
 
   /** Search by description substring */
@@ -60,6 +61,18 @@ let _arPnIndex: Map<string, IActiveRegisteredItem[]> = new Map();
 let _psPnIndex: Map<string, IPeopleSoftFinancialsItem[]> = new Map();
 let _bumblPnIndex: Map<string, IBomSheetItem[]> = new Map();
 let _bumbrPnIndex: Map<string, IBomSheetItem[]> = new Map();
+let _farPnIndex: Map<string, FinancialsActiveRegisteredRow[]> = new Map();
+
+function toFarResult(m: FinancialsActiveRegisteredRow): ISearchResultItem {
+  return {
+    pn: m["PART NUMBER"],
+    description: m.DESCRIPTION,
+    source: "FAR",
+    businessUnit: m["BUSINESS UNIT"],
+    mfgId: m["MFG NAME"],
+    mfgItmId: m["MFG REF"],
+  };
+}
 
 function buildPrefixIndex<T>(
   items: T[],
@@ -148,6 +161,11 @@ export const useQueryCatalogStore = create<QueryCatalogState>((set, get) => ({
       _psPnIndex = buildPrefixIndex(data.peopleSoftFinancials, (i) => i.pn, 3);
       _bumblPnIndex = buildPrefixIndex(data.bumbl, (i) => i.partNumber, 3);
       _bumbrPnIndex = buildPrefixIndex(data.bumbr, (i) => i.partNumber, 3);
+      _farPnIndex = buildPrefixIndex(
+        data.rawFinancialsActiveRegistered.rows,
+        (i) => i["PART NUMBER"],
+        3,
+      );
 
       set({ data, isLoaded: true, isLoading: false });
     } catch (err: any) {
@@ -198,6 +216,22 @@ export const useQueryCatalogStore = create<QueryCatalogState>((set, get) => ({
       });
     }
 
+    // PeopleSoft Financials — Active Registered CSV
+    if (results.length < limit) {
+      const farMatches = searchInPrefixIndex(
+        _farPnIndex,
+        query,
+        (i) => i["PART NUMBER"],
+        limit,
+      );
+      for (let i = 0; i < farMatches.length && results.length < limit; i++) {
+        const pn = farMatches[i]["PART NUMBER"];
+        if (!results.some((r) => r.pn === pn)) {
+          results.push(toFarResult(farMatches[i]));
+        }
+      }
+    }
+
     return results;
   },
 
@@ -241,6 +275,22 @@ export const useQueryCatalogStore = create<QueryCatalogState>((set, get) => ({
           results.push({ pn: m.pn, description: m.description, source: "PS" });
         }
       });
+    }
+
+    // PeopleSoft Financials — Active Registered CSV
+    if (results.length < limit) {
+      const farMatches = searchBySubstring(
+        data.rawFinancialsActiveRegistered.rows,
+        query,
+        (i) => i.DESCRIPTION,
+        limit,
+      );
+      for (let i = 0; i < farMatches.length && results.length < limit; i++) {
+        const pn = farMatches[i]["PART NUMBER"];
+        if (!results.some((r) => r.pn === pn)) {
+          results.push(toFarResult(farMatches[i]));
+        }
+      }
     }
 
     return results;
@@ -516,6 +566,7 @@ export const useQueryCatalogStore = create<QueryCatalogState>((set, get) => ({
     _psPnIndex = new Map();
     _bumblPnIndex = new Map();
     _bumbrPnIndex = new Map();
+    _farPnIndex = new Map();
     set({ data: null, isLoaded: false, isLoading: false, error: null });
   },
 }));

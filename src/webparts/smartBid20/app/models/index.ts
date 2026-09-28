@@ -183,6 +183,9 @@ export {
   type IQueryCatalogData,
   type IBomCostResult,
   type IRawTabData,
+  type FinancialsActiveRegisteredColumn,
+  type FinancialsActiveRegisteredRow,
+  type IFinancialsActiveRegisteredTab,
 } from "./IQueryCatalog";
 export {
   type IFavoriteGroup,

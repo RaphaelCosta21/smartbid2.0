@@ -36,6 +36,7 @@ export interface PartNumberAutocompleteProps {
 const SOURCE_LABELS: Record<string, { label: string; cls: string }> = {
   AR: { label: "PS Brazil", cls: "badgeAR" },
   PS: { label: "PS Financials", cls: "badgePS" },
+  FAR: { label: "PS Fin. Registered", cls: "badgePS" },
   FAV: { label: "Favorite", cls: "badgeFAV" },
   BUMBL: { label: "BUMBL", cls: "badgeBOM" },
   BUMBR: { label: "BUMBR", cls: "badgeBOM" },

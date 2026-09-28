@@ -4,6 +4,8 @@
  * two sub-tabs each (Price Consulting / Active Registered with Manuf.),
  * Business Unit filters, column-specific search, sortable columns,
  * photo column, and pagination.
+ * Financials › Active Registered with Manuf. comes from the CSV export;
+ * every other tab comes from Queries.xlsx.
  *
  * Reuses useQueryCatalogStore — data is loaded once and cached in memory.
  * If BOM Costs or Favorites already triggered loadCatalog(), data is instant.
@@ -15,7 +17,11 @@ import { useQueryCatalogStore } from "../stores/useQueryCatalogStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import { convertToUSD } from "../utils/costCalculations";
-import { formatCurrency } from "../utils/formatters";
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+} from "../utils/formatters";
 import { IExchangeRate } from "../models";
 import styles from "./QueryConsultingPage.module.scss";
 
@@ -95,9 +101,13 @@ function convertExcelDate(cell: any): string {
   } else {
     const str = String(cell).trim();
     if (!str) return "";
-    // Try as Excel serial number first
+    const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
     const n = parseFloat(str);
-    if (!isNaN(n) && n > 10000 && n < 100000) {
+    if (ymd) {
+      // Date-only "YYYY-MM-DD" (CSV export) — local time avoids a UTC day shift
+      d = new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+    } else if (!isNaN(n) && n > 10000 && n < 100000) {
+      // Excel serial number stored as text
       d = new Date((n - 25569) * 86400 * 1000);
     } else {
       // Try parsing as date string (e.g. "Sun Nov 22 2020 00:00:28 GMT-0300...")
@@ -356,6 +366,7 @@ export function QueryConsultingPage(): React.ReactElement {
     const rawBumbl = storeData.rawBrazilBumbl;
     const rawBumbr = storeData.rawBrazilBumbr;
     const rawAR = storeData.rawActiveRegistered;
+    const rawFinAR = storeData.rawFinancialsActiveRegistered;
 
     // Brazil Price Consulting = BUMBL + BUMBR rows that have "Last Price Paid"
     const brazilPCHeaders = rawBumbl.headers;
@@ -367,14 +378,10 @@ export function QueryConsultingPage(): React.ReactElement {
 
     // Financials: all rows for Price Consulting
     const finPCRows = rawFin.rows;
-    // Financials Active Registered: rows with Last Price Paid
-    const finARRows = rawFin.rows.filter((row) => {
-      const v = row["Last Price Paid"];
-      return v !== undefined && v !== null && v !== "";
-    });
 
     // Extract BU filters
     const finBUs = extractBUs(finPCRows, rawFin.headers[0]);
+    const finArBUs = extractBUs(rawFinAR.rows, rawFinAR.headers[0]);
     const brazilBUs = extractBUs(allBrazilRows, brazilPCHeaders[0]);
     const arBUs = extractBUs(rawAR.rows, rawAR.headers[0]);
 
@@ -391,12 +398,18 @@ export function QueryConsultingPage(): React.ReactElement {
           sortDescending: false,
         },
         activeRegistered: {
-          headers: rawFin.headers,
-          rows: finARRows,
-          filteredRows: finARRows,
+          headers: rawFinAR.headers,
+          rows: rawFinAR.rows,
+          filteredRows: rawFinAR.rows,
           searchText: "",
-          searchColumn: rawFin.headers[1] || "",
-          searchFilters: [],
+          searchColumn: rawFinAR.headers[1] || "",
+          searchFilters: [
+            {
+              id: "filter_1",
+              column: rawFinAR.headers[0] || "",
+              value: "",
+            },
+          ],
           sortColumn: "",
           sortDescending: false,
         },
@@ -435,7 +448,7 @@ export function QueryConsultingPage(): React.ReactElement {
     setBuFilters({
       financials: {
         priceConsulting: finBUs,
-        activeRegistered: finBUs.map((f) => ({ ...f })),
+        activeRegistered: finArBUs,
       },
       brazil: {
         priceConsulting: brazilBUs,
@@ -454,8 +467,7 @@ export function QueryConsultingPage(): React.ReactElement {
     page * PAGE_SIZE,
     (page + 1) * PAGE_SIZE,
   );
-  const isMultiFilter =
-    activeTab === "brazil" && activeSubTab === "activeRegistered";
+  const isMultiFilter = activeSubTab === "activeRegistered";
 
   // ── Tab switching ──────────────────────────────────────────────────────────
   const handleTabChange = (tab: TabKey): void => {
@@ -530,7 +542,7 @@ export function QueryConsultingPage(): React.ReactElement {
     setPage(0);
   };
 
-  // ── Multi-filter handlers (Active Registered Brazil) ───────────────────────
+  // ── Multi-filter handlers (Active Registered sub-tabs) ───────────────────────────────
   const handleAddFilter = (): void => {
     if (currentTab.searchFilters.length >= 3) return;
     const newFilter: ISearchFilter = {
@@ -676,8 +688,29 @@ export function QueryConsultingPage(): React.ReactElement {
 
     const col = (idx: number): string => hdrs[idx] || "";
 
-    if (activeTab === "financials") {
-      // ── Financials — Price Consulting & Active Registered ──────────────────
+    if (activeTab === "financials" && activeSubTab === "activeRegistered") {
+      // ── Financials — Active Registered with Manufacturer (CSV export) ──────
+      // Col 0: BUSINESS UNIT, Col 1: PART NUMBER, Col 2: DESCRIPTION,
+      // Col 3: MFG NAME, Col 4: MFG REF, Col 5: LAST ORDER DATE
+      const defs: { idx: number; header: string; width: string }[] = [
+        { idx: 0, header: "BUSINESS UNIT", width: "10%" },
+        { idx: 1, header: "PART NUMBER", width: "14%" },
+        { idx: 2, header: "DESCRIPTION", width: "34%" },
+        { idx: 3, header: "MFG NAME", width: "14%" },
+        { idx: 4, header: "MFG REF", width: "14%" },
+        { idx: 5, header: "LAST ORDER DATE", width: "14%" },
+      ];
+      defs.forEach((d) => {
+        const h = col(d.idx);
+        if (!h) return;
+        const render =
+          d.idx === 5
+            ? (row: Record<string, any>) => convertExcelDate(row[h])
+            : (row: Record<string, any>) => String(row[h] ?? "");
+        cols.push({ key: h, header: d.header, width: d.width, render });
+      });
+    } else if (activeTab === "financials") {
+      // ── Financials — Price Consulting ─────────────────────────────────────────────────
       // Col 0: Business Unit, Col 1: PN, Col 2: Descripton, Col 3: LAST ORDER DATE,
       // Col 4: ORIGINAL CURRENCY PRICE, Col 5: Currency, Col 6: Lead Time
       const defs: { idx: number; header: string; width: string }[] = [
@@ -800,9 +833,18 @@ export function QueryConsultingPage(): React.ReactElement {
     return [];
   };
 
-  // ── Multi-filter column options (Active Registered Brazil) ─────────────────
+  // ── Multi-filter column options (Active Registered sub-tabs) ────────────────
   const getMultiFilterColumnOptions = (): { key: string; label: string }[] => {
     const hdrs = currentTab.headers;
+    if (activeTab === "financials") {
+      return [
+        { key: hdrs[0], label: "BUSINESS UNIT" },
+        { key: hdrs[1], label: "PART NUMBER" },
+        { key: hdrs[2], label: "DESCRIPTION" },
+        { key: hdrs[3], label: "MFG NAME" },
+        { key: hdrs[4], label: "MFG REF" },
+      ].filter((o) => o.key);
+    }
     return [
       { key: hdrs[0], label: "BUSINESS UNIT" },
       { key: hdrs[1], label: "PART NUMBER" },
@@ -832,10 +874,19 @@ export function QueryConsultingPage(): React.ReactElement {
     return (
       <div className={styles.ratesBadges}>
         {exchangeRates.map((r) => (
-          <span key={r.currency} className={styles.rateBadge}>
+          <span
+            key={r.currency}
+            className={styles.rateBadge}
+            title={
+              r.lastUpdate ? "Updated " + formatDateTime(r.lastUpdate) : ""
+            }
+          >
             <strong>{r.currency}</strong>: {r.rate.toFixed(2)}
             {r.lastUpdate && (
-              <span className={styles.rateDate}> ({r.lastUpdate})</span>
+              <span className={styles.rateDate}>
+                {" "}
+                ({formatDate(r.lastUpdate, "dd/MMM/yyyy")})
+              </span>
             )}
           </span>
         ))}
@@ -975,7 +1026,7 @@ export function QueryConsultingPage(): React.ReactElement {
       <div className={styles.filterToolbar}>
         <div className={styles.searchArea}>
           {isMultiFilter ? (
-            /* Multiple search filters for Active Registered Brazil */
+            /* Multiple search filters for Active Registered sub-tabs */
             <div className={styles.multiFilterWrap}>
               <span className={styles.filterLabel}>
                 Search Filters (Multiple)
@@ -1257,7 +1308,7 @@ export function QueryConsultingPage(): React.ReactElement {
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <div className={styles.footer}>
-        Update Date: 03/MAR/2026, Updated every 4 months.
+        Update Date: Automatic update every morning.
         <br />
         Created By: Raphael Costa
       </div>

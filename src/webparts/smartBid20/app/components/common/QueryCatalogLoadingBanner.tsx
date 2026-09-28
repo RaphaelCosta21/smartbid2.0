@@ -4,7 +4,8 @@ import { useFavoritesStore } from "../../stores/useFavoritesStore";
 import styles from "./QueryCatalogLoadingBanner.module.scss";
 
 /**
- * Global, non-blocking notice shown while the Query Catalog (Queries.xlsx) or
+ * Global, non-blocking notice shown while the Query Catalog (Queries.xlsx +
+ * Financials Active Registered CSV) or
  * the Favorites list are being fetched and parsed. The parse runs on the main
  * thread, so the UI may stop responding for a few seconds.
  */
@@ -24,7 +25,7 @@ export const QueryCatalogLoadingBanner: React.FC = () => {
           </div>
           <div className={styles.message}>
             {catalogLoading
-              ? "Fetching and indexing Queries.xlsx. This can take a few seconds and the screen may briefly stop responding."
+              ? "Fetching and indexing Queries.xlsx and the Active Registered export. This can take a few seconds and the screen may briefly stop responding."
               : "Fetching your saved equipment favorites."}
           </div>
         </div>

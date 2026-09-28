@@ -4,6 +4,7 @@
  * Handles CSV values wrapped in ="..." notation.
  */
 import { IBomCostItem } from "../models";
+import { parseCSVRows } from "./csvParser";
 
 /** Generate a simple unique ID */
 function uid(): string {
@@ -38,59 +39,6 @@ function cleanCsvValue(val: string): string {
     v = v.substring(1, v.length - 1);
   }
   return v.trim();
-}
-
-/**
- * Parse a raw CSV string into rows of string arrays.
- * Handles quoted fields with commas and newlines inside quotes.
- */
-function parseCSVRows(text: string): string[][] {
-  const rows: string[][] = [];
-  let current: string[] = [];
-  let field = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const ch = text.charAt(i);
-    const next = i + 1 < text.length ? text.charAt(i + 1) : "";
-
-    if (inQuotes) {
-      if (ch === '"' && next === '"') {
-        field += '"';
-        i++; // skip escaped quote
-      } else if (ch === '"') {
-        inQuotes = false;
-      } else {
-        field += ch;
-      }
-    } else {
-      if (ch === '"') {
-        inQuotes = true;
-      } else if (ch === ",") {
-        current.push(field);
-        field = "";
-      } else if (ch === "\r" && next === "\n") {
-        current.push(field);
-        field = "";
-        rows.push(current);
-        current = [];
-        i++; // skip \n
-      } else if (ch === "\n") {
-        current.push(field);
-        field = "";
-        rows.push(current);
-        current = [];
-      } else {
-        field += ch;
-      }
-    }
-  }
-  // Last field
-  if (field.length > 0 || current.length > 0) {
-    current.push(field);
-    rows.push(current);
-  }
-  return rows;
 }
 
 /**

@@ -1,31 +1,38 @@
 /**
  * QueryCatalogService — Fetches and parses the Queries.xlsx Excel file
- * from SharePoint, extracting equipment/cost catalog data from multiple tabs.
+ * (plus the Financials Active Registered CSV export) from SharePoint,
+ * extracting equipment/cost catalog data from multiple tabs.
  * Static singleton pattern.
  */
 import { SPService } from "./SPService";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
+import { parseCSVRows } from "../utils/csvParser";
 import {
   IQueryCatalogData,
   IActiveRegisteredItem,
   IPeopleSoftFinancialsItem,
   IBomSheetItem,
   IRawTabData,
+  FinancialsActiveRegisteredColumn,
+  FinancialsActiveRegisteredRow,
+  IFinancialsActiveRegisteredTab,
 } from "../models";
 
 export class QueryCatalogService {
   /**
-   * Fetch and parse the Queries.xlsx from SharePoint.
+   * Fetch and parse the Queries.xlsx and the Financials Active Registered CSV.
    * Extracts 4 tabs: Active Registered, Peoplesoft Financials, BUMBL, BUMBR.
    * Only parses needed columns to minimize memory footprint.
    */
   public static async loadCatalog(): Promise<IQueryCatalogData> {
     const XLSX = await import("xlsx");
 
-    // Fetch Excel file as ArrayBuffer from SharePoint
-    const arrayBuffer: ArrayBuffer = await SPService.sp.web
-      .getFileByServerRelativePath(SHAREPOINT_CONFIG.queriesExcelPath)
-      .getBuffer();
+    const [arrayBuffer, rawFinancialsActiveRegistered] = await Promise.all([
+      SPService.sp.web
+        .getFileByServerRelativePath(SHAREPOINT_CONFIG.queriesExcelPath)
+        .getBuffer(),
+      QueryCatalogService.loadFinancialsActiveRegistered(),
+    ]);
 
     const workbook = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
 
@@ -85,8 +92,60 @@ export class QueryCatalogService {
       rawBrazilBumbl,
       rawBrazilBumbr,
       rawActiveRegistered,
+      rawFinancialsActiveRegistered,
       rawCurrency,
     };
+  }
+
+  /**
+   * Fetch the Financials Active Registered CSV. Failure is logged and yields an
+   * empty tab so the Queries.xlsx catalog still loads.
+   */
+  private static async loadFinancialsActiveRegistered(): Promise<IFinancialsActiveRegisteredTab> {
+    const cfg = SHAREPOINT_CONFIG.financialsActiveRegisteredCsv;
+    const columns: Record<FinancialsActiveRegisteredColumn, string> =
+      cfg.columns;
+    const headers = Object.keys(columns) as FinancialsActiveRegisteredColumn[];
+    try {
+      const buffer = await SPService.sp.web
+        .getFileByServerRelativePath(cfg.path)
+        .getBuffer();
+      return QueryCatalogService.parseFinancialsActiveRegistered(
+        new TextDecoder("utf-8").decode(buffer),
+        headers,
+        columns,
+      );
+    } catch (err) {
+      console.warn("[QueryCatalogService] Failed to load " + cfg.path, err);
+      return { headers, rows: [] };
+    }
+  }
+
+  /** Keep only the mapped CSV columns, keyed by UI column name; skip rows without PN */
+  private static parseFinancialsActiveRegistered(
+    text: string,
+    headers: FinancialsActiveRegisteredColumn[],
+    columns: Record<FinancialsActiveRegisteredColumn, string>,
+  ): IFinancialsActiveRegisteredTab {
+    const table = parseCSVRows(text);
+    if (table.length < 2) return { headers, rows: [] };
+
+    const csvHeaders = table[0].map((h) => h.trim());
+    const colIdx = headers.map((h) => csvHeaders.indexOf(columns[h]));
+    const pnIdx = colIdx[headers.indexOf("PART NUMBER")];
+    if (pnIdx < 0) return { headers, rows: [] };
+
+    const rows: FinancialsActiveRegisteredRow[] = [];
+    for (let r = 1; r < table.length; r++) {
+      const line = table[r];
+      if (!(line[pnIdx] || "").trim()) continue;
+      const row = {} as FinancialsActiveRegisteredRow;
+      headers.forEach((h, c) => {
+        row[h] = colIdx[c] >= 0 ? (line[colIdx[c]] || "").trim() : "";
+      });
+      rows.push(row);
+    }
+    return { headers, rows };
   }
 
   /**

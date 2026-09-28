@@ -894,14 +894,18 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     const rawBumbl = catalogData?.rawBrazilBumbl;
     const rawBumbr = catalogData?.rawBrazilBumbr;
     const rawAR = catalogData?.rawActiveRegistered;
+    const rawFinAR = catalogData?.rawFinancialsActiveRegistered;
 
     // Determine active dataset based on tab + subtab
     let activeHeaders: string[] = [];
     let activeRows: Record<string, any>[] = [];
-    const isMultiFilter =
-      queryTab === "brazil" && querySubTab === "activeRegistered";
+    const isMultiFilter = querySubTab === "activeRegistered";
+    const isFinancialsAR = queryTab === "financials" && isMultiFilter;
 
-    if (queryTab === "financials") {
+    if (isFinancialsAR) {
+      activeHeaders = rawFinAR?.headers || [];
+      activeRows = rawFinAR?.rows || [];
+    } else if (queryTab === "financials") {
       activeHeaders = rawFin?.headers || [];
       activeRows = rawFin?.rows || [];
     } else {
@@ -938,9 +942,14 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
         searchColOptions.push({ key: activeHeaders[17], label: "VENDOR" });
     }
 
-    // Multi-filter column options (Active Registered Brazil)
+    // Multi-filter column options (Active Registered sub-tabs)
     const multiColOptions: { key: string; label: string }[] = [];
-    if (isMultiFilter) {
+    if (isFinancialsAR) {
+      // BUSINESS UNIT, PART NUMBER, DESCRIPTION, MFG NAME, MFG REF
+      activeHeaders.slice(0, 5).forEach((h) => {
+        if (h) multiColOptions.push({ key: h, label: h });
+      });
+    } else if (isMultiFilter) {
       if (activeHeaders[0])
         multiColOptions.push({ key: activeHeaders[0], label: "BUSINESS UNIT" });
       if (activeHeaders[1])
@@ -959,6 +968,8 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     const effectiveSearchCol =
       querySearchCol ||
       (searchColOptions.length > 0 ? searchColOptions[0].key : pnColKey);
+    // Filters reset on tab switch before the new headers exist — empty column = first option
+    const defaultMultiCol = multiColOptions[0]?.key || "";
 
     // Filter rows
     let filtered = activeRows;
@@ -969,7 +980,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
         filtered = activeRows.filter((row) => {
           for (let j = 0; j < activeFilters.length; j++) {
             const cell = String(
-              row[activeFilters[j].column] || "",
+              row[activeFilters[j].column || defaultMultiCol] || "",
             ).toLowerCase();
             const tokens = activeFilters[j].value
               .toLowerCase()
@@ -1004,7 +1015,16 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     // Column definitions matching QueryConsultingPage
     type ColDef = { key: string; header: string; idx: number };
     let columnDefs: ColDef[] = [];
-    if (queryTab === "financials") {
+    if (isFinancialsAR) {
+      columnDefs = [
+        { key: buColKey, header: "BU", idx: 0 },
+        { key: pnColKey, header: "PART NUMBER", idx: 1 },
+        { key: descColKey, header: "DESCRIPTION", idx: 2 },
+        { key: activeHeaders[3] || "", header: "MFG NAME", idx: 3 },
+        { key: activeHeaders[4] || "", header: "MFG REF", idx: 4 },
+        { key: activeHeaders[5] || "", header: "LAST ORDER DATE", idx: 5 },
+      ].filter((c) => c.key);
+    } else if (queryTab === "financials") {
       columnDefs = [
         { key: buColKey, header: "BU", idx: 0 },
         { key: pnColKey, header: "PART NUMBER", idx: 1 },
@@ -1134,7 +1154,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                 <div key={filter.id} className={styles.queryMultiFilterRow}>
                   <select
                     className={styles.querySelect}
-                    value={filter.column}
+                    value={filter.column || defaultMultiCol}
                     onChange={(e) =>
                       handleUpdateFilter(filter.id, e.target.value)
                     }

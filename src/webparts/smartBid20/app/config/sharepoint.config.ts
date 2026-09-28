@@ -152,6 +152,22 @@ export const SHAREPOINT_CONFIG = {
     "/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Queries/Queries.xlsx",
 
   /**
+   * Peoplesoft Financials "Active Registered with Manuf." CSV export.
+   * `columns` maps UI column name → CSV header; only these columns are loaded.
+   */
+  financialsActiveRegisteredCsv: {
+    path: "/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Queries/export_BUIEH_data-Export Worksheet.csv",
+    columns: {
+      "BUSINESS UNIT": "BUSINESS_UNIT",
+      "PART NUMBER": "INV_ITEM_ID",
+      DESCRIPTION: "DESCR254",
+      "MFG NAME": "MFG_ID",
+      "MFG REF": "MFG_ITM_ID",
+      "LAST ORDER DATE": "TO_CHAR(A.LAST_ORDER_DATE,'YYYY-MM-DD')",
+    },
+  },
+
+  /**
    * ERN (Engineering Request Number) integration — the list lives on the same
    * site. The list Title differs from its URL segment, so access it by its
    * server-relative URL via web.getList (getByTitle('Engineering Requestt')

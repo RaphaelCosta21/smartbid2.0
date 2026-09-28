@@ -1,5 +1,6 @@
 /**
- * IQueryCatalog — Interfaces for the Queries.xlsx Excel catalog data.
+ * IQueryCatalog — Interfaces for the Queries.xlsx Excel catalog data
+ * and the Financials Active Registered CSV export.
  * Used by QueryCatalogService to parse and cache equipment/cost data from SharePoint.
  */
 
@@ -60,7 +61,7 @@ export interface ISearchResultItem {
   /** Item description */
   description: string;
   /** Data source identifier */
-  source: "AR" | "PS" | "FAV" | "BUMBL" | "BUMBR" | "FIN";
+  source: "AR" | "PS" | "FAR" | "FAV" | "BUMBL" | "BUMBR" | "FIN";
   /** Business unit (when known) */
   businessUnit?: string;
   /** Manufacturer ID (Active Registered only) */
@@ -87,6 +88,27 @@ export interface IRawTabData {
   rows: Record<string, any>[];
 }
 
+/** UI column names of the Financials "Active Registered with Manuf." CSV export */
+export type FinancialsActiveRegisteredColumn =
+  | "BUSINESS UNIT"
+  | "PART NUMBER"
+  | "DESCRIPTION"
+  | "MFG NAME"
+  | "MFG REF"
+  | "LAST ORDER DATE";
+
+/** One CSV row keyed by UI column name (LAST ORDER DATE is "YYYY-MM-DD" or "") */
+export type FinancialsActiveRegisteredRow = Record<
+  FinancialsActiveRegisteredColumn,
+  string
+>;
+
+/** Financials Active Registered CSV as a raw tab (headers = UI column names) */
+export interface IFinancialsActiveRegisteredTab extends IRawTabData {
+  headers: FinancialsActiveRegisteredColumn[];
+  rows: FinancialsActiveRegisteredRow[];
+}
+
 /** Container for all parsed catalog data */
 export interface IQueryCatalogData {
   /** Active Registered - Brazil tab items */
@@ -108,6 +130,8 @@ export interface IQueryCatalogData {
   rawBrazilBumbr: IRawTabData;
   /** Raw Active Registered - Brazil tab (all columns) */
   rawActiveRegistered: IRawTabData;
+  /** Peoplesoft Financials — Active Registered with Manuf. (CSV export) */
+  rawFinancialsActiveRegistered: IFinancialsActiveRegisteredTab;
   /** Raw Currency tab */
   rawCurrency: IRawTabData;
 }
