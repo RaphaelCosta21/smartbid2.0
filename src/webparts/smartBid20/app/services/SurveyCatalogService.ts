@@ -49,17 +49,19 @@ export class SurveyCatalogService {
       100,
     );
     const listApi = SurveyCatalogService._list as any;
-    const fields = await listApi.fields.select("InternalName")();
-    const existing = (fields as { InternalName: string }[]).map(
-      (f) => f.InternalName,
-    );
+    const fields = (await listApi.fields.select("InternalName", "RichText")()) as {
+      InternalName: string;
+      RichText?: boolean;
+    }[];
+    const existing = fields.map((f) => f.InternalName);
     const add = async (
       name: string,
       kind: "text" | "note" | "number" | "bool",
     ): Promise<void> => {
       if (existing.indexOf(name) >= 0) return;
       try {
-        if (kind === "note") await listApi.fields.addMultilineText(name);
+        if (kind === "note")
+          await listApi.fields.addMultilineText(name, { RichText: false });
         else if (kind === "number") await listApi.fields.addNumber(name);
         else if (kind === "bool") await listApi.fields.addBoolean(name);
         else await listApi.fields.addText(name);
@@ -74,6 +76,25 @@ export class SurveyCatalogService {
     await add(F.sortOrder, "number");
     await add(F.isActive, "bool");
     await add(F.jsondata, "note");
+
+    // PnP creates multiline columns as rich text by default, which wraps the JSON in HTML.
+    const json = fields.find((f) => f.InternalName === F.jsondata);
+    if (json && json.RichText) {
+      await listApi.fields
+        .getByInternalNameOrTitle(F.jsondata)
+        .update({ RichText: false }, "SP.FieldMultiLineText");
+    }
+  }
+
+  /** Reads jsondata even when the column was saved as rich text (HTML-wrapped, entity-encoded). */
+  private static _parseJson(raw: unknown): any {
+    let text = String(raw || "").trim();
+    if (!text) return {};
+    if (text.charAt(0) === "<") {
+      text =
+        new DOMParser().parseFromString(text, "text/html").body.textContent || "";
+    }
+    return JSON.parse(text.replace(/\u200b/g, "").replace(/\u00a0/g, " "));
   }
 
   /** Returns null when the list has not been provisioned yet. */
@@ -101,12 +122,14 @@ export class SurveyCatalogService {
     }
 
     const catalog: ISurveyCatalog = { families: [], equipment: [], systems: [] };
+    let skipped = 0;
     rows.forEach((row) => {
       if (row[F.isActive] === false) return;
       let data: any = {};
       try {
-        data = row[F.jsondata] ? JSON.parse(row[F.jsondata]) : {};
+        data = SurveyCatalogService._parseJson(row[F.jsondata]);
       } catch {
+        skipped++;
         return;
       }
       const base = {
@@ -130,6 +153,9 @@ export class SurveyCatalogService {
 
     const byOrder = (a: { order: number }, b: { order: number }): number =>
       a.order - b.order;
+    if (skipped > 0) {
+      console.warn(`SurveyCatalogService: ${skipped} row(s) with unreadable jsondata skipped`);
+    }
     catalog.families.sort(byOrder);
     catalog.equipment.sort(byOrder);
     catalog.systems.sort(byOrder);
