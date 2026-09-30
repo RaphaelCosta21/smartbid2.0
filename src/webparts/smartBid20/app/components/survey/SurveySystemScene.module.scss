@@ -39,31 +39,34 @@
   will-change: transform;
 
   button {
-    padding: 4px 10px;
-    border-radius: 12px;
-    border: 1px solid var(--primary-accent);
-    background: var(--sidebar-bg);
-    color: var(--header-text-primary);
-    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--survey-cyan);
+    background: var(--survey-marker-bg);
+    color: var(--survey-ice);
+    font-size: 9px;
     font-weight: 600;
     white-space: nowrap;
     cursor: pointer;
-    box-shadow: var(--shadow-glow);
+    box-shadow: var(--survey-glow);
+    backdrop-filter: blur(4px);
     transition: transform 250ms ease, background 250ms ease;
 
     &:hover {
-      transform: scale(1.06);
+      transform: scale(1.08);
     }
   }
 }
 
 .labelActive button {
   border-color: var(--package-accent);
+  color: var(--package-accent);
 }
 
 .itemSelected {
-  background: var(--primary-accent) !important;
-  color: var(--sidebar-bg) !important;
+  background: var(--package-accent) !important;
+  border-color: var(--package-accent) !important;
+  color: var(--survey-navy) !important;
 }
 
 .hint {
@@ -74,10 +77,11 @@
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: 6px;
-  background: var(--sidebar-bg);
-  color: var(--header-text-secondary);
-  font-size: 10px;
+  border-radius: 999px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-marker-bg);
+  color: var(--survey-ice);
+  font-size: 9px;
   pointer-events: none;
 }
 
@@ -89,7 +93,6 @@
   justify-content: center;
   padding: 24px;
   text-align: center;
-  color: var(--header-text-secondary);
-  background: var(--sidebar-bg);
+  color: var(--survey-navy);
   font-size: 13px;
 }

@@ -216,8 +216,14 @@ export class SurveyCatalogService {
     };
   }
 
-  /** Upserts every entry (matched by type + key). Returns the number of rows written. */
-  public static async importCatalog(catalog: ISurveyCatalog): Promise<number> {
+  /**
+   * Upserts every entry (matched by type + key). `images` maps an equipment id to a
+   * photo that is stored as that row's attachment (replaced when it already exists).
+   */
+  public static async importCatalog(
+    catalog: ISurveyCatalog,
+    images: Record<string, File> = {},
+  ): Promise<{ rows: number; photos: number }> {
     await SurveyCatalogService.ensureList();
     const existing: any[] = await SurveyCatalogService._list.items
       .select("Id", F.itemType, F.itemKey)
@@ -239,6 +245,7 @@ export class SurveyCatalogService {
     );
 
     let written = 0;
+    let photos = 0;
     for (let i = 0; i < entries.length; i++) {
       const { type, entry } = entries[i];
       const row = {
@@ -251,11 +258,27 @@ export class SurveyCatalogService {
         [F.isActive]: true,
         [F.jsondata]: JSON.stringify(entry),
       };
-      const spId = idByKey[`${type}|${entry.id}`];
-      if (spId) await SurveyCatalogService._list.items.getById(spId).update(row);
-      else await SurveyCatalogService._list.items.add(row);
+      let spId = idByKey[`${type}|${entry.id}`];
+      if (spId) {
+        await SurveyCatalogService._list.items.getById(spId).update(row);
+      } else {
+        const added: any = await SurveyCatalogService._list.items.add(row);
+        spId = added?.data?.Id;
+      }
       written++;
+
+      const photo = type === "equipment" ? images[entry.id] : undefined;
+      if (photo && spId) {
+        const attachments = (SurveyCatalogService._list.items.getById(spId) as any)
+          .attachmentFiles;
+        try {
+          await attachments.add(photo.name, photo);
+        } catch {
+          await attachments.getByName(photo.name).setContent(photo);
+        }
+        photos++;
+      }
     }
-    return written;
+    return { rows: written, photos };
   }
 }

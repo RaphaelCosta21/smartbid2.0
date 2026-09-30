@@ -1,49 +1,69 @@
 .page {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  min-height: 900px;
+  border-radius: 16px;
+  overflow: clip;
+  background-color: var(--survey-navy);
+  background-size: cover;
+  background-position: center bottom;
+  box-shadow: var(--shadow-card);
+}
+
+.body {
+  padding: 0 28px 24px;
 }
 
 .stage {
   position: relative;
-  height: 680px;
-  min-height: 480px;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--sidebar-bg);
-  box-shadow: var(--shadow-card);
+  height: 740px;
 }
 
-.systemPanel {
+.sceneBox {
   position: absolute;
-  left: 16px;
-  bottom: 16px;
-  width: 300px;
-  max-height: calc(100% - 32px);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px;
-  border-radius: 12px;
-  border: 1px solid var(--header-border);
-  border-left: 3px solid var(--primary-accent);
-  background: var(--sidebar-bg);
-  color: var(--header-text-primary);
-  box-shadow: var(--elevation-3);
-  animation: riseIn 400ms ease both;
+  top: 0;
+  right: 6%;
+  bottom: 70px;
+  left: 14%;
+  border-radius: 10px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-glass);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--survey-shadow);
+  overflow: hidden;
+  animation: fadeUp 500ms ease both;
 }
 
-@keyframes riseIn {
+@keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
     transform: none;
   }
+}
+
+.systemPanel {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 5;
+  width: 287px;
+  max-height: calc(100% - 40px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-glass-strong);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--survey-shadow);
+  animation: fadeUp 450ms 150ms ease both;
 }
 
 .systemTabs {
@@ -52,54 +72,59 @@
   gap: 4px;
 
   button {
-    padding: 3px 8px;
-    border-radius: 6px;
-    border: 1px solid var(--header-border);
-    background: transparent;
-    color: var(--header-text-secondary);
-    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--survey-line);
+    background: var(--survey-chip-bg);
+    color: var(--survey-slate);
+    font-size: 9px;
     cursor: pointer;
+    transition: border-color 250ms ease, color 250ms ease;
 
     &:hover {
-      color: var(--header-text-primary);
+      color: var(--survey-navy);
+      border-color: var(--survey-teal);
     }
   }
 }
 
 .systemTabActive {
-  border-color: var(--primary-accent) !important;
-  color: var(--primary-accent) !important;
+  border-color: var(--package-accent) !important;
+  background: var(--survey-cream) !important;
+  color: var(--survey-navy) !important;
+  font-weight: 600;
 }
 
 .systemEyebrow {
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  color: var(--info);
+  font-size: 8px;
+  font-weight: 600;
+  color: var(--survey-teal);
 }
 
 .systemTitle {
   margin: 0;
   font-size: 18px;
+  line-height: 1.05;
   font-weight: 700;
-  color: var(--header-text-primary);
+  color: var(--survey-navy);
 }
 
 .systemDesc {
   margin: 0;
-  font-size: 11px;
-  line-height: 1.5;
-  color: var(--header-text-secondary);
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--survey-slate);
 }
 
 .systemList {
-  margin: 4px 0 0;
-  padding-left: 18px;
-  font-size: 11px;
+  margin: 0;
+  padding-left: 16px;
+  font-size: 10px;
   line-height: 1.7;
-  color: var(--header-text-secondary);
+  color: var(--survey-navy);
 
   li::marker {
-    color: var(--primary-accent);
+    color: var(--survey-teal);
   }
 }
 
@@ -108,13 +133,12 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 34px;
-  margin-top: 4px;
-  border-radius: 8px;
+  height: 36px;
+  border-radius: 6px;
   border: 1px solid var(--package-accent);
   background: var(--package-accent);
-  color: var(--package-accent-contrast);
-  font-size: 11px;
+  color: var(--survey-navy);
+  font-size: 10px;
   font-weight: 700;
   cursor: pointer;
   transition: transform 250ms ease;
@@ -126,27 +150,36 @@
 
 .detailDrawer {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  bottom: 16px;
-  width: 420px;
-  max-width: calc(100% - 32px);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  width: 440px;
+  max-width: 100%;
   overflow-y: auto;
-  border-radius: 16px;
+  border-radius: 10px;
+}
+
+@media (max-width: 1100px) {
+  .sceneBox {
+    left: 0;
+    right: 0;
+  }
 }
 
 @media (max-width: 900px) {
   .stage {
-    height: 560px;
+    height: 620px;
   }
 
   .systemPanel {
-    width: calc(100% - 32px);
-    max-height: 45%;
+    width: 100%;
+    max-height: 40%;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .sceneBox,
   .systemPanel {
     animation: none;
   }

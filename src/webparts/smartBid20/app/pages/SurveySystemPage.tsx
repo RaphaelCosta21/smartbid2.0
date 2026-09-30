@@ -4,6 +4,7 @@ import { SurveyPortalHeader } from "../components/survey/SurveyPortalHeader";
 import { SurveyEquipmentDetail } from "../components/survey/SurveyEquipmentDetail";
 import { SurveyAddToPackageDialog } from "../components/survey/SurveyAddToPackageDialog";
 import { SurveyPackageDrawer } from "../components/survey/SurveyPackageDrawer";
+import { SURVEY_OCEAN_BG } from "../components/survey/surveyAssets";
 import type { SurveySceneLabel } from "../components/survey/SurveySystemScene";
 import { EmptyState } from "../components/common/EmptyState";
 import { SkeletonLoader } from "../components/common/SkeletonLoader";
@@ -71,6 +72,7 @@ export const SurveySystemPage: React.FC = () => {
   const selected = catalog?.equipment.find((e) => e.id === selectedId);
   const intel = useSurveyBidIntel(detailOpen ? selected : undefined);
   const adding = catalog?.equipment.find((e) => e.id === addingId);
+  const closeAdd = React.useCallback(() => setAddingId(null), []);
   const qtyOf = (id: string): number =>
     packageLines.find((l) => l.equipmentId === id)?.qty || 0;
 
@@ -128,17 +130,19 @@ export const SurveySystemPage: React.FC = () => {
     }
     return (
       <div className={styles.stage}>
-        <React.Suspense fallback={<SkeletonLoader height="100%" borderRadius={16} />}>
-          <SurveySystemScene
-            labels={labels}
-            highlight={highlight}
-            selectedId={detailOpen ? selectedId : null}
-            onSelect={handleSelect}
-          />
-        </React.Suspense>
+        <div className={styles.sceneBox}>
+          <React.Suspense fallback={<SkeletonLoader height="100%" borderRadius={10} />}>
+            <SurveySystemScene
+              labels={labels}
+              highlight={highlight}
+              selectedId={detailOpen ? selectedId : null}
+              onSelect={handleSelect}
+            />
+          </React.Suspense>
+        </div>
 
         {system && (
-          <div className={styles.systemPanel}>
+          <div className={styles.systemPanel} key={system.id}>
             {systems.length > 1 && (
               <div className={styles.systemTabs}>
                 {systems.map((s) => (
@@ -154,7 +158,7 @@ export const SurveySystemPage: React.FC = () => {
                 ))}
               </div>
             )}
-            <span className={styles.systemEyebrow}>SURVEY SYSTEM</span>
+            <span className={styles.systemEyebrow}>ADD TO BID PACKAGE</span>
             <h3 className={styles.systemTitle}>{system.title}</h3>
             {system.description && (
               <p className={styles.systemDesc}>{system.description}</p>
@@ -166,7 +170,7 @@ export const SurveySystemPage: React.FC = () => {
             </ul>
             {system.equipmentIds.length > 0 && (
               <button className={styles.systemAdd} onClick={handleAddSystem}>
-                <PackagePlus size={13} /> Add system to package
+                <PackagePlus size={13} /> ADD SYSTEM TO PACKAGE
               </button>
             )}
           </div>
@@ -185,26 +189,31 @@ export const SurveySystemPage: React.FC = () => {
             />
           </div>
         )}
+
+        {adding && (
+          <SurveyAddToPackageDialog
+            key={adding.id}
+            equipment={adding}
+            currentQty={qtyOf(adding.id)}
+            onConfirm={handleConfirmAdd}
+            onClose={closeAdd}
+          />
+        )}
       </div>
     );
   };
 
   return (
-    <div className={styles.page}>
+    <div
+      className={styles.page}
+      style={{ backgroundImage: `url(${SURVEY_OCEAN_BG})` }}
+    >
       <SurveyPortalHeader
         view="system"
         resultCount={equipment.length}
         onOpenPackage={() => setPackageOpen(true)}
       />
-      {renderStage()}
-      {adding && (
-        <SurveyAddToPackageDialog
-          equipment={adding}
-          currentQty={qtyOf(adding.id)}
-          onConfirm={handleConfirmAdd}
-          onClose={() => setAddingId(null)}
-        />
-      )}
+      <div className={styles.body}>{renderStage()}</div>
       {packageOpen && <SurveyPackageDrawer onClose={() => setPackageOpen(false)} />}
     </div>
   );

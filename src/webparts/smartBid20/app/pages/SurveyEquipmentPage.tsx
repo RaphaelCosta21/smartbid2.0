@@ -5,6 +5,7 @@ import { SurveyEquipmentCard } from "../components/survey/SurveyEquipmentCard";
 import { SurveyEquipmentDetail } from "../components/survey/SurveyEquipmentDetail";
 import { SurveyAddToPackageDialog } from "../components/survey/SurveyAddToPackageDialog";
 import { SurveyPackageDrawer } from "../components/survey/SurveyPackageDrawer";
+import { SURVEY_OCEAN_BG } from "../components/survey/surveyAssets";
 import { EmptyState } from "../components/common/EmptyState";
 import { SkeletonLoader } from "../components/common/SkeletonLoader";
 import { useSurveyStore } from "../stores/useSurveyStore";
@@ -37,6 +38,12 @@ export const SurveyEquipmentPage: React.FC = () => {
   const adding = catalog?.equipment.find((e) => e.id === addingId);
   const qtyOf = (id: string): number =>
     packageLines.find((l) => l.equipmentId === id)?.qty || 0;
+  const closeAdd = React.useCallback(() => setAddingId(null), []);
+
+  // Keep the store in sync so the header shows the equipment on screen.
+  React.useEffect(() => {
+    if (selected && selected.id !== selectedId) selectEquipment(selected.id);
+  }, [selected, selectedId, selectEquipment]);
 
   const handleSelectLinked = (id: string): void => {
     const eq = catalog?.equipment.find((e) => e.id === id);
@@ -93,7 +100,10 @@ export const SurveyEquipmentPage: React.FC = () => {
                 selected={selected?.id === e.id}
                 inPackage={qtyOf(e.id) > 0}
                 onSelect={() => selectEquipment(e.id)}
-                onAdd={() => setAddingId(e.id)}
+                onAdd={() => {
+                  selectEquipment(e.id);
+                  setAddingId(e.id);
+                }}
               />
             ))
           )}
@@ -109,27 +119,31 @@ export const SurveyEquipmentPage: React.FC = () => {
               onSelectEquipment={handleSelectLinked}
             />
           )}
+          {adding && (
+            <SurveyAddToPackageDialog
+              key={adding.id}
+              equipment={adding}
+              currentQty={qtyOf(adding.id)}
+              onConfirm={handleConfirmAdd}
+              onClose={closeAdd}
+            />
+          )}
         </div>
       </div>
     );
   };
 
   return (
-    <div className={styles.page}>
+    <div
+      className={styles.page}
+      style={{ backgroundImage: `url(${SURVEY_OCEAN_BG})` }}
+    >
       <SurveyPortalHeader
         view="equipment"
         resultCount={equipment.length}
         onOpenPackage={() => setPackageOpen(true)}
       />
-      {renderBody()}
-      {adding && (
-        <SurveyAddToPackageDialog
-          equipment={adding}
-          currentQty={qtyOf(adding.id)}
-          onConfirm={handleConfirmAdd}
-          onClose={() => setAddingId(null)}
-        />
-      )}
+      <div className={styles.body}>{renderBody()}</div>
       {packageOpen && <SurveyPackageDrawer onClose={() => setPackageOpen(false)} />}
     </div>
   );

@@ -9,9 +9,9 @@ import { SurveySceneAnchor } from "../../../models";
 
 // WebGL can't read CSS custom properties; this is the scene's own ocean palette.
 const PALETTE = {
-  fog: 0x0b3b5e,
-  water: 0x1f7fb8,
-  seabed: 0x3f6f8c,
+  fog: 0xcfe6f0,
+  water: 0x2f9bd1,
+  seabed: 0x5b87a2,
   hull: 0x1d3557,
   bootTop: 0xb3282d,
   deck: 0x8a9bab,
@@ -29,6 +29,7 @@ const PALETTE = {
 };
 
 const SEABED_Y = -16;
+const DIORAMA_RADIUS = 40;
 
 export interface SurveySceneApi {
   setLabel: (anchor: SurveySceneAnchor, el: HTMLElement | null) => void;
@@ -199,28 +200,33 @@ export function createSurveyScene(
   let width = container.clientWidth || 800;
   let height = container.clientHeight || 520;
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: true,
+    powerPreference: "high-performance",
+  });
+  renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(width, height);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   container.appendChild(renderer.domElement);
 
+  // Transparent background: the page's glass box and ocean photo show through.
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(PALETTE.fog);
-  scene.fog = new THREE.Fog(PALETTE.fog, 45, 120);
+  scene.fog = new THREE.Fog(PALETTE.fog, 80, 180);
 
-  const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 400);
-  camera.position.set(28, 14, 32);
+  const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 400);
+  camera.position.set(46, 22, 54);
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(0, -5, 0);
   controls.enableDamping = true;
   controls.dampingFactor = 0.06;
   controls.enablePan = false;
-  controls.minDistance = 18;
-  controls.maxDistance = 85;
-  controls.maxPolarAngle = Math.PI * 0.64;
+  controls.minDistance = 26;
+  controls.maxDistance = 110;
+  controls.maxPolarAngle = Math.PI * 0.62;
   controls.autoRotate = !opts.reducedMotion;
   controls.autoRotateSpeed = 0.3;
   const stopAutoRotate = (): void => {
@@ -236,14 +242,14 @@ export function createSurveyScene(
   subseaLight.position.set(0, -9, 0);
   scene.add(subseaLight);
 
-  // Ocean surface
-  const waterGeo = new THREE.PlaneGeometry(170, 170, 80, 80);
+  // Ocean surface (circular diorama)
+  const waterGeo = new THREE.RingGeometry(0, DIORAMA_RADIUS, 96, 28);
   waterGeo.rotateX(-Math.PI / 2);
   const water = new THREE.Mesh(
     waterGeo,
     std(PALETTE.water, {
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.45,
       roughness: 0.2,
       side: THREE.DoubleSide,
       depthWrite: false,
@@ -253,7 +259,7 @@ export function createSurveyScene(
   const waterPos = waterGeo.attributes.position as THREE.BufferAttribute;
 
   // Seabed
-  const bedGeo = new THREE.PlaneGeometry(170, 170, 70, 70);
+  const bedGeo = new THREE.RingGeometry(0, DIORAMA_RADIUS, 96, 24);
   bedGeo.rotateX(-Math.PI / 2);
   const bedPos = bedGeo.attributes.position as THREE.BufferAttribute;
   for (let i = 0; i < bedPos.count; i++) {
@@ -261,6 +267,33 @@ export function createSurveyScene(
   }
   bedGeo.computeVertexNormals();
   scene.add(new THREE.Mesh(bedGeo, std(PALETTE.seabed, { roughness: 1, flatShading: true })));
+
+  // Water column wall + cyan rims give the cut-away diorama look
+  const column = new THREE.Mesh(
+    new THREE.CylinderGeometry(DIORAMA_RADIUS, DIORAMA_RADIUS, -SEABED_Y, 96, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: PALETTE.water,
+      transparent: true,
+      opacity: 0.14,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  column.position.y = SEABED_Y / 2;
+  scene.add(column);
+  [0.05, SEABED_Y + 0.3].forEach((y) => {
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i < 128; i++) {
+      const a = (i / 128) * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(a) * DIORAMA_RADIUS, y, Math.sin(a) * DIORAMA_RADIUS));
+    }
+    scene.add(
+      new THREE.LineLoop(
+        new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial({ color: PALETTE.acoustic, transparent: true, opacity: 0.7 }),
+      ),
+    );
+  });
 
   // Vessel (procedural until the GLB loads)
   const vessel = new THREE.Group();
@@ -332,8 +365,8 @@ export function createSurveyScene(
 
   const pipeMat = std(PALETTE.pipeline, { roughness: 0.5 });
   [
-    [new THREE.Vector3(-4, 0, 3), new THREE.Vector3(-14, 0, 8), new THREE.Vector3(-30, 0, 4), new THREE.Vector3(-60, 0, 12)],
-    [new THREE.Vector3(0, 0, 3), new THREE.Vector3(10, 0, 10), new THREE.Vector3(26, 0, 6), new THREE.Vector3(60, 0, 18)],
+    [new THREE.Vector3(-4, 0, 3), new THREE.Vector3(-14, 0, 8), new THREE.Vector3(-26, 0, 5), new THREE.Vector3(-37, 0, 12)],
+    [new THREE.Vector3(0, 0, 3), new THREE.Vector3(10, 0, 10), new THREE.Vector3(22, 0, 7), new THREE.Vector3(34, 0, 16)],
   ].forEach((pts) => {
     pts.forEach((p) => (p.y = seabedHeight(p.x, p.z) + 0.15));
     const tube = new THREE.Mesh(

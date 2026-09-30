@@ -37,6 +37,7 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
   const filters = useSurveyStore((s) => s.filters);
   const setFilters = useSurveyStore((s) => s.setFilters);
   const packageLines = useSurveyStore((s) => s.packageLines);
+  const selectedId = useSurveyStore((s) => s.selectedEquipmentId);
   const load = useSurveyStore((s) => s.load);
   const hasAccess = useAuthStore((s) => s.hasAccess);
   const addToast = useUIStore((s) => s.addToast);
@@ -48,6 +49,7 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
   const equipment = catalog?.equipment || [];
   const families = catalog?.families || [];
   const family = families.find((f) => f.id === filters.familyId);
+  const selected = equipment.find((e) => e.id === selectedId);
   const packageQty = packageLines.reduce((sum, l) => sum + l.qty, 0);
 
   const divisions = React.useMemo(() => {
@@ -68,12 +70,29 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
   const handleImport = async (
     e: React.ChangeEvent<HTMLInputElement>,
   ): Promise<void> => {
-    const file = e.target.files && e.target.files[0];
+    const files = Array.from(e.target.files || []);
     e.target.value = "";
-    if (!file) return;
+    const jsonFile = files.find((f) => /\.json$/i.test(f.name));
+    if (!jsonFile) {
+      if (files.length > 0) {
+        addToast({
+          type: "warning",
+          title: "Select the catalog JSON",
+          message: "Pick survey-catalog.seed.json (optionally with the equipment photos).",
+        });
+      }
+      return;
+    }
+    // Photos named after the equipment id (e.g. lbl-transceiver.png) become item attachments.
+    const images: Record<string, File> = {};
+    files.forEach((f) => {
+      if (/\.(png|jpe?g|webp)$/i.test(f.name)) {
+        images[f.name.replace(/\.[^.]+$/, "")] = f;
+      }
+    });
     setImporting(true);
     try {
-      const parsed = JSON.parse(await file.text()) as ISurveyCatalog;
+      const parsed = JSON.parse(await jsonFile.text()) as ISurveyCatalog;
       if (
         !Array.isArray(parsed.families) ||
         !Array.isArray(parsed.equipment) ||
@@ -81,11 +100,11 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
       ) {
         throw new Error("Expected { families, equipment, systems } arrays");
       }
-      const count = await SurveyCatalogService.importCatalog(parsed);
+      const result = await SurveyCatalogService.importCatalog(parsed, images);
       addToast({
         type: "success",
         title: "Survey catalog imported",
-        message: `${count} entries written to SharePoint.`,
+        message: `${result.rows} entries and ${result.photos} photos written to SharePoint.`,
       });
       await load(true);
     } catch (err) {
@@ -134,13 +153,22 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
           </span>
         </div>
         <div className={styles.topActions}>
+          {selected && (
+            <div className={styles.selectedChip}>
+              {selected.aliases[0] && (
+                <span className={styles.aliasChip}>{selected.aliases[0]}</span>
+              )}
+              <span className={styles.aliasLine} />
+              <span className={styles.selectedName}>{selected.title}</span>
+            </div>
+          )}
           {canImport && (
             <>
               <button
                 className={styles.ghostBtn}
                 onClick={() => fileRef.current?.click()}
                 disabled={importing}
-                title="Import catalog JSON into SharePoint"
+                title="Select survey-catalog.seed.json (and optionally the equipment photos)"
               >
                 <Upload size={12} />
                 {importing ? "Importing…" : "Import catalog"}
@@ -148,7 +176,8 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
               <input
                 ref={fileRef}
                 type="file"
-                accept="application/json,.json"
+                accept="application/json,.json,image/png,image/jpeg,image/webp"
+                multiple
                 hidden
                 onChange={handleImport}
               />

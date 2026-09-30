@@ -16,16 +16,19 @@ export const SurveyEquipmentPhoto: React.FC<{
   size: number;
 }> = ({ equipment, size }) => {
   const [failed, setFailed] = React.useState(false);
+  const hasImage = !!equipment.imageUrl && !failed;
   return (
-    <span className={styles.photoCircle} style={{ width: size, height: size }}>
-      {equipment.imageUrl && !failed ? (
+    <span className={styles.photoWrap} style={{ width: size, height: size }}>
+      <span className={styles.photoCircle} />
+      {hasImage ? (
         <img
-          src={equipment.imageUrl}
+          className={styles.photoImg}
+          src={equipment.imageUrl as string}
           alt={equipment.title}
           onError={() => setFailed(true)}
         />
       ) : (
-        <Radio size={size * 0.4} />
+        <Radio className={styles.photoIcon} size={size * 0.4} />
       )}
     </span>
   );
