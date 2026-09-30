@@ -17,6 +17,8 @@ export const SHAREPOINT_CONFIG = {
     erns: "Engineering Requestt",
     /** Supplier registry (native CRUD form) — one row per supplier. */
     suppliers: "smartbid-suppliers",
+    /** Survey Knowledge & BID Portal catalog (families, equipment, systems). */
+    surveyCatalog: "smartbid-survey-catalog",
   },
   libraries: {
     attachments: "SmartBidAttachments",
@@ -24,6 +26,21 @@ export const SHAREPOINT_CONFIG = {
 
   /** Base URL for equipment photos (format: {partNumber}.jpg) — relative to siteUrl */
   photosBaseUrl: "/smartBidDocs/photos",
+
+  /** Internal field names for smartbid-survey-catalog (auto-provisioned). */
+  surveyCatalogFields: {
+    itemType: "SurveyItemType",
+    itemKey: "SurveyItemKey",
+    familyKey: "SurveyFamilyKey",
+    partNumber: "PartNumber",
+    sortOrder: "SortOrder",
+    isActive: "IsActive",
+    jsondata: "jsondata",
+  },
+
+  /** Optional vessel GLB for the Survey System 3D scene; a procedural vessel is used when missing. */
+  surveyVesselModelUrl:
+    "/sites/G-OPGSSRBrazilEngineering/smartBidDocs/SurveyModels/vessel.glb",
 
   /**
    * Document library that holds catalogued reference documents

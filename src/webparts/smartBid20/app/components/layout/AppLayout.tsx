@@ -46,6 +46,8 @@ import { ManualsCatalogsPage } from "../../pages/ManualsCatalogsPage";
 import { TechnicalProposalsPage } from "../../pages/TechnicalProposalsPage";
 import { ClarificationsDbPage } from "../../pages/ClarificationsDbPage";
 import { LinksRecommendationsPage } from "../../pages/LinksRecommendationsPage";
+import { SurveyEquipmentPage } from "../../pages/SurveyEquipmentPage";
+import { SurveySystemPage } from "../../pages/SurveySystemPage";
 import { AnalyticsPage } from "../../pages/AnalyticsPage";
 import { PerformanceTrendsPage } from "../../pages/PerformanceTrendsPage";
 import { BottleneckAnalysisPage } from "../../pages/BottleneckAnalysisPage";
@@ -274,6 +276,22 @@ const AppLayoutInner: React.FC<{
               element={
                 <RequireEngineering>
                   <LinksRecommendationsPage />
+                </RequireEngineering>
+              }
+            />
+            <Route
+              path={ROUTES.surveyEquipment}
+              element={
+                <RequireEngineering>
+                  <SurveyEquipmentPage />
+                </RequireEngineering>
+              }
+            />
+            <Route
+              path={ROUTES.surveySystem}
+              element={
+                <RequireEngineering>
+                  <SurveySystemPage />
                 </RequireEngineering>
               }
             />

@@ -1,0 +1,177 @@
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  outline: none;
+  animation: cardIn 400ms ease both;
+  transition: transform 250ms ease, box-shadow 250ms ease,
+    border-color 250ms ease;
+
+  &:hover,
+  &:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--primary-accent);
+  }
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.selected {
+  border: 2px solid var(--primary-accent);
+  padding: 13px;
+  box-shadow: var(--shadow-glow), var(--shadow-card);
+}
+
+.photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 106px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg-elevated);
+  overflow: hidden;
+}
+
+.photoCircle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--main-bg);
+  border: 1px solid var(--border);
+  color: var(--primary-accent);
+  overflow: hidden;
+  transition: transform 250ms ease;
+
+  img {
+    width: 110%;
+    height: 110%;
+    object-fit: contain;
+  }
+}
+
+.card:hover .photoCircle {
+  transform: scale(1.06);
+}
+
+.tech {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.alias {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.aliasLabel {
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.aliasLine {
+  width: 10px;
+  height: 1px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.aliasChip {
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--package-accent);
+  background: var(--card-bg-elevated);
+  color: var(--text-primary);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.summary {
+  font-size: 11px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explore {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--info);
+  white-space: nowrap;
+}
+
+.addBtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--package-accent);
+  background: var(--package-accent);
+  color: var(--package-accent-contrast);
+  cursor: pointer;
+  transition: transform 250ms ease;
+
+  &:hover {
+    transform: scale(1.12) rotate(90deg);
+  }
+}
+
+.addBtnIn {
+  background: var(--card-bg);
+  color: var(--package-accent);
+
+  &:hover {
+    transform: scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+}

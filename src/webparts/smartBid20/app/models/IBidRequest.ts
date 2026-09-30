@@ -3,6 +3,7 @@
  */
 import { Division, BidType, BidPriority } from "./IBidStatus";
 import { IPersonRef } from "./IUser";
+import { IScopeItem } from "./IBid";
 
 export interface IRequestAttachment {
   fileName: string;
@@ -57,4 +58,6 @@ export interface IBidRequest {
   assignedDate: string | null;
   rejectionReason: string | null;
   convertedBidNumber: string | null;
+  /** Pre-filled scope (e.g. a Survey Portal package). */
+  scopeItems?: IScopeItem[];
 }
