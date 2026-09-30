@@ -88,7 +88,7 @@
   border-radius: 4px;
   border: 1px solid var(--survey-glass-border);
   background: var(--survey-field);
-  color: var(--survey-cyan-soft);
+  color: var(--survey-muted);
   font-size: 10px;
   white-space: nowrap;
   cursor: pointer;
@@ -96,7 +96,7 @@
 
   &:hover:not(:disabled) {
     color: var(--survey-ice);
-    border-color: var(--survey-cyan);
+    border-color: var(--survey-teal);
   }
 
   &:disabled {
@@ -140,44 +140,6 @@
   padding: 24px 28px 20px;
   background: var(--survey-hero-overlay);
   border-bottom: 1px solid var(--survey-glass-border);
-  overflow: hidden;
-}
-
-.sonar {
-  position: absolute;
-  right: -120px;
-  top: -170px;
-  width: 440px;
-  height: 440px;
-  border-radius: 50%;
-  border: 1px solid var(--survey-glass-border);
-  pointer-events: none;
-
-  &::before,
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    border: 1px solid var(--survey-cyan);
-    opacity: 0;
-    animation: sonarPing 4s ease-out infinite;
-  }
-
-  &::after {
-    animation-delay: 2s;
-  }
-}
-
-@keyframes sonarPing {
-  0% {
-    transform: scale(0.2);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0;
-  }
 }
 
 .heroRow {
@@ -198,7 +160,8 @@
 .eyebrow {
   font-size: 9px;
   letter-spacing: 0.04em;
-  color: var(--survey-cyan);
+  color: var(--survey-teal);
+  font-weight: 600;
 }
 
 .title {
@@ -237,7 +200,7 @@
   transition: border-color 250ms ease, box-shadow 250ms ease;
 
   &:focus-within {
-    border-color: var(--survey-cyan);
+    border-color: var(--survey-teal);
     box-shadow: var(--survey-glow);
   }
 
@@ -258,7 +221,8 @@
 
 .aliasHint {
   font-size: 9px;
-  color: var(--survey-cyan);
+  color: var(--survey-teal);
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -278,7 +242,7 @@
   border-radius: 4px;
   border: 1px solid var(--survey-glass-border);
   background: var(--survey-field);
-  color: var(--survey-cyan-soft);
+  color: var(--survey-ice);
 
   select {
     appearance: none;
@@ -298,6 +262,7 @@
 
   svg {
     pointer-events: none;
+    color: var(--survey-teal);
   }
 }
 
@@ -352,7 +317,8 @@
 .familyEyebrow {
   font-size: 8px;
   letter-spacing: 0.04em;
-  color: var(--survey-cyan);
+  color: var(--survey-teal);
+  font-weight: 600;
 }
 
 .familyTitle {
@@ -388,14 +354,14 @@
   border-radius: 4px;
   border: 1px solid var(--survey-glass-border);
   background: var(--survey-field);
-  color: var(--survey-cyan-soft);
+  color: var(--survey-muted);
   font-size: 9px;
   cursor: pointer;
   transition: border-color 250ms ease, color 250ms ease;
 
   &:hover {
     color: var(--survey-ice);
-    border-color: var(--survey-cyan);
+    border-color: var(--survey-teal);
   }
 }
 
@@ -417,8 +383,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sonar::before,
-  .sonar::after,
   .selectedChip {
     animation: none;
   }

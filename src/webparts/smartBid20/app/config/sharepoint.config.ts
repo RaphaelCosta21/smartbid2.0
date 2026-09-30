@@ -38,10 +38,6 @@ export const SHAREPOINT_CONFIG = {
     jsondata: "jsondata",
   },
 
-  /** Optional vessel GLB for the Survey System 3D scene; a procedural vessel is used when missing. */
-  surveyVesselModelUrl:
-    "/sites/G-OPGSSRBrazilEngineering/smartBidDocs/SurveyModels/vessel.glb",
-
   /**
    * Document library that holds catalogued reference documents
    * (Datasheets, Manuals & Catalogs). Catalog metadata is stored as

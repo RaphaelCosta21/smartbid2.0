@@ -1,0 +1,304 @@
+.artboard {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1301 / 1113;
+}
+
+.glassBox {
+  position: absolute;
+  z-index: 0;
+  border-radius: 10px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-glass);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--survey-shadow);
+  animation: fadeUp 500ms ease both;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.glowLarge,
+.glowSmall {
+  position: absolute;
+  z-index: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    var(--survey-teal-glow) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  animation: glowPulse 3.2s ease-in-out infinite;
+}
+
+.glowSmall {
+  animation-delay: 1.6s;
+}
+
+@keyframes glowPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+.satellite {
+  position: absolute;
+  z-index: 2;
+  animation: float 6s ease-in-out infinite;
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(-3%) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(3%) rotate(2deg);
+  }
+}
+
+// Figma motion on 71:1151: x -200 → 0, 0.5s easeOut
+.vessel {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  animation: vesselIn 500ms ease-out both;
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform-origin: 50% 62%;
+    animation: bob 6s ease-in-out 500ms infinite;
+  }
+}
+
+@keyframes vesselIn {
+  from {
+    opacity: 0;
+    transform: translateX(-28%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(0.6%) rotate(0.5deg);
+  }
+}
+
+.flows {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.beamHalo {
+  stroke: var(--survey-teal);
+  stroke-opacity: 0.25;
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+
+.beamCore {
+  stroke: var(--survey-teal);
+  stroke-width: 1.5;
+  stroke-dasharray: 8 6;
+  animation: dash 1s linear infinite;
+}
+
+.dataLink {
+  stroke: var(--survey-teal);
+  stroke-width: 1.2;
+  stroke-opacity: 0.85;
+  stroke-dasharray: 4 6;
+  animation: dash 1.2s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+.packet {
+  fill: var(--survey-ice);
+  stroke: var(--survey-teal);
+  stroke-width: 1.5;
+}
+
+.packetAccent {
+  fill: var(--package-accent);
+  stroke: var(--survey-navy);
+  stroke-width: 1;
+}
+
+.ping {
+  fill: none;
+  stroke: var(--survey-teal);
+  stroke-width: 1.5;
+}
+
+// Figma "Fluxo de energia — setas": the SVG is used as a mask so it can take palette colors
+.arrows {
+  position: absolute;
+  z-index: 3;
+  transform: rotate(21.76deg);
+  background: linear-gradient(
+    180deg,
+    var(--survey-teal) 0%,
+    var(--survey-teal) 38%,
+    var(--survey-ice) 50%,
+    var(--survey-teal) 62%,
+    var(--survey-teal) 100%
+  );
+  background-size: 100% 300%;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  pointer-events: none;
+  animation: sweep 1.6s linear infinite;
+}
+
+@keyframes sweep {
+  from {
+    background-position: 0 100%;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+.cnav {
+  position: absolute;
+  z-index: 4;
+  animation: float 4s ease-in-out infinite;
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+  }
+}
+
+.led {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--survey-green);
+  box-shadow: 0 0 0 2px var(--survey-ice);
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.marker {
+  position: absolute;
+  z-index: 5;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.chip,
+.chipSelected {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--survey-teal);
+  background: var(--survey-marker-bg);
+  color: var(--survey-ice);
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: var(--survey-glow);
+  backdrop-filter: blur(4px);
+  animation: chipGlow 2.4s ease-in-out infinite;
+  transition: transform 250ms ease;
+
+  &:hover {
+    transform: scale(1.08);
+  }
+}
+
+.chipSelected {
+  border-color: var(--package-accent);
+  background: var(--package-accent);
+  color: var(--survey-navy);
+}
+
+.markerActive .chip {
+  border-color: var(--package-accent);
+  color: var(--package-accent);
+}
+
+@keyframes chipGlow {
+  50% {
+    box-shadow: 0 0 20px var(--survey-teal-glow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glassBox,
+  .glowLarge,
+  .glowSmall,
+  .satellite,
+  .vessel,
+  .vessel img,
+  .beamCore,
+  .dataLink,
+  .arrows,
+  .cnav,
+  .led,
+  .chip,
+  .chipSelected {
+    animation: none;
+  }
+}

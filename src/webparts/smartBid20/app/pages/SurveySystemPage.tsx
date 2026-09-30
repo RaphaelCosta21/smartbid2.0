@@ -5,7 +5,10 @@ import { SurveyEquipmentDetail } from "../components/survey/SurveyEquipmentDetai
 import { SurveyAddToPackageDialog } from "../components/survey/SurveyAddToPackageDialog";
 import { SurveyPackageDrawer } from "../components/survey/SurveyPackageDrawer";
 import { SURVEY_OCEAN_BG } from "../components/survey/surveyAssets";
-import type { SurveySceneLabel } from "../components/survey/SurveySystemScene";
+import {
+  SurveySystemIllustration,
+  SurveySceneLabel,
+} from "../components/survey/SurveySystemIllustration";
 import { EmptyState } from "../components/common/EmptyState";
 import { SkeletonLoader } from "../components/common/SkeletonLoader";
 import { useSurveyStore } from "../stores/useSurveyStore";
@@ -16,13 +19,6 @@ import {
 } from "../hooks/useSurveyPortal";
 import { SurveySceneAnchor } from "../models";
 import styles from "./SurveySystemPage.module.scss";
-
-const SurveySystemScene = React.lazy(
-  () =>
-    import(
-      /* webpackChunkName: "survey-3d" */ "../components/survey/SurveySystemScene"
-    ),
-);
 
 export const SurveySystemPage: React.FC = () => {
   const catalog = useSurveyStore((s) => s.catalog);
@@ -129,18 +125,12 @@ export const SurveySystemPage: React.FC = () => {
       );
     }
     return (
-      <div className={styles.stage}>
-        <div className={styles.sceneBox}>
-          <React.Suspense fallback={<SkeletonLoader height="100%" borderRadius={10} />}>
-            <SurveySystemScene
-              labels={labels}
-              highlight={highlight}
-              selectedId={detailOpen ? selectedId : null}
-              onSelect={handleSelect}
-            />
-          </React.Suspense>
-        </div>
-
+      <SurveySystemIllustration
+        labels={labels}
+        highlight={highlight}
+        selectedId={detailOpen ? selectedId : null}
+        onSelect={handleSelect}
+      >
         {system && (
           <div className={styles.systemPanel} key={system.id}>
             {systems.length > 1 && (
@@ -199,7 +189,7 @@ export const SurveySystemPage: React.FC = () => {
             onClose={closeAdd}
           />
         )}
-      </div>
+      </SurveySystemIllustration>
     );
   };
 

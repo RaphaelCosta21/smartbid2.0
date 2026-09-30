@@ -7,6 +7,7 @@ import {
   ISurveyFitNode,
 } from "../../models";
 import { SurveyEquipmentPhoto } from "./SurveyEquipmentCard";
+import { SURVEY_FIT_ICONS } from "./surveyAssets";
 import styles from "./SurveyEquipmentDetail.module.scss";
 
 interface SurveyEquipmentDetailProps {
@@ -27,6 +28,13 @@ const formatUSD = (v: number): string =>
   v >= 1000 ? `~$${Math.round(v / 1000)}k` : `~$${Math.round(v)}`;
 
 const BAR_MAX_PX = 44;
+
+const FitIcon: React.FC<{ label: string }> = ({ label }) => {
+  const icon = SURVEY_FIT_ICONS.find((i) => i.match.test(label));
+  return icon ? (
+    <img className={styles.fitIcon} src={icon.src} alt="" style={{ height: icon.height }} />
+  ) : null;
+};
 
 export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
   equipment,
@@ -165,18 +173,24 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
                   {node.stack && node.stack.length > 0 ? (
                     <span className={styles.stack}>
                       {node.stack.map((s, j) => (
-                        <span key={j} className={styles.node}>
-                          {s}
+                        <span key={j} className={styles.stackRow}>
+                          <FitIcon label={s} />
+                          <span className={styles.node}>{s}</span>
                         </span>
                       ))}
                     </span>
-                  ) : isCurrent(node) ? (
-                    <span className={styles.nodeCurrent}>{node.label}</span>
                   ) : (
-                    <span
-                      className={`${styles.node} ${i === 0 || i === equipment.whereItFits.length - 1 ? styles.nodeEnd : ""}`}
-                    >
-                      {node.label}
+                    <span className={styles.fitNode}>
+                      {!isCurrent(node) && <FitIcon label={node.label} />}
+                      {isCurrent(node) ? (
+                        <span className={styles.nodeCurrent}>{node.label}</span>
+                      ) : (
+                        <span
+                          className={`${styles.node} ${i === 0 || i === equipment.whereItFits.length - 1 ? styles.nodeEnd : ""}`}
+                        >
+                          {node.label}
+                        </span>
+                      )}
                     </span>
                   )}
                 </React.Fragment>

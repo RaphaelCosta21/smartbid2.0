@@ -192,7 +192,6 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
       </div>
 
       <div className={styles.hero}>
-        <div className={styles.sonar} aria-hidden />
         <div className={styles.heroRow}>
           <div className={styles.titleGroup}>
             <span className={styles.eyebrow}>EQUIPMENT EXPLORER</span>

@@ -1,0 +1,14 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="233.431" viewBox="0 0 24 233.431" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Fluxo de energia &#226;&#128;&#148; setas">
+<path id="Seta 1 glow" opacity="0.42" d="M5 30L12 37L19 30" stroke="#1FE0FF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Seta 1" opacity="0.98" d="M5 30L12 37L19 30" stroke="#D1FFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Seta 2 glow" opacity="0.42" d="M5 72L12 79L19 72" stroke="#1FE0FF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Seta 2" opacity="0.98" d="M5 72L12 79L19 72" stroke="#D1FFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Seta 3 glow" opacity="0.42" d="M5 114L12 121L19 114" stroke="#1FE0FF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Seta 3" opacity="0.98" d="M5 114L12 121L19 114" stroke="#D1FFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Seta 4 glow" opacity="0.42" d="M5 156L12 163L19 156" stroke="#1FE0FF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Seta 4" opacity="0.98" d="M5 156L12 163L19 156" stroke="#D1FFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Seta 5 glow" opacity="0.42" d="M5 198L12 205L19 198" stroke="#1FE0FF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Seta 5" opacity="0.98" d="M5 198L12 205L19 198" stroke="#D1FFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</svg>
