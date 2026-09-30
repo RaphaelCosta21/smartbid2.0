@@ -72,7 +72,7 @@ export const SurveyEquipmentPage: React.FC = () => {
           variant="glass"
           icon={<Radar size={32} />}
           title="The survey catalog is empty"
-          description="An administrator can load it with “Import catalog” (templates/survey-catalog/survey-catalog.seed.json) or by adding rows to the smartbid-survey-catalog list."
+          description="Load it with “Import catalog” in the header (templates/survey-catalog/survey-catalog.seed.json) or by adding rows to the smartbid-survey-catalog list."
         />
       );
     }

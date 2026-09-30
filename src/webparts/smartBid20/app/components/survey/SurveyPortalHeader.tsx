@@ -12,7 +12,6 @@ import { ROUTES } from "../../config/routes.config";
 import { useSurveyStore } from "../../stores/useSurveyStore";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useUIStore } from "../../stores/useUIStore";
-import { isSuperAdmin } from "../../utils/accessControl";
 import { SurveyCatalogService } from "../../services/SurveyCatalogService";
 import { ISurveyCatalog } from "../../models";
 import styles from "./SurveyPortalHeader.module.scss";
@@ -39,13 +38,13 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
   const setFilters = useSurveyStore((s) => s.setFilters);
   const packageLines = useSurveyStore((s) => s.packageLines);
   const load = useSurveyStore((s) => s.load);
-  const currentUser = useAuthStore((s) => s.currentUser);
+  const hasAccess = useAuthStore((s) => s.hasAccess);
   const addToast = useUIStore((s) => s.addToast);
   const fileRef = React.useRef<HTMLInputElement>(null);
   const [importing, setImporting] = React.useState(false);
 
-  const canImport =
-    !!currentUser.isSuperAdmin || isSuperAdmin(currentUser.email || "");
+  // Same permission that edits Scope Templates (Engineering, Commercial, super admins).
+  const canImport = hasAccess("templates", "edit");
   const equipment = catalog?.equipment || [];
   const families = catalog?.families || [];
   const family = families.find((f) => f.id === filters.familyId);

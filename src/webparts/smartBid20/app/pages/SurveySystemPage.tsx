@@ -122,7 +122,7 @@ export const SurveySystemPage: React.FC = () => {
           variant="glass"
           icon={<Radar size={32} />}
           title="The survey catalog is empty"
-          description="An administrator can load it with “Import catalog” from the header."
+          description="Load it with “Import catalog” in the header."
         />
       );
     }
