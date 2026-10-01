@@ -189,9 +189,7 @@ export const UnassignedRequestsPage: React.FC = () => {
       list = list.filter((r) => divisionFilter.indexOf(r.division) >= 0);
     }
     if (serviceLineFilter.length > 0) {
-      list = list.filter(
-        (r) => serviceLineFilter.indexOf(r.serviceLine) >= 0,
-      );
+      list = list.filter((r) => serviceLineFilter.indexOf(r.serviceLine) >= 0);
     }
     if (creatorFilter.length > 0) {
       list = list.filter((r) => creatorFilter.indexOf(getCreatorKey(r)) >= 0);
