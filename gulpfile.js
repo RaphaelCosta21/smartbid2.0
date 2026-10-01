@@ -12,6 +12,12 @@ build.addSuppression(/Warning - \[sass\]/gi);
 build.mergeConfig({
   shouldWarningsFailBuild: false,
 });
+
+// Lint only on bundle/package; skipping it on serve saves minutes per dev cycle.
+if (process.argv.indexOf("serve") !== -1) {
+  build.lintCmd.enabled = false;
+}
+
 var getTasks = build.rig.getTasks;
 build.rig.getTasks = function () {
   var result = getTasks.call(build.rig);
