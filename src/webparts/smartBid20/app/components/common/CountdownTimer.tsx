@@ -4,14 +4,17 @@ import styles from "./CountdownTimer.module.scss";
 
 interface CountdownTimerProps {
   targetDate: string;
+  /** Stops the count at this date (see bidHelpers.getDueFreezeDate). */
+  frozenAt?: Date | null;
   className?: string;
 }
 
 export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   targetDate,
+  frozenAt,
   className,
 }) => {
-  const due = formatDaysLeft(targetDate);
+  const due = formatDaysLeft(targetDate, frozenAt);
 
   return (
     <span

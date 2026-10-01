@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../components/common/PageHeader";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { useBids } from "../hooks/useBids";
-import { isActiveBid } from "../utils/bidHelpers";
+import { getDueFreezeDate, isActiveBid } from "../utils/bidHelpers";
 import { useConfigStore } from "../stores/useConfigStore";
 import { getActiveStatuses, getDivisionColor } from "../utils/statusHelpers";
 import { formatDaysLeft } from "../utils/formatters";
@@ -88,7 +88,7 @@ export const FlowBoardPage: React.FC = () => {
 
               {/* Cards */}
               {colBids.map((bid) => {
-                const due = formatDaysLeft(bid.dueDate);
+                const due = formatDaysLeft(bid.dueDate, getDueFreezeDate(bid));
                 return (
                   <div
                     key={bid.bidNumber}

@@ -4,7 +4,11 @@ import { LayoutList, Search, SquareKanban, Table2, X } from "lucide-react";
 import { useBidStore, ViewMode } from "../stores/useBidStore";
 import { useBids } from "../hooks/useBids";
 import { useStatusColors } from "../hooks/useStatusColors";
-import { isActiveBid, isOverdueBid } from "../utils/bidHelpers";
+import {
+  getDueFreezeDate,
+  isActiveBid,
+  isOverdueBid,
+} from "../utils/bidHelpers";
 import { getPhaseProgressByIndex } from "../utils/phaseHelpers";
 import { getErnLinks } from "../utils/ernHelpers";
 import { useConfigStore } from "../stores/useConfigStore";
@@ -399,7 +403,13 @@ export const BidTrackerPage: React.FC = () => {
       render: (bid: IBid) => {
         if (!bid.dueDate) return <span>—</span>;
         return (
-          <span className={isPastDue(bid.dueDate) ? styles.overdue : ""}>
+          <span
+            className={
+              isPastDue(bid.dueDate, getDueFreezeDate(bid))
+                ? styles.overdue
+                : ""
+            }
+          >
             {formatDate(bid.dueDate, "MMM d")}
           </span>
         );

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useBids } from "../hooks/useBids";
-import { isActiveBid } from "../utils/bidHelpers";
+import { getDueFreezeDate, isActiveBid } from "../utils/bidHelpers";
 import { getDivisionColor } from "../utils/statusHelpers";
 import { useConfigStore } from "../stores/useConfigStore";
 import { PageHeader } from "../components/common/PageHeader";
@@ -83,7 +83,7 @@ export const BidBoardPage: React.FC = () => {
           ) : (
             <div className={styles.cardsGrid}>
               {group.bids.map((bid) => {
-                const due = formatDaysLeft(bid.dueDate);
+                const due = formatDaysLeft(bid.dueDate, getDueFreezeDate(bid));
                 const dueClass = due.isOverdue
                   ? styles.overdue
                   : due.days !== null && due.days <= 3

@@ -27,6 +27,7 @@ import { PHASE_ORDER, volumeTrend } from "../utils/analyticsHelpers";
 import { avgApprovalDaysBySector } from "../utils/approvalHelpers";
 import { bidsToCSV, downloadCSV } from "../utils/exportHelpers";
 import { isPastDue } from "../utils/formatters";
+import { getDueFreezeDate } from "../utils/bidHelpers";
 import { captureElementToPng, buildReportPdf } from "../utils/pdfExport";
 import { ExportService } from "../services/ExportService";
 import styles from "./OperationalSummaryPage.module.scss";
@@ -112,7 +113,7 @@ export const OperationalSummaryPage: React.FC = () => {
     const active = filtered.filter((b) => !isTerminal(b.currentStatus));
     const pending = filtered.filter((b) => b.approvalStatus === "pending");
     const overdue = active.filter((b) =>
-      isPastDue(b.desiredDueDate || b.dueDate),
+      isPastDue(b.desiredDueDate || b.dueDate, getDueFreezeDate(b)),
     );
     const completed = filtered.filter(
       (b) =>
@@ -148,7 +149,7 @@ export const OperationalSummaryPage: React.FC = () => {
         const overdue = db.filter(
           (b) =>
             !isTerminal(b.currentStatus) &&
-            isPastDue(b.desiredDueDate || b.dueDate),
+            isPastDue(b.desiredDueDate || b.dueDate, getDueFreezeDate(b)),
         ).length;
         return { division: d.label, active, pending, overdue };
       })

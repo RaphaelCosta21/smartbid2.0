@@ -3,13 +3,73 @@
  * the Past Bids page. Pure functions over IBid.
  */
 import { IBid } from "../models";
+import { getPastBidYear, mergeUnique } from "./pastBidDocument";
 
 export type PastBidKbStatus = "published" | "failed" | "not-published";
+
+export const PAST_BID_NO_OUTCOME = "Not recorded";
+
+export const PAST_BID_KB_STATUS_LABELS: Record<PastBidKbStatus, string> = {
+  published: "In Knowledge Base",
+  failed: "Publish failed",
+  "not-published": "Not published",
+};
 
 export function getPastBidKbStatus(bid: IBid): PastBidKbStatus {
   const doc = bid.knowledgeProfile && bid.knowledgeProfile.doc;
   if (!doc) return "not-published";
   return doc.status === "published" ? "published" : "failed";
+}
+
+/** Flat, sortable/filterable view of a past BID (Past Bids page, Favorites). */
+export interface IPastBidRow {
+  bid: IBid;
+  bidNumber: string;
+  client: string;
+  project: string;
+  division: string;
+  serviceLine: string;
+  completedDate: string;
+  year: string;
+  outcome: string;
+  kbStatus: PastBidKbStatus;
+  categories: string[];
+  tags: string[];
+  searchText: string;
+}
+
+export function toPastBidRow(bid: IBid): IPastBidRow {
+  const profile = bid.knowledgeProfile;
+  return {
+    bid,
+    bidNumber: bid.bidNumber,
+    client: bid.opportunityInfo?.client || "",
+    project: bid.opportunityInfo?.projectName || "",
+    division: bid.division || "",
+    serviceLine: bid.serviceLine || "",
+    completedDate: bid.completedDate || "",
+    year: getPastBidYear(bid),
+    outcome: bid.bidResult?.outcome || PAST_BID_NO_OUTCOME,
+    kbStatus: getPastBidKbStatus(bid),
+    categories: profile ? profile.scopeCategories : [],
+    tags: profile ? profile.tags : [],
+    searchText: getPastBidSearchText(bid),
+  };
+}
+
+/** Multi-select filter match: nothing selected, or any value selected. */
+export function matchesAnyOf(selected: string[], values: string[]): boolean {
+  return selected.length === 0 || values.some((v) => selected.indexOf(v) >= 0);
+}
+
+/** De-duplicated, sorted options for a MultiSelectDropdown. */
+export function toFilterOptions(
+  values: string[],
+  descending?: boolean,
+): { value: string; label: string }[] {
+  const unique = mergeUnique(values).sort((a, b) => a.localeCompare(b));
+  if (descending) unique.reverse();
+  return unique.map((v) => ({ value: v, label: v }));
 }
 
 /** Lower-case and accent-free, so "Decomissionamento" matches "decomissionamento". */

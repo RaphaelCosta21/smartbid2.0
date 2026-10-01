@@ -12,6 +12,7 @@ import {
 import { IKPITargets } from "../models/ISystemConfig";
 import { KPI_DEFINITIONS } from "../config/kpi.config";
 import { getDaysUntil, isPastDue, parseDate } from "../utils/formatters";
+import { getDueFreezeDate } from "../utils/bidHelpers";
 
 export class DashboardService {
   public static calculateKPIs(
@@ -22,7 +23,9 @@ export class DashboardService {
     const activeBids = bids.filter(
       (b) => !["Completed", "Canceled", "No Bid"].includes(b.currentStatus),
     );
-    const overdueBids = activeBids.filter((b) => isPastDue(b.dueDate));
+    const overdueBids = activeBids.filter((b) =>
+      isPastDue(b.dueDate, getDueFreezeDate(b)),
+    );
 
     const onTimeCount = completedBids.filter((b) => {
       const done = parseDate(b.completedDate);
@@ -128,7 +131,8 @@ export class DashboardService {
       divisions[div].activeBids++;
       if (bid.currentStatus === "Pending Approval")
         divisions[div].pendingApprovals++;
-      if (isPastDue(bid.dueDate)) divisions[div].overdueBids++;
+      if (isPastDue(bid.dueDate, getDueFreezeDate(bid)))
+        divisions[div].overdueBids++;
     }
     return Object.values(divisions);
   }

@@ -46,19 +46,19 @@ export function parseDate(
   return isNaN(d.getTime()) ? null : d;
 }
 
-/** Calendar days from `from` to the due date: 0 = today, negative = overdue, null = no valid date. */
+/** Calendar days from `from` (default now) to the due date: 0 = today, negative = overdue, null = no valid date. */
 export function getDaysUntil(
   dueDate: string | Date | null | undefined,
-  from: Date = new Date(),
+  from?: Date | null,
 ): number | null {
   const due = parseDate(dueDate);
-  return due ? differenceInCalendarDays(due, from) : null;
+  return due ? differenceInCalendarDays(due, from || new Date()) : null;
 }
 
-/** True once `from` is past the due day — the due day itself is not overdue. */
+/** True once `from` (default now) is past the due day — the due day itself is not overdue. */
 export function isPastDue(
   dueDate: string | Date | null | undefined,
-  from: Date = new Date(),
+  from?: Date | null,
 ): boolean {
   const days = getDaysUntil(dueDate, from);
   return days !== null && days < 0;
@@ -83,14 +83,19 @@ export function formatRelativeTime(dateStr: string): string {
   return formatDistanceToNow(d, { addSuffix: true });
 }
 
-export function formatDaysLeft(dueDate: string | null | undefined): {
+/** `frozenAt` (see bidHelpers.getDueFreezeDate) stops the count at the BID's closing date. */
+export function formatDaysLeft(
+  dueDate: string | null | undefined,
+  frozenAt?: Date | null,
+): {
   text: string;
   isOverdue: boolean;
   days: number | null;
 } {
-  const days = getDaysUntil(dueDate);
+  const days = getDaysUntil(dueDate, frozenAt);
   if (days === null) return { text: "No due date", isOverdue: false, days };
   if (days < 0) return { text: `${-days}d overdue`, isOverdue: true, days };
+  if (frozenAt) return { text: "On time", isOverdue: false, days: null };
   if (days === 0) return { text: "Due today", isOverdue: false, days };
   if (days === 1) return { text: "Due tomorrow", isOverdue: false, days };
   return { text: `${days}d left`, isOverdue: false, days };

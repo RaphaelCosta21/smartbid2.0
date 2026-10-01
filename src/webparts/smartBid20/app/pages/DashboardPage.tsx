@@ -19,7 +19,11 @@ import { ErnDashboardSection } from "../components/dashboard/ErnDashboardSection
 import { DashboardService } from "../services/DashboardService";
 import { differenceInDays, format } from "date-fns";
 import { formatDate, isPastDue, parseDate } from "../utils/formatters";
-import { isActiveBid, getEngineeringHours } from "../utils/bidHelpers";
+import {
+  isActiveBid,
+  getEngineeringHours,
+  getDueFreezeDate,
+} from "../utils/bidHelpers";
 import { getErnLinks } from "../utils/ernHelpers";
 import { getPhaseProgressByIndex } from "../utils/phaseHelpers";
 import { useStatusColors } from "../hooks/useStatusColors";
@@ -252,7 +256,10 @@ export const DashboardPage: React.FC = () => {
                 </thead>
                 <tbody>
                   {bids.map((bid) => {
-                    const overdue = isPastDue(bid.dueDate);
+                    const overdue = isPastDue(
+                      bid.dueDate,
+                      getDueFreezeDate(bid),
+                    );
                     const phaseDef = getPhaseDef(bid.currentPhase);
                     return (
                       <tr

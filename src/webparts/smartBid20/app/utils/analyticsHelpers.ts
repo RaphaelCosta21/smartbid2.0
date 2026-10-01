@@ -8,6 +8,7 @@
 import { IBid, BidPhase, ITeamMember, IPersonRef } from "../models";
 import { getErnLinks } from "./ernHelpers";
 import { isPastDue, parseDate } from "./formatters";
+import { getDueFreezeDate } from "./bidHelpers";
 
 export type Granularity = "week" | "month" | "quarter";
 export type DurationStat = "avg" | "median" | "max";
@@ -526,7 +527,7 @@ export function divisionLoad(
     });
     row.active++;
     const due = toDate(b.desiredDueDate) || toDate(b.dueDate);
-    if (isPastDue(due, now)) row.overdue++;
+    if (isPastDue(due, getDueFreezeDate(b) || now)) row.overdue++;
   });
   return Object.keys(map)
     .map((k) => map[k])

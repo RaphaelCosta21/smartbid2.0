@@ -42,8 +42,8 @@ import {
   formatDateTime,
   formatCurrency,
   getDaysUntil,
-  parseDate,
 } from "../../utils/formatters";
+import { getDueFreezeDate } from "../../utils/bidHelpers";
 import {
   buildCostSummary,
   calculateAssetsByResourceType,
@@ -2003,9 +2003,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <InfoRow
               label="Overdue"
               value={(() => {
-                const ref =
-                  (isClosed && parseDate(bid.completedDate)) || new Date();
-                const days = getDaysUntil(bid.dueDate, ref);
+                const days = getDaysUntil(bid.dueDate, getDueFreezeDate(bid));
                 return days !== null && days < 0 ? `Yes (${-days} days)` : "No";
               })()}
             />

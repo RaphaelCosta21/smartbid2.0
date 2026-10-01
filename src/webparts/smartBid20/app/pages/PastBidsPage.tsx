@@ -6,10 +6,12 @@ import { DataTable } from "../components/common/DataTable";
 import { DivisionBadge } from "../components/common/DivisionBadge";
 import { EmptyState } from "../components/common/EmptyState";
 import { SkeletonLoader } from "../components/common/SkeletonLoader";
+import { MultiSelectDropdown } from "../components/insights/MultiSelectDropdown";
 import {
-  MultiSelectDropdown,
-  MultiSelectOption,
-} from "../components/insights/MultiSelectDropdown";
+  PastBidChips,
+  PastBidKbBadge,
+  PastBidOutcome,
+} from "../components/knowledge/PastBidBadges";
 import { PastBidDrawer } from "../components/knowledge/PastBidDrawer";
 import { PastBidProfileModal } from "../components/knowledge/PastBidProfileModal";
 import { BidFavoriteButton } from "../components/bid/BidFavoriteButton";
@@ -25,31 +27,17 @@ import {
 } from "../services/PastBidKnowledgeService";
 import { canAccessKnowledge } from "../utils/accessControl";
 import { formatDate } from "../utils/formatters";
-import { getPastBidYear, mergeUnique } from "../utils/pastBidDocument";
 import {
-  getPastBidKbStatus,
-  getPastBidSearchText,
+  IPastBidRow,
+  matchesAnyOf,
   matchesPastBidSearch,
+  PAST_BID_KB_STATUS_LABELS,
   PastBidKbStatus,
+  toFilterOptions,
+  toPastBidRow,
 } from "../utils/pastBidHelpers";
 import { IBid } from "../models";
 import styles from "./PastBidsPage.module.scss";
-
-interface IPastBidRow {
-  bid: IBid;
-  bidNumber: string;
-  client: string;
-  project: string;
-  division: string;
-  serviceLine: string;
-  completedDate: string;
-  year: string;
-  outcome: string;
-  kbStatus: PastBidKbStatus;
-  categories: string[];
-  tags: string[];
-  searchText: string;
-}
 
 interface IPastBidFilters {
   categories: string[];
@@ -73,46 +61,7 @@ const EMPTY_FILTERS: IPastBidFilters = {
   kbStatuses: [],
 };
 
-const NO_OUTCOME = "Not recorded";
 const MAX_TABLE_TAGS = 3;
-
-const KB_STATUS_LABELS: Record<PastBidKbStatus, string> = {
-  published: "In Knowledge Base",
-  failed: "Publish failed",
-  "not-published": "Not published",
-};
-
-function toRow(bid: IBid): IPastBidRow {
-  const profile = bid.knowledgeProfile;
-  return {
-    bid,
-    bidNumber: bid.bidNumber,
-    client: bid.opportunityInfo?.client || "",
-    project: bid.opportunityInfo?.projectName || "",
-    division: bid.division || "",
-    serviceLine: bid.serviceLine || "",
-    completedDate: bid.completedDate || "",
-    year: getPastBidYear(bid),
-    outcome: bid.bidResult?.outcome || NO_OUTCOME,
-    kbStatus: getPastBidKbStatus(bid),
-    categories: profile ? profile.scopeCategories : [],
-    tags: profile ? profile.tags : [],
-    searchText: getPastBidSearchText(bid),
-  };
-}
-
-function toOptions(
-  values: string[],
-  descending?: boolean,
-): MultiSelectOption[] {
-  const unique = mergeUnique(values).sort((a, b) => a.localeCompare(b));
-  if (descending) unique.reverse();
-  return unique.map((v) => ({ value: v, label: v }));
-}
-
-function anyOf(selected: string[], values: string[]): boolean {
-  return selected.length === 0 || values.some((v) => selected.indexOf(v) >= 0);
-}
 
 export const PastBidsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -138,7 +87,7 @@ export const PastBidsPage: React.FC = () => {
   const rows = React.useMemo(
     () =>
       completed
-        .map(toRow)
+        .map(toPastBidRow)
         .sort((a, b) => b.completedDate.localeCompare(a.completedDate)),
     [completed],
   );
@@ -147,14 +96,14 @@ export const PastBidsPage: React.FC = () => {
     () =>
       rows.filter(
         (r) =>
-          anyOf(filters.categories, r.categories) &&
-          anyOf(filters.tags, r.tags) &&
-          anyOf(filters.divisions, [r.division]) &&
-          anyOf(filters.serviceLines, [r.serviceLine]) &&
-          anyOf(filters.clients, [r.client]) &&
-          anyOf(filters.outcomes, [r.outcome]) &&
-          anyOf(filters.years, [r.year]) &&
-          anyOf(filters.kbStatuses, [r.kbStatus]) &&
+          matchesAnyOf(filters.categories, r.categories) &&
+          matchesAnyOf(filters.tags, r.tags) &&
+          matchesAnyOf(filters.divisions, [r.division]) &&
+          matchesAnyOf(filters.serviceLines, [r.serviceLine]) &&
+          matchesAnyOf(filters.clients, [r.client]) &&
+          matchesAnyOf(filters.outcomes, [r.outcome]) &&
+          matchesAnyOf(filters.years, [r.year]) &&
+          matchesAnyOf(filters.kbStatuses, [r.kbStatus]) &&
           (!search.trim() || matchesPastBidSearch(r.searchText, search)),
       ),
     [rows, filters, search],
@@ -167,21 +116,21 @@ export const PastBidsPage: React.FC = () => {
       return out;
     };
     return {
-      categories: toOptions(
+      categories: toFilterOptions(
         scopeCategories.concat(collect((r) => r.categories)),
       ),
-      tags: toOptions(collect((r) => r.tags)),
-      divisions: toOptions(collect((r) => [r.division])),
-      serviceLines: toOptions(collect((r) => [r.serviceLine])),
-      clients: toOptions(collect((r) => [r.client])),
-      outcomes: toOptions(collect((r) => [r.outcome])),
-      years: toOptions(
+      tags: toFilterOptions(collect((r) => r.tags)),
+      divisions: toFilterOptions(collect((r) => [r.division])),
+      serviceLines: toFilterOptions(collect((r) => [r.serviceLine])),
+      clients: toFilterOptions(collect((r) => [r.client])),
+      outcomes: toFilterOptions(collect((r) => [r.outcome])),
+      years: toFilterOptions(
         collect((r) => [r.year]),
         true,
       ),
-      kbStatuses: (Object.keys(KB_STATUS_LABELS) as PastBidKbStatus[]).map(
-        (k) => ({ value: k, label: KB_STATUS_LABELS[k] }),
-      ),
+      kbStatuses: (
+        Object.keys(PAST_BID_KB_STATUS_LABELS) as PastBidKbStatus[]
+      ).map((k) => ({ value: k, label: PAST_BID_KB_STATUS_LABELS[k] })),
     };
   }, [rows, scopeCategories]);
 
@@ -230,46 +179,6 @@ export const PastBidsPage: React.FC = () => {
     const saved = await publish(bid, { runAi: false, profile: fields });
     setBusyNumber(null);
     if (saved) setEditingNumber(null);
-  };
-
-  const renderChips = (
-    values: string[],
-    accent?: boolean,
-    max?: number,
-  ): React.ReactNode => {
-    if (!values.length) return <span className={styles.muted}>—</span>;
-    const shown = max ? values.slice(0, max) : values;
-    return (
-      <div className={styles.chips}>
-        {shown.map((v) => (
-          <span
-            key={v}
-            className={`${styles.chip} ${accent ? styles.chipAccent : ""}`}
-          >
-            {v}
-          </span>
-        ))}
-        {values.length > shown.length && (
-          <span className={`${styles.chip} ${styles.chipMore}`}>
-            +{values.length - shown.length}
-          </span>
-        )}
-      </div>
-    );
-  };
-
-  const outcomeClass = (outcome: string): string => {
-    if (outcome === "Won") return styles.outcomeWon;
-    if (outcome === "Loss") return styles.outcomeLoss;
-    if (outcome === "Pending") return styles.outcomePending;
-    if (outcome === NO_OUTCOME) return styles.muted;
-    return "";
-  };
-
-  const kbClass: Record<PastBidKbStatus, string> = {
-    published: styles.kbPublished,
-    failed: styles.kbFailed,
-    "not-published": styles.kbNone,
   };
 
   const columns = [
@@ -324,12 +233,24 @@ export const PastBidsPage: React.FC = () => {
     {
       key: "categories",
       header: "Scope",
-      render: (r: IPastBidRow) => renderChips(r.categories, true),
+      render: (r: IPastBidRow) => (
+        <PastBidChips
+          values={r.categories}
+          accent
+          className={styles.chipsCell}
+        />
+      ),
     },
     {
       key: "tags",
       header: "Tags",
-      render: (r: IPastBidRow) => renderChips(r.tags, false, MAX_TABLE_TAGS),
+      render: (r: IPastBidRow) => (
+        <PastBidChips
+          values={r.tags}
+          max={MAX_TABLE_TAGS}
+          className={styles.chipsCell}
+        />
+      ),
     },
     {
       key: "completedDate",
@@ -345,21 +266,13 @@ export const PastBidsPage: React.FC = () => {
       key: "outcome",
       header: "Outcome",
       sortable: true,
-      render: (r: IPastBidRow) => (
-        <span className={`${styles.outcome} ${outcomeClass(r.outcome)}`}>
-          {r.outcome}
-        </span>
-      ),
+      render: (r: IPastBidRow) => <PastBidOutcome outcome={r.outcome} />,
     },
     {
       key: "kbStatus",
       header: "Knowledge Base",
       sortable: true,
-      render: (r: IPastBidRow) => (
-        <span className={`${styles.kbBadge} ${kbClass[r.kbStatus]}`}>
-          {KB_STATUS_LABELS[r.kbStatus]}
-        </span>
-      ),
+      render: (r: IPastBidRow) => <PastBidKbBadge status={r.kbStatus} />,
     },
   ];
 

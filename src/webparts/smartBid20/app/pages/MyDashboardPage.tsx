@@ -5,7 +5,11 @@ import { GlassCard } from "../components/common/GlassCard";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { useBids } from "../hooks/useBids";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-import { isActiveBid, isOverdueBid } from "../utils/bidHelpers";
+import {
+  getDueFreezeDate,
+  isActiveBid,
+  isOverdueBid,
+} from "../utils/bidHelpers";
 import { DIVISION_COLORS } from "../utils/constants";
 import { formatDaysLeft } from "../utils/formatters";
 import styles from "./MyDashboardPage.module.scss";
@@ -75,7 +79,7 @@ export const MyDashboardPage: React.FC = () => {
         ) : (
           <div className={styles.bidList}>
             {myActive.map((bid) => {
-              const due = formatDaysLeft(bid.dueDate);
+              const due = formatDaysLeft(bid.dueDate, getDueFreezeDate(bid));
               return (
                 <div
                   key={bid.bidNumber}

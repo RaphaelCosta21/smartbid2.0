@@ -1,6 +1,7 @@
 import * as React from "react";
 import { IBid } from "../../models";
 import { formatDate, formatDaysLeft } from "../../utils/formatters";
+import { getDueFreezeDate } from "../../utils/bidHelpers";
 import { GlassCard } from "../common/GlassCard";
 import styles from "./UpcomingDeadlines.module.scss";
 
@@ -16,7 +17,10 @@ export const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
   onBidClick,
 }) => {
   const upcoming = bids
-    .map((b) => ({ ...b, due: formatDaysLeft(b.dueDate) }))
+    .map((b) => ({
+      ...b,
+      due: formatDaysLeft(b.dueDate, getDueFreezeDate(b)),
+    }))
     .filter((b) => b.due.days !== null)
     .sort((a, b) => (a.due.days || 0) - (b.due.days || 0))
     .slice(0, maxItems);

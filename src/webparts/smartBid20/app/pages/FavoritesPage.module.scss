@@ -62,37 +62,199 @@
   gap: 16px;
 }
 
-.cardGrid {
+/* Glass filter bar (same look as BID Tracker / Unassigned Requests) */
+.filterBar {
+  // Above later glass siblings so dropdown panels aren't covered
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-card);
+}
+
+.filterSearch {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+.filterSearchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.filterSearchInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 14px 8px 36px;
+  border-radius: 9px;
+  border: 1px solid var(--glass-border);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: border-color 200ms ease;
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-accent);
+  }
+}
+
+.clearBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+}
+
+.resultCount {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+
+  strong {
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+}
+
+/* Cards / List segmented toggle */
+.segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--glass-border);
+}
+
+.segmentBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 200ms ease;
+
+  &:hover:not(.segmentBtnActive) {
+    color: var(--text-primary);
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 1px;
+  }
+}
+
+.segmentBtnActive {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--primary-accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--primary-accent) 45%, transparent);
+  box-shadow: var(--shadow-glow);
+
+  svg {
+    color: var(--primary-accent);
+  }
+}
+
+.bidGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
 }
 
-.bidCardWrap {
-  position: relative;
+.tableSection {
+  overflow-x: auto;
+  padding: 4px 8px;
+  border-radius: 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-card);
 }
 
-.removeBidBtn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--error-color, #ef4444);
+.bidMono {
+  font-family: "JetBrains Mono", monospace;
   font-size: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.15s;
-  z-index: 2;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
 
-  .bidCardWrap:hover & {
-    opacity: 1;
+.cellStack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.cellPrimary {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.cellMuted {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cellDate {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.chipsCell {
+  max-width: 240px;
+}
+
+@media (max-width: 900px) {
+  .chipsCell {
+    max-width: 160px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segmentBtn {
+    transition: none;
   }
 }
 
@@ -599,23 +761,10 @@
 }
 
 /* ─── Empty states ─── */
-.emptyState {
-  text-align: center;
-  padding: 40px;
-  color: var(--text-muted);
-
-  p {
-    margin: 0 0 4px;
-  }
-}
-
-.emptyHint {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
 .emptyIcon {
+  display: inline-flex;
   margin-bottom: 12px;
+  color: var(--text-secondary);
   opacity: 0.4;
 }
 

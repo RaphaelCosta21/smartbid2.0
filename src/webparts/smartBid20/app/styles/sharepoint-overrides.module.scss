@@ -512,6 +512,18 @@
     padding: 0 !important;
   }
 
+  // Stable attributes only — SP's hashed classes change between builds
+  div[data-automationid="AppChrome"] {
+    border: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+
+  // App scrolls internally (.contentArea); avoid SP's permanent outer scrollbar
+  div[data-automation-id="contentScrollRegion"] {
+    overflow-y: auto !important;
+  }
+
   // ========================================
   // SCROLLBAR OVERRIDES
   // ========================================

@@ -1,5 +1,5 @@
 import { IBid, Division } from "../models";
-import { isPastDue } from "./formatters";
+import { isPastDue, parseDate } from "./formatters";
 
 export function isActiveBid(bid: IBid): boolean {
   const terminalStatuses = [
@@ -11,9 +11,27 @@ export function isActiveBid(bid: IBid): boolean {
   return terminalStatuses.indexOf(bid.currentStatus) < 0;
 }
 
+/**
+ * When the BID first reached a terminal status. The due/overdue count stops
+ * there and stays frozen even after a revision reopens the BID. Null = never closed.
+ */
+export function getDueFreezeDate(bid: IBid): Date | null {
+  const firstRevision = (bid.revisions || [])[0];
+  if (!firstRevision) return parseDate(bid.completedDate);
+  // Revisions only open from a terminal status: the entry in effect then is the closing one.
+  const opened = parseDate(firstRevision.openedDate);
+  if (!opened) return parseDate(bid.completedDate);
+  let closedAt = opened;
+  for (const entry of bid.statusHistory || []) {
+    const start = parseDate(entry.start);
+    if (start && start.getTime() < opened.getTime()) closedAt = start;
+  }
+  return closedAt;
+}
+
 export function isOverdueBid(bid: IBid): boolean {
   if (!isActiveBid(bid)) return false;
-  return isPastDue(bid.dueDate);
+  return isPastDue(bid.dueDate, getDueFreezeDate(bid));
 }
 
 export function getBidsByDivision(bids: IBid[], division: Division): IBid[] {

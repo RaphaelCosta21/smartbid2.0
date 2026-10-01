@@ -6,7 +6,7 @@ import { CountdownTimer } from "../components/common/CountdownTimer";
 import { useBids } from "../hooks/useBids";
 import { formatDate } from "../utils/formatters";
 import { DIVISION_COLORS } from "../utils/constants";
-import { isActiveBid } from "../utils/bidHelpers";
+import { getDueFreezeDate, isActiveBid } from "../utils/bidHelpers";
 import styles from "./TimelinePage.module.scss";
 
 export const TimelinePage: React.FC = () => {
@@ -148,7 +148,10 @@ export const TimelinePage: React.FC = () => {
                   <div className={styles.ganttRowBottom}>
                     <span>{bid.opportunityInfo.client}</span>
                     <PhaseBadge phase={bid.currentPhase} />
-                    <CountdownTimer targetDate={bid.dueDate} />
+                    <CountdownTimer
+                      targetDate={bid.dueDate}
+                      frozenAt={getDueFreezeDate(bid)}
+                    />
                   </div>
                 </div>
                 <div className={styles.ganttBarArea}>

@@ -8,6 +8,7 @@ import { getErnLinks } from "../../utils/ernHelpers";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useStatusColors } from "../../hooks/useStatusColors";
 import { formatDate, formatDaysLeft } from "../../utils/formatters";
+import { getDueFreezeDate } from "../../utils/bidHelpers";
 import { format } from "date-fns";
 import styles from "./BidCard.module.scss";
 
@@ -35,7 +36,7 @@ export const BidCard: React.FC<BidCardProps> = ({
     getDivisionColor,
     getServiceLineColor,
   } = useStatusColors();
-  const due = formatDaysLeft(bid.dueDate);
+  const due = formatDaysLeft(bid.dueDate, getDueFreezeDate(bid));
   const dueClass = due.isOverdue
     ? styles.overdue
     : due.days !== null && due.days <= 3

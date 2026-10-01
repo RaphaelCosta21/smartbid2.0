@@ -55,6 +55,7 @@ import {
 import { ITeamMember } from "../models/ITeamMember";
 import { PRIORITY_COLORS } from "../utils/constants";
 import { formatDate, formatDaysLeft } from "../utils/formatters";
+import { getDueFreezeDate } from "../utils/bidHelpers";
 import { isTerminalStatus } from "../utils/statusHelpers";
 import { getErnLinks } from "../utils/ernHelpers";
 import { makeId } from "../utils/idGenerator";
@@ -485,7 +486,7 @@ export const BidDetailPage: React.FC = () => {
     );
   }
 
-  const daysLeftInfo = formatDaysLeft(bid.dueDate);
+  const daysLeftInfo = formatDaysLeft(bid.dueDate, getDueFreezeDate(bid));
   const daysLeft = daysLeftInfo.days;
   const bidFx = getBidFx(bid);
   const currentPhaseIndex = configPhases.findIndex(

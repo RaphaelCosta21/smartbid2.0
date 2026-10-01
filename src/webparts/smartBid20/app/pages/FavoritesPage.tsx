@@ -1,24 +1,103 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
+import { LayoutGrid, LayoutList, Search, X } from "lucide-react";
 import { PageHeader } from "../components/common/PageHeader";
-import { GlassCard } from "../components/common/GlassCard";
-import { BidCard } from "../components/bid/BidCard";
+import { DataTable } from "../components/common/DataTable";
+import { DivisionBadge } from "../components/common/DivisionBadge";
+import { EmptyState } from "../components/common/EmptyState";
+import { SkeletonLoader } from "../components/common/SkeletonLoader";
 import { PartNumberAutocomplete } from "../components/common/PartNumberAutocomplete";
 import { AdvancedCatalogSearch } from "../components/common/AdvancedCatalogSearch";
 import { PhotoLightbox } from "../components/common/PhotoLightbox";
 import { CollapsibleSidebar } from "../components/common/CollapsibleSidebar";
+import {
+  MultiSelectDropdown,
+  MultiSelectOption,
+} from "../components/insights/MultiSelectDropdown";
+import { BidFavoriteButton } from "../components/bid/BidFavoriteButton";
+import { PastBidCard } from "../components/knowledge/PastBidCard";
+import {
+  PastBidChips,
+  PastBidKbBadge,
+  PastBidOutcome,
+} from "../components/knowledge/PastBidBadges";
 import { useBids } from "../hooks/useBids";
 import { useFavoritesStore } from "../stores/useFavoritesStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useQueryCatalogStore } from "../stores/useQueryCatalogStore";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-import { IBid, IFavoriteEquipment } from "../models";
+import { IBid, IFavoriteBid, IFavoriteEquipment } from "../models";
 import { makeId } from "../utils/idGenerator";
+import { formatDate } from "../utils/formatters";
+import {
+  IPastBidRow,
+  matchesAnyOf,
+  matchesPastBidSearch,
+  toFilterOptions,
+  toPastBidRow,
+} from "../utils/pastBidHelpers";
+import { ROUTES } from "../config/routes.config";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import styles from "./FavoritesPage.module.scss";
 
 type TabKey = "bids" | "equipment";
 type ViewMode = "grid" | "list";
+
+interface IFavoriteBidRow extends IPastBidRow {
+  addedBy: string;
+  addedDate: string;
+}
+
+type BidFilterKey =
+  | "categories"
+  | "tags"
+  | "divisions"
+  | "serviceLines"
+  | "clients"
+  | "outcomes"
+  | "years";
+
+const BID_FILTERS: {
+  key: BidFilterKey;
+  label: string;
+  pick: (r: IPastBidRow) => string[];
+  descending?: boolean;
+}[] = [
+  { key: "categories", label: "Scope", pick: (r) => r.categories },
+  { key: "tags", label: "Tags", pick: (r) => r.tags },
+  { key: "divisions", label: "Division", pick: (r) => [r.division] },
+  { key: "serviceLines", label: "Service Line", pick: (r) => [r.serviceLine] },
+  { key: "clients", label: "Client", pick: (r) => [r.client] },
+  { key: "outcomes", label: "Outcome", pick: (r) => [r.outcome] },
+  { key: "years", label: "Year", pick: (r) => [r.year], descending: true },
+];
+
+const EMPTY_BID_FILTERS: Record<BidFilterKey, string[]> = {
+  categories: [],
+  tags: [],
+  divisions: [],
+  serviceLines: [],
+  clients: [],
+  outcomes: [],
+  years: [],
+};
+
+const BID_VIEW_OPTIONS: {
+  mode: ViewMode;
+  label: string;
+  icon: React.ReactNode;
+}[] = [
+  { mode: "grid", label: "Cards", icon: <LayoutGrid size={14} /> },
+  { mode: "list", label: "List", icon: <LayoutList size={14} /> },
+];
+
+const MAX_LIST_TAGS = 3;
+
+function favoriteNote(r: IFavoriteBidRow): string {
+  const date = r.addedDate ? formatDate(r.addedDate) : "";
+  if (!r.addedBy) return date ? `Added ${date}` : "";
+  return date ? `Added by ${r.addedBy} · ${date}` : `Added by ${r.addedBy}`;
+}
 
 /** Build the photo URL for an equipment item from the photos library */
 function getPhotoUrl(partNumber: string): string {
@@ -30,14 +109,13 @@ function getPhotoUrl(partNumber: string): string {
 
 export const FavoritesPage: React.FC = () => {
   const navigate = useNavigate();
-  const { bids } = useBids();
+  const { bids, isLoading: bidsLoading } = useBids();
   const currentUser = useCurrentUser();
 
   const loadFavorites = useFavoritesStore((s) => s.loadFavorites);
   const favData = useFavoritesStore((s) => s.data);
   const isLoading = useFavoritesStore((s) => s.isLoading);
   const isLoaded = useFavoritesStore((s) => s.isLoaded);
-  const toggleBidFavorite = useFavoritesStore((s) => s.toggleBidFavorite);
   const addEquipment = useFavoritesStore((s) => s.addEquipment);
   const updateEquipment = useFavoritesStore((s) => s.updateEquipment);
   const removeEquipment = useFavoritesStore((s) => s.removeEquipment);
@@ -50,6 +128,10 @@ export const FavoritesPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = React.useState<TabKey>("equipment");
   const [viewMode, setViewMode] = React.useState<ViewMode>("grid");
+  const [bidViewMode, setBidViewMode] = React.useState<ViewMode>("grid");
+  const [bidSearch, setBidSearch] = React.useState("");
+  const [bidFilters, setBidFilters] =
+    React.useState<Record<BidFilterKey, string[]>>(EMPTY_BID_FILTERS);
   const [selectedGroup, setSelectedGroup] = React.useState<string | null>(null);
   const [selectedSubGroup, setSelectedSubGroup] = React.useState<string | null>(
     null,
@@ -105,6 +187,51 @@ export const FavoritesPage: React.FC = () => {
     [bids, favBidNumbers],
   );
 
+  // Most recently favorited first
+  const favRows = React.useMemo<IFavoriteBidRow[]>(() => {
+    const byNumber: Record<string, IFavoriteBid> = {};
+    favBids.forEach((f) => {
+      byNumber[f.bidNumber] = f;
+    });
+    return favoriteBidList
+      .map((b) => ({
+        ...toPastBidRow(b),
+        addedBy: byNumber[b.bidNumber]?.addedBy || "",
+        addedDate: byNumber[b.bidNumber]?.addedDate || "",
+      }))
+      .sort((a, b) => b.addedDate.localeCompare(a.addedDate));
+  }, [favoriteBidList, favBids]);
+
+  const bidFilterOptions = React.useMemo(() => {
+    const out = {} as Record<BidFilterKey, MultiSelectOption[]>;
+    BID_FILTERS.forEach((f) => {
+      const values: string[] = [];
+      favRows.forEach((r) => f.pick(r).forEach((v) => v && values.push(v)));
+      out[f.key] = toFilterOptions(values, f.descending);
+    });
+    return out;
+  }, [favRows]);
+
+  const filteredFavRows = React.useMemo(
+    () =>
+      favRows.filter(
+        (r) =>
+          BID_FILTERS.every((f) =>
+            matchesAnyOf(bidFilters[f.key], f.pick(r)),
+          ) &&
+          (!bidSearch.trim() || matchesPastBidSearch(r.searchText, bidSearch)),
+      ),
+    [favRows, bidFilters, bidSearch],
+  );
+
+  const hasBidFilters =
+    !!bidSearch.trim() || BID_FILTERS.some((f) => bidFilters[f.key].length > 0);
+
+  const clearBidFilters = (): void => {
+    setBidSearch("");
+    setBidFilters(EMPTY_BID_FILTERS);
+  };
+
   // Filter equipment by group/subgroup/search
   const filteredEquipment = React.useMemo(() => {
     let list = equipment;
@@ -150,13 +277,107 @@ export const FavoritesPage: React.FC = () => {
     return map;
   }, [filteredEquipment]);
 
-  const handleBidClick = (bid: IBid): void => {
-    navigate(`/bid/${bid.bidNumber}`);
+  const openBid = (bid: IBid): void => {
+    navigate(`/bid/${encodeURIComponent(bid.bidNumber)}`);
   };
 
-  const handleRemoveBidFav = (bidNumber: string): void => {
-    toggleBidFavorite(bidNumber, currentUser?.displayName || "");
-  };
+  const bidColumns = [
+    {
+      key: "favorite",
+      header: "",
+      width: 40,
+      render: (r: IFavoriteBidRow) => <BidFavoriteButton bid={r.bid} />,
+    },
+    {
+      key: "bidNumber",
+      header: "BID",
+      sortable: true,
+      render: (r: IFavoriteBidRow) => (
+        <span className={styles.bidMono}>{r.bidNumber}</span>
+      ),
+    },
+    {
+      key: "client",
+      header: "Client / Project",
+      sortable: true,
+      render: (r: IFavoriteBidRow) => (
+        <div className={styles.cellStack}>
+          <span className={styles.cellPrimary}>{r.client || "—"}</span>
+          {r.project && <span className={styles.cellMuted}>{r.project}</span>}
+        </div>
+      ),
+    },
+    {
+      key: "division",
+      header: "Division / Line",
+      sortable: true,
+      render: (r: IFavoriteBidRow) => (
+        <div className={styles.cellStack}>
+          {r.division ? <DivisionBadge division={r.division} /> : "—"}
+          {r.serviceLine && (
+            <span className={styles.cellMuted}>{r.serviceLine}</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "categories",
+      header: "Scope",
+      render: (r: IFavoriteBidRow) => (
+        <PastBidChips
+          values={r.categories}
+          accent
+          className={styles.chipsCell}
+        />
+      ),
+    },
+    {
+      key: "tags",
+      header: "Tags",
+      render: (r: IFavoriteBidRow) => (
+        <PastBidChips
+          values={r.tags}
+          max={MAX_LIST_TAGS}
+          className={styles.chipsCell}
+        />
+      ),
+    },
+    {
+      key: "completedDate",
+      header: "Completed",
+      sortable: true,
+      render: (r: IFavoriteBidRow) => (
+        <span className={styles.cellDate}>
+          {r.completedDate ? formatDate(r.completedDate) : "—"}
+        </span>
+      ),
+    },
+    {
+      key: "outcome",
+      header: "Outcome",
+      sortable: true,
+      render: (r: IFavoriteBidRow) => <PastBidOutcome outcome={r.outcome} />,
+    },
+    {
+      key: "kbStatus",
+      header: "Knowledge Base",
+      sortable: true,
+      render: (r: IFavoriteBidRow) => <PastBidKbBadge status={r.kbStatus} />,
+    },
+    {
+      key: "addedDate",
+      header: "Added",
+      sortable: true,
+      render: (r: IFavoriteBidRow) => (
+        <div className={styles.cellStack}>
+          <span className={styles.cellDate}>
+            {r.addedDate ? formatDate(r.addedDate) : "—"}
+          </span>
+          {r.addedBy && <span className={styles.cellMuted}>{r.addedBy}</span>}
+        </div>
+      ),
+    },
+  ];
 
   const handleToggleGroupExpand = (groupId: string): void => {
     const next = new Set(expandedGroups);
@@ -595,32 +816,113 @@ export const FavoritesPage: React.FC = () => {
       {/* BID Favorites Tab */}
       {activeTab === "bids" && (
         <div className={styles.bidContent}>
-          {favoriteBidList.length === 0 ? (
-            <GlassCard>
-              <div className={styles.emptyState}>
-                <StarIcon size={48} />
-                <p>No BIDs bookmarked yet.</p>
-                <p className={styles.emptyHint}>
-                  Open a closed-out BID (Completed, Canceled, No Bid…) or go to
-                  Past Bids and click the star icon to add it here.
-                </p>
-              </div>
-            </GlassCard>
+          {favRows.length === 0 && favBids.length > 0 && bidsLoading ? (
+            <SkeletonLoader height={44} count={4} />
+          ) : favRows.length === 0 ? (
+            <EmptyState
+              variant="glass"
+              icon={
+                <span className={styles.emptyIcon}>
+                  <StarIcon size={48} />
+                </span>
+              }
+              title="No BIDs bookmarked yet"
+              description="Open a closed-out BID (Completed, Canceled, No Bid…) or go to Past Bids and click the star icon to add it here."
+              actionLabel="Browse Past Bids"
+              onAction={() => navigate(ROUTES.pastBids)}
+            />
           ) : (
-            <div className={styles.cardGrid}>
-              {favoriteBidList.map((bid) => (
-                <div key={bid.bidNumber} className={styles.bidCardWrap}>
-                  <BidCard bid={bid} onClick={handleBidClick} />
-                  <button
-                    className={styles.removeBidBtn}
-                    title="Remove from favorites"
-                    onClick={() => handleRemoveBidFav(bid.bidNumber)}
-                  >
-                    ✕
-                  </button>
+            <>
+              <div className={styles.filterBar}>
+                <div className={styles.filterSearch}>
+                  <Search size={15} className={styles.filterSearchIcon} />
+                  <input
+                    type="text"
+                    className={styles.filterSearchInput}
+                    placeholder="Search BID, client, project, equipment, PN, tag…"
+                    value={bidSearch}
+                    onChange={(e) => setBidSearch(e.currentTarget.value)}
+                    aria-label="Search favorite BIDs"
+                  />
                 </div>
-              ))}
-            </div>
+                {BID_FILTERS.map((f) => (
+                  <MultiSelectDropdown
+                    key={f.key}
+                    label={f.label}
+                    options={bidFilterOptions[f.key]}
+                    selected={bidFilters[f.key]}
+                    onChange={(values) =>
+                      setBidFilters((prev) => ({ ...prev, [f.key]: values }))
+                    }
+                  />
+                ))}
+                {hasBidFilters && (
+                  <button
+                    type="button"
+                    className={styles.clearBtn}
+                    onClick={clearBidFilters}
+                  >
+                    <X size={14} /> Clear
+                  </button>
+                )}
+                <span className={styles.resultCount}>
+                  <strong>{filteredFavRows.length}</strong>{" "}
+                  {hasBidFilters ? `of ${favRows.length} ` : ""}
+                  {favRows.length === 1 ? "BID" : "BIDs"}
+                </span>
+                <div
+                  className={styles.segmented}
+                  role="tablist"
+                  aria-label="View"
+                >
+                  {BID_VIEW_OPTIONS.map((opt) => {
+                    const active = bidViewMode === opt.mode;
+                    return (
+                      <button
+                        key={opt.mode}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        className={`${styles.segmentBtn} ${active ? styles.segmentBtnActive : ""}`}
+                        onClick={() => setBidViewMode(opt.mode)}
+                      >
+                        {opt.icon}
+                        <span>{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {filteredFavRows.length === 0 ? (
+                <EmptyState
+                  variant="glass"
+                  title="No favorites match these filters"
+                  description="Try fewer filters or another search term."
+                  actionLabel="Clear filters"
+                  onAction={clearBidFilters}
+                />
+              ) : bidViewMode === "grid" ? (
+                <div className={styles.bidGrid}>
+                  {filteredFavRows.map((r) => (
+                    <PastBidCard
+                      key={r.bidNumber}
+                      row={r}
+                      onOpen={openBid}
+                      note={favoriteNote(r)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.tableSection}>
+                  <DataTable<IFavoriteBidRow>
+                    data={filteredFavRows}
+                    columns={bidColumns}
+                    onRowClick={(r) => openBid(r.bid)}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
