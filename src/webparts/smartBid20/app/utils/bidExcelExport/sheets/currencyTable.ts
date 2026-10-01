@@ -31,7 +31,12 @@ export function curCode(c?: string): string {
 export function usdCell(amount: number, currency: string, fx: IBidFx): XlValue {
   const usd = toUSDWithBidRates(amount || 0, currency, fx);
   return usd === null
-    ? { value: "No rate", color: XL_COLORS.danger, italic: true, align: "right" }
+    ? {
+        value: "No rate",
+        color: XL_COLORS.danger,
+        italic: true,
+        align: "right",
+      }
     : usd;
 }
 
@@ -52,7 +57,10 @@ export function fxNotes(
   const missing = used.filter((c) => toUSDWithBidRates(1, c, fx) === null);
   const withRate = used
     .filter((c) => missing.indexOf(c) < 0)
-    .map((c) => `1 USD = ${(1 / (toUSDWithBidRates(1, c, fx) as number)).toFixed(4)} ${c}`);
+    .map(
+      (c) =>
+        `1 USD = ${(1 / (toUSDWithBidRates(1, c, fx) as number)).toFixed(4)} ${c}`,
+    );
   return {
     rates: withRate.length
       ? `Converted to USD with the rates registered on this BID: ${withRate.join(" · ")}.`
@@ -95,7 +103,9 @@ export function writeCurrencyTable<T extends ICurrencyLine>(
     const gi = items.filter((i) => i.sectionId === g.id);
     x.band(`${g.title || "Untitled Section"}   ·   ${gi.length} items`, span, {
       color: g.color,
-      values: usdCol ? [{ col: usdCol, value: usdOf(gi), numFmt: NUM.usd }] : [],
+      values: usdCol
+        ? [{ col: usdCol, value: usdOf(gi), numFmt: NUM.usd }]
+        : [],
     });
     write(gi);
   });
@@ -137,7 +147,12 @@ export function writeCurrencyFooter(
   currencies: string[],
 ): void {
   const span = x.lastCol;
-  x.total(label, span, [{ col: usdCol, value: totalUSD, numFmt: NUM.usd }], "grand");
+  x.total(
+    label,
+    span,
+    [{ col: usdCol, value: totalUSD, numFmt: NUM.usd }],
+    "grand",
+  );
   x.gap(6);
   x.note(
     `Total in BRL: R$ ${(totalUSD * ptax).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${fmtUSD(totalUSD)} × PTAX ${ptax > 0 ? ptax.toFixed(4) : "—"}).`,

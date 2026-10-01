@@ -18,7 +18,13 @@ export function buildScopeSheet(ctx: IBidExcelContext): void {
   const dataItems = scope.filter((i) => !i.isSection);
   const cols = activeColumns([
     { key: "no", header: "#", width: 6, align: "center" },
-    { key: "div", header: "Division", width: 10, align: "center", when: ctx.view.isIntegrated },
+    {
+      key: "div",
+      header: "Division",
+      width: 10,
+      align: "center",
+      when: ctx.view.isIntegrated,
+    },
     { key: "docRef", header: "Client Doc Ref", width: 15, wrap: true },
     { key: "desc", header: "Item Description", width: 42, wrap: true },
     { key: "compliance", header: "Compliance", width: 11, align: "center" },
@@ -26,13 +32,35 @@ export function buildScopeSheet(ctx: IBidExcelContext): void {
     { key: "subType", header: "Sub-Type", width: 17, wrap: true },
     { key: "offer", header: "Equipment Offer", width: 34, wrap: true },
     { key: "pn", header: "OII/MFG PN", width: 18, wrap: true },
-    { key: "qtyOp", header: "Qty Op", width: 8, align: "right", numFmt: NUM.int },
-    { key: "qtySp", header: "Qty Spare", width: 9, align: "right", numFmt: NUM.int },
+    {
+      key: "qtyOp",
+      header: "Qty Op",
+      width: 8,
+      align: "right",
+      numFmt: NUM.int,
+    },
+    {
+      key: "qtySp",
+      header: "Qty Spare",
+      width: 9,
+      align: "right",
+      numFmt: NUM.int,
+    },
     { key: "cert", header: "Cert?", width: 7, align: "center" },
     { key: "eng", header: "Eng?", width: 7, align: "center" },
-    { key: "comments", header: "Comments", width: 36, wrap: true, when: opts.includeNotes },
+    {
+      key: "comments",
+      header: "Comments",
+      width: 36,
+      wrap: true,
+      when: opts.includeNotes,
+    },
   ]);
-  const x = newSheet(ctx, "scope", cols.map((c) => c.width));
+  const x = newSheet(
+    ctx,
+    "scope",
+    cols.map((c) => c.width),
+  );
   const span = x.lastCol;
 
   x.banner("SCOPE OF SUPPLY", ctx.subtitle);
@@ -104,7 +132,10 @@ export function buildScopeSheet(ctx: IBidExcelContext): void {
           subType: item.resourceSubType,
           offer: { value: item.equipmentOffer, bold: true },
           pn: item.partNumber,
-          qtyOp: { value: item.qtyOperational || 0, numFmt: qtyFmt(item.qtyOperational) },
+          qtyOp: {
+            value: item.qtyOperational || 0,
+            numFmt: qtyFmt(item.qtyOperational),
+          },
           qtySp: { value: item.qtySpare || 0, numFmt: qtyFmt(item.qtySpare) },
           cert: yesNo(item.needsCertification),
           eng: yesNo(item.needsEngineering),

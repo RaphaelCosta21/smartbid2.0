@@ -183,9 +183,7 @@ export function buildCostSummaryView(bid: IBid): ICostSummaryView {
     ? divSum((d) => d.engH)
     : hoursTotals.engineeringHours;
   const onH = isIntegrated ? divSum((d) => d.onH) : hoursTotals.onshoreHours;
-  const offH = isIntegrated
-    ? divSum((d) => d.offH)
-    : hoursTotals.offshoreHours;
+  const offH = isIntegrated ? divSum((d) => d.offH) : hoursTotals.offshoreHours;
 
   const pushHours = (
     label: string,
@@ -250,7 +248,12 @@ export function buildCostSummaryView(bid: IBid): ICostSummaryView {
         fx,
       );
       if (t.totalUSD > 0 || t.totalBRL > 0) {
-        rows.push({ label: div, usd: t.totalUSD, brl: t.totalBRL, indent: true });
+        rows.push({
+          label: div,
+          usd: t.totalUSD,
+          brl: t.totalBRL,
+          indent: true,
+        });
       }
     });
   };

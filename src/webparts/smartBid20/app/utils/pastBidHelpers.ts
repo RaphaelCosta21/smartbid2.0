@@ -51,7 +51,11 @@ export function getPastBidSearchText(bid: IBid): string {
       i.resourceSubType || "",
     );
     (i.subItems || []).forEach((s) =>
-      parts.push(s.description || "", s.equipmentOffer || "", s.partNumber || ""),
+      parts.push(
+        s.description || "",
+        s.equipmentOffer || "",
+        s.partNumber || "",
+      ),
     );
   });
   (bid.equipmentList || []).forEach((e) =>
@@ -61,7 +65,10 @@ export function getPastBidSearchText(bid: IBid): string {
 }
 
 /** Every whitespace-separated term of the query must appear in the text. */
-export function matchesPastBidSearch(searchText: string, query: string): boolean {
+export function matchesPastBidSearch(
+  searchText: string,
+  query: string,
+): boolean {
   const terms = normalizeText(query).split(/\s+/).filter(Boolean);
   return terms.every((t) => searchText.indexOf(t) >= 0);
 }
@@ -149,7 +156,9 @@ export function findRelatedBids(
   return results
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      return (b.bid.completedDate || "").localeCompare(a.bid.completedDate || "");
+      return (b.bid.completedDate || "").localeCompare(
+        a.bid.completedDate || "",
+      );
     })
     .slice(0, limit);
 }

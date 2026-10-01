@@ -92,7 +92,20 @@ export function toExcelDateTime(d: Date): Date {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000);
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 /** "15-Sep-2026", for dates embedded in text cells. */
 export function displayDate(v?: string | null): string {
@@ -288,14 +301,14 @@ export class XlSheet {
     }
   }
 
-  private setValue(
-    r: Row,
-    col: number,
-    value: CellValue | undefined,
-  ): void {
+  private setValue(r: Row, col: number, value: CellValue | undefined): void {
     const cell = r.getCell(col);
     cell.value =
-      typeof value === "string" ? clean(value) : value === undefined ? null : value;
+      typeof value === "string"
+        ? clean(value)
+        : value === undefined
+          ? null
+          : value;
   }
 
   gap(height = 10): void {
@@ -310,8 +323,16 @@ export class XlSheet {
     this.fillRange(r1, 1, last, XL_COLORS.navy);
     this.ws.mergeCells(this.row, 1, this.row, last);
     this.setValue(r1, 1, title);
-    r1.getCell(1).font = this.font({ size: 16, bold: true, color: XL_COLORS.white });
-    r1.getCell(1).alignment = { vertical: "bottom", horizontal: "left", indent: 1 };
+    r1.getCell(1).font = this.font({
+      size: 16,
+      bold: true,
+      color: XL_COLORS.white,
+    });
+    r1.getCell(1).alignment = {
+      vertical: "bottom",
+      horizontal: "left",
+      indent: 1,
+    };
     r1.height = 30;
     this.row++;
 
@@ -320,7 +341,11 @@ export class XlSheet {
     this.ws.mergeCells(this.row, 1, this.row, last);
     this.setValue(r2, 1, subtitle);
     r2.getCell(1).font = this.font({ size: 10, color: XL_COLORS.bannerSub });
-    r2.getCell(1).alignment = { vertical: "top", horizontal: "left", indent: 1 };
+    r2.getCell(1).alignment = {
+      vertical: "top",
+      horizontal: "left",
+      indent: 1,
+    };
     r2.height = 22;
     this.row++;
 
@@ -351,33 +376,46 @@ export class XlSheet {
       remaining -= px;
     }
     // Native anchors: ExcelJS' fractional col/row offsets are not pixel-accurate
-    this.ws.addImage(this.init.logoId as number, {
-      tl: {
-        nativeCol,
-        nativeColOff: offPx * emu,
-        nativeRow: 0,
-        nativeRowOff: 12 * emu,
-      },
-      ext: { width: widthPx, height: heightPx },
-      editAs: "oneCell",
-    } as never);
+    this.ws.addImage(
+      this.init.logoId as number,
+      {
+        tl: {
+          nativeCol,
+          nativeColOff: offPx * emu,
+          nativeRow: 0,
+          nativeRowOff: 12 * emu,
+        },
+        ext: { width: widthPx, height: heightPx },
+        editAs: "oneCell",
+      } as never,
+    );
   }
 
   /** Block title with a teal underline across `span` columns. */
   sectionTitle(text: string, span = this.lastCol, hint?: string): void {
     const r = this.ws.getRow(this.row);
     this.setValue(r, 1, text);
-    r.getCell(1).font = this.font({ size: 12, bold: true, color: XL_COLORS.navy });
+    r.getCell(1).font = this.font({
+      size: 12,
+      bold: true,
+      color: XL_COLORS.navy,
+    });
     r.getCell(1).alignment = { vertical: "bottom", horizontal: "left" };
     if (hint) {
       const hc = Math.min(span, Math.max(2, span - 3));
       this.setValue(r, hc, hint);
-      r.getCell(hc).font = this.font({ size: 9, italic: true, color: XL_COLORS.textMuted });
+      r.getCell(hc).font = this.font({
+        size: 9,
+        italic: true,
+        color: XL_COLORS.textMuted,
+      });
       r.getCell(hc).alignment = { vertical: "bottom", horizontal: "right" };
       if (hc < span) this.ws.mergeCells(this.row, hc, this.row, span);
     }
     for (let c = 1; c <= span; c++) {
-      r.getCell(c).border = { bottom: { style: "medium", color: { argb: XL_COLORS.teal } } };
+      r.getCell(c).border = {
+        bottom: { style: "medium", color: { argb: XL_COLORS.teal } },
+      };
     }
     r.height = 22;
     this.row++;
@@ -390,14 +428,20 @@ export class XlSheet {
       const colNo = positions ? positions[i] : startCol + i;
       const c = r.getCell(colNo);
       this.setValue(r, colNo, col.header);
-      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: XL_COLORS.navySoft } };
+      c.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: XL_COLORS.navySoft },
+      };
       c.font = this.font({ bold: true, color: XL_COLORS.white });
       c.alignment = {
         vertical: "middle",
         horizontal: col.align || "left",
         wrapText: true,
       };
-      c.border = { bottom: { style: "medium", color: { argb: XL_COLORS.teal } } };
+      c.border = {
+        bottom: { style: "medium", color: { argb: XL_COLORS.teal } },
+      };
     });
     r.height = 28;
     return this.row++;
@@ -440,7 +484,11 @@ export class XlSheet {
       };
       const fill = opts.fill || (opts.zebra ? XL_COLORS.zebra : "");
       if (fill) {
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fill } };
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: fill },
+        };
       }
       cell.border = { bottom: thin(XL_COLORS.border) };
     });
@@ -450,7 +498,11 @@ export class XlSheet {
 
   /** Header of a summary table whose columns are merged ranges. */
   rangeHeader(ranges: IXlRange[]): number {
-    const n = this.header(ranges, 1, ranges.map((r) => r.from));
+    const n = this.header(
+      ranges,
+      1,
+      ranges.map((r) => r.from),
+    );
     const row = this.ws.getRow(n);
     ranges.forEach((r) => {
       for (let c = r.from + 1; c <= r.to; c++) {
@@ -463,7 +515,13 @@ export class XlSheet {
 
   rangeRow(ranges: IXlRange[], values: XlValue[], opts: IXlRowOpts = {}): Row {
     const n = this.row;
-    const r = this.dataRow(ranges, values, opts, 1, ranges.map((x) => x.from));
+    const r = this.dataRow(
+      ranges,
+      values,
+      opts,
+      1,
+      ranges.map((x) => x.from),
+    );
     ranges.forEach((x) => {
       for (let c = x.from + 1; c <= x.to; c++) {
         const cell = r.getCell(c);
@@ -499,7 +557,10 @@ export class XlSheet {
       const c = r.getCell(v.col);
       if (v.numFmt) c.numFmt = v.numFmt;
       c.font = this.font({ bold: true, color: XL_COLORS.navy });
-      c.alignment = { vertical: "middle", horizontal: typeof v.value === "number" ? "right" : "left" };
+      c.alignment = {
+        vertical: "middle",
+        horizontal: typeof v.value === "number" ? "right" : "left",
+      };
     });
     r.height = 20;
     this.row++;
@@ -529,7 +590,10 @@ export class XlSheet {
       const c = r.getCell(v.col);
       if (v.numFmt) c.numFmt = v.numFmt;
       c.font = this.font({ bold: true, color });
-      c.alignment = { vertical: "middle", horizontal: typeof v.value === "number" ? "right" : "left" };
+      c.alignment = {
+        vertical: "middle",
+        horizontal: typeof v.value === "number" ? "right" : "left",
+      };
     });
     r.height = grand ? 22 : 19;
     this.row++;
@@ -558,8 +622,15 @@ export class XlSheet {
     }
     this.fillRange(r, labelCol, valueCol - 1, XL_COLORS.band);
     this.setValue(r, labelCol, label);
-    r.getCell(labelCol).font = this.font({ bold: true, color: XL_COLORS.textSecondary });
-    r.getCell(labelCol).alignment = { vertical: "top", horizontal: "left", indent: 1 };
+    r.getCell(labelCol).font = this.font({
+      bold: true,
+      color: XL_COLORS.textSecondary,
+    });
+    r.getCell(labelCol).alignment = {
+      vertical: "top",
+      horizontal: "left",
+      indent: 1,
+    };
     if (valueEnd > valueCol) {
       this.ws.mergeCells(this.row, valueCol, this.row, valueEnd);
     }
@@ -571,7 +642,12 @@ export class XlSheet {
       bold: opts.bold,
       color: isEmpty ? XL_COLORS.textMuted : opts.color || XL_COLORS.text,
     });
-    vc.alignment = { vertical: "top", horizontal: "left", wrapText: !!opts.wrap, indent: 1 };
+    vc.alignment = {
+      vertical: "top",
+      horizontal: "left",
+      wrapText: !!opts.wrap,
+      indent: 1,
+    };
     if (opts.wrap && typeof value === "string") {
       r.height = this.estimateHeight(value, this.spanWidth(valueCol, valueEnd));
     } else {
@@ -581,10 +657,18 @@ export class XlSheet {
   }
 
   /** Full-width wrapped note. */
-  note(text: string, span = this.lastCol, variant: "info" | "warning" | "muted" = "muted"): void {
+  note(
+    text: string,
+    span = this.lastCol,
+    variant: "info" | "warning" | "muted" = "muted",
+  ): void {
     const r = this.ws.getRow(this.row);
     const fill =
-      variant === "warning" ? XL_COLORS.warningFill : variant === "info" ? XL_COLORS.infoFill : "";
+      variant === "warning"
+        ? XL_COLORS.warningFill
+        : variant === "info"
+          ? XL_COLORS.infoFill
+          : "";
     const color =
       variant === "warning"
         ? XL_COLORS.warningText
@@ -594,8 +678,17 @@ export class XlSheet {
     if (fill) this.fillRange(r, 1, span, fill);
     if (span > 1) this.ws.mergeCells(this.row, 1, this.row, span);
     this.setValue(r, 1, text);
-    r.getCell(1).font = this.font({ size: 9, italic: variant === "muted", color });
-    r.getCell(1).alignment = { vertical: "middle", horizontal: "left", wrapText: true, indent: 1 };
+    r.getCell(1).font = this.font({
+      size: 9,
+      italic: variant === "muted",
+      color,
+    });
+    r.getCell(1).alignment = {
+      vertical: "middle",
+      horizontal: "left",
+      wrapText: true,
+      indent: 1,
+    };
     r.height = this.estimateHeight(text, this.spanWidth(1, span), 9);
     this.row++;
   }
@@ -610,20 +703,45 @@ export class XlSheet {
       [r1, r2, r3].forEach((r, idx) => {
         if (idx === 2 && !hasSub) return;
         this.fillRange(r, k.from, k.to, XL_COLORS.band);
-        r.getCell(k.from).border = { left: { style: "thick", color: { argb: XL_COLORS.teal } } };
+        r.getCell(k.from).border = {
+          left: { style: "thick", color: { argb: XL_COLORS.teal } },
+        };
         if (k.to > k.from) this.ws.mergeCells(r.number, k.from, r.number, k.to);
       });
       this.setValue(r1, k.from, k.label.toUpperCase());
-      r1.getCell(k.from).font = this.font({ size: 8, bold: true, color: XL_COLORS.textMuted });
-      r1.getCell(k.from).alignment = { vertical: "bottom", horizontal: "left", indent: 1 };
+      r1.getCell(k.from).font = this.font({
+        size: 8,
+        bold: true,
+        color: XL_COLORS.textMuted,
+      });
+      r1.getCell(k.from).alignment = {
+        vertical: "bottom",
+        horizontal: "left",
+        indent: 1,
+      };
       this.setValue(r2, k.from, k.value);
       if (k.numFmt) r2.getCell(k.from).numFmt = k.numFmt;
-      r2.getCell(k.from).font = this.font({ size: 15, bold: true, color: XL_COLORS.tealDark });
-      r2.getCell(k.from).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+      r2.getCell(k.from).font = this.font({
+        size: 15,
+        bold: true,
+        color: XL_COLORS.tealDark,
+      });
+      r2.getCell(k.from).alignment = {
+        vertical: "middle",
+        horizontal: "left",
+        indent: 1,
+      };
       if (hasSub) {
         this.setValue(r3, k.from, k.sub || "");
-        r3.getCell(k.from).font = this.font({ size: 8, color: XL_COLORS.textMuted });
-        r3.getCell(k.from).alignment = { vertical: "top", horizontal: "left", indent: 1 };
+        r3.getCell(k.from).font = this.font({
+          size: 8,
+          color: XL_COLORS.textMuted,
+        });
+        r3.getCell(k.from).alignment = {
+          vertical: "top",
+          horizontal: "left",
+          indent: 1,
+        };
       }
     });
     r1.height = 16;

@@ -39,8 +39,20 @@ export function buildInfoSheet(ctx: IBidExcelContext): void {
 
   x.sectionTitle("Key Figures", span);
   x.kpis([
-    { label: "Total Cost USD", value: s.totalCostUSD, numFmt: NUM.usd, from: 1, to: 1 },
-    { label: "Total Cost BRL", value: s.totalCostBRL, numFmt: NUM.brl, from: 2, to: 3 },
+    {
+      label: "Total Cost USD",
+      value: s.totalCostUSD,
+      numFmt: NUM.usd,
+      from: 1,
+      to: 1,
+    },
+    {
+      label: "Total Cost BRL",
+      value: s.totalCostBRL,
+      numFmt: NUM.brl,
+      from: 2,
+      to: 3,
+    },
     {
       label: "PTAX used (USD→BRL)",
       value: s.ptaxUsed > 0 ? s.ptaxUsed : "—",
@@ -90,9 +102,13 @@ export function buildInfoSheet(ctx: IBidExcelContext): void {
   kv("Field", opp.field);
   kv(
     "Water Depth",
-    opp.waterDepth ? `${opp.waterDepth} ${opp.waterDepthUnit || ""}`.trim() : "",
+    opp.waterDepth
+      ? `${opp.waterDepth} ${opp.waterDepthUnit || ""}`.trim()
+      : "",
   );
-  kv("Operation Start", toExcelDate(opp.operationStartDate), { numFmt: NUM.date });
+  kv("Operation Start", toExcelDate(opp.operationStartDate), {
+    numFmt: NUM.date,
+  });
   kv(
     "Total Duration",
     opp.totalDuration
@@ -128,7 +144,9 @@ export function buildInfoSheet(ctx: IBidExcelContext): void {
     kv("BRL", `1 USD = ${s.ptaxUsed.toFixed(4)} BRL`);
   }
   rates.forEach((r) => {
-    const parts = [`1 USD = ${r.rate.toFixed(4)} ${(r.currency || "").toUpperCase()}`];
+    const parts = [
+      `1 USD = ${r.rate.toFixed(4)} ${(r.currency || "").toUpperCase()}`,
+    ];
     if (r.rateDate) parts.push(`rate of ${displayDate(r.rateDate)}`);
     if (r.source) parts.push(r.source);
     if (r.capturedDate) parts.push(`registered ${displayDate(r.capturedDate)}`);
@@ -158,7 +176,8 @@ export function buildInfoSheet(ctx: IBidExcelContext): void {
     { header: "Content", width: 24 },
   ];
   BID_EXCEL_SHEETS.filter(
-    (d) => d.key !== "info" && (d.required || ctx.opts.sheets.indexOf(d.key) >= 0),
+    (d) =>
+      d.key !== "info" && (d.required || ctx.opts.sheets.indexOf(d.key) >= 0),
   ).forEach((d) => {
     const r = x.dataRow(tocCols, [
       { value: { text: d.name, hyperlink: `#'${d.name}'!A1` } },

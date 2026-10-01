@@ -227,7 +227,9 @@ function summarizeAsset(
   if (hasSplits) includes.push(`${splits.length} availability splits`);
   if (rollup) includes.push(`Σ ${rollup}`);
   if (bd.subItems.length > 0 && bd.subItemsTotal > 0) {
-    includes.push(`Sub-items (${bd.subItems.length}) ${fmtUSD(bd.subItemsTotal)}`);
+    includes.push(
+      `Sub-items (${bd.subItems.length}) ${fmtUSD(bd.subItemsTotal)}`,
+    );
   }
   if (asset.costFromPCF && bd.pcfTotal > 0) {
     includes.push(`PCF (${bd.pcf.length}) ${fmtUSD(bd.pcfTotal)}`);
@@ -402,7 +404,11 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
       total: number,
     ): void => {
       if (!isProcured(e)) return;
-      if (!(total > 0) && !(e.supplier || "").trim() && !(e.leadTimeDays || 0)) {
+      if (
+        !(total > 0) &&
+        !(e.supplier || "").trim() &&
+        !(e.leadTimeDays || 0)
+      ) {
         return;
       }
       rows.push({
@@ -507,7 +513,9 @@ export function summarizeSuppliers(rows: ISupplierRow[]): ISupplierSummary[] {
     s.totalUSD += r.total;
     if (r.leadTime !== null) {
       s.maxLeadTime =
-        s.maxLeadTime === null ? r.leadTime : Math.max(s.maxLeadTime, r.leadTime);
+        s.maxLeadTime === null
+          ? r.leadTime
+          : Math.max(s.maxLeadTime, r.leadTime);
     }
   });
   return Object.keys(map)

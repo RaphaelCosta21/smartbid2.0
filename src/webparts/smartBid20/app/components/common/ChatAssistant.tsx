@@ -48,7 +48,9 @@ const ChatBubble: React.FC<IBubbleProps> = ({ message, onFollowUp }) => {
 
   const pastBidFor = (url: string): string | undefined => {
     try {
-      return pastBidByPath[decodeURIComponent(new URL(url).pathname).toLowerCase()];
+      return pastBidByPath[
+        decodeURIComponent(new URL(url).pathname).toLowerCase()
+      ];
     } catch {
       return undefined;
     }

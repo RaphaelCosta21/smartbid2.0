@@ -59,7 +59,9 @@ export function usePastBidPublisher(): (
         const store = useBidStore.getState();
         store.setBids(
           store.bids.map((b) =>
-            b.bidNumber === bid.bidNumber ? { ...b, knowledgeProfile: profile } : b,
+            b.bidNumber === bid.bidNumber
+              ? { ...b, knowledgeProfile: profile }
+              : b,
           ),
         );
         if (profile.doc.status === "failed") {

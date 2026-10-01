@@ -90,7 +90,9 @@ function questionYears(normalized: string): number[] {
   tokens(normalized).forEach((t) => {
     if (isYear(t)) years.push(Number(t));
   });
-  if (/\b(este|esse|neste|nesse|deste|desse) ano\b|\bthis year\b/.test(normalized)) {
+  if (
+    /\b(este|esse|neste|nesse|deste|desse) ano\b|\bthis year\b/.test(normalized)
+  ) {
     years.push(now);
   }
   if (/\bano passado\b|\blast year\b/.test(normalized)) years.push(now - 1);
@@ -123,8 +125,12 @@ function ledgerRow(bid: IBid): string {
     opp && opp.client ? `Client ${clean(opp.client)}` : "",
     opp && opp.projectName ? `Project ${clean(opp.projectName)}` : "",
     [bid.division, bid.serviceLine].filter(Boolean).join(" / "),
-    p && p.scopeCategories.length ? `Scope ${p.scopeCategories.join(", ")}` : "",
-    p && p.tags.length ? `Tags ${p.tags.slice(0, MAX_ROW_TAGS).join(", ")}` : "",
+    p && p.scopeCategories.length
+      ? `Scope ${p.scopeCategories.join(", ")}`
+      : "",
+    p && p.tags.length
+      ? `Tags ${p.tags.slice(0, MAX_ROW_TAGS).join(", ")}`
+      : "",
     `Outcome ${(bid.bidResult && bid.bidResult.outcome) || "not recorded"}`,
     total
       ? `Total BID cost USD ${total.toLocaleString("en-US", { maximumFractionDigits: 0 })}`

@@ -133,7 +133,10 @@ export class PastBidKnowledgeService {
           aiStatus = "ok";
           aiSuggestedDate = now;
         } catch (err) {
-          console.warn(`Past Bid AI classification failed for ${bid.bidNumber}:`, err);
+          console.warn(
+            `Past Bid AI classification failed for ${bid.bidNumber}:`,
+            err,
+          );
           aiStatus = "failed";
         }
       }
@@ -146,8 +149,16 @@ export class PastBidKnowledgeService {
       ...fields,
       aiStatus,
       aiSuggestedDate,
-      editedBy: opts.profile ? actor : existing ? existing.editedBy || null : null,
-      editedDate: opts.profile ? now : existing ? existing.editedDate || null : null,
+      editedBy: opts.profile
+        ? actor
+        : existing
+          ? existing.editedBy || null
+          : null,
+      editedDate: opts.profile
+        ? now
+        : existing
+          ? existing.editedDate || null
+          : null,
       doc: {
         status: "published",
         fileName,
@@ -170,7 +181,10 @@ export class PastBidKnowledgeService {
         true,
       );
     } catch (err) {
-      console.error(`Past Bid document upload failed for ${bid.bidNumber}:`, err);
+      console.error(
+        `Past Bid document upload failed for ${bid.bidNumber}:`,
+        err,
+      );
       profile.doc = {
         ...profile.doc,
         status: "failed",

@@ -166,8 +166,8 @@ export const PastBidProfileModal: React.FC<PastBidProfileModalProps> = ({
             <span className={styles.label}>Scope categories</span>
             {categoryOptions.length === 0 ? (
               <span className={styles.hint}>
-                No scope categories configured. Add them in System
-                Configuration → Scope Categories.
+                No scope categories configured. Add them in System Configuration
+                → Scope Categories.
               </span>
             ) : (
               <div className={styles.categoryGrid}>
@@ -200,7 +200,9 @@ export const PastBidProfileModal: React.FC<PastBidProfileModalProps> = ({
                   <button
                     type="button"
                     className={styles.tagRemove}
-                    onClick={() => setTags((prev) => prev.filter((x) => x !== t))}
+                    onClick={() =>
+                      setTags((prev) => prev.filter((x) => x !== t))
+                    }
                     aria-label={`Remove ${t}`}
                   >
                     <X size={12} />
@@ -227,8 +229,8 @@ export const PastBidProfileModal: React.FC<PastBidProfileModalProps> = ({
               </datalist>
             </div>
             <span className={styles.hint}>
-              Press Enter or comma to add. Use equipment, systems and
-              operations (not client names).
+              Press Enter or comma to add. Use equipment, systems and operations
+              (not client names).
             </span>
           </div>
 

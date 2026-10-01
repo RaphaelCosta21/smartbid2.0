@@ -27,17 +27,69 @@ export function buildHoursSheet(ctx: IBidExcelContext): void {
   const cols = activeColumns([
     { key: "fn", header: "Function", width: 34, wrap: true },
     { key: "phase", header: "Phase", width: 18, wrap: true },
-    { key: "hpd", header: "Hrs/Day", width: 9, align: "right", numFmt: NUM.dec },
+    {
+      key: "hpd",
+      header: "Hrs/Day",
+      width: 9,
+      align: "right",
+      numFmt: NUM.dec,
+    },
     { key: "ppl", header: "People", width: 8, align: "right", numFmt: NUM.int },
-    { key: "days", header: "Work Days", width: 10, align: "right", numFmt: NUM.dec },
-    { key: "util", header: "Util %", width: 8, align: "right", numFmt: NUM.pctWhole },
-    { key: "hours", header: "Total Hrs", width: 11, align: "right", numFmt: NUM.hours },
-    { key: "brl", header: "Cost (BRL)", width: 18, align: "right", numFmt: NUM.brl },
-    { key: "usd", header: "Cost (USD)", width: 18, align: "right", numFmt: NUM.usd },
-    { key: "div", header: "Division", width: 10, align: "center", when: view.isIntegrated },
-    { key: "notes", header: "Notes", width: 34, wrap: true, when: opts.includeNotes },
+    {
+      key: "days",
+      header: "Work Days",
+      width: 10,
+      align: "right",
+      numFmt: NUM.dec,
+    },
+    {
+      key: "util",
+      header: "Util %",
+      width: 8,
+      align: "right",
+      numFmt: NUM.pctWhole,
+    },
+    {
+      key: "hours",
+      header: "Total Hrs",
+      width: 11,
+      align: "right",
+      numFmt: NUM.hours,
+    },
+    {
+      key: "brl",
+      header: "Cost (BRL)",
+      width: 18,
+      align: "right",
+      numFmt: NUM.brl,
+    },
+    {
+      key: "usd",
+      header: "Cost (USD)",
+      width: 18,
+      align: "right",
+      numFmt: NUM.usd,
+    },
+    {
+      key: "div",
+      header: "Division",
+      width: 10,
+      align: "center",
+      when: view.isIntegrated,
+    },
+    {
+      key: "notes",
+      header: "Notes",
+      width: 34,
+      wrap: true,
+      when: opts.includeNotes,
+    },
   ]);
-  const x = newSheet(ctx, "hours", cols.map((c) => c.width));
+  const x = newSheet(
+    ctx,
+    "hours",
+    cols.map((c) => c.width),
+  );
   const span = x.lastCol;
   const hoursCol = colOf(cols, "hours");
   const brlCol = colOf(cols, "brl");
@@ -49,15 +101,41 @@ export function buildHoursSheet(ctx: IBidExcelContext): void {
   x.sectionTitle("Summary", span, "USD = BRL ÷ PTAX");
   const sumRanges: IXlRange[] = [
     { header: "Category", width: 0, from: 1, to: hoursCol - 1 },
-    { header: "Total Hrs", width: 0, align: "right", numFmt: NUM.hours, from: hoursCol, to: hoursCol },
-    { header: "Cost (BRL)", width: 0, align: "right", numFmt: NUM.brl, from: brlCol, to: brlCol },
-    { header: "Cost (USD)", width: 0, align: "right", numFmt: NUM.usd, from: usdCol, to: usdCol },
+    {
+      header: "Total Hrs",
+      width: 0,
+      align: "right",
+      numFmt: NUM.hours,
+      from: hoursCol,
+      to: hoursCol,
+    },
+    {
+      header: "Cost (BRL)",
+      width: 0,
+      align: "right",
+      numFmt: NUM.brl,
+      from: brlCol,
+      to: brlCol,
+    },
+    {
+      header: "Cost (USD)",
+      width: 0,
+      align: "right",
+      numFmt: NUM.usd,
+      from: usdCol,
+      to: usdCol,
+    },
   ];
   x.rangeHeader(sumRanges);
   const sumRow = (label: string, h: number, brl: number, i: number): void => {
     x.rangeRow(sumRanges, [label, h, brl, usdOf(brl)], { zebra: i % 2 === 1 });
   };
-  sumRow("Engineering Hours", view.hours.engineering, s.engineeringHoursCostBRL, 0);
+  sumRow(
+    "Engineering Hours",
+    view.hours.engineering,
+    s.engineeringHoursCostBRL,
+    0,
+  );
   sumRow("Onshore Hours", view.hours.onshore, s.onshoreHoursCostBRL, 1);
   sumRow("Offshore Hours", view.hours.offshore, s.offshoreHoursCostBRL, 2);
   x.rangeRow(
@@ -73,28 +151,36 @@ export function buildHoursSheet(ctx: IBidExcelContext): void {
   x.gap(18);
 
   // ─── Engineering (deliverable-based) ───
-  const engItems: IEngineeringHoursItem[] = (hs && hs.engineeringHours && hs.engineeringHours.engineeringItems) || [];
-  const engLegacy: IHoursItem[] = (hs && hs.engineeringHours && hs.engineeringHours.items) || [];
-  x.sectionTitle("Engineering Hours", span, "Deliverables per item · hours by resource");
+  const engItems: IEngineeringHoursItem[] =
+    (hs && hs.engineeringHours && hs.engineeringHours.engineeringItems) || [];
+  const engLegacy: IHoursItem[] =
+    (hs && hs.engineeringHours && hs.engineeringHours.items) || [];
+  x.sectionTitle(
+    "Engineering Hours",
+    span,
+    "Deliverables per item · hours by resource",
+  );
   if (engItems.length > 0) {
     writeEngineeringItems(x, cols, engItems);
   }
   if (engLegacy.length > 0) {
     if (engItems.length > 0) x.gap(8);
-    writeHoursTable(x, cols, engLegacy, (hs && hs.engineeringHours && hs.engineeringHours.sections) || [], usdOf);
+    writeHoursTable(
+      x,
+      cols,
+      engLegacy,
+      (hs && hs.engineeringHours && hs.engineeringHours.sections) || [],
+      usdOf,
+    );
   }
   if (engItems.length === 0 && engLegacy.length === 0) {
     x.note("No engineering hours.", span, "muted");
   }
-  x.total(
-    "Engineering Hours total",
-    span,
-    [
-      { col: hoursCol, value: view.hours.engineering, numFmt: NUM.hours },
-      { col: brlCol, value: s.engineeringHoursCostBRL, numFmt: NUM.brl },
-      { col: usdCol, value: usdOf(s.engineeringHoursCostBRL), numFmt: NUM.usd },
-    ],
-  );
+  x.total("Engineering Hours total", span, [
+    { col: hoursCol, value: view.hours.engineering, numFmt: NUM.hours },
+    { col: brlCol, value: s.engineeringHoursCostBRL, numFmt: NUM.brl },
+    { col: usdCol, value: usdOf(s.engineeringHoursCostBRL), numFmt: NUM.usd },
+  ]);
   x.gap(18);
 
   const writeSection = (
@@ -108,21 +194,33 @@ export function buildHoursSheet(ctx: IBidExcelContext): void {
     if (items.length === 0) {
       x.note("No items.", span, "muted");
     } else {
-      writeHoursTable(x, cols, items, (section && section.sections) || [], usdOf);
+      writeHoursTable(
+        x,
+        cols,
+        items,
+        (section && section.sections) || [],
+        usdOf,
+      );
     }
-    x.total(
-      `${title} total`,
-      span,
-      [
-        { col: hoursCol, value: totalH, numFmt: NUM.hours },
-        { col: brlCol, value: totalBRL, numFmt: NUM.brl },
-        { col: usdCol, value: usdOf(totalBRL), numFmt: NUM.usd },
-      ],
-    );
+    x.total(`${title} total`, span, [
+      { col: hoursCol, value: totalH, numFmt: NUM.hours },
+      { col: brlCol, value: totalBRL, numFmt: NUM.brl },
+      { col: usdCol, value: usdOf(totalBRL), numFmt: NUM.usd },
+    ]);
     x.gap(18);
   };
-  writeSection("Onshore Hours", hs && hs.onshoreHours, view.hours.onshore, s.onshoreHoursCostBRL);
-  writeSection("Offshore Hours", hs && hs.offshoreHours, view.hours.offshore, s.offshoreHoursCostBRL);
+  writeSection(
+    "Onshore Hours",
+    hs && hs.onshoreHours,
+    view.hours.onshore,
+    s.onshoreHoursCostBRL,
+  );
+  writeSection(
+    "Offshore Hours",
+    hs && hs.offshoreHours,
+    view.hours.offshore,
+    s.offshoreHoursCostBRL,
+  );
 }
 
 function writeHoursTable(
@@ -193,26 +291,52 @@ function writeEngineeringItems(
   const ranges: IXlRange[] = [
     { header: "Item / Deliverable", width: 0, from: 1, to: 1 },
     { header: "Section", width: 0, from: 2, to: 2 },
-    { header: "Equipment Offer · Hours by resource", width: 0, from: 3, to: hoursCol - 1 },
-    { header: "Total Hrs", width: 0, align: "right", from: hoursCol, to: hoursCol },
+    {
+      header: "Equipment Offer · Hours by resource",
+      width: 0,
+      from: 3,
+      to: hoursCol - 1,
+    },
+    {
+      header: "Total Hrs",
+      width: 0,
+      align: "right",
+      from: hoursCol,
+      to: hoursCol,
+    },
     { header: "", width: 0, from: colOf(cols, "brl"), to: colOf(cols, "usd") },
   ];
   const divCol = colOf(cols, "div");
   const notesCol = colOf(cols, "notes");
-  if (divCol) ranges.push({ header: "Division", width: 0, align: "center", from: divCol, to: divCol });
-  if (notesCol) ranges.push({ header: "Notes", width: 0, from: notesCol, to: notesCol });
+  if (divCol)
+    ranges.push({
+      header: "Division",
+      width: 0,
+      align: "center",
+      from: divCol,
+      to: divCol,
+    });
+  if (notesCol)
+    ranges.push({ header: "Notes", width: 0, from: notesCol, to: notesCol });
   x.rangeHeader(ranges);
 
   items.forEach((item, idx) => {
-    const offer = [item.equipmentOffer, item.includeManufacturing ? "incl. Manufacturing Support (20%)" : ""]
+    const offer = [
+      item.equipmentOffer,
+      item.includeManufacturing ? "incl. Manufacturing Support (20%)" : "",
+    ]
       .filter(Boolean)
       .join(" · ");
     x.dataRow(
       cols,
       pickRow(cols, {
         fn: { value: `${idx + 1}. ${item.description || "—"}`, bold: true },
-        phase: item.sectionName || (item.source === "manual" || !item.scopeItemId ? "Manual" : ""),
-        hpd: offer ? { value: offer, align: "left", color: XL_COLORS.textSecondary } : null,
+        phase:
+          item.sectionName ||
+          (item.source === "manual" || !item.scopeItemId ? "Manual" : ""),
+        hpd: offer
+          ? { value: offer, align: "left", color: XL_COLORS.textSecondary }
+          : null,
         hours: { value: item.totalHours || 0, bold: true },
         div: item.integratedDivision || "",
         notes: item.notes || "",

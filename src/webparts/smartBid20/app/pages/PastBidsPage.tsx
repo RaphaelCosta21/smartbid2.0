@@ -100,16 +100,17 @@ function toRow(bid: IBid): IPastBidRow {
   };
 }
 
-function toOptions(values: string[], descending?: boolean): MultiSelectOption[] {
+function toOptions(
+  values: string[],
+  descending?: boolean,
+): MultiSelectOption[] {
   const unique = mergeUnique(values).sort((a, b) => a.localeCompare(b));
   if (descending) unique.reverse();
   return unique.map((v) => ({ value: v, label: v }));
 }
 
 function anyOf(selected: string[], values: string[]): boolean {
-  return (
-    selected.length === 0 || values.some((v) => selected.indexOf(v) >= 0)
-  );
+  return selected.length === 0 || values.some((v) => selected.indexOf(v) >= 0);
 }
 
 export const PastBidsPage: React.FC = () => {
@@ -125,9 +126,7 @@ export const PastBidsPage: React.FC = () => {
   const [selectedNumber, setSelectedNumber] = React.useState<string | null>(
     null,
   );
-  const [editingNumber, setEditingNumber] = React.useState<string | null>(
-    null,
-  );
+  const [editingNumber, setEditingNumber] = React.useState<string | null>(null);
   const [busyNumber, setBusyNumber] = React.useState<string | null>(null);
 
   const completed = React.useMemo(
@@ -175,7 +174,10 @@ export const PastBidsPage: React.FC = () => {
       serviceLines: toOptions(collect((r) => [r.serviceLine])),
       clients: toOptions(collect((r) => [r.client])),
       outcomes: toOptions(collect((r) => [r.outcome])),
-      years: toOptions(collect((r) => [r.year]), true),
+      years: toOptions(
+        collect((r) => [r.year]),
+        true,
+      ),
       kbStatuses: (Object.keys(KB_STATUS_LABELS) as PastBidKbStatus[]).map(
         (k) => ({ value: k, label: KB_STATUS_LABELS[k] }),
       ),

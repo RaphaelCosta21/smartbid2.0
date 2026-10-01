@@ -1,15 +1,12 @@
 import * as React from "react";
-import {
-  CloudUpload,
-  ExternalLink,
-  Pencil,
-  RefreshCw,
-  X,
-} from "lucide-react";
+import { CloudUpload, ExternalLink, Pencil, RefreshCw, X } from "lucide-react";
 import { IBid } from "../../models";
 import { DivisionBadge } from "../common/DivisionBadge";
 import { formatDate } from "../../utils/formatters";
-import { findRelatedBids, getPastBidKbStatus } from "../../utils/pastBidHelpers";
+import {
+  findRelatedBids,
+  getPastBidKbStatus,
+} from "../../utils/pastBidHelpers";
 import { getPastBidYear } from "../../utils/pastBidDocument";
 import { PastBidKnowledgeService } from "../../services/PastBidKnowledgeService";
 import styles from "./PastBidDrawer.module.scss";

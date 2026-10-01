@@ -36,7 +36,10 @@ const XLSX_MIME =
 async function loadExcelJS(): Promise<typeof ExcelJSTypes> {
   // The package's "browser" field resolves this to the prebuilt dist bundle (own chunk, lazy)
   const mod = await import(/* webpackChunkName: 'exceljs' */ "exceljs");
-  const m = mod as unknown as { Workbook?: unknown; default?: typeof ExcelJSTypes };
+  const m = mod as unknown as {
+    Workbook?: unknown;
+    default?: typeof ExcelJSTypes;
+  };
   return (m.Workbook ? mod : m.default) as typeof ExcelJSTypes;
 }
 
@@ -81,7 +84,9 @@ export async function exportBidToExcel(
   wb.created = now;
   wb.modified = now;
   wb.title = `BID ${bid.bidNumber} — Cost Export`;
-  wb.subject = [opp && opp.client, opp && opp.projectName].filter(Boolean).join(" · ");
+  wb.subject = [opp && opp.client, opp && opp.projectName]
+    .filter(Boolean)
+    .join(" · ");
   wb.company = "Oceaneering";
 
   const ctx: IBidExcelContext = {

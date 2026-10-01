@@ -108,7 +108,9 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
   const opp = bid.opportunityInfo;
 
   const stats = React.useMemo((): Record<BidExcelSheetKey, string> => {
-    const scopeCount = (bid.scopeItems || []).filter((i) => !i.isSection).length;
+    const scopeCount = (bid.scopeItems || []).filter(
+      (i) => !i.isSection,
+    ).length;
     const prepCount =
       (bid.rtsItems || []).length +
       (bid.mobilizationItems || []).length +
@@ -165,13 +167,19 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
     const noSupplier = supplierRows.filter((r) => !r.supplier).length;
     list.push(
       noSupplier > 0
-        ? { ok: false, label: `${plural(noSupplier, "procured line")} without supplier` }
+        ? {
+            ok: false,
+            label: `${plural(noSupplier, "procured line")} without supplier`,
+          }
         : { ok: true, label: "Supplier informed on every procured line" },
     );
     const noLead = supplierRows.filter((r) => r.leadTime === null).length;
     list.push(
       noLead > 0
-        ? { ok: false, label: `${plural(noLead, "procured line")} without lead time` }
+        ? {
+            ok: false,
+            label: `${plural(noLead, "procured line")} without lead time`,
+          }
         : { ok: true, label: "Lead time informed on every procured line" },
     );
     return list;
@@ -347,12 +355,13 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
                       <span className={styles.sheetDesc}>
                         {def.description}
                       </span>
-                      <span className={styles.sheetStat}>
-                        {stats[def.key]}
-                      </span>
+                      <span className={styles.sheetStat}>{stats[def.key]}</span>
                     </span>
                     {def.required ? (
-                      <span className={styles.requiredTag} title="Always included">
+                      <span
+                        className={styles.requiredTag}
+                        title="Always included"
+                      >
                         <Lock size={11} /> Required
                       </span>
                     ) : (
@@ -454,7 +463,11 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
                   key={c.label}
                   className={`${styles.check} ${c.ok ? styles.checkOk : styles.checkWarn}`}
                 >
-                  {c.ok ? <CircleCheck size={15} /> : <TriangleAlert size={15} />}
+                  {c.ok ? (
+                    <CircleCheck size={15} />
+                  ) : (
+                    <TriangleAlert size={15} />
+                  )}
                   <span>{c.label}</span>
                 </li>
               ))}

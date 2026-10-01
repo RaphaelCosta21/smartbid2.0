@@ -22,7 +22,13 @@ export function buildCostSummarySheet(ctx: IBidExcelContext): void {
   const capexPct = pctOf(view.capex.usd);
   const opexPct = pctOf(view.opex.usd);
   x.kpis([
-    { label: "Total Cost USD", value: totalUSD, numFmt: NUM.usd, from: 1, to: 1 },
+    {
+      label: "Total Cost USD",
+      value: totalUSD,
+      numFmt: NUM.usd,
+      from: 1,
+      to: 1,
+    },
     {
       label: "Total Cost BRL",
       value: s.totalCostBRL,
@@ -69,7 +75,11 @@ export function buildCostSummarySheet(ctx: IBidExcelContext): void {
   x.gap(14);
 
   // ─── Cost Breakdown (same rows as the Cost Summary tab) ───
-  x.sectionTitle("Cost Breakdown", span, "Values in USD and BRL · % of total cost");
+  x.sectionTitle(
+    "Cost Breakdown",
+    span,
+    "Values in USD and BRL · % of total cost",
+  );
   const cols: IXlColumn[] = [
     { header: "Category", width: 44 },
     { header: "USD", width: 22, align: "right", numFmt: NUM.usd },
@@ -81,7 +91,13 @@ export function buildCostSummarySheet(ctx: IBidExcelContext): void {
   view.rows.forEach((r) => {
     x.dataRow(
       cols,
-      [r.label, r.usd, r.brl, pctOf(r.usd), r.hours === undefined ? null : r.hours],
+      [
+        r.label,
+        r.usd,
+        r.brl,
+        pctOf(r.usd),
+        r.hours === undefined ? null : r.hours,
+      ],
       r.indent
         ? { muted: true, indentCol: 1, indent: 2 }
         : { bold: true, fontColor: XL_COLORS.navy },
@@ -101,7 +117,11 @@ export function buildCostSummarySheet(ctx: IBidExcelContext): void {
   x.gap(16);
 
   // ─── CAPEX x OPEX ───
-  x.sectionTitle("BID CAPEX x OPEX", span, "Hours, logistics, certifications and prep & mob are booked as CAPEX");
+  x.sectionTitle(
+    "BID CAPEX x OPEX",
+    span,
+    "Hours, logistics, certifications and prep & mob are booked as CAPEX",
+  );
   const bucketCols: IXlColumn[] = [
     { header: "Bucket", width: 44 },
     { header: "USD", width: 22, align: "right", numFmt: NUM.usd },
@@ -112,18 +132,26 @@ export function buildCostSummarySheet(ctx: IBidExcelContext): void {
   x.header(bucketCols);
   const bucket = (
     label: string,
-    b: { usd: number; brl: number; segments?: { label: string; usd: number; brl: number }[] },
+    b: {
+      usd: number;
+      brl: number;
+      segments?: { label: string; usd: number; brl: number }[];
+    },
   ): void => {
     x.dataRow(bucketCols, [label, b.usd, b.brl, pctOf(b.usd), null], {
       bold: true,
       fontColor: XL_COLORS.navy,
     });
     (b.segments || []).forEach((seg) =>
-      x.dataRow(bucketCols, [seg.label, seg.usd, seg.brl, pctOf(seg.usd), null], {
-        muted: true,
-        indentCol: 1,
-        indent: 2,
-      }),
+      x.dataRow(
+        bucketCols,
+        [seg.label, seg.usd, seg.brl, pctOf(seg.usd), null],
+        {
+          muted: true,
+          indentCol: 1,
+          indent: 2,
+        },
+      ),
     );
   };
   bucket("CAPEX", view.capex);
@@ -154,7 +182,12 @@ export function buildCostSummarySheet(ctx: IBidExcelContext): void {
           { header: "Resource Type", width: 44 },
           { header: "CAPEX USD", width: 22, align: "right", numFmt: NUM.usd },
           { header: "OPEX USD", width: 22, align: "right", numFmt: NUM.usd },
-          { header: "Uncategorized USD", width: 19, align: "right", numFmt: NUM.usd },
+          {
+            header: "Uncategorized USD",
+            width: 19,
+            align: "right",
+            numFmt: NUM.usd,
+          },
           { header: "Total USD", width: 16, align: "right", numFmt: NUM.usd },
         ]
       : [
@@ -169,7 +202,13 @@ export function buildCostSummarySheet(ctx: IBidExcelContext): void {
       x.dataRow(
         typeCols,
         hasUncat
-          ? [rt.resourceType, rt.capexUSD, rt.opexUSD, rt.uncategorizedUSD, rt.totalUSD]
+          ? [
+              rt.resourceType,
+              rt.capexUSD,
+              rt.opexUSD,
+              rt.uncategorizedUSD,
+              rt.totalUSD,
+            ]
           : [
               rt.resourceType,
               rt.capexUSD,
@@ -210,7 +249,9 @@ export function buildCostSummarySheet(ctx: IBidExcelContext): void {
     { header: "Source", width: 19 },
     { header: "Registered", width: 16, align: "center", numFmt: NUM.date },
   ];
-  const rates = view.fx.rates.filter((r) => (r.currency || "").toUpperCase() !== "USD");
+  const rates = view.fx.rates.filter(
+    (r) => (r.currency || "").toUpperCase() !== "USD",
+  );
   if (rates.length > 0) {
     x.header(fxCols);
     rates.forEach((r, i) =>
@@ -228,7 +269,13 @@ export function buildCostSummarySheet(ctx: IBidExcelContext): void {
     );
   } else if (s.ptaxUsed > 0) {
     x.header(fxCols);
-    x.dataRow(fxCols, ["BRL (PTAX)", s.ptaxUsed, toExcelDate(bid.opportunityInfo?.ptaxDate), "", null]);
+    x.dataRow(fxCols, [
+      "BRL (PTAX)",
+      s.ptaxUsed,
+      toExcelDate(bid.opportunityInfo?.ptaxDate),
+      "",
+      null,
+    ]);
   }
   x.gap(6);
   x.note(

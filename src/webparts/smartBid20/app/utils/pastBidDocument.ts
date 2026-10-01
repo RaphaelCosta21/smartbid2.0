@@ -288,7 +288,11 @@ function description(bid: IBid, num: number): string[] {
   return blocks.length ? [heading(2, `${num} Description`)].concat(blocks) : [];
 }
 
-function subItemLine(kind: string, owner: IScopeItem, s: IScopeSubItem): string {
+function subItemLine(
+  kind: string,
+  owner: IScopeItem,
+  s: IScopeSubItem,
+): string {
   return record(
     `${kind} of line ${owner.lineNumber}: ${clean(s.description)}`,
     [
@@ -344,7 +348,9 @@ function scopeItemBlock(item: IScopeItem): string {
           record(`Client spec for line ${item.lineNumber}`, [["Text", spec]]),
         ),
       )
-      .concat((item.subItems || []).map((s) => subItemLine("Sub-item", item, s)))
+      .concat(
+        (item.subItems || []).map((s) => subItemLine("Sub-item", item, s)),
+      )
       .concat(
         (item.pcfItems || []).map((s) => subItemLine("PCF item", item, s)),
       ),
@@ -388,7 +394,9 @@ function scopeOfSupply(bid: IBid, num: number): string[] {
     items.forEach((i) => blocks.push(scopeItemBlock(i)));
   };
   addGroup("General scope", unsectioned);
-  sections.forEach((s) => addGroup(s.sectionTitle || "Section", bySection[s.id] || []));
+  sections.forEach((s) =>
+    addGroup(s.sectionTitle || "Section", bySection[s.id] || []),
+  );
   return blocks;
 }
 
@@ -423,10 +431,14 @@ function pricing(bid: IBid, num: number): string[] {
       const scope = scopeById[a.scopeItemId];
       if (scope && scope.isSection) return "";
       const bd = getAssetCostBreakdown(a, scope);
-      const qty = scope ? (scope.qtyOperational || 0) + (scope.qtySpare || 0) : 0;
+      const qty = scope
+        ? (scope.qtyOperational || 0) + (scope.qtySpare || 0)
+        : 0;
       const owner = scope ? `line ${scope.lineNumber}` : "unlinked asset";
       const main = record(
-        scope ? `Asset ${lineLabel(scope)}` : "Asset (not linked to a scope line)",
+        scope
+          ? `Asset ${lineLabel(scope)}`
+          : "Asset (not linked to a scope line)",
         [
           ["Offer", scope?.equipmentOffer],
           ["PN", scope?.partNumber],
@@ -487,25 +499,31 @@ function pricing(bid: IBid, num: number): string[] {
         (list || []).forEach((sic) => {
           const sub = (source || []).find((s) => s.id === sic.subItemId);
           children.push(
-            record(`${kind} of ${owner}: ${sub ? clean(sub.description) : "item"}`, [
-              ["PN", sub?.partNumber],
-              ["Qty", sub?.qty || ""],
-              ["Availability", sic.availabilityStatus],
-              ["Acquisition", sic.acquisitionType],
-              ["Unit cost", amount(sic.unitCostUSD, "USD")],
+            record(
+              `${kind} of ${owner}: ${sub ? clean(sub.description) : "item"}`,
               [
-                "Rental",
-                sic.dailyRate
-                  ? `${money(sic.dailyRate, "USD")}/day x ${sic.rentalDays || 0} days`
-                  : "",
+                ["PN", sub?.partNumber],
+                ["Qty", sub?.qty || ""],
+                ["Availability", sic.availabilityStatus],
+                ["Acquisition", sic.acquisitionType],
+                ["Unit cost", amount(sic.unitCostUSD, "USD")],
+                [
+                  "Rental",
+                  sic.dailyRate
+                    ? `${money(sic.dailyRate, "USD")}/day x ${sic.rentalDays || 0} days`
+                    : "",
+                ],
+                ["Cost source", sic.costReference],
+                ["Supplier", sic.supplier],
+                ["Quotation", sic.quotationReference],
+                ["Cost date", day(sic.dateReference)],
+                [
+                  "Lead time",
+                  sic.leadTimeDays ? `${sic.leadTimeDays} days` : "",
+                ],
+                ["Notes", sic.notes],
               ],
-              ["Cost source", sic.costReference],
-              ["Supplier", sic.supplier],
-              ["Quotation", sic.quotationReference],
-              ["Cost date", day(sic.dateReference)],
-              ["Lead time", sic.leadTimeDays ? `${sic.leadTimeDays} days` : ""],
-              ["Notes", sic.notes],
-            ]),
+            ),
           );
         });
       childCosts("Sub-item cost", a.subItemCosts, scope?.subItems);
@@ -526,36 +544,45 @@ function pricing(bid: IBid, num: number): string[] {
   section(
     "Equipment List",
     (bid.equipmentList || []).map((e) =>
-      record(`Equipment: ${clean(e.toolDescription) || clean(e.requirementName)}`, [
-        ["PN", e.partNumber],
-        ["Qty", `${e.qtyOperational || 0} operational + ${e.qtySpare || 0} spare`],
-        ["Acquisition", e.acquisitionType],
-        ["Unit cost", amount(e.unitCostUSD, "USD")],
+      record(
+        `Equipment: ${clean(e.toolDescription) || clean(e.requirementName)}`,
         [
-          "Original price",
-          e.originalCost ? money(e.originalCost, e.originalCurrency) : "",
+          ["PN", e.partNumber],
+          [
+            "Qty",
+            `${e.qtyOperational || 0} operational + ${e.qtySpare || 0} spare`,
+          ],
+          ["Acquisition", e.acquisitionType],
+          ["Unit cost", amount(e.unitCostUSD, "USD")],
+          [
+            "Original price",
+            e.originalCost ? money(e.originalCost, e.originalCurrency) : "",
+          ],
+          ["Total", amount(e.totalCostUSD, "USD")],
+          ["Category", e.costCategory],
+          ["Cost source", e.costReference],
+          ["Quotation", e.quoteLabel],
+          ["Cost date", day(e.costDate)],
+          ["Lead time", e.leadTimeDays ? `${e.leadTimeDays} days` : ""],
+          ["Notes", e.notes],
         ],
-        ["Total", amount(e.totalCostUSD, "USD")],
-        ["Category", e.costCategory],
-        ["Cost source", e.costReference],
-        ["Quotation", e.quoteLabel],
-        ["Cost date", day(e.costDate)],
-        ["Lead time", e.leadTimeDays ? `${e.leadTimeDays} days` : ""],
-        ["Notes", e.notes],
-      ]),
+      ),
     ),
   );
 
   section(
     "Logistics",
     (bid.logisticsBreakdown || []).map((l) =>
-      record(`Logistics: ${[clean(l.item), clean(l.description)].filter(Boolean).join(" - ")}`, [
-        ["Qty", l.qty || ""],
-        ["Unit cost", amount(l.unitCost, l.originalCurrency)],
-        ["Total", amount(l.totalCost, l.originalCurrency)],
-        ["Division", l.integratedDivision],
-        ["Notes", l.notes],
-      ]),
+      record(
+        `Logistics: ${[clean(l.item), clean(l.description)].filter(Boolean).join(" - ")}`,
+        [
+          ["Qty", l.qty || ""],
+          ["Unit cost", amount(l.unitCost, l.originalCurrency)],
+          ["Total", amount(l.totalCost, l.originalCurrency)],
+          ["Division", l.integratedDivision],
+          ["Notes", l.notes],
+        ],
+      ),
     ),
   );
 
@@ -579,40 +606,49 @@ function pricing(bid: IBid, num: number): string[] {
   section(
     "Preparation (RTS)",
     (bid.rtsItems || []).map((r) =>
-      record(`Preparation${r.costType ? ` (${r.costType})` : ""}: ${clean(r.description)}`, [
-        ["For", r.scopeItemId ? lineLabel(scopeById[r.scopeItemId]) : ""],
-        ["Qty", r.qty || ""],
-        ["Unit cost", amount(r.unitCost, r.originalCurrency)],
-        ["Total", amount(r.totalCost, r.originalCurrency)],
-        ["Cost source", r.costReference],
-        ["Notes", r.notes],
-      ]),
+      record(
+        `Preparation${r.costType ? ` (${r.costType})` : ""}: ${clean(r.description)}`,
+        [
+          ["For", r.scopeItemId ? lineLabel(scopeById[r.scopeItemId]) : ""],
+          ["Qty", r.qty || ""],
+          ["Unit cost", amount(r.unitCost, r.originalCurrency)],
+          ["Total", amount(r.totalCost, r.originalCurrency)],
+          ["Cost source", r.costReference],
+          ["Notes", r.notes],
+        ],
+      ),
     ),
   );
 
   section(
     "Mobilization",
     (bid.mobilizationItems || []).map((m) =>
-      record(`${m.costType ? m.costType.charAt(0).toUpperCase() + m.costType.slice(1) : "Mobilization"}: ${clean(m.description)}`, [
-        ["Qty", m.qty || ""],
-        ["Unit cost", amount(m.unitCost, m.originalCurrency)],
-        ["Total", amount(m.totalCost, m.originalCurrency)],
-        ["Cost source", m.costReference],
-        ["Notes", m.notes],
-      ]),
+      record(
+        `${m.costType ? m.costType.charAt(0).toUpperCase() + m.costType.slice(1) : "Mobilization"}: ${clean(m.description)}`,
+        [
+          ["Qty", m.qty || ""],
+          ["Unit cost", amount(m.unitCost, m.originalCurrency)],
+          ["Total", amount(m.totalCost, m.originalCurrency)],
+          ["Cost source", m.costReference],
+          ["Notes", m.notes],
+        ],
+      ),
     ),
   );
 
   section(
     "Consumables",
     (bid.consumableItems || []).map((c) =>
-      record(`Consumable: ${[clean(c.item), clean(c.description)].filter(Boolean).join(" - ")}`, [
-        ["Qty", c.qty || ""],
-        ["Unit cost", amount(c.unitCost, c.originalCurrency)],
-        ["Total", amount(c.totalCost, c.originalCurrency)],
-        ["Cost source", c.costReference],
-        ["Notes", c.notes],
-      ]),
+      record(
+        `Consumable: ${[clean(c.item), clean(c.description)].filter(Boolean).join(" - ")}`,
+        [
+          ["Qty", c.qty || ""],
+          ["Unit cost", amount(c.unitCost, c.originalCurrency)],
+          ["Total", amount(c.totalCost, c.originalCurrency)],
+          ["Cost source", c.costReference],
+          ["Notes", c.notes],
+        ],
+      ),
     ),
   );
 
@@ -635,7 +671,9 @@ function pricing(bid: IBid, num: number): string[] {
         ["Total", amount(cs.certificationsCostUSD, "USD")],
       ]),
       record("Preparation (RTS)", [["Total", amount(cs.rtsCostUSD, "USD")]]),
-      record("Mobilization", [["Total", amount(cs.mobilizationCostUSD, "USD")]]),
+      record("Mobilization", [
+        ["Total", amount(cs.mobilizationCostUSD, "USD")],
+      ]),
       record("Consumables", [["Total", amount(cs.consumablesCostUSD, "USD")]]),
       record("Total BID cost", [
         ["USD", amount(cs.totalCostUSD, "USD")],
@@ -661,9 +699,14 @@ function hours(bid: IBid): string[] {
       ["Total", hs.grandTotalHours ? `${hs.grandTotalHours} h` : ""],
       [
         "Engineering",
-        hs.engineeringHours?.totalHours ? `${hs.engineeringHours.totalHours} h` : "",
+        hs.engineeringHours?.totalHours
+          ? `${hs.engineeringHours.totalHours} h`
+          : "",
       ],
-      ["Onshore", hs.onshoreHours?.totalHours ? `${hs.onshoreHours.totalHours} h` : ""],
+      [
+        "Onshore",
+        hs.onshoreHours?.totalHours ? `${hs.onshoreHours.totalHours} h` : "",
+      ],
       [
         "Offshore",
         hs.offshoreHours?.totalHours ? `${hs.offshoreHours.totalHours} h` : "",
@@ -680,7 +723,10 @@ function hours(bid: IBid): string[] {
           ["People", h.pplQty || ""],
           ["Days", h.workDays || ""],
           ["Hours per day", h.hoursPerDay || ""],
-          ["Utilization", h.utilizationPercent ? `${h.utilizationPercent}%` : ""],
+          [
+            "Utilization",
+            h.utilizationPercent ? `${h.utilizationPercent}%` : "",
+          ],
           ["Total", h.totalHours ? `${h.totalHours} h` : ""],
           ["Cost", amount(h.costBRL, "BRL")],
           ["Division", h.integratedDivision],
@@ -714,13 +760,19 @@ function clarifications(bid: IBid, num: number): string[] {
   const rows = (bid.clarifications || [])
     .filter((c) => clean(c.clarification) || clean(c.description))
     .map((c) =>
-      record(`${c.baseType || "Clarification"} on item ${clean(c.item) || "-"}: ${clean(c.description)}`, [
-        ["Related scope", c.scopeItemId ? lineLabel(scopeById[c.scopeItemId]) : ""],
-        ["Sent to client", c.clarification],
-        ["Client response", clean(c.clientResponse) || "none recorded"],
-        ["Response date", day(c.responseDate)],
-        ["Created", day(c.createdDate)],
-      ]),
+      record(
+        `${c.baseType || "Clarification"} on item ${clean(c.item) || "-"}: ${clean(c.description)}`,
+        [
+          [
+            "Related scope",
+            c.scopeItemId ? lineLabel(scopeById[c.scopeItemId]) : "",
+          ],
+          ["Sent to client", c.clarification],
+          ["Client response", clean(c.clientResponse) || "none recorded"],
+          ["Response date", day(c.responseDate)],
+          ["Created", day(c.createdDate)],
+        ],
+      ),
     );
   return rows.length ? [heading(2, `${num} Clarifications`)].concat(rows) : [];
 }
@@ -728,27 +780,39 @@ function clarifications(bid: IBid, num: number): string[] {
 function qualifications(bid: IBid, num: number): string[] {
   const blocks: string[] = [];
   let n = 0;
-  const general = (bid.opportunityInfo?.qualifications || []).filter((q) => clean(q));
+  const general = (bid.opportunityInfo?.qualifications || []).filter((q) =>
+    clean(q),
+  );
   if (general.length) {
     n++;
     blocks.push(
       heading(3, `${num}.${n} General qualifications`),
-      lines(general.map((q, i) => record(`General qualification ${i + 1}`, [["Text", q]]))),
+      lines(
+        general.map((q, i) =>
+          record(`General qualification ${i + 1}`, [["Text", q]]),
+        ),
+      ),
     );
   }
   (bid.qualificationTables || []).forEach((t) => {
     const rows = (t.items || [])
       .filter((q) => clean(q.description) || clean(q.comments))
       .map((q) =>
-        record(`Qualification ${q.item} (${clean(t.title) || "table"}): ${clean(q.description)}`, [
-          ["Comments", q.comments],
-        ]),
+        record(
+          `Qualification ${q.item} (${clean(t.title) || "table"}): ${clean(q.description)}`,
+          [["Comments", q.comments]],
+        ),
       );
     if (!rows.length) return;
     n++;
-    blocks.push(heading(3, `${num}.${n} ${t.title || "Qualifications"}`), lines(rows));
+    blocks.push(
+      heading(3, `${num}.${n} ${t.title || "Qualifications"}`),
+      lines(rows),
+    );
   });
-  return blocks.length ? [heading(2, `${num} Qualifications`)].concat(blocks) : [];
+  return blocks.length
+    ? [heading(2, `${num} Qualifications`)].concat(blocks)
+    : [];
 }
 
 function revisionsAndApproval(bid: IBid, num: number): string[] {
@@ -772,7 +836,10 @@ function revisionsAndApproval(bid: IBid, num: number): string[] {
         [
           "Approvers",
           (last.approvals || [])
-            .map((a) => `${a.stakeholder?.name || ""} (${a.stakeholderRole}, ${a.status})`)
+            .map(
+              (a) =>
+                `${a.stakeholder?.name || ""} (${a.stakeholderRole}, ${a.status})`,
+            )
             .join("; "),
         ],
       ]),
@@ -788,7 +855,9 @@ function revisionsAndApproval(bid: IBid, num: number): string[] {
     }
   }
   if (bid.kpis?.approvalCycleTime) {
-    rows.push(record("", [["Approval cycle time", `${bid.kpis.approvalCycleTime} h`]]));
+    rows.push(
+      record("", [["Approval cycle time", `${bid.kpis.approvalCycleTime} h`]]),
+    );
   }
   const body = lines(rows);
   return body ? [heading(2, `${num} Revisions and Approval`), body] : [];
@@ -803,7 +872,9 @@ function outcome(bid: IBid, num: number): string[] {
       ["Outcome date", day(r?.outcomeDate)],
       [
         "Contract value",
-        r && r.contractValue ? money(r.contractValue, r.contractCurrency || "USD") : "",
+        r && r.contractValue
+          ? money(r.contractValue, r.contractCurrency || "USD")
+          : "",
       ],
       ["Lost reason", r?.lostReason],
       ["Competitor", r?.competitorName],

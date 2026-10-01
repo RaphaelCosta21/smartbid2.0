@@ -902,7 +902,11 @@ export class AIAnalysisService {
     scopeCategories.forEach((c) => (allowed[c.trim().toLowerCase()] = c));
     const asList = (raw: unknown): string[] =>
       Array.isArray(raw)
-        ? raw.map((v) => String(v || "").replace(/\s+/g, " ").trim())
+        ? raw.map((v) =>
+            String(v || "")
+              .replace(/\s+/g, " ")
+              .trim(),
+          )
         : [];
     const categories: string[] = [];
     asList(it.scopeCategories).forEach((c) => {
@@ -920,7 +924,9 @@ export class AIAnalysisService {
     return {
       scopeCategories: categories.slice(0, 3),
       tags: tags.slice(0, 15),
-      summary: String(it.summary || "").trim().substring(0, 600),
+      summary: String(it.summary || "")
+        .trim()
+        .substring(0, 600),
     };
   }
 

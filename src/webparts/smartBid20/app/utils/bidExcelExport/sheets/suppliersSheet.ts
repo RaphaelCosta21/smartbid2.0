@@ -9,13 +9,23 @@ import {
   qtyFmt,
   toExcelDate,
 } from "../excelStyles";
-import { NO_SUPPLIER_LABEL, buildSupplierRows, summarizeSuppliers } from "../rows";
+import {
+  NO_SUPPLIER_LABEL,
+  buildSupplierRows,
+  summarizeSuppliers,
+} from "../rows";
 
 export function buildSuppliersSheet(ctx: IBidExcelContext): void {
   const { bid, view } = ctx;
   const rows = buildSupplierRows(bid);
   const cols = activeColumns([
-    { key: "lead", header: "Lead Time (days)", width: 11, align: "right", numFmt: NUM.int },
+    {
+      key: "lead",
+      header: "Lead Time (days)",
+      width: 11,
+      align: "right",
+      numFmt: NUM.int,
+    },
     { key: "item", header: "Item", width: 34, wrap: true },
     { key: "level", header: "Level", width: 10, align: "center" },
     { key: "parent", header: "Parent Item", width: 26, wrap: true },
@@ -25,14 +35,42 @@ export function buildSuppliersSheet(ctx: IBidExcelContext): void {
     { key: "supplier", header: "Supplier", width: 24, wrap: true },
     { key: "costRef", header: "Cost Ref", width: 16, wrap: true },
     { key: "quote", header: "Quotation Ref", width: 16, wrap: true },
-    { key: "dateRef", header: "Date Ref", width: 12, align: "center", numFmt: NUM.date },
-    { key: "unit", header: "Unit Cost USD", width: 17, align: "right", numFmt: NUM.usd },
-    { key: "total", header: "Total Cost USD", width: 18, align: "right", numFmt: NUM.usd },
+    {
+      key: "dateRef",
+      header: "Date Ref",
+      width: 12,
+      align: "center",
+      numFmt: NUM.date,
+    },
+    {
+      key: "unit",
+      header: "Unit Cost USD",
+      width: 17,
+      align: "right",
+      numFmt: NUM.usd,
+    },
+    {
+      key: "total",
+      header: "Total Cost USD",
+      width: 18,
+      align: "right",
+      numFmt: NUM.usd,
+    },
     { key: "cat", header: "CAPEX/OPEX", width: 13, align: "center" },
     { key: "resType", header: "Res. Type", width: 16, wrap: true },
-    { key: "div", header: "Division", width: 10, align: "center", when: view.isIntegrated },
+    {
+      key: "div",
+      header: "Division",
+      width: 10,
+      align: "center",
+      when: view.isIntegrated,
+    },
   ]);
-  const x = newSheet(ctx, "suppliers", cols.map((c) => c.width));
+  const x = newSheet(
+    ctx,
+    "suppliers",
+    cols.map((c) => c.width),
+  );
   const span = x.lastCol;
   x.banner("SUPPLIERS & LEAD TIME", ctx.subtitle);
 
@@ -46,11 +84,20 @@ export function buildSuppliersSheet(ctx: IBidExcelContext): void {
     {
       label: "Longest lead time",
       value: longest > 0 ? `${longest} days` : "—",
-      sub: longest > 0 ? `≈ ${Math.ceil(longest / 7)} weeks` : "No lead time informed",
+      sub:
+        longest > 0
+          ? `≈ ${Math.ceil(longest / 7)} weeks`
+          : "No lead time informed",
       from: 1,
       to: 2,
     },
-    { label: "Suppliers", value: named.length, sub: `${rows.length} procured lines`, from: 3, to: 4 },
+    {
+      label: "Suppliers",
+      value: named.length,
+      sub: `${rows.length} procured lines`,
+      from: 3,
+      to: 4,
+    },
     {
       label: "Lines without supplier",
       value: noSupplier,
@@ -80,17 +127,27 @@ export function buildSuppliersSheet(ctx: IBidExcelContext): void {
       cols,
       pickRow(cols, {
         lead: { value: r.leadTime, bold: true },
-        item: { value: r.item, bold: r.level === "Main" || r.level === "Split" },
+        item: {
+          value: r.item,
+          bold: r.level === "Main" || r.level === "Split",
+        },
         level: r.level,
         parent: r.parent,
         pn: r.partNumber,
         qty: { value: r.qty, numFmt: qtyFmt(r.qty) },
         acq: r.acqType,
-        supplier: r.supplier || { value: "Not informed", italic: true, color: XL_COLORS.warningText },
+        supplier: r.supplier || {
+          value: "Not informed",
+          italic: true,
+          color: XL_COLORS.warningText,
+        },
         costRef: r.costRef,
         quote: r.quoteRef,
         dateRef: toExcelDate(r.dateRef),
-        unit: { value: r.unitCost, numFmt: r.unitIsDaily ? NUM.usdPerDay : NUM.usd },
+        unit: {
+          value: r.unitCost,
+          numFmt: r.unitIsDaily ? NUM.usdPerDay : NUM.usd,
+        },
         total: { value: r.total, bold: true },
         cat: r.category,
         resType: r.resourceType,
@@ -108,7 +165,13 @@ export function buildSuppliersSheet(ctx: IBidExcelContext): void {
   x.total(
     `${rows.length} lines`,
     span,
-    [{ col: colOf(cols, "total"), value: rows.reduce((t, r) => t + r.total, 0), numFmt: NUM.usd }],
+    [
+      {
+        col: colOf(cols, "total"),
+        value: rows.reduce((t, r) => t + r.total, 0),
+        numFmt: NUM.usd,
+      },
+    ],
     "grand",
   );
   x.gap(6);
@@ -122,9 +185,30 @@ export function buildSuppliersSheet(ctx: IBidExcelContext): void {
   x.sectionTitle("By Supplier", span, "Sorted by total cost");
   const ranges: IXlRange[] = [
     { header: "Supplier", width: 0, from: 1, to: 2 },
-    { header: "Lines", width: 0, align: "right", numFmt: NUM.int, from: 3, to: 3 },
-    { header: "Longest Lead Time (days)", width: 0, align: "right", numFmt: NUM.int, from: 4, to: 4 },
-    { header: "Total Cost USD", width: 0, align: "right", numFmt: NUM.usd, from: 5, to: 6 },
+    {
+      header: "Lines",
+      width: 0,
+      align: "right",
+      numFmt: NUM.int,
+      from: 3,
+      to: 3,
+    },
+    {
+      header: "Longest Lead Time (days)",
+      width: 0,
+      align: "right",
+      numFmt: NUM.int,
+      from: 4,
+      to: 4,
+    },
+    {
+      header: "Total Cost USD",
+      width: 0,
+      align: "right",
+      numFmt: NUM.usd,
+      from: 5,
+      to: 6,
+    },
   ];
   x.rangeHeader(ranges);
   suppliers.forEach((sp, i) =>

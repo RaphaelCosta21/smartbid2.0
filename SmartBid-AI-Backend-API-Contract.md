@@ -495,17 +495,17 @@ relevant is retrieved the backend returns an empty list without calling the mode
 
 ### Request body
 
-| Field                            | Type       | Notes                                                                  |
-| -------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| Field                            | Type       | Notes                                                                      |
+| -------------------------------- | ---------- | -------------------------------------------------------------------------- |
 | `requirementsText`               | `string`   | Required — one line per current scope item (ref, description, requirement) |
-| `existingText`                   | `string`   | Clarifications/qualifications already on the BID (not to be repeated)  |
-| `bidNumber`                      | `string`   | Current BID — excluded from its own precedents                         |
-| `division`                       | `string`   | Retrieval context                                                      |
-| `serviceLine`                    | `string`   | Retrieval context                                                      |
-| `resourceTypes`                  | `string[]` | Retrieval context                                                      |
-| `contextSummary`                 | `string`   | BID context summary                                                    |
-| `useCase`                        | `string`   | `"clarification"`                                                      |
-| `systemPrompt` / `promptVersion` | `string`   | Required — our clarification prompt                                    |
+| `existingText`                   | `string`   | Clarifications/qualifications already on the BID (not to be repeated)      |
+| `bidNumber`                      | `string`   | Current BID — excluded from its own precedents                             |
+| `division`                       | `string`   | Retrieval context                                                          |
+| `serviceLine`                    | `string`   | Retrieval context                                                          |
+| `resourceTypes`                  | `string[]` | Retrieval context                                                          |
+| `contextSummary`                 | `string`   | BID context summary                                                        |
+| `useCase`                        | `string`   | `"clarification"`                                                          |
+| `systemPrompt` / `promptVersion` | `string`   | Required — our clarification prompt                                        |
 
 ### Response body
 
@@ -545,9 +545,9 @@ relevant is retrieved the backend returns an empty list without calling the mode
 `POST {apimBaseUrl}/chat` accepts two optional fields besides `messages`, `systemPrompt`,
 `promptVersion`, `topK` and `docTypeFilter`:
 
-| Field            | Type       | Notes                                                                                                   |
-| ---------------- | ---------- | ------------------------------------------------------------------------------------------------------- |
-| `pastBidsLedger` | `string`   | Completed BIDs SmartBid matched to the question (exact, from `smartbid-tracker`), ≤ 20 000 chars. Injected as a delimited "PAST BIDS LEDGER" block before the Reference Material. |
+| Field            | Type       | Notes                                                                                                                                                                                                                                 |
+| ---------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pastBidsLedger` | `string`   | Completed BIDs SmartBid matched to the question (exact, from `smartbid-tracker`), ≤ 20 000 chars. Injected as a delimited "PAST BIDS LEDGER" block before the Reference Material.                                                     |
 | `pastBidRefs`    | `string[]` | ≤ 5 BID numbers (charset `[A-Za-z0-9 ._/-]`, others dropped). The backend runs an extra semantic pass filtered by `docType eq 'Past Bid' and search.in(docModel, …)`, keeps up to 4 sections per BID, and puts those documents first. |
 
 Counts and "latest" answers come from the ledger; details (scope, prices, quotations) from the
@@ -559,12 +559,12 @@ An ingestion process (can run **inside the same Function App** — no new resour
 source into Azure AI Search. Trigger on upload/update, or scheduled batch. **Start with a single
 index**; split later only if governance/volume requires.
 
-| Source (SharePoint)            | What to embed (per record/chunk)                                                        | Return / use                         | Filter            |
-| ------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------ | ----------------- |
-| Datasheets + Manuals libraries | Chunked PDF text                                                                        | Excerpts → match specs to capability | —                 |
+| Source (SharePoint)            | What to embed (per record/chunk)                                                        | Return / use                              | Filter                  |
+| ------------------------------ | --------------------------------------------------------------------------------------- | ----------------------------------------- | ----------------------- |
+| Datasheets + Manuals libraries | Chunked PDF text                                                                        | Excerpts → match specs to capability      | —                       |
 | `smartBidDocs/Past Bids`       | One generated Markdown file per completed BID (ATX headings, record lines)              | Scope / pricing / clarification precedent | `docType eq 'Past Bid'` |
-| `Assets Catalog_` list         | `title` + `subtitle` + `commonlyUsedNames` + `description` + `features1..3` + `keyword` | `pn` as the canonical part number    | —                 |
-| `Clarifications Database` list | `etTopic` + `clarification` + `clientReply`                                             | `baseType` → basis for suggestions   | `approved = true` |
+| `Assets Catalog_` list         | `title` + `subtitle` + `commonlyUsedNames` + `description` + `features1..3` + `keyword` | `pn` as the canonical part number         | —                       |
+| `Clarifications Database` list | `etTopic` + `clarification` + `clientReply`                                             | `baseType` → basis for suggestions        | `approved = true`       |
 
 - `/scope/generate` and `/clarifications/suggest` query this index (RAG) and inject results via §5.
 - **Never** surface a part number that is not present in `Assets Catalog_`.

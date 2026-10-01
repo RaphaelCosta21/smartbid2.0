@@ -41,12 +41,34 @@ export function buildPrepMobSheet(ctx: IBidExcelContext): void {
     { key: "qty", header: "Qty", width: 8, align: "right", numFmt: NUM.int },
     { key: "unit", header: "Unit Cost", width: 17, align: "right" },
     { key: "total", header: "Total", width: 18, align: "right" },
-    { key: "usd", header: "Total (USD)", width: 18, align: "right", numFmt: NUM.usd },
+    {
+      key: "usd",
+      header: "Total (USD)",
+      width: 18,
+      align: "right",
+      numFmt: NUM.usd,
+    },
     { key: "costRef", header: "Cost Ref", width: 18, wrap: true },
-    { key: "div", header: "Division", width: 10, align: "center", when: view.isIntegrated },
-    { key: "notes", header: "Notes", width: 32, wrap: true, when: opts.includeNotes },
+    {
+      key: "div",
+      header: "Division",
+      width: 10,
+      align: "center",
+      when: view.isIntegrated,
+    },
+    {
+      key: "notes",
+      header: "Notes",
+      width: 32,
+      wrap: true,
+      when: opts.includeNotes,
+    },
   ]);
-  const x = newSheet(ctx, "prepMob", baseCols.map((c) => c.width));
+  const x = newSheet(
+    ctx,
+    "prepMob",
+    baseCols.map((c) => c.width),
+  );
   const span = x.lastCol;
   const usdCol = colOf(baseCols, "usd");
   x.banner("PREPARATION & MOBILIZATION", ctx.subtitle);
@@ -54,10 +76,14 @@ export function buildPrepMobSheet(ctx: IBidExcelContext): void {
   const scopeName = (id: string | null | undefined): string => {
     if (!id) return "";
     const si = (bid.scopeItems || []).find((i) => i.id === id && !i.isSection);
-    return si ? si.equipmentOffer || si.description || si.partNumber || "Scope Item" : "";
+    return si
+      ? si.equipmentOffer || si.description || si.partNumber || "Scope Item"
+      : "";
   };
   const dash: XlValue = { value: "—", color: XL_COLORS.textMuted };
-  const toGroups = (secs?: IHoursSectionGroup[]): { id: string; title: string; color?: string }[] =>
+  const toGroups = (
+    secs?: IHoursSectionGroup[],
+  ): { id: string; title: string; color?: string }[] =>
     (secs || []).map((g) => ({ id: g.id, title: g.title, color: g.color }));
 
   const block = <T extends IPrepLine>(
@@ -73,12 +99,18 @@ export function buildPrepMobSheet(ctx: IBidExcelContext): void {
     x.sectionTitle(title, span);
     if (items.length === 0) {
       x.note("No items.", span, "muted");
-      x.total(`${title} total`, span, [{ col: usdCol, value: 0, numFmt: NUM.usd }]);
+      x.total(`${title} total`, span, [
+        { col: usdCol, value: 0, numFmt: NUM.usd },
+      ]);
       x.gap(18);
       return;
     }
     const cols: IXlColumnDef[] = baseCols.map((c) =>
-      c.key === "ref" ? { ...c, header: refHeader } : c.key === "type" ? { ...c, header: typeHeader } : c,
+      c.key === "ref"
+        ? { ...c, header: refHeader }
+        : c.key === "type"
+          ? { ...c, header: typeHeader }
+          : c,
     );
     writeCurrencyTable(x, cols, items, toGroups(sections), fx, (i) => ({
       no: i.lineNumber || null,
@@ -94,7 +126,9 @@ export function buildPrepMobSheet(ctx: IBidExcelContext): void {
       div: i.integratedDivision || "",
       notes: i.notes,
     }));
-    x.total(`${title} total`, span, [{ col: usdCol, value: totalUSD, numFmt: NUM.usd }]);
+    x.total(`${title} total`, span, [
+      { col: usdCol, value: totalUSD, numFmt: NUM.usd },
+    ]);
     x.gap(18);
   };
 

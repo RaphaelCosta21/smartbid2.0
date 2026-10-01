@@ -1,6 +1,11 @@
 import { IBidExcelContext, newSheet } from "../context";
 import { NUM, XL_COLORS, activeColumns, colOf, qtyFmt } from "../excelStyles";
-import { moneyCell, usdCell, writeCurrencyFooter, writeCurrencyTable } from "./currencyTable";
+import {
+  moneyCell,
+  usdCell,
+  writeCurrencyFooter,
+  writeCurrencyTable,
+} from "./currencyTable";
 
 export function buildCertificationsSheet(ctx: IBidExcelContext): void {
   const { bid, view, opts } = ctx;
@@ -8,11 +13,17 @@ export function buildCertificationsSheet(ctx: IBidExcelContext): void {
   const items = all.filter((i) => !i.isSection);
   const groups = all
     .filter((i) => i.isSection)
-    .map((s) => ({ id: s.id, title: s.sectionTitle || "", color: s.sectionColor }));
+    .map((s) => ({
+      id: s.id,
+      title: s.sectionTitle || "",
+      color: s.sectionColor,
+    }));
   const scopeName = (id: string | null): string => {
     if (!id) return "";
     const si = (bid.scopeItems || []).find((s) => s.id === id);
-    return si ? si.equipmentOffer || si.description || si.partNumber || "Scope Item" : "";
+    return si
+      ? si.equipmentOffer || si.description || si.partNumber || "Scope Item"
+      : "";
   };
   const cols = activeColumns([
     { key: "no", header: "#", width: 5, align: "center" },
@@ -23,15 +34,41 @@ export function buildCertificationsSheet(ctx: IBidExcelContext): void {
     { key: "cur", header: "Currency", width: 10, align: "center" },
     { key: "unit", header: "Unit Cost", width: 17, align: "right" },
     { key: "total", header: "Total Cost", width: 18, align: "right" },
-    { key: "usd", header: "Total (USD)", width: 18, align: "right", numFmt: NUM.usd },
+    {
+      key: "usd",
+      header: "Total (USD)",
+      width: 18,
+      align: "right",
+      numFmt: NUM.usd,
+    },
     { key: "costRef", header: "Cost Ref", width: 18, wrap: true },
-    { key: "div", header: "Division", width: 10, align: "center", when: view.isIntegrated },
-    { key: "notes", header: "Notes", width: 34, wrap: true, when: opts.includeNotes },
+    {
+      key: "div",
+      header: "Division",
+      width: 10,
+      align: "center",
+      when: view.isIntegrated,
+    },
+    {
+      key: "notes",
+      header: "Notes",
+      width: 34,
+      wrap: true,
+      when: opts.includeNotes,
+    },
   ]);
-  const x = newSheet(ctx, "certifications", cols.map((c) => c.width));
+  const x = newSheet(
+    ctx,
+    "certifications",
+    cols.map((c) => c.width),
+  );
   x.banner("CERTIFICATIONS", ctx.subtitle);
   if (items.length === 0) {
-    x.note("No certification items registered on this BID.", x.lastCol, "muted");
+    x.note(
+      "No certification items registered on this BID.",
+      x.lastCol,
+      "muted",
+    );
     return;
   }
   const headerRow = x.row;
@@ -63,6 +100,8 @@ export function buildCertificationsSheet(ctx: IBidExcelContext): void {
     view.summary.certificationsCostUSD,
     view.summary.ptaxUsed,
     view.fx,
-    items.filter((i) => (i.totalCost || 0) !== 0).map((i) => i.originalCurrency),
+    items
+      .filter((i) => (i.totalCost || 0) !== 0)
+      .map((i) => i.originalCurrency),
   );
 }

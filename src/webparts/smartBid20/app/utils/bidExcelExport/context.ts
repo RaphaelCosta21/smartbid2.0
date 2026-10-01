@@ -1,9 +1,5 @@
 import type { Workbook } from "exceljs";
-import {
-  BidExcelSheetKey,
-  IBid,
-  IBidExcelExportOptions,
-} from "../../models";
+import { BidExcelSheetKey, IBid, IBidExcelExportOptions } from "../../models";
 import { ICostSummaryView } from "../costSummaryView";
 import { XL_TAB_COLORS, XlSheet } from "./excelStyles";
 
