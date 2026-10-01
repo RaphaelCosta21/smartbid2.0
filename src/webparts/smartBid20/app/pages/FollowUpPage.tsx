@@ -15,6 +15,7 @@ import { Sparkline } from "../components/charts/Sparkline";
 import { AnalyticsFilterBar } from "../components/insights/AnalyticsFilterBar";
 import { useChartTheme } from "../hooks/useChartTheme";
 import { useAnalyticsFilters } from "../hooks/useAnalyticsFilters";
+import { usePastBidPublisher } from "../hooks/usePastBidPublisher";
 import { winRateTrend } from "../utils/analyticsHelpers";
 import { formatDate } from "../utils/formatters";
 import { IBid, IBidResult } from "../models";
@@ -46,6 +47,7 @@ export const FollowUpPage: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
   const navigate = useNavigate();
   const chart = useChartTheme();
+  const publishPastBid = usePastBidPublisher();
 
   // Access control: only Commercial and Engineering teams can edit
   const canEdit = React.useMemo(() => {
@@ -346,6 +348,12 @@ export const FollowUpPage: React.FC = () => {
       await BidService.patchByBidNumber(drawerBid.bidNumber, {
         bidResult: updatedResult,
       } as Partial<IBid>);
+      if (drawerBid.knowledgeProfile) {
+        publishPastBid(
+          { ...drawerBid, bidResult: updatedResult },
+          { runAi: false, silent: true },
+        ).catch(() => undefined);
+      }
 
       // Optimistic local update
       const updatedBids = bids.map((b) =>

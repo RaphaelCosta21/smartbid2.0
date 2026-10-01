@@ -3,12 +3,19 @@ import { Paperclip } from "lucide-react";
 import { IScopeItem, ICertificationItem } from "../../models";
 import { makeId } from "../../utils/idGenerator";
 import { getCurrencies } from "../../utils/currencyHelpers";
+import {
+  IBidFx,
+  calculateMultiCurrencyTotals,
+} from "../../utils/costCalculations";
+import { formatCurrency } from "../../utils/formatters";
 import { AttachmentService } from "../../services/AttachmentService";
+import { BidFxNote, UsdAmountCell } from "./BidFxNote";
 import styles from "./CertificationsBreakdownTab.module.scss";
 
 interface CertificationsBreakdownTabProps {
   scopeItems: IScopeItem[];
   certificationsBreakdown: ICertificationItem[];
+  fx: IBidFx;
   onSave: (items: ICertificationItem[]) => void;
   readOnly?: boolean;
   bidNumber?: string;
@@ -68,6 +75,7 @@ export const CertificationsBreakdownTab: React.FC<
 > = ({
   scopeItems,
   certificationsBreakdown,
+  fx,
   onSave,
   readOnly = false,
   bidNumber,
@@ -272,7 +280,7 @@ export const CertificationsBreakdownTab: React.FC<
   const sections = items.filter((i) => i.isSection);
   const dataItems = items.filter((i) => !i.isSection);
   const unsectionedItems = dataItems.filter((i) => !i.sectionId);
-  const grandTotal = dataItems.reduce((sum, i) => sum + (i.totalCost || 0), 0);
+  const totals = calculateMultiCurrencyTotals(dataItems, fx);
 
   // ─── Row renderer ───
   const renderRow = (item: ICertificationItem): React.ReactNode => (
@@ -361,6 +369,12 @@ export const CertificationsBreakdownTab: React.FC<
       <td className={`${styles.cellRight} ${styles.cellBold}`}>
         {((item.qty || 0) * (item.unitCost || 0)).toLocaleString()}
       </td>
+      <UsdAmountCell
+        className={styles.cellRight}
+        amount={(item.qty || 0) * (item.unitCost || 0)}
+        currency={item.originalCurrency}
+        fx={fx}
+      />
       <td>
         {readOnly ? (
           item.costReference || "—"
@@ -452,7 +466,7 @@ export const CertificationsBreakdownTab: React.FC<
     </tr>
   );
 
-  const COLS = readOnly ? 11 : 12;
+  const COLS = readOnly ? 12 : 13;
 
   return (
     <div className={styles.container}>
@@ -462,12 +476,16 @@ export const CertificationsBreakdownTab: React.FC<
           <span className={styles.summaryValue}>{dataItems.length}</span>
         </div>
         <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Total Cost</span>
+          <span className={styles.summaryLabel}>Total Cost (USD)</span>
           <span className={styles.summaryValue}>
-            {grandTotal.toLocaleString()}
+            {formatCurrency(totals.totalUSD)}
           </span>
         </div>
       </div>
+      <BidFxNote
+        fx={fx}
+        currencies={dataItems.map((i) => i.originalCurrency)}
+      />
 
       {!readOnly && (
         <div className={styles.toolbar}>
@@ -499,6 +517,7 @@ export const CertificationsBreakdownTab: React.FC<
                 <th>Currency</th>
                 <th>Unit Cost</th>
                 <th>Total Cost</th>
+                <th>Total (USD)</th>
                 <th>Cost Ref</th>
                 <th>Notes</th>
                 <th>Attachments</th>
@@ -665,7 +684,7 @@ export const CertificationsBreakdownTab: React.FC<
             </tbody>
           </table>
           <div className={styles.totalBar}>
-            <span>Total: {grandTotal.toLocaleString()}</span>
+            <span>Total (USD): {formatCurrency(totals.totalUSD)}</span>
           </div>
         </div>
       )}

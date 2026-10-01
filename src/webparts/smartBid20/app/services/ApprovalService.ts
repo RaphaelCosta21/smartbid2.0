@@ -11,7 +11,7 @@ import {
   IApprovalSectorGroup,
 } from "../models/IBidApproval";
 import { IPersonRef } from "../models";
-import { IBid } from "../models/IBid";
+import { IBid, IApprovalOverride } from "../models/IBid";
 
 export class ApprovalService {
   private static get _approvalsList() {
@@ -77,6 +77,41 @@ export class ApprovalService {
         /* ignore */
       }
     };
+    const addNote = async (name: string): Promise<void> => {
+      if (has(name)) return;
+      try {
+        await fieldsApi.addMultilineText(name);
+      } catch (e) {
+        /* ignore */
+      }
+    };
+    // Lists provisioned before the override feature lack the "Overridden" choice.
+    const ensureChoiceOption = async (
+      name: string,
+      option: string,
+    ): Promise<void> => {
+      if (!has(name)) return;
+      try {
+        const field = fieldsApi.getByInternalNameOrTitle(name);
+        const data = (await field.select("Choices")()) as {
+          Choices?: string[] | { results?: string[] };
+        };
+        const raw = data.Choices;
+        const current: string[] = Array.isArray(raw)
+          ? raw
+          : (raw && raw.results) || [];
+        if (current.indexOf(option) >= 0) return;
+        await field.update(
+          { "@odata.type": "#SP.FieldChoice", Choices: [...current, option] },
+          "SP.FieldChoice",
+        );
+      } catch (e) {
+        console.warn(
+          `ApprovalService.ensureApprovalColumns: cannot add choice "${option}" to ${name}`,
+          e,
+        );
+      }
+    };
 
     await addChoice(F.recordType, ["Round", "Approver"]);
     await addText(F.bidNumber);
@@ -85,11 +120,15 @@ export class ApprovalService {
     await addText(F.approverName);
     await addText(F.sector);
     await addText(F.sectorLabel);
-    await addChoice(F.approvalStatus, ["Pending", "Approved"]);
+    await addChoice(F.approvalStatus, ["Pending", "Approved", "Overridden"]);
+    await ensureChoiceOption(F.approvalStatus, "Overridden");
     await addDateTime(F.respondedDate);
     await addText(F.chatId);
     await addText(F.statusCardMessageId);
     await addNumber(F.expectedApproverCount);
+    await addText(F.overriddenBy);
+    await addDateTime(F.overriddenDate);
+    await addNote(F.overrideReason);
   }
 
   public static async requestApproval(
@@ -244,6 +283,34 @@ export class ApprovalService {
         division: bid.division,
         serviceLine: bid.serviceLine,
       }),
+    });
+  }
+
+  /**
+   * Flag the round's "Round" row as Overridden so the Teams flow can stop
+   * waiting for the approvers that were bypassed.
+   */
+  public static async markRoundOverridden(
+    bidNumber: string,
+    round: number,
+    override: IApprovalOverride,
+  ): Promise<void> {
+    await ApprovalService.ensureApprovalColumns();
+    const F = SHAREPOINT_CONFIG.approvalFields;
+    const safeBid = bidNumber.replace(/'/g, "''");
+    const rows = (await ApprovalService._approvalsList.items
+      .filter(
+        `${F.recordType} eq 'Round' and ${F.bidNumber} eq '${safeBid}' and ${F.roundNumber} eq ${Number(round)}`,
+      )
+      .select("Id")
+      .top(1)()) as { Id: number }[];
+    if (rows.length === 0) return;
+    await ApprovalService._approvalsList.items.getById(rows[0].Id).update({
+      Title: bidNumber,
+      [F.approvalStatus]: "Overridden",
+      [F.overriddenBy]: `${override.overriddenBy.name} <${override.overriddenBy.email}>`,
+      [F.overriddenDate]: override.overriddenDate,
+      [F.overrideReason]: override.reason,
     });
   }
 }

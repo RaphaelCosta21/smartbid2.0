@@ -75,6 +75,12 @@ const NAV_GROUPS: INavGroup[] = [
         label: "Groups & SubGroups",
         icon: "📂",
       },
+      {
+        key: "scopeCategories",
+        label: "Scope Categories",
+        icon: "🧭",
+        configKey: "scopeCategories",
+      },
     ],
   },
   {

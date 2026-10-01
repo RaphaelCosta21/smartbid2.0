@@ -10,6 +10,7 @@ export type AIUseCase =
   | "scope-of-supply"
   | "quotation"
   | "document-metadata"
+  | "past-bid-profile"
   | "chat"
   | "clarification";
 
@@ -71,6 +72,8 @@ export interface IAIAnalysisContext {
   docTypeOptions?: string[];
   /** Pins document classification to a single group (e.g. "Operation KIT"). */
   lockedGroupName?: string;
+  /** Configured scope categories (Past Bids classification). */
+  scopeCategoryOptions?: string[];
   /** Optional extra context (KB summaries, past-bid hints). */
   contextSummary?: string;
 }
@@ -251,4 +254,12 @@ export interface IDocumentMetadataExtractionResult {
   sourceDocument: string;
   /** ISO timestamp of when the extraction was performed. */
   extractedAt: string;
+}
+
+/** AI-suggested classification of a completed BID (Past Bids). */
+export interface IPastBidProfileSuggestion {
+  /** Only values from the configured scope categories. */
+  scopeCategories: string[];
+  tags: string[];
+  summary: string;
 }

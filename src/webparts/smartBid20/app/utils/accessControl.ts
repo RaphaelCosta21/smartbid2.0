@@ -124,3 +124,13 @@ export function canManageErn(user: IUser | undefined | null): boolean {
   if (user.isSuperAdmin || isSuperAdmin(user.email || "")) return true;
   return user.sector === "engineering";
 }
+
+/**
+ * Whether the user can change a BID's due date (a reason is always required).
+ * Restricted to active Engineering members from Members Management (plus super admins).
+ */
+export function canChangeDueDate(user: IUser | undefined | null): boolean {
+  if (!user) return false;
+  if (user.isSuperAdmin || isSuperAdmin(user.email || "")) return true;
+  return user.sector === "engineering" && user.isActive !== false;
+}

@@ -21,6 +21,7 @@ const DOC_TYPE_CHOICES: DocCatalogType[] = [
   "Manual",
   "Catalog",
   "Technical Proposal",
+  "Past Bid",
 ];
 
 export class DocLibraryCatalogService {
@@ -87,10 +88,11 @@ export class DocLibraryCatalogService {
           (current as { Choices?: string[] }).Choices || [];
         const missing = DOC_TYPE_CHOICES.filter((c) => choices.indexOf(c) < 0);
         if (missing.length > 0) {
-          await field.update(
-            { Choices: choices.concat(missing) },
-            "SP.FieldChoice",
-          );
+          // PnP v3 drops the type argument from the body; the type must travel in the props.
+          await field.update({
+            "@odata.type": "SP.FieldChoice",
+            Choices: choices.concat(missing),
+          });
         }
       } catch (e) {
         /* ignore — user may lack permission to manage columns */

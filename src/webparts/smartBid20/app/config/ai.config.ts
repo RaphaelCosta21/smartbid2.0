@@ -98,11 +98,8 @@ export interface IAiConfig {
     extractQuotation: string;
     /** Free-form Q&A over the indexed document library. */
     chat: string;
-    // --- Future endpoints (not wired yet — uncomment when the backend adds them) ---
-    // /** Current BID requirements → suggested clarifications/qualifications (RAG). */
-    // suggestClarifications: string;
-    // /** Free-form Q&A over a BID's documents. */
-    // chat: string;
+    /** Current BID requirements → clarifications/qualifications grounded on Past Bids. */
+    suggestClarifications: string;
   };
 }
 
@@ -132,9 +129,7 @@ export const AI_CONFIG: IAiConfig = {
     generateScope: "/scope/generate",
     extractQuotation: "/quotation/extract",
     chat: "/chat",
-    // --- Future endpoints (uncomment when the backend routes exist) ---
-    // suggestClarifications: "/clarifications/suggest",
-    // chat: "/chat",
+    suggestClarifications: "/clarifications/suggest",
   },
 };
 

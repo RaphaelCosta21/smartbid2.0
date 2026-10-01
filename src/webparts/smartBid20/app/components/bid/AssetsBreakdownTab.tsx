@@ -16,10 +16,14 @@ import { IQuotationItem } from "../../models";
 import { useQuotationStore } from "../../stores/useQuotationStore";
 import { QuotationService } from "../../services/QuotationService";
 import { ROUTES } from "../../config/routes.config";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import {
   getAssetCostBreakdown,
+  getAssetsCostCompleteness,
   getSubItemNode,
   getSubCostAmount,
+  isRentalAcq,
+  isWorkshopAcq,
   TRANSIT_DEFAULT_DISCOUNT,
   getSplitNode,
   IAssetCostBreakdown,
@@ -104,6 +108,38 @@ const blankSubItemCost = (subItemId: string): ISubItemCost => ({
   notes: "",
 });
 
+/** Everything a price / quotation import writes — reset together by "Clear pricing". */
+const CLEARED_PRICING = {
+  unitCostUSD: 0,
+  totalCostUSD: 0,
+  costReference: "",
+  supplier: "",
+  dateReference: "",
+  leadTimeDays: 0,
+  originalCost: 0,
+  originalCurrency: "USD",
+  costDate: "",
+  quotationReference: null,
+  quotationFileUrl: null,
+};
+
+const hasPricing = (c: {
+  unitCostUSD?: number;
+  costReference?: string;
+  supplier?: string;
+  dateReference?: string;
+  leadTimeDays?: number;
+  quotationReference?: string | null;
+}): boolean =>
+  !!(
+    c.unitCostUSD ||
+    c.costReference ||
+    c.supplier ||
+    c.dateReference ||
+    c.leadTimeDays ||
+    c.quotationReference
+  );
+
 /** Keeps a transit rate's persisted amount in sync with the live formula the UI shows. */
 const syncTransitFees = (
   subCosts: IAssetSubCost[] | undefined,
@@ -117,6 +153,25 @@ const syncTransitFees = (
       leadTimeDays: (sc.importDays || 0) + (sc.exportDays || 0),
     };
   });
+
+/** A transit rate the user has already filled in — dropping it needs confirmation. */
+const isTransitFilled = (sc: IAssetSubCost): boolean =>
+  !!sc.isTransitRate &&
+  ((sc.importDays || 0) > 0 ||
+    (sc.exportDays || 0) > 0 ||
+    !!(sc.notes || "").trim() ||
+    (sc.transitDiscount !== undefined &&
+      sc.transitDiscount !== null &&
+      sc.transitDiscount !== TRANSIT_DEFAULT_DISCOUNT));
+
+const withoutTransit = (
+  subCosts: IAssetSubCost[] | undefined,
+): IAssetSubCost[] => (subCosts || []).filter((sc) => !sc.isTransitRate);
+
+/** Availability always resets the Acq. Type, so either edit can take a row out of Rental. */
+const leavesRental = (field: string, value: unknown): boolean =>
+  field === "availabilityStatus" ||
+  (field === "acquisitionType" && !isRentalAcq(String(value || "")));
 
 /** The three sections of an asset's detail drawer */
 type DrawerTab = "splits" | "items" | "fees";
@@ -231,6 +286,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   // Helper: append fieldEmpty class when value is empty/falsy
   const emptyIf = (base: string, value: unknown): string =>
     value ? base : `${base} ${styles.fieldEmpty}`;
+  // Red border on an editable cost input that is still zero
+  const missingIf = (base: string, value: number | null | undefined): string =>
+    value ? base : `${base} ${styles.fieldMissing}`;
 
   // ─── Cost-kind abstraction: sub-items vs PCF share the same logic ───
   // "sub" → asset.subItemCosts + scope.subItems
@@ -338,7 +396,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     });
   };
   const noteBtnClass = (key: string, notes?: string): string => {
-    if (expandedNotesIds.has(key)) return `${styles.noteBtn} ${styles.noteBtnActive}`;
+    if (expandedNotesIds.has(key))
+      return `${styles.noteBtn} ${styles.noteBtnActive}`;
     if (notes) return `${styles.noteBtn} ${styles.noteBtnFilled}`;
     return styles.noteBtn;
   };
@@ -489,14 +548,73 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     [debouncedSave],
   );
 
+  // ─── Transit Rate removal confirmation ───
+  const [pendingTransitDrop, setPendingTransitDrop] = React.useState<{
+    count: number;
+    apply: () => void;
+  } | null>(null);
+
+  // ─── Clear pricing (undo a mistaken price / quotation import) ───
+  const [pendingPriceClear, setPendingPriceClear] = React.useState<{
+    assetId: string;
+    costId?: string;
+    kind: CostKind;
+  } | null>(null);
+
+  const clearPricing = (
+    assetId: string,
+    costId: string | undefined,
+    kind: CostKind,
+  ): void => {
+    persist(
+      localAssets.map((a) => {
+        if (a.id !== assetId) return a;
+        if (!costId) {
+          return { ...a, ...CLEARED_PRICING, costCalcMethod: "manual" };
+        }
+        return withCosts(
+          a,
+          kind,
+          costsOf(a, kind).map((sic) =>
+            sic.id === costId ? { ...sic, ...CLEARED_PRICING } : sic,
+          ),
+        );
+      }),
+    );
+  };
+
+  /** Holds back an edit that would discard filled-in transit rates until the user confirms it. */
+  const deferTransitDrop = (
+    fees: IAssetSubCost[],
+    apply: () => void,
+  ): boolean => {
+    const count = fees.filter(isTransitFilled).length;
+    if (count === 0) return false;
+    setPendingTransitDrop({ count, apply });
+    return true;
+  };
+
   const updateField = (
     id: string,
     field: keyof IAssetBreakdownItem,
     value: unknown,
+    confirmed = false,
   ): void => {
+    const drop = leavesRental(field, value);
+    if (
+      drop &&
+      !confirmed &&
+      deferTransitDrop(
+        localAssets.find((a) => a.id === id)?.subCosts || [],
+        () => updateField(id, field, value, true),
+      )
+    ) {
+      return;
+    }
     const updated = localAssets.map((a) => {
       if (a.id !== id) return a;
       const patched = { ...a, [field]: value };
+      if (drop) patched.subCosts = withoutTransit(patched.subCosts);
 
       const NO_COST_STATUSES = ["onboard", "call out", "not offered"];
 
@@ -605,6 +723,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     sectionId: string,
     field: keyof IAssetBreakdownItem,
     value: unknown,
+    confirmed = false,
   ): void => {
     const sectionAssetIds = new Set(
       localAssets
@@ -616,10 +735,27 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     );
     if (sectionAssetIds.size === 0) return;
 
+    const drop = leavesRental(field, value);
+    if (drop && !confirmed) {
+      const sectionFees: IAssetSubCost[] = [];
+      localAssets.forEach((a) => {
+        if (sectionAssetIds.has(a.id))
+          (a.subCosts || []).forEach((sc) => sectionFees.push(sc));
+      });
+      if (
+        deferTransitDrop(sectionFees, () =>
+          bulkUpdateSectionField(sectionId, field, value, true),
+        )
+      ) {
+        return;
+      }
+    }
+
     // Apply updateField logic to each matching asset
     const updated = localAssets.map((a) => {
       if (!sectionAssetIds.has(a.id)) return a;
       const patched = { ...a, [field]: value };
+      if (drop) patched.subCosts = withoutTransit(patched.subCosts);
       const NO_COST_STATUSES = ["onboard", "call out", "not offered"];
 
       if (field === "availabilityStatus") {
@@ -844,7 +980,22 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     field: keyof ISubItemCost,
     value: unknown,
     kind: CostKind = "sub",
+    confirmed = false,
   ): void => {
+    const drop = leavesRental(field, value);
+    if (drop && !confirmed) {
+      const owner = localAssets.find((a) => a.id === assetId);
+      const target = owner
+        ? costsOf(owner, kind).find((sic) => sic.id === subItemCostId)
+        : undefined;
+      if (
+        deferTransitDrop(target?.subCosts || [], () =>
+          updateSubItemCost(assetId, subItemCostId, field, value, kind, true),
+        )
+      ) {
+        return;
+      }
+    }
     const updated = localAssets.map((a) => {
       if (a.id !== assetId) return a;
       return withCosts(
@@ -853,6 +1004,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         costsOf(a, kind).map((sic) => {
           if (sic.id !== subItemCostId) return sic;
           const patched = { ...sic, [field]: value };
+          if (drop) patched.subCosts = withoutTransit(patched.subCosts);
 
           // Handle availability status changes for sub-items
           if (field === "availabilityStatus") {
@@ -888,12 +1040,15 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
               if (!hasTransit) {
                 patched.subCosts = [blankTransitSubCost(), ...subs];
               }
+            } else if (isWorkshopAcq(acqVal)) {
+              patched.costCategory = "OPEX";
+              patched.unitCostUSD = 0;
+              patched.totalCostUSD = 0;
+              patched.dailyRate = null;
+              patched.rentalDays = null;
             } else {
               patched.dailyRate = null;
               patched.rentalDays = null;
-              patched.subCosts = (patched.subCosts || []).filter(
-                (sc) => !sc.isTransitRate,
-              );
               if (acqVal === "purchase") {
                 // Check sub-item subType for Consumable → OPEX
                 const si = (scopeItems || []).find(
@@ -951,7 +1106,24 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     field: keyof ISubItemCost,
     value: unknown,
     kind: CostKind = "sub",
+    confirmed = false,
   ): void => {
+    const drop = leavesRental(field, value);
+    if (drop && !confirmed) {
+      const owner = localAssets.find((a) => a.id === assetId);
+      const fees: IAssetSubCost[] = [];
+      if (owner)
+        costsOf(owner, kind).forEach((sic) =>
+          (sic.subCosts || []).forEach((sc) => fees.push(sc)),
+        );
+      if (
+        deferTransitDrop(fees, () =>
+          bulkUpdateSubItems(assetId, field, value, kind, true),
+        )
+      ) {
+        return;
+      }
+    }
     const updated = localAssets.map((a) => {
       if (a.id !== assetId) return a;
       return withCosts(
@@ -959,6 +1131,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         kind,
         costsOf(a, kind).map((sic) => {
           const patched = { ...sic, [field]: value };
+          if (drop) patched.subCosts = withoutTransit(patched.subCosts);
 
           if (field === "availabilityStatus") {
             const val = String(value).toLowerCase();
@@ -986,6 +1159,12 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
               patched.totalCostUSD = 0;
               patched.dailyRate = 0;
               patched.rentalDays = 0;
+            } else if (isWorkshopAcq(acqVal)) {
+              patched.costCategory = "OPEX";
+              patched.unitCostUSD = 0;
+              patched.totalCostUSD = 0;
+              patched.dailyRate = null;
+              patched.rentalDays = null;
             } else {
               patched.dailyRate = null;
               patched.rentalDays = null;
@@ -1435,12 +1614,27 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     splitId: string,
     field: keyof IAvailabilitySplit,
     value: unknown,
+    confirmed = false,
   ): void => {
+    const drop = leavesRental(field, value);
+    if (drop && !confirmed) {
+      const split = (
+        localAssets.find((a) => a.id === assetId)?.availabilitySplits || []
+      ).find((sp) => sp.id === splitId);
+      if (
+        deferTransitDrop(split?.subCosts || [], () =>
+          handleUpdateSplit(assetId, splitId, field, value, true),
+        )
+      ) {
+        return;
+      }
+    }
     const updated = localAssets.map((a) => {
       if (a.id !== assetId) return a;
       const splits = (a.availabilitySplits || []).map((sp) => {
         if (sp.id !== splitId) return sp;
         const patched = { ...sp, [field]: value };
+        if (drop) patched.subCosts = withoutTransit(patched.subCosts);
 
         const NO_COST_STATUSES = ["onboard", "call out", "not offered"];
 
@@ -1642,7 +1836,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     breakdownOf(a).subItemsTotal;
 
   /** Get the total of all PCF costs for an asset (reuses sub-item cost logic) */
-  const getPCFTotal = (a: IAssetBreakdownItem): number => breakdownOf(a).pcfTotal;
+  const getPCFTotal = (a: IAssetBreakdownItem): number =>
+    breakdownOf(a).pcfTotal;
 
   /**
    * Shared renderer for a sub-item / PCF cost row (incl. splits, contingency,
@@ -1937,7 +2132,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                       Daily Rate
                     </span>
                     <input
-                      className={styles.numInput}
+                      className={missingIf(styles.numInput, sic.dailyRate)}
                       type="number"
                       min={0}
                       step={0.01}
@@ -1968,7 +2163,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                       Days
                     </span>
                     <input
-                      className={styles.numInput}
+                      className={missingIf(styles.numInput, sic.rentalDays)}
                       type="number"
                       min={0}
                       value={sic.rentalDays || 0}
@@ -2019,7 +2214,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                     }}
                   >
                     <input
-                      className={styles.numInput}
+                      className={missingIf(styles.numInput, sic.unitCostUSD)}
                       type="number"
                       min={0}
                       step={0.01}
@@ -2271,6 +2466,16 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
               <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
                 —
               </span>
+            ) : sicIsRental || isWorkshopAcq(sic.acquisitionType) ? (
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "var(--primary-accent, #6366f1)",
+                }}
+              >
+                OPEX
+              </span>
             ) : readOnly ? (
               sic.costCategory || "—"
             ) : (
@@ -2305,9 +2510,41 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 💬
               </button>
             )}
+            {!readOnly && (
+              <button
+                className={styles.noteBtn}
+                onClick={() =>
+                  handleAddQuotation(
+                    asset.id,
+                    sub.partNumber || "",
+                    sub.equipmentOffer || sub.description || "",
+                    sic.id,
+                  )
+                }
+                title="Add Quotation"
+              >
+                📝
+              </button>
+            )}
+            {!readOnly && hasPricing(sic) && (
+              <button
+                className={`${styles.noteBtn} ${styles.clearPriceBtn}`}
+                onClick={() =>
+                  setPendingPriceClear({
+                    assetId: asset.id,
+                    costId: sic.id,
+                    kind,
+                  })
+                }
+                title="Clear pricing & quotation"
+              >
+                🧹
+              </button>
+            )}
             {sic.quotationReference && (
               <a
                 className={styles.quoteLink}
+                href={getQuoteLinkHref(sic.quotationFileUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
                 title={
@@ -2525,7 +2762,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                       </span>
                     ) : (
                       <input
-                        className={styles.numInput}
+                        className={missingIf(styles.numInput, sp.unitCostUSD)}
                         type="number"
                         min={0}
                         step={0.01}
@@ -2548,7 +2785,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                       style={{ display: "flex", gap: 3, alignItems: "center" }}
                     >
                       <input
-                        className={styles.numInput}
+                        className={missingIf(styles.numInput, sp.dailyRate)}
                         type="number"
                         min={0}
                         step={0.01}
@@ -2570,7 +2807,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                         ×
                       </span>
                       <input
-                        className={styles.numInput}
+                        className={missingIf(styles.numInput, sp.rentalDays)}
                         type="number"
                         min={0}
                         value={sp.rentalDays || 0}
@@ -2980,85 +3217,17 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     };
   }, [localAssets, contingencyApplied, contingencyPerYear]);
 
-  // ─── Cost completeness tracker ───
-  const costCompleteness = React.useMemo(() => {
-    let itemsMissing = 0;
-    let itemsTotal = 0;
-    let subItemsMissing = 0;
-    let subItemsTotal = 0;
-    let pcfItemsMissing = 0;
-    let pcfItemsTotal = 0;
+  // ─── Cost completeness tracker (same rule gates the Close Out phase) ───
+  const costCompleteness = React.useMemo(
+    () =>
+      getAssetsCostCompleteness(scopeItems, localAssets, {
+        perYear: contingencyPerYear,
+        applied: contingencyApplied,
+      }),
+    [localAssets, scopeItems, contingencyApplied, contingencyPerYear],
+  );
 
-    localAssets.forEach((a) => {
-      const avail = (a.availabilityStatus || "").toLowerCase();
-      const acqType = (a.acquisitionType || "").toLowerCase();
-      const isNoCost =
-        avail === "onboard" || avail === "call out" || avail === "not offered";
-      const isNoCostAcq = acqType === "workshop" || acqType === "in house";
-
-      // Count main items (skip no-cost statuses and no-cost acquisition types,
-      // and rolled-up items whose cost is derived from their sub-items)
-      if (!isNoCost && !isNoCostAcq && !a.costFromSubItems && !a.costFromPCF) {
-        itemsTotal++;
-        const effectiveTotal = getEffectiveTotal(a);
-        if (effectiveTotal === 0) {
-          itemsMissing++;
-        }
-      }
-
-      // Count sub-item costs (skip no-cost sub-items)
-      (a.subItemCosts || []).forEach((sic) => {
-        const sicAvail = (sic.availabilityStatus || "").toLowerCase();
-        const sicAcq = (sic.acquisitionType || "").toLowerCase();
-        const sicIsNoCost =
-          sicAvail === "onboard" ||
-          sicAvail === "call out" ||
-          sicAvail === "not offered";
-        const sicIsNoCostAcq = sicAcq === "workshop" || sicAcq === "in house";
-        if (sicIsNoCost || sicIsNoCostAcq) return;
-        subItemsTotal++;
-        const sicTotal = getSubItemCostTotal(sic, a.scopeItemId);
-        if (sicTotal === 0) {
-          subItemsMissing++;
-        }
-      });
-
-      // Count PCF costs (skip no-cost PCF items)
-      (a.pcfCosts || []).forEach((pc) => {
-        const pcAvail = (pc.availabilityStatus || "").toLowerCase();
-        const pcAcq = (pc.acquisitionType || "").toLowerCase();
-        const pcIsNoCost =
-          pcAvail === "onboard" ||
-          pcAvail === "call out" ||
-          pcAvail === "not offered";
-        const pcIsNoCostAcq = pcAcq === "workshop" || pcAcq === "in house";
-        if (pcIsNoCost || pcIsNoCostAcq) return;
-        pcfItemsTotal++;
-        const pcTotal = getSubItemCostTotal(pc, a.scopeItemId, "pcf");
-        if (pcTotal === 0) {
-          pcfItemsMissing++;
-        }
-      });
-    });
-
-    return {
-      itemsMissing,
-      itemsTotal,
-      subItemsMissing,
-      subItemsTotal,
-      pcfItemsMissing,
-      pcfItemsTotal,
-    };
-  }, [localAssets, scopeItems, contingencyApplied, contingencyPerYear]);
-
-  const totalMissing =
-    costCompleteness.itemsMissing +
-    costCompleteness.subItemsMissing +
-    costCompleteness.pcfItemsMissing;
-  const totalItems =
-    costCompleteness.itemsTotal +
-    costCompleteness.subItemsTotal +
-    costCompleteness.pcfItemsTotal;
+  const { totalMissing, totalItems } = costCompleteness;
   const allCostsFilled = totalMissing === 0 && totalItems > 0;
 
   // ─── Missing items detail list ───
@@ -3309,7 +3478,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         assetId,
         subItemCostId,
         unitCostUSD: item.costUSD || item.cost,
-        costReference: item.supplier || "Quote",
+        costReference: item.reference || "Quote",
         dateReference: item.quotationDate || "",
         leadTimeDays: item.leadTimeDays || 0,
         originalCost: item.cost,
@@ -3353,6 +3522,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   const renderFeeRows = (
     fees: IAssetSubCost[],
     parentDailyRate: number,
+    parentIsRental: boolean,
     variant: "fees" | "split",
     onUpdate: (
       subCostId: string,
@@ -3528,7 +3698,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             )}
           </div>
           <div className={`${styles.subCell} ${styles.subCellCenter}`}>
-            {!readOnly && !isTransit && (
+            {/* Transit rates are owned by Rental — only leftovers from older data can be removed by hand */}
+            {!readOnly && (!isTransit || !parentIsRental) && (
               <button
                 className={styles.deleteSubCost}
                 onClick={() => onDelete(sc.id)}
@@ -3689,7 +3860,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           <label className={styles.rateField}>
                             Rate
                             <input
-                              className={styles.numInput}
+                              className={missingIf(
+                                styles.numInput,
+                                split.dailyRate,
+                              )}
                               type="number"
                               min={0}
                               step={0.01}
@@ -3707,7 +3881,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           <label className={styles.rateField}>
                             Days
                             <input
-                              className={styles.numInput}
+                              className={missingIf(
+                                styles.numInput,
+                                split.rentalDays,
+                              )}
                               type="number"
                               min={0}
                               value={split.rentalDays || 0}
@@ -3727,7 +3904,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                       <span>$ {fmtCost(split.unitCostUSD)}</span>
                     ) : (
                       <input
-                        className={styles.numInput}
+                        className={missingIf(
+                          styles.numInput,
+                          split.unitCostUSD,
+                        )}
                         type="number"
                         min={0}
                         step={0.01}
@@ -3920,6 +4100,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 {renderFeeRows(
                   split.subCosts || [],
                   split.dailyRate || 0,
+                  isRentalAcq(split.acquisitionType),
                   "split",
                   (subCostId, field, value) =>
                     updateSplitSubCost(
@@ -4045,6 +4226,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           {renderFeeRows(
             fees,
             asset.dailyRate || 0,
+            isRentalAcq(asset.acquisitionType),
             "fees",
             (subCostId, field, value) =>
               updateSubCost(asset.id, subCostId, field, value),
@@ -4608,6 +4790,12 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 const siHasPCF = siPCFItems.length > 0;
                 const assetBd = breakdownOf(asset);
                 const subCostsSum = assetBd.main.fees + assetBd.orphanFees;
+                // Rollup only makes sense while the main item has no own cost yet
+                const rollupLocked =
+                  !asset.costFromSubItems &&
+                  (assetSplits.length > 0
+                    ? assetBd.splits.some((n) => n.base > 0)
+                    : assetBd.main.base > 0);
 
                 return (
                   <React.Fragment key={asset.id}>
@@ -5238,7 +5426,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                         Daily Rate
                                       </span>
                                       <input
-                                        className={styles.numInput}
+                                        className={missingIf(
+                                          styles.numInput,
+                                          rate,
+                                        )}
                                         type="number"
                                         min={0}
                                         step={0.01}
@@ -5271,7 +5462,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                         Days
                                       </span>
                                       <input
-                                        className={styles.numInput}
+                                        className={missingIf(
+                                          styles.numInput,
+                                          days,
+                                        )}
                                         type="number"
                                         min={0}
                                         value={days}
@@ -5298,9 +5492,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                     gap: 2,
                                   }}
                                 >
-                                  <span>
-                                    $ {fmtCost(assetBd.main.total)}
-                                  </span>
+                                  <span>$ {fmtCost(assetBd.main.total)}</span>
                                   {rate > 0 && days > 0 && (
                                     <span
                                       style={{
@@ -5346,7 +5538,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   }}
                                 >
                                   <input
-                                    className={styles.numInput}
+                                    className={missingIf(
+                                      styles.numInput,
+                                      asset.unitCostUSD,
+                                    )}
                                     type="number"
                                     min={0}
                                     step={0.01}
@@ -5815,15 +6010,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           <div className={styles.notesRow}>
                             {(!readOnly || !!asset.notes) && (
                               <button
-                                className={noteBtnClass(
-                                  asset.id,
-                                  asset.notes,
-                                )}
+                                className={noteBtnClass(asset.id, asset.notes)}
                                 onClick={() => toggleNotesExpand(asset.id)}
                                 title={
-                                  asset.notes
-                                    ? "View/edit notes"
-                                    : "Add notes"
+                                  asset.notes ? "View/edit notes" : "Add notes"
                                 }
                               >
                                 💬
@@ -5882,6 +6072,20 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                             >
                               Σ
                             </button>
+                            {!readOnly && hasPricing(asset) && (
+                              <button
+                                className={`${styles.subCostToggle} ${styles.clearPriceBtn}`}
+                                onClick={() =>
+                                  setPendingPriceClear({
+                                    assetId: asset.id,
+                                    kind: "sub",
+                                  })
+                                }
+                                title="Clear pricing & quotation"
+                              >
+                                🧹
+                              </button>
+                            )}
                             {readOnly && hasSubCosts && (
                               <button
                                 className={`${styles.subCostToggle} ${styles.hasSubCosts}`}
@@ -6065,12 +6269,17 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                       ))}
                                     </select>
                                     <label
-                                      className={styles.rollupToggle}
-                                      title="When enabled, the main item has no own cost — its cost is the sum (rollup) of these sub-items. Use this for Eng. Solutions / developed items."
+                                      className={`${styles.rollupToggle}${rollupLocked ? ` ${styles.rollupToggleDisabled}` : ""}`}
+                                      title={
+                                        rollupLocked
+                                          ? "Unavailable — the main item already has its own cost. Clear it first to roll up the sub-items."
+                                          : "When enabled, the main item has no own cost — its cost is the sum (rollup) of these sub-items. Use this for Eng. Solutions / developed items."
+                                      }
                                     >
                                       <input
                                         type="checkbox"
                                         checked={!!asset.costFromSubItems}
+                                        disabled={rollupLocked}
                                         onChange={(e) =>
                                           updateField(
                                             asset.id,
@@ -6279,6 +6488,43 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           onCreateBom={onCreateBom}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!pendingTransitDrop}
+        title="Remove Transit Rate?"
+        message={
+          pendingTransitDrop && pendingTransitDrop.count > 1
+            ? `${pendingTransitDrop.count} Transit Rate entries already have values (import/export days, discount or notes). Moving these items out of Rental will delete them.`
+            : "This Transit Rate already has values (import/export days, discount or notes). Moving the item out of Rental will delete it."
+        }
+        confirmLabel="Change & delete"
+        cancelLabel="Keep Rental"
+        variant="warning"
+        onConfirm={() => {
+          if (pendingTransitDrop) pendingTransitDrop.apply();
+          setPendingTransitDrop(null);
+        }}
+        onCancel={() => setPendingTransitDrop(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!pendingPriceClear}
+        title="Clear pricing?"
+        message="This will clear the unit cost, cost ref / supplier, date ref, lead time and quotation link of this item."
+        confirmLabel="Clear"
+        variant="danger"
+        onConfirm={() => {
+          if (pendingPriceClear) {
+            clearPricing(
+              pendingPriceClear.assetId,
+              pendingPriceClear.costId,
+              pendingPriceClear.kind,
+            );
+          }
+          setPendingPriceClear(null);
+        }}
+        onCancel={() => setPendingPriceClear(null)}
+      />
 
       {/* Cost breakdown popover — fixed-position because .tableWrapper clips absolutes */}
       {breakdownAnchor &&

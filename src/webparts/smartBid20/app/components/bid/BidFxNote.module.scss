@@ -1,0 +1,36 @@
+.fxNote {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.fxLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.fxRate {
+  padding: 1px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg-elevated);
+  color: var(--text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fxMuted {
+  color: var(--text-muted);
+}
+
+.fxWarning {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--warning);
+  color: var(--warning);
+  font-weight: 600;
+}

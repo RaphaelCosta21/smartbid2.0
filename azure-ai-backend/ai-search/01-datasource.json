@@ -6,6 +6,6 @@
   },
   "container": {
     "name": "useQuery",
-    "query": "includeFolder=oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Datasheets;includeFolder=oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Manuals and Catalogs;additionalColumns=DocType,DocCategory,Manufacturer,DocModel,DocKeywords,DocDescription,DocRevision"
+    "query": "includeFolder=oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Datasheets;includeFolder=oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Manuals and Catalogs;includeFolder=oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Past Bids;additionalColumns=DocType,DocCategory,Manufacturer,DocModel,DocKeywords,DocDescription,DocRevision"
   }
 }

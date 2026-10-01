@@ -24,6 +24,7 @@ declare module "xlsx" {
     aoa_to_sheet(data: unknown[][], opts?: Record<string, unknown>): WorkSheet;
     book_append_sheet(wb: WorkBook, ws: WorkSheet, name: string): void;
     sheet_to_json(ws: WorkSheet, opts?: Record<string, unknown>): any[];
+    sheet_to_csv(ws: WorkSheet, opts?: Record<string, unknown>): string;
     encode_cell(cell: { r: number; c: number }): string;
     encode_range(range: {
       s: { r: number; c: number };

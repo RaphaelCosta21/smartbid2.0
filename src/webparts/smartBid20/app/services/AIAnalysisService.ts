@@ -23,6 +23,7 @@ import {
   IExtractedDocumentMetadata,
   IDocumentMetadataExtractionResult,
   IAIGroupOption,
+  IPastBidProfileSuggestion,
   AIUseCase,
 } from "../models/IAIAnalysis";
 import {
@@ -30,6 +31,7 @@ import {
   IChatCitation,
   IChatMessage,
   IChatRetrievedDoc,
+  IPastBidChatContext,
 } from "../models/IAiChat";
 import { makeId } from "../utils/idGenerator";
 import { AI_CONFIG, buildAiUrl, isAiConfigured } from "../config/ai.config";
@@ -42,9 +44,10 @@ import {
   DOCUMENT_METADATA_EXTRACTION_PROMPT_VERSION,
   buildKnowledgeChatPrompt,
   KNOWLEDGE_CHAT_PROMPT_VERSION,
-  // Future: clarification suggestions (endpoint not wired yet)
-  // buildClarificationSuggestionPrompt,
-  // CLARIFICATION_SUGGESTION_PROMPT_VERSION,
+  buildPastBidProfilePrompt,
+  PAST_BID_PROFILE_PROMPT_VERSION,
+  buildClarificationSuggestionPrompt,
+  CLARIFICATION_SUGGESTION_PROMPT_VERSION,
 } from "../config/ai.prompts";
 
 /** Only same-tenant SharePoint links are rendered as citations. */
@@ -329,6 +332,11 @@ export class AIAnalysisService {
           context.groupOptions || [],
         );
         request.promptVersion = DOCUMENT_METADATA_EXTRACTION_PROMPT_VERSION;
+      } else if (useCase === "past-bid-profile") {
+        request.systemPrompt = buildPastBidProfilePrompt(
+          context.scopeCategoryOptions || [],
+        );
+        request.promptVersion = PAST_BID_PROFILE_PROMPT_VERSION;
       }
     }
 
@@ -553,11 +561,13 @@ export class AIAnalysisService {
    * @param question - The user's question
    * @param history - Earlier turns of the conversation, oldest first
    * @param abortSignal - Optional AbortSignal for cancellation
+   * @param pastBids - Completed BIDs SmartBid matched to the question (ledger + refs)
    */
   public static async chat(
     question: string,
     history: IChatMessage[] = [],
     abortSignal?: AbortSignal,
+    pastBids?: IPastBidChatContext | null,
   ): Promise<IChatAnswer> {
     AIAnalysisService.ensureConfigured();
 
@@ -578,6 +588,9 @@ export class AIAnalysisService {
         systemPrompt: buildKnowledgeChatPrompt(),
         promptVersion: KNOWLEDGE_CHAT_PROMPT_VERSION,
         topK: AI_CONFIG.chat.topK,
+        ...(pastBids
+          ? { pastBidsLedger: pastBids.ledger, pastBidRefs: pastBids.refs }
+          : {}),
       },
       abortSignal,
     );
@@ -627,6 +640,7 @@ export class AIAnalysisService {
     const list = Array.isArray(rawItems) ? rawItems : [];
     const items: IExtractedQuotationLine[] = [];
     let foldedCount = 0;
+    const notQuoted: string[] = [];
     list.forEach((entry: Record<string, unknown>) => {
       const it = entry || {};
       const description = String(it.description || "").trim();
@@ -634,6 +648,12 @@ export class AIAnalysisService {
       if (!description && cost <= 0) return;
       const partNumber = String(it.partNumber || it.oiiPartNumber || "");
       const included = String(it.includedComponents || "").trim();
+      // The supplier did not price it, so it is neither part of the row above nor savable here.
+      if (it.notQuoted === true && cost <= 0) {
+        const reason = String(it.notes || "").trim();
+        notQuoted.push(reason ? `${description} (${reason})` : description);
+        return;
+      }
       // Quotation tables bundle accessories/spec rows priced 0 under the
       // position above them. When the model still returns them as standalone
       // entries, fold them back into the parent instead of registering extra
@@ -682,6 +702,11 @@ export class AIAnalysisService {
         `${foldedCount} zero-priced row${foldedCount > 1 ? "s were" : " was"} merged into the item above as included components.`,
       );
     }
+    if (notQuoted.length > 0) {
+      warnings.push(
+        `Not quoted by the supplier (left out): ${notQuoted.join("; ")}`,
+      );
+    }
     if (items.length === 0) {
       warnings.push(
         "No quotation items could be extracted. Try a clearer file or enter them manually.",
@@ -697,6 +722,20 @@ export class AIAnalysisService {
         ? String(raw.extractedAt)
         : new Date().toISOString(),
     };
+  }
+
+  /** Flatten every sheet of an Excel workbook into CSV text. */
+  private static async spreadsheetToText(file: File): Promise<string> {
+    const XLSX = await import("xlsx");
+    const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+    return wb.SheetNames.map((name) => {
+      const csv = XLSX.utils
+        .sheet_to_csv(wb.Sheets[name], { blankrows: false, strip: true })
+        .trim();
+      return csv ? `Sheet: ${name}\n${csv}` : "";
+    })
+      .filter(Boolean)
+      .join("\n\n");
   }
 
   /**
@@ -718,6 +757,10 @@ export class AIAnalysisService {
       context,
       {},
     );
+    // The backend cannot parse Excel workbooks, so they are sent as text.
+    if (/\.xlsx?$/i.test(file.name)) {
+      request.documentText = await AIAnalysisService.spreadsheetToText(file);
+    }
     const data = await AIAnalysisService.postJson(
       AI_CONFIG.endpoints.extractQuotation,
       request,
@@ -816,21 +859,111 @@ export class AIAnalysisService {
   }
 
   /**
-   * Suggest clarifications/qualifications for the current BID, grounded in past
-   * accepted ones retrieved by the backend (RAG over the Clarifications DB).
+   * Suggest scope categories, tags and a summary for a completed BID from its
+   * knowledge document. Reuses the `/quotation/extract` passthrough endpoint.
+   *
+   * @param documentText - Past Bid knowledge text (no pricing needed)
+   * @param bidNumber - BID number, for traceability
+   * @param scopeCategories - Allowed scope categories (System Config)
+   * @param abortSignal - Optional AbortSignal for cancellation
+   */
+  public static async suggestPastBidProfile(
+    documentText: string,
+    bidNumber: string,
+    scopeCategories: string[],
+    abortSignal?: AbortSignal,
+  ): Promise<IPastBidProfileSuggestion> {
+    AIAnalysisService.ensureConfigured();
+    const file = new File([documentText], `${bidNumber || "bid"}-profile.txt`, {
+      type: "text/plain",
+    });
+    const request = await AIAnalysisService.buildRequest(
+      file,
+      "past-bid-profile",
+      { scopeCategoryOptions: scopeCategories },
+      { bidNumber },
+    );
+    const data = (await AIAnalysisService.postJson(
+      AI_CONFIG.endpoints.extractQuotation,
+      request,
+      abortSignal,
+    )) as Record<string, unknown>;
+    if (data && data.error) {
+      throw new Error(
+        data.details ? `${data.error}: ${data.details}` : String(data.error),
+      );
+    }
+    const items = data ? data.items : null;
+    const it = ((Array.isArray(items) ? items[0] : null) || {}) as Record<
+      string,
+      unknown
+    >;
+    const allowed: Record<string, string> = {};
+    scopeCategories.forEach((c) => (allowed[c.trim().toLowerCase()] = c));
+    const asList = (raw: unknown): string[] =>
+      Array.isArray(raw)
+        ? raw.map((v) => String(v || "").replace(/\s+/g, " ").trim())
+        : [];
+    const categories: string[] = [];
+    asList(it.scopeCategories).forEach((c) => {
+      const match = allowed[c.toLowerCase()];
+      if (match && categories.indexOf(match) < 0) categories.push(match);
+    });
+    const tags: string[] = [];
+    const seen: Record<string, boolean> = {};
+    asList(it.tags).forEach((t) => {
+      const key = t.toLowerCase();
+      if (!t || t.length > 40 || seen[key]) return;
+      seen[key] = true;
+      tags.push(t);
+    });
+    return {
+      scopeCategories: categories.slice(0, 3),
+      tags: tags.slice(0, 15),
+      summary: String(it.summary || "").trim().substring(0, 600),
+    };
+  }
+
+  /**
+   * Suggest clarifications/qualifications for the current BID, grounded in the
+   * ones raised in similar Past Bids (retrieved by the backend).
    *
    * @param requirementsText - Serialized current BID requirements / scope
    * @param context - Division / service line / resource types for retrieval
+   * @param ids - Current BID number (kept out of its own precedents) and the
+   *   clarifications/qualifications it already has (not to be repeated)
    * @param abortSignal - Optional AbortSignal for cancellation
    */
   public static async suggestClarifications(
     requirementsText: string,
     context: IAIAnalysisContext = {},
+    ids: { bidNumber?: string; existingText?: string } = {},
     abortSignal?: AbortSignal,
   ): Promise<IAISuggestedClarification[]> {
-    // Future: the /clarifications/suggest endpoint is not wired yet. Re-enable
-    // AI_CONFIG.endpoints.suggestClarifications (ai.config.ts) + the clarification
-    // prompt imports above, then restore the request/postJson body (see git history).
-    throw new Error("AI clarification suggestions are not available yet.");
+    AIAnalysisService.ensureConfigured();
+    const data = (await AIAnalysisService.postJson(
+      AI_CONFIG.endpoints.suggestClarifications,
+      {
+        requirementsText,
+        existingText: ids.existingText || "",
+        bidNumber: ids.bidNumber || "",
+        division: context.division || "",
+        serviceLine: context.serviceLine || "",
+        resourceTypes: context.resourceTypes || [],
+        contextSummary: context.contextSummary || "",
+        useCase: "clarification",
+        systemPrompt: buildClarificationSuggestionPrompt(),
+        promptVersion: CLARIFICATION_SUGGESTION_PROMPT_VERSION,
+      },
+      abortSignal,
+    )) as Record<string, unknown>;
+    if (data && data.error) {
+      throw new Error(
+        data.details ? `${data.error}: ${data.details}` : String(data.error),
+      );
+    }
+    return AIAnalysisService.parseClarifications(
+      data ? data.suggestedClarifications : [],
+    );
   }
 }

@@ -21,6 +21,7 @@ import { GlassCard } from "../common/GlassCard";
 import { BidTaskChecklist } from "./BidTaskChecklist";
 import { getRevisionLetter } from "./RevisionsTab";
 import { formatDateTime } from "../../utils/formatters";
+import { getAssetsCostCompleteness } from "../../utils/costCalculations";
 import {
   formatDurationHours,
   calcDurationHours,
@@ -67,6 +68,27 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
     !bid.engineerResponsible ||
     (Array.isArray(bid.engineerResponsible) &&
       bid.engineerResponsible.length === 0);
+
+  /** Close Out requires every Assets Breakdown item to have its cost mapped */
+  const [assetCostsBlock, setAssetCostsBlock] = React.useState(false);
+  const assetsCostCompleteness = React.useMemo(
+    () =>
+      getAssetsCostCompleteness(
+        bid.scopeItems || [],
+        bid.assetBreakdown || [],
+      ),
+    [bid.scopeItems, bid.assetBreakdown],
+  );
+  /** Canceled / No Bid close the BID without a priced scope, so they are not gated */
+  const COST_EXEMPT_STATUSES = ["Canceled", "No Bid"];
+  const isBlockedByAssetCosts = (
+    targetPhase: BidPhase,
+    targetStatus?: string,
+  ): boolean =>
+    targetPhase === ("Close Out" as BidPhase) &&
+    bid.currentPhase !== ("Close Out" as BidPhase) &&
+    assetsCostCompleteness.totalMissing > 0 &&
+    COST_EXEMPT_STATUSES.indexOf(targetStatus || "") < 0;
 
   /** Phase-change picker: choose a status before confirming */
   const [phasePickerTarget, setPhasePickerTarget] = React.useState<{
@@ -430,6 +452,11 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
       return;
     }
 
+    if (isBlockedByAssetCosts(targetPhase, statusDef.value)) {
+      setAssetCostsBlock(true);
+      return;
+    }
+
     const phaseLabel =
       phases.find((p) => p.value === targetPhase)?.label || targetPhase;
 
@@ -474,6 +501,11 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
 
     // Rework phase is only allowed when BID is in a terminal status (Completed, Canceled, No Bid)
     if (phase.value === ("Rework" as BidPhase) && !bidIsTerminal) {
+      return;
+    }
+
+    if (isBlockedByAssetCosts(phase.value)) {
+      setAssetCostsBlock(true);
       return;
     }
 
@@ -1167,6 +1199,52 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                 }}
               >
                 Go to Unassigned Requests
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Asset Costs Block Dialog ─── */}
+      {assetCostsBlock && (
+        <div
+          className={styles.overlay}
+          onClick={() => setAssetCostsBlock(false)}
+        >
+          <div
+            className={styles.confirmDialog}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.confirmIcon}>
+              <TriangleAlert size={32} color="var(--warning)" />
+            </div>
+            <h3 className={styles.confirmTitle}>Asset Costs Not Mapped</h3>
+            <div className={styles.confirmMeta} style={{ textAlign: "center" }}>
+              <strong>
+                {assetsCostCompleteness.totalMissing} of{" "}
+                {assetsCostCompleteness.totalItems} item
+                {assetsCostCompleteness.totalItems !== 1 ? "s" : ""} still
+                missing cost
+              </strong>{" "}
+              in the Assets Breakdown
+              {assetsCostCompleteness.itemsMissing > 0 &&
+                ` · ${assetsCostCompleteness.itemsMissing} main item${assetsCostCompleteness.itemsMissing !== 1 ? "s" : ""}`}
+              {assetsCostCompleteness.subItemsMissing > 0 &&
+                ` · ${assetsCostCompleteness.subItemsMissing} sub-item${assetsCostCompleteness.subItemsMissing !== 1 ? "s" : ""}`}
+              {assetsCostCompleteness.pcfItemsMissing > 0 &&
+                ` · ${assetsCostCompleteness.pcfItemsMissing} PCF item${assetsCostCompleteness.pcfItemsMissing !== 1 ? "s" : ""}`}
+              .
+              <br />
+              <br />
+              All items must have costs mapped before advancing to{" "}
+              <strong>Close Out</strong>.
+            </div>
+            <div className={styles.confirmActions}>
+              <button
+                className={styles.confirmCancel}
+                onClick={() => setAssetCostsBlock(false)}
+              >
+                Close
               </button>
             </div>
           </div>

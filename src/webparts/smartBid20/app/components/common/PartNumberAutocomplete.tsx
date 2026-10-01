@@ -1,13 +1,13 @@
 /**
- * PartNumberAutocomplete — Multi-source autocomplete input for Part Number
- * and Equipment description fields. Searches across Query Catalog,
- * Favorites, and BOM sheets with grouped dropdown results.
+ * PartNumberAutocomplete — Autocomplete input for Part Number and Equipment
+ * description fields. Shows up to 8 results searched in cascade across the
+ * "Add Items from Catalog" sources: Query Consulting → Quotations →
+ * BOM Costs → Assets Catalog → Favorites.
  */
 import * as React from "react";
-import { ClipboardList, Star } from "lucide-react";
 import styles from "./PartNumberAutocomplete.module.scss";
 import { useQuerySearch } from "../../hooks/useQuerySearch";
-import { ISearchResultItem, IMultiSourceResults } from "../../models";
+import { ISearchResultItem, CatalogSearchBucket } from "../../models";
 
 export interface PartNumberAutocompleteProps {
   /** Current field value */
@@ -28,8 +28,8 @@ export interface PartNumberAutocompleteProps {
   onBlur?: () => void;
   /** Auto-focus the input on mount */
   autoFocus?: boolean;
-  /** Restrict which source sections to display. E.g. ["query","bomCosts"] to hide favorites. */
-  sourcesFilter?: (keyof IMultiSourceResults)[];
+  /** Restrict which sources are searched. E.g. ["query"] for the Peoplesoft catalog only. */
+  sourcesFilter?: CatalogSearchBucket[];
 }
 
 /** Source label map */
@@ -37,26 +37,14 @@ const SOURCE_LABELS: Record<string, { label: string; cls: string }> = {
   AR: { label: "PS Brazil", cls: "badgeAR" },
   PS: { label: "PS Financials", cls: "badgePS" },
   FAR: { label: "PS Fin. Registered", cls: "badgePS" },
+  QUOTE: { label: "Quotation", cls: "badgeQUOTE" },
+  BOMCOST: { label: "BOM Cost", cls: "badgeBOM" },
+  ASSET: { label: "Asset", cls: "badgeASSET" },
   FAV: { label: "Favorite", cls: "badgeFAV" },
   BUMBL: { label: "BUMBL", cls: "badgeBOM" },
   BUMBR: { label: "BUMBR", cls: "badgeBOM" },
   FIN: { label: "Financials", cls: "badgeFIN" },
 };
-
-interface SectionDef {
-  key: keyof IMultiSourceResults;
-  icon: React.ReactNode;
-  label: string;
-}
-
-const SECTIONS: SectionDef[] = [
-  {
-    key: "query",
-    icon: <ClipboardList size={14} />,
-    label: "Peoplesoft Catalog",
-  },
-  { key: "favorites", icon: <Star size={14} />, label: "Favorites" },
-];
 
 export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
   props,
@@ -77,27 +65,10 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
   const { setQuery, results, isSearching, isCatalogLoading } = useQuerySearch({
     searchField,
     debounceMs: 300,
-    limitPerSource: 5,
+    limit: 8,
     skipLoad: readOnly,
+    sources: sourcesFilter,
   });
-
-  // Filter sections to display based on sourcesFilter prop
-  const visibleSections = React.useMemo(
-    () =>
-      sourcesFilter
-        ? SECTIONS.filter((s) => sourcesFilter.indexOf(s.key) >= 0)
-        : SECTIONS,
-    [sourcesFilter],
-  );
-
-  const filteredTotalResults = React.useMemo(() => {
-    let count = 0;
-    visibleSections.forEach((sec) => {
-      const items = results[sec.key];
-      if (items) count += items.length;
-    });
-    return count;
-  }, [results, visibleSections]);
 
   const [showDropdown, setShowDropdown] = React.useState(false);
   const [highlightIndex, setHighlightIndex] = React.useState(-1);
@@ -108,18 +79,6 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
   } | null>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
-
-  // Build flat list for keyboard navigation
-  const flatItems = React.useMemo((): ISearchResultItem[] => {
-    const list: ISearchResultItem[] = [];
-    visibleSections.forEach((sec) => {
-      const items = results[sec.key];
-      if (items && items.length > 0) {
-        items.forEach((item) => list.push(item));
-      }
-    });
-    return list;
-  }, [results, visibleSections]);
 
   // Update search query when value changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -158,19 +117,19 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-    if (!showDropdown || flatItems.length === 0) {
+    if (!showDropdown || results.length === 0) {
       if (e.key === "Escape" && onBlur) onBlur();
       return;
     }
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlightIndex((prev) => (prev < flatItems.length - 1 ? prev + 1 : 0));
+      setHighlightIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlightIndex((prev) => (prev > 0 ? prev - 1 : flatItems.length - 1));
+      setHighlightIndex((prev) => (prev > 0 ? prev - 1 : results.length - 1));
     } else if (e.key === "Enter" && highlightIndex >= 0) {
       e.preventDefault();
-      handleSelectItem(flatItems[highlightIndex]);
+      handleSelectItem(results[highlightIndex]);
     } else if (e.key === "Escape") {
       setShowDropdown(false);
       if (onBlur) onBlur();
@@ -216,8 +175,6 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
     );
   }
 
-  let flatIdx = -1; // Track position for highlight
-
   return (
     <div ref={containerRef} className={styles.container}>
       <input
@@ -234,7 +191,7 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
       />
 
       {showDropdown &&
-        (filteredTotalResults > 0 || isSearching || isCatalogLoading) && (
+        (results.length > 0 || isSearching || isCatalogLoading) && (
           <div
             className={styles.dropdown}
             style={
@@ -264,57 +221,39 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
 
             {!isCatalogLoading &&
               !isSearching &&
-              visibleSections.map((sec) => {
-                const items = results[sec.key];
-                if (!items || items.length === 0) return null;
+              results.map((item, i) => {
+                const srcDef = SOURCE_LABELS[item.source] || {
+                  label: item.source,
+                  cls: "badgeAR",
+                };
                 return (
-                  <div key={sec.key} className={styles.section}>
-                    <div className={styles.sectionHeader}>
-                      <span className={styles.sectionIcon}>{sec.icon}</span>
-                      {sec.label}
-                      <span className={styles.sectionCount}>
-                        {items.length}
-                      </span>
-                    </div>
-                    {items.map((item, i) => {
-                      flatIdx++;
-                      const currentFlatIdx = flatIdx;
-                      const isHighlighted = currentFlatIdx === highlightIndex;
-                      const srcDef = SOURCE_LABELS[item.source] || {
-                        label: item.source,
-                        cls: "badgeAR",
-                      };
-                      return (
-                        <div
-                          key={`${sec.key}-${i}`}
-                          className={`${styles.resultRow} ${isHighlighted ? styles.highlighted : ""}`}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            handleSelectItem(item);
-                          }}
-                          onMouseEnter={() => setHighlightIndex(currentFlatIdx)}
-                        >
-                          <span className={styles.resultPN}>{item.pn}</span>
-                          <span className={styles.resultDesc}>
-                            {item.description.length > 60
-                              ? item.description.substring(0, 57) + "..."
-                              : item.description}
-                          </span>
-                          <span
-                            className={`${styles.sourceBadge} ${styles[srcDef.cls] || ""}`}
-                          >
-                            {srcDef.label}
-                          </span>
-                        </div>
-                      );
-                    })}
+                  <div
+                    key={`${item.source}-${i}`}
+                    className={`${styles.resultRow} ${i === highlightIndex ? styles.highlighted : ""}`}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleSelectItem(item);
+                    }}
+                    onMouseEnter={() => setHighlightIndex(i)}
+                  >
+                    <span className={styles.resultPN}>{item.pn}</span>
+                    <span className={styles.resultDesc}>
+                      {item.description.length > 60
+                        ? item.description.substring(0, 57) + "..."
+                        : item.description}
+                    </span>
+                    <span
+                      className={`${styles.sourceBadge} ${styles[srcDef.cls] || ""}`}
+                    >
+                      {srcDef.label}
+                    </span>
                   </div>
                 );
               })}
 
             {!isCatalogLoading &&
               !isSearching &&
-              filteredTotalResults === 0 &&
+              results.length === 0 &&
               value.length >= 2 && (
                 <div className={styles.emptyRow}>No items found</div>
               )}

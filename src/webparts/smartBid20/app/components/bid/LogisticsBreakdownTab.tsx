@@ -2,10 +2,17 @@ import * as React from "react";
 import { ILogisticsItem } from "../../models";
 import { makeId } from "../../utils/idGenerator";
 import { getCurrencies } from "../../utils/currencyHelpers";
+import {
+  IBidFx,
+  calculateMultiCurrencyTotals,
+} from "../../utils/costCalculations";
+import { formatCurrency } from "../../utils/formatters";
+import { BidFxNote, UsdAmountCell } from "./BidFxNote";
 import styles from "./BreakdownTab.module.scss";
 
 interface LogisticsBreakdownTabProps {
   logisticsBreakdown: ILogisticsItem[];
+  fx: IBidFx;
   onSave: (items: ILogisticsItem[]) => void;
   readOnly?: boolean;
 }
@@ -24,6 +31,7 @@ const blankItem = (lineNumber: number): ILogisticsItem => ({
 
 export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
   logisticsBreakdown,
+  fx,
   onSave,
   readOnly = false,
 }) => {
@@ -99,7 +107,7 @@ export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
     }, 500);
   };
 
-  const grandTotal = items.reduce((sum, i) => sum + (i.totalCost || 0), 0);
+  const totals = calculateMultiCurrencyTotals(items, fx);
 
   return (
     <div className={styles.container}>
@@ -109,12 +117,13 @@ export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
           <span className={styles.summaryValue}>{items.length}</span>
         </div>
         <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Total Cost</span>
+          <span className={styles.summaryLabel}>Total Cost (USD)</span>
           <span className={styles.summaryValue}>
-            {grandTotal.toLocaleString()}
+            {formatCurrency(totals.totalUSD)}
           </span>
         </div>
       </div>
+      <BidFxNote fx={fx} currencies={items.map((i) => i.originalCurrency)} />
 
       {!readOnly && (
         <div className={styles.toolbar}>
@@ -138,6 +147,7 @@ export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
                 <th>Qty</th>
                 <th>Unit Cost</th>
                 <th>Total Cost</th>
+                <th>Total (USD)</th>
                 <th>Notes</th>
                 {!readOnly && <th />}
               </tr>
@@ -238,6 +248,12 @@ export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
                   <td className={`${styles.cellRight} ${styles.cellBold}`}>
                     {((item.qty || 0) * (item.unitCost || 0)).toLocaleString()}
                   </td>
+                  <UsdAmountCell
+                    className={styles.cellRight}
+                    amount={(item.qty || 0) * (item.unitCost || 0)}
+                    currency={item.originalCurrency}
+                    fx={fx}
+                  />
                   <td>
                     {readOnly ? (
                       item.notes || "—"
@@ -266,7 +282,7 @@ export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
             </tbody>
           </table>
           <div className={styles.totalBar}>
-            <span>Total: {grandTotal.toLocaleString()}</span>
+            <span>Total (USD): {formatCurrency(totals.totalUSD)}</span>
           </div>
         </div>
       )}

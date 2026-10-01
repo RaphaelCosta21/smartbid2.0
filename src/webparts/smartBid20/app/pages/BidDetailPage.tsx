@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useBidStore } from "../stores/useBidStore";
 import { ROUTES } from "../config/routes.config";
 import { StatusBadge } from "../components/common/StatusBadge";
-import { GlassCard } from "../components/common/GlassCard";
 import { ScopeOfSupplyTab } from "../components/bid/ScopeOfSupplyTab";
 import { AssetsBreakdownTab } from "../components/bid/AssetsBreakdownTab";
 import { LogisticsBreakdownTab } from "../components/bid/LogisticsBreakdownTab";
@@ -14,13 +13,12 @@ import { BidCostSummary } from "../components/bid/BidCostSummary";
 import { BidStatusPhasePanel } from "../components/bid/BidStatusPhasePanel";
 import { ApprovalTab } from "../components/bid/ApprovalTab";
 import { BidActivityLog } from "../components/bid/BidActivityLog";
-import { BidExportButton } from "../components/bid/BidExportButton";
+import { BidExportTab } from "../components/bid/BidExportTab";
 import { BidTimeline } from "../components/bid/BidTimeline";
 import { OverviewTab } from "../components/bid/OverviewTab";
 import { DocumentsTab } from "../components/bid/DocumentsTab";
 import { NotesTab } from "../components/bid/NotesTab";
 import { QualificationsTab } from "../components/bid/QualificationsTab";
-import { AITab } from "../components/bid/AITab";
 import {
   RevisionsTab,
   hasActiveRevision,
@@ -36,6 +34,7 @@ import {
   resolveDivisions,
 } from "../components/common/IntegratedDivisionTabs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { usePastBidPublisher } from "../hooks/usePastBidPublisher";
 import { useUIStore } from "../stores/useUIStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { BidService } from "../services/BidService";
@@ -50,16 +49,12 @@ import {
   IAISuggestedClarification,
 } from "../models";
 import { ITeamMember } from "../models/ITeamMember";
-import {
-  bidsToCSV,
-  downloadCSV,
-  getExportFilename,
-} from "../utils/exportHelpers";
 import { PRIORITY_COLORS } from "../utils/constants";
 import { formatDate, formatDaysLeft } from "../utils/formatters";
 import { isTerminalStatus } from "../utils/statusHelpers";
 import { getErnLinks } from "../utils/ernHelpers";
 import { makeId } from "../utils/idGenerator";
+import { getBidFx } from "../utils/costCalculations";
 import { useAccessLevel } from "../hooks/useAccessLevel";
 import { useConfigPhases } from "../hooks/useConfigPhases";
 import { EditControlService } from "../services/EditControlService";
@@ -85,7 +80,6 @@ type BidTab =
   | "documents"
   | "notes"
   | "qualifications"
-  | "ai"
   | "activity"
   | "export"
   | "revisions";
@@ -156,7 +150,6 @@ const NAV_GROUPS: INavGroup[] = [
   {
     group: "Tools",
     items: [
-      { key: "ai", label: "AI Analysis", icon: "🤖", restricted: true },
       { key: "activity", label: "Activity Log", icon: "📜" },
       { key: "export", label: "Export", icon: "📤" },
     ],
@@ -227,6 +220,7 @@ export const BidDetailPage: React.FC = () => {
   const currentUser = useCurrentUser();
   const setSidebarExpanded = useUIStore((s) => s.setSidebarExpanded);
   const addToast = useUIStore((s) => s.addToast);
+  const publishPastBid = usePastBidPublisher();
 
   // Collapse sidebar when entering BidDetail, restore on leave
   React.useEffect(() => {
@@ -321,6 +315,22 @@ export const BidDetailPage: React.FC = () => {
           ...finalPatch,
           lastModified: new Date().toISOString(),
         });
+        if (
+          finalPatch.currentStatus === "Completed" &&
+          currentBid.currentStatus !== "Completed"
+        ) {
+          publishPastBid(merged, { runAi: !merged.knowledgeProfile }).catch(
+            () => undefined,
+          );
+        } else if (
+          merged.currentStatus === "Completed" &&
+          merged.knowledgeProfile &&
+          finalPatch.bidResult
+        ) {
+          publishPastBid(merged, { runAi: false, silent: true }).catch(
+            () => undefined,
+          );
+        }
       } catch (err) {
         console.error("Failed to save BID:", err);
         // PnP keeps the SharePoint error text in the raw response, not in message
@@ -331,13 +341,13 @@ export const BidDetailPage: React.FC = () => {
             .then((body) => console.error("SharePoint response:", body))
             .catch(() => {});
         }
-        // Roll back only this BID so other edits made meanwhile are kept
+        // Only roll back if no newer edit has replaced this optimistic version.
         useBidStore
           .getState()
           .setBids(
             useBidStore
               .getState()
-              .bids.map((b) => (b.bidNumber === id ? currentBid : b)),
+              .bids.map((b) => (b === merged ? currentBid : b)),
           );
         addToast({
           type: "error",
@@ -348,7 +358,7 @@ export const BidDetailPage: React.FC = () => {
         });
       }
     },
-    [id, currentUser, addToast],
+    [id, currentUser, addToast, publishPastBid],
   );
 
   /** Builds a human-readable description of the patch for activity log */
@@ -463,6 +473,7 @@ export const BidDetailPage: React.FC = () => {
 
   const daysLeftInfo = formatDaysLeft(bid.dueDate);
   const daysLeft = daysLeftInfo.days;
+  const bidFx = getBidFx(bid);
   const currentPhaseIndex = configPhases.findIndex(
     (p) => p.value === bid.currentPhase,
   );
@@ -486,8 +497,7 @@ export const BidDetailPage: React.FC = () => {
   /**
    * Merge AI-generated scope items into the BID, tag them as AI-sourced, and
    * record an activity-log entry describing what the AI produced and how the
-   * user edited it before importing. Shared by the AI tab and the in-scope AI
-   * modal so both paths log consistently in a single atomic save.
+   * user edited it before importing from the Scope of Supply AI modal.
    */
   const importAiScope = (
     aiItems: IScopeItem[],
@@ -1089,6 +1099,7 @@ export const BidDetailPage: React.FC = () => {
                     return (
                       <LogisticsBreakdownTab
                         logisticsBreakdown={filtered}
+                        fx={bidFx}
                         readOnly={!isEditing}
                         onSave={(items) => {
                           if (div) {
@@ -1145,6 +1156,7 @@ export const BidDetailPage: React.FC = () => {
                       <CertificationsBreakdownTab
                         scopeItems={filteredScope}
                         certificationsBreakdown={filtered}
+                        fx={bidFx}
                         readOnly={!isEditing}
                         bidNumber={bid.bidNumber}
                         onSave={(items) => {
@@ -1214,6 +1226,7 @@ export const BidDetailPage: React.FC = () => {
                         rtsItems={filteredRTS}
                         mobilizationItems={filteredMob}
                         consumableItems={filteredCons}
+                        fx={bidFx}
                         rtsSections={bid.rtsSections || []}
                         mobSections={bid.mobSections || []}
                         consSections={bid.consSections || []}
@@ -1646,7 +1659,12 @@ export const BidDetailPage: React.FC = () => {
               }}
               canEdit={canEditBid}
               onSave={(approvals, approvalStatus, approvalRounds) =>
-                savePatch({ approvals, approvalStatus, approvalRounds })
+                savePatch({
+                  approvals,
+                  approvalStatus,
+                  approvalRounds,
+                  approvalDraftSelections: {},
+                })
               }
               onPatchBid={savePatch}
             />
@@ -1698,12 +1716,6 @@ export const BidDetailPage: React.FC = () => {
               onSave={saveQualifications}
             />
           )}
-          {activeTab === "ai" && (
-            <AITab
-              bid={bid}
-              onImportItems={(items, meta) => importAiScope(items, meta)}
-            />
-          )}
           {activeTab === "activity" && (
             <BidActivityLog entries={bid.activityLog || []} />
           )}
@@ -1716,25 +1728,10 @@ export const BidDetailPage: React.FC = () => {
             />
           )}
           {activeTab === "export" && (
-            <GlassCard title="Export BID Data">
-              <BidExportButton
-                onExportExcel={() => {
-                  const csv = bidsToCSV([bid]);
-                  downloadCSV(
-                    csv,
-                    getExportFilename(`BID-${bid.bidNumber}`, "csv"),
-                  );
-                }}
-                onExportPDF={() => {
-                  const csv = bidsToCSV([bid]);
-                  downloadCSV(
-                    csv,
-                    getExportFilename(`BID-${bid.bidNumber}`, "csv"),
-                  );
-                }}
-                onPrint={() => window.print()}
-              />
-            </GlassCard>
+            <BidExportTab
+              bid={bid}
+              exportedBy={currentUser.displayName || currentUser.email}
+            />
           )}
         </div>
         {/* end tabContent */}

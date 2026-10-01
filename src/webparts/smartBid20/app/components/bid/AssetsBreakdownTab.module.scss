@@ -280,6 +280,11 @@
   background: rgba(245, 158, 11, 0.04) !important;
 }
 
+/* Editable cost still at zero — needs filling in */
+.fieldMissing {
+  border-color: var(--danger) !important;
+}
+
 /* ─── Set All bulk select dropdowns ─── */
 .setAllSelect {
   padding: 3px 6px;
@@ -675,6 +680,13 @@
   background: var(--hover-bg, rgba(255, 255, 255, 0.03));
   border-bottom: 1px solid var(--border-subtle);
   min-width: 0;
+}
+
+/* ─── Clear pricing button (Notes cell, edit mode) ─── */
+.clearPriceBtn:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--hover-bg);
 }
 
 /* ─── Quote source link chip (Notes cell) ─── */
@@ -1142,6 +1154,15 @@
   color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
+}
+
+.rollupToggleDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+
+  input {
+    cursor: not-allowed;
+  }
 }
 
 /* ─── Splits card — same look as the sub-items grid, columns mirror the main table ─── */

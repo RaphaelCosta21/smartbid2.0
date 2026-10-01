@@ -44,6 +44,7 @@ import { AssetsCatalogPage } from "../../pages/AssetsCatalogPage";
 import { DatasheetsPage } from "../../pages/DatasheetsPage";
 import { ManualsCatalogsPage } from "../../pages/ManualsCatalogsPage";
 import { TechnicalProposalsPage } from "../../pages/TechnicalProposalsPage";
+import { PastBidsPage } from "../../pages/PastBidsPage";
 import { ClarificationsDbPage } from "../../pages/ClarificationsDbPage";
 import { LinksRecommendationsPage } from "../../pages/LinksRecommendationsPage";
 import { AnalyticsPage } from "../../pages/AnalyticsPage";
@@ -258,6 +259,14 @@ const AppLayoutInner: React.FC<{
               element={
                 <RequireEngineering>
                   <TechnicalProposalsPage />
+                </RequireEngineering>
+              }
+            />
+            <Route
+              path={ROUTES.pastBids}
+              element={
+                <RequireEngineering>
+                  <PastBidsPage />
                 </RequireEngineering>
               }
             />

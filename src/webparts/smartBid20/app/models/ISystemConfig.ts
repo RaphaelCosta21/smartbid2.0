@@ -79,6 +79,8 @@ export interface ISystemConfig {
   subStatuses: IConfigOption[];
   terminalStatuses: IConfigOption[];
   resourceTypes: IResourceTypeConfig[];
+  /** Scope categories used to classify completed BIDs on the Past Bids page */
+  scopeCategories?: IConfigOption[];
   currencySettings: ICurrencySettings;
   notifications: Record<string, string[]>;
   accessLevels: Record<UserRole, IAccessLevelDef>;

@@ -1,7 +1,16 @@
 import * as React from "react";
-import { Check, X, Clock, Circle, RefreshCw } from "lucide-react";
+import {
+  Check,
+  X,
+  Clock,
+  Circle,
+  RefreshCw,
+  FastForward,
+  ShieldCheck,
+} from "lucide-react";
 import {
   IBid,
+  IExchangeRateSnapshot,
   ITeamMember,
   Division,
   BidType,
@@ -10,7 +19,9 @@ import {
 } from "../../models";
 import { StatusBadge } from "../common/StatusBadge";
 import { EditLockBanner } from "../common/EditLockBanner";
+import { ApprovalOverrideBanner } from "../approval/ApprovalOverrideBanner";
 import { useConfigStore } from "../../stores/useConfigStore";
+import { useUIStore } from "../../stores/useUIStore";
 import { useConfigPhases } from "../../hooks/useConfigPhases";
 import { useEditControl } from "../../hooks/useEditControl";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
@@ -20,7 +31,12 @@ import { CurrencyService } from "../../services/CurrencyService";
 import { isTerminalStatus } from "../../utils/statusHelpers";
 import { PRIORITY_COLORS } from "../../utils/constants";
 import { createActivityLogEntry } from "../../utils/activityLogHelpers";
-import { canManageErn } from "../../utils/accessControl";
+import { canManageErn, canChangeDueDate } from "../../utils/accessControl";
+import { getActiveApprovalOverride } from "../../utils/approvalHelpers";
+import {
+  buildDueDateChangePatch,
+  DUE_DATE_CHANGED,
+} from "../../utils/revisionHelpers";
 import {
   formatDate,
   formatDateTime,
@@ -37,6 +53,7 @@ import { getCurrentRevisionLetter, hasActiveRevision } from "./RevisionsTab";
 import { ErnCreateModal } from "./ErnCreateModal";
 import { ErnDetailsModal } from "./ErnDetailsModal";
 import { ErnSearchModal } from "./ErnSearchModal";
+import { DueDateChangeModal } from "./DueDateChangeModal";
 import {
   getErnDeadlineState,
   getErnSlots,
@@ -90,17 +107,48 @@ const APPROVAL_STATUS_DISPLAY: Record<
     color: "var(--warning)",
     label: "Revision Requested",
   },
+  overridden: {
+    icon: <ShieldCheck size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--tertiary-accent)",
+    label: "Approved (Override)",
+  },
+  bypassed: {
+    icon: (
+      <FastForward
+        size={14}
+        style={{ verticalAlign: "-2px", color: "var(--tertiary-accent)" }}
+      />
+    ),
+    color: "var(--tertiary-accent)",
+    label: "Bypassed by override",
+  },
 };
 
 const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
   const approvals = bid.approvals || [];
   const status = bid.approvalStatus || "not-started";
-  const display =
-    APPROVAL_STATUS_DISPLAY[status] || APPROVAL_STATUS_DISPLAY["not-started"];
+  const override = getActiveApprovalOverride(bid);
+  const display = override
+    ? APPROVAL_STATUS_DISPLAY["overridden"]
+    : APPROVAL_STATUS_DISPLAY[status] || APPROVAL_STATUS_DISPLAY["not-started"];
+  const bypassedEmails = override
+    ? override.approvalsAtOverride
+        .filter((p) => p.status !== "approved")
+        .map((p) => p.stakeholder.email.toLowerCase())
+    : [];
+  const isBypassed = (email: string): boolean =>
+    bypassedEmails.indexOf(email.toLowerCase()) >= 0;
   const totalCount = approvals.length;
   const approvedCount = approvals.filter((a) => a.status === "approved").length;
-  const rejectedCount = approvals.filter((a) => a.status === "rejected").length;
-  const pendingCount = approvals.filter((a) => a.status === "pending").length;
+  const rejectedCount = approvals.filter(
+    (a) => a.status === "rejected" && !isBypassed(a.stakeholder.email),
+  ).length;
+  const pendingCount = approvals.filter(
+    (a) => a.status === "pending" && !isBypassed(a.stakeholder.email),
+  ).length;
+  const bypassedCount = approvals.filter((a) =>
+    isBypassed(a.stakeholder.email),
+  ).length;
   const progressPct =
     totalCount > 0 ? Math.round((approvedCount / totalCount) * 100) : 0;
 
@@ -145,10 +193,14 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
       </h4>
 
       {totalCount === 0 ? (
-        <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-          Approval not started yet. Go to the Approval tab to select approvers
-          and start the flow.
-        </div>
+        override ? (
+          <ApprovalOverrideBanner override={override} compact />
+        ) : (
+          <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+            Approval not started yet. Go to the Approval tab to select approvers
+            and start the flow.
+          </div>
+        )
       ) : (
         <div className={styles.flexColumnSmall}>
           {/* Overall Status Badge */}
@@ -202,6 +254,8 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
             />
           </div>
 
+          {override && <ApprovalOverrideBanner override={override} compact />}
+
           {/* Sector Breakdown with approver names + photos */}
           <div
             style={{
@@ -218,11 +272,16 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
               );
               const sectorDone = g.approved === g.total;
               const sectorRejected = g.rejected > 0;
-              const sectorIcon = sectorDone
-                ? "✅"
-                : sectorRejected
-                  ? "❌"
-                  : "⏳";
+              const sectorBypassed = sectorApprovals.some((a) =>
+                isBypassed(a.stakeholder.email),
+              );
+              const sectorIcon = sectorBypassed
+                ? "⏩"
+                : sectorDone
+                  ? "✅"
+                  : sectorRejected
+                    ? "❌"
+                    : "⏳";
               return (
                 <div key={sector}>
                   <div
@@ -260,9 +319,10 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
                     }}
                   >
                     {sectorApprovals.map((a) => {
-                      const aStatus =
-                        APPROVAL_STATUS_DISPLAY[a.status] ||
-                        APPROVAL_STATUS_DISPLAY["pending"];
+                      const aStatus = isBypassed(a.stakeholder.email)
+                        ? APPROVAL_STATUS_DISPLAY["bypassed"]
+                        : APPROVAL_STATUS_DISPLAY[a.status] ||
+                          APPROVAL_STATUS_DISPLAY["pending"];
                       return (
                         <div
                           key={a.id}
@@ -307,7 +367,9 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
                           >
                             {a.stakeholder.name}
                           </span>
-                          <span style={{ fontSize: 11 }}>{aStatus.icon}</span>
+                          <span style={{ fontSize: 11 }} title={aStatus.label}>
+                            {aStatus.icon}
+                          </span>
                         </div>
                       );
                     })}
@@ -318,7 +380,7 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
           </div>
 
           {/* Summary stats */}
-          {(rejectedCount > 0 || pendingCount > 0) && (
+          {(rejectedCount > 0 || pendingCount > 0 || bypassedCount > 0) && (
             <div
               style={{
                 display: "flex",
@@ -338,6 +400,12 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
                 <span style={{ color: "var(--danger)" }}>
                   <X size={12} style={{ verticalAlign: "-2px" }} />{" "}
                   {rejectedCount} rejected
+                </span>
+              )}
+              {bypassedCount > 0 && (
+                <span style={{ color: "var(--tertiary-accent)" }}>
+                  <FastForward size={12} style={{ verticalAlign: "-2px" }} />{" "}
+                  {bypassedCount} bypassed by override
                 </span>
               )}
             </div>
@@ -373,6 +441,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   // Only the Engineering team (or super admins) may create/select/change ERNs
   const fullUser = useCurrentUser();
   const canEditErn = !!canEdit && canManageErn(fullUser);
+  // Due date changes: Engineering team only, reason required, not on closed BIDs
+  const canEditDueDate = !!canEdit && !isClosed && canChangeDueDate(fullUser);
+  const [dueDateModalOpen, setDueDateModalOpen] = React.useState(false);
+  const lastDueDateChange = (bid.activityLog || [])
+    .filter((e) => e.type === DUE_DATE_CHANGED)
+    .pop();
 
   // ERN modals
   const [ernCreate, setErnCreate] = React.useState<{
@@ -535,6 +609,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   // Currency & Exchange Rates edit
   const [editingCurrency, setEditingCurrency] = React.useState(false);
   const [fetchingRates, setFetchingRates] = React.useState(false);
+  const addToast = useUIStore((s) => s.addToast);
 
   // Engineer BID Overview
   const [editingOverview, setEditingOverview] = React.useState(false);
@@ -559,6 +634,22 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     onSave({
       ...patch,
       activityLog: [...(bid.activityLog || []), logEntry],
+    });
+  };
+
+  const changeDueDate = (newDueDate: string, reason: string): void => {
+    if (!onSave) return;
+    onSave(
+      buildDueDateChangePatch(bid, newDueDate, reason, {
+        name: currentUser?.displayName || currentUser?.email || "",
+        email: currentUser?.email || "",
+      }),
+    );
+    setDueDateModalOpen(false);
+    addToast({
+      type: "success",
+      title: "Due date updated",
+      message: `${bid.bidNumber} is now due ${formatDate(newDueDate)}.`,
     });
   };
 
@@ -625,17 +716,35 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       const currencies = (config?.currencySettings?.exchangeRates || []).map(
         (er) => er.currency,
       );
+      // BRL is always needed for the Cost Summary BRL column
+      if (currencies.indexOf("BRL") < 0) currencies.push("BRL");
       const rates = await CurrencyService.getRatesWithFallback(currencies);
       if (rates.length === 0) {
-        setFetchingRates(false);
+        addToast({
+          type: "error",
+          title: "Could not fetch exchange rates from Banco Central",
+          message: "The rates registered on this BID were kept unchanged.",
+        });
         return;
       }
       const now = new Date().toISOString();
-      const newSnapshot = rates.map((r) => ({
+      const newSnapshot: IExchangeRateSnapshot[] = rates.map((r) => ({
         currency: r.currency,
         rate: r.rate,
         capturedDate: now,
+        rateDate: r.timestamp || "",
+        source: "BCB PTAX" as const,
       }));
+      const kept = (bid.opportunityInfo?.exchangeRatesSnapshot || []).filter(
+        (old) => !newSnapshot.some((n) => n.currency === old.currency),
+      );
+      if (kept.length > 0) {
+        addToast({
+          type: "warning",
+          title: `BCB returned no rate for ${kept.map((k) => k.currency).join(", ")}`,
+          message: "The previously registered rate was kept.",
+        });
+      }
       // Also update the BRL rate as ptax for backward compat
       const brlRate = rates.find((r) => r.currency === "BRL");
       logAndSave(
@@ -644,13 +753,18 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             ...bid.opportunityInfo,
             ptax: brlRate ? brlRate.rate : bid.opportunityInfo?.ptax || 0,
             ptaxDate: now.split("T")[0],
-            exchangeRatesSnapshot: newSnapshot,
+            exchangeRatesSnapshot: [...newSnapshot, ...kept],
           },
         },
-        `Exchange rates updated from BCB PTAX (${rates.map((r) => r.currency).join(", ")})`,
+        `Exchange rates updated from BCB PTAX (${rates.map((r) => `${r.currency} ${r.rate}`).join(", ")})`,
       );
     } catch (err) {
       console.error("Failed to fetch BCB rates:", err);
+      addToast({
+        type: "error",
+        title: "Could not fetch exchange rates from Banco Central",
+        message: "The rates registered on this BID were kept unchanged.",
+      });
     } finally {
       setFetchingRates(false);
       setEditingCurrency(false);
@@ -1908,7 +2022,55 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               label="Start Date"
               value={bid.startDate ? formatDate(bid.startDate) : "Not started"}
             />
-            <InfoRow label="Due Date" value={formatDate(bid.dueDate)} />
+            <InfoRow
+              label="Due Date"
+              value={
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 4 }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                    }}
+                  >
+                    <span>{formatDate(bid.dueDate)}</span>
+                    {canEditDueDate && (
+                      <button
+                        style={editBtnStyle}
+                        title="Change the BID due date (Engineering only, reason required)"
+                        onClick={() => setDueDateModalOpen(true)}
+                      >
+                        Change
+                      </button>
+                    )}
+                  </div>
+                  {lastDueDateChange && (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 400,
+                        color: "var(--text-muted)",
+                      }}
+                      title={lastDueDateChange.description}
+                    >
+                      Changed by {lastDueDateChange.actorName} on{" "}
+                      {formatDateTime(lastDueDateChange.timestamp)} — &ldquo;
+                      {String(lastDueDateChange.metadata?.reason || "")}
+                      &rdquo;
+                    </span>
+                  )}
+                </div>
+              }
+            />
+            <DueDateChangeModal
+              bid={bid}
+              isOpen={dueDateModalOpen}
+              onDismiss={() => setDueDateModalOpen(false)}
+              onConfirm={changeDueDate}
+            />
             <InfoRow
               label="Completed"
               value={bid.completedDate ? formatDate(bid.completedDate) : "—"}
@@ -2215,6 +2377,10 @@ const ExchangeRatesCard: React.FC<{
             {formatDate(
               bid.opportunityInfo.exchangeRatesSnapshot[0].capturedDate,
             )}
+            {bid.opportunityInfo.exchangeRatesSnapshot[0].source &&
+              ` · Source: ${bid.opportunityInfo.exchangeRatesSnapshot[0].source}`}
+            {bid.opportunityInfo.exchangeRatesSnapshot[0].rateDate &&
+              ` · Quote date: ${formatDate(bid.opportunityInfo.exchangeRatesSnapshot[0].rateDate)}`}
           </span>
         )}
     </div>

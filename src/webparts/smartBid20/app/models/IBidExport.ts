@@ -33,3 +33,21 @@ export interface IExportResult {
   fileSize: number;
   error?: string;
 }
+
+/** Sheets of the BID Excel workbook, in workbook order. */
+export type BidExcelSheetKey =
+  | "info"
+  | "costSummary"
+  | "scope"
+  | "assets"
+  | "hours"
+  | "prepMob"
+  | "logistics"
+  | "certifications"
+  | "suppliers";
+
+export interface IBidExcelExportOptions {
+  sheets: BidExcelSheetKey[];
+  includeNotes: boolean;
+  exportedBy: string;
+}

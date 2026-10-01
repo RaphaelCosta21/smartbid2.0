@@ -105,12 +105,17 @@ export class RequestService {
             currency: er.currency,
             rate: er.rate,
             capturedDate: now,
+            rateDate: er.lastUpdate || "",
+            source: "System Config" as const,
           }),
         );
       }
     } catch {
       // Continue without snapshot if config fetch fails
     }
+    const brlSnapshot = exchangeRatesSnapshot.find(
+      (r) => (r.currency || "").toUpperCase() === "BRL",
+    );
 
     const bid: IBid = {
       bidNumber: request.requestNumber,
@@ -134,8 +139,8 @@ export class RequestService {
         totalDuration: request.totalDuration || 0,
         totalDurationUnit: "days",
         currency: "USD",
-        ptax: 0,
-        ptaxDate: "",
+        ptax: brlSnapshot ? brlSnapshot.rate : 0,
+        ptaxDate: brlSnapshot ? now.split("T")[0] : "",
         exchangeRatesSnapshot,
         qualifications: [],
       },

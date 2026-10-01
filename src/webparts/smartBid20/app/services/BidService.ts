@@ -13,6 +13,9 @@ const F = SHAREPOINT_CONFIG.bidTrackerFields;
 let ensureColumnsPromise: Promise<void> | undefined;
 
 export class BidService {
+  /** Serialize read-modify-write patches for the same JSON-backed BID. */
+  private static readonly _pendingPatches: Record<string, Promise<void>> = {};
+
   private static get _list() {
     return SPService.sp.web.lists.getByTitle(
       SHAREPOINT_CONFIG.lists.bidTracker,
@@ -192,6 +195,27 @@ export class BidService {
     bidNumber: string,
     patch: Partial<IBid>,
   ): Promise<void> {
+    const previous = BidService._pendingPatches[bidNumber];
+    const pending = previous
+      ? previous.then(
+          () => BidService._patchByBidNumber(bidNumber, patch),
+          () => BidService._patchByBidNumber(bidNumber, patch),
+        )
+      : BidService._patchByBidNumber(bidNumber, patch);
+    BidService._pendingPatches[bidNumber] = pending;
+    try {
+      await pending;
+    } finally {
+      if (BidService._pendingPatches[bidNumber] === pending) {
+        delete BidService._pendingPatches[bidNumber];
+      }
+    }
+  }
+
+  private static async _patchByBidNumber(
+    bidNumber: string,
+    patch: Partial<IBid>,
+  ): Promise<void> {
     const items = await BidService._list.items
       .filter(`Title eq '${bidNumber}'`)
       .select("Id", "jsondata")
@@ -200,9 +224,14 @@ export class BidService {
     const row = items[0] as { Id: number; jsondata: string };
     const bid = JSON.parse(row.jsondata) as IBid;
     const merged = { ...bid, ...patch };
+    const dueDateChanged =
+      patch.dueDate !== undefined || patch.desiredDueDate !== undefined;
     await BidService._list.items.getById(row.Id).update({
       jsondata: JSON.stringify(merged),
       ...BidService._searchColumns(merged),
+      ...(dueDateChanged
+        ? { DueDate: merged.desiredDueDate || merged.dueDate }
+        : {}),
     });
   }
 }

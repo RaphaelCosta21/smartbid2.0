@@ -63,14 +63,24 @@ export function bidsToCSV(bids: IBid[]): string {
   return csvLines.join("\n");
 }
 
-export function downloadCSV(csvContent: string, filename: string): void {
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
+  link.style.display = "none";
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(link);
+  // Revoking synchronously can cancel the download in some browsers
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export function downloadCSV(csvContent: string, filename: string): void {
+  downloadBlob(
+    new Blob([csvContent], { type: "text/csv;charset=utf-8;" }),
+    filename,
+  );
 }
 
 export function getExportFilename(prefix: string, extension: string): string {

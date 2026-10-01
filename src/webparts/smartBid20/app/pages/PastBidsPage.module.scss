@@ -1,0 +1,207 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ─── Stats ─── */
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.statChip {
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  font-size: 12px;
+  color: var(--text-secondary);
+
+  strong {
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+}
+
+/* ─── Filters ─── */
+.filterBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.searchWrapper {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 220px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 14px 8px 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: border-color 200ms ease;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-accent);
+  }
+}
+
+.clearBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+}
+
+/* ─── Table ─── */
+.tableSection {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  padding: 20px;
+  overflow-x: auto;
+}
+
+.bidLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary-accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.primaryText {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.muted {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.dateText {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 260px;
+}
+
+.chip {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: var(--card-bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.chipAccent {
+  color: var(--tertiary-accent);
+  border-color: var(--tertiary-accent);
+}
+
+.chipMore {
+  color: var(--text-muted);
+}
+
+.outcome {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.outcomeWon {
+  color: var(--success);
+}
+
+.outcomeLoss {
+  color: var(--danger);
+}
+
+.outcomePending {
+  color: var(--warning);
+}
+
+.kbBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.kbPublished {
+  color: var(--success);
+}
+
+.kbFailed {
+  color: var(--danger);
+}
+
+.kbNone {
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .chips {
+    max-width: 160px;
+  }
+}

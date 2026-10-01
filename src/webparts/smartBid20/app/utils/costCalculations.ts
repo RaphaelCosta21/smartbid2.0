@@ -2,13 +2,10 @@ import {
   IBid,
   ICostSummary,
   IAssetBreakdownItem,
-  ILogisticsItem,
-  ICertificationItem,
-  IRTSItem,
-  IMobilizationItem,
-  IConsumableItem,
   IScopeItem,
+  IScopeSubItem,
   IExchangeRate,
+  IExchangeRateSnapshot,
   ISubItemCost,
   IAvailabilitySplit,
   IAssetSubCost,
@@ -318,6 +315,101 @@ export function getAssetCostBreakdown(
   };
 }
 
+/** How many Assets Breakdown rows still have no cost mapped. */
+export interface IAssetsCostCompleteness {
+  itemsMissing: number;
+  itemsTotal: number;
+  subItemsMissing: number;
+  subItemsTotal: number;
+  pcfItemsMissing: number;
+  pcfItemsTotal: number;
+  totalMissing: number;
+  totalItems: number;
+}
+
+/** Rows that legitimately carry no cost and are left out of the completeness check. */
+function isNoCostEntry(e: {
+  availabilityStatus?: string;
+  acquisitionType?: string;
+}): boolean {
+  const acq = (e.acquisitionType || "").toLowerCase();
+  return (
+    isNoCostAvailability(e.availabilityStatus) ||
+    acq === "workshop" ||
+    acq === "in house"
+  );
+}
+
+/**
+ * Cost-mapping completeness of the Assets Breakdown ("All items have costs mapped").
+ * Scope rows without a cost entry count as missing, mirroring the blank rows the tab auto-creates.
+ */
+export function getAssetsCostCompleteness(
+  scopeItems: IScopeItem[],
+  assets: IAssetBreakdownItem[],
+  cont?: IContingencyOpts,
+): IAssetsCostCompleteness {
+  const r: IAssetsCostCompleteness = {
+    itemsMissing: 0,
+    itemsTotal: 0,
+    subItemsMissing: 0,
+    subItemsTotal: 0,
+    pcfItemsMissing: 0,
+    pcfItemsTotal: 0,
+    totalMissing: 0,
+    totalItems: 0,
+  };
+  const assetByScope = new Map<string, IAssetBreakdownItem>();
+  (assets || []).forEach((a) => assetByScope.set(a.scopeItemId, a));
+
+  const countChildren = (
+    si: IScopeItem,
+    children: IScopeSubItem[],
+    costs: ISubItemCost[],
+    kind: "sub" | "pcf",
+  ): void => {
+    const costById = new Map<string, ISubItemCost>();
+    costs.forEach((c) => costById.set(c.subItemId, c));
+    children.forEach((child) => {
+      const c = costById.get(child.id);
+      if (c && isNoCostEntry(c)) return;
+      const missing = !c || getSubItemNode(c, si, cont).total === 0;
+      if (kind === "sub") {
+        r.subItemsTotal++;
+        if (missing) r.subItemsMissing++;
+      } else {
+        r.pcfItemsTotal++;
+        if (missing) r.pcfItemsMissing++;
+      }
+    });
+  };
+
+  (scopeItems || []).forEach((si) => {
+    if (si.isSection) return;
+    const a = assetByScope.get(si.id);
+    const pcfScope = si.pcfItems || [];
+    if (!a) {
+      r.itemsTotal++;
+      r.itemsMissing++;
+    } else {
+      // costFromPCF is dropped by the tab once no PCF items remain
+      const costFromPCF = !!a.costFromPCF && pcfScope.length > 0;
+      if (!isNoCostEntry(a) && !a.costFromSubItems && !costFromPCF) {
+        r.itemsTotal++;
+        const bd = getAssetCostBreakdown({ ...a, costFromPCF }, si, cont);
+        const total = bd.splits.length > 0 ? bd.splitsTotal : bd.main.total;
+        if (total === 0) r.itemsMissing++;
+      }
+    }
+    countChildren(si, si.subItems || [], (a && a.subItemCosts) || [], "sub");
+    countChildren(si, pcfScope, (a && a.pcfCosts) || [], "pcf");
+  });
+
+  r.totalMissing = r.itemsMissing + r.subItemsMissing + r.pcfItemsMissing;
+  r.totalItems = r.itemsTotal + r.subItemsTotal + r.pcfItemsTotal;
+  return r;
+}
+
 /** Calculate assets totals from breakdown array */
 export function calculateAssetsTotals(
   assets: IAssetBreakdownItem[],
@@ -355,7 +447,7 @@ export function calculateAssetsTotals(
     capexUSD,
     opexUSD,
     uncategorizedUSD,
-    totalBRL: totalUSD * (ptax || 1),
+    totalBRL: totalUSD * (ptax || 0),
   };
 }
 
@@ -422,7 +514,7 @@ export function calculateHoursTotals(bid: IBid): {
   const onH = hs?.onshoreHours?.totalHours || 0;
   const offH = hs?.offshoreHours?.totalHours || 0;
   const totalBRL = engBRL + onBRL + offBRL;
-  const ptax = bid.opportunityInfo?.ptax || 1;
+  const ptax = getBidFx(bid).brlRate;
   return {
     engineeringBRL: engBRL,
     onshoreBRL: onBRL,
@@ -436,119 +528,77 @@ export function calculateHoursTotals(bid: IBid): {
   };
 }
 
-/** Calculate logistics totals — items may have different currencies */
-export function calculateLogisticsTotals(
-  items: ILogisticsItem[],
-  ptax: number,
-): { totalOriginal: number; totalUSD: number; totalBRL: number } {
-  let totalBRL = 0;
-  let totalUSD = 0;
-
-  (items || []).forEach((i) => {
-    const cost = i.totalCost || 0;
-    const cur = (i.originalCurrency || "BRL").toUpperCase();
-    if (cur === "USD") {
-      totalUSD += cost;
-      totalBRL += cost * (ptax || 1);
-    } else {
-      // Treat as BRL
-      totalBRL += cost;
-      totalUSD += ptax > 0 ? cost / ptax : 0;
-    }
-  });
-
-  return { totalOriginal: totalBRL + totalUSD, totalUSD, totalBRL };
+/** Exchange rates registered on a BID (Overview → Exchange Rates). */
+export interface IBidFx {
+  /** Units of each currency per 1 USD */
+  rates: IExchangeRateSnapshot[];
+  /** BRL per 1 USD; 0 when no BRL rate is registered */
+  brlRate: number;
+  capturedDate: string;
 }
 
-/** Calculate certifications totals */
-export function calculateCertificationsTotals(
-  items: ICertificationItem[],
-  ptax: number,
-): { totalUSD: number; totalBRL: number } {
-  let totalUSD = 0;
-  let totalBRL = 0;
-
-  (items || []).forEach((i) => {
-    const cost = i.totalCost || 0;
-    const cur = (i.originalCurrency || "USD").toUpperCase();
-    if (cur === "USD") {
-      totalUSD += cost;
-      totalBRL += cost * (ptax || 1);
-    } else {
-      totalBRL += cost;
-      totalUSD += ptax > 0 ? cost / ptax : 0;
-    }
-  });
-
-  return { totalUSD, totalBRL };
+/** A line item priced in its own currency */
+export interface IMultiCurrencyItem {
+  totalCost: number;
+  originalCurrency: string;
 }
 
-/** Calculate RTS totals */
-export function calculateRTSTotals(
-  items: IRTSItem[],
-  ptax: number,
-): { totalUSD: number; totalBRL: number } {
-  let totalUSD = 0;
-  let totalBRL = 0;
-  (items || []).forEach((i) => {
-    const cost = i.totalCost || 0;
-    const cur = (i.originalCurrency || "USD").toUpperCase();
-    if (cur === "USD") {
-      totalUSD += cost;
-      totalBRL += cost * (ptax || 1);
-    } else {
-      totalBRL += cost;
-      totalUSD += ptax > 0 ? cost / ptax : 0;
-    }
-  });
-  return { totalUSD, totalBRL };
+export interface IMultiCurrencyTotals {
+  totalUSD: number;
+  totalBRL: number;
+  /** Currencies used by items but without a registered rate (left out of the totals) */
+  missingCurrencies: string[];
 }
 
-/** Calculate Mobilization totals */
-export function calculateMobilizationTotals(
-  items: IMobilizationItem[],
-  ptax: number,
-): { totalUSD: number; totalBRL: number } {
-  let totalUSD = 0;
-  let totalBRL = 0;
-  (items || []).forEach((i) => {
-    const cost = i.totalCost || 0;
-    const cur = (i.originalCurrency || "USD").toUpperCase();
-    if (cur === "USD") {
-      totalUSD += cost;
-      totalBRL += cost * (ptax || 1);
-    } else {
-      totalBRL += cost;
-      totalUSD += ptax > 0 ? cost / ptax : 0;
-    }
-  });
-  return { totalUSD, totalBRL };
+export function getBidFx(bid: IBid): IBidFx {
+  const opp = bid?.opportunityInfo;
+  const rates = opp?.exchangeRatesSnapshot || [];
+  const brl = rates.find((r) => (r.currency || "").toUpperCase() === "BRL");
+  return {
+    rates,
+    brlRate: brl && brl.rate > 0 ? brl.rate : opp?.ptax > 0 ? opp.ptax : 0,
+    capturedDate: (rates[0] && rates[0].capturedDate) || opp?.ptaxDate || "",
+  };
 }
 
-/** Calculate Consumables totals */
-export function calculateConsumablesTotals(
-  items: IConsumableItem[],
-  ptax: number,
-): { totalUSD: number; totalBRL: number } {
+/** Convert an amount to USD with the BID rates; null when the currency has no rate. */
+export function toUSDWithBidRates(
+  amount: number,
+  currency: string,
+  fx: IBidFx,
+): number | null {
+  const cur = (currency || "USD").toUpperCase().trim();
+  if (cur === "USD") return amount || 0;
+  if (cur === "BRL" && fx.brlRate > 0) return (amount || 0) / fx.brlRate;
+  const rate = fx.rates.find((r) => (r.currency || "").toUpperCase() === cur);
+  return rate && rate.rate > 0 ? (amount || 0) / rate.rate : null;
+}
+
+/** Sum items priced in mixed currencies, converted to USD (and BRL) with the BID rates. */
+export function calculateMultiCurrencyTotals(
+  items: IMultiCurrencyItem[],
+  fx: IBidFx,
+): IMultiCurrencyTotals {
   let totalUSD = 0;
-  let totalBRL = 0;
+  const missingCurrencies: string[] = [];
   (items || []).forEach((i) => {
     const cost = i.totalCost || 0;
-    const cur = (i.originalCurrency || "USD").toUpperCase();
-    if (cur === "USD") {
-      totalUSD += cost;
-      totalBRL += cost * (ptax || 1);
-    } else {
-      totalBRL += cost;
-      totalUSD += ptax > 0 ? cost / ptax : 0;
+    if (!cost) return;
+    const usd = toUSDWithBidRates(cost, i.originalCurrency, fx);
+    if (usd === null) {
+      const cur = (i.originalCurrency || "").toUpperCase();
+      if (missingCurrencies.indexOf(cur) < 0) missingCurrencies.push(cur);
+      return;
     }
+    totalUSD += usd;
   });
-  return { totalUSD, totalBRL };
+  return { totalUSD, totalBRL: totalUSD * fx.brlRate, missingCurrencies };
 }
 
 /** Build full ICostSummary from bid data */
 export function buildCostSummary(bid: IBid): ICostSummary {
-  const ptax = bid.opportunityInfo?.ptax || 1;
+  const fx = getBidFx(bid);
+  const ptax = fx.brlRate;
   const contRate = bid.assetsContingencyPerYear || 0;
   const contingency =
     contRate > 0 ? { perYear: contRate, applied: true } : undefined;
@@ -559,22 +609,28 @@ export function buildCostSummary(bid: IBid): ICostSummary {
     contingency,
   );
   const hours = calculateHoursTotals(bid);
-  const logistics = calculateLogisticsTotals(
+  const logistics = calculateMultiCurrencyTotals(
     bid.logisticsBreakdown || [],
-    ptax,
+    fx,
   );
-  const certs = calculateCertificationsTotals(
+  const certs = calculateMultiCurrencyTotals(
     bid.certificationsBreakdown || [],
-    ptax,
+    fx,
   );
-  const rts = calculateRTSTotals(bid.rtsItems || [], ptax);
-  const mobilization = calculateMobilizationTotals(
+  const rts = calculateMultiCurrencyTotals(bid.rtsItems || [], fx);
+  const mobilization = calculateMultiCurrencyTotals(
     bid.mobilizationItems || [],
-    ptax,
+    fx,
   );
-  const consumables = calculateConsumablesTotals(
+  const consumables = calculateMultiCurrencyTotals(
     bid.consumableItems || [],
-    ptax,
+    fx,
+  );
+  const missingRateCurrencies: string[] = [];
+  [logistics, certs, rts, mobilization, consumables].forEach((t) =>
+    t.missingCurrencies.forEach((c) => {
+      if (missingRateCurrencies.indexOf(c) < 0) missingRateCurrencies.push(c);
+    }),
   );
 
   const totalCostUSD =
@@ -618,6 +674,7 @@ export function buildCostSummary(bid: IBid): ICostSummary {
     totalCostBRL,
     currency: bid.opportunityInfo?.currency || "USD",
     ptaxUsed: ptax,
+    missingRateCurrencies,
     notes: bid.costSummary?.notes || "",
   };
 }

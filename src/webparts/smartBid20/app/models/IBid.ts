@@ -33,8 +33,13 @@ export interface IOpportunityInfo {
 /** Exchange rate snapshot saved at BID creation */
 export interface IExchangeRateSnapshot {
   currency: string;
+  /** Units of this currency per 1 USD */
   rate: number;
+  /** When the rate was registered on the BID */
   capturedDate: string;
+  /** Quote date of the rate at its source (BCB PTAX timestamp / config lastUpdate) */
+  rateDate?: string;
+  source?: "BCB PTAX" | "System Config";
 }
 
 /** Tracks time spent in each phase independently */
@@ -619,6 +624,8 @@ export interface ICostSummary {
   totalCostBRL: number;
   currency: string;
   ptaxUsed: number;
+  /** Item currencies with no rate registered on the BID (excluded from totals) */
+  missingRateCurrencies?: string[];
   notes: string;
 }
 
@@ -649,6 +656,26 @@ export interface ISectorApprovalDuration {
   approverCount: number;
 }
 
+/** Snapshot of one approver at the moment an approval override was performed. */
+export interface IApprovalOverrideParticipant {
+  stakeholder: IPersonRef;
+  stakeholderRole: string;
+  sector?: Sector;
+  status: ApprovalStatus;
+  respondedDate: string | null;
+}
+
+/** Engineering override that force-closes an approval round as approved. */
+export interface IApprovalOverride {
+  overriddenBy: IPersonRef;
+  overriddenDate: string;
+  reason: string;
+  previousApprovalStatus: ApprovalStatus;
+  totalApprovers: number;
+  approvedCount: number;
+  approvalsAtOverride: IApprovalOverrideParticipant[];
+}
+
 export interface IApprovalRound {
   round: number;
   startedDate: string;
@@ -658,6 +685,7 @@ export interface IApprovalRound {
   approvals: IBidApproval[];
   /** Per-sector durations computed & persisted when the round completes. */
   sectorDurations?: ISectorApprovalDuration[];
+  override?: IApprovalOverride;
 }
 
 export interface IBidAttachment {
@@ -803,6 +831,29 @@ export interface IBidAIAnalysis {
   status: AIAnalysisReviewStatus;
 }
 
+/** Knowledge Base document generated for a completed BID (smartBidDocs/Past Bids). */
+export interface IBidKnowledgeDoc {
+  status: "published" | "failed";
+  fileName: string;
+  serverRelativeUrl: string;
+  publishedDate: string | null;
+  publishedBy: IPersonRef | null;
+  error?: string | null;
+}
+
+/** Classification of a completed BID for the Past Bids page and AI Search. */
+export interface IBidKnowledgeProfile {
+  /** Values from systemConfig.scopeCategories */
+  scopeCategories: string[];
+  tags: string[];
+  summary: string;
+  aiStatus: "ok" | "failed" | "skipped";
+  aiSuggestedDate?: string | null;
+  editedBy?: IPersonRef | null;
+  editedDate?: string | null;
+  doc: IBidKnowledgeDoc;
+}
+
 export interface IBid {
   bidNumber: string;
   crmNumber: string;
@@ -854,6 +905,8 @@ export interface IBid {
   approvals: IBidApproval[];
   approvalStatus: ApprovalStatus;
   approvalRounds?: IApprovalRound[];
+  /** Approvers selected for the next round, saved before the round starts. */
+  approvalDraftSelections?: Partial<Record<Sector, IPersonRef[]>>;
   attachments: IBidAttachment[];
   comments: IBidComment[];
   activityLog: IActivityLogEntry[];
@@ -877,6 +930,8 @@ export interface IBid {
   kpis: IBidKPIs;
   qualificationTables: IQualificationTable[];
   clarifications: IClarificationItem[];
+  /** Past Bids / AI Search projection — set once the BID is Completed and published. */
+  knowledgeProfile?: IBidKnowledgeProfile;
   /* ── ERN (Engineering Request Number) — one ERN per BID ── */
   /** ERN Number, e.g. "ERN-42" (null = TBD, not yet created) */
   ernNumber?: string | null;

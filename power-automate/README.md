@@ -48,20 +48,23 @@ As colunas da lista `smartbid-approvals` são criadas automaticamente pelo app e
 `ApprovalService.ensureApprovalColumns()` (chamado no início de cada rodada de aprovação). Não é
 preciso criar nada manualmente. Colunas provisionadas:
 
-| Coluna                  | Tipo                        | Uso                                               |
-| ----------------------- | --------------------------- | ------------------------------------------------- |
-| `RecordType`            | Choice (Round / Approver)   | Distingue a linha-gatilho das linhas de aprovador |
-| `BidNumber`             | Texto                       | Filtro                                            |
-| `RoundNumber`           | Número                      | Rodada de aprovação                               |
-| `ApproverEmail`         | Texto                       | Identidade do aprovador                           |
-| `ApproverName`          | Texto                       | Nome exibido                                      |
-| `Sector`                | Texto                       | Setor (chave)                                     |
-| `SectorLabel`           | Texto                       | Setor (rótulo)                                    |
-| `ApprovalStatus`        | Choice (Pending / Approved) | Status individual                                 |
-| `RespondedDate`         | Data/Hora                   | Quando aprovou                                    |
-| `ChatId`                | Texto                       | Id do chat do Teams                               |
-| `StatusCardMessageId`   | Texto                       | Id da mensagem do card de status                  |
-| `ExpectedApproverCount` | Número                      | Total de aprovadores da rodada                    |
+| Coluna                  | Tipo                                     | Uso                                               |
+| ----------------------- | ---------------------------------------- | ------------------------------------------------- |
+| `RecordType`            | Choice (Round / Approver)                | Distingue a linha-gatilho das linhas de aprovador |
+| `BidNumber`             | Texto                                    | Filtro                                            |
+| `RoundNumber`           | Número                                   | Rodada de aprovação                               |
+| `ApproverEmail`         | Texto                                    | Identidade do aprovador                           |
+| `ApproverName`          | Texto                                    | Nome exibido                                      |
+| `Sector`                | Texto                                    | Setor (chave)                                     |
+| `SectorLabel`           | Texto                                    | Setor (rótulo)                                    |
+| `ApprovalStatus`        | Choice (Pending / Approved / Overridden) | Status individual (`Overridden` só na Round row)  |
+| `RespondedDate`         | Data/Hora                                | Quando aprovou                                    |
+| `ChatId`                | Texto                                    | Id do chat do Teams                               |
+| `StatusCardMessageId`   | Texto                                    | Id da mensagem do card de status                  |
+| `ExpectedApproverCount` | Número                                   | Total de aprovadores da rodada                    |
+| `OverriddenBy`          | Texto                                    | Override: `Nome <email>` de quem fez (§10)        |
+| `OverriddenDate`        | Data/Hora                                | Override: quando foi feito (§10)                  |
+| `OverrideReason`        | Texto multilinha                         | Override: justificativa obrigatória (§10)         |
 
 ### 2.2 Conexões necessárias
 
@@ -972,6 +975,9 @@ Quando esse erro ocorre, o card e as condições internas podem aparecer verdes,
    Depois, o aprovador correto clica no novo card → somente a linha dele muda para `Approved`.
 6. Todos aprovam → card final + e-mail + BID `currentStatus = Completed` + Round row `Approved`.
 7. Reabrir o BID no app → aba Approval mostra tudo aprovado, sem conflito com o auto-complete client-side.
+8. **Override** (§10): com 3 de 5 aprovados, um membro de Engineering faz override no app → Round row
+   `Overridden` + mensagem de override no chat; nenhum lembrete novo; um clique tardio num card antigo
+   **não** altera o BID; o fluxo principal termina como _Cancelled_ sem card final nem e-mail.
 
 ---
 
@@ -987,3 +993,109 @@ Quando esse erro ocorre, o card e as condições internas podem aparecer verdes,
    (ex.: `smartbid-bot@oceaneering.com`) para que o "dono" do chat seja essa conta e não uma
    pessoa. Assim ninguém fica preso em chats de BIDs que não participa. É uma conta normal — não
    exige permissões de admin nem ferramentas avançadas de TI.
+
+---
+
+## 10. Override de aprovação (Engineering)
+
+Um membro **ativo do time Engineering** (Members Management) pode encerrar a aprovação pelo app
+(aba **Approval → Override Approval**), com a aprovação em andamento ou ainda não iniciada. Regras
+do app: a **Phase** do BID precisa estar em **Close Out** e a **justificativa é obrigatória**.
+
+### 10.1 O que o app grava
+
+- **BID (`smartbid-tracker`, `jsondata`)** — grava direto, sem depender do fluxo:
+  `approvalStatus='approved'`, `currentStatus='Completed'`, `currentPhase='Close Out'`,
+  `completedDate`, entrada `APPROVAL_OVERRIDE` no `activityLog` e, na última `approvalRounds[]`,
+  o objeto `override` (`overriddenBy`, `overriddenDate`, `reason`, `approvedCount`,
+  `totalApprovers` e `approvalsAtOverride` — foto de quem já tinha aprovado e de quem foi pulado).
+- **Round row (`smartbid-approvals`)** — só quando havia uma rodada em andamento:
+  `ApprovalStatus = Overridden`, `OverriddenBy`, `OverriddenDate`, `OverrideReason`.
+- As **Approver rows não são alteradas**: quem aprovou continua `Approved`, quem faltava continua
+  `Pending` (histórico preservado).
+
+> O fluxo principal é disparado só por **criação** de item, então a alteração da Round row não o
+> reinicia. Sem os ajustes abaixo ele continua esperando os aprovadores pulados (lembretes a cada
+> 24h por até 30 dias) e um clique tardio ainda faria write-back no BID.
+
+### 10.2 Fluxo novo — aviso de override no chat
+
+Crie um fluxo separado (ex.: `SmartBid – Approval Override`):
+
+1. **Gatilho** — SharePoint **When an item is created or modified**, lista `smartbid-approvals`.
+   Em **Settings → Trigger conditions**, adicione as duas condições (cada uma numa linha):
+
+   ```
+   @equals(triggerOutputs()?['body/RecordType/Value'], 'Round')
+   @equals(triggerOutputs()?['body/ApprovalStatus/Value'], 'Overridden')
+   ```
+
+   As atualizações que o fluxo principal faz na Round row (`ChatId`, `StatusCardMessageId`,
+   `Approved`) não passam nas condições, então não há loop.
+
+2. **Condition** `Condition_has_chat` — `@not(empty(triggerOutputs()?['body/ChatId']))`
+   (se o fluxo principal falhou antes de criar o chat, não há onde postar).
+
+3. **If yes** — Teams → **Post message in a chat or channel** (`Post_msg_override`):
+   Post as _Flow bot_ · Post in _Group chat_ · Chat = `triggerOutputs()?['body/ChatId']`:
+
+   ```
+   ⚡ **Aprovação encerrada por override** — BID **@{triggerOutputs()?['body/BidNumber']}** (rodada @{triggerOutputs()?['body/RoundNumber']})
+   Por: @{triggerOutputs()?['body/OverriddenBy']} em @{convertFromUtc(triggerOutputs()?['body/OverriddenDate'], 'E. South America Standard Time', 'dd/MM/yyyy HH:mm')}
+   Motivo: @{triggerOutputs()?['body/OverrideReason']}
+   Os cards de aprovação pendentes deste chat não têm mais efeito.
+   ```
+
+   _(Opcional)_ **Update an adaptive card in a chat or channel** com Message Id =
+   `triggerOutputs()?['body/StatusCardMessageId']` e o `02-status.json` com badge `⚡ Override`.
+
+### 10.3 Ajustes no fluxo principal
+
+> A ação **Terminate não pode ficar dentro de _Apply to each_ nem de _Do until_** (limitação da
+> plataforma). Por isso, dentro do loop o fluxo apenas **sai** do _Do until_ e **pula** o write-back;
+> o Terminate fica só depois do `Apply_to_each`.
+
+Expressão usada nos três pontos (troque `<AÇÃO>` pelo nome do _Get item_ correspondente):
+
+```
+@contains(toLower(string(body('<AÇÃO>')?['ApprovalStatus'])), 'overridden')
+```
+
+**a) Dentro do `Do_until_valid_response`** (passo 13.1):
+
+- Logo após `Post_card_and_wait`, adicione SharePoint **Get item** (`Get_RoundRow_chk`), lista
+  `smartbid-approvals`, Id = `triggerOutputs()?['body/ID']`. Em **Configure run after**, marque
+  **is successful** e **has timed out**. Faça `Condition_response_received` rodar depois dele.
+- No ramo **If no (timeout)**, envolva `Get_mention_approver` + `Post_msg_reminder` numa
+  **Condition** `Condition_not_overridden` =
+  `@not(contains(toLower(string(body('Get_RoundRow_chk')?['ApprovalStatus'])), 'overridden'))`
+  — assim nenhum lembrete é enviado após o override.
+- Troque a condição do `Do_until_valid_response` por:
+
+  ```
+  @or(
+    equals(
+      toLower(coalesce(body('Post_card_and_wait')?['responder']?['email'],'')),
+      toLower(items('Apply_to_each')?['email'])
+    ),
+    contains(toLower(string(body('Get_RoundRow_chk')?['ApprovalStatus'])), 'overridden')
+  )
+  ```
+
+  O loop de cada aprovador pulado termina no próximo timeout do card (≤ 24h após o override).
+
+**b) Antes do passo 14.1** (ainda dentro do `Apply_to_each`):
+
+- SharePoint **Get item** (`Get_RoundRow_chk2`), mesmo Id.
+- **Condition** `Condition_round_overridden` = expressão acima com `Get_RoundRow_chk2`.
+  - **If yes:** deixe vazio (ou poste `ℹ️ Resposta de @{items('Apply_to_each')?['name']} recebida
+após o override — não registrada.`). Nada é gravado no BID.
+  - **If no:** mova para dentro deste ramo os passos **14.1 a 14.7**, sem alterações.
+
+**c) Logo após o `Apply_to_each`** (antes do passo 15.1):
+
+- SharePoint **Get item** (`Get_RoundRow_final_chk`), mesmo Id.
+- **Condition** `Condition_final_overridden` = expressão acima com `Get_RoundRow_final_chk`.
+  - **If yes:** **Terminate** — Status `Cancelled`. Evita o card final, o e-mail de conclusão e o
+    write-back final (o app já gravou o BID como `Completed` com o registro do override).
+  - **If no:** deixe vazio; a Fase 4 continua normalmente abaixo.

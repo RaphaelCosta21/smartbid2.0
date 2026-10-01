@@ -400,18 +400,22 @@ Division / Service line / Resource types / BID context summary
 === END BID CONTEXT ===
 
 === REFERENCE MATERIAL (retrieved by backend — do not invent beyond this) ===
-[Datasheet/manual excerpts]
-[Assets Catalog records: pn + specs]
-[Approved past clarifications]
+[Datasheet/manual/catalog/technical proposal excerpts — docType ne 'Past Bid']
 === END REFERENCE MATERIAL ===
+
+=== PAST BIDS (similar scopes Oceaneering already quoted — precedent only, never new requirements) ===
+[Up to 3 Past Bid documents × 3 sections — docType eq 'Past Bid', current BID excluded]
+=== END PAST BIDS ===
 ```
 
 Grounding rules the prompt enforces (backend must fill the block accordingly):
 
 - **Datasheet / manual excerpts** → match client specs to real equipment capability.
-- **Assets Catalog records** → fill `equipmentOffer` and `partNumber` **only** from the catalog;
-  **never invent a part number**; leave `partNumber` blank when unknown.
-- **Approved past clarifications** → basis for `suggestedClarifications`.
+- **Assets Catalog records** → fill `equipmentOffer` and `partNumber` **only** from the catalog
+  (sent inline in the prompt); **never invent a part number**; leave `partNumber` blank when unknown.
+- **Past Bids** → section structure, resource types and sub-items for the same equipment, and the
+  clarifications/qualifications we raised before → basis for `suggestedClarifications` (with `rationale`).
+  The PAST BIDS block is omitted when nothing is retrieved.
 
 If IT prefers to own the prompt inside the Function App, set `sendPromptFromClient = false`; the
 backend then supplies both the base prompt and the Reference Material.
@@ -485,20 +489,27 @@ Context is the **global catalog** (no bid), so `contextSummary` may be empty.
 ## 7. Endpoint — Suggest Clarifications
 
 **`POST {apimBaseUrl}/clarifications/suggest`** — current BID requirements → suggested
-clarifications/qualifications, grounded (RAG) in **approved** past clarifications. No file needed.
+clarifications/qualifications, grounded (RAG) in the **Clarifications / Qualifications sections of
+Past Bid documents** (`docType eq 'Past Bid'`, current BID excluded). No file needed. When nothing
+relevant is retrieved the backend returns an empty list without calling the model.
 
-### Request body (envelope subset)
+### Request body
 
-| Field                            | Type       | Notes                                                  |
-| -------------------------------- | ---------- | ------------------------------------------------------ |
-| `documentText`                   | `string`   | Serialized current BID scope/requirements              |
-| `fileContent`                    | `string`   | `""` — not used for this endpoint                      |
-| `division`                       | `string`   | Retrieval filter/context                               |
-| `serviceLine`                    | `string`   | Retrieval filter/context                               |
-| `resourceTypes`                  | `string[]` | Retrieval context                                      |
-| `contextSummary`                 | `string`   | BID context summary                                    |
-| `useCase`                        | `string`   | `"clarification"`                                      |
-| `systemPrompt` / `promptVersion` | `string`   | Our clarification prompt (when `sendPromptFromClient`) |
+| Field                            | Type       | Notes                                                                  |
+| -------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| `requirementsText`               | `string`   | Required — one line per current scope item (ref, description, requirement) |
+| `existingText`                   | `string`   | Clarifications/qualifications already on the BID (not to be repeated)  |
+| `bidNumber`                      | `string`   | Current BID — excluded from its own precedents                         |
+| `division`                       | `string`   | Retrieval context                                                      |
+| `serviceLine`                    | `string`   | Retrieval context                                                      |
+| `resourceTypes`                  | `string[]` | Retrieval context                                                      |
+| `contextSummary`                 | `string`   | BID context summary                                                    |
+| `useCase`                        | `string`   | `"clarification"`                                                      |
+| `systemPrompt` / `promptVersion` | `string`   | Required — our clarification prompt                                    |
+
+### Response body
+
+`{ "suggestedClarifications": IAISuggestedClarification[], "warnings": string[], "answeredAt": string }`
 
 ### Response body — `IAISuggestedClarification[]`
 
@@ -529,6 +540,19 @@ clarifications/qualifications, grounded (RAG) in **approved** past clarification
 
 ---
 
+## 7a. Endpoint — Knowledge chat: Past Bids fields
+
+`POST {apimBaseUrl}/chat` accepts two optional fields besides `messages`, `systemPrompt`,
+`promptVersion`, `topK` and `docTypeFilter`:
+
+| Field            | Type       | Notes                                                                                                   |
+| ---------------- | ---------- | ------------------------------------------------------------------------------------------------------- |
+| `pastBidsLedger` | `string`   | Completed BIDs SmartBid matched to the question (exact, from `smartbid-tracker`), ≤ 20 000 chars. Injected as a delimited "PAST BIDS LEDGER" block before the Reference Material. |
+| `pastBidRefs`    | `string[]` | ≤ 5 BID numbers (charset `[A-Za-z0-9 ._/-]`, others dropped). The backend runs an extra semantic pass filtered by `docType eq 'Past Bid' and search.in(docModel, …)`, keeps up to 4 sections per BID, and puts those documents first. |
+
+Counts and "latest" answers come from the ledger; details (scope, prices, quotations) from the
+targeted Past Bid sections.
+
 ## 8. Knowledge base ingestion (the "brain") — background, not called by the frontend
 
 An ingestion process (can run **inside the same Function App** — no new resource) embeds each
@@ -538,6 +562,7 @@ index**; split later only if governance/volume requires.
 | Source (SharePoint)            | What to embed (per record/chunk)                                                        | Return / use                         | Filter            |
 | ------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------ | ----------------- |
 | Datasheets + Manuals libraries | Chunked PDF text                                                                        | Excerpts → match specs to capability | —                 |
+| `smartBidDocs/Past Bids`       | One generated Markdown file per completed BID (ATX headings, record lines)              | Scope / pricing / clarification precedent | `docType eq 'Past Bid'` |
 | `Assets Catalog_` list         | `title` + `subtitle` + `commonlyUsedNames` + `description` + `features1..3` + `keyword` | `pn` as the canonical part number    | —                 |
 | `Clarifications Database` list | `etTopic` + `clarification` + `clientReply`                                             | `baseType` → basis for suggestions   | `approved = true` |
 

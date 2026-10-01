@@ -226,9 +226,28 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
         setAiModalOpen(false);
         return;
       }
+      const existingText = localClarifications
+        .filter((c) => (c.clarification || c.description || "").trim())
+        .map(
+          (c) =>
+            `- ${c.baseType || "Clarification"}: ${c.description || ""} — ${c.clarification || ""}`,
+        )
+        .concat(
+          tables.reduce<string[]>(
+            (acc, t) =>
+              acc.concat(
+                (t.items || [])
+                  .filter((q) => (q.description || "").trim())
+                  .map((q) => `- Qualification (${t.title}): ${q.description}`),
+              ),
+            [],
+          ),
+        )
+        .join("\n");
       const suggestions = await AIAnalysisService.suggestClarifications(
         requirementsText,
         buildAiContext(bid),
+        { bidNumber: bid.bidNumber, existingText },
       );
       setAiSuggestions(suggestions);
     } catch (e) {

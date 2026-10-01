@@ -13,8 +13,10 @@ import {
 } from "../../models";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
+import { useBidStore } from "../../stores/useBidStore";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { makeId } from "../../utils/idGenerator";
+import { buildAiContext } from "../../utils/aiContext";
 import { AIDocumentAnalyzer } from "../common/AIDocumentAnalyzer";
 import { PartNumberAutocomplete } from "../common/PartNumberAutocomplete";
 import { EquipmentImportModal, IImportPick } from "./EquipmentImportModal";
@@ -198,6 +200,14 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
 
   const config = useConfigStore((s) => s.config);
   const resourceTypes = config?.resourceTypes || [];
+  // Division / client context steers the AI retrieval towards similar past BIDs.
+  const aiBid = useBidStore((s) =>
+    bidNumber ? s.bids.find((b) => b.bidNumber === bidNumber) : undefined,
+  );
+  const aiContext = React.useMemo(
+    () => (aiBid ? buildAiContext(aiBid) : undefined),
+    [aiBid],
+  );
 
   const addFavEquipment = useFavoritesStore((s) => s.addEquipment);
   const favIsLoaded = useFavoritesStore((s) => s.isLoaded);
@@ -4039,6 +4049,9 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
             </div>
             <AIDocumentAnalyzer
               bidNumber={bidNumber}
+              division={aiContext?.division}
+              serviceLine={aiContext?.serviceLine}
+              contextSummary={aiContext?.contextSummary}
               onImport={(aiItems: IScopeItem[], meta: IAIImportMeta) => {
                 if (onAiImport) {
                   onAiImport(aiItems, meta);

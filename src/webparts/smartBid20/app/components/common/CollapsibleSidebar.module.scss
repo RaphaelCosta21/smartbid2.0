@@ -29,6 +29,15 @@
   max-height: calc(
     var(--app-scroll-height, 100vh) - var(--cs-sticky-top, 16px) - 24px
   );
+  /* Flex chain so the nav shrinks to the capped height and scrolls internally. */
+  display: flex;
+  flex-direction: column;
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
 }
 
 .content {

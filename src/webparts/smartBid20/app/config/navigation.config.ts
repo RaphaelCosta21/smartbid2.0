@@ -121,6 +121,14 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     requiredAccess: "engineering",
   },
   {
+    key: "past-bids",
+    label: "Past Bids",
+    icon: "History",
+    route: "/knowledge/past-bids",
+    section: "knowledge",
+    requiredAccess: "engineering",
+  },
+  {
     key: "clarifications-db",
     label: "Clarif. & Qualif.",
     icon: "MessageSquare",

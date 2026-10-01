@@ -127,11 +127,21 @@ The skill's `authResourceId` is already set to `api://opgbbes-prd-fa-aadapp.ocea
 > rebuilt by the indexer run. The `reset` is mandatory whenever the chunking strategy changes,
 > otherwise only modified files are reprocessed.
 
-**Scope:** only the `Datasheets` and `Manuals and Catalogs` folders of `smartBidDocs`
+**Scope:** the `Datasheets`, `Manuals and Catalogs` and `Past Bids` folders of `smartBidDocs`
 are indexed (via `includeFolder`). `photos`, `Queries`, `Quotations` are excluded.
 Renaming those folders breaks incremental indexing and requires updating the query.
 `Manuals and Catalogs` has spaces — if the service rejects the literal path, URL-encode it
 (`Manuals%20and%20Catalogs`).
+
+> **Past Bids:** SmartBid writes one Markdown file per completed BID to `smartBidDocs/Past Bids`
+> (`DocType = Past Bid`, `Manufacturer` = client, `DocModel` = BID number). The indexer must
+> accept `.md` and the `/skills/chunk` deployment must include the Markdown mode of
+> `document_structure.build_chunks` (ATX headings, no boilerplate stripping) — deploy both
+> before SmartBid starts publishing, or reset the Past Bids documents afterwards.
+> The same deployment adds `POST /clarifications/suggest`, a separate Past Bids pass in
+> `/scope/generate`, and the optional `pastBidsLedger` / `pastBidRefs` fields of `/chat`
+> (see `SmartBid-AI-Backend-API-Contract.md` §5, §7, §7a). All limits are app settings
+> (`SCOPE_PAST_BID_*`, `CHAT_PAST_BID_*`, `CHAT_MAX_LEDGER_CHARS`, `CLARIFICATION_*`).
 
 > **Secretless option for App B (recommended):** instead of `ApplicationSecret`, use a
 > federated credential with a managed identity:

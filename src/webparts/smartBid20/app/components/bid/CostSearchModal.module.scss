@@ -15,7 +15,7 @@
   background: var(--card-bg-elevated, #1e1e28);
   border: 1px solid var(--border-color);
   border-radius: 14px;
-  width: 880px;
+  width: 1100px;
   max-width: 95vw;
   max-height: 85vh;
   display: flex;
@@ -132,11 +132,10 @@
   color: #f59e0b;
 }
 
-/* Table */
+/* Table — horizontal gutter lives on the edge cells so the sticky Actions column sits flush right */
 .tableWrap {
   flex: 1;
   overflow: auto;
-  padding: 0 20px;
 }
 
 .table {
@@ -149,6 +148,16 @@
     padding: 7px 10px;
     text-align: left;
     white-space: nowrap;
+  }
+
+  th:first-child,
+  td:first-child {
+    padding-left: 20px;
+  }
+
+  th:last-child,
+  td:last-child {
+    padding-right: 20px;
   }
 
   th {
@@ -180,7 +189,7 @@
 }
 
 .tdEquip {
-  max-width: 180px;
+  max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-secondary);
@@ -191,6 +200,14 @@
   font-weight: 600;
   font-size: 12px;
   color: var(--accent-color, #3b82f6);
+}
+
+.aliasHint {
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: help;
 }
 
 .tdStatus {
@@ -228,7 +245,8 @@
   }
 }
 
-.rowNotFound {
+/* Dim cells, not the row — opacity on the <tr> would make the sticky Actions cell see-through */
+.rowNotFound > td:not(.tdActions) {
   opacity: 0.45;
 }
 
@@ -308,6 +326,17 @@
 .srcQuote {
   background: rgba(245, 158, 11, 0.15);
   color: #f59e0b;
+}
+
+.quoteRef {
+  margin-top: 3px;
+  max-width: 160px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .srcManual {
@@ -419,10 +448,22 @@
   }
 }
 
-/* ─── Actions column in table ─── */
+/* ─── Actions column in table (sticky right) ─── */
+.thActions,
 .tdActions {
-  text-align: center;
-  padding: 4px 6px;
+  position: sticky;
+  right: 0;
+  text-align: center !important;
+  background: var(--card-bg-elevated, #1e1e28);
+  box-shadow: inset 1px 0 0 var(--border-subtle);
+}
+
+.thActions {
+  z-index: 2 !important;
+}
+
+.table tbody tr:hover .tdActions {
+  background-image: linear-gradient(var(--hover-bg), var(--hover-bg));
 }
 
 .actionBtns {

@@ -9,6 +9,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useChatStore } from "../../stores/useChatStore";
+import { useBidStore } from "../../stores/useBidStore";
 import { useIsGuest } from "../../hooks/useCurrentUser";
 import { useResponsive } from "../../hooks/useResponsive";
 import { AI_CONFIG, isAiConfigured } from "../../config/ai.config";
@@ -31,6 +32,27 @@ const ChatBubble: React.FC<IBubbleProps> = ({ message, onFollowUp }) => {
   const citations = message.citations || [];
   const followUps = message.followUps || [];
   const retrieved = message.retrieved || [];
+  const bids = useBidStore((s) => s.bids);
+
+  // Past Bid documents are resolved through the store, never from model-written fields.
+  const pastBidByPath = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    bids.forEach((b) => {
+      const doc = b.knowledgeProfile && b.knowledgeProfile.doc;
+      if (doc && doc.serverRelativeUrl) {
+        map[doc.serverRelativeUrl.toLowerCase()] = b.bidNumber;
+      }
+    });
+    return map;
+  }, [bids]);
+
+  const pastBidFor = (url: string): string | undefined => {
+    try {
+      return pastBidByPath[decodeURIComponent(new URL(url).pathname).toLowerCase()];
+    } catch {
+      return undefined;
+    }
+  };
 
   return (
     <div className={`${styles.row} ${isUser ? styles.rowUser : ""}`}>
@@ -48,14 +70,21 @@ const ChatBubble: React.FC<IBubbleProps> = ({ message, onFollowUp }) => {
               const meta = [c.client, c.reference, c.revision, c.detail]
                 .filter(Boolean)
                 .join(" · ");
+              const pastBid = pastBidFor(c.url);
               return (
                 <a
                   key={c.url}
                   className={styles.citation}
-                  href={c.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={`${c.title}${c.docType ? ` — ${c.docType}` : ""}`}
+                  href={
+                    pastBid ? `#/bid/${encodeURIComponent(pastBid)}` : c.url
+                  }
+                  target={pastBid ? undefined : "_blank"}
+                  rel={pastBid ? undefined : "noopener noreferrer"}
+                  title={
+                    pastBid
+                      ? `Open BID ${pastBid}`
+                      : `${c.title}${c.docType ? ` — ${c.docType}` : ""}`
+                  }
                 >
                   <FileText size={13} className={styles.citationIcon} />
                   <span className={styles.citationTitle}>{c.title}</span>

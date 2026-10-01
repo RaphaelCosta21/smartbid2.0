@@ -49,6 +49,8 @@ _WHITESPACE = re.compile(r"[ \t]+")
 _DIGITS = re.compile(r"\d+")
 _BLANK_SPLIT = re.compile(r"\n\s*\n")
 _NUMBERED_HEADING = re.compile(r"^(\d{1,2}(?:\.\d{1,3}){0,5})[.)]?\s*(\S.*)$")
+# Markdown documents (e.g. generated Past Bids) declare their outline explicitly.
+_ATX_HEADING = re.compile(r"^(#{1,6})\s+(\S.*?)\s*#*\s*$")
 _APPENDIX_HEADING = re.compile(
     r"^(appendix|annex|anexo|ap[eê]ndice|attachment|exhibit)\b", re.IGNORECASE
 )
@@ -217,9 +219,18 @@ def _heading(line: str, prev_blank: bool, next_top: int) -> Optional[_Heading]:
     return None
 
 
-def split_sections(lines: Sequence[str]) -> List[_Section]:
+def _atx_heading(line: str) -> Optional[_Heading]:
+    match = _ATX_HEADING.match(line)
+    if not match:
+        return None
+    return len(match.group(1)), match.group(2).strip()
+
+
+def split_sections(lines: Sequence[str], markdown: bool = False) -> List[_Section]:
     """Walk the document once, keeping a heading stack so every section carries
-    its full ancestry instead of just its own title."""
+    its full ancestry instead of just its own title. In `markdown` mode only ATX
+    headings open sections — record lines such as "- Client: X | Project: Y"
+    would otherwise pass the Title Case heuristic."""
     stack: List[_Heading] = []
     sections: List[_Section] = []
     path: List[_Heading] = []
@@ -235,7 +246,7 @@ def split_sections(lines: Sequence[str]) -> List[_Section]:
                 body.append("")
             continue
 
-        found = _heading(line, prev_blank, next_top)
+        found = _atx_heading(line) if markdown else _heading(line, prev_blank, next_top)
         prev_blank = False
         if not found:
             body.append(line)
@@ -372,12 +383,21 @@ def build_chunks(
     max_chars: int = DEFAULT_MAX_CHARS,
     min_chars: int = DEFAULT_MIN_CHARS,
     overlap_chars: int = DEFAULT_OVERLAP_CHARS,
+    markdown: bool = False,
 ) -> List[Dict[str, Any]]:
     """Return one dict per chunk: `text` is what gets stored and shown to the
     model, `content` is the same text prefixed with the catalogue metadata and is
-    what gets embedded."""
-    lines = strip_boilerplate((text or "").splitlines())
-    sections = split_sections(lines)
+    what gets embedded. `markdown` is for authored/generated Markdown: ATX
+    headings define the sections and no line is dropped as page furniture
+    (repeated short lines are real content there, not running headers)."""
+    raw_lines = (text or "").splitlines()
+    if markdown:
+        lines = [_WHITESPACE.sub(" ", line.strip()) for line in raw_lines]
+    else:
+        lines = strip_boilerplate(raw_lines)
+    # If text extraction dropped the "#" markers, fall back to the numbered-heading heuristics.
+    atx = markdown and any(_ATX_HEADING.match(line) for line in lines)
+    sections = split_sections(lines, atx)
 
     units: List[Tuple[List[_Heading], str]] = []
     for path, body_lines in sections:

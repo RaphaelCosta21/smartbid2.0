@@ -17,6 +17,8 @@ import {
   IBomCostResult,
   IExchangeRate,
   IBomCostAnalysis,
+  IQuotationItem,
+  IPnAlias,
 } from "../../models";
 import { useQueryCatalogStore } from "../../stores/useQueryCatalogStore";
 import { useConfigStore } from "../../stores/useConfigStore";
@@ -75,6 +77,9 @@ interface SearchRow {
     quotationDate: string;
     reference: string;
     fileUrl?: string;
+    matchedPartNumber: string;
+    /** Set when matched through the OII PN ↔ MFG REF cross-reference */
+    viaAlias: IPnAlias | null;
   } | null;
   selected: boolean;
   costOverride: number | null;
@@ -83,6 +88,50 @@ interface SearchRow {
   /** True if this row is a parent context row (not selectable, visual only) */
   isParentContext?: boolean;
 }
+
+/** Epoch ms of a date string; missing/invalid dates count as oldest */
+const dateMs = (d: string | undefined): number => {
+  const t = d ? new Date(d).getTime() : 0;
+  return isNaN(t) ? 0 : t;
+};
+
+/** Same no-cost rule as AssetsBreakdownTab: these rows show "—" for cost and never need one */
+const isNoCostEntry = (e: {
+  availabilityStatus?: string;
+  acquisitionType?: string;
+}): boolean => {
+  const avail = (e.availabilityStatus || "").toLowerCase();
+  const acq = (e.acquisitionType || "").toLowerCase();
+  return (
+    avail === "onboard" ||
+    avail === "call out" ||
+    avail === "not offered" ||
+    acq === "workshop" ||
+    acq === "in house"
+  );
+};
+
+const rowPnKey = (r: SearchRow): string =>
+  (r.subItemScope
+    ? r.subItemScope.partNumber || ""
+    : r.scopeItem.partNumber || ""
+  )
+    .trim()
+    .toUpperCase();
+
+const toQuoteResult = (
+  qi: IQuotationItem,
+  viaAlias: IPnAlias | null,
+): SearchRow["quoteResult"] => ({
+  costUSD: qi.costUSD || 0,
+  type: qi.type === "rental" ? "rental" : "acquisition",
+  supplier: qi.supplier || "",
+  quotationDate: qi.quotationDate || "",
+  reference: qi.reference || "",
+  fileUrl: qi.fileUrl,
+  matchedPartNumber: qi.partNumber || "",
+  viaAlias,
+});
 
 export const CostSearchModal: React.FC<CostSearchModalProps> = ({
   scopeItems,
@@ -95,6 +144,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
   const catalogLoading = useQueryCatalogStore((s) => s.isLoading);
   const loadCatalog = useQueryCatalogStore((s) => s.loadCatalog);
   const searchBomCosts = useQueryCatalogStore((s) => s.searchBomCosts);
+  const findPnAliases = useQueryCatalogStore((s) => s.findPnAliases);
 
   const config = useConfigStore((s) => s.config);
   const exchangeRates: IExchangeRate[] =
@@ -139,11 +189,11 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
       if (!si || si.isSection) return;
 
       // Main item row
-      const avail = (a.availabilityStatus || "").toLowerCase();
-      const skipMain =
-        avail === "onboard" || avail === "call out" || avail === "not offered";
+      const skipMain = isNoCostEntry(a);
+      const isRollup = !!a.costFromSubItems || !!a.costFromPCF;
       const mainIncluded =
-        filterMode === "all" || (!skipMain && a.unitCostUSD === 0);
+        !isRollup &&
+        (filterMode === "all" || (!skipMain && a.unitCostUSD === 0));
 
       if (mainIncluded) {
         result.push({
@@ -167,11 +217,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
       subItems.forEach((sub) => {
         const sic = subCosts.find((sc) => sc.subItemId === sub.id);
         if (!sic) return;
-        const sicAvail = (sic.availabilityStatus || "").toLowerCase();
-        const skipSub =
-          sicAvail === "onboard" ||
-          sicAvail === "call out" ||
-          sicAvail === "not offered";
+        const skipSub = isNoCostEntry(sic);
         if (filterMode === "all" || (!skipSub && sic.unitCostUSD === 0)) {
           // Insert parent context row if parent was not included (has cost)
           if (!mainIncluded && !parentContextAdded) {
@@ -212,11 +258,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
       pcfItems.forEach((pcf) => {
         const pc = pcfCosts.find((sc) => sc.subItemId === pcf.id);
         if (!pc) return;
-        const pcAvail = (pc.availabilityStatus || "").toLowerCase();
-        const skipPcf =
-          pcAvail === "onboard" ||
-          pcAvail === "call out" ||
-          pcAvail === "not offered";
+        const skipPcf = isNoCostEntry(pc);
         if (filterMode === "all" || (!skipPcf && pc.unitCostUSD === 0)) {
           if (!mainIncluded && !parentContextAdded && !pcfParentContextAdded) {
             pcfParentContextAdded = true;
@@ -268,102 +310,141 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
     if (!catalogLoaded) return;
     setIsSearching(true);
 
+    const pickLatestQuote = (pnKeys: string[]): IQuotationItem | null => {
+      let best: IQuotationItem | null = null;
+      for (let k = 0; k < quotationItems.length; k++) {
+        const qi = quotationItems[k];
+        const qiKey = (qi.partNumber || "").trim().toUpperCase();
+        if (pnKeys.indexOf(qiKey) < 0) continue;
+        if (!best || dateMs(qi.quotationDate) > dateMs(best.quotationDate))
+          best = qi;
+      }
+      return best;
+    };
+
     setTimeout(() => {
-      const updated = rows.map((row) => {
-        // Skip parent context rows (they're visual only)
-        if (row.isParentContext) return row;
+      try {
+        const updated = rows.map((row) => {
+          // Skip parent context rows (they're visual only)
+          if (row.isParentContext) return row;
 
-        const pn = row.subItemScope
-          ? row.subItemScope.partNumber || ""
-          : row.scopeItem.partNumber || "";
-        const pnUpper = pn.trim().toUpperCase();
-        if (!pn.trim() || pnUpper === "TBD" || pnUpper === "TBC")
-          return {
-            ...row,
-            result: null,
-            bomResult: null,
-            quoteResult: null,
-            selected: false,
-            selectedSource: null,
-          };
+          const pn = row.subItemScope
+            ? row.subItemScope.partNumber || ""
+            : row.scopeItem.partNumber || "";
+          const pnUpper = pn.trim().toUpperCase();
+          if (!pn.trim() || pnUpper === "TBD" || pnUpper === "TBC")
+            return {
+              ...row,
+              result: null,
+              bomResult: null,
+              quoteResult: null,
+              selected: false,
+              selectedSource: null,
+            };
 
-        // 1. Query Catalog (BUMBL → BUMBR → Financials)
-        const result = searchBomCosts(pn.trim(), exchangeRates);
+          // 1. Query Catalog (BUMBL → BUMBR → Financials)
+          const result = searchBomCosts(pn.trim(), exchangeRates);
 
-        // 2. BOM Cost Analyses
-        let bomResult: SearchRow["bomResult"] = null;
-        for (let i = 0; i < bomAnalyses.length; i++) {
-          const analysis = bomAnalyses[i];
-          const items = analysis.items || [];
-          for (let j = 0; j < items.length; j++) {
-            const item = items[j];
-            if (
-              (item.partNumber || "").trim().toUpperCase() ===
-              pn.trim().toUpperCase()
-            ) {
-              bomResult = {
-                totalCostUSD:
-                  item.totalCostInclCont || item.costPerItemUSD || 0,
-                mainPartNumber: item.partNumber,
-                dateReference:
-                  analysis.lastModified ||
-                  analysis.analysisDate ||
-                  item.dateReference ||
-                  "",
-                leadTimeDays: item.leadTimeDays || 0,
-              };
+          // 2. BOM Cost Analyses — most recent analysis containing the PN
+          let bomResult: SearchRow["bomResult"] = null;
+          for (let i = 0; i < bomAnalyses.length; i++) {
+            const analysis = bomAnalyses[i];
+            const items = analysis.items || [];
+            for (let j = 0; j < items.length; j++) {
+              const item = items[j];
+              if ((item.partNumber || "").trim().toUpperCase() !== pnUpper)
+                continue;
+              const dateReference =
+                analysis.lastModified ||
+                analysis.analysisDate ||
+                item.dateReference ||
+                "";
+              if (
+                !bomResult ||
+                dateMs(dateReference) > dateMs(bomResult.dateReference)
+              ) {
+                bomResult = {
+                  totalCostUSD:
+                    item.totalCostInclCont || item.costPerItemUSD || 0,
+                  mainPartNumber: item.partNumber,
+                  dateReference,
+                  leadTimeDays: item.leadTimeDays || 0,
+                };
+              }
               break;
             }
           }
-          if (bomResult) break;
-        }
 
-        // 3. Quotations
-        let quoteResult: SearchRow["quoteResult"] = null;
-        for (let k = 0; k < quotationItems.length; k++) {
-          const qi = quotationItems[k];
-          if (
-            (qi.partNumber || "").trim().toUpperCase() ===
-            pn.trim().toUpperCase()
-          ) {
-            quoteResult = {
-              costUSD: qi.costUSD || 0,
-              type: qi.type === "rental" ? "rental" : "acquisition",
-              supplier: qi.supplier || "",
-              quotationDate: qi.quotationDate || "",
-              reference: qi.reference || "",
-              fileUrl: qi.fileUrl,
-            };
-            break;
-          }
-        }
+          // 3. Quotations — most recent quote for the exact PN
+          const directQuote = pickLatestQuote([pnUpper]);
+          const quoteResult: SearchRow["quoteResult"] = directQuote
+            ? toQuoteResult(directQuote, null)
+            : null;
 
-        // Determine best source
-        let selectedSource: SearchRow["selectedSource"] = null;
-        if (result.found) selectedSource = "catalog";
-        else if (bomResult) selectedSource = "bom";
-        else if (quoteResult) selectedSource = "quote";
+          // Catalog wins; otherwise the newer of BOM / Quote (tie → BOM)
+          let selectedSource: SearchRow["selectedSource"] = null;
+          if (result.found) selectedSource = "catalog";
+          else if (bomResult && quoteResult)
+            selectedSource =
+              dateMs(quoteResult.quotationDate) >
+              dateMs(bomResult.dateReference)
+                ? "quote"
+                : "bom";
+          else if (bomResult) selectedSource = "bom";
+          else if (quoteResult) selectedSource = "quote";
 
-        return {
-          ...row,
-          result,
-          bomResult,
-          quoteResult,
-          selected: !!(result.found || bomResult || quoteResult),
-          costOverride:
-            (row.subItemCost
-              ? row.subItemCost.unitCostUSD
-              : row.asset.unitCostUSD) > 0
-              ? row.subItemCost
+          return {
+            ...row,
+            result,
+            bomResult,
+            quoteResult,
+            selected: !!(result.found || bomResult || quoteResult),
+            costOverride:
+              (row.subItemCost
                 ? row.subItemCost.unitCostUSD
-                : row.asset.unitCostUSD
-              : null,
-          selectedSource,
-        };
-      });
-      setRows(updated);
-      setIsSearching(false);
-      setHasSearched(true);
+                : row.asset.unitCostUSD) > 0
+                ? row.subItemCost
+                  ? row.subItemCost.unitCostUSD
+                  : row.asset.unitCostUSD
+                : null,
+            selectedSource,
+          };
+        });
+
+        // 4. Nothing found anywhere → Quotations via OII PN ↔ MFG REF (one catalog pass for all rows)
+        const isMissing = (r: SearchRow): boolean =>
+          !!r.result && !r.result.found && !r.bomResult && !r.quoteResult;
+        const aliasMap = findPnAliases(updated.filter(isMissing).map(rowPnKey));
+        const final =
+          aliasMap.size === 0
+            ? updated
+            : updated.map((r) => {
+                const aliases = isMissing(r) ? aliasMap.get(rowPnKey(r)) : null;
+                if (!aliases) return r;
+                const aliasQuote = pickLatestQuote(
+                  aliases.map((a) => a.pn.toUpperCase()),
+                );
+                if (!aliasQuote) return r;
+                const qiKey = (aliasQuote.partNumber || "")
+                  .trim()
+                  .toUpperCase();
+                const via = aliases.filter(
+                  (a) => a.pn.toUpperCase() === qiKey,
+                )[0];
+                return {
+                  ...r,
+                  quoteResult: toQuoteResult(aliasQuote, via || null),
+                  selectedSource: "quote" as const,
+                  selected: true,
+                };
+              });
+        setRows(final);
+        setHasSearched(true);
+      } catch (err) {
+        console.error("[CostSearchModal] Search failed:", err);
+      } finally {
+        setIsSearching(false);
+      }
     }, 50);
   };
 
@@ -442,7 +523,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
             assetId: r.asset.id,
             subItemCostId: r.subItemCost ? r.subItemCost.id : undefined,
             unitCostUSD: cost,
-            costReference: r.quoteResult.supplier || "Quote",
+            costReference: r.quoteResult.reference || "Quote",
             dateReference: r.quoteResult.quotationDate,
             leadTimeDays: 0,
             originalCost: r.quoteResult.costUSD,
@@ -691,7 +772,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                 <th>Date Ref</th>
                 <th>Lead Time</th>
                 <th>Override</th>
-                <th>Actions</th>
+                <th className={styles.thActions}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -715,8 +796,19 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                         )}
                       </td>
                       <td colSpan={7} className={styles.parentContextHint}>
-                        <Check size={12} style={{ verticalAlign: "-2px" }} />{" "}
-                        has cost — sub-items below
+                        {row.asset.costFromSubItems ? (
+                          "cost from sub-items below"
+                        ) : row.asset.costFromPCF ? (
+                          "cost from PCF items below"
+                        ) : (
+                          <>
+                            <Check
+                              size={12}
+                              style={{ verticalAlign: "-2px" }}
+                            />{" "}
+                            has cost — sub-items below
+                          </>
+                        )}
                       </td>
                     </tr>
                   );
@@ -730,6 +822,12 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                 const rowKey = row.subItemCost
                   ? `${row.asset.id}_${row.subItemCost.id}`
                   : row.asset.id;
+                const equipName = row.subItemScope
+                  ? row.subItemScope.equipmentOffer ||
+                    row.subItemScope.description ||
+                    "Sub-item"
+                  : row.scopeItem.equipmentOffer || "—";
+                const alias = row.quoteResult?.viaAlias;
                 return (
                   <tr
                     key={rowKey}
@@ -744,7 +842,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                         />
                       )}
                     </td>
-                    <td className={styles.tdEquip}>
+                    <td className={styles.tdEquip} title={equipName}>
                       {row.subItemScope ? (
                         <span
                           style={{
@@ -753,16 +851,30 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                             fontSize: 11,
                           }}
                         >
-                          ↳{" "}
-                          {row.subItemScope.equipmentOffer ||
-                            row.subItemScope.description ||
-                            "Sub-item"}
+                          ↳ {equipName}
                         </span>
                       ) : (
-                        row.scopeItem.equipmentOffer || "—"
+                        equipName
                       )}
                     </td>
-                    <td className={styles.tdPN}>{pn || "—"}</td>
+                    <td className={styles.tdPN}>
+                      {pn || "—"}
+                      {alias && (
+                        <div
+                          className={styles.aliasHint}
+                          title={`Quotation matched by cross-reference ${pn} ↔ ${alias.pn}${
+                            alias.mfgName ? ` (${alias.mfgName})` : ""
+                          } — ${
+                            alias.source === "FAR"
+                              ? "Financials Active Registered with Manuf."
+                              : "Active Registered - Brazil"
+                          }`}
+                        >
+                          via {alias.kind === "mfgRef" ? "MFG REF" : "OII PN"}{" "}
+                          {alias.pn}
+                        </div>
+                      )}
+                    </td>
                     <td className={styles.tdStatus}>
                       {!hasSearched ? (
                         <span className={styles.pending}>—</span>
@@ -845,6 +957,15 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                               <option value="quote">QUOTE</option>
                             )}
                           </select>
+                        )}
+                      {row.selectedSource === "quote" &&
+                        row.quoteResult?.reference && (
+                          <div
+                            className={styles.quoteRef}
+                            title={`Quotation REF: ${row.quoteResult.reference}`}
+                          >
+                            {row.quoteResult.reference}
+                          </div>
                         )}
                     </td>
                     <td>

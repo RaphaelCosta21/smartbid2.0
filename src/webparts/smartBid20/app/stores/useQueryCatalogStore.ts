@@ -14,6 +14,7 @@ import {
   IBomCostResult,
   IExchangeRate,
   FinancialsActiveRegisteredRow,
+  IPnAlias,
 } from "../models";
 
 interface QueryCatalogState {
@@ -25,7 +26,7 @@ interface QueryCatalogState {
   /** Load catalog from SharePoint (lazy, only once) */
   loadCatalog: () => Promise<void>;
 
-  /** Search by Part Number prefix across Active Registered + PeopleSoft Financials (+ Financials Active Registered CSV) */
+  /** Search by Part Number prefix: Active Registered Brazil → Financials Active Registered CSV → PeopleSoft Financials */
   searchByPN: (query: string, limit?: number) => ISearchResultItem[];
 
   /** Search by description substring */
@@ -52,6 +53,12 @@ interface QueryCatalogState {
   /** Search Active Registered by Manufacturer Item ID substring */
   searchByMfgItmId: (query: string, limit?: number) => ISearchResultItem[];
 
+  /**
+   * Exact cross-reference both ways (OII PN → MFG REFs, MFG REF → OII PNs) for a batch of PNs,
+   * in one pass over the catalog. Result keyed by upper-cased PN.
+   */
+  findPnAliases: (pns: string[]) => Map<string, IPnAlias[]>;
+
   /** Clear cached data (force re-load) */
   clearCache: () => void;
 }
@@ -62,6 +69,60 @@ let _psPnIndex: Map<string, IPeopleSoftFinancialsItem[]> = new Map();
 let _bumblPnIndex: Map<string, IBomSheetItem[]> = new Map();
 let _bumbrPnIndex: Map<string, IBomSheetItem[]> = new Map();
 let _farPnIndex: Map<string, FinancialsActiveRegisteredRow[]> = new Map();
+
+const MFG_REF_PLACEHOLDERS = ["N/A", "TBD", "TBC", "NONE", "---"];
+// A MFG REF shared by more OII PNs than this is generic (e.g. "SEE DWG"), not a real cross-reference
+const MAX_PNS_PER_MFG_REF = 10;
+
+/** Visit every PN ↔ MFG REF pair (values already trimmed at parse), upper-cased */
+function forEachPnRef(
+  data: IQueryCatalogData,
+  cb: (
+    pnKey: string,
+    refKey: string,
+    pn: string,
+    ref: string,
+    mfgName: string,
+    source: IPnAlias["source"],
+  ) => void,
+): void {
+  const visit = (
+    pn: string,
+    ref: string,
+    mfgName: string,
+    source: IPnAlias["source"],
+  ): void => {
+    if (!pn || !ref || ref.length < 3) return;
+    const pnKey = pn.toUpperCase();
+    const refKey = ref.toUpperCase();
+    if (pnKey === refKey || MFG_REF_PLACEHOLDERS.indexOf(refKey) >= 0) return;
+    cb(pnKey, refKey, pn, ref, mfgName, source);
+  };
+  const ar = data.activeRegistered;
+  for (let i = 0; i < ar.length; i++) {
+    visit(ar[i].item, ar[i].mfgItmId || "", ar[i].mfgId || "", "AR");
+  }
+  const far = data.rawFinancialsActiveRegistered.rows;
+  for (let i = 0; i < far.length; i++) {
+    visit(far[i]["PART NUMBER"], far[i]["MFG REF"], far[i]["MFG NAME"], "FAR");
+  }
+}
+
+/** Push unless already present; lists stop at MAX+1 (enough to flag a generic ref) */
+function pushAlias(
+  map: Map<string, IPnAlias[]>,
+  key: string,
+  alias: IPnAlias,
+): void {
+  const list = map.get(key);
+  if (!list) {
+    map.set(key, [alias]);
+    return;
+  }
+  if (list.length > MAX_PNS_PER_MFG_REF) return;
+  const aliasKey = alias.pn.toUpperCase();
+  if (!list.some((a) => a.pn.toUpperCase() === aliasKey)) list.push(alias);
+}
 
 function toFarResult(m: FinancialsActiveRegisteredRow): ISearchResultItem {
   return {
@@ -199,23 +260,6 @@ export const useQueryCatalogStore = create<QueryCatalogState>((set, get) => ({
       });
     });
 
-    // PeopleSoft Financials
-    const remaining = limit - results.length;
-    if (remaining > 0) {
-      const psMatches = searchInPrefixIndex(
-        _psPnIndex,
-        query,
-        (i) => i.pn,
-        remaining,
-      );
-      psMatches.forEach((m) => {
-        // Avoid duplicates
-        if (!results.some((r) => r.pn === m.pn)) {
-          results.push({ pn: m.pn, description: m.description, source: "PS" });
-        }
-      });
-    }
-
     // PeopleSoft Financials — Active Registered CSV
     if (results.length < limit) {
       const farMatches = searchInPrefixIndex(
@@ -228,6 +272,22 @@ export const useQueryCatalogStore = create<QueryCatalogState>((set, get) => ({
         const pn = farMatches[i]["PART NUMBER"];
         if (!results.some((r) => r.pn === pn)) {
           results.push(toFarResult(farMatches[i]));
+        }
+      }
+    }
+
+    // PeopleSoft Financials (Price Consulting)
+    if (results.length < limit) {
+      const psMatches = searchInPrefixIndex(
+        _psPnIndex,
+        query,
+        (i) => i.pn,
+        limit,
+      );
+      for (let i = 0; i < psMatches.length && results.length < limit; i++) {
+        const m = psMatches[i];
+        if (!results.some((r) => r.pn === m.pn)) {
+          results.push({ pn: m.pn, description: m.description, source: "PS" });
         }
       }
     }
@@ -261,22 +321,6 @@ export const useQueryCatalogStore = create<QueryCatalogState>((set, get) => ({
       });
     });
 
-    // PeopleSoft Financials
-    const remaining = limit - results.length;
-    if (remaining > 0) {
-      const psMatches = searchBySubstring(
-        data.peopleSoftFinancials,
-        query,
-        (i) => i.description,
-        remaining,
-      );
-      psMatches.forEach((m) => {
-        if (!results.some((r) => r.pn === m.pn)) {
-          results.push({ pn: m.pn, description: m.description, source: "PS" });
-        }
-      });
-    }
-
     // PeopleSoft Financials — Active Registered CSV
     if (results.length < limit) {
       const farMatches = searchBySubstring(
@@ -289,6 +333,22 @@ export const useQueryCatalogStore = create<QueryCatalogState>((set, get) => ({
         const pn = farMatches[i]["PART NUMBER"];
         if (!results.some((r) => r.pn === pn)) {
           results.push(toFarResult(farMatches[i]));
+        }
+      }
+    }
+
+    // PeopleSoft Financials (Price Consulting)
+    if (results.length < limit) {
+      const psMatches = searchBySubstring(
+        data.peopleSoftFinancials,
+        query,
+        (i) => i.description,
+        limit,
+      );
+      for (let i = 0; i < psMatches.length && results.length < limit; i++) {
+        const m = psMatches[i];
+        if (!results.some((r) => r.pn === m.pn)) {
+          results.push({ pn: m.pn, description: m.description, source: "PS" });
         }
       }
     }
@@ -559,6 +619,56 @@ export const useQueryCatalogStore = create<QueryCatalogState>((set, get) => ({
       });
     });
     return results;
+  },
+
+  findPnAliases: (pns: string[]): Map<string, IPnAlias[]> => {
+    const out = new Map<string, IPnAlias[]>();
+    const data = get().data;
+    const wanted = new Set<string>();
+    pns.forEach((p) => {
+      const key = (p || "").trim().toUpperCase();
+      if (key) wanted.add(key);
+    });
+    if (!data || wanted.size === 0) return out;
+
+    // Pass 1: refs of wanted PNs (forward) and PNs of wanted refs (reverse)
+    const forward = new Map<string, IPnAlias[]>();
+    const reverse = new Map<string, IPnAlias[]>();
+    forEachPnRef(data, (pnKey, refKey, pn, ref, mfgName, source) => {
+      const mfg = mfgName || undefined;
+      if (wanted.has(pnKey))
+        pushAlias(forward, pnKey, {
+          pn: ref,
+          kind: "mfgRef",
+          mfgName: mfg,
+          source,
+        });
+      if (wanted.has(refKey))
+        pushAlias(reverse, refKey, { pn, kind: "oiiPn", mfgName: mfg, source });
+    });
+
+    // Pass 2: how many OII PNs share each forward ref (to drop generic refs)
+    const refPns = new Map<string, Set<string>>();
+    forward.forEach((list) =>
+      list.forEach((a) => refPns.set(a.pn.toUpperCase(), new Set<string>())),
+    );
+    if (refPns.size > 0) {
+      forEachPnRef(data, (pnKey, refKey) => {
+        const set = refPns.get(refKey);
+        if (set && set.size <= MAX_PNS_PER_MFG_REF) set.add(pnKey);
+      });
+    }
+
+    wanted.forEach((key) => {
+      const fwd = (forward.get(key) || []).filter((a) => {
+        const set = refPns.get(a.pn.toUpperCase());
+        return !!set && set.size <= MAX_PNS_PER_MFG_REF;
+      });
+      const rev = reverse.get(key) || [];
+      const list = fwd.concat(rev.length <= MAX_PNS_PER_MFG_REF ? rev : []);
+      if (list.length > 0) out.set(key, list);
+    });
+    return out;
   },
 
   clearCache: () => {

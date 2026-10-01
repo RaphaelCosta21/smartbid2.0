@@ -9,6 +9,8 @@ import { AIAnalysisService } from "../services/AIAnalysisService";
 import { AI_CONFIG } from "../config/ai.config";
 import { IChatMessage } from "../models/IAiChat";
 import { makeId } from "../utils/idGenerator";
+import { buildPastBidChatContext } from "../utils/pastBidLedger";
+import { useBidStore } from "./useBidStore";
 
 interface ChatState {
   isOpen: boolean;
@@ -51,10 +53,16 @@ export const useChatStore = create<ChatState>((set, get) => {
     set({ isSending: true, error: "", lastActivityAt: Date.now() });
 
     try {
+      const pastBids = buildPastBidChatContext(
+        pendingQuestion,
+        history.filter((m) => m.role === "user").map((m) => m.text),
+        useBidStore.getState().bids,
+      );
       const answer = await AIAnalysisService.chat(
         pendingQuestion,
         history,
         activeController.signal,
+        pastBids,
       );
       if (discardInFlight) return;
       set({

@@ -4,6 +4,8 @@
  */
 import { IBid, IBidRevision, IRevisionChange } from "../models";
 import { makeId } from "./idGenerator";
+import { createActivityLogEntry } from "./activityLogHelpers";
+import { formatDate } from "./formatters";
 
 /** Sections that are tracked during revisions */
 export type TrackableSection =
@@ -568,4 +570,60 @@ export function appendRevisionChanges(
   return revisions.map((r) =>
     r.status === "open" ? { ...r, changes: [...r.changes, ...newChanges] } : r,
   );
+}
+
+/** Activity log type for a manual BID due date change */
+export const DUE_DATE_CHANGED = "DUE_DATE_CHANGED";
+
+/**
+ * Builds the patch for a manual due date change: updates both due date fields,
+ * records the reason in the activity log and, when a revision is open, in the revision changes.
+ */
+export function buildDueDateChangePatch(
+  bid: IBid,
+  newDueDate: string,
+  reason: string,
+  changedBy: { name: string; email: string },
+): Partial<IBid> {
+  const previousDueDate = bid.dueDate || bid.desiredDueDate || "";
+  const description = `Due date changed: ${formatDate(previousDueDate)} → ${formatDate(newDueDate)}. Reason: "${reason}"`;
+  const revisions = bid.revisions || [];
+  const openRevision = revisions.find((r) => r.status === "open");
+
+  const patch: Partial<IBid> = {
+    dueDate: newDueDate,
+    desiredDueDate: newDueDate,
+    activityLog: [
+      ...(bid.activityLog || []),
+      createActivityLogEntry(
+        DUE_DATE_CHANGED,
+        description,
+        changedBy.email,
+        changedBy.name,
+        {
+          previousDueDate,
+          newDueDate,
+          reason,
+          revision: openRevision ? openRevision.revisionLetter : null,
+        },
+      ),
+    ],
+  };
+
+  if (openRevision) {
+    patch.revisions = appendRevisionChanges(revisions, [
+      {
+        id: makeId("chg"),
+        section: "Key Dates",
+        changeType: "modified",
+        description,
+        fieldPath: "dueDate",
+        previousValue: previousDueDate || null,
+        newValue: newDueDate,
+        changedBy,
+        changedAt: new Date().toISOString(),
+      },
+    ]);
+  }
+  return patch;
 }

@@ -10,6 +10,7 @@ import {
   IBid,
   IBidApproval,
   IApprovalRound,
+  IApprovalOverride,
   ISectorApprovalDuration,
 } from "../models";
 import { Sector } from "../models/IUser";
@@ -178,6 +179,14 @@ export function avgApprovalDaysBySector(
   })
     .filter((r) => r.count > 0)
     .sort((a, b) => b.avgDays - a.avgDays);
+}
+
+/** Override recorded on the latest approval round, if any. */
+export function getActiveApprovalOverride(
+  bid: IBid,
+): IApprovalOverride | undefined {
+  const rounds = bid.approvalRounds || [];
+  return rounds.length > 0 ? rounds[rounds.length - 1].override : undefined;
 }
 
 /** Overall approval cycle time (days) for a bid — earliest request to latest completion. */

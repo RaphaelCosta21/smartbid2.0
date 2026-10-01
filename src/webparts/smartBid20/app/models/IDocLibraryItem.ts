@@ -7,7 +7,8 @@ export type DocCatalogType =
   | "Datasheet"
   | "Manual"
   | "Catalog"
-  | "Technical Proposal";
+  | "Technical Proposal"
+  | "Past Bid";
 
 export interface IDocLibraryItem {
   /** SharePoint list item Id of the file */

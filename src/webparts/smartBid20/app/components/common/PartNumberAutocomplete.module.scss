@@ -70,42 +70,6 @@
   }
 }
 
-/* ─── Section headers ─── */
-.section {
-  &:not(:first-child) {
-    border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
-    margin-top: 2px;
-    padding-top: 2px;
-  }
-}
-
-.sectionHeader {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted, rgba(255, 255, 255, 0.45));
-  user-select: none;
-}
-
-.sectionIcon {
-  font-size: 12px;
-}
-
-.sectionCount {
-  margin-left: auto;
-  font-size: 9px;
-  background: var(--border-subtle, rgba(255, 255, 255, 0.08));
-  border-radius: 8px;
-  padding: 1px 5px;
-  min-width: 16px;
-  text-align: center;
-}
-
 /* ─── Result rows ─── */
 .resultRow {
   display: flex;
@@ -178,6 +142,34 @@
 .badgeFIN {
   background: rgba(236, 72, 153, 0.15);
   color: #ec4899;
+}
+
+/* Token-colored badges — tinted fill derived from the text color */
+.badgeQUOTE,
+.badgeASSET {
+  position: relative;
+  z-index: 0;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: currentColor;
+    opacity: 0.15;
+  }
+}
+
+.badgeQUOTE {
+  color: var(--info);
+}
+
+.badgeASSET {
+  color: var(--primary-accent);
 }
 
 /* ─── Loading / Empty states ─── */

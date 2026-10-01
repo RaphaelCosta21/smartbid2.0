@@ -39,6 +39,8 @@ export const SHAREPOINT_CONFIG = {
       // Subfolder of Datasheets so the existing AI Search datasource (whose
       // includeFolder filter is recursive) picks it up without redeployment.
       technicalProposals: "Datasheets/Technical Proposals",
+      // Generated from completed BIDs; needs its own includeFolder in the AI Search datasource.
+      pastBids: "Past Bids",
     },
   },
 
@@ -110,6 +112,9 @@ export const SHAREPOINT_CONFIG = {
     chatId: "ChatId",
     statusCardMessageId: "StatusCardMessageId",
     expectedApproverCount: "ExpectedApproverCount",
+    overriddenBy: "OverriddenBy",
+    overriddenDate: "OverriddenDate",
+    overrideReason: "OverrideReason",
   },
 
   /** Internal field names for the "Clarifications Database" list */
