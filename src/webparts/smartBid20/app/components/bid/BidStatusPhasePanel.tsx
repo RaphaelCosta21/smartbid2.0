@@ -73,10 +73,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
   const [assetCostsBlock, setAssetCostsBlock] = React.useState(false);
   const assetsCostCompleteness = React.useMemo(
     () =>
-      getAssetsCostCompleteness(
-        bid.scopeItems || [],
-        bid.assetBreakdown || [],
-      ),
+      getAssetsCostCompleteness(bid.scopeItems || [], bid.assetBreakdown || []),
     [bid.scopeItems, bid.assetBreakdown],
   );
   /** Canceled / No Bid close the BID without a priced scope, so they are not gated */
@@ -1576,7 +1573,10 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                           {s.label}
                         </span>
                         {isLocked && (
-                          <Lock size={12} className={styles.statusCardLockIcon} />
+                          <Lock
+                            size={12}
+                            className={styles.statusCardLockIcon}
+                          />
                         )}
                         {isSelected && (
                           <svg

@@ -338,10 +338,10 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
             </strong>
             <span className={styles.approvalAlertText}>
               Current status: <b>{approval.statusLabel}</b> · Phase:{" "}
-              <b>{approval.phaseLabel}</b>. A BID is only approved in Close
-              Out · Completed. You can still export, but every sheet of the
-              workbook will be marked as <b>NOT APPROVED</b> and the export will
-              be recorded in the Activity Log.
+              <b>{approval.phaseLabel}</b>. A BID is only approved in Close Out
+              · Completed. You can still export, but every sheet of the workbook
+              will be marked as <b>NOT APPROVED</b> and the export will be
+              recorded in the Activity Log.
             </span>
           </div>
         </div>
