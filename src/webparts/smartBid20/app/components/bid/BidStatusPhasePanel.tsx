@@ -1,5 +1,5 @@
 import * as React from "react";
-import { TriangleAlert } from "lucide-react";
+import { Lock, TriangleAlert } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   IBid,
@@ -89,6 +89,13 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
     bid.currentPhase !== ("Close Out" as BidPhase) &&
     assetsCostCompleteness.totalMissing > 0 &&
     COST_EXEMPT_STATUSES.indexOf(targetStatus || "") < 0;
+
+  /** Reachable only via the Approval tab (all approvals finalized or override) */
+  const APPROVAL_GATED_STATUSES = ["Completed"];
+  const isApprovalGated = (status: string): boolean =>
+    APPROVAL_GATED_STATUSES.indexOf(status) >= 0;
+  const APPROVAL_GATED_HINT =
+    "Completed is set automatically once all approvals are finalized or an approval override is applied.";
 
   /** Phase-change picker: choose a status before confirming */
   const [phasePickerTarget, setPhasePickerTarget] = React.useState<{
@@ -431,6 +438,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
   }) => {
     if (readOnly) return;
     if (statusDef.value === bid.currentStatus) return;
+    if (isApprovalGated(statusDef.value)) return;
 
     // Block status changes when BID is already in a terminal status
     const alreadyTerminal = terminalStatuses.some(
@@ -530,7 +538,12 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
 
   /** Confirm phase change after status is selected in the picker */
   const handlePhasePickerConfirm = () => {
-    if (!phasePickerTarget || !phasePickerStatus) return;
+    if (
+      !phasePickerTarget ||
+      !phasePickerStatus ||
+      isApprovalGated(phasePickerStatus)
+    )
+      return;
     executeChange(phasePickerTarget.phase, phasePickerStatus);
     setPhasePickerTarget(null);
     setPhasePickerStatus("");
@@ -1093,6 +1106,8 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                 statuses={terminalStatuses}
                 currentStatus={bid.currentStatus}
                 onSelect={handleStatusClick}
+                isLocked={isApprovalGated}
+                lockedHint={APPROVAL_GATED_HINT}
               />
             </div>
           )}
@@ -1536,10 +1551,11 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                   });
                   return deduped.map((s) => {
                     const isSelected = phasePickerStatus === s.value;
+                    const isLocked = isApprovalGated(s.value);
                     return (
                       <button
                         key={s.id}
-                        className={`${styles.statusCard} ${isSelected ? styles.statusCardActive : ""}`}
+                        className={`${styles.statusCard} ${isSelected ? styles.statusCardActive : ""} ${isLocked ? styles.statusCardLocked : ""}`}
                         style={
                           isSelected
                             ? {
@@ -1548,6 +1564,8 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                               }
                             : {}
                         }
+                        disabled={isLocked}
+                        title={isLocked ? APPROVAL_GATED_HINT : undefined}
                         onClick={() => setPhasePickerStatus(s.value)}
                       >
                         <span
@@ -1557,6 +1575,9 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                         <span className={styles.statusCardLabel}>
                           {s.label}
                         </span>
+                        {isLocked && (
+                          <Lock size={12} className={styles.statusCardLockIcon} />
+                        )}
                         {isSelected && (
                           <svg
                             width="14"
@@ -1574,6 +1595,12 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                     );
                   });
                 })()}
+              </div>
+            )}
+            {phasePickerTarget.phase === ("Close Out" as BidPhase) && (
+              <div className={styles.lockedHint}>
+                <Lock size={12} />
+                {APPROVAL_GATED_HINT}
               </div>
             )}
             <div className={styles.confirmActions}>
@@ -1725,7 +1752,9 @@ const TerminalStatusSection: React.FC<{
     phase: BidPhase | null;
     isTerminal?: boolean;
   }) => void;
-}> = ({ statuses, currentStatus, onSelect }) => {
+  isLocked: (value: string) => boolean;
+  lockedHint: string;
+}> = ({ statuses, currentStatus, onSelect, isLocked, lockedHint }) => {
   const [expanded, setExpanded] = React.useState(false);
 
   if (statuses.length === 0) return null;
@@ -1759,10 +1788,12 @@ const TerminalStatusSection: React.FC<{
         <div className={styles.statusGrid}>
           {statuses.map((s) => {
             const isActive = s.value === currentStatus;
+            const locked = isLocked(s.value);
             return (
               <button
                 key={s.id}
-                className={`${styles.statusCard} ${isActive ? styles.statusCardActive : ""} ${styles.statusCardTerminal}`}
+                className={`${styles.statusCard} ${isActive ? styles.statusCardActive : ""} ${styles.statusCardTerminal} ${locked ? styles.statusCardLocked : ""}`}
+                title={locked ? lockedHint : undefined}
                 style={
                   isActive
                     ? {
@@ -1779,13 +1810,16 @@ const TerminalStatusSection: React.FC<{
                     isTerminal: true,
                   })
                 }
-                disabled={isActive}
+                disabled={isActive || locked}
               >
                 <span
                   className={styles.statusCardDot}
                   style={{ background: s.color }}
                 />
                 <span className={styles.statusCardLabel}>{s.label}</span>
+                {locked && (
+                  <Lock size={12} className={styles.statusCardLockIcon} />
+                )}
               </button>
             );
           })}

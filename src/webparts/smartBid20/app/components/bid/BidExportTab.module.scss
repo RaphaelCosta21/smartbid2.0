@@ -44,6 +44,12 @@
   min-width: 0;
 }
 
+.heroEyebrowRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .eyebrow {
   display: block;
   font-size: 11px;
@@ -51,6 +57,19 @@
   letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--primary-accent);
+}
+
+.reqBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--header-text-secondary);
+  background: var(--header-input-bg);
+  border: 1px solid var(--header-border);
+  letter-spacing: 0.4px;
 }
 
 .heroTitle {
@@ -107,6 +126,54 @@
   font-size: 13px;
   color: var(--header-text-secondary);
   font-variant-numeric: tabular-nums;
+}
+
+/* ─── Not-approved alert ─── */
+.approvalAlert {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid var(--warning);
+  border-left-width: 4px;
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+
+.approvalAlertIcon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+}
+
+.approvalAlertBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.approvalAlertTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.approvalAlertText {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+
+  b {
+    color: var(--text-primary);
+    font-weight: 700;
+  }
 }
 
 /* ─── Layout ─── */
@@ -174,16 +241,18 @@
 }
 
 .linkBtn {
-  padding: 4px 6px;
-  border: none;
+  padding: 4px 8px;
+  border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
   font-size: 12px;
   font-weight: 600;
-  color: var(--primary-accent);
+  color: var(--text-muted);
   cursor: pointer;
+  transition: all 150ms ease;
 
   &:hover {
+    color: var(--primary-accent);
     background: var(--hover-bg);
   }
 
@@ -191,6 +260,12 @@
     outline: 2px solid var(--primary-accent);
     outline-offset: 1px;
   }
+}
+
+.linkBtnActive {
+  color: var(--primary-accent);
+  background: var(--hover-bg);
+  border-color: var(--border-subtle);
 }
 
 .dot {
@@ -577,20 +652,25 @@
 
 .workbookBody {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
   padding: 14px;
   color: var(--success);
   border-bottom: 1px solid var(--border);
+
+  > svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
 }
 
 .workbookName {
   font-size: 12px;
   font-weight: 600;
+  line-height: 1.45;
   color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .tabStrip {

@@ -39,7 +39,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: var(--z-popover);
+  z-index: var(--z-fab);
   box-shadow: var(--shadow-card-hover), var(--shadow-glow);
   transition:
     transform 250ms ease,
@@ -74,7 +74,7 @@
   border-radius: 16px;
   box-shadow: var(--shadow-card-hover);
   color: var(--text-primary);
-  z-index: var(--z-popover);
+  z-index: var(--z-fab);
   animation: chatPanelIn 250ms ease;
 }
 

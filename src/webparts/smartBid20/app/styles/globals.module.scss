@@ -30,6 +30,8 @@
   --table-row-height: 40px;
 
   /* z-index scale — use these instead of arbitrary values */
+  /* Floating launchers (chat FAB) stay below drawers/modals so those cover them. */
+  --z-fab: 950;
   --z-panel: 1000;
   --z-sticky: 1100;
   --z-overlay: 2000;

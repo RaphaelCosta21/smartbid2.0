@@ -93,6 +93,10 @@ export const CreateRequestPage: React.FC = () => {
   const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([]);
   const [showPeoplePicker, setShowPeoplePicker] = React.useState(false);
   const [showCommercialPicker, setShowCommercialPicker] = React.useState(false);
+  const [showClientPicker, setShowClientPicker] = React.useState(false);
+  // Only filter after the user types, so focusing a filled field still lists all clients
+  const [clientFilterActive, setClientFilterActive] = React.useState(false);
+  const [clientHighlight, setClientHighlight] = React.useState(-1);
   const [submitting, setSubmitting] = React.useState(false);
   const peoplePickerRef = React.useRef<HTMLDivElement>(null);
   const commercialPickerRef = React.useRef<HTMLDivElement>(null);
@@ -118,6 +122,11 @@ export const CreateRequestPage: React.FC = () => {
   const clientOptions = (
     config?.clientList?.filter((c) => c.isActive) || []
   ).sort((a, b) => a.label.localeCompare(b.label));
+  const clientQuery = form.client.trim().toLowerCase();
+  const filteredClients =
+    clientFilterActive && clientQuery
+      ? clientOptions.filter((c) => c.label.toLowerCase().includes(clientQuery))
+      : clientOptions;
   const divisionOptions = config?.divisions?.filter((d) => d.isActive) || [];
   const bidTypeOptions = config?.bidTypes?.filter((b) => b.isActive) || [];
 
@@ -274,10 +283,50 @@ export const CreateRequestPage: React.FC = () => {
     });
   };
 
+  const selectClient = (value: string): void => {
+    updateField("client", value);
+    setShowClientPicker(false);
+    setClientFilterActive(false);
+    setClientHighlight(-1);
+  };
+
+  const handleClientBlur = (): void => {
+    setShowClientPicker(false);
+    setClientHighlight(-1);
+    // Normalize casing when the typed text matches a configured client
+    const match = clientOptions.find(
+      (c) => c.label.toLowerCase() === clientQuery,
+    );
+    if (match && match.value !== form.client) updateField("client", match.value);
+  };
+
+  const handleClientKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ): void => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setShowClientPicker(true);
+      setClientHighlight((i) => (i < filteredClients.length - 1 ? i + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setShowClientPicker(true);
+      setClientHighlight((i) => (i > 0 ? i - 1 : filteredClients.length - 1));
+    } else if (
+      e.key === "Enter" &&
+      showClientPicker &&
+      filteredClients[clientHighlight]
+    ) {
+      e.preventDefault();
+      selectClient(filteredClients[clientHighlight].value);
+    } else if (e.key === "Escape") {
+      setShowClientPicker(false);
+    }
+  };
+
   const validateStep = (): boolean => {
     const stepErrors: string[] = [];
     if (step === 0) {
-      if (!form.client) stepErrors.push("Client is required.");
+      if (!form.client.trim()) stepErrors.push("Client is required.");
       if (!form.projectName) stepErrors.push("Project Name is required.");
       if (!form.division) stepErrors.push("Division is required.");
       if (!form.serviceLine) stepErrors.push("Service Line is required.");
@@ -331,7 +380,7 @@ export const CreateRequestPage: React.FC = () => {
           photoUrl: currentUserPhoto || currentUser.photoUrl,
         },
         requestDate: now,
-        client: form.client,
+        client: form.client.trim(),
         clientContact: form.clientContact,
         crmNumber: form.crmNumber,
         projectName: form.projectName,
@@ -561,21 +610,69 @@ export const CreateRequestPage: React.FC = () => {
                 📋 Client & Project Information
               </div>
               <div className={styles.formGrid}>
-                <label className={styles.formGroup}>
+                <div className={styles.formGroup}>
                   <span className={styles.formLabel}>Client *</span>
-                  <select
-                    className={styles.formInput}
-                    value={form.client}
-                    onChange={(e) => updateField("client", e.target.value)}
-                  >
-                    <option value="">Select client...</option>
-                    {clientOptions.map((c) => (
-                      <option key={c.id} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <div className={styles.peoplePickerWrapper}>
+                    <input
+                      className={`${styles.formInput} ${styles.comboInput}`}
+                      value={form.client}
+                      onChange={(e) => {
+                        updateField("client", e.target.value);
+                        setClientFilterActive(true);
+                        setShowClientPicker(true);
+                        setClientHighlight(-1);
+                      }}
+                      onFocus={() => {
+                        setClientFilterActive(false);
+                        setShowClientPicker(true);
+                      }}
+                      onClick={() => setShowClientPicker(true)}
+                      onBlur={handleClientBlur}
+                      onKeyDown={handleClientKeyDown}
+                      placeholder="Type or select client..."
+                      autoComplete="off"
+                      role="combobox"
+                      aria-expanded={showClientPicker}
+                      aria-autocomplete="list"
+                    />
+                    <span className={styles.comboCaret} aria-hidden="true">
+                      ▾
+                    </span>
+                    {showClientPicker && (
+                      <div className={styles.peopleDropdown} role="listbox">
+                        {filteredClients.length === 0 ? (
+                          <div className={styles.peopleDropdownEmpty}>
+                            {form.client.trim()
+                              ? `No match — "${form.client.trim()}" will be used as a new client`
+                              : "No clients configured"}
+                          </div>
+                        ) : (
+                          filteredClients.map((c, i) => (
+                            <div
+                              key={c.id}
+                              role="option"
+                              aria-selected={c.value === form.client}
+                              ref={
+                                i === clientHighlight
+                                  ? (el) => el?.scrollIntoView({ block: "nearest" })
+                                  : undefined
+                              }
+                              className={`${styles.peopleDropdownItem} ${styles.comboOption} ${i === clientHighlight ? styles.comboOptionActive : ""}`}
+                              // mousedown + preventDefault keeps input focus so blur doesn't close first
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                selectClient(c.value);
+                              }}
+                              onMouseEnter={() => setClientHighlight(i)}
+                            >
+                              {c.label}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <label className={styles.formGroup}>
                   <span className={styles.formLabel}>Client Contact</span>
                   <input

@@ -47,7 +47,13 @@ export const useUIStore = create<UIState>((set) => ({
   setActiveRoute: (route) => set({ activeRoute: route }),
   addToast: (toast) =>
     set((state) => ({
-      toasts: [...state.toasts, { ...toast, id: Date.now().toString() }],
+      toasts: [
+        ...state.toasts,
+        {
+          ...toast,
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        },
+      ],
     })),
   dismissToast: (id) =>
     set((state) => ({

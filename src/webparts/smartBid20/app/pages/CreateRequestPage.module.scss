@@ -300,6 +300,30 @@
   position: relative;
 }
 
+/* ── Client combobox ── */
+.comboInput {
+  padding-right: 32px;
+}
+
+.comboCaret {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.comboOption {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.comboOptionActive {
+  background: var(--card-bg-elevated);
+}
+
 .peopleDropdown {
   position: absolute;
   top: 100%;

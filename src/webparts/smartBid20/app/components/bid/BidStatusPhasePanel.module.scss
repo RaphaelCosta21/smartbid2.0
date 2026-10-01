@@ -315,6 +315,29 @@
   }
 }
 
+.statusCardLocked {
+  opacity: 0.45;
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+}
+
+.statusCardLockIcon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.lockedHint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .statusCardDot {
   width: 8px;
   height: 8px;

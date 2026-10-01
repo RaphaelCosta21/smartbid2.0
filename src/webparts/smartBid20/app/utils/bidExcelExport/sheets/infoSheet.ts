@@ -26,7 +26,7 @@ export function buildInfoSheet(ctx: IBidExcelContext): void {
   const kv = (
     label: string,
     value: string | number | Date | null | undefined,
-    o: { numFmt?: string; bold?: boolean; wrap?: boolean } = {},
+    o: { numFmt?: string; bold?: boolean; wrap?: boolean; color?: string } = {},
   ): void =>
     x.keyValue(label, value === undefined ? null : value, {
       labelCol: 1,
@@ -196,6 +196,15 @@ export function buildInfoSheet(ctx: IBidExcelContext): void {
   x.sectionTitle("Export", span);
   kv("Exported by", ctx.opts.exportedBy);
   kv("Exported at", toExcelDateTime(ctx.exportedAt), { numFmt: NUM.dateTime });
+  if (ctx.approved) {
+    kv("BID Approval", "Approved — Close Out · Completed");
+  } else {
+    kv(
+      "BID Approval",
+      `NOT APPROVED — exported anyway while in "${status ? status.label : bid.currentStatus}" (phase: ${phase ? phase.label : bid.currentPhase})`,
+      { bold: true, wrap: true, color: XL_COLORS.danger },
+    );
+  }
   kv("Source", "SmartBid 2.0 — values as shown on the BID Details screens");
   x.gap(8);
   x.note(

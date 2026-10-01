@@ -1730,7 +1730,8 @@ export const BidDetailPage: React.FC = () => {
           {activeTab === "export" && (
             <BidExportTab
               bid={bid}
-              exportedBy={currentUser.displayName || currentUser.email}
+              currentUser={currentUser}
+              onSave={savePatch}
             />
           )}
         </div>

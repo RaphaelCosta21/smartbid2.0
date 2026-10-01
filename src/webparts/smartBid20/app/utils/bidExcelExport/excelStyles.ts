@@ -220,6 +220,7 @@ export interface IXlSheetInit {
   tabColor: string;
   widths: number[];
   footerLabel: string;
+  notice?: string;
   logoId?: number;
   logoAspect?: number;
   portrait?: boolean;
@@ -355,7 +356,43 @@ export class XlSheet {
     this.row++;
     this.gap(10);
 
+    if (this.init.notice) this.noticeStrip(this.init.notice);
+
     if (this.init.logoId !== undefined) this.placeLogo();
+  }
+
+  /** Bold red-on-amber strip across the sheet, e.g. the NOT APPROVED stamp. */
+  private noticeStrip(text: string): void {
+    const last = this.lastCol;
+    const r = this.ws.getRow(this.row);
+    this.fillRange(r, 1, last, XL_COLORS.warningFill);
+    for (let c = 1; c <= last; c++) {
+      r.getCell(c).border = {
+        top: thin(XL_COLORS.danger),
+        bottom: thin(XL_COLORS.danger),
+        ...(c === 1 ? { left: thin(XL_COLORS.danger) } : {}),
+        ...(c === last ? { right: thin(XL_COLORS.danger) } : {}),
+      };
+    }
+    this.ws.mergeCells(this.row, 1, this.row, last);
+    this.setValue(r, 1, text);
+    r.getCell(1).font = this.font({
+      size: 11,
+      bold: true,
+      color: XL_COLORS.danger,
+    });
+    r.getCell(1).alignment = {
+      vertical: "middle",
+      horizontal: "left",
+      wrapText: true,
+      indent: 1,
+    };
+    r.height = Math.max(
+      26,
+      this.estimateHeight(text, this.spanWidth(1, last), 11) + 6,
+    );
+    this.row++;
+    this.gap(10);
   }
 
   private placeLogo(): void {

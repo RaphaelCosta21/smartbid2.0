@@ -46,6 +46,8 @@ function getActivityColor(type: string): string {
     ERN_LINKED: "var(--primary-accent, #3B82F6)",
     ERN_CHANGED: "var(--warning-color, #F59E0B)",
     DUE_DATE_CHANGED: "var(--warning)",
+    BID_EXPORTED: "var(--secondary-accent)",
+    BID_EXPORTED_UNAPPROVED: "var(--danger)",
   };
   return colors[type] || "var(--text-tertiary, #94A3B8)";
 }

@@ -1,5 +1,6 @@
 import type { Workbook } from "exceljs";
 import { BidExcelSheetKey, IBid, IBidExcelExportOptions } from "../../models";
+import { getPhaseDef, getStatusDef } from "../../config/status.config";
 import { ICostSummaryView } from "../costSummaryView";
 import { XL_TAB_COLORS, XlSheet } from "./excelStyles";
 
@@ -66,6 +67,24 @@ export function sheetName(key: BidExcelSheetKey): string {
   return def ? def.name : key;
 }
 
+export interface IBidApprovalState {
+  approved: boolean;
+  statusLabel: string;
+  phaseLabel: string;
+}
+
+/** A BID only counts as approved once it reaches Close Out · Completed. */
+export function getBidApprovalState(bid: IBid): IBidApprovalState {
+  const status = getStatusDef(bid.currentStatus);
+  const phase = bid.currentPhase ? getPhaseDef(bid.currentPhase) : undefined;
+  return {
+    approved:
+      bid.currentPhase === "Close Out" && bid.currentStatus === "Completed",
+    statusLabel: (status && status.label) || bid.currentStatus || "—",
+    phaseLabel: (phase && phase.label) || bid.currentPhase || "—",
+  };
+}
+
 export interface IBidExcelContext {
   wb: Workbook;
   bid: IBid;
@@ -75,6 +94,9 @@ export interface IBidExcelContext {
   exportedAt: Date;
   subtitle: string;
   footerLabel: string;
+  approved: boolean;
+  /** Warning strip printed under every sheet banner (set when not approved). */
+  approvalNotice?: string;
   logoId?: number;
   logoAspect?: number;
 }
@@ -90,6 +112,7 @@ export function newSheet(
     tabColor: XL_TAB_COLORS[key],
     widths,
     footerLabel: ctx.footerLabel,
+    notice: ctx.approvalNotice,
     logoId: ctx.logoId,
     logoAspect: ctx.logoAspect,
     portrait,

@@ -15,12 +15,15 @@ import {
   Info,
   LoaderCircle,
   Lock,
+  ShieldAlert,
   TriangleAlert,
   Truck,
   Wrench,
 } from "lucide-react";
 import { BidExcelSheetKey, IBid } from "../../models";
+import { useBidStore } from "../../stores/useBidStore";
 import { useUIStore } from "../../stores/useUIStore";
+import { createActivityLogEntry } from "../../utils/activityLogHelpers";
 import { getAssetsCostCompleteness } from "../../utils/costCalculations";
 import { buildCostSummaryView } from "../../utils/costSummaryView";
 import {
@@ -29,7 +32,10 @@ import {
   formatDate,
   formatHours,
 } from "../../utils/formatters";
-import { BID_EXCEL_SHEETS } from "../../utils/bidExcelExport/context";
+import {
+  BID_EXCEL_SHEETS,
+  getBidApprovalState,
+} from "../../utils/bidExcelExport/context";
 import {
   NO_SUPPLIER_LABEL,
   buildSupplierRows,
@@ -40,12 +46,14 @@ import {
   exportBidToExcel,
   getBidExcelFilename,
 } from "../../utils/bidExcelExport";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import { getCurrentRevisionLetter } from "./RevisionsTab";
 import styles from "./BidExportTab.module.scss";
 
 interface BidExportTabProps {
   bid: IBid;
-  exportedBy: string;
+  currentUser: { displayName: string; email: string };
+  onSave?: (patch: Partial<IBid>) => void;
 }
 
 const SHEET_ICONS: Record<BidExcelSheetKey, React.ReactNode> = {
@@ -82,14 +90,16 @@ const plural = (n: number, word: string): string =>
 
 export const BidExportTab: React.FC<BidExportTabProps> = ({
   bid,
-  exportedBy,
+  currentUser,
+  onSave,
 }) => {
   const addToast = useUIStore((s) => s.addToast);
-  const [selected, setSelected] = React.useState<BidExcelSheetKey[]>(
-    BID_EXCEL_SHEETS.map((d) => d.key),
-  );
+  const [selected, setSelected] = React.useState<BidExcelSheetKey[]>([]);
   const [includeNotes, setIncludeNotes] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const exportedBy = currentUser.displayName || currentUser.email;
+  const approval = React.useMemo(() => getBidApprovalState(bid), [bid]);
 
   const view = React.useMemo(() => buildCostSummaryView(bid), [bid]);
   const supplierRows = React.useMemo(() => buildSupplierRows(bid), [bid]);
@@ -122,7 +132,7 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
       (sp) => sp.supplier !== NO_SUPPLIER_LABEL,
     ).length;
     return {
-      info: `BID ${bid.bidNumber} · Rev ${revision}`,
+      info: `${bid.crmNumber || bid.bidNumber} · Rev ${revision}`,
       costSummary: `${formatCurrency(s.totalCostUSD)} total`,
       scope: plural(scopeCount, "item"),
       assets: `${plural((bid.assetBreakdown || []).length, "item")} · ${formatCurrencyCompact(s.assetsCostUSD)}`,
@@ -136,6 +146,14 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
 
   const checks = React.useMemo((): ICheck[] => {
     const list: ICheck[] = [];
+    list.push(
+      approval.approved
+        ? { ok: true, label: "BID approved (Close Out · Completed)" }
+        : {
+            ok: false,
+            label: `BID not approved yet — ${approval.statusLabel} · ${approval.phaseLabel}`,
+          },
+    );
     const missing = s.missingRateCurrencies || [];
     if (!(s.ptaxUsed > 0)) {
       list.push({ ok: false, label: "No USD→BRL rate registered on this BID" });
@@ -183,7 +201,7 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
         : { ok: true, label: "Lead time informed on every procured line" },
     );
     return list;
-  }, [s, view, completeness, supplierRows]);
+  }, [s, view, completeness, supplierRows, approval]);
 
   const warnings = checks.filter((c) => !c.ok).length;
   const optionalKeys = BID_EXCEL_SHEETS.filter((d) => !d.required).map(
@@ -201,7 +219,39 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
     );
   };
 
-  const handleDownload = async (): Promise<void> => {
+  const logExport = (name: string): void => {
+    if (!onSave) return;
+    const sheetNames = selectedDefs.map((d) => d.name);
+    const detail = `"${name}" (Rev ${revision} · ${plural(sheetNames.length, "sheet")})`;
+    const entry = createActivityLogEntry(
+      approval.approved ? "BID_EXPORTED" : "BID_EXPORTED_UNAPPROVED",
+      approval.approved
+        ? `Excel exported: ${detail}`
+        : `Excel exported WITHOUT BID approval (status: ${approval.statusLabel} · phase: ${approval.phaseLabel}): ${detail}`,
+      currentUser.email,
+      exportedBy,
+      {
+        format: "xlsx",
+        fileName: name,
+        revision,
+        sheets: sheetNames,
+        includeNotes,
+        approved: approval.approved,
+        status: bid.currentStatus,
+        phase: bid.currentPhase,
+        totalCostUSD: s.totalCostUSD,
+        totalCostBRL: s.totalCostBRL,
+        dataWarnings: checks.filter((c) => !c.ok).map((c) => c.label),
+      },
+    );
+    // Read the store: the BID may have changed while the workbook was generated
+    const latest =
+      useBidStore.getState().bids.find((b) => b.bidNumber === bid.bidNumber) ||
+      bid;
+    onSave({ activityLog: [...(latest.activityLog || []), entry] });
+  };
+
+  const runExport = async (): Promise<void> => {
     setBusy(true);
     try {
       const name = await exportBidToExcel(bid, {
@@ -209,7 +259,14 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
         includeNotes,
         exportedBy,
       });
-      addToast({ type: "success", title: "Excel exported", message: name });
+      logExport(name);
+      addToast({
+        type: approval.approved ? "success" : "warning",
+        title: approval.approved
+          ? "Excel exported"
+          : "Excel exported — NOT APPROVED",
+        message: name,
+      });
     } catch (err) {
       console.error("[BidExportTab] Excel export failed:", err);
       addToast({
@@ -222,6 +279,19 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
     }
   };
 
+  const handleDownload = (): void => {
+    if (approval.approved) {
+      runExport().catch(() => undefined);
+    } else {
+      setConfirmOpen(true);
+    }
+  };
+
+  const confirmUnapprovedExport = (): void => {
+    setConfirmOpen(false);
+    runExport().catch(() => undefined);
+  };
+
   return (
     <div className={styles.root}>
       {/* ─── Hero ─── */}
@@ -230,12 +300,19 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
           <FileDown size={26} />
         </div>
         <div className={styles.heroText}>
-          <span className={styles.eyebrow}>Export</span>
-          <h2 className={styles.heroTitle}>BID {bid.bidNumber}</h2>
-          <p className={styles.heroSub}>
+          <div className={styles.heroEyebrowRow}>
+            <span className={styles.eyebrow}>Export</span>
+            {bid.crmNumber?.trim() && bid.bidNumber ? (
+              <span className={styles.reqBadge}>{bid.bidNumber}</span>
+            ) : null}
+          </div>
+          <h2 className={styles.heroTitle}>
             {[opp && opp.client, opp && opp.projectName]
               .filter(Boolean)
               .join(" · ") || "—"}
+          </h2>
+          <p className={styles.heroSub}>
+            {bid.crmNumber?.trim() || bid.bidNumber}
           </p>
         </div>
         <div className={styles.heroMeta}>
@@ -249,6 +326,37 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
           </span>
         </div>
       </section>
+
+      {!approval.approved && (
+        <div className={styles.approvalAlert} role="alert">
+          <span className={styles.approvalAlertIcon}>
+            <ShieldAlert size={20} />
+          </span>
+          <div className={styles.approvalAlertBody}>
+            <strong className={styles.approvalAlertTitle}>
+              This BID is not approved yet
+            </strong>
+            <span className={styles.approvalAlertText}>
+              Current status: <b>{approval.statusLabel}</b> · Phase:{" "}
+              <b>{approval.phaseLabel}</b>. A BID is only approved in Close
+              Out · Completed. You can still export, but every sheet of the
+              workbook will be marked as <b>NOT APPROVED</b> and the export will
+              be recorded in the Activity Log.
+            </span>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        isOpen={confirmOpen}
+        title="Export a BID that is not approved?"
+        message={`This BID is in "${approval.statusLabel}" (phase: ${approval.phaseLabel}) and has not completed the approval flow. The workbook will be marked as NOT APPROVED and this export will be recorded in the Activity Log under your name.`}
+        confirmLabel="Export anyway"
+        cancelLabel="Cancel"
+        variant="warning"
+        onConfirm={confirmUnapprovedExport}
+        onCancel={() => setConfirmOpen(false)}
+      />
 
       <div className={styles.layout}>
         <div className={styles.main}>
@@ -312,7 +420,7 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
               <div className={styles.stepActions}>
                 <button
                   type="button"
-                  className={styles.linkBtn}
+                  className={`${styles.linkBtn} ${selected.length === optionalKeys.length ? styles.linkBtnActive : ""}`}
                   onClick={() => setSelected(optionalKeys)}
                 >
                   Select all
@@ -320,7 +428,7 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
                 <span className={styles.dot}>·</span>
                 <button
                   type="button"
-                  className={styles.linkBtn}
+                  className={`${styles.linkBtn} ${selected.length === 0 ? styles.linkBtnActive : ""}`}
                   onClick={() => setSelected([])}
                 >
                   Required only

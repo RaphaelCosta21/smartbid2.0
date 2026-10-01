@@ -2,8 +2,12 @@ import type * as ExcelJSTypes from "exceljs";
 import { BidExcelSheetKey, IBid, IBidExcelExportOptions } from "../../models";
 import { getCurrentRevisionLetter } from "../../components/bid/RevisionsTab";
 import { buildCostSummaryView } from "../costSummaryView";
-import { downloadBlob, getExportFilename } from "../exportHelpers";
-import { BID_EXCEL_SHEETS, IBidExcelContext } from "./context";
+import { downloadBlob } from "../exportHelpers";
+import {
+  BID_EXCEL_SHEETS,
+  IBidExcelContext,
+  getBidApprovalState,
+} from "./context";
 import { buildAssetsSheet } from "./sheets/assetsSheet";
 import { buildCertificationsSheet } from "./sheets/certificationsSheet";
 import { buildCostSummarySheet } from "./sheets/costSummarySheet";
@@ -61,11 +65,21 @@ async function loadLogoDataUrl(): Promise<string | null> {
 }
 
 export function getBidExcelFilename(bid: IBid): string {
-  const safe = (bid.bidNumber || "BID").replace(/[\\/:*?"<>|\s]+/g, "-");
-  return getExportFilename(
-    `BID-${safe}_Rev${getCurrentRevisionLetter(bid)}`,
-    "xlsx",
-  );
+  const opp = bid.opportunityInfo;
+  const sanitize = (val: string): string =>
+    val
+      .replace(/[\\/:*?"<>|\r\n\t]+/g, "-")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const projectName = sanitize((opp && opp.projectName) || "");
+  const client = sanitize((opp && opp.client) || "");
+  const crm = sanitize(bid.crmNumber || bid.bidNumber || "");
+
+  const parts = [projectName, client, crm].filter(Boolean);
+  const baseName =
+    parts.length > 0 ? parts.join(" - ") : bid.bidNumber || "BID";
+  return `${baseName}.xlsx`;
 }
 
 /** Build the formatted BID workbook and download it. Returns the file name. */
@@ -78,16 +92,31 @@ export async function exportBidToExcel(
   const now = new Date();
   const revision = getCurrentRevisionLetter(bid);
   const opp = bid.opportunityInfo;
+  const approval = getBidApprovalState(bid);
+  const approvalNotice = approval.approved
+    ? undefined
+    : `NOT APPROVED — exported while the BID was in "${approval.statusLabel}" (phase: ${approval.phaseLabel}). ` +
+      "Values are preliminary until the BID reaches Close Out · Completed.";
+
+  const titleParts = [
+    opp && opp.projectName,
+    opp && opp.client,
+    bid.crmNumber || bid.bidNumber,
+  ]
+    .map((s) => (s || "").trim())
+    .filter(Boolean);
 
   wb.creator = opts.exportedBy || "SmartBid 2.0";
   wb.lastModifiedBy = wb.creator;
   wb.created = now;
   wb.modified = now;
-  wb.title = `BID ${bid.bidNumber} — Cost Export`;
+  wb.title =
+    titleParts.length > 0 ? titleParts.join(" - ") : bid.bidNumber || "BID";
   wb.subject = [opp && opp.client, opp && opp.projectName]
     .filter(Boolean)
     .join(" · ");
   wb.company = "Oceaneering";
+  if (!approval.approved) wb.keywords = "NOT APPROVED";
 
   const ctx: IBidExcelContext = {
     wb,
@@ -97,14 +126,19 @@ export async function exportBidToExcel(
     revision,
     exportedAt: now,
     subtitle: [
-      `BID ${bid.bidNumber}`,
+      bid.crmNumber || bid.bidNumber,
       `Rev ${revision}`,
       opp && opp.client,
       opp && opp.projectName,
+      bid.crmNumber && bid.bidNumber ? `Ref: ${bid.bidNumber}` : undefined,
     ]
       .filter(Boolean)
       .join("   ·   "),
-    footerLabel: `SmartBid 2.0 · BID ${bid.bidNumber} Rev ${revision}`,
+    footerLabel:
+      `SmartBid 2.0 · ${bid.crmNumber || bid.bidNumber} Rev ${revision}` +
+      (approval.approved ? "" : " · NOT APPROVED"),
+    approved: approval.approved,
+    approvalNotice,
     logoId: logo ? wb.addImage({ base64: logo, extension: "png" }) : undefined,
     logoAspect: LOGO_ASPECT,
   };
