@@ -189,6 +189,22 @@
   background: var(--survey-cream);
 }
 
+.subhead {
+  margin-top: 4px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--survey-slate);
+}
+
+.lineCatalog {
+  color: var(--survey-slate);
+
+  .lineTitle {
+    font-weight: 500;
+  }
+}
+
 .lineQty {
   min-width: 22px;
   font-weight: 700;

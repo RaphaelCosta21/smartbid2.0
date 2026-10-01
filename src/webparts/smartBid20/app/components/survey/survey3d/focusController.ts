@@ -31,6 +31,7 @@ const PLINTH = {
   normal: 0x0097a9,
   package: 0xffc72c,
   vessel: 0x7a99ac,
+  catalog: 0x5b7f95,
   trace: 0xdc4405,
   selected: 0xffffff,
 };
@@ -250,6 +251,7 @@ export class FocusController {
       else if (s.traceNodeIds.indexOf(id) >= 0) color = PLINTH.trace;
       else if (e.node.vesselSupplied) color = PLINTH.vessel;
       else if (s.packageEquipmentIds.indexOf(e.node.equipmentId) >= 0) color = PLINTH.package;
+      else if (e.node.catalog) color = PLINTH.catalog;
       (e.plinth.material as THREE.MeshBasicMaterial).color.setHex(color);
     });
     this.cables.setTrace(s.traceLinkKeys.length ? s.traceLinkKeys : null);

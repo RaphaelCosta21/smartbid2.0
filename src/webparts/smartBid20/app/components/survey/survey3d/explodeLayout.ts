@@ -37,6 +37,10 @@ export interface LayoutOptions {
   spacing?: number;
   maxRows?: number;
   gap?: number;
+  /** Clusters always placed at the right end (e.g. reference-only catalog items). */
+  lastClusters?: string[];
+  /** Share of the camera's vertical field that is actually visible (UI may cover part of it). */
+  verticalFraction?: number;
 }
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
@@ -63,7 +67,9 @@ export function layoutExplode(items: LayoutItem[], opts: LayoutOptions): Explode
     groups[key].forEach((i) => sum.add(i.origin));
     return sum.divideScalar(groups[key].length).dot(right);
   };
-  order.sort((a, b) => screenX(a) - screenX(b));
+  const last = opts.lastClusters || [];
+  const rank = (key: string): number => (last.indexOf(key) >= 0 ? 1 : 0);
+  order.sort((a, b) => rank(a) - rank(b) || screenX(a) - screenX(b));
 
   const grids = order.map((key) => {
     const n = groups[key].length;
@@ -98,8 +104,9 @@ export function layoutExplode(items: LayoutItem[], opts: LayoutOptions): Explode
   });
 
   const vFov = THREE.MathUtils.degToRad(opts.camera.fov);
-  const tanV = Math.tan(vFov / 2);
-  const tanH = tanV * opts.camera.aspect;
+  const tanFull = Math.tan(vFov / 2);
+  const tanV = tanFull * (opts.verticalFraction || 1);
+  const tanH = tanFull * opts.camera.aspect;
   const fitWidth = (totalWidth + spacing) / 2 / tanH;
   const fitHeight = (maxHeight + spacing * 1.5) / 2 / tanV;
   const distance = Math.max(fitWidth, fitHeight, 9) * 1.18;

@@ -22,8 +22,8 @@ export interface ISpreadNode {
   qty: number;
   qtyLabel?: string;
   vesselSupplied: boolean;
-  /** False for equipment that only appears on the diagram links (not in the spread list). */
-  inSpread: boolean;
+  /** spread = zone line, diagram = only on the links, catalog = generic catalog item shown for reference. */
+  source: "spread" | "diagram" | "catalog";
 }
 
 export interface ISpreadLinkRef {
@@ -77,7 +77,7 @@ export function expandSpreadNodes(
         zoneId: zone.id,
         qtyLabel: line.qtyLabel,
         vesselSupplied: !!line.vesselSupplied,
-        inSpread: true,
+        source: "spread" as const,
       };
       if (nums.length === 0) {
         nodes.push({
@@ -123,11 +123,48 @@ export function expandSpreadNodes(
         anchor: byId[id].sceneAnchor,
         qty: 1,
         vesselSupplied: false,
-        inSpread: false,
+        source: "diagram",
       });
     });
   });
   return nodes;
+}
+
+const SUBSEA_ANCHORS: SurveySceneAnchor[] = ["rov", "beacons", "seabed", "subsea-target"];
+const anchorClass = (anchor: SurveySceneAnchor | ""): string =>
+  anchor === "umbilical"
+    ? "infra"
+    : anchor && SUBSEA_ANCHORS.indexOf(anchor) >= 0
+      ? "subsea"
+      : "topside";
+
+/** Catalog equipment outside the spread, placed in the zone that matches its location. */
+export function catalogNodes(
+  spread: ISurveySpread,
+  catalog: ISurveyCatalog,
+  spreadNodes: ISpreadNode[],
+): ISpreadNode[] {
+  if (spread.zones.length === 0) return [];
+  const used: Record<string, boolean> = {};
+  spreadNodes.forEach((n) => (used[n.equipmentId] = true));
+  return catalog.equipment
+    .filter((eq) => !used[eq.id])
+    .map((eq) => {
+      const cls = anchorClass(eq.sceneAnchor);
+      const zone =
+        spread.zones.find((z) => anchorClass(z.sceneAnchor) === cls) || spread.zones[0];
+      return {
+        id: eq.id,
+        equipmentId: eq.id,
+        instance: 0,
+        zoneId: zone.id,
+        label: eq.title,
+        anchor: eq.sceneAnchor,
+        qty: 1,
+        vesselSupplied: false,
+        source: "catalog" as const,
+      };
+    });
 }
 
 export function resolveSpreadLinks(

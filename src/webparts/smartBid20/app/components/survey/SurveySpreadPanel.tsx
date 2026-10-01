@@ -10,6 +10,8 @@ interface SurveySpreadPanelProps {
   activeZoneId: string | null;
   selectedEquipmentId: string | null;
   packageEquipmentIds: string[];
+  /** Catalog equipment outside the spread, by zone (reference only, never added to the package). */
+  catalogByZone: Record<string, string[]>;
   onSpreadChange: (spreadId: string) => void;
   onZoneToggle: (zoneId: string) => void;
   onSelectLine: (zoneId: string, equipmentId: string) => void;
@@ -27,6 +29,7 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
   activeZoneId,
   selectedEquipmentId,
   packageEquipmentIds,
+  catalogByZone,
   onSpreadChange,
   onZoneToggle,
   onSelectLine,
@@ -109,6 +112,31 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
                       );
                     })}
                   </ul>
+                  {(catalogByZone[zone.id] || []).length > 0 && (
+                    <>
+                      <span className={styles.subhead}>
+                        ALSO IN THE CATALOG · {catalogByZone[zone.id].length}
+                      </span>
+                      <ul className={styles.lines}>
+                        {catalogByZone[zone.id].map((id) => (
+                          <li key={id}>
+                            <button
+                              className={`${styles.line} ${styles.lineCatalog} ${
+                                id === selectedEquipmentId ? styles.lineSelected : ""
+                              }`}
+                              onClick={() => onSelectLine(zone.id, id)}
+                              onMouseEnter={() => onHoverLine(id)}
+                              onMouseLeave={() => onHoverLine(null)}
+                            >
+                              <span className={styles.lineCopy}>
+                                <span className={styles.lineTitle}>{titleOf(id)}</span>
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
                   <button className={styles.addZone} onClick={() => onAddZone(zone.id)}>
                     <PackagePlus size={12} /> ADD {zone.title.toUpperCase()} TO PACKAGE
                   </button>

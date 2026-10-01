@@ -21,6 +21,8 @@ export interface SceneNode {
   /** Physical location the node emerges from; falls back to the zone anchor. */
   anchor: SurveySceneAnchor | "";
   vesselSupplied: boolean;
+  /** Generic catalog item shown for reference (not part of the spread). */
+  catalog: boolean;
 }
 
 export interface SceneLink {
@@ -83,7 +85,9 @@ export const LINK_LABELS: Record<SurveyLinkKind, string> = {
   acoustic: "Acoustic",
 };
 
-export const CLUSTER_TITLES: Partial<Record<SurveySceneAnchor, string>> = {
+export const CATALOG_CLUSTER = "catalog";
+
+export const CLUSTER_TITLES: Record<string, string> = {
   mast: "Mast",
   bridge: "Bridge",
   "survey-online": "Survey room",
@@ -96,7 +100,8 @@ export const CLUSTER_TITLES: Partial<Record<SurveySceneAnchor, string>> = {
   seabed: "Seabed",
   "subsea-target": "Target",
   gnss: "GNSS",
+  [CATALOG_CLUSTER]: "Also in catalog",
 };
 
-export const clusterKeyOf = (node: SceneNode, focus: SceneFocus): SurveySceneAnchor =>
-  node.anchor || focus.anchor;
+export const clusterKeyOf = (node: SceneNode, focus: SceneFocus): string =>
+  node.catalog ? CATALOG_CLUSTER : node.anchor || focus.anchor;

@@ -1,15 +1,11 @@
 import * as React from "react";
-import { Radar, PackagePlus } from "lucide-react";
+import { Radar } from "lucide-react";
 import { SurveyPortalHeader } from "../components/survey/SurveyPortalHeader";
 import { SurveyEquipmentDetail } from "../components/survey/SurveyEquipmentDetail";
 import { SurveyAddToPackageDialog } from "../components/survey/SurveyAddToPackageDialog";
 import { SurveyPackageDrawer } from "../components/survey/SurveyPackageDrawer";
 import { SurveySpreadPanel } from "../components/survey/SurveySpreadPanel";
-import { SURVEY_OCEAN_BG } from "../components/survey/surveyAssets";
-import type {
-  SurveySceneLabel,
-  SurveySceneTour,
-} from "../components/survey/SurveySystemScene";
+import type { SurveySceneTour } from "../components/survey/SurveySystemScene";
 import type {
   SceneFocus,
   SceneNodeStates,
@@ -26,6 +22,7 @@ import {
 import { SurveySceneAnchor } from "../models";
 import {
   ISpreadNode,
+  catalogNodes,
   directLinks,
   expandSpreadNodes,
   resolveSceneShape,
@@ -55,7 +52,6 @@ export const SurveySystemPage: React.FC = () => {
   const catalog = useSurveyStore((s) => s.catalog);
   const isLoading = useSurveyStore((s) => s.isLoading);
   const listMissing = useSurveyStore((s) => s.listMissing);
-  const filters = useSurveyStore((s) => s.filters);
   const selectedId = useSurveyStore((s) => s.selectedEquipmentId);
   const selectEquipment = useSurveyStore((s) => s.selectEquipment);
   const packageLines = useSurveyStore((s) => s.packageLines);
@@ -68,9 +64,7 @@ export const SurveySystemPage: React.FC = () => {
   const [detailOpen, setDetailOpen] = React.useState(false);
   const [addingId, setAddingId] = React.useState<string | null>(null);
   const [packageOpen, setPackageOpen] = React.useState(false);
-  const [systemId, setSystemId] = React.useState<string | null>(null);
   const [spreadId, setSpreadId] = React.useState<string | null>(null);
-  const [hoverAnchor, setHoverAnchor] = React.useState<SurveySceneAnchor | "">("");
   const [activeZoneId, setActiveZoneId] = React.useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
   const [hoverNodeId, setHoverNodeId] = React.useState<string | null>(null);
@@ -82,25 +76,41 @@ export const SurveySystemPage: React.FC = () => {
     [],
   );
 
-  const systems = React.useMemo(
-    () =>
-      (catalog?.systems || []).filter(
-        (s) => !filters.familyId || s.familyId === filters.familyId,
-      ),
-    [catalog, filters.familyId],
-  );
-  const system = systems.find((s) => s.id === systemId) || systems[0];
+  const headerRef = React.useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = React.useState(0);
+  React.useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return undefined;
+    const observer = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const spreads = catalog?.spreads || [];
   const spread = spreads.find((s) => s.id === spreadId) || spreads[0];
 
-  const nodes = React.useMemo(
+  const spreadNodes = React.useMemo(
     () => (spread && catalog ? expandSpreadNodes(spread, catalog) : []),
     [spread, catalog],
   );
-  const links = React.useMemo(
-    () => (spread ? resolveSpreadLinks(spread, nodes) : []),
-    [spread, nodes],
+  const nodes = React.useMemo(
+    () =>
+      spread && catalog
+        ? spreadNodes.concat(catalogNodes(spread, catalog, spreadNodes))
+        : spreadNodes,
+    [spread, catalog, spreadNodes],
   );
+  const links = React.useMemo(
+    () => (spread ? resolveSpreadLinks(spread, spreadNodes) : []),
+    [spread, spreadNodes],
+  );
+  const catalogByZone = React.useMemo(() => {
+    const result: Record<string, string[]> = {};
+    nodes.forEach((n) => {
+      if (n.source === "catalog") (result[n.zoneId] || (result[n.zoneId] = [])).push(n.equipmentId);
+    });
+    return result;
+  }, [nodes]);
   const sceneZones = React.useMemo<SceneZone[]>(
     () =>
       (spread?.zones || []).map((z, i) => ({
@@ -129,6 +139,7 @@ export const SurveySystemPage: React.FC = () => {
           modelUrl: eq.modelUrl || null,
           anchor: n.anchor,
           vesselSupplied: n.vesselSupplied,
+          catalog: n.source === "catalog",
         };
       });
     return {
@@ -194,32 +205,12 @@ export const SurveySystemPage: React.FC = () => {
         }
       : null;
 
-  const labels = React.useMemo<SurveySceneLabel[]>(() => {
-    const byAnchor: Record<string, SurveySceneLabel> = {};
-    const order: string[] = [];
-    equipment.forEach((e) => {
-      if (!e.sceneAnchor) return;
-      if (!byAnchor[e.sceneAnchor]) {
-        byAnchor[e.sceneAnchor] = { anchor: e.sceneAnchor, items: [] };
-        order.push(e.sceneAnchor);
-      }
-      byAnchor[e.sceneAnchor].items.push({
-        id: e.id,
-        text: e.aliases[0] || e.title,
-      });
-    });
-    return order.map((k) => byAnchor[k]);
-  }, [equipment]);
-
   const selected = catalog?.equipment.find((e) => e.id === selectedId);
   const intel = useSurveyBidIntel(detailOpen ? selected : undefined);
   const adding = catalog?.equipment.find((e) => e.id === addingId);
   const closeAdd = React.useCallback(() => setAddingId(null), []);
   const qtyOf = (id: string): number =>
     packageLines.find((l) => l.equipmentId === id)?.qty || 0;
-
-  const highlight: SurveySceneAnchor | "" =
-    hoverAnchor || selected?.sceneAnchor || system?.sceneAnchor || "";
 
   const handleSelect = (id: string): void => {
     selectEquipment(id);
@@ -322,19 +313,6 @@ export const SurveySystemPage: React.FC = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [tourStep, detailOpen, selectedNodeId, activeZoneId]);
 
-  const handleAddSystem = (): void => {
-    if (!system || !catalog) return;
-    const ids = system.equipmentIds.filter((id) =>
-      catalog.equipment.some((e) => e.id === id),
-    );
-    ids.forEach((id) => addToPackage(id, 1));
-    addToast({
-      type: "success",
-      title: "System added to bid package",
-      message: `${ids.length} equipment from ${system.title}`,
-    });
-  };
-
   const handleAddSpread = (): void => {
     if (!spread) return;
     const count = addSpreadToPackage(spread);
@@ -367,11 +345,13 @@ export const SurveySystemPage: React.FC = () => {
     setAddingId(null);
   };
 
+  const ready = !!catalog && !listMissing && catalog.equipment.length > 0;
+
   const renderStage = (): React.ReactNode => {
     if (isLoading && !catalog) {
       return <SkeletonLoader height={620} borderRadius={16} />;
     }
-    if (listMissing || !catalog || catalog.equipment.length === 0) {
+    if (!ready || !catalog) {
       return (
         <EmptyState
           variant="glass"
@@ -382,31 +362,7 @@ export const SurveySystemPage: React.FC = () => {
       );
     }
     return (
-      <div className={styles.stage}>
-        <div className={styles.sceneBox}>
-          <React.Suspense fallback={<SkeletonLoader height="100%" borderRadius={10} />}>
-            <SurveySystemScene
-              labels={labels}
-              highlight={highlight}
-              selectedId={detailOpen ? selectedId : null}
-              onSelect={handleSelect}
-              zones={sceneZones}
-              focus={focus}
-              spreadTitle={spread ? spread.title : ""}
-              nodeStates={nodeStates}
-              tracePath={tracePath}
-              tour={tour}
-              onZoneSelect={handleZoneSelect}
-              onNodeSelect={handleNodeSelect}
-              onNodeHover={setHoverNodeId}
-              onInteract={stopTour}
-              onTourStart={() => setTourStep(0)}
-              onTourStep={stepTour}
-              onTourStop={stopTour}
-            />
-          </React.Suspense>
-        </div>
-
+      <>
         {spread && (
           <div
             className={`${styles.spreadPanel} ${activeZoneId ? styles.spreadPanelOpen : ""}`}
@@ -419,6 +375,7 @@ export const SurveySystemPage: React.FC = () => {
               activeZoneId={activeZoneId}
               selectedEquipmentId={detailOpen ? selectedId : null}
               packageEquipmentIds={packageEquipmentIds}
+              catalogByZone={catalogByZone}
               onSpreadChange={setSpreadId}
               onZoneToggle={handleZoneToggle}
               onSelectLine={handleSelectLine}
@@ -426,41 +383,6 @@ export const SurveySystemPage: React.FC = () => {
               onAddZone={handleAddZone}
               onAddSpread={handleAddSpread}
             />
-          </div>
-        )}
-
-        {system && !activeZoneId && tourStep === null && (
-          <div className={styles.systemPanel} key={system.id}>
-            {systems.length > 1 && (
-              <div className={styles.systemTabs}>
-                {systems.map((s) => (
-                  <button
-                    key={s.id}
-                    className={s.id === system.id ? styles.systemTabActive : ""}
-                    onClick={() => setSystemId(s.id)}
-                    onMouseEnter={() => setHoverAnchor(s.sceneAnchor)}
-                    onMouseLeave={() => setHoverAnchor("")}
-                  >
-                    {s.title.replace(/^Survey\s*-\s*/i, "")}
-                  </button>
-                ))}
-              </div>
-            )}
-            <span className={styles.systemEyebrow}>ADD TO BID PACKAGE</span>
-            <h3 className={styles.systemTitle}>{system.title}</h3>
-            {system.description && (
-              <p className={styles.systemDesc}>{system.description}</p>
-            )}
-            <ul className={styles.systemList}>
-              {system.components.map((c) => (
-                <li key={c}>{c}</li>
-              ))}
-            </ul>
-            {system.equipmentIds.length > 0 && (
-              <button className={styles.systemAdd} onClick={handleAddSystem}>
-                <PackagePlus size={13} /> ADD SYSTEM TO PACKAGE
-              </button>
-            )}
           </div>
         )}
 
@@ -487,21 +409,46 @@ export const SurveySystemPage: React.FC = () => {
             onClose={closeAdd}
           />
         )}
-      </div>
+      </>
     );
   };
 
   return (
-    <div
-      className={styles.page}
-      style={{ backgroundImage: `url(${SURVEY_OCEAN_BG})` }}
-    >
-      <SurveyPortalHeader
-        view="system"
-        resultCount={equipment.length}
-        onOpenPackage={() => setPackageOpen(true)}
-      />
-      <div className={styles.body}>{renderStage()}</div>
+    <div className={styles.page}>
+      {ready && (
+        <div className={styles.sceneLayer}>
+          <React.Suspense fallback={null}>
+            <SurveySystemScene
+              topInset={headerHeight}
+              zones={sceneZones}
+              focus={focus}
+              spreadTitle={spread ? spread.title : ""}
+              nodeStates={nodeStates}
+              tracePath={tracePath}
+              tour={tour}
+              onZoneSelect={handleZoneSelect}
+              onNodeSelect={handleNodeSelect}
+              onNodeHover={setHoverNodeId}
+              onInteract={stopTour}
+              onTourStart={() => setTourStep(0)}
+              onTourStep={stepTour}
+              onTourStop={stopTour}
+            />
+          </React.Suspense>
+        </div>
+      )}
+      <div className={styles.overlay}>
+        <div ref={headerRef} className={styles.headerLayer}>
+          <SurveyPortalHeader
+            view="system"
+            resultCount={equipment.length}
+            onOpenPackage={() => setPackageOpen(true)}
+          />
+        </div>
+        <div className={styles.body}>
+          <div className={styles.stage}>{renderStage()}</div>
+        </div>
+      </div>
       {packageOpen && <SurveyPackageDrawer onClose={() => setPackageOpen(false)} />}
     </div>
   );

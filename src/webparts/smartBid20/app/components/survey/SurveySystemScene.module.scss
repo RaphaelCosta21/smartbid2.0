@@ -37,80 +37,31 @@
   will-change: transform;
 }
 
-.label {
-  position: absolute;
-  left: 0;
-  bottom: 12px;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-  pointer-events: auto;
-
-  button {
-    padding: 6px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--survey-teal);
-    background: var(--survey-marker-bg);
-    color: var(--survey-ice);
-    font-size: 9px;
-    font-weight: 600;
-    white-space: nowrap;
-    cursor: pointer;
-    box-shadow: var(--survey-glow);
-    backdrop-filter: blur(4px);
-    transition: transform 250ms ease, background 250ms ease;
-
-    &:hover {
-      transform: scale(1.08);
-    }
-  }
-}
-
-.labelActive button {
-  border-color: var(--package-accent);
-  color: var(--package-accent);
-}
-
-.itemSelected {
-  background: var(--package-accent) !important;
-  border-color: var(--package-accent) !important;
-  color: var(--survey-navy) !important;
-}
-
-.label .more {
-  border-style: dashed;
-  background: var(--survey-navy);
-  color: var(--package-accent);
-}
-
-/* Zone orbs */
+/* Zone blocks: text only, with a stem pointing at the zone location */
 .zoneLabel {
   position: absolute;
   left: 0;
-  bottom: 30px;
+  bottom: 0;
   transform: translateX(-50%);
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 2px solid var(--zone-tone);
-  background: var(--survey-navy-deep);
+  gap: 2px;
+  padding: 0;
+  border: none;
+  background: transparent;
   color: var(--survey-ice);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
   pointer-events: auto;
   cursor: pointer;
-  box-shadow: var(--survey-shadow);
   transition: transform 250ms ease;
 
   &:hover {
-    transform: translateX(-50%) scale(1.06);
+    transform: translateX(-50%) translateY(-3px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--zone-tone);
+    outline-offset: 4px;
   }
 }
 
@@ -126,19 +77,44 @@
   --zone-tone: var(--survey-green);
 }
 
-.zoneDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--zone-tone);
+.zoneText {
+  padding-bottom: 3px;
+  border-bottom: 3px solid var(--zone-tone);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow: 0 2px 10px var(--survey-navy-deep);
 }
 
 .zoneCount {
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--zone-tone);
-  color: var(--survey-navy-deep);
   font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--zone-tone);
+  text-shadow: 0 1px 6px var(--survey-navy-deep);
+}
+
+.zoneStem {
+  position: relative;
+  width: 2px;
+  height: 34px;
+  margin-top: 4px;
+  background: var(--zone-tone);
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--zone-tone);
+    transform: translateX(-50%);
+  }
 }
 
 /* Exploded zone */
@@ -182,6 +158,12 @@
   cursor: pointer;
 }
 
+.nodeCompact {
+  max-width: 84px;
+  padding: 2px 6px;
+  font-size: 8px;
+}
+
 .nodeActive {
   border-color: var(--package-accent);
   background: var(--package-accent);
@@ -199,7 +181,7 @@
 
 .breadcrumb {
   position: absolute;
-  top: 12px;
+  top: calc(var(--scene-top, 0px) + 12px);
   left: 50%;
   transform: translateX(-50%);
   display: inline-flex;
@@ -236,7 +218,7 @@
 
 .tourButton {
   position: absolute;
-  top: 12px;
+  top: calc(var(--scene-top, 0px) + 12px);
   right: 14px;
   display: inline-flex;
   align-items: center;

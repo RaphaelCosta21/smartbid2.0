@@ -1,7 +1,7 @@
 import * as React from "react";
 import { MousePointer2, Play, ChevronLeft, ChevronRight, X, ArrowLeft } from "lucide-react";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
-import { SurveyLinkKind, SurveySceneAnchor } from "../../models";
+import { SurveyLinkKind } from "../../models";
 import {
   createSurveyScene,
   isWebGLAvailable,
@@ -19,11 +19,6 @@ import {
 } from "./survey3d/sceneTypes";
 import styles from "./SurveySystemScene.module.scss";
 
-export interface SurveySceneLabel {
-  anchor: SurveySceneAnchor;
-  items: { id: string; text: string }[];
-}
-
 export interface SurveySceneTour {
   step: number;
   total: number;
@@ -32,10 +27,8 @@ export interface SurveySceneTour {
 }
 
 interface SurveySystemSceneProps {
-  labels: SurveySceneLabel[];
-  highlight: SurveySceneAnchor | "";
-  selectedId: string | null;
-  onSelect: (equipmentId: string) => void;
+  /** Height (px) of the UI floating over the top of the canvas. */
+  topInset: number;
   zones: SceneZone[];
   focus: SceneFocus | null;
   spreadTitle: string;
@@ -51,10 +44,9 @@ interface SurveySystemSceneProps {
   onTourStop: () => void;
 }
 
-const COLLAPSE_AFTER = 4;
-const COLLAPSED_COUNT = 3;
-/** Above this many nodes, node labels only show on hover / selection / trace. */
-const ALWAYS_LABEL_MAX = 18;
+/** Node labels: full up to FULL_LABEL_MAX nodes, compact up to COMPACT_LABEL_MAX, then hover-only. */
+const FULL_LABEL_MAX = 18;
+const COMPACT_LABEL_MAX = 32;
 
 const ZONE_TONES = [styles.zoneTone0, styles.zoneTone1, styles.zoneTone2];
 const SWATCHES: Record<SurveyLinkKind, string> = {
@@ -69,10 +61,7 @@ const SWATCHES: Record<SurveyLinkKind, string> = {
 
 const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   const {
-    labels,
-    highlight,
-    selectedId,
-    onSelect,
+    topInset,
     zones,
     focus,
     spreadTitle,
@@ -92,7 +81,6 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   const latest = React.useRef(props);
   latest.current = props;
   const [supported] = React.useState(isWebGLAvailable);
-  const [expanded, setExpanded] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!supported || !hostRef.current) return undefined;
@@ -116,6 +104,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     });
     apiRef.current = api;
     Object.keys(labelEls.current).forEach((k) => api.setLabel(k, labelEls.current[k]));
+    api.setViewInset(latest.current.topInset);
     api.setZones(latest.current.zones);
     api.setFocus(latest.current.focus);
     api.setNodeStates(latest.current.nodeStates);
@@ -126,8 +115,8 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   }, [supported]);
 
   React.useEffect(() => {
-    apiRef.current?.setHighlight(highlight);
-  }, [highlight]);
+    apiRef.current?.setViewInset(topInset);
+  }, [topInset]);
   React.useEffect(() => {
     apiRef.current?.setZones(zones);
   }, [zones]);
@@ -154,7 +143,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   }
 
   const activeZone = focus ? zones.find((z) => z.id === focus.zoneId) : undefined;
-  const clusters: { key: SurveySceneAnchor; count: number }[] = [];
+  const clusters: { key: string; count: number }[] = [];
   if (focus) {
     focus.nodes.forEach((n) => {
       const key = clusterKeyOf(n, focus);
@@ -163,9 +152,11 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
       else clusters.push({ key, count: 1 });
     });
   }
-  const showAllNodeLabels = !!focus && focus.nodes.length <= ALWAYS_LABEL_MAX;
+  const nodeCount = focus ? focus.nodes.length : 0;
+  const labelAll = nodeCount <= COMPACT_LABEL_MAX;
+  const compact = nodeCount > FULL_LABEL_MAX;
   const nodeLabelVisible = (id: string): boolean =>
-    showAllNodeLabels ||
+    labelAll ||
     nodeStates.hoverNodeId === id ||
     nodeStates.selectedNodeId === id ||
     nodeStates.traceNodeIds.indexOf(id) >= 0;
@@ -174,54 +165,21 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     : [];
 
   return (
-    <div className={styles.root}>
+    <div
+      className={styles.root}
+      style={{ ["--scene-top" as string]: `${topInset}px` } as React.CSSProperties}
+    >
       <div ref={hostRef} className={styles.canvasHost} />
       <div className={styles.labels}>
-        {!focus &&
-          labels.map((group) => {
-            const collapsible = group.items.length > COLLAPSE_AFTER;
-            const open = !collapsible || expanded === group.anchor;
-            const visible = open
-              ? group.items
-              : group.items.filter(
-                  (item, i) => i < COLLAPSED_COUNT || item.id === selectedId,
-                );
-            const hidden = group.items.length - visible.length;
-            return (
-              <div key={group.anchor} ref={registerLabel(group.anchor)} className={styles.anchor}>
-                <div className={`${styles.label} ${group.anchor === highlight ? styles.labelActive : ""}`}>
-                  {visible.map((item) => (
-                    <button
-                      key={item.id}
-                      className={item.id === selectedId ? styles.itemSelected : ""}
-                      onClick={() => onSelect(item.id)}
-                    >
-                      {item.text}
-                    </button>
-                  ))}
-                  {collapsible && (
-                    <button
-                      className={styles.more}
-                      aria-expanded={open}
-                      onClick={() => setExpanded(open ? null : group.anchor)}
-                    >
-                      {open ? "Show less" : `+${hidden} more`}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
         {zones.map((zone) => (
           <div key={zone.id} ref={registerLabel(`zone:${zone.id}`)} className={styles.anchor}>
             <button
               className={`${styles.zoneLabel} ${ZONE_TONES[zone.colorIndex % ZONE_TONES.length]}`}
               onClick={() => onZoneSelect(zone.id)}
             >
-              <span className={styles.zoneDot} />
-              {zone.title}
-              <span className={styles.zoneCount}>{zone.count}</span>
+              <span className={styles.zoneText}>{zone.title}</span>
+              <span className={styles.zoneCount}>{zone.count} items</span>
+              <span className={styles.zoneStem} />
             </button>
           </div>
         ))}
@@ -241,13 +199,15 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
             .map((n) => (
               <div key={n.id} ref={registerLabel(`node:${n.id}`)} className={styles.anchor}>
                 <button
-                  className={`${styles.nodeLabel} ${
+                  className={`${styles.nodeLabel} ${compact ? styles.nodeCompact : ""} ${
                     nodeStates.selectedNodeId === n.id ? styles.nodeActive : ""
                   }`}
+                  title={n.label}
                   onClick={() => onNodeSelect(n.id)}
                 >
                   {n.label}
                   {n.vesselSupplied && <span className={styles.nodeTag}>VESSEL</span>}
+                  {n.catalog && <span className={styles.nodeTag}>CATALOG</span>}
                 </button>
               </div>
             ))}

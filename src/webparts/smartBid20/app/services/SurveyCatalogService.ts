@@ -12,6 +12,7 @@ import {
   ISurveyFamily,
   ISurveySpread,
   ISurveySystem,
+  SurveySceneAnchor,
 } from "../models";
 
 const LIST_NAME = SHAREPOINT_CONFIG.lists.surveyCatalog;
@@ -155,7 +156,7 @@ export class SurveyCatalogService {
           zones: (base.zones || []).map((z: any) => ({
             id: String(z.id),
             title: z.title || "",
-            sceneAnchor: z.sceneAnchor || "vessel",
+            sceneAnchor: z.sceneAnchor || SurveyCatalogService._guessZoneAnchor(z),
             description: z.description || "",
             lines: z.lines || [],
           })),
@@ -178,6 +179,14 @@ export class SurveyCatalogService {
     catalog.equipment.sort(byOrder);
     catalog.systems.sort(byOrder);
     return catalog;
+  }
+
+  /** Catalogs imported before zones had a scene anchor fall back to a guess from the zone name. */
+  private static _guessZoneAnchor(zone: { id?: string; title?: string }): SurveySceneAnchor {
+    const text = `${zone.id || ""} ${zone.title || ""}`;
+    if (/subsea|rov/i.test(text)) return "rov";
+    if (/infra|umbilical|backbone/i.test(text)) return "umbilical";
+    return "vessel";
   }
 
   private static _normalizeSystem(d: any): ISurveySystem {

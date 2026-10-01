@@ -13,13 +13,13 @@ import {
   SceneNodeStates,
   ScenePick,
   SceneZone,
-  ZONE_COLORS,
+  CATALOG_CLUSTER,
   clusterKeyOf,
 } from "./sceneTypes";
 
 // WebGL can't read CSS custom properties; OII palette mirrored here (light fog/white stay neutral).
 const PALETTE = {
-  fog: 0xcfe6f0,
+  fog: 0x00263e,
   water: 0x0097a9,
   seabed: 0x5b7f95,
   hull: 0x003b5c,
@@ -44,8 +44,9 @@ const DIORAMA_RADIUS = 40;
 export interface SurveySceneApi {
   /** Keys: an anchor, "zone:<id>", "node:<id>" or "cluster:<anchor>". */
   setLabel: (key: string, el: HTMLElement | null) => void;
-  setHighlight: (anchor: SurveySceneAnchor | "") => void;
   setZones: (zones: SceneZone[]) => void;
+  /** Pixels at the top of the canvas covered by UI; the scene is centred in the area below. */
+  setViewInset: (top: number) => void;
   setFocus: (focus: SceneFocus | null) => void;
   setNodeStates: (states: SceneNodeStates) => void;
   dispose: () => void;
@@ -161,17 +162,6 @@ function buildProceduralVessel(): THREE.Group {
   return g;
 }
 
-/** Pulsing pin marking a vessel zone (works with the procedural vessel and the GLB). */
-function buildZoneMarker(): { group: THREE.Group; ring: THREE.Mesh } {
-  const group = new THREE.Group();
-  const pin = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 14), glow(PALETTE.yellow, 0.95));
-  group.add(pin);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.38, 32), glow(PALETTE.acoustic, 0.8));
-  ring.rotation.x = -Math.PI / 2;
-  group.add(ring);
-  return { group, ring };
-}
-
 function buildSatellite(): THREE.Group {
   const g = new THREE.Group();
   g.add(box(1.4, 1.1, 1.1, std(PALETTE.satellite, { metalness: 0.7, roughness: 0.3 }), 0, 0, 0));
@@ -255,6 +245,15 @@ export function createSurveyScene(
 
   const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 400);
   camera.position.set(46, 22, 54);
+  let insetTop = 0;
+  // Render a taller virtual frame and show its lower part, so the centre sits below the inset.
+  const applyView = (): void => {
+    const fullHeight = height + insetTop;
+    camera.aspect = width / fullHeight;
+    if (insetTop > 0) camera.setViewOffset(width, fullHeight, 0, 0, width, height);
+    else camera.clearViewOffset();
+    camera.updateProjectionMatrix();
+  };
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(0, -5, 0);
@@ -344,23 +343,19 @@ export function createSurveyScene(
   hullAnchor.position.set(0.5, -1.2, 0);
   vessel.add(hullAnchor);
 
-  // Spread zones on the vessel (one-line diagram rooms)
-  const zoneMarkers: Record<"mast" | "bridge" | "survey-online" | "rov-control", { group: THREE.Group; ring: THREE.Mesh }> = {
-    mast: buildZoneMarker(),
-    bridge: buildZoneMarker(),
-    "survey-online": buildZoneMarker(),
-    "rov-control": buildZoneMarker(),
+  // Rooms of the one-line diagram on the vessel (equipment emerges from here)
+  const roomAnchor = (x: number, y: number, z: number): THREE.Object3D => {
+    const o = new THREE.Object3D();
+    o.position.set(x, y, z);
+    vessel.add(o);
+    return o;
   };
-  zoneMarkers.mast.group.position.set(2.6, 4.9, -0.6);
-  zoneMarkers.bridge.group.position.set(4.1, 2.8, 0.9);
-  zoneMarkers["survey-online"].group.position.set(-1.4, 1.9, -0.75);
-  zoneMarkers["rov-control"].group.position.set(-3.4, 1.9, -0.75);
-  const zoneList = Object.keys(zoneMarkers).map((k) => zoneMarkers[k as keyof typeof zoneMarkers]);
-  zoneList.forEach((z) => vessel.add(z.group));
+  const mastAnchor = roomAnchor(2.6, 4.9, -0.6);
+  const bridgeAnchor = roomAnchor(4.1, 2.8, 0.9);
+  const surveyRoomAnchor = roomAnchor(-1.4, 1.9, -0.75);
+  const rovControlAnchor = roomAnchor(-3.4, 1.9, -0.75);
   vessel.userData.pick = { type: "anchor", anchor: "vessel" };
-  const vesselOrbAnchor = new THREE.Object3D();
-  vesselOrbAnchor.position.set(0, 7.6, 0);
-  vessel.add(vesselOrbAnchor);
+  const vesselOrbAnchor = roomAnchor(0, 7.6, 0);
 
   let disposed = false;
   new GLTFLoader().load(
@@ -492,10 +487,10 @@ export function createSurveyScene(
   const anchors: Record<SurveySceneAnchor, THREE.Object3D> = {
     gnss: satellite,
     vessel: cnavAnchor,
-    mast: zoneMarkers.mast.group,
-    bridge: zoneMarkers.bridge.group,
-    "survey-online": zoneMarkers["survey-online"].group,
-    "rov-control": zoneMarkers["rov-control"].group,
+    mast: mastAnchor,
+    bridge: bridgeAnchor,
+    "survey-online": surveyRoomAnchor,
+    "rov-control": rovControlAnchor,
     "vessel-hull": hullAnchor,
     umbilical: umbilicalAnchor,
     rov,
@@ -503,22 +498,7 @@ export function createSurveyScene(
     seabed: seabedAnchor,
     "subsea-target": targetAnchor,
   };
-  const highlightTargets: Record<SurveySceneAnchor, THREE.Object3D> = {
-    gnss: satellite,
-    vessel: vessel,
-    mast: zoneMarkers.mast.group,
-    bridge: zoneMarkers.bridge.group,
-    "survey-online": zoneMarkers["survey-online"].group,
-    "rov-control": zoneMarkers["rov-control"].group,
-    "vessel-hull": cone,
-    umbilical: umbilicalAnchor,
-    rov,
-    beacons: beacons[0],
-    seabed: beacons[1],
-    "subsea-target": manifold,
-  };
   const labels: Record<string, HTMLElement> = {};
-  let highlight: SurveySceneAnchor | "" = "";
 
   const tmpA = new THREE.Vector3();
   const tmpB = new THREE.Vector3();
@@ -530,17 +510,9 @@ export function createSurveyScene(
   let rovFrozen = false;
   let frame = 0;
 
-  // Zone orbs (solid OII colors) that open a spread zone
-  interface Orb {
-    zone: SceneZone;
-    group: THREE.Group;
-    ring: THREE.Mesh;
-    follow: THREE.Object3D;
-  }
-  const orbCoreGeo = new THREE.SphereGeometry(0.85, 32, 24);
-  const orbRingGeo = new THREE.RingGeometry(1.15, 1.35, 48);
-  let orbs: Orb[] = [];
-  const orbFollow = (anchor: SurveySceneAnchor): THREE.Object3D =>
+  // Zone labels (text only) float above the vessel, the ROV and the umbilical midpoint
+  let zoneAnchors: { zone: SceneZone; follow: THREE.Object3D }[] = [];
+  const zoneFollow = (anchor: SurveySceneAnchor): THREE.Object3D =>
     anchor === "vessel" ? vesselOrbAnchor : anchor === "rov" ? rovOrbAnchor : anchors[anchor];
 
   // Zone focus (exploded equipment + cables)
@@ -580,8 +552,9 @@ export function createSurveyScene(
 
   const labelTarget = (key: string): THREE.Object3D | null => {
     if (key.indexOf("zone:") === 0) {
-      const orb = orbs.find((o) => o.zone.id === key.slice(5));
-      return orb && orb.group.visible ? orb.group : null;
+      if (focusZoneId) return null;
+      const z = zoneAnchors.find((a) => a.zone.id === key.slice(5));
+      return z ? z.follow : null;
     }
     if (key.indexOf("node:") === 0 || key.indexOf("cluster:") === 0) {
       return focusCtl.getLabelTarget(key);
@@ -595,19 +568,21 @@ export function createSurveyScene(
       const target = labelTarget(key);
       if (!target) {
         el.style.opacity = "0";
+        el.style.visibility = "hidden";
         return;
       }
       target.getWorldPosition(tmpA);
       tmpA.project(camera);
       const visible = tmpA.z < 1 && Math.abs(tmpA.x) < 1.1 && Math.abs(tmpA.y) < 1.1;
       el.style.opacity = visible ? "1" : "0";
+      el.style.visibility = visible ? "" : "hidden";
       const x = ((tmpA.x + 1) / 2) * width;
       const y = ((1 - tmpA.y) / 2) * height;
       el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
     });
   };
 
-  // Picking: click (not drag) on orbs, vessel, ROV, umbilical or exploded nodes
+  // Picking: click (not drag) on the vessel, ROV, umbilical or exploded nodes
   const raycaster = new THREE.Raycaster();
   raycaster.params.Line = { threshold: 0.6 };
   const pointer = new THREE.Vector2();
@@ -625,7 +600,6 @@ export function createSurveyScene(
     // The tether is rewritten every frame, so its cached bounds go stale.
     tetherGeo.computeBoundingSphere();
     const roots: THREE.Object3D[] = [focusCtl.group, vessel, rov, tether];
-    orbs.forEach((o) => roots.push(o.group));
     const hits = raycaster.intersectObjects(roots, true);
     for (let i = 0; i < hits.length; i++) {
       let o: THREE.Object3D | null = hits[i].object;
@@ -755,35 +729,6 @@ export function createSurveyScene(
       (line.material as THREE.LineDashedMaterial).opacity = 0.35 + Math.max(0, Math.sin(t * 3 - i * 1.3)) * 0.6;
     });
 
-    zoneList.forEach((z, i) => {
-      const k = (t * 0.6 + i * 0.25) % 1;
-      z.ring.scale.setScalar(1 + k * 1.6);
-      (z.ring.material as THREE.MeshBasicMaterial).opacity = 0.85 * (1 - k);
-    });
-
-    (Object.keys(highlightTargets) as SurveySceneAnchor[]).forEach((key) => {
-      const isZone = key in zoneMarkers;
-      const s =
-        key !== highlight
-          ? 1
-          : isZone
-            ? 1.8 + Math.sin(t * 4) * 0.2
-            : 1 + Math.sin(t * 4) * 0.06 + 0.06;
-      highlightTargets[key].scale.setScalar(s);
-    });
-
-    orbs.forEach((orb, i) => {
-      orb.follow.getWorldPosition(orb.group.position);
-      const focused = focusZoneId === orb.zone.id;
-      orb.group.visible = !focused;
-      const target = focusZoneId ? 0.55 : 1;
-      orb.group.scale.setScalar(THREE.MathUtils.damp(orb.group.scale.x, target, 6, dt));
-      orb.ring.quaternion.copy(camera.quaternion);
-      const k = (time * 0.5 + i * 0.33) % 1;
-      orb.ring.scale.setScalar(1 + k * 0.9);
-      (orb.ring.material as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - k);
-    });
-
     if (tween) {
       tween.k = Math.min(1, tween.k + dt / 1.4);
       const e = easeInOutCubic(tween.k);
@@ -805,8 +750,7 @@ export function createSurveyScene(
   const resizeObserver = new ResizeObserver(() => {
     width = container.clientWidth || width;
     height = container.clientHeight || height;
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
+    applyView();
     renderer.setSize(width, height);
   });
   resizeObserver.observe(container);
@@ -821,55 +765,17 @@ export function createSurveyScene(
       ? vessel.getWorldPosition(new THREE.Vector3()).setY(1.2)
       : anchors[anchor].getWorldPosition(new THREE.Vector3());
 
-  const disposeMaterials = (root: THREE.Object3D): void =>
-    root.traverse((obj) => {
-      const mat = (obj as THREE.Mesh).material as THREE.Material | undefined;
-      if (mat) mat.dispose();
-    });
-
   return {
     setLabel: (key, el) => {
       if (el) labels[key] = el;
       else delete labels[key];
     },
-    setHighlight: (anchor) => {
-      highlight = anchor;
-    },
     setZones: (zones) => {
-      orbs.forEach((o) => {
-        scene.remove(o.group);
-        disposeMaterials(o.group);
-      });
-      orbs = zones.map((zone) => {
-        const color = ZONE_COLORS[zone.colorIndex % ZONE_COLORS.length];
-        const group = new THREE.Group();
-        group.userData.pick = { type: "zone", zoneId: zone.id };
-        group.add(
-          new THREE.Mesh(
-            orbCoreGeo,
-            new THREE.MeshStandardMaterial({
-              color,
-              emissive: new THREE.Color(color),
-              emissiveIntensity: 0.55,
-              roughness: 0.3,
-              metalness: 0.1,
-            }),
-          ),
-        );
-        const ring = new THREE.Mesh(
-          orbRingGeo,
-          new THREE.MeshBasicMaterial({
-            color,
-            transparent: true,
-            opacity: 0.9,
-            side: THREE.DoubleSide,
-            depthWrite: false,
-          }),
-        );
-        group.add(ring);
-        scene.add(group);
-        return { zone, group, ring, follow: orbFollow(zone.anchor) };
-      });
+      zoneAnchors = zones.map((zone) => ({ zone, follow: zoneFollow(zone.anchor) }));
+    },
+    setViewInset: (top) => {
+      insetTop = Math.max(0, Math.round(top));
+      applyView();
     },
     setFocus: (focus) => {
       if (!focus) {
@@ -899,11 +805,19 @@ export function createSurveyScene(
       const origins: Record<string, THREE.Vector3> = {};
       const items = focus.nodes.map((node) => {
         const cluster = clusterKeyOf(node, focus);
-        const origin = (anchors[cluster] || anchors[focus.anchor]).getWorldPosition(new THREE.Vector3());
+        const from = (node.anchor && anchors[node.anchor]) || anchors[focus.anchor];
+        const origin = from.getWorldPosition(new THREE.Vector3());
         origins[node.id] = origin;
         return { id: node.id, cluster, origin };
       });
-      const layout = layoutExplode(items, { target, viewDir, lift: view.lift, camera });
+      const layout = layoutExplode(items, {
+        target,
+        viewDir,
+        lift: view.lift,
+        camera,
+        lastClusters: [CATALOG_CLUSTER],
+        verticalFraction: Math.max(0.3, (height - insetTop) / (height + insetTop)),
+      });
       focusCtl.open(focus, layout, origins);
       controls.minDistance = 4;
       flyTo(layout.cameraPosition, layout.center);

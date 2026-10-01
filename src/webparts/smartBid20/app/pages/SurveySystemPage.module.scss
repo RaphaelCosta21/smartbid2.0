@@ -1,38 +1,51 @@
 .page {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  min-height: 900px;
+  min-height: 960px;
   border-radius: 16px;
   overflow: clip;
-  background-color: var(--survey-navy);
-  background-size: cover;
-  background-position: center bottom;
+  background: radial-gradient(
+    ellipse at 50% 32%,
+    var(--survey-teal) 0%,
+    var(--survey-navy) 52%,
+    var(--survey-navy-deep) 100%
+  );
   box-shadow: var(--shadow-card);
 }
 
+/* The 3D sea fills the whole page; header and cards float above it */
+.sceneLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.overlay {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 960px;
+  pointer-events: none;
+}
+
+.headerLayer {
+  pointer-events: auto;
+}
+
 .body {
+  flex: 1;
+  display: flex;
   padding: 0 28px 24px;
 }
 
 .stage {
   position: relative;
-  height: 740px;
-}
+  flex: 1;
+  min-height: 680px;
 
-.sceneBox {
-  position: absolute;
-  top: 0;
-  right: 6%;
-  bottom: 70px;
-  left: 14%;
-  border-radius: 10px;
-  border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass);
-  backdrop-filter: blur(10px);
-  box-shadow: var(--survey-shadow);
-  overflow: hidden;
-  animation: fadeUp 500ms ease both;
+  > * {
+    pointer-events: auto;
+  }
 }
 
 @keyframes fadeUp {
@@ -43,108 +56,6 @@
   to {
     opacity: 1;
     transform: none;
-  }
-}
-
-.systemPanel {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  z-index: 5;
-  width: 287px;
-  max-height: 54%;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 16px;
-  border-radius: 10px;
-  border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass-strong);
-  backdrop-filter: blur(10px);
-  box-shadow: var(--survey-shadow);
-  animation: fadeUp 450ms 150ms ease both;
-}
-
-.systemTabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-
-  button {
-    padding: 4px 8px;
-    border-radius: 4px;
-    border: 1px solid var(--survey-line);
-    background: var(--survey-chip-bg);
-    color: var(--survey-slate);
-    font-size: 9px;
-    cursor: pointer;
-    transition: border-color 250ms ease, color 250ms ease;
-
-    &:hover {
-      color: var(--survey-navy);
-      border-color: var(--survey-teal);
-    }
-  }
-}
-
-.systemTabActive {
-  border-color: var(--package-accent) !important;
-  background: var(--survey-cream) !important;
-  color: var(--survey-navy) !important;
-  font-weight: 600;
-}
-
-.systemEyebrow {
-  font-size: 8px;
-  font-weight: 600;
-  color: var(--survey-teal);
-}
-
-.systemTitle {
-  margin: 0;
-  font-size: 18px;
-  line-height: 1.05;
-  font-weight: 700;
-  color: var(--survey-navy);
-}
-
-.systemDesc {
-  margin: 0;
-  font-size: 10px;
-  line-height: 1.45;
-  color: var(--survey-slate);
-}
-
-.systemList {
-  margin: 0;
-  padding-left: 16px;
-  font-size: 10px;
-  line-height: 1.7;
-  color: var(--survey-navy);
-
-  li::marker {
-    color: var(--survey-teal);
-  }
-}
-
-.systemAdd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 36px;
-  border-radius: 6px;
-  border: 1px solid var(--package-accent);
-  background: var(--package-accent);
-  color: var(--survey-navy);
-  font-size: 10px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 250ms ease;
-
-  &:hover {
-    transform: translateY(-1px);
   }
 }
 
@@ -183,21 +94,9 @@
   border-radius: 10px;
 }
 
-@media (max-width: 1100px) {
-  .sceneBox {
-    left: 0;
-    right: 0;
-  }
-}
-
 @media (max-width: 900px) {
   .stage {
-    height: 620px;
-  }
-
-  .systemPanel {
-    width: 100%;
-    max-height: 40%;
+    min-height: 620px;
   }
 
   .spreadPanel {
@@ -207,9 +106,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sceneBox,
-  .spreadPanel,
-  .systemPanel {
+  .spreadPanel {
     animation: none;
   }
 }
