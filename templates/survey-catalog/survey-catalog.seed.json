@@ -658,6 +658,7 @@
     },
     {
       "id": "raid-storage",
+      "sceneShape": "rack",
       "familyId": "data-acquisition",
       "title": "RAID Video Storage",
       "technology": "DATA STORAGE",
@@ -714,6 +715,7 @@
     },
     {
       "id": "online-master-pc",
+      "sceneShape": "workstation",
       "familyId": "online-network",
       "title": "Online Master PC",
       "technology": "ONLINE SURVEY",
@@ -735,6 +737,7 @@
     },
     {
       "id": "online-backup-pc",
+      "sceneShape": "workstation",
       "familyId": "online-network",
       "title": "Online Backup PC",
       "technology": "ONLINE SURVEY",
@@ -756,6 +759,7 @@
     },
     {
       "id": "naviscan-mbes-pc",
+      "sceneShape": "workstation",
       "familyId": "online-network",
       "title": "Naviscan / MBES PC",
       "technology": "ACQUISITION",
@@ -777,6 +781,7 @@
     },
     {
       "id": "oms-pc",
+      "sceneShape": "workstation",
       "familyId": "online-network",
       "title": "OMS PC",
       "technology": "ONLINE SURVEY",
@@ -798,6 +803,7 @@
     },
     {
       "id": "survey-server",
+      "sceneShape": "rack",
       "familyId": "online-network",
       "title": "Server",
       "technology": "DATA STORAGE",
@@ -819,6 +825,7 @@
     },
     {
       "id": "survey-printer",
+      "sceneShape": "printer",
       "familyId": "online-network",
       "title": "Printer",
       "technology": "PERIPHERAL",
@@ -840,6 +847,7 @@
     },
     {
       "id": "network-switch",
+      "sceneShape": "switch",
       "familyId": "online-network",
       "title": "Network Switch",
       "technology": "NETWORK",
@@ -861,6 +869,7 @@
     },
     {
       "id": "moxa-nport",
+      "sceneShape": "serial-box",
       "familyId": "online-network",
       "title": "MOXA NPort Serial Server",
       "technology": "SERIAL-TO-ETHERNET",
@@ -882,6 +891,7 @@
     },
     {
       "id": "apc-ups",
+      "sceneShape": "ups",
       "familyId": "online-network",
       "title": "APC UPS",
       "technology": "POWER",
@@ -903,6 +913,7 @@
     },
     {
       "id": "internet-access",
+      "sceneShape": "network-cloud",
       "familyId": "online-network",
       "title": "Internet Access Connection",
       "technology": "CONNECTIVITY",
@@ -924,6 +935,7 @@
     },
     {
       "id": "survey-online-monitors",
+      "sceneShape": "monitor",
       "familyId": "online-network",
       "title": "Survey Online Monitors",
       "technology": "DISPLAY",
@@ -945,6 +957,7 @@
     },
     {
       "id": "online-survey-system",
+      "sceneShape": "system-core",
       "familyId": "online-network",
       "title": "Online Survey System",
       "technology": "INTEGRATED SYSTEM",
@@ -966,6 +979,7 @@
     },
     {
       "id": "cnav-x1-receiver",
+      "sceneShape": "receiver",
       "familyId": "positioning-acoustics",
       "title": "C-Nav X1 Receiver",
       "technology": "SATELLITE POSITIONING",
@@ -987,6 +1001,7 @@
     },
     {
       "id": "cnav-x1-antenna",
+      "sceneShape": "gnss-dome",
       "familyId": "positioning-acoustics",
       "title": "C-Nav X1 Antenna",
       "technology": "GNSS ANTENNA",
@@ -1008,6 +1023,7 @@
     },
     {
       "id": "cnav-iridium-antenna",
+      "sceneShape": "whip-antenna",
       "familyId": "positioning-acoustics",
       "title": "C-Nav X1 Iridium Edge Antenna",
       "technology": "SATELLITE LINK",
@@ -1029,6 +1045,7 @@
     },
     {
       "id": "usbl-topside-unit",
+      "sceneShape": "receiver",
       "familyId": "positioning-acoustics",
       "title": "USBL Topside Unit",
       "technology": "ACOUSTIC POSITIONING",
@@ -1050,6 +1067,7 @@
     },
     {
       "id": "ranger2-subsea-head",
+      "sceneShape": "sonar-head",
       "familyId": "positioning-acoustics",
       "title": "Ranger 2 USBL Subsea Head",
       "technology": "ACOUSTIC POSITIONING",
@@ -1071,6 +1089,7 @@
     },
     {
       "id": "c-node",
+      "sceneShape": "transponder",
       "familyId": "positioning-acoustics",
       "title": "C-Node",
       "technology": "ACOUSTIC TRANSPONDER",
@@ -1092,6 +1111,7 @@
     },
     {
       "id": "hpt-5000",
+      "sceneShape": "transponder",
       "familyId": "positioning-acoustics",
       "title": "HPT 5000",
       "technology": "ACOUSTIC TRANSCEIVER",
@@ -1113,6 +1133,7 @@
     },
     {
       "id": "hemisphere-vs1000-antenna",
+      "sceneShape": "gnss-dome",
       "familyId": "surface-navigation",
       "title": "Hemisphere VS1000 Antenna",
       "technology": "GNSS HEADING",
@@ -1134,6 +1155,7 @@
     },
     {
       "id": "hemisphere-vs1000-receiver",
+      "sceneShape": "receiver",
       "familyId": "surface-navigation",
       "title": "Hemisphere VS1000 Receiver",
       "technology": "GNSS HEADING",
@@ -1155,6 +1177,7 @@
     },
     {
       "id": "octans-9",
+      "sceneShape": "gyro",
       "familyId": "surface-navigation",
       "title": "Gyro Octans 9",
       "technology": "INERTIAL HEADING",
@@ -1176,6 +1199,7 @@
     },
     {
       "id": "pps-zda-splitter",
+      "sceneShape": "serial-box",
       "familyId": "surface-navigation",
       "title": "PPS/ZDA Splitter Box",
       "technology": "TIMING",
@@ -1197,6 +1221,7 @@
     },
     {
       "id": "vessel-gyro",
+      "sceneShape": "gyro",
       "familyId": "surface-navigation",
       "title": "Gyro (Vessel Supplied)",
       "technology": "VESSEL DATA",
@@ -1218,6 +1243,7 @@
     },
     {
       "id": "vessel-mru",
+      "sceneShape": "gyro",
       "familyId": "surface-navigation",
       "title": "MRU (Vessel Data)",
       "technology": "VESSEL DATA",
@@ -1239,6 +1265,7 @@
     },
     {
       "id": "vessel-dgps",
+      "sceneShape": "gnss-dome",
       "familyId": "surface-navigation",
       "title": "DGPS (Vessel Data)",
       "technology": "VESSEL DATA",
@@ -1260,6 +1287,7 @@
     },
     {
       "id": "hipap-apos-interface",
+      "sceneShape": "receiver",
       "familyId": "surface-navigation",
       "title": "HiPAP / APOS Interface",
       "technology": "VESSEL DATA",
@@ -1281,6 +1309,7 @@
     },
     {
       "id": "barometer",
+      "sceneShape": "probe",
       "familyId": "surface-navigation",
       "title": "Barometer",
       "technology": "ATMOSPHERIC PRESSURE",
@@ -1302,6 +1331,7 @@
     },
     {
       "id": "rov-gyro",
+      "sceneShape": "gyro",
       "familyId": "subsea-navigation",
       "title": "Gyro (ROV)",
       "technology": "INERTIAL HEADING",
@@ -1323,6 +1353,7 @@
     },
     {
       "id": "altimeter",
+      "sceneShape": "probe",
       "familyId": "subsea-navigation",
       "title": "Altimeter",
       "technology": "ACOUSTIC RANGING",
@@ -1344,6 +1375,7 @@
     },
     {
       "id": "mini-svs",
+      "sceneShape": "probe",
       "familyId": "subsea-navigation",
       "title": "Mini SVS",
       "technology": "SOUND VELOCITY",
@@ -1365,6 +1397,7 @@
     },
     {
       "id": "dq-svx2",
+      "sceneShape": "probe",
       "familyId": "subsea-navigation",
       "title": "DQ / SVX2",
       "technology": "DEPTH & SOUND VELOCITY",
@@ -1386,6 +1419,7 @@
     },
     {
       "id": "r2sonic-heads",
+      "sceneShape": "sonar-head",
       "familyId": "hydrography-imaging",
       "title": "R2Sonic MBES Heads",
       "technology": "MULTIBEAM",
@@ -1407,6 +1441,7 @@
     },
     {
       "id": "r2sonic-sim",
+      "sceneShape": "receiver",
       "familyId": "hydrography-imaging",
       "title": "R2Sonic SIM",
       "technology": "MULTIBEAM",
@@ -1428,6 +1463,7 @@
     },
     {
       "id": "tss440-topside",
+      "sceneShape": "receiver",
       "familyId": "inspection-pipeline",
       "title": "TSS 440 Topside Unit",
       "technology": "PIPE TRACKING",
@@ -1449,6 +1485,7 @@
     },
     {
       "id": "tss440-bottle",
+      "sceneShape": "subsea-bottle",
       "familyId": "inspection-pipeline",
       "title": "TSS 440 Bottle",
       "technology": "PIPE TRACKING",
@@ -1470,6 +1507,7 @@
     },
     {
       "id": "tss440-coils",
+      "sceneShape": "coil-frame",
       "familyId": "inspection-pipeline",
       "title": "TSS 440 Coils",
       "technology": "PIPE TRACKING",
@@ -1491,6 +1529,7 @@
     },
     {
       "id": "green-laser",
+      "sceneShape": "laser",
       "familyId": "inspection-pipeline",
       "title": "Green Laser",
       "technology": "OPTICAL",
@@ -1512,6 +1551,7 @@
     },
     {
       "id": "satel-radio",
+      "sceneShape": "radio",
       "familyId": "comms-telemetry",
       "title": "Satel Radio",
       "technology": "UHF RADIO",
@@ -1533,6 +1573,7 @@
     },
     {
       "id": "satel-radio-antenna",
+      "sceneShape": "whip-antenna",
       "familyId": "comms-telemetry",
       "title": "Satel Radio Antenna",
       "technology": "UHF RADIO",
@@ -1554,6 +1595,7 @@
     },
     {
       "id": "bullet-wifi-antenna",
+      "sceneShape": "panel-antenna",
       "familyId": "comms-telemetry",
       "title": "Bullet WiFi Antenna",
       "technology": "WI-FI LINK",
@@ -1575,6 +1617,7 @@
     },
     {
       "id": "bullet-poe",
+      "sceneShape": "serial-box",
       "familyId": "comms-telemetry",
       "title": "Bullet PoE Box",
       "technology": "WI-FI LINK",
@@ -1596,6 +1639,7 @@
     },
     {
       "id": "video-telemetry-tx",
+      "sceneShape": "radio",
       "familyId": "comms-telemetry",
       "title": "Video Telemetry TX Unit",
       "technology": "VIDEO TELEMETRY",
@@ -1617,6 +1661,7 @@
     },
     {
       "id": "video-telemetry-rx",
+      "sceneShape": "radio",
       "familyId": "comms-telemetry",
       "title": "Video Telemetry RX Unit",
       "technology": "VIDEO TELEMETRY",
@@ -1638,6 +1683,7 @@
     },
     {
       "id": "video-telemetry-tx-antenna",
+      "sceneShape": "panel-antenna",
       "familyId": "comms-telemetry",
       "title": "Video Telemetry TX Antenna",
       "technology": "VIDEO TELEMETRY",
@@ -1659,6 +1705,7 @@
     },
     {
       "id": "video-telemetry-rx-antenna",
+      "sceneShape": "panel-antenna",
       "familyId": "comms-telemetry",
       "title": "Video Telemetry RX Antenna",
       "technology": "VIDEO TELEMETRY",
@@ -1680,6 +1727,7 @@
     },
     {
       "id": "bridge-remote-helmsman",
+      "sceneShape": "monitor",
       "familyId": "comms-telemetry",
       "title": "Bridge Remote Helmsman",
       "technology": "REMOTE DISPLAY",
@@ -1701,6 +1749,7 @@
     },
     {
       "id": "rov-remote-helmsman",
+      "sceneShape": "monitor",
       "familyId": "comms-telemetry",
       "title": "ROV Remote Helmsman",
       "technology": "REMOTE DISPLAY",
@@ -1722,6 +1771,7 @@
     },
     {
       "id": "video-telemetry-system",
+      "sceneShape": "system-core",
       "familyId": "comms-telemetry",
       "title": "Video Telemetry System",
       "technology": "INTEGRATED SYSTEM",
@@ -1743,6 +1793,7 @@
     },
     {
       "id": "innova-topside-mux",
+      "sceneShape": "rack",
       "familyId": "rov-interface",
       "title": "INNOVA Topside MUX",
       "technology": "FIBRE MULTIPLEXER",
@@ -1764,6 +1815,7 @@
     },
     {
       "id": "innova-subsea-mux",
+      "sceneShape": "subsea-bottle",
       "familyId": "rov-interface",
       "title": "INNOVA Subsea MUX",
       "technology": "FIBRE MULTIPLEXER",
@@ -1785,6 +1837,7 @@
     },
     {
       "id": "rov-instrument-rack",
+      "sceneShape": "rack",
       "familyId": "rov-interface",
       "title": "ROV Instrument Rack",
       "technology": "ROV CONTROL",
@@ -1806,6 +1859,7 @@
     },
     {
       "id": "rov-umbilical-fibre",
+      "sceneShape": "fibre-reel",
       "familyId": "rov-interface",
       "title": "ROV Fibre in Umbilical",
       "technology": "FIBRE",
@@ -1827,6 +1881,7 @@
     },
     {
       "id": "fibre-connection-rack",
+      "sceneShape": "rack",
       "familyId": "rov-interface",
       "title": "Fibre Connection Rack",
       "technology": "FIBRE",
@@ -1848,6 +1903,7 @@
     },
     {
       "id": "rov-camera-feeds",
+      "sceneShape": "camera",
       "familyId": "rov-interface",
       "title": "ROV Camera Feeds",
       "technology": "VIDEO",
@@ -1869,6 +1925,7 @@
     },
     {
       "id": "boom-cameras",
+      "sceneShape": "camera",
       "familyId": "rov-interface",
       "title": "Booms Cameras",
       "technology": "VIDEO",
@@ -1890,6 +1947,7 @@
     },
     {
       "id": "usbl-system",
+      "sceneShape": "system-core",
       "familyId": "positioning-acoustics",
       "title": "USBL System (Complete)",
       "technology": "INTEGRATED SYSTEM",
@@ -2035,6 +2093,8 @@
         {
           "id": "topside",
           "title": "Topside",
+          "sceneAnchor": "vessel",
+          "description": "Topside lives on the vessel: GNSS antennas on the mast, the survey room and the bridge. Serial sensors enter through MOXA servers into Network Switch #1, where the online PCs compute positions and push them to the bridge and ROV helmsman displays.",
           "lines": [
             { "equipmentId": "online-master-pc", "qty": 1 },
             { "equipmentId": "online-backup-pc", "qty": 1 },
@@ -2043,8 +2103,8 @@
             { "equipmentId": "survey-server", "qty": 1 },
             { "equipmentId": "raid-storage", "qty": 1 },
             { "equipmentId": "survey-printer", "qty": 1 },
-            { "equipmentId": "network-switch", "qty": 3, "qtyLabel": "#1 survey room, #2 bridge, #3 ROV control" },
-            { "equipmentId": "moxa-nport", "qty": 3, "qtyLabel": "#1 survey room, #2 bridge, #3 ROV control" },
+            { "equipmentId": "network-switch", "qty": 3, "qtyLabel": "#1 survey room, #2 bridge, #3 ROV control", "placement": { "2": "bridge", "3": "rov-control" } },
+            { "equipmentId": "moxa-nport", "qty": 3, "qtyLabel": "#1 survey room, #2 bridge, #3 ROV control", "placement": { "2": "bridge", "3": "rov-control" } },
             { "equipmentId": "hemisphere-vs1000-antenna", "qty": 2 },
             { "equipmentId": "hemisphere-vs1000-receiver", "qty": 1 },
             { "equipmentId": "cnav-x1-receiver", "qty": 2 },
@@ -2076,6 +2136,8 @@
         {
           "id": "subsea-rov",
           "title": "Subsea / ROV",
+          "sceneAnchor": "rov",
+          "description": "Subsea, every ROV survey sensor — gyro, DQ/SVX2, multibeam heads, TSS 440 and booms cameras — plugs into the INNOVA subsea MUX, while the C-Nodes and the HPT 5000 provide acoustic positioning.",
           "lines": [
             { "equipmentId": "innova-topside-mux", "qty": 1 },
             { "equipmentId": "innova-subsea-mux", "qty": 1 },
@@ -2097,6 +2159,8 @@
         {
           "id": "infrastructure",
           "title": "Infrastructure",
+          "sceneAnchor": "umbilical",
+          "description": "Infrastructure is the backbone: fibre in the ROV umbilical and the fibre racks carry all subsea data topside, camera feeds reach the online monitors, and the integrated systems tie the spread together.",
           "lines": [
             { "equipmentId": "survey-online-monitors", "qty": 2 },
             { "equipmentId": "rov-camera-feeds", "qty": 1, "qtyLabel": "Multiple channels" },

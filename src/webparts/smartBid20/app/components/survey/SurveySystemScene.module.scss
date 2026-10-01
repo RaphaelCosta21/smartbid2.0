@@ -26,17 +26,27 @@
   overflow: hidden;
 }
 
-.label {
+.anchor {
   position: absolute;
   left: 0;
   top: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  transition: opacity 250ms ease;
+  will-change: transform;
+}
+
+.label {
+  position: absolute;
+  left: 0;
+  bottom: 12px;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   gap: 4px;
   align-items: center;
   pointer-events: auto;
-  transition: opacity 250ms ease;
-  will-change: transform;
 
   button {
     padding: 6px 10px;
@@ -73,6 +83,367 @@
   border-style: dashed;
   background: var(--survey-navy);
   color: var(--package-accent);
+}
+
+/* Zone orbs */
+.zoneLabel {
+  position: absolute;
+  left: 0;
+  bottom: 30px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 2px solid var(--zone-tone);
+  background: var(--survey-navy-deep);
+  color: var(--survey-ice);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+  box-shadow: var(--survey-shadow);
+  transition: transform 250ms ease;
+
+  &:hover {
+    transform: translateX(-50%) scale(1.06);
+  }
+}
+
+.zoneTone0 {
+  --zone-tone: var(--package-accent);
+}
+
+.zoneTone1 {
+  --zone-tone: var(--survey-teal);
+}
+
+.zoneTone2 {
+  --zone-tone: var(--survey-green);
+}
+
+.zoneDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--zone-tone);
+}
+
+.zoneCount {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--zone-tone);
+  color: var(--survey-navy-deep);
+  font-size: 9px;
+}
+
+/* Exploded zone */
+.clusterLabel {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: var(--survey-navy-deep);
+  border-left: 3px solid var(--package-accent);
+  color: var(--survey-ice);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.nodeLabel {
+  position: absolute;
+  left: 0;
+  top: 22px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 140px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--survey-teal);
+  background: var(--survey-navy-deep);
+  color: var(--survey-ice);
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.nodeActive {
+  border-color: var(--package-accent);
+  background: var(--package-accent);
+  color: var(--survey-navy-deep);
+}
+
+.nodeTag {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--survey-muted);
+  color: var(--survey-navy-deep);
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.breadcrumb {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 5px;
+  border-radius: 999px;
+  background: var(--survey-navy-deep);
+  color: var(--survey-ice);
+  font-size: 10px;
+  white-space: nowrap;
+  box-shadow: var(--survey-shadow);
+
+  strong {
+    color: var(--package-accent);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+}
+
+.crumbBack {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: none;
+  background: var(--package-accent);
+  color: var(--survey-navy-deep);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tourButton {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--package-accent);
+  background: var(--survey-navy-deep);
+  color: var(--package-accent);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 250ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.bottomStack {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(620px, 90%);
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+}
+
+.tourCard {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border-top: 3px solid var(--package-accent);
+  background: var(--survey-navy-deep);
+  color: var(--survey-ice);
+  box-shadow: var(--survey-shadow);
+  animation: tourIn 350ms ease both;
+}
+
+@keyframes tourIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.tourHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.tourStep {
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--package-accent);
+  color: var(--survey-navy-deep);
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.tourIcon {
+  margin-left: auto;
+  display: inline-flex;
+  padding: 3px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--survey-ice);
+  cursor: pointer;
+}
+
+.tourCaption {
+  margin: 6px 0 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--survey-ice);
+}
+
+.tourActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--survey-teal);
+    background: var(--survey-navy);
+    color: var(--survey-ice);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:last-child {
+      border-color: var(--package-accent);
+      background: var(--package-accent);
+      color: var(--survey-navy-deep);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+  }
+}
+
+.tracePath {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border-left: 3px solid var(--survey-alert);
+  background: var(--survey-navy-deep);
+}
+
+.traceTitle {
+  margin-right: 4px;
+  color: var(--survey-alert);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.traceArrow {
+  color: var(--survey-alert);
+}
+
+.traceChip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--survey-alert);
+  background: var(--survey-navy);
+  color: var(--survey-ice);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--survey-navy-deep);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--survey-ice);
+  font-size: 9px;
+}
+
+.legendSwatch {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.swatchData {
+  background: var(--survey-teal);
+}
+
+.swatchPower {
+  background: var(--survey-alert);
+}
+
+.swatchVideo {
+  background: var(--package-accent);
+}
+
+.swatchRf {
+  background: var(--survey-muted);
+}
+
+.swatchSubsea {
+  background: var(--survey-green);
+}
+
+.swatchFibre {
+  background: var(--survey-slate);
+}
+
+.swatchAcoustic {
+  background: var(--survey-red);
 }
 
 .hint {

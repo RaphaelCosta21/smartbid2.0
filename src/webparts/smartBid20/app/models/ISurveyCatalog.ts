@@ -12,10 +12,37 @@ export type SurveySceneAnchor =
   | "survey-online"
   | "rov-control"
   | "vessel-hull"
+  | "umbilical"
   | "rov"
   | "beacons"
   | "seabed"
   | "subsea-target";
+
+/** Procedural 3D archetype used when equipment "emerges" in a spread zone. */
+export type SurveySceneShape =
+  | "monitor"
+  | "workstation"
+  | "rack"
+  | "switch"
+  | "serial-box"
+  | "receiver"
+  | "gnss-dome"
+  | "whip-antenna"
+  | "panel-antenna"
+  | "radio"
+  | "ups"
+  | "printer"
+  | "gyro"
+  | "probe"
+  | "subsea-bottle"
+  | "sonar-head"
+  | "camera"
+  | "laser"
+  | "coil-frame"
+  | "transponder"
+  | "fibre-reel"
+  | "network-cloud"
+  | "system-core";
 
 export interface ISurveyFamily {
   id: string;
@@ -52,6 +79,9 @@ export interface ISurveyEquipment {
   whereItFits: ISurveyFitNode[];
   bidConsiderations: string[];
   sceneAnchor: SurveySceneAnchor | "";
+  sceneShape?: SurveySceneShape | "";
+  /** Optional GLB that replaces the procedural shape (https or site-relative). */
+  modelUrl?: string | null;
   imageUrl: string | null;
   datasheetUrl: string | null;
   order: number;
@@ -83,11 +113,17 @@ export interface ISurveySpreadLine {
   qtyLabel?: string;
   /** Provided by the vessel/client — kept in the scope but not priced. */
   vesselSupplied?: boolean;
+  /** Location of individual instances, keyed by instance number (e.g. switch "2" on the bridge). */
+  placement?: Record<string, SurveySceneAnchor>;
 }
 
 export interface ISurveySpreadZone {
   id: string;
   title: string;
+  /** Where the zone orb sits in the 3D scene. */
+  sceneAnchor: SurveySceneAnchor;
+  /** One-paragraph explanation, also used as the guided-tour caption. */
+  description: string;
   lines: ISurveySpreadLine[];
 }
 

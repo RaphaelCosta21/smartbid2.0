@@ -4,8 +4,17 @@ import { SurveyPortalHeader } from "../components/survey/SurveyPortalHeader";
 import { SurveyEquipmentDetail } from "../components/survey/SurveyEquipmentDetail";
 import { SurveyAddToPackageDialog } from "../components/survey/SurveyAddToPackageDialog";
 import { SurveyPackageDrawer } from "../components/survey/SurveyPackageDrawer";
+import { SurveySpreadPanel } from "../components/survey/SurveySpreadPanel";
 import { SURVEY_OCEAN_BG } from "../components/survey/surveyAssets";
-import type { SurveySceneLabel } from "../components/survey/SurveySystemScene";
+import type {
+  SurveySceneLabel,
+  SurveySceneTour,
+} from "../components/survey/SurveySystemScene";
+import type {
+  SceneFocus,
+  SceneNodeStates,
+  SceneZone,
+} from "../components/survey/survey3d/sceneTypes";
 import { EmptyState } from "../components/common/EmptyState";
 import { SkeletonLoader } from "../components/common/SkeletonLoader";
 import { useSurveyStore } from "../stores/useSurveyStore";
@@ -15,6 +24,14 @@ import {
   useSurveyBidIntel,
 } from "../hooks/useSurveyPortal";
 import { SurveySceneAnchor } from "../models";
+import {
+  ISpreadNode,
+  directLinks,
+  expandSpreadNodes,
+  resolveSceneShape,
+  resolveSpreadLinks,
+  traceSignalPath,
+} from "../utils/surveySpreadGraph";
 import styles from "./SurveySystemPage.module.scss";
 
 const SurveySystemScene = React.lazy(
@@ -23,6 +40,16 @@ const SurveySystemScene = React.lazy(
       /* webpackChunkName: "survey-3d" */ "../components/survey/SurveySystemScene"
     ),
 );
+
+const TOUR_STEP_MS = 8000;
+/** Tour reads topside → umbilical → subsea, whatever the zone order in the data. */
+const TOUR_DEPTH: Partial<Record<SurveySceneAnchor, number>> = {
+  umbilical: 1,
+  rov: 2,
+  beacons: 2,
+  seabed: 2,
+  "subsea-target": 2,
+};
 
 export const SurveySystemPage: React.FC = () => {
   const catalog = useSurveyStore((s) => s.catalog);
@@ -44,6 +71,16 @@ export const SurveySystemPage: React.FC = () => {
   const [systemId, setSystemId] = React.useState<string | null>(null);
   const [spreadId, setSpreadId] = React.useState<string | null>(null);
   const [hoverAnchor, setHoverAnchor] = React.useState<SurveySceneAnchor | "">("");
+  const [activeZoneId, setActiveZoneId] = React.useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
+  const [hoverNodeId, setHoverNodeId] = React.useState<string | null>(null);
+  const [tourStep, setTourStep] = React.useState<number | null>(null);
+  const reducedMotion = React.useMemo(
+    () =>
+      !!window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    [],
+  );
 
   const systems = React.useMemo(
     () =>
@@ -55,6 +92,107 @@ export const SurveySystemPage: React.FC = () => {
   const system = systems.find((s) => s.id === systemId) || systems[0];
   const spreads = catalog?.spreads || [];
   const spread = spreads.find((s) => s.id === spreadId) || spreads[0];
+
+  const nodes = React.useMemo(
+    () => (spread && catalog ? expandSpreadNodes(spread, catalog) : []),
+    [spread, catalog],
+  );
+  const links = React.useMemo(
+    () => (spread ? resolveSpreadLinks(spread, nodes) : []),
+    [spread, nodes],
+  );
+  const sceneZones = React.useMemo<SceneZone[]>(
+    () =>
+      (spread?.zones || []).map((z, i) => ({
+        id: z.id,
+        title: z.title,
+        anchor: z.sceneAnchor,
+        colorIndex: i,
+        count: z.lines.length,
+      })),
+    [spread],
+  );
+  const focus = React.useMemo<SceneFocus | null>(() => {
+    const zone = spread?.zones.find((z) => z.id === activeZoneId);
+    if (!zone || !catalog) return null;
+    const inZone: Record<string, boolean> = {};
+    const sceneNodes = nodes
+      .filter((n) => n.zoneId === zone.id)
+      .map((n) => {
+        inZone[n.id] = true;
+        const eq = catalog.equipment.find((e) => e.id === n.equipmentId)!;
+        return {
+          id: n.id,
+          equipmentId: n.equipmentId,
+          label: n.label,
+          shape: resolveSceneShape(eq),
+          modelUrl: eq.modelUrl || null,
+          anchor: n.anchor,
+          vesselSupplied: n.vesselSupplied,
+        };
+      });
+    return {
+      zoneId: zone.id,
+      anchor: zone.sceneAnchor,
+      nodes: sceneNodes,
+      links: links
+        .filter((l) => inZone[l.from] && inZone[l.to])
+        .map((l) => ({ key: l.key, from: l.from, to: l.to, kind: l.kind })),
+    };
+  }, [spread, activeZoneId, catalog, nodes, links]);
+
+  const trace = React.useMemo(
+    () =>
+      selectedNodeId
+        ? traceSignalPath(links, selectedNodeId) || directLinks(links, selectedNodeId)
+        : null,
+    [links, selectedNodeId],
+  );
+  const packageEquipmentIds = React.useMemo(
+    () => packageLines.map((l) => l.equipmentId),
+    [packageLines],
+  );
+  const nodeStates = React.useMemo<SceneNodeStates>(
+    () => ({
+      selectedNodeId,
+      hoverNodeId,
+      packageEquipmentIds,
+      traceNodeIds: trace ? trace.nodeIds : [],
+      traceLinkKeys: trace ? trace.linkKeys : [],
+    }),
+    [selectedNodeId, hoverNodeId, packageEquipmentIds, trace],
+  );
+  const tracePath = React.useMemo(
+    () =>
+      trace
+        ? trace.nodeIds.map((id) => ({
+            id,
+            label: nodes.find((n) => n.id === id)?.label || id,
+          }))
+        : null,
+    [trace, nodes],
+  );
+
+  const tourSteps = React.useMemo(() => {
+    if (!spread) return [];
+    const depth = (a: SurveySceneAnchor): number => TOUR_DEPTH[a] || 0;
+    const ordered = spread.zones
+      .slice()
+      .sort((a, b) => depth(a.sceneAnchor) - depth(b.sceneAnchor));
+    return [
+      { zoneId: null as string | null, title: spread.title, caption: spread.description },
+      ...ordered.map((z) => ({ zoneId: z.id as string | null, title: z.title, caption: z.description })),
+    ];
+  }, [spread]);
+  const tour: SurveySceneTour | null =
+    tourStep !== null && tourSteps[tourStep]
+      ? {
+          step: tourStep,
+          total: tourSteps.length,
+          title: tourSteps[tourStep].title,
+          caption: tourSteps[tourStep].caption,
+        }
+      : null;
 
   const labels = React.useMemo<SurveySceneLabel[]>(() => {
     const byAnchor: Record<string, SurveySceneLabel> = {};
@@ -88,11 +226,101 @@ export const SurveySystemPage: React.FC = () => {
     setDetailOpen(true);
   };
 
+  const firstNodeOf = (equipmentId: string): ISpreadNode | undefined =>
+    nodes.find((n) => n.equipmentId === equipmentId);
+
+  const stopTour = (): void => setTourStep(null);
+
+  const openZone = (zoneId: string | null): void => {
+    setActiveZoneId(zoneId);
+    setSelectedNodeId(null);
+    setHoverNodeId(null);
+  };
+
+  const handleZoneSelect = (zoneId: string | null): void => {
+    stopTour();
+    if (zoneId !== null && zoneId === activeZoneId) return;
+    openZone(zoneId);
+  };
+
+  const handleZoneToggle = (zoneId: string): void => {
+    stopTour();
+    openZone(activeZoneId === zoneId ? null : zoneId);
+  };
+
+  const handleNodeSelect = (nodeId: string): void => {
+    const node = nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+    stopTour();
+    if (node.zoneId !== activeZoneId) setActiveZoneId(node.zoneId);
+    setSelectedNodeId(nodeId);
+    handleSelect(node.equipmentId);
+  };
+
+  const handleSelectLine = (zoneId: string, equipmentId: string): void => {
+    const node = nodes.find((n) => n.zoneId === zoneId && n.equipmentId === equipmentId);
+    if (node) handleNodeSelect(node.id);
+    else handleSelect(equipmentId);
+  };
+
+  const handleHoverLine = (equipmentId: string | null): void => {
+    const node = equipmentId ? firstNodeOf(equipmentId) : undefined;
+    setHoverNodeId(node && node.zoneId === activeZoneId ? node.id : null);
+  };
+
   const handleSelectLinked = (id: string): void => {
+    const node = activeZoneId ? firstNodeOf(id) : undefined;
+    if (node) {
+      handleNodeSelect(node.id);
+      return;
+    }
     const eq = catalog?.equipment.find((e) => e.id === id);
     if (eq) setFilters({ familyId: eq.familyId, search: "" });
     handleSelect(id);
   };
+
+  const stepTour = React.useCallback(
+    (delta: number): void => {
+      if (tourStep === null) return;
+      const next = tourStep + delta;
+      if (next >= tourSteps.length) {
+        setTourStep(null);
+        openZone(null);
+        return;
+      }
+      setTourStep(Math.max(0, next));
+    },
+    [tourStep, tourSteps.length],
+  );
+
+  React.useEffect(() => {
+    if (tourStep === null || !tourSteps[tourStep]) return;
+    openZone(tourSteps[tourStep].zoneId);
+    setDetailOpen(false);
+  }, [tourStep, tourSteps]);
+
+  React.useEffect(() => {
+    if (tourStep === null || reducedMotion) return undefined;
+    const timer = window.setTimeout(() => stepTour(1), TOUR_STEP_MS);
+    return () => window.clearTimeout(timer);
+  }, [tourStep, reducedMotion, stepTour]);
+
+  React.useEffect(() => {
+    openZone(null);
+    setTourStep(null);
+  }, [spread?.id]);
+
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== "Escape") return;
+      if (tourStep !== null) setTourStep(null);
+      else if (detailOpen) setDetailOpen(false);
+      else if (selectedNodeId) setSelectedNodeId(null);
+      else if (activeZoneId) openZone(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tourStep, detailOpen, selectedNodeId, activeZoneId]);
 
   const handleAddSystem = (): void => {
     if (!system || !catalog) return;
@@ -113,6 +341,17 @@ export const SurveySystemPage: React.FC = () => {
     addToast({
       type: "success",
       title: "Spread added to bid package",
+      message: `${count} lines from ${spread.title}`,
+    });
+  };
+
+  const handleAddZone = (zoneId: string): void => {
+    const zone = spread?.zones.find((z) => z.id === zoneId);
+    if (!spread || !zone) return;
+    const count = addSpreadToPackage(spread, zoneId);
+    addToast({
+      type: "success",
+      title: `${zone.title} added to bid package`,
       message: `${count} lines from ${spread.title}`,
     });
   };
@@ -151,53 +390,46 @@ export const SurveySystemPage: React.FC = () => {
               highlight={highlight}
               selectedId={detailOpen ? selectedId : null}
               onSelect={handleSelect}
+              zones={sceneZones}
+              focus={focus}
+              spreadTitle={spread ? spread.title : ""}
+              nodeStates={nodeStates}
+              tracePath={tracePath}
+              tour={tour}
+              onZoneSelect={handleZoneSelect}
+              onNodeSelect={handleNodeSelect}
+              onNodeHover={setHoverNodeId}
+              onInteract={stopTour}
+              onTourStart={() => setTourStep(0)}
+              onTourStep={stepTour}
+              onTourStop={stopTour}
             />
           </React.Suspense>
         </div>
 
         {spread && (
-          <div className={styles.spreadPanel} key={spread.id}>
-            {spreads.length > 1 && (
-              <div className={styles.systemTabs}>
-                {spreads.map((s) => (
-                  <button
-                    key={s.id}
-                    className={s.id === spread.id ? styles.systemTabActive : ""}
-                    onClick={() => setSpreadId(s.id)}
-                  >
-                    {s.title}
-                  </button>
-                ))}
-              </div>
-            )}
-            <span className={styles.systemEyebrow}>
-              SPREAD TEMPLATE{spread.drawingNo ? ` · DWG ${spread.drawingNo}` : ""}
-              {spread.revision ? ` REV ${spread.revision}` : ""}
-            </span>
-            <h3 className={styles.systemTitle}>{spread.title}</h3>
-            <ul className={styles.zoneList}>
-              {spread.zones.map((zone) => {
-                const vessel = zone.lines.filter((l) => l.vesselSupplied).length;
-                return (
-                  <li key={zone.id}>
-                    <span>{zone.title}</span>
-                    <span className={styles.zoneCount}>
-                      {zone.lines.length} items
-                      {vessel > 0 && (
-                        <span className={styles.vesselTag}>{vessel} vessel</span>
-                      )}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            <button className={styles.systemAdd} onClick={handleAddSpread}>
-              <PackagePlus size={13} /> ADD FULL SPREAD TO PACKAGE
-            </button>
+          <div
+            className={`${styles.spreadPanel} ${activeZoneId ? styles.spreadPanelOpen : ""}`}
+            key={spread.id}
+          >
+            <SurveySpreadPanel
+              spreads={spreads}
+              spread={spread}
+              catalog={catalog}
+              activeZoneId={activeZoneId}
+              selectedEquipmentId={detailOpen ? selectedId : null}
+              packageEquipmentIds={packageEquipmentIds}
+              onSpreadChange={setSpreadId}
+              onZoneToggle={handleZoneToggle}
+              onSelectLine={handleSelectLine}
+              onHoverLine={handleHoverLine}
+              onAddZone={handleAddZone}
+              onAddSpread={handleAddSpread}
+            />
           </div>
         )}
 
-        {system && (
+        {system && !activeZoneId && tourStep === null && (
           <div className={styles.systemPanel} key={system.id}>
             {systems.length > 1 && (
               <div className={styles.systemTabs}>

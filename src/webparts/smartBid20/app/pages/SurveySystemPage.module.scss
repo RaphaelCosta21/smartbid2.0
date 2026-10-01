@@ -156,9 +156,6 @@
   width: 287px;
   max-height: 42%;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   padding: 14px 16px;
   border-radius: 10px;
   border: 1px solid var(--survey-glass-border);
@@ -166,48 +163,12 @@
   background: var(--survey-glass-strong);
   backdrop-filter: blur(10px);
   box-shadow: var(--survey-shadow);
+  transition: max-height 350ms ease;
   animation: fadeUp 450ms 80ms ease both;
 }
 
-.zoneList {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-
-  li {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 5px 8px;
-    border-radius: 4px;
-    border: 1px solid var(--survey-line);
-    background: var(--survey-chip-bg);
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--survey-navy);
-  }
-}
-
-.zoneCount {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
-  color: var(--survey-slate);
-}
-
-.vesselTag {
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--survey-navy);
-  color: var(--package-accent);
-  font-size: 8px;
-  font-weight: 700;
-  text-transform: uppercase;
+.spreadPanelOpen {
+  max-height: calc(100% - 16px);
 }
 
 .detailDrawer {

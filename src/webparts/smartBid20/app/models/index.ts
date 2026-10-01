@@ -226,4 +226,5 @@ export {
   type ISurveySpreadLine,
   type ISurveySpreadLink,
   type SurveyLinkKind,
+  type SurveySceneShape,
 } from "./ISurveyCatalog";

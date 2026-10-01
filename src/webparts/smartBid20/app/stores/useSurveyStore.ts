@@ -43,8 +43,8 @@ interface SurveyState {
   resetFilters: () => void;
   selectEquipment: (id: string | null) => void;
   addToPackage: (equipmentId: string, qty: number) => void;
-  /** Adds every line of a spread template; returns how many lines were added. */
-  addSpreadToPackage: (spread: ISurveySpread) => number;
+  /** Adds every line of a spread template (or of one zone); returns how many lines were added. */
+  addSpreadToPackage: (spread: ISurveySpread, zoneId?: string) => number;
   setPackageQty: (equipmentId: string, qty: number) => void;
   removeFromPackage: (equipmentId: string) => void;
   clearPackage: () => void;
@@ -116,16 +116,23 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
           : [...state.packageLines, { equipmentId, qty }],
       };
     }),
-  addSpreadToPackage: (spread) => {
+  addSpreadToPackage: (spread, zoneId) => {
     const known = get().catalog?.equipment || [];
     const lines: ISurveyPackageLine[] = [];
-    spread.zones.forEach((zone) =>
+    spread.zones.forEach((zone) => {
+      if (zoneId && zone.id !== zoneId) return;
       zone.lines.forEach((l) => {
         if (known.some((e) => e.id === l.equipmentId)) {
-          lines.push({ ...l, spreadId: spread.id });
+          lines.push({
+            equipmentId: l.equipmentId,
+            qty: l.qty,
+            qtyLabel: l.qtyLabel,
+            vesselSupplied: l.vesselSupplied,
+            spreadId: spread.id,
+          });
         }
-      }),
-    );
+      });
+    });
     set((state) => {
       const next = state.packageLines.slice();
       lines.forEach((line) => {

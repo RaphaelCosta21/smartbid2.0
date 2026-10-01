@@ -6,6 +6,16 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { SurveySceneAnchor } from "../../../models";
+import { FocusController } from "./focusController";
+import { layoutExplode } from "./explodeLayout";
+import {
+  SceneFocus,
+  SceneNodeStates,
+  ScenePick,
+  SceneZone,
+  ZONE_COLORS,
+  clusterKeyOf,
+} from "./sceneTypes";
 
 // WebGL can't read CSS custom properties; OII palette mirrored here (light fog/white stay neutral).
 const PALETTE = {
@@ -32,14 +42,22 @@ const SEABED_Y = -16;
 const DIORAMA_RADIUS = 40;
 
 export interface SurveySceneApi {
-  setLabel: (anchor: SurveySceneAnchor, el: HTMLElement | null) => void;
+  /** Keys: an anchor, "zone:<id>", "node:<id>" or "cluster:<anchor>". */
+  setLabel: (key: string, el: HTMLElement | null) => void;
   setHighlight: (anchor: SurveySceneAnchor | "") => void;
+  setZones: (zones: SceneZone[]) => void;
+  setFocus: (focus: SceneFocus | null) => void;
+  setNodeStates: (states: SceneNodeStates) => void;
   dispose: () => void;
 }
 
 export interface SurveySceneOptions {
   reducedMotion: boolean;
   vesselModelUrl: string;
+  onPick: (pick: ScenePick) => void;
+  onHoverNode: (nodeId: string | null) => void;
+  /** Any pointer press on the canvas (used to interrupt the guided tour). */
+  onInteract: () => void;
 }
 
 export function isWebGLAvailable(): boolean {
@@ -339,6 +357,10 @@ export function createSurveyScene(
   zoneMarkers["rov-control"].group.position.set(-3.4, 1.9, -0.75);
   const zoneList = Object.keys(zoneMarkers).map((k) => zoneMarkers[k as keyof typeof zoneMarkers]);
   zoneList.forEach((z) => vessel.add(z.group));
+  vessel.userData.pick = { type: "anchor", anchor: "vessel" };
+  const vesselOrbAnchor = new THREE.Object3D();
+  vesselOrbAnchor.position.set(0, 7.6, 0);
+  vessel.add(vesselOrbAnchor);
 
   let disposed = false;
   new GLTFLoader().load(
@@ -437,13 +459,20 @@ export function createSurveyScene(
 
   // ROV, tether and LBL range lines
   const rov = buildRov();
+  rov.userData.pick = { type: "anchor", anchor: "rov" };
   scene.add(rov);
+  const rovOrbAnchor = new THREE.Object3D();
+  rovOrbAnchor.position.set(0, 2.6, 0);
+  rov.add(rovOrbAnchor);
   const TETHER_POINTS = 28;
   const tetherGeo = new THREE.BufferGeometry().setFromPoints(
     new Array(TETHER_POINTS).fill(0).map(() => new THREE.Vector3()),
   );
   const tether = new THREE.Line(tetherGeo, new THREE.LineBasicMaterial({ color: PALETTE.yellow }));
+  tether.userData.pick = { type: "anchor", anchor: "umbilical" };
   scene.add(tether);
+  const umbilicalAnchor = new THREE.Object3D();
+  scene.add(umbilicalAnchor);
   const tetherCurve = new THREE.QuadraticBezierCurve3(
     new THREE.Vector3(),
     new THREE.Vector3(),
@@ -468,6 +497,7 @@ export function createSurveyScene(
     "survey-online": zoneMarkers["survey-online"].group,
     "rov-control": zoneMarkers["rov-control"].group,
     "vessel-hull": hullAnchor,
+    umbilical: umbilicalAnchor,
     rov,
     beacons: beacons[0],
     seabed: seabedAnchor,
@@ -481,12 +511,13 @@ export function createSurveyScene(
     "survey-online": zoneMarkers["survey-online"].group,
     "rov-control": zoneMarkers["rov-control"].group,
     "vessel-hull": cone,
+    umbilical: umbilicalAnchor,
     rov,
     beacons: beacons[0],
     seabed: beacons[1],
     "subsea-target": manifold,
   };
-  const labels: Partial<Record<SurveySceneAnchor, HTMLElement>> = {};
+  const labels: Record<string, HTMLElement> = {};
   let highlight: SurveySceneAnchor | "" = "";
 
   const tmpA = new THREE.Vector3();
@@ -495,27 +526,159 @@ export function createSurveyScene(
   const up = new THREE.Vector3(0, 1, 0);
   const clock = new THREE.Clock();
   let time = 0;
+  let rovTime = 0;
+  let rovFrozen = false;
   let frame = 0;
 
+  // Zone orbs (solid OII colors) that open a spread zone
+  interface Orb {
+    zone: SceneZone;
+    group: THREE.Group;
+    ring: THREE.Mesh;
+    follow: THREE.Object3D;
+  }
+  const orbCoreGeo = new THREE.SphereGeometry(0.85, 32, 24);
+  const orbRingGeo = new THREE.RingGeometry(1.15, 1.35, 48);
+  let orbs: Orb[] = [];
+  const orbFollow = (anchor: SurveySceneAnchor): THREE.Object3D =>
+    anchor === "vessel" ? vesselOrbAnchor : anchor === "rov" ? rovOrbAnchor : anchors[anchor];
+
+  // Zone focus (exploded equipment + cables)
+  const focusCtl = new FocusController(opts.reducedMotion);
+  scene.add(focusCtl.group);
+  let focusZoneId: string | null = null;
+  let focusSignature = "";
+  const HOME_POSITION = camera.position.clone();
+  const HOME_TARGET = controls.target.clone();
+  const HOME_MIN_DISTANCE = controls.minDistance;
+  let tween: {
+    fromPos: THREE.Vector3;
+    toPos: THREE.Vector3;
+    fromTarget: THREE.Vector3;
+    toTarget: THREE.Vector3;
+    k: number;
+  } | null = null;
+  const flyTo = (position: THREE.Vector3, target: THREE.Vector3): void => {
+    controls.autoRotate = false;
+    if (opts.reducedMotion) {
+      camera.position.copy(position);
+      controls.target.copy(target);
+      tween = null;
+      return;
+    }
+    tween = {
+      fromPos: camera.position.clone(),
+      toPos: position.clone(),
+      fromTarget: controls.target.clone(),
+      toTarget: target.clone(),
+      k: 0,
+    };
+    controls.enabled = false;
+  };
+  const easeInOutCubic = (k: number): number =>
+    k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+
+  const labelTarget = (key: string): THREE.Object3D | null => {
+    if (key.indexOf("zone:") === 0) {
+      const orb = orbs.find((o) => o.zone.id === key.slice(5));
+      return orb && orb.group.visible ? orb.group : null;
+    }
+    if (key.indexOf("node:") === 0 || key.indexOf("cluster:") === 0) {
+      return focusCtl.getLabelTarget(key);
+    }
+    return anchors[key as SurveySceneAnchor] || null;
+  };
+
   const updateLabels = (): void => {
-    (Object.keys(labels) as SurveySceneAnchor[]).forEach((key) => {
+    Object.keys(labels).forEach((key) => {
       const el = labels[key];
-      if (!el) return;
-      anchors[key].getWorldPosition(tmpA);
+      const target = labelTarget(key);
+      if (!target) {
+        el.style.opacity = "0";
+        return;
+      }
+      target.getWorldPosition(tmpA);
       tmpA.project(camera);
       const visible = tmpA.z < 1 && Math.abs(tmpA.x) < 1.1 && Math.abs(tmpA.y) < 1.1;
       el.style.opacity = visible ? "1" : "0";
       const x = ((tmpA.x + 1) / 2) * width;
       const y = ((1 - tmpA.y) / 2) * height;
-      el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -130%)`;
+      el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
     });
   };
+
+  // Picking: click (not drag) on orbs, vessel, ROV, umbilical or exploded nodes
+  const raycaster = new THREE.Raycaster();
+  raycaster.params.Line = { threshold: 0.6 };
+  const pointer = new THREE.Vector2();
+  const isShown = (obj: THREE.Object3D | null): boolean => {
+    for (let o = obj; o; o = o.parent) if (!o.visible) return false;
+    return true;
+  };
+  const pickAt = (clientX: number, clientY: number): ScenePick | null => {
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.set(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    raycaster.setFromCamera(pointer, camera);
+    // The tether is rewritten every frame, so its cached bounds go stale.
+    tetherGeo.computeBoundingSphere();
+    const roots: THREE.Object3D[] = [focusCtl.group, vessel, rov, tether];
+    orbs.forEach((o) => roots.push(o.group));
+    const hits = raycaster.intersectObjects(roots, true);
+    for (let i = 0; i < hits.length; i++) {
+      let o: THREE.Object3D | null = hits[i].object;
+      while (o && !o.userData.pick) o = o.parent;
+      if (o && isShown(o)) return o.userData.pick as ScenePick;
+    }
+    return null;
+  };
+  let down = { x: 0, y: 0, at: 0 };
+  let hoverNode: string | null = null;
+  let hoverQueued = false;
+  const onPointerDown = (e: PointerEvent): void => {
+    down = { x: e.clientX, y: e.clientY, at: performance.now() };
+    opts.onInteract();
+  };
+  const onPointerUp = (e: PointerEvent): void => {
+    const moved = Math.abs(e.clientX - down.x) + Math.abs(e.clientY - down.y);
+    if (moved > 6 || performance.now() - down.at > 600) return;
+    const pick = pickAt(e.clientX, e.clientY);
+    if (pick) opts.onPick(pick);
+  };
+  const onPointerMove = (e: PointerEvent): void => {
+    if (hoverQueued || e.buttons) return;
+    hoverQueued = true;
+    requestAnimationFrame(() => {
+      hoverQueued = false;
+      const pick = pickAt(e.clientX, e.clientY);
+      renderer.domElement.style.cursor = pick ? "pointer" : "";
+      const nodeId = pick && pick.type === "node" ? pick.nodeId : null;
+      if (nodeId !== hoverNode) {
+        hoverNode = nodeId;
+        opts.onHoverNode(nodeId);
+      }
+    });
+  };
+  const onPointerLeave = (): void => {
+    renderer.domElement.style.cursor = "";
+    if (hoverNode) {
+      hoverNode = null;
+      opts.onHoverNode(null);
+    }
+  };
+  renderer.domElement.addEventListener("pointerdown", onPointerDown);
+  renderer.domElement.addEventListener("pointerup", onPointerUp);
+  renderer.domElement.addEventListener("pointermove", onPointerMove);
+  renderer.domElement.addEventListener("pointerleave", onPointerLeave);
 
   const tick = (): void => {
     frame = requestAnimationFrame(tick);
     if (document.hidden) return;
     const dt = Math.min(clock.getDelta(), 0.1);
     if (!opts.reducedMotion) time += dt;
+    if (!opts.reducedMotion && !rovFrozen) rovTime += dt;
     const t = time;
 
     for (let i = 0; i < waterPos.count; i++) {
@@ -562,9 +725,9 @@ export function createSurveyScene(
         0.4 + Math.max(0, Math.sin(t * 3 - i * 1.3)) * 1.2;
     });
 
-    // ROV survey pattern around the manifold
-    const a = t * 0.22;
-    rov.position.set(-2 + Math.cos(a) * 5.5, -10.5 + Math.sin(t * 0.7) * 0.35, 3 + Math.sin(a) * 4);
+    // ROV survey pattern around the manifold (paused while the Subsea zone is open)
+    const a = rovTime * 0.22;
+    rov.position.set(-2 + Math.cos(a) * 5.5, -10.5 + Math.sin(rovTime * 0.7) * 0.35, 3 + Math.sin(a) * 4);
     rov.rotation.y = -a - Math.PI / 2;
 
     // Tether: vessel moonpool → ROV with a sagging midpoint
@@ -580,6 +743,7 @@ export function createSurveyScene(
       tetherPos.setXYZ(i, tetherPoint.x, tetherPoint.y, tetherPoint.z);
     }
     tetherPos.needsUpdate = true;
+    tetherCurve.getPoint(0.5, umbilicalAnchor.position);
 
     rangeLines.forEach((line, i) => {
       const pos = line.geometry.attributes.position as THREE.BufferAttribute;
@@ -608,6 +772,30 @@ export function createSurveyScene(
       highlightTargets[key].scale.setScalar(s);
     });
 
+    orbs.forEach((orb, i) => {
+      orb.follow.getWorldPosition(orb.group.position);
+      const focused = focusZoneId === orb.zone.id;
+      orb.group.visible = !focused;
+      const target = focusZoneId ? 0.55 : 1;
+      orb.group.scale.setScalar(THREE.MathUtils.damp(orb.group.scale.x, target, 6, dt));
+      orb.ring.quaternion.copy(camera.quaternion);
+      const k = (time * 0.5 + i * 0.33) % 1;
+      orb.ring.scale.setScalar(1 + k * 0.9);
+      (orb.ring.material as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - k);
+    });
+
+    if (tween) {
+      tween.k = Math.min(1, tween.k + dt / 1.4);
+      const e = easeInOutCubic(tween.k);
+      camera.position.lerpVectors(tween.fromPos, tween.toPos, e);
+      controls.target.lerpVectors(tween.fromTarget, tween.toTarget, e);
+      if (tween.k >= 1) {
+        tween = null;
+        controls.enabled = true;
+      }
+    }
+    focusCtl.update(dt, time);
+
     controls.update();
     renderer.render(scene, camera);
     updateLabels();
@@ -623,20 +811,117 @@ export function createSurveyScene(
   });
   resizeObserver.observe(container);
 
+  const ZONE_VIEW: Partial<Record<SurveySceneAnchor, { elevation: number; lift: number }>> = {
+    vessel: { elevation: 0.42, lift: 3.4 },
+    rov: { elevation: 0.16, lift: 1.4 },
+    umbilical: { elevation: 0.22, lift: 0.6 },
+  };
+  const zoneTarget = (anchor: SurveySceneAnchor): THREE.Vector3 =>
+    anchor === "vessel"
+      ? vessel.getWorldPosition(new THREE.Vector3()).setY(1.2)
+      : anchors[anchor].getWorldPosition(new THREE.Vector3());
+
+  const disposeMaterials = (root: THREE.Object3D): void =>
+    root.traverse((obj) => {
+      const mat = (obj as THREE.Mesh).material as THREE.Material | undefined;
+      if (mat) mat.dispose();
+    });
+
   return {
-    setLabel: (anchor, el) => {
-      if (el) labels[anchor] = el;
-      else delete labels[anchor];
+    setLabel: (key, el) => {
+      if (el) labels[key] = el;
+      else delete labels[key];
     },
     setHighlight: (anchor) => {
       highlight = anchor;
+    },
+    setZones: (zones) => {
+      orbs.forEach((o) => {
+        scene.remove(o.group);
+        disposeMaterials(o.group);
+      });
+      orbs = zones.map((zone) => {
+        const color = ZONE_COLORS[zone.colorIndex % ZONE_COLORS.length];
+        const group = new THREE.Group();
+        group.userData.pick = { type: "zone", zoneId: zone.id };
+        group.add(
+          new THREE.Mesh(
+            orbCoreGeo,
+            new THREE.MeshStandardMaterial({
+              color,
+              emissive: new THREE.Color(color),
+              emissiveIntensity: 0.55,
+              roughness: 0.3,
+              metalness: 0.1,
+            }),
+          ),
+        );
+        const ring = new THREE.Mesh(
+          orbRingGeo,
+          new THREE.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity: 0.9,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          }),
+        );
+        group.add(ring);
+        scene.add(group);
+        return { zone, group, ring, follow: orbFollow(zone.anchor) };
+      });
+    },
+    setFocus: (focus) => {
+      if (!focus) {
+        if (!focusZoneId) return;
+        focusZoneId = null;
+        focusSignature = "";
+        rovFrozen = false;
+        focusCtl.close();
+        controls.minDistance = HOME_MIN_DISTANCE;
+        flyTo(HOME_POSITION, HOME_TARGET);
+        return;
+      }
+      const signature = `${focus.zoneId}|${focus.nodes.map((n) => n.id).join(",")}|${focus.links.length}`;
+      if (signature === focusSignature) return;
+      focusSignature = signature;
+      focusZoneId = focus.zoneId;
+      rovFrozen = focus.anchor === "rov";
+
+      const view = ZONE_VIEW[focus.anchor] || { elevation: 0.25, lift: 1 };
+      const target = zoneTarget(focus.anchor);
+      // Keep the user's current azimuth so the fly-to feels continuous.
+      const horizontal = new THREE.Vector3().subVectors(camera.position, controls.target).setY(0);
+      if (horizontal.lengthSq() < 1e-4) horizontal.set(0, 0, 1);
+      horizontal.normalize();
+      const viewDir = new THREE.Vector3(horizontal.x, view.elevation, horizontal.z).normalize();
+
+      const origins: Record<string, THREE.Vector3> = {};
+      const items = focus.nodes.map((node) => {
+        const cluster = clusterKeyOf(node, focus);
+        const origin = (anchors[cluster] || anchors[focus.anchor]).getWorldPosition(new THREE.Vector3());
+        origins[node.id] = origin;
+        return { id: node.id, cluster, origin };
+      });
+      const layout = layoutExplode(items, { target, viewDir, lift: view.lift, camera });
+      focusCtl.open(focus, layout, origins);
+      controls.minDistance = 4;
+      flyTo(layout.cameraPosition, layout.center);
+    },
+    setNodeStates: (states) => {
+      focusCtl.setStates(states);
     },
     dispose: () => {
       disposed = true;
       cancelAnimationFrame(frame);
       resizeObserver.disconnect();
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+      renderer.domElement.removeEventListener("pointerup", onPointerUp);
+      renderer.domElement.removeEventListener("pointermove", onPointerMove);
+      renderer.domElement.removeEventListener("pointerleave", onPointerLeave);
       controls.removeEventListener("start", stopAutoRotate);
       controls.dispose();
+      focusCtl.dispose();
       disposeObject(scene);
       renderer.dispose();
       renderer.forceContextLoss();

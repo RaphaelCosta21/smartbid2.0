@@ -152,7 +152,13 @@ export class SurveyCatalogService {
           drawingNo: base.drawingNo || "",
           revision: base.revision || "",
           description: base.description || "",
-          zones: base.zones || [],
+          zones: (base.zones || []).map((z: any) => ({
+            id: String(z.id),
+            title: z.title || "",
+            sceneAnchor: z.sceneAnchor || "vessel",
+            description: z.description || "",
+            lines: z.lines || [],
+          })),
           links: base.links || [],
           order: base.order,
         });
@@ -222,6 +228,8 @@ export class SurveyCatalogService {
       whereItFits: d.whereItFits || [],
       bidConsiderations: d.bidConsiderations || [],
       sceneAnchor: d.sceneAnchor || "",
+      sceneShape: d.sceneShape || "",
+      modelUrl: d.modelUrl || null,
       imageUrl,
       datasheetUrl: d.datasheetUrl || null,
       order: d.order,

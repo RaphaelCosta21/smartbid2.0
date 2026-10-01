@@ -1,12 +1,22 @@
 import * as React from "react";
-import { MousePointer2 } from "lucide-react";
+import { MousePointer2, Play, ChevronLeft, ChevronRight, X, ArrowLeft } from "lucide-react";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
-import { SurveySceneAnchor } from "../../models";
+import { SurveyLinkKind, SurveySceneAnchor } from "../../models";
 import {
   createSurveyScene,
   isWebGLAvailable,
   SurveySceneApi,
 } from "./survey3d/createSurveyScene";
+import {
+  CLUSTER_TITLES,
+  LINK_KINDS,
+  LINK_LABELS,
+  SceneFocus,
+  SceneNodeStates,
+  ScenePick,
+  SceneZone,
+  clusterKeyOf,
+} from "./survey3d/sceneTypes";
 import styles from "./SurveySystemScene.module.scss";
 
 export interface SurveySceneLabel {
@@ -14,25 +24,73 @@ export interface SurveySceneLabel {
   items: { id: string; text: string }[];
 }
 
+export interface SurveySceneTour {
+  step: number;
+  total: number;
+  title: string;
+  caption: string;
+}
+
 interface SurveySystemSceneProps {
   labels: SurveySceneLabel[];
   highlight: SurveySceneAnchor | "";
   selectedId: string | null;
   onSelect: (equipmentId: string) => void;
+  zones: SceneZone[];
+  focus: SceneFocus | null;
+  spreadTitle: string;
+  nodeStates: SceneNodeStates;
+  tracePath: { id: string; label: string }[] | null;
+  tour: SurveySceneTour | null;
+  onZoneSelect: (zoneId: string | null) => void;
+  onNodeSelect: (nodeId: string) => void;
+  onNodeHover: (nodeId: string | null) => void;
+  onInteract: () => void;
+  onTourStart: () => void;
+  onTourStep: (delta: number) => void;
+  onTourStop: () => void;
 }
 
 const COLLAPSE_AFTER = 4;
 const COLLAPSED_COUNT = 3;
+/** Above this many nodes, node labels only show on hover / selection / trace. */
+const ALWAYS_LABEL_MAX = 18;
 
-const SurveySystemScene: React.FC<SurveySystemSceneProps> = ({
-  labels,
-  highlight,
-  selectedId,
-  onSelect,
-}) => {
+const ZONE_TONES = [styles.zoneTone0, styles.zoneTone1, styles.zoneTone2];
+const SWATCHES: Record<SurveyLinkKind, string> = {
+  data: styles.swatchData,
+  power: styles.swatchPower,
+  video: styles.swatchVideo,
+  rf: styles.swatchRf,
+  subsea: styles.swatchSubsea,
+  fibre: styles.swatchFibre,
+  acoustic: styles.swatchAcoustic,
+};
+
+const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
+  const {
+    labels,
+    highlight,
+    selectedId,
+    onSelect,
+    zones,
+    focus,
+    spreadTitle,
+    nodeStates,
+    tracePath,
+    tour,
+    onZoneSelect,
+    onNodeSelect,
+    onTourStart,
+    onTourStep,
+    onTourStop,
+  } = props;
   const hostRef = React.useRef<HTMLDivElement>(null);
   const apiRef = React.useRef<SurveySceneApi | null>(null);
-  const labelEls = React.useRef<Partial<Record<SurveySceneAnchor, HTMLElement>>>({});
+  const labelEls = React.useRef<Record<string, HTMLElement>>({});
+  // The scene is created once; its callbacks read the latest props through this ref.
+  const latest = React.useRef(props);
+  latest.current = props;
   const [supported] = React.useState(isWebGLAvailable);
   const [expanded, setExpanded] = React.useState<string | null>(null);
 
@@ -44,11 +102,23 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = ({
     const api = createSurveyScene(hostRef.current, {
       reducedMotion,
       vesselModelUrl: SHAREPOINT_CONFIG.surveyVesselModelUrl,
+      onPick: (pick: ScenePick) => {
+        const p = latest.current;
+        if (pick.type === "node") p.onNodeSelect(pick.nodeId);
+        else if (pick.type === "zone") p.onZoneSelect(pick.zoneId);
+        else {
+          const zone = p.zones.find((z) => z.anchor === pick.anchor);
+          if (zone) p.onZoneSelect(zone.id);
+        }
+      },
+      onHoverNode: (nodeId) => latest.current.onNodeHover(nodeId),
+      onInteract: () => latest.current.onInteract(),
     });
     apiRef.current = api;
-    (Object.keys(labelEls.current) as SurveySceneAnchor[]).forEach((k) =>
-      api.setLabel(k, labelEls.current[k] || null),
-    );
+    Object.keys(labelEls.current).forEach((k) => api.setLabel(k, labelEls.current[k]));
+    api.setZones(latest.current.zones);
+    api.setFocus(latest.current.focus);
+    api.setNodeStates(latest.current.nodeStates);
     return () => {
       apiRef.current = null;
       api.dispose();
@@ -58,11 +128,20 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = ({
   React.useEffect(() => {
     apiRef.current?.setHighlight(highlight);
   }, [highlight]);
+  React.useEffect(() => {
+    apiRef.current?.setZones(zones);
+  }, [zones]);
+  React.useEffect(() => {
+    apiRef.current?.setFocus(focus);
+  }, [focus]);
+  React.useEffect(() => {
+    apiRef.current?.setNodeStates(nodeStates);
+  }, [nodeStates]);
 
-  const registerLabel = (anchor: SurveySceneAnchor) => (el: HTMLDivElement | null) => {
-    if (el) labelEls.current[anchor] = el;
-    else delete labelEls.current[anchor];
-    apiRef.current?.setLabel(anchor, el);
+  const registerLabel = (key: string) => (el: HTMLDivElement | null) => {
+    if (el) labelEls.current[key] = el;
+    else delete labelEls.current[key];
+    apiRef.current?.setLabel(key, el);
   };
 
   if (!supported) {
@@ -74,49 +153,176 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = ({
     );
   }
 
+  const activeZone = focus ? zones.find((z) => z.id === focus.zoneId) : undefined;
+  const clusters: { key: SurveySceneAnchor; count: number }[] = [];
+  if (focus) {
+    focus.nodes.forEach((n) => {
+      const key = clusterKeyOf(n, focus);
+      const c = clusters.find((x) => x.key === key);
+      if (c) c.count++;
+      else clusters.push({ key, count: 1 });
+    });
+  }
+  const showAllNodeLabels = !!focus && focus.nodes.length <= ALWAYS_LABEL_MAX;
+  const nodeLabelVisible = (id: string): boolean =>
+    showAllNodeLabels ||
+    nodeStates.hoverNodeId === id ||
+    nodeStates.selectedNodeId === id ||
+    nodeStates.traceNodeIds.indexOf(id) >= 0;
+  const legendKinds = focus
+    ? LINK_KINDS.filter((k) => focus.links.some((l) => l.kind === k))
+    : [];
+
   return (
     <div className={styles.root}>
       <div ref={hostRef} className={styles.canvasHost} />
       <div className={styles.labels}>
-        {labels.map((group) => {
-          const collapsible = group.items.length > COLLAPSE_AFTER;
-          const open = !collapsible || expanded === group.anchor;
-          const visible = open
-            ? group.items
-            : group.items.filter(
-                (item, i) => i < COLLAPSED_COUNT || item.id === selectedId,
-              );
-          const hidden = group.items.length - visible.length;
-          return (
-            <div
-              key={group.anchor}
-              ref={registerLabel(group.anchor)}
-              className={`${styles.label} ${group.anchor === highlight ? styles.labelActive : ""}`}
+        {!focus &&
+          labels.map((group) => {
+            const collapsible = group.items.length > COLLAPSE_AFTER;
+            const open = !collapsible || expanded === group.anchor;
+            const visible = open
+              ? group.items
+              : group.items.filter(
+                  (item, i) => i < COLLAPSED_COUNT || item.id === selectedId,
+                );
+            const hidden = group.items.length - visible.length;
+            return (
+              <div key={group.anchor} ref={registerLabel(group.anchor)} className={styles.anchor}>
+                <div className={`${styles.label} ${group.anchor === highlight ? styles.labelActive : ""}`}>
+                  {visible.map((item) => (
+                    <button
+                      key={item.id}
+                      className={item.id === selectedId ? styles.itemSelected : ""}
+                      onClick={() => onSelect(item.id)}
+                    >
+                      {item.text}
+                    </button>
+                  ))}
+                  {collapsible && (
+                    <button
+                      className={styles.more}
+                      aria-expanded={open}
+                      onClick={() => setExpanded(open ? null : group.anchor)}
+                    >
+                      {open ? "Show less" : `+${hidden} more`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+        {zones.map((zone) => (
+          <div key={zone.id} ref={registerLabel(`zone:${zone.id}`)} className={styles.anchor}>
+            <button
+              className={`${styles.zoneLabel} ${ZONE_TONES[zone.colorIndex % ZONE_TONES.length]}`}
+              onClick={() => onZoneSelect(zone.id)}
             >
-              {visible.map((item) => (
-                <button
-                  key={item.id}
-                  className={item.id === selectedId ? styles.itemSelected : ""}
-                  onClick={() => onSelect(item.id)}
-                >
-                  {item.text}
-                </button>
-              ))}
-              {collapsible && (
-                <button
-                  className={styles.more}
-                  aria-expanded={open}
-                  onClick={() => setExpanded(open ? null : group.anchor)}
-                >
-                  {open ? "Show less" : `+${hidden} more`}
-                </button>
-              )}
+              <span className={styles.zoneDot} />
+              {zone.title}
+              <span className={styles.zoneCount}>{zone.count}</span>
+            </button>
+          </div>
+        ))}
+
+        {focus &&
+          clusters.map((c) => (
+            <div key={c.key} ref={registerLabel(`cluster:${c.key}`)} className={styles.anchor}>
+              <span className={styles.clusterLabel}>
+                {CLUSTER_TITLES[c.key] || c.key} · {c.count}
+              </span>
             </div>
-          );
-        })}
+          ))}
+
+        {focus &&
+          focus.nodes
+            .filter((n) => nodeLabelVisible(n.id))
+            .map((n) => (
+              <div key={n.id} ref={registerLabel(`node:${n.id}`)} className={styles.anchor}>
+                <button
+                  className={`${styles.nodeLabel} ${
+                    nodeStates.selectedNodeId === n.id ? styles.nodeActive : ""
+                  }`}
+                  onClick={() => onNodeSelect(n.id)}
+                >
+                  {n.label}
+                  {n.vesselSupplied && <span className={styles.nodeTag}>VESSEL</span>}
+                </button>
+              </div>
+            ))}
       </div>
+
+      {focus && (
+        <div className={styles.breadcrumb}>
+          <button className={styles.crumbBack} onClick={() => onZoneSelect(null)}>
+            <ArrowLeft size={11} /> Overview
+          </button>
+          <span>{spreadTitle}</span>
+          <ChevronRight size={11} />
+          <strong>{activeZone ? activeZone.title : ""}</strong>
+        </div>
+      )}
+
+      {zones.length > 0 && !tour && (
+        <button className={styles.tourButton} onClick={onTourStart}>
+          <Play size={11} /> Guided tour
+        </button>
+      )}
+
+      <div className={styles.bottomStack}>
+        {tour && (
+          <div className={styles.tourCard} role="status" aria-live="polite">
+            <div className={styles.tourHead}>
+              <span className={styles.tourStep}>
+                STEP {tour.step + 1}/{tour.total}
+              </span>
+              <strong>{tour.title}</strong>
+              <button className={styles.tourIcon} onClick={onTourStop} aria-label="Stop tour">
+                <X size={12} />
+              </button>
+            </div>
+            <p className={styles.tourCaption}>{tour.caption}</p>
+            <div className={styles.tourActions}>
+              <button onClick={() => onTourStep(-1)} disabled={tour.step === 0}>
+                <ChevronLeft size={12} /> Back
+              </button>
+              <button onClick={() => onTourStep(1)}>
+                {tour.step + 1 === tour.total ? "Finish" : "Next"} <ChevronRight size={12} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tracePath && tracePath.length > 1 && (
+          <div className={styles.tracePath}>
+            <span className={styles.traceTitle}>SIGNAL PATH</span>
+            {tracePath.map((step, i) => (
+              <React.Fragment key={step.id}>
+                {i > 0 && <ChevronRight size={10} className={styles.traceArrow} />}
+                <button className={styles.traceChip} onClick={() => onNodeSelect(step.id)}>
+                  {step.label}
+                </button>
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+
+        {legendKinds.length > 0 && (
+          <div className={styles.legend}>
+            {legendKinds.map((k) => (
+              <span key={k} className={styles.legendItem}>
+                <span className={`${styles.legendSwatch} ${SWATCHES[k]}`} />
+                {LINK_LABELS[k]}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
       <span className={styles.hint}>
-        <MousePointer2 size={11} /> Drag to orbit · scroll to zoom
+        <MousePointer2 size={11} />{" "}
+        {focus ? "Click equipment for details · Esc to go back" : "Drag to orbit · click a zone"}
       </span>
     </div>
   );
