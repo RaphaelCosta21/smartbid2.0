@@ -1,5 +1,5 @@
 import * as React from "react";
-import { MousePointer2, Play, ChevronLeft, ChevronRight, X, ArrowLeft } from "lucide-react";
+import { Keyboard, Play, ChevronLeft, ChevronRight, X, ArrowLeft } from "lucide-react";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import { SurveyLinkKind } from "../../models";
 import {
@@ -280,10 +280,33 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
         )}
       </div>
 
-      <span className={styles.hint}>
-        <MousePointer2 size={11} />{" "}
-        {focus ? "Click equipment for details · Esc to go back" : "Drag to orbit · click a zone"}
-      </span>
+      <div className={styles.hint} tabIndex={0} aria-label="Navigation controls">
+        <span className={styles.hintTip}>
+          <Keyboard size={12} /> Hold <kbd>Space</kbd> + drag to move
+        </span>
+        <dl className={styles.hintList}>
+          <dt><kbd>Drag</kbd></dt>
+          <dd>Orbit</dd>
+          <dt><kbd>Space</kbd> + <kbd>Drag</kbd> / right-drag</dt>
+          <dd>Move</dd>
+          <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows</dt>
+          <dd>Glide</dd>
+          <dt><kbd>Q</kbd> / <kbd>E</kbd></dt>
+          <dd>Down / up</dd>
+          <dt><kbd>Shift</kbd></dt>
+          <dd>Faster</dd>
+          <dt><kbd>Scroll</kbd></dt>
+          <dd>Zoom</dd>
+          <dt><kbd>R</kbd></dt>
+          <dd>Reset view</dd>
+          {focus && (
+            <>
+              <dt><kbd>Esc</kbd></dt>
+              <dd>Back to overview</dd>
+            </>
+          )}
+        </dl>
+      </div>
     </div>
   );
 };

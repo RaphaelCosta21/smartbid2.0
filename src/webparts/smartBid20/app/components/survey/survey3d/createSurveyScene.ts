@@ -259,7 +259,9 @@ export function createSurveyScene(
   controls.target.set(0, -5, 0);
   controls.enableDamping = true;
   controls.dampingFactor = 0.06;
-  controls.enablePan = false;
+  controls.enablePan = true;
+  controls.screenSpacePanning = true;
+  controls.panSpeed = 0.9;
   controls.minDistance = 26;
   controls.maxDistance = 110;
   controls.maxPolarAngle = Math.PI * 0.62;
@@ -617,7 +619,7 @@ export function createSurveyScene(
   };
   const onPointerUp = (e: PointerEvent): void => {
     const moved = Math.abs(e.clientX - down.x) + Math.abs(e.clientY - down.y);
-    if (moved > 6 || performance.now() - down.at > 600) return;
+    if (spaceHeld || moved > 6 || performance.now() - down.at > 600) return;
     const pick = pickAt(e.clientX, e.clientY);
     if (pick) opts.onPick(pick);
   };
@@ -627,7 +629,7 @@ export function createSurveyScene(
     requestAnimationFrame(() => {
       hoverQueued = false;
       const pick = pickAt(e.clientX, e.clientY);
-      renderer.domElement.style.cursor = pick ? "pointer" : "";
+      renderer.domElement.style.cursor = spaceHeld ? "move" : pick ? "pointer" : "";
       const nodeId = pick && pick.type === "node" ? pick.nodeId : null;
       if (nodeId !== hoverNode) {
         hoverNode = nodeId;
@@ -635,7 +637,11 @@ export function createSurveyScene(
       }
     });
   };
+  const onPointerEnter = (): void => {
+    pointerInside = true;
+  };
   const onPointerLeave = (): void => {
+    pointerInside = false;
     renderer.domElement.style.cursor = "";
     if (hoverNode) {
       hoverNode = null;
@@ -645,7 +651,109 @@ export function createSurveyScene(
   renderer.domElement.addEventListener("pointerdown", onPointerDown);
   renderer.domElement.addEventListener("pointerup", onPointerUp);
   renderer.domElement.addEventListener("pointermove", onPointerMove);
+  renderer.domElement.addEventListener("pointerenter", onPointerEnter);
   renderer.domElement.addEventListener("pointerleave", onPointerLeave);
+
+  // Keyboard navigation: only while the pointer is over the scene (or the canvas has focus)
+  renderer.domElement.tabIndex = 0;
+  let pointerInside = false;
+  let spaceHeld = false;
+  let boost = false;
+  const keys: Record<string, boolean> = {};
+  const NAV_CODES = ["KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+  const BOUNDS = { radius: 46, minY: -17, maxY: 16 };
+  let focusView: { position: THREE.Vector3; target: THREE.Vector3 } | null = null;
+
+  const navActive = (): boolean =>
+    pointerInside || document.activeElement === renderer.domElement;
+  const isTyping = (target: EventTarget | null): boolean => {
+    const el = target as HTMLElement | null;
+    return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+  };
+  const setPanMode = (on: boolean): void => {
+    spaceHeld = on;
+    controls.mouseButtons.LEFT = on ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
+    renderer.domElement.style.cursor = on ? "move" : "";
+  };
+  const resetView = (): void => {
+    if (focusView) flyTo(focusView.position, focusView.target);
+    else flyTo(HOME_POSITION, HOME_TARGET);
+  };
+  const onKeyDown = (e: KeyboardEvent): void => {
+    boost = e.shiftKey;
+    if (!navActive() || isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.code === "Space") {
+      e.preventDefault();
+      if (!spaceHeld) setPanMode(true);
+      opts.onInteract();
+    } else if (e.code === "KeyR" || e.code === "Home") {
+      e.preventDefault();
+      resetView();
+      opts.onInteract();
+    } else if (NAV_CODES.indexOf(e.code) >= 0) {
+      e.preventDefault();
+      keys[e.code] = true;
+      opts.onInteract();
+    }
+  };
+  const onKeyUp = (e: KeyboardEvent): void => {
+    boost = e.shiftKey;
+    if (e.code === "Space" && spaceHeld) setPanMode(false);
+    delete keys[e.code];
+  };
+  const onWindowBlur = (): void => {
+    Object.keys(keys).forEach((k) => delete keys[k]);
+    boost = false;
+    if (spaceHeld) setPanMode(false);
+  };
+  window.addEventListener("keydown", onKeyDown);
+  window.addEventListener("keyup", onKeyUp);
+  window.addEventListener("blur", onWindowBlur);
+
+  const axis = (plus: string[], minus: string[]): number =>
+    (plus.some((k) => keys[k]) ? 1 : 0) - (minus.some((k) => keys[k]) ? 1 : 0);
+  const moveDelta = new THREE.Vector3();
+  const moveForward = new THREE.Vector3();
+  const moveRight = new THREE.Vector3();
+  const applyKeyboardMove = (dt: number): void => {
+    const fwd = axis(["KeyW", "ArrowUp"], ["KeyS", "ArrowDown"]);
+    const side = axis(["KeyD", "ArrowRight"], ["KeyA", "ArrowLeft"]);
+    const vert = axis(["KeyE"], ["KeyQ"]);
+    if (!fwd && !side && !vert) return;
+    tween = null;
+    controls.enabled = true;
+    controls.autoRotate = false;
+    moveForward.subVectors(controls.target, camera.position).setY(0);
+    if (moveForward.lengthSq() < 1e-6) moveForward.set(0, 0, -1);
+    moveForward.normalize();
+    moveRight.crossVectors(moveForward, up).normalize();
+    moveDelta
+      .set(0, 0, 0)
+      .addScaledVector(moveForward, fwd)
+      .addScaledVector(moveRight, side)
+      .addScaledVector(up, vert)
+      .normalize();
+    const speed = (4 + camera.position.distanceTo(controls.target) * 0.5) * (boost ? 2.5 : 1);
+    moveDelta.multiplyScalar(speed * dt);
+    camera.position.add(moveDelta);
+    controls.target.add(moveDelta);
+  };
+  // Keeps panning / gliding inside the diorama.
+  const clampTarget = (): void => {
+    const target = controls.target;
+    moveDelta.copy(target);
+    const r = Math.hypot(target.x, target.z);
+    if (r > BOUNDS.radius) {
+      moveDelta.x *= BOUNDS.radius / r;
+      moveDelta.z *= BOUNDS.radius / r;
+    }
+    moveDelta.y = THREE.MathUtils.clamp(target.y, BOUNDS.minY, BOUNDS.maxY);
+    moveDelta.sub(target);
+    if (moveDelta.lengthSq() > 0) {
+      target.add(moveDelta);
+      camera.position.add(moveDelta);
+    }
+  };
 
   const tick = (): void => {
     frame = requestAnimationFrame(tick);
@@ -729,6 +837,7 @@ export function createSurveyScene(
       (line.material as THREE.LineDashedMaterial).opacity = 0.35 + Math.max(0, Math.sin(t * 3 - i * 1.3)) * 0.6;
     });
 
+    applyKeyboardMove(dt);
     if (tween) {
       tween.k = Math.min(1, tween.k + dt / 1.4);
       const e = easeInOutCubic(tween.k);
@@ -742,6 +851,7 @@ export function createSurveyScene(
     focusCtl.update(dt, time);
 
     controls.update();
+    clampTarget();
     renderer.render(scene, camera);
     updateLabels();
   };
@@ -782,6 +892,7 @@ export function createSurveyScene(
         if (!focusZoneId) return;
         focusZoneId = null;
         focusSignature = "";
+        focusView = null;
         rovFrozen = false;
         focusCtl.close();
         controls.minDistance = HOME_MIN_DISTANCE;
@@ -820,6 +931,7 @@ export function createSurveyScene(
       });
       focusCtl.open(focus, layout, origins);
       controls.minDistance = 4;
+      focusView = { position: layout.cameraPosition.clone(), target: layout.center.clone() };
       flyTo(layout.cameraPosition, layout.center);
     },
     setNodeStates: (states) => {
@@ -832,7 +944,11 @@ export function createSurveyScene(
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
+      renderer.domElement.removeEventListener("pointerenter", onPointerEnter);
       renderer.domElement.removeEventListener("pointerleave", onPointerLeave);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onWindowBlur);
       controls.removeEventListener("start", stopAutoRotate);
       controls.dispose();
       focusCtl.dispose();
