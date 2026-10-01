@@ -139,7 +139,7 @@
 .monoValue {
   font-family: "JetBrains Mono", monospace;
   font-size: 13px;
-  color: var(--secondary-accent);
+  color: var(--text-primary);
 }
 
 .progressSection {
@@ -315,9 +315,12 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: var(--gradient-hero);
+  border: 1px solid var(--header-border);
+  box-shadow: var(--shadow-card);
   border-radius: 16px;
   padding: 24px;
+  font-variant-numeric: tabular-nums;
 }
 
 .bidHeaderLeft {
@@ -330,28 +333,45 @@
   gap: 8px;
   font-size: 18px;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--header-text-primary);
   flex-wrap: wrap;
+}
+
+.bidNumber {
+  font-weight: 400;
 }
 
 .bidHeaderMeta {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--header-text-primary);
   flex-wrap: wrap;
 }
 
+.metaLabel {
+  color: var(--header-text-muted);
+}
+
 .headerSep {
-  color: var(--text-muted);
+  color: var(--header-text-muted);
   opacity: 0.5;
 }
 
 .projectName {
-  color: #94a3b8;
+  color: var(--header-text-primary);
   font-weight: 400;
+}
+
+.bidHeaderRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  align-self: stretch;
+  gap: 12px;
 }
 
 .bidHeaderActions {
@@ -360,16 +380,62 @@
   align-items: center;
 }
 
-.overdueTag {
-  color: #ef4444;
-  font-weight: 600;
+.headerButtons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.shareBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--header-border);
+  background: var(--header-input-bg);
+  color: var(--header-text-secondary);
   font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover:not(:disabled) {
+    color: var(--header-text-primary);
+    border-color: var(--primary-accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.overdueTag,
+.warningTag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.overdueTag {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
 }
 
 .warningTag {
-  color: #f59e0b;
-  font-weight: 600;
-  font-size: 12px;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
 }
 
 .tabContent {
@@ -529,6 +595,141 @@
 .docItemMeta {
   font-size: 11px;
   color: var(--text-muted);
+}
+
+/* ── Technical Proposal indicator ── */
+
+.tpChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+  vertical-align: middle;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+
+  &::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+}
+
+.tpNotRequested {
+  background: transparent;
+}
+
+.tpPending {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 30%, transparent);
+}
+
+.tpAttached,
+.tpPublished {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+}
+
+.tpFailed {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+}
+
+.tpChipInline {
+  margin-left: 8px;
+}
+
+.tpPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tpRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.tpRowLabel {
+  min-width: 110px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+
+.tpLink {
+  color: var(--primary-accent);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.tpError {
+  color: var(--danger);
+}
+
+.tpActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.tpToggle,
+.tpAttachToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+
+  input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--primary-accent);
+    cursor: pointer;
+  }
+
+  input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+  }
+}
+
+.tpAttachToggle {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.tpLockedCategory {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .noteContent {

@@ -567,6 +567,40 @@ const SystemConfiguration: React.FC = () => {
       return;
     }
 
+    if (key === "subStatuses" && !editItem) {
+      const label = panelForm.label.trim();
+      if (!label) return;
+      const taken = [
+        ...(config.phases || []),
+        ...(config.subStatuses || []),
+        ...(config.terminalStatuses || []),
+      ].some(
+        (o) =>
+          (o.value || "").toLowerCase() === label.toLowerCase() ||
+          (o.label || "").toLowerCase() === label.toLowerCase(),
+      );
+      if (taken) {
+        showMsg("error", `"${label}" already exists as a phase or status`);
+        return;
+      }
+      const newStatus: IConfigOption = {
+        id: `ss-${Date.now()}`,
+        label,
+        value: label,
+        isActive: true,
+        order: list.length + 1,
+        color: panelForm.color,
+        category: panelForm.category || "all",
+      };
+      updateConfig({ subStatuses: [...list, newStatus] });
+      showMsg(
+        "success",
+        `"${label}" added — click Save Changes to store it in SharePoint`,
+      );
+      setShowPanel(false);
+      return;
+    }
+
     if (!panelForm.label.trim()) return;
 
     if (editItem) {
@@ -2074,10 +2108,20 @@ const SystemConfiguration: React.FC = () => {
           <h3>Status</h3>
           <p>
             Workflow statuses that can appear within multiple phases. You can
-            customize the color. The phase applicability is shown as read-only
-            chips below each status.
+            add new statuses and customize the color and the phases each status
+            applies to.
           </p>
         </div>
+        {canEdit && (
+          <div className={styles.addBtnRow}>
+            <button
+              className={`${styles.actionBtn} ${styles.primary}`}
+              onClick={() => openAddPanel("subStatuses")}
+            >
+              + Add Status
+            </button>
+          </div>
+        )}
         <div className={styles.optionsList}>
           {subStatusList.map((ss) => (
             <SubStatusColorRow
@@ -3224,24 +3268,25 @@ const SystemConfiguration: React.FC = () => {
               </button>
             </div>
             <div className={styles.panelBody}>
-              {panelConfigKey !== "phases" &&
+              {((panelConfigKey !== "phases" &&
                 panelConfigKey !== "subStatuses" &&
-                panelConfigKey !== "terminalStatuses" && (
-                  <div className={styles.fieldGroup}>
-                    <label>Label</label>
-                    <input
-                      value={panelForm.label}
-                      onChange={(e) =>
-                        setPanelForm({
-                          ...panelForm,
-                          label: e.currentTarget.value,
-                        })
-                      }
-                      placeholder="Display label"
-                      autoFocus
-                    />
-                  </div>
-                )}
+                panelConfigKey !== "terminalStatuses") ||
+                (panelConfigKey === "subStatuses" && !editItem)) && (
+                <div className={styles.fieldGroup}>
+                  <label>Label</label>
+                  <input
+                    value={panelForm.label}
+                    onChange={(e) =>
+                      setPanelForm({
+                        ...panelForm,
+                        label: e.currentTarget.value,
+                      })
+                    }
+                    placeholder="Display label"
+                    autoFocus
+                  />
+                </div>
+              )}
               {(panelConfigKey === "phases" ||
                 panelConfigKey === "subStatuses" ||
                 panelConfigKey === "terminalStatuses") &&
@@ -3352,7 +3397,7 @@ const SystemConfiguration: React.FC = () => {
                   </p>
                 </div>
               )}
-              {panelConfigKey === "subStatuses" && editItem && config && (
+              {panelConfigKey === "subStatuses" && config && (
                 <div className={styles.fieldGroup}>
                   <label>Applicable Phases</label>
                   <p
@@ -3371,7 +3416,8 @@ const SystemConfiguration: React.FC = () => {
                       "Pending Assignment": ["Request Submitted"],
                       "Awaiting Kick Off": ["Bid Kick Off"],
                     };
-                    const lockedPhases = LOCKED_PHASE_MAP[editItem.value] || [];
+                    const lockedPhases =
+                      (editItem && LOCKED_PHASE_MAP[editItem.value]) || [];
 
                     const cat =
                       panelForm.category === undefined ||
@@ -3446,7 +3492,7 @@ const SystemConfiguration: React.FC = () => {
                                   opacity: allChecked || isLocked ? 0.7 : 1,
                                 }}
                                 title={
-                                  isLocked
+                                  isLocked && editItem
                                     ? `"${phase.label}" is required for "${editItem.label}" and cannot be removed`
                                     : undefined
                                 }

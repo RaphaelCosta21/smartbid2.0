@@ -75,6 +75,10 @@ Applied via `.smartBidDark` / `.smartBidLight` on the root. Use the variable, no
 ### Gradients, Shadows & Overlays
 
 - `--gradient-primary`, `--gradient-accent`, `--gradient-header` — use for hero headers / CTAs.
+- `--gradient-hero` — page hero banners (`PageHeader`, BID detail header, settings headers). Pair with
+  `border: 1px solid var(--header-border)` + `--shadow-card`; text uses `--header-*` tokens (banner is
+  dark in both themes). `--gradient-header` stays for the top bar, modal headers and grid headers.
+- Identifiers (BID/CRM/ERN numbers) use a neutral mono style — not `--secondary-accent` blue.
 - `--shadow-card`, `--shadow-card-hover`, `--shadow-glow` — never invent new shadows.
 - `--overlay-bg` — modal/scrim background. `--scrollbar-thumb` / `--scrollbar-track` for custom scrollbars.
 

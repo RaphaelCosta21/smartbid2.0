@@ -20,6 +20,14 @@
   --glass-bg: rgba(21, 34, 56, 0.7);
   --glass-border: rgba(255, 255, 255, 0.08);
   --gradient-header: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  /* Page hero banners — lifted above --main-bg so they don't blend in */
+  --gradient-hero:
+    radial-gradient(
+      circle at 0% 0%,
+      rgba(0, 201, 167, 0.1) 0%,
+      transparent 40%
+    ),
+    linear-gradient(135deg, #1a2d4a 0%, #152238 100%);
   --gradient-primary: linear-gradient(135deg, #00c9a7 0%, #0d9488 100%);
   --gradient-accent: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
   --shadow-glow: 0 0 20px rgba(0, 201, 167, 0.15);

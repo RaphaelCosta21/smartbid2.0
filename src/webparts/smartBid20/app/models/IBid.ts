@@ -854,6 +854,16 @@ export interface IBidKnowledgeProfile {
   doc: IBidKnowledgeDoc;
 }
 
+/** Whether the client asked for a Technical Proposal, and its Knowledge Base copy. */
+export interface IBidTechnicalProposal {
+  requested: boolean;
+  requestedBy?: IPersonRef | null;
+  requestedDate?: string | null;
+  /** Copy in smartBidDocs/Datasheets/Technical Proposals, published on completion. */
+  doc?: IBidKnowledgeDoc;
+  aiStatus?: "ok" | "failed" | "skipped";
+}
+
 export interface IBid {
   bidNumber: string;
   crmNumber: string;
@@ -932,6 +942,7 @@ export interface IBid {
   clarifications: IClarificationItem[];
   /** Past Bids / AI Search projection — set once the BID is Completed and published. */
   knowledgeProfile?: IBidKnowledgeProfile;
+  technicalProposal?: IBidTechnicalProposal;
   /* ── ERN (Engineering Request Number) — one ERN per BID ── */
   /** ERN Number, e.g. "ERN-42" (null = TBD, not yet created) */
   ernNumber?: string | null;

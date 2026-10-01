@@ -302,14 +302,15 @@
   }
 
   &:hover {
-    border-color: var(--accent-color, #3b82f6);
+    border-color: var(--primary-accent);
     color: var(--text-primary);
   }
 
   &:focus {
     outline: none;
-    border-color: var(--accent-color, #3b82f6);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--primary-accent) 15%, transparent);
   }
 }
 
@@ -542,7 +543,7 @@
   font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
   font-weight: 600;
   font-size: 11px;
-  color: var(--accent-color, #3b82f6);
+  color: var(--secondary-accent);
 }
 
 .goToBtn {
@@ -769,7 +770,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--accent-color, #3b82f6);
+  color: var(--secondary-accent);
   margin-bottom: 6px;
   padding-bottom: 4px;
   border-bottom: 1px solid var(--border-subtle);

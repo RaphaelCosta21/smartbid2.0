@@ -139,7 +139,7 @@ export function getPastBidYear(bid: IBid): string {
   return d && !isNaN(d.getTime()) ? String(d.getFullYear()) : "";
 }
 
-function currentRevisionLetter(bid: IBid): string {
+export function currentRevisionLetter(bid: IBid): string {
   const revs = bid.revisions || [];
   return revs.length ? revs[revs.length - 1].revisionLetter || "" : "";
 }

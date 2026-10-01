@@ -5,9 +5,16 @@
  * List + Card dual view. Detail modal with full JSON info + assign panel.
  */
 import * as React from "react";
+import { LayoutGrid, LayoutList, Search, X } from "lucide-react";
 import { PageHeader } from "../components/common/PageHeader";
 import { DataTable } from "../components/common/DataTable";
 import { StatusBadge } from "../components/common/StatusBadge";
+import { KPICard } from "../components/common/KPICard";
+import {
+  MultiSelectDropdown,
+  MultiSelectOption,
+} from "../components/insights/MultiSelectDropdown";
+import { useChartTheme } from "../hooks/useChartTheme";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useConfigStore } from "../stores/useConfigStore";
 import { MembersService } from "../services/MembersService";
@@ -15,12 +22,13 @@ import { RequestService } from "../services/RequestService";
 import { BidService } from "../services/BidService";
 import { useBidStore } from "../stores/useBidStore";
 import { IBidRequest } from "../models/IBidRequest";
-import { IPersonRef, IBid } from "../models";
+import { BidPriority, IPersonRef, IBid } from "../models";
 import { ITeamMember } from "../models/ITeamMember";
 import { PRIORITY_COLORS } from "../utils/constants";
 import { useStatusColors } from "../hooks/useStatusColors";
 import { ErnCreateModal } from "../components/bid/ErnCreateModal";
 import { isIntegratedBid } from "../utils/ernHelpers";
+import { formatDate } from "../utils/formatters";
 import { format } from "date-fns";
 import styles from "./UnassignedRequestsPage.module.scss";
 
@@ -55,6 +63,18 @@ function getAvatarColor(name: string): string {
 
 type ViewMode = "list" | "cards";
 
+const VIEW_OPTIONS: { mode: ViewMode; label: string; icon: React.ReactNode }[] =
+  [
+    { mode: "list", label: "List", icon: <LayoutList size={14} /> },
+    { mode: "cards", label: "Cards", icon: <LayoutGrid size={14} /> },
+  ];
+
+const PRIORITIES: BidPriority[] = ["Urgent", "Normal", "Low"];
+
+function getCreatorKey(r: IBidRequest): string {
+  return r.creator?.email || r.creator?.name || "";
+}
+
 /* ------------------------------------------------------------------ */
 /* COMPONENT                                                          */
 /* ------------------------------------------------------------------ */
@@ -63,6 +83,7 @@ export const UnassignedRequestsPage: React.FC = () => {
   const currentUser = useCurrentUser();
   const sysConfig = useConfigStore((s) => s.config);
   const statusColors = useStatusColors();
+  const chart = useChartTheme();
 
   // Real requests fetched from SharePoint smartbid-tracker list
   const [requests, setRequests] = React.useState<IBidRequest[]>([]);
@@ -72,8 +93,12 @@ export const UnassignedRequestsPage: React.FC = () => {
   const [teamMembers, setTeamMembers] = React.useState<ITeamMember[]>([]);
   const [viewMode, setViewMode] = React.useState<ViewMode>("list");
   const [search, setSearch] = React.useState("");
-  const [priorityFilter, setPriorityFilter] = React.useState<string>("all");
-  const [divisionFilter, setDivisionFilter] = React.useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = React.useState<string[]>([]);
+  const [divisionFilter, setDivisionFilter] = React.useState<string[]>([]);
+  const [serviceLineFilter, setServiceLineFilter] = React.useState<string[]>(
+    [],
+  );
+  const [creatorFilter, setCreatorFilter] = React.useState<string[]>([]);
   const [selectedRequest, setSelectedRequest] =
     React.useState<IBidRequest | null>(null);
   const [showAssignPanel, setShowAssignPanel] = React.useState(false);
@@ -157,14 +182,117 @@ export const UnassignedRequestsPage: React.FC = () => {
           r.requestedBy?.name?.toLowerCase().includes(q),
       );
     }
-    if (priorityFilter !== "all") {
-      list = list.filter((r) => r.priority === priorityFilter);
+    if (priorityFilter.length > 0) {
+      list = list.filter((r) => priorityFilter.indexOf(r.priority) >= 0);
     }
-    if (divisionFilter !== "all") {
-      list = list.filter((r) => r.division === divisionFilter);
+    if (divisionFilter.length > 0) {
+      list = list.filter((r) => divisionFilter.indexOf(r.division) >= 0);
+    }
+    if (serviceLineFilter.length > 0) {
+      list = list.filter(
+        (r) => serviceLineFilter.indexOf(r.serviceLine) >= 0,
+      );
+    }
+    if (creatorFilter.length > 0) {
+      list = list.filter((r) => creatorFilter.indexOf(getCreatorKey(r)) >= 0);
     }
     return list;
-  }, [unassignedRequests, search, priorityFilter, divisionFilter]);
+  }, [
+    unassignedRequests,
+    search,
+    priorityFilter,
+    divisionFilter,
+    serviceLineFilter,
+    creatorFilter,
+  ]);
+
+  // ---- Filter options
+  const divisionOptions = React.useMemo<MultiSelectOption[]>(
+    () =>
+      (sysConfig?.divisions || [])
+        .filter((d) => d.isActive !== false)
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .map((d) => ({
+          value: d.value,
+          label: d.label || d.value,
+          color: statusColors.getDivisionColor(d.value),
+        })),
+    [sysConfig, statusColors],
+  );
+
+  const serviceLineOptions = React.useMemo<MultiSelectOption[]>(() => {
+    const configured = (sysConfig?.serviceLines || []).filter(
+      (s) => s.isActive !== false,
+    );
+    if (configured.length === 0) {
+      const seen: Record<string, true> = {};
+      requests.forEach((r) => {
+        if (r.serviceLine) seen[r.serviceLine] = true;
+      });
+      return Object.keys(seen)
+        .sort((a, b) => a.localeCompare(b))
+        .map((v) => ({ value: v, label: v }));
+    }
+    return configured
+      .filter(
+        (s) =>
+          divisionFilter.length === 0 ||
+          divisionFilter.indexOf(String(s.category)) >= 0,
+      )
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .map((s) => ({
+        value: s.value,
+        label: s.label || s.value,
+        color: statusColors.getServiceLineColor(s.value),
+      }));
+  }, [sysConfig, requests, divisionFilter, statusColors]);
+
+  const creatorOptions = React.useMemo<MultiSelectOption[]>(() => {
+    const nameByKey: Record<string, string> = {};
+    requests.forEach((r) => {
+      const key = getCreatorKey(r);
+      if (key) nameByKey[key] = r.creator?.name || key;
+    });
+    return Object.keys(nameByKey)
+      .map((key) => ({ value: key, label: nameByKey[key] }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [requests]);
+
+  const priorityOptions = React.useMemo<MultiSelectOption[]>(
+    () =>
+      PRIORITIES.map((p) => ({
+        value: p,
+        label: p,
+        color: statusColors.getPriorityColor(p),
+      })),
+    [statusColors],
+  );
+
+  const handleDivisionsChange = (divisions: string[]): void => {
+    setDivisionFilter(divisions);
+    if (divisions.length === 0) return;
+    const configured = sysConfig?.serviceLines || [];
+    setServiceLineFilter((prev) =>
+      prev.filter((value) => {
+        const sl = configured.find((s) => s.value === value);
+        return !sl || divisions.indexOf(String(sl.category)) >= 0;
+      }),
+    );
+  };
+
+  const hasActiveFilters =
+    search.trim() !== "" ||
+    [priorityFilter, divisionFilter, serviceLineFilter, creatorFilter].some(
+      (selected) => selected.length > 0,
+    );
+
+  const handleClearFilters = (): void => {
+    setSearch("");
+    setPriorityFilter([]);
+    setDivisionFilter([]);
+    setServiceLineFilter([]);
+    setCreatorFilter([]);
+  };
 
   // ---- Engineering contributors & analysts
   const engineeringContributors = React.useMemo(() => {
@@ -182,15 +310,7 @@ export const UnassignedRequestsPage: React.FC = () => {
   }, [teamMembers]);
 
   // ---- Stats
-  const urgentCount = unassignedRequests.filter(
-    (r) => r.priority === "Urgent",
-  ).length;
-  const normalCount = unassignedRequests.filter(
-    (r) => r.priority === "Normal",
-  ).length;
-  const lowCount = unassignedRequests.filter(
-    (r) => r.priority === "Low",
-  ).length;
+  const totalPending = unassignedRequests.length;
 
   // ---- Close all modals/panels helper -----------------------------
   const closeAll = (): void => {
@@ -713,7 +833,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                   </span>
                   <span className={styles.modalFieldValue}>
                     {r.operationStartDate
-                      ? format(new Date(r.operationStartDate), "MMM d, yyyy")
+                      ? formatDate(r.operationStartDate, "MMM d, yyyy")
                       : "—"}
                   </span>
                 </div>
@@ -823,7 +943,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                   </span>
                   <span className={styles.modalFieldValue}>
                     {r.desiredDueDate
-                      ? format(new Date(r.desiredDueDate), "MMM d, yyyy")
+                      ? formatDate(r.desiredDueDate, "MMM d, yyyy")
                       : "—"}
                   </span>
                 </div>
@@ -1076,7 +1196,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                   <span className={styles.cardMetaLabel}>Due Date</span>
                   <span className={styles.cardMetaValue}>
                     {r.desiredDueDate
-                      ? format(new Date(r.desiredDueDate), "MMM d")
+                      ? formatDate(r.desiredDueDate, "MMM d")
                       : "—"}
                   </span>
                 </div>
@@ -1271,9 +1391,7 @@ export const UnassignedRequestsPage: React.FC = () => {
       header: "Due Date",
       sortable: true,
       render: (r: IBidRequest) =>
-        r.desiredDueDate
-          ? format(new Date(r.desiredDueDate), "MMM d, yyyy")
-          : "—",
+        r.desiredDueDate ? formatDate(r.desiredDueDate, "MMM d, yyyy") : "—",
     },
     {
       key: "currentPhase",
@@ -1351,6 +1469,26 @@ export const UnassignedRequestsPage: React.FC = () => {
             <line x1="23" y1="11" x2="17" y2="11" />
           </svg>
         }
+        actions={
+          <div className={styles.viewToggle} role="tablist" aria-label="View">
+            {VIEW_OPTIONS.map((opt) => {
+              const active = viewMode === opt.mode;
+              return (
+                <button
+                  key={opt.mode}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={`${styles.viewBtn} ${active ? styles.viewBtnActive : ""}`}
+                  onClick={() => setViewMode(opt.mode)}
+                >
+                  {opt.icon}
+                  <span>{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        }
       />
 
       {/* Message */}
@@ -1370,166 +1508,87 @@ export const UnassignedRequestsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Stat Cards */}
-      <div className={styles.statRow}>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "rgba(59,130,246,0.12)", color: "#3b82f6" }}
-          >
-            📋
-          </div>
-          <div className={styles.statInfo}>
-            <div className={styles.statValue}>{unassignedRequests.length}</div>
-            <div className={styles.statLabel}>Total Pending</div>
-          </div>
-        </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444" }}
-          >
-            🔴
-          </div>
-          <div className={styles.statInfo}>
-            <div className={styles.statValue}>{urgentCount}</div>
-            <div className={styles.statLabel}>Urgent</div>
-          </div>
-        </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "rgba(59,130,246,0.12)", color: "#3b82f6" }}
-          >
-            🔵
-          </div>
-          <div className={styles.statInfo}>
-            <div className={styles.statValue}>{normalCount}</div>
-            <div className={styles.statLabel}>Normal</div>
-          </div>
-        </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "rgba(100,116,139,0.12)", color: "#64748b" }}
-          >
-            ⚪
-          </div>
-          <div className={styles.statInfo}>
-            <div className={styles.statValue}>{lowCount}</div>
-            <div className={styles.statLabel}>Low</div>
-          </div>
-        </div>
+      {/* KPI Cards */}
+      <div className={styles.kpiGrid}>
+        <KPICard
+          label="Total Pending"
+          value={totalPending}
+          variant="glass"
+          accentColor={chart.accent}
+          subtitle="Awaiting assignment"
+        />
+        {PRIORITIES.map((p) => {
+          const count = unassignedRequests.filter(
+            (r) => r.priority === p,
+          ).length;
+          return (
+            <KPICard
+              key={p}
+              label={p}
+              value={count}
+              variant="glass"
+              accentColor={statusColors.getPriorityColor(p)}
+              subtitle={
+                totalPending > 0
+                  ? `${Math.round((count / totalPending) * 100)}% of pending`
+                  : "No pending requests"
+              }
+              progress={{ value: count, max: Math.max(totalPending, 1) }}
+            />
+          );
+        })}
       </div>
 
-      {/* Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.searchWrap}>
-          <svg
-            className={styles.searchIcon}
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+      {/* Filters */}
+      <div className={styles.filterBar}>
+        <div className={styles.searchWrapper}>
+          <Search size={15} className={styles.searchIcon} />
           <input
+            type="text"
             className={styles.searchInput}
-            placeholder="Search by request #, CRM, client, project..."
+            placeholder="Search request #, CRM, client, project, creator…"
             value={search}
             onChange={(e) => setSearch(e.currentTarget.value)}
+            aria-label="Search requests"
           />
         </div>
-
-        {/* Division filter */}
-        <select
-          className={styles.filterSelect}
-          value={divisionFilter}
-          onChange={(e) => setDivisionFilter(e.currentTarget.value)}
-        >
-          <option value="all">All Divisions</option>
-          {(sysConfig?.divisions || [])
-            .filter((d) => d.isActive !== false)
-            .map((d) => (
-              <option key={d.id} value={d.value}>
-                {d.label}
-              </option>
-            ))}
-        </select>
-
-        {/* Priority filter */}
-        <button
-          className={`${styles.filterBtn} ${priorityFilter === "all" ? styles.filterBtnActive : ""}`}
-          onClick={() => setPriorityFilter("all")}
-        >
-          All
-        </button>
-        {(["Urgent", "Normal", "Low"] as const).map((p) => (
+        <MultiSelectDropdown
+          label="Division"
+          options={divisionOptions}
+          selected={divisionFilter}
+          onChange={handleDivisionsChange}
+        />
+        <MultiSelectDropdown
+          label="Service Line"
+          options={serviceLineOptions}
+          selected={serviceLineFilter}
+          onChange={setServiceLineFilter}
+        />
+        <MultiSelectDropdown
+          label="Creator"
+          options={creatorOptions}
+          selected={creatorFilter}
+          onChange={setCreatorFilter}
+        />
+        <MultiSelectDropdown
+          label="Priority"
+          options={priorityOptions}
+          selected={priorityFilter}
+          onChange={setPriorityFilter}
+        />
+        {hasActiveFilters && (
           <button
-            key={p}
-            className={`${styles.filterBtn} ${priorityFilter === p ? styles.filterBtnActive : ""}`}
-            onClick={() => setPriorityFilter(p)}
-            style={
-              priorityFilter === p
-                ? {
-                    borderColor: PRIORITY_COLORS[p],
-                    background: `${PRIORITY_COLORS[p]}18`,
-                    color: PRIORITY_COLORS[p],
-                  }
-                : {}
-            }
+            type="button"
+            className={styles.clearBtn}
+            onClick={handleClearFilters}
           >
-            {p}
+            <X size={14} /> Clear
           </button>
-        ))}
-
-        {/* View toggle */}
-        <div className={styles.viewToggle}>
-          <button
-            className={`${styles.viewBtn} ${viewMode === "list" ? styles.viewBtnActive : ""}`}
-            onClick={() => setViewMode("list")}
-            title="List view"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <line x1="8" y1="6" x2="21" y2="6" />
-              <line x1="8" y1="12" x2="21" y2="12" />
-              <line x1="8" y1="18" x2="21" y2="18" />
-              <line x1="3" y1="6" x2="3.01" y2="6" />
-              <line x1="3" y1="12" x2="3.01" y2="12" />
-              <line x1="3" y1="18" x2="3.01" y2="18" />
-            </svg>
-          </button>
-          <button
-            className={`${styles.viewBtn} ${viewMode === "cards" ? styles.viewBtnActive : ""}`}
-            onClick={() => setViewMode("cards")}
-            title="Card view"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
-            </svg>
-          </button>
-        </div>
+        )}
+        <span className={styles.resultCount}>
+          <strong>{filteredRequests.length}</strong>{" "}
+          {filteredRequests.length === 1 ? "request" : "requests"}
+        </span>
       </div>
 
       {/* Content: List or Cards */}

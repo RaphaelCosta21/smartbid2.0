@@ -7,7 +7,7 @@ import { useBids } from "../hooks/useBids";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { isActiveBid, isOverdueBid } from "../utils/bidHelpers";
 import { DIVISION_COLORS } from "../utils/constants";
-import { differenceInDays } from "date-fns";
+import { formatDaysLeft } from "../utils/formatters";
 import styles from "./MyDashboardPage.module.scss";
 
 export const MyDashboardPage: React.FC = () => {
@@ -27,7 +27,6 @@ export const MyDashboardPage: React.FC = () => {
   );
   const myActive = myBids.filter(isActiveBid);
   const myOverdue = myActive.filter(isOverdueBid);
-  const now = new Date();
 
   return (
     <div className={styles.page}>
@@ -76,7 +75,7 @@ export const MyDashboardPage: React.FC = () => {
         ) : (
           <div className={styles.bidList}>
             {myActive.map((bid) => {
-              const daysLeft = differenceInDays(new Date(bid.dueDate), now);
+              const due = formatDaysLeft(bid.dueDate);
               return (
                 <div
                   key={bid.bidNumber}
@@ -93,11 +92,9 @@ export const MyDashboardPage: React.FC = () => {
                   </span>
                   <StatusBadge status={bid.currentStatus} />
                   <span
-                    className={`${styles.bidRowDays} ${daysLeft < 0 ? styles.daysOverdue : daysLeft <= 3 ? styles.daysWarning : styles.daysOk}`}
+                    className={`${styles.bidRowDays} ${due.isOverdue ? styles.daysOverdue : due.days !== null && due.days <= 3 ? styles.daysWarning : styles.daysOk}`}
                   >
-                    {daysLeft < 0
-                      ? `${Math.abs(daysLeft)}d overdue`
-                      : `${daysLeft}d left`}
+                    {due.text}
                   </span>
                 </div>
               );

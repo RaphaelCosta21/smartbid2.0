@@ -623,8 +623,9 @@ export const Sidebar: React.FC = () => {
         {groupedItems["action"]?.map((item) => (
           <button
             key={item.key}
-            className={styles.createBtn}
+            className={`${styles.createBtn} ${!sidebarExpanded ? styles.createBtnCollapsed : ""}`}
             onClick={() => navigate(item.route)}
+            aria-label={item.label}
             title={!sidebarExpanded ? item.label : undefined}
           >
             <Icon name={item.icon} size={sidebarExpanded ? 16 : 20} />

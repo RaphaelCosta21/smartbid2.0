@@ -91,6 +91,15 @@
   transition: all 250ms ease;
   box-shadow: 0 0 12px rgba(0, 201, 167, 0.2);
 
+  &.createBtnCollapsed {
+    padding: 10px 0;
+    gap: 0;
+  }
+
+  > svg {
+    flex-shrink: 0;
+  }
+
   &:hover {
     transform: translateY(-1px);
     box-shadow: 0 0 20px rgba(0, 201, 167, 0.35);

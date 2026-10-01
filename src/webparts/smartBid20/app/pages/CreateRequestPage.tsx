@@ -16,6 +16,7 @@ import {
   isToday,
   countBusinessDays,
 } from "../utils/businessDays";
+import { parseDate } from "../utils/formatters";
 import { PRIORITY_COLORS } from "../utils/constants";
 import { IPersonRef } from "../models/IUser";
 import { ITeamMember } from "../models/ITeamMember";
@@ -46,6 +47,7 @@ interface FormData {
   vessel: string;
   field: string;
   commercialFolderUrl: string;
+  technicalProposalRequested: boolean;
   notes: string;
 }
 
@@ -69,6 +71,7 @@ const INITIAL_FORM: FormData = {
   vessel: "",
   field: "",
   commercialFolderUrl: "",
+  technicalProposalRequested: false,
   notes: "",
 };
 
@@ -115,7 +118,10 @@ export const CreateRequestPage: React.FC = () => {
 
   // Business days until due date
   const businessDaysUntilDue = form.desiredDueDate
-    ? countBusinessDays(new Date(), new Date(form.desiredDueDate))
+    ? countBusinessDays(
+        new Date(),
+        parseDate(form.desiredDueDate) || new Date(),
+      )
     : null;
 
   // Config-driven lists
@@ -297,7 +303,8 @@ export const CreateRequestPage: React.FC = () => {
     const match = clientOptions.find(
       (c) => c.label.toLowerCase() === clientQuery,
     );
-    if (match && match.value !== form.client) updateField("client", match.value);
+    if (match && match.value !== form.client)
+      updateField("client", match.value);
   };
 
   const handleClientKeyDown = (
@@ -416,6 +423,7 @@ export const CreateRequestPage: React.FC = () => {
         vessel: form.vessel,
         field: form.field,
         commercialFolderUrl: form.commercialFolderUrl,
+        technicalProposalRequested: form.technicalProposalRequested,
         attachments: attachmentsMeta,
         phases: [
           {
@@ -654,7 +662,8 @@ export const CreateRequestPage: React.FC = () => {
                               aria-selected={c.value === form.client}
                               ref={
                                 i === clientHighlight
-                                  ? (el) => el?.scrollIntoView({ block: "nearest" })
+                                  ? (el) =>
+                                      el?.scrollIntoView({ block: "nearest" })
                                   : undefined
                               }
                               className={`${styles.peopleDropdownItem} ${styles.comboOption} ${i === clientHighlight ? styles.comboOptionActive : ""}`}
@@ -1187,6 +1196,28 @@ export const CreateRequestPage: React.FC = () => {
                     Do not change the folder path after submission.
                   </span>
                 </label>
+                <div className={styles.formGroupFull}>
+                  <span className={styles.formLabel}>Technical Proposal</span>
+                  <label className={styles.checkboxRow}>
+                    <input
+                      type="checkbox"
+                      checked={form.technicalProposalRequested}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setForm((prev) => ({
+                          ...prev,
+                          technicalProposalRequested: checked,
+                        }));
+                      }}
+                    />
+                    <span className={styles.checkboxText}>
+                      Deliver a Technical Proposal with this BID
+                    </span>
+                  </label>
+                  <span className={styles.fieldNote}>
+                    Engineering attaches the proposal PDF in the BID documents.
+                  </span>
+                </div>
                 <label className={styles.formGroupFull}>
                   <span className={styles.formLabel}>Notes</span>
                   <textarea
@@ -1397,6 +1428,7 @@ export const CreateRequestPage: React.FC = () => {
               {(form.vessel ||
                 form.field ||
                 form.commercialFolderUrl ||
+                form.technicalProposalRequested ||
                 form.notes ||
                 uploadedFiles.length > 0) && (
                 <>
@@ -1433,6 +1465,16 @@ export const CreateRequestPage: React.FC = () => {
                           >
                             {form.commercialFolderUrl}
                           </a>
+                        </span>
+                      </div>
+                    )}
+                    {form.technicalProposalRequested && (
+                      <div className={styles.reviewCell}>
+                        <span className={styles.reviewCellLabel}>
+                          Technical Proposal
+                        </span>
+                        <span className={styles.reviewCellValue}>
+                          Requested
                         </span>
                       </div>
                     )}

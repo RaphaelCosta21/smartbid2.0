@@ -1,4 +1,5 @@
 import { BidPriority } from "../models/IBidStatus";
+import { parseDate } from "./formatters";
 
 /**
  * Count business days between two dates (excluding weekends).
@@ -26,10 +27,10 @@ export function countBusinessDays(startDate: Date, endDate: Date): number {
  * - More than 14 business days: Low
  */
 export function calculatePriority(desiredDueDate: string): BidPriority {
-  if (!desiredDueDate) return "Normal";
+  const dueDate = parseDate(desiredDueDate);
+  if (!dueDate) return "Normal";
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const dueDate = new Date(desiredDueDate);
   dueDate.setHours(0, 0, 0, 0);
 
   const bizDays = countBusinessDays(today, dueDate);

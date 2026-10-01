@@ -26,6 +26,7 @@ import { useStatusColors } from "../hooks/useStatusColors";
 import { PHASE_ORDER, volumeTrend } from "../utils/analyticsHelpers";
 import { avgApprovalDaysBySector } from "../utils/approvalHelpers";
 import { bidsToCSV, downloadCSV } from "../utils/exportHelpers";
+import { isPastDue } from "../utils/formatters";
 import { captureElementToPng, buildReportPdf } from "../utils/pdfExport";
 import { ExportService } from "../services/ExportService";
 import styles from "./OperationalSummaryPage.module.scss";
@@ -108,13 +109,11 @@ export const OperationalSummaryPage: React.FC = () => {
   );
 
   const stats = React.useMemo(() => {
-    const now = Date.now();
     const active = filtered.filter((b) => !isTerminal(b.currentStatus));
     const pending = filtered.filter((b) => b.approvalStatus === "pending");
-    const overdue = active.filter((b) => {
-      const due = b.desiredDueDate || b.dueDate;
-      return due ? new Date(due).getTime() < now : false;
-    });
+    const overdue = active.filter((b) =>
+      isPastDue(b.desiredDueDate || b.dueDate),
+    );
     const completed = filtered.filter(
       (b) =>
         b.currentStatus === "Completed" && b.completedDate && b.createdDate,
@@ -141,17 +140,16 @@ export const OperationalSummaryPage: React.FC = () => {
   }, [filtered, isTerminal]);
 
   const divWorkloads = React.useMemo(() => {
-    const now = Date.now();
     return divisions
       .map((d) => {
         const db = filtered.filter((b) => b.division === d.value);
         const active = db.filter((b) => !isTerminal(b.currentStatus)).length;
         const pending = db.filter((b) => b.approvalStatus === "pending").length;
-        const overdue = db.filter((b) => {
-          if (isTerminal(b.currentStatus)) return false;
-          const due = b.desiredDueDate || b.dueDate;
-          return due ? new Date(due).getTime() < now : false;
-        }).length;
+        const overdue = db.filter(
+          (b) =>
+            !isTerminal(b.currentStatus) &&
+            isPastDue(b.desiredDueDate || b.dueDate),
+        ).length;
         return { division: d.label, active, pending, overdue };
       })
       .filter((d) => d.active + d.pending + d.overdue > 0);

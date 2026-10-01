@@ -2,6 +2,7 @@ import * as React from "react";
 import { CloudUpload, ExternalLink, Pencil, RefreshCw, X } from "lucide-react";
 import { IBid } from "../../models";
 import { DivisionBadge } from "../common/DivisionBadge";
+import { BidFavoriteButton } from "../bid/BidFavoriteButton";
 import { formatDate } from "../../utils/formatters";
 import {
   findRelatedBids,
@@ -249,6 +250,11 @@ export const PastBidDrawer: React.FC<PastBidDrawerProps> = ({
           >
             Open BID Details
           </button>
+          <BidFavoriteButton
+            bid={bid}
+            showLabel
+            className={styles.secondaryBtn}
+          />
           {canManage && (
             <>
               <button

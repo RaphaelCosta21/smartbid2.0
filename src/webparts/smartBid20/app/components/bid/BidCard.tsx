@@ -1,5 +1,5 @@
 import * as React from "react";
-import { StickyNote } from "lucide-react";
+import { CalendarClock, ChevronDown, StickyNote } from "lucide-react";
 import { IBid, IQuickNote } from "../../models";
 import { StatusBadge } from "../common/StatusBadge";
 import { getPhaseDef } from "../../config/status.config";
@@ -7,13 +7,16 @@ import { getPhaseProgressByIndex } from "../../utils/phaseHelpers";
 import { getErnLinks } from "../../utils/ernHelpers";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useStatusColors } from "../../hooks/useStatusColors";
-import { differenceInDays, format } from "date-fns";
+import { formatDate, formatDaysLeft } from "../../utils/formatters";
+import { format } from "date-fns";
 import styles from "./BidCard.module.scss";
 
 interface BidCardProps {
   bid: IBid;
   onClick: (bid: IBid) => void;
   dimmed?: boolean;
+  /** Hide the division badge when the container already conveys it (Kanban column). */
+  hideDivision?: boolean;
   onNotesChange?: (bidNumber: string, notes: IQuickNote[]) => void;
 }
 
@@ -21,18 +24,28 @@ export const BidCard: React.FC<BidCardProps> = ({
   bid,
   onClick,
   dimmed,
+  hideDivision,
   onNotesChange,
 }) => {
   const currentUser = useCurrentUser();
-  const { getPhaseColor, getStatusColor, getPriorityColor } = useStatusColors();
-  const now = new Date();
-  const daysLeft = differenceInDays(new Date(bid.dueDate), now);
-  const dueClass =
-    daysLeft < 0 ? styles.overdue : daysLeft <= 3 ? styles.warning : styles.ok;
+  const {
+    getPhaseColor,
+    getStatusColor,
+    getPriorityColor,
+    getDivisionColor,
+    getServiceLineColor,
+  } = useStatusColors();
+  const due = formatDaysLeft(bid.dueDate);
+  const dueClass = due.isOverdue
+    ? styles.overdue
+    : due.days !== null && due.days <= 3
+      ? styles.warning
+      : styles.ok;
   const phaseDef = getPhaseDef(bid.currentPhase);
   const phaseColor = getPhaseColor(bid.currentPhase);
   const statusColor = getStatusColor(bid.currentStatus);
   const priorityColor = getPriorityColor(bid.priority);
+  const progress = getPhaseProgressByIndex(bid);
 
   const [notesOpen, setNotesOpen] = React.useState(false);
   const [noteText, setNoteText] = React.useState("");
@@ -69,38 +82,60 @@ export const BidCard: React.FC<BidCardProps> = ({
       onClick={() => onClick(bid)}
     >
       <div className={styles.cardHeader}>
-        <span className={styles.bidNumber}>
-          {bid.bidNumber}
-          {bid.crmNumber ? ` · ${bid.crmNumber}` : ""}
+        <span className={styles.bidNumber}>{bid.bidNumber}</span>
+        {bid.crmNumber && (
+          <span className={styles.crmNumber}>CRM {bid.crmNumber}</span>
+        )}
+        <span className={styles.priority}>
+          <StatusBadge status={bid.priority} color={priorityColor} />
         </span>
-        <StatusBadge status={bid.priority} color={priorityColor} />
       </div>
 
-      <div className={styles.clientName}>
-        {bid.opportunityInfo?.client || ""}
+      <div>
+        <div className={styles.clientName}>
+          {bid.opportunityInfo?.client || ""}
+        </div>
+        <div className={styles.projectName}>
+          {bid.opportunityInfo?.projectName || ""}
+        </div>
       </div>
-      <div className={styles.projectName}>
-        {bid.opportunityInfo?.projectName || ""}
+
+      <div className={styles.badgeRow}>
+        {!hideDivision && bid.division && (
+          <StatusBadge
+            status={bid.division}
+            color={getDivisionColor(bid.division)}
+          />
+        )}
+        {bid.serviceLine && (
+          <StatusBadge
+            status={bid.serviceLine}
+            color={getServiceLineColor(bid.serviceLine)}
+          />
+        )}
+        {phaseDef && <StatusBadge status={phaseDef.label} color={phaseColor} />}
+        <StatusBadge status={bid.currentStatus} color={statusColor} />
       </div>
 
       <div className={styles.cardMeta}>
-        <span>
-          {bid.division}
-          {bid.serviceLine ? ` · ${bid.serviceLine}` : ""}
+        <span className={styles.metaLabel}>Creator</span>
+        <span className={styles.metaValue}>{bid.creator?.name || "—"}</span>
+        <span className={styles.metaLabel}>
+          {engineers.length > 1 ? "Engineers" : "Engineer"}
         </span>
-        <span>Creator: {bid.creator?.name || "—"}</span>
-        <span>
-          {engineers.length > 1 ? "Engineers" : "Engineer"}:{" "}
+        <span className={styles.metaValue}>
           {engineers.length > 0 ? engineers.join(", ") : "—"}
         </span>
         {analysts.length > 0 && (
-          <span>
-            {analysts.length > 1 ? "Analysts" : "Analyst"}:{" "}
-            {analysts.join(", ")}
-          </span>
+          <>
+            <span className={styles.metaLabel}>
+              {analysts.length > 1 ? "Analysts" : "Analyst"}
+            </span>
+            <span className={styles.metaValue}>{analysts.join(", ")}</span>
+          </>
         )}
-        <span>
-          ERN:{" "}
+        <span className={styles.metaLabel}>ERN</span>
+        <span className={styles.metaValue}>
           {ernLinks.length === 0
             ? "TBD"
             : ernLinks
@@ -111,84 +146,82 @@ export const BidCard: React.FC<BidCardProps> = ({
         </span>
       </div>
 
-      <div className={styles.progressBar}>
-        <div
-          className={styles.progressFill}
-          style={{ width: `${getPhaseProgressByIndex(bid)}%` }}
-        />
+      <div className={styles.progressRow}>
+        <div className={styles.progressBar}>
+          <div
+            className={styles.progressFill}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <span className={styles.progressPct}>{progress}%</span>
       </div>
 
       <div className={styles.cardFooter}>
-        <div className={styles.badgeRow}>
-          {phaseDef && (
-            <StatusBadge status={phaseDef.label} color={phaseColor} />
-          )}
-          <StatusBadge status={bid.currentStatus} color={statusColor} />
-        </div>
-        <span className={`${styles.dueDate} ${dueClass}`}>
-          {daysLeft < 0
-            ? `${Math.abs(daysLeft)}d overdue`
-            : daysLeft === 0
-              ? "Due today"
-              : `${daysLeft}d left`}
+        <span
+          className={`${styles.dueChip} ${dueClass}`}
+          title={
+            due.days !== null
+              ? formatDate(bid.dueDate, "dd/MM/yyyy")
+              : undefined
+          }
+        >
+          <CalendarClock size={12} />
+          {due.text}
         </span>
-      </div>
-
-      {/* Notes indicator + expandable section */}
-      <div className={styles.notesSection}>
         <button
+          type="button"
           className={styles.notesToggle}
           onClick={toggleNotes}
           title={notesOpen ? "Collapse notes" : "Expand notes"}
+          aria-expanded={notesOpen}
         >
-          <span className={styles.notesIcon}>
-            <StickyNote size={14} />
-          </span>
+          <StickyNote size={13} />
           <span>Notes</span>
           {notes.length > 0 && (
             <span className={styles.notesBadge}>{notes.length}</span>
           )}
-          <span className={styles.notesChevron}>{notesOpen ? "▲" : "▼"}</span>
+          <ChevronDown
+            size={12}
+            className={`${styles.notesChevron} ${notesOpen ? styles.notesChevronOpen : ""}`}
+          />
         </button>
-        {notesOpen && (
-          <div
-            className={styles.notesBody}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {notes.length === 0 && (
-              <div className={styles.notesEmpty}>No notes yet</div>
-            )}
-            {notes.map((n) => (
-              <div key={n.id} className={styles.noteItem}>
-                <div className={styles.noteText}>{n.text}</div>
-                <div className={styles.noteMeta}>
-                  {n.author.name} ·{" "}
-                  {format(new Date(n.createdAt), "dd/MM/yyyy HH:mm")}
-                </div>
-              </div>
-            ))}
-            <div className={styles.noteInputRow}>
-              <input
-                className={styles.noteInput}
-                value={noteText}
-                onChange={(e) => setNoteText(e.currentTarget.value)}
-                placeholder="Add a note…"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter")
-                    handleAddNote(e as unknown as React.MouseEvent);
-                }}
-              />
-              <button
-                className={styles.noteAddBtn}
-                onClick={handleAddNote}
-                disabled={!noteText.trim()}
-              >
-                +
-              </button>
-            </div>
-          </div>
-        )}
       </div>
+
+      {notesOpen && (
+        <div className={styles.notesBody} onClick={(e) => e.stopPropagation()}>
+          {notes.length === 0 && (
+            <div className={styles.notesEmpty}>No notes yet</div>
+          )}
+          {notes.map((n) => (
+            <div key={n.id} className={styles.noteItem}>
+              <div className={styles.noteText}>{n.text}</div>
+              <div className={styles.noteMeta}>
+                {n.author.name} ·{" "}
+                {format(new Date(n.createdAt), "dd/MM/yyyy HH:mm")}
+              </div>
+            </div>
+          ))}
+          <div className={styles.noteInputRow}>
+            <input
+              className={styles.noteInput}
+              value={noteText}
+              onChange={(e) => setNoteText(e.currentTarget.value)}
+              placeholder="Add a note…"
+              onKeyDown={(e) => {
+                if (e.key === "Enter")
+                  handleAddNote(e as unknown as React.MouseEvent);
+              }}
+            />
+            <button
+              className={styles.noteAddBtn}
+              onClick={handleAddNote}
+              disabled={!noteText.trim()}
+            >
+              +
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

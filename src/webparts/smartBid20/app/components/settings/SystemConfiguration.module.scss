@@ -14,10 +14,11 @@
 }
 
 .header {
-  background: var(--gradient-header);
+  background: var(--gradient-hero);
+  border: 1px solid var(--header-border);
   border-radius: 16px;
   padding: 32px;
-  color: #f1f5f9;
+  color: var(--header-text-primary);
   box-shadow: var(--shadow-card);
 
   .headerContent {
@@ -28,7 +29,7 @@
 
   .headerIcon {
     font-size: 48px;
-    color: #60a5fa;
+    color: var(--primary-accent);
     display: flex;
   }
 
@@ -42,12 +43,12 @@
     font-size: 28px;
     font-weight: 700;
     margin: 0;
-    color: #f1f5f9;
+    color: var(--header-text-primary);
   }
 
   .subtitle {
     font-size: 14px;
-    color: #94a3b8;
+    color: var(--header-text-secondary);
     margin: 0;
     font-weight: 400;
   }

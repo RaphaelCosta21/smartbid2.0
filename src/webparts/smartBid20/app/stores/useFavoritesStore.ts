@@ -127,7 +127,12 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
     }
     const updated: IFavoritesData = { ...data, bids: updatedBids };
     set({ data: updated });
-    await FavoritesService.save(updated);
+    try {
+      await FavoritesService.save(updated);
+    } catch (err) {
+      if (get().data === updated) set({ data });
+      throw err;
+    }
   },
 
   isBidFavorite: (bidNumber: string): boolean => {

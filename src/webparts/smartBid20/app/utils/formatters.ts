@@ -1,4 +1,8 @@
-import { format, formatDistanceToNow, differenceInDays } from "date-fns";
+import {
+  format,
+  formatDistanceToNow,
+  differenceInCalendarDays,
+} from "date-fns";
 
 export function formatCurrency(
   value: number,
@@ -24,19 +28,53 @@ export function formatNumber(value: number): string {
   return value.toLocaleString("en-US");
 }
 
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Parses a stored date. Date-only "YYYY-MM-DD" values are read as a local
+ * date — `new Date()` reads them as UTC, i.e. the previous day in Brazil.
+ */
+export function parseDate(
+  value: string | Date | null | undefined,
+): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+  const m = DATE_ONLY.exec(value);
+  const d = m
+    ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+    : new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/** Calendar days from `from` to the due date: 0 = today, negative = overdue, null = no valid date. */
+export function getDaysUntil(
+  dueDate: string | Date | null | undefined,
+  from: Date = new Date(),
+): number | null {
+  const due = parseDate(dueDate);
+  return due ? differenceInCalendarDays(due, from) : null;
+}
+
+/** True once `from` is past the due day — the due day itself is not overdue. */
+export function isPastDue(
+  dueDate: string | Date | null | undefined,
+  from: Date = new Date(),
+): boolean {
+  const days = getDaysUntil(dueDate, from);
+  return days !== null && days < 0;
+}
+
 export function formatDate(
   dateStr: string,
   pattern: string = "MMM d, yyyy",
 ): string {
-  const d = new Date(dateStr);
-  if (!dateStr || isNaN(d.getTime())) return "—";
-  return format(d, pattern);
+  const d = parseDate(dateStr);
+  return d ? format(d, pattern) : "—";
 }
 
 export function formatDateTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  if (!dateStr || isNaN(d.getTime())) return "—";
-  return format(d, "MMM d, yyyy HH:mm");
+  const d = parseDate(dateStr);
+  return d ? format(d, "MMM d, yyyy HH:mm") : "—";
 }
 
 export function formatRelativeTime(dateStr: string): string {
@@ -45,15 +83,16 @@ export function formatRelativeTime(dateStr: string): string {
   return formatDistanceToNow(d, { addSuffix: true });
 }
 
-export function formatDaysLeft(dueDate: string): {
+export function formatDaysLeft(dueDate: string | null | undefined): {
   text: string;
   isOverdue: boolean;
-  days: number;
+  days: number | null;
 } {
-  const days = differenceInDays(new Date(dueDate), new Date());
-  if (days < 0)
-    return { text: `${Math.abs(days)}d overdue`, isOverdue: true, days };
+  const days = getDaysUntil(dueDate);
+  if (days === null) return { text: "No due date", isOverdue: false, days };
+  if (days < 0) return { text: `${-days}d overdue`, isOverdue: true, days };
   if (days === 0) return { text: "Due today", isOverdue: false, days };
+  if (days === 1) return { text: "Due tomorrow", isOverdue: false, days };
   return { text: `${days}d left`, isOverdue: false, days };
 }
 

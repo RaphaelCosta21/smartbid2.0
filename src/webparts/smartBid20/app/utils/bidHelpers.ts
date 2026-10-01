@@ -1,5 +1,5 @@
 import { IBid, Division } from "../models";
-import { differenceInDays } from "date-fns";
+import { isPastDue } from "./formatters";
 
 export function isActiveBid(bid: IBid): boolean {
   const terminalStatuses = [
@@ -13,7 +13,7 @@ export function isActiveBid(bid: IBid): boolean {
 
 export function isOverdueBid(bid: IBid): boolean {
   if (!isActiveBid(bid)) return false;
-  return differenceInDays(new Date(bid.dueDate), new Date()) < 0;
+  return isPastDue(bid.dueDate);
 }
 
 export function getBidsByDivision(bids: IBid[], division: Division): IBid[] {

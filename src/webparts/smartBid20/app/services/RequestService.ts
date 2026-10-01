@@ -60,6 +60,7 @@ export class RequestService {
       vessel: opp.vessel || "",
       field: opp.field || "",
       commercialFolderUrl: bid.commercialFolderUrl || "",
+      technicalProposalRequested: !!bid.technicalProposal?.requested,
       attachments: (bid.attachments || []).map((a) => ({
         fileName: a.fileName,
         fileType: a.fileType,
@@ -274,6 +275,11 @@ export class RequestService {
       templateUsed: null,
       bidFolderUrl: null,
       commercialFolderUrl: request.commercialFolderUrl || null,
+      technicalProposal: {
+        requested: !!request.technicalProposalRequested,
+        requestedBy: request.technicalProposalRequested ? creatorRef : null,
+        requestedDate: request.technicalProposalRequested ? now : null,
+      },
       bidNotes: request.notes ? { general: request.notes } : {},
       bidNotesMetadata: {},
       quickNotes: [],

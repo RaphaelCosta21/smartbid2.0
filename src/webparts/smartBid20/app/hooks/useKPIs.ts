@@ -5,6 +5,7 @@
 import * as React from "react";
 import { useBidStore } from "../stores/useBidStore";
 import { useConfigStore } from "../stores/useConfigStore";
+import { isPastDue } from "../utils/formatters";
 
 export interface BidKPIs {
   totalBids: number;
@@ -55,11 +56,9 @@ export function useKPIs(): BidKPIs {
       ? (wonBids / completedWithResult.length) * 100
       : 0;
 
-    const now = new Date();
-    const overdueBids = bids.filter((b) => {
-      if (isTerminal(b.currentStatus)) return false;
-      return b.dueDate ? new Date(b.dueDate) < now : false;
-    }).length;
+    const overdueBids = bids.filter(
+      (b) => !isTerminal(b.currentStatus) && isPastDue(b.dueDate),
+    ).length;
     const overdueRate = activeBids ? (overdueBids / activeBids) * 100 : 0;
 
     const completedBids = bids.filter(

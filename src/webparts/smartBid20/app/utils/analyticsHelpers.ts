@@ -7,6 +7,7 @@
  */
 import { IBid, BidPhase, ITeamMember, IPersonRef } from "../models";
 import { getErnLinks } from "./ernHelpers";
+import { isPastDue, parseDate } from "./formatters";
 
 export type Granularity = "week" | "month" | "quarter";
 export type DurationStat = "avg" | "median" | "max";
@@ -53,9 +54,7 @@ const MS_PER_DAY = 86400000;
 /* ------------------------------------------------------------------ */
 
 function toDate(s?: string | null): Date | null {
-  if (!s) return null;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d;
+  return parseDate(s);
 }
 
 function daysBetween(start: Date, end: Date): number {
@@ -320,7 +319,7 @@ export function otdTrend(bids: IBid[], gran: Granularity): OtdPoint[] {
     const due = toDate(b.desiredDueDate) || toDate(b.dueDate);
     if (!done || !due) return;
     const k = periodKey(done, gran);
-    if (done.getTime() <= due.getTime() + MS_PER_DAY) {
+    if (!isPastDue(due, done)) {
       onTime[k] = (onTime[k] || 0) + 1;
     } else {
       late[k] = (late[k] || 0) + 1;
@@ -527,7 +526,7 @@ export function divisionLoad(
     });
     row.active++;
     const due = toDate(b.desiredDueDate) || toDate(b.dueDate);
-    if (due && due.getTime() < now.getTime()) row.overdue++;
+    if (isPastDue(due, now)) row.overdue++;
   });
   return Object.keys(map)
     .map((k) => map[k])

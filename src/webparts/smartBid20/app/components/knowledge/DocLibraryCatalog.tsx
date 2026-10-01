@@ -6,7 +6,7 @@ import { AIAnalysisService } from "../../services/AIAnalysisService";
 import { SystemConfigService } from "../../services/SystemConfigService";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { IExtractedDocumentMetadata } from "../../models/IAIAnalysis";
-import { IFavoriteGroup, IFavoriteSubGroup } from "../../models";
+import { IFavoriteGroup } from "../../models";
 import {
   IDocLibraryItem,
   IDocLibraryMetadata,
@@ -15,6 +15,11 @@ import {
 import { useDebounce } from "../../hooks/useDebounce";
 import { formatFileSize } from "../../utils/formatters";
 import { makeId } from "../../utils/idGenerator";
+import {
+  findGroupByName,
+  findSubGroupByName,
+  withCategory,
+} from "../../utils/docCatalogHelpers";
 import styles from "./DocLibraryCatalog.module.scss";
 
 /** UI labels for the shared catalog columns, overridable per document family */
@@ -80,28 +85,6 @@ const EMPTY_META = (docType: DocCatalogType): IDocLibraryMetadata => ({
   revision: "",
 });
 
-/**
- * Mirror the Group/Sub-Group ids into a readable name before saving — the ids are
- * opaque, so only this column makes Discipline/Scope searchable in AI Search.
- */
-const withCategory = (
-  meta: IDocLibraryMetadata,
-  lockedGroupId?: string,
-): IDocLibraryMetadata => {
-  const groups = useConfigStore.getState().config?.favoriteGroups || [];
-  const groupId = lockedGroupId || meta.groupId;
-  const group = groups.filter((g) => g.id === groupId)[0];
-  if (!group) return { ...meta, groupId, category: "" };
-  const sub = (group.subGroups || []).filter(
-    (s) => s.id === meta.subGroupId,
-  )[0];
-  return {
-    ...meta,
-    groupId,
-    category: sub ? `${group.name} / ${sub.name}` : group.name,
-  };
-};
-
 /** Maximum number of documents that can be selected for a bulk AI fill at once */
 const MAX_BULK_AI_SELECTION = 10;
 
@@ -127,23 +110,6 @@ interface IBulkAiRow {
   saveError?: string;
   suggestion?: IGroupSuggestion;
 }
-
-/** Find a configured group/sub-group by name (case-insensitive), if any */
-const findGroupByName = (
-  groups: IFavoriteGroup[],
-  name: string,
-): IFavoriteGroup | undefined =>
-  groups.find((g) => g.name.toLowerCase() === name.trim().toLowerCase());
-
-const findSubGroupByName = (
-  group: IFavoriteGroup | undefined,
-  name: string,
-): IFavoriteSubGroup | undefined =>
-  group
-    ? group.subGroups.find(
-        (sg) => sg.name.toLowerCase() === name.trim().toLowerCase(),
-      )
-    : undefined;
 
 /**
  * Merge AI-extracted fields into existing metadata. Group/SubGroup are resolved

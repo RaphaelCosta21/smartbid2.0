@@ -372,6 +372,15 @@ export const SUB_STATUSES: ISubStatusDef[] = [
     order: 9,
     applicablePhases: ["Technical Analysis", "Cost & Resources"],
   },
+  {
+    id: "under-construction",
+    label: "Under Construction",
+    value: "Under Construction",
+    color: "#0EA5E9",
+    icon: "🏗",
+    order: 10,
+    applicablePhases: ["Technical Proposal"],
+  },
 ];
 
 export function getSubStatusDef(

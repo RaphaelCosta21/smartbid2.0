@@ -1,6 +1,6 @@
 import * as React from "react";
 import { IBid } from "../../models";
-import { differenceInDays, format } from "date-fns";
+import { formatDate, formatDaysLeft } from "../../utils/formatters";
 import { GlassCard } from "../common/GlassCard";
 import styles from "./UpcomingDeadlines.module.scss";
 
@@ -15,13 +15,10 @@ export const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
   maxItems = 5,
   onBidClick,
 }) => {
-  const now = new Date();
   const upcoming = bids
-    .map((b) => ({
-      ...b,
-      daysLeft: differenceInDays(new Date(b.dueDate), now),
-    }))
-    .sort((a, b) => a.daysLeft - b.daysLeft)
+    .map((b) => ({ ...b, due: formatDaysLeft(b.dueDate) }))
+    .filter((b) => b.due.days !== null)
+    .sort((a, b) => (a.due.days || 0) - (b.due.days || 0))
     .slice(0, maxItems);
 
   const getCountdownClass = (days: number): string => {
@@ -46,17 +43,13 @@ export const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
                 <p className={styles.deadlineBid}>{bid.bidNumber}</p>
                 <span className={styles.deadlineClient}>
                   {bid.opportunityInfo.client} ·{" "}
-                  {format(new Date(bid.dueDate), "MMM d")}
+                  {formatDate(bid.dueDate, "MMM d")}
                 </span>
               </div>
               <span
-                className={`${styles.deadlineCountdown} ${getCountdownClass(bid.daysLeft)}`}
+                className={`${styles.deadlineCountdown} ${getCountdownClass(bid.due.days || 0)}`}
               >
-                {bid.daysLeft < 0
-                  ? `${Math.abs(bid.daysLeft)}d overdue`
-                  : bid.daysLeft === 0
-                    ? "Today"
-                    : `${bid.daysLeft}d`}
+                {bid.due.text}
               </span>
             </div>
           ))}

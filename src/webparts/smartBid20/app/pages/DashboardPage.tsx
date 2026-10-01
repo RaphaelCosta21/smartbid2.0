@@ -18,6 +18,7 @@ import { ApprovalsPending } from "../components/dashboard/ApprovalsPending";
 import { ErnDashboardSection } from "../components/dashboard/ErnDashboardSection";
 import { DashboardService } from "../services/DashboardService";
 import { differenceInDays, format } from "date-fns";
+import { formatDate, isPastDue, parseDate } from "../utils/formatters";
 import { isActiveBid, getEngineeringHours } from "../utils/bidHelpers";
 import { getErnLinks } from "../utils/ernHelpers";
 import { getPhaseProgressByIndex } from "../utils/phaseHelpers";
@@ -60,8 +61,8 @@ export const DashboardPage: React.FC = () => {
       !!b.dueDate,
   );
   const onTimeCount = deliveredBids.filter((b) => {
-    const end = b.completedDate || b.lastModified;
-    return end ? new Date(end) <= new Date(b.dueDate) : false;
+    const end = parseDate(b.completedDate || b.lastModified);
+    return end ? !isPastDue(b.dueDate, end) : false;
   }).length;
   const onTimePercent =
     deliveredBids.length > 0
@@ -251,9 +252,7 @@ export const DashboardPage: React.FC = () => {
                 </thead>
                 <tbody>
                   {bids.map((bid) => {
-                    const daysLeft = bid.dueDate
-                      ? differenceInDays(new Date(bid.dueDate), now)
-                      : 0;
+                    const overdue = isPastDue(bid.dueDate);
                     const phaseDef = getPhaseDef(bid.currentPhase);
                     return (
                       <tr
@@ -281,12 +280,8 @@ export const DashboardPage: React.FC = () => {
                           />
                         </td>
                         <td>{bid.creator?.name || "—"}</td>
-                        <td
-                          className={daysLeft < 0 ? styles.overdue : undefined}
-                        >
-                          {bid.dueDate
-                            ? format(new Date(bid.dueDate), "MMM d")
-                            : "—"}
+                        <td className={overdue ? styles.overdue : undefined}>
+                          {bid.dueDate ? formatDate(bid.dueDate, "MMM d") : "—"}
                         </td>
                         <td>
                           <StatusBadge

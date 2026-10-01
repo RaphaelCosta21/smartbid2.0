@@ -1,4 +1,5 @@
 import * as React from "react";
+import { formatDaysLeft } from "../../utils/formatters";
 import styles from "./CountdownTimer.module.scss";
 
 interface CountdownTimerProps {
@@ -10,43 +11,16 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   targetDate,
   className,
 }) => {
-  const [remaining, setRemaining] = React.useState("");
-  const [isOverdue, setIsOverdue] = React.useState(false);
-
-  React.useEffect(() => {
-    const update = (): void => {
-      const now = Date.now();
-      const target = new Date(targetDate).getTime();
-      const diff = target - now;
-
-      if (diff <= 0) {
-        setIsOverdue(true);
-        const absDiff = Math.abs(diff);
-        const days = Math.floor(absDiff / (1000 * 60 * 60 * 24));
-        setRemaining(`${days}d overdue`);
-      } else {
-        setIsOverdue(false);
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor(
-          (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
-        );
-        setRemaining(days > 0 ? `${days}d ${hours}h` : `${hours}h`);
-      }
-    };
-
-    update();
-    const interval = setInterval(update, 60000);
-    return () => clearInterval(interval);
-  }, [targetDate]);
+  const due = formatDaysLeft(targetDate);
 
   return (
     <span
       className={`${styles.timer} ${className || ""}`}
       style={{
-        color: isOverdue
-          ? "#EF4444"
-          : remaining.startsWith("0")
-            ? "#F59E0B"
+        color: due.isOverdue
+          ? "var(--danger)"
+          : due.days !== null && due.days <= 3
+            ? "var(--warning)"
             : "var(--text-secondary)",
       }}
     >
@@ -61,7 +35,7 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
         <circle cx="12" cy="12" r="10" />
         <polyline points="12 6 12 12 16 14" />
       </svg>
-      {remaining}
+      {due.text}
     </span>
   );
 };

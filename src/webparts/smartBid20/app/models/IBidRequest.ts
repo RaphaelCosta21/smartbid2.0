@@ -47,6 +47,7 @@ export interface IBidRequest {
   vessel: string;
   field: string;
   commercialFolderUrl: string;
+  technicalProposalRequested?: boolean;
   attachments: IRequestAttachment[];
   phases: IRequestPhase[];
   notes: string;

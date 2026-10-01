@@ -23,7 +23,7 @@ export const Timeline: React.FC<TimelineProps> = ({ items, className }) => {
         <div key={item.id} className={styles.item}>
           <div
             className={styles.dot}
-            style={{ background: item.color || "var(--accent-color, #3B82F6)" }}
+            style={{ background: item.color || "var(--primary-accent)" }}
           >
             {item.icon}
           </div>

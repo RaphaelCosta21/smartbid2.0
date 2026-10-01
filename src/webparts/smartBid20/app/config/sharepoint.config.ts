@@ -44,6 +44,13 @@ export const SHAREPOINT_CONFIG = {
     },
   },
 
+  technicalProposal: {
+    /** Attachment category (and SmartBidAttachments sub-folder) of a BID's Technical Proposal */
+    attachmentCategory: "Technical Proposal",
+    /** Every technical proposal is classified under this group; AI only picks the sub-group. */
+    knowledgeGroupName: "Operation KIT",
+  },
+
   /** Internal field names for the smartBidDocs catalog columns (auto-created if missing) */
   docCatalogFields: {
     docType: "DocType",

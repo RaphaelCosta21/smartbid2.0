@@ -44,9 +44,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
       style={{
-        border: `2px dashed ${isDragOver ? "var(--accent-color, #3B82F6)" : "var(--border-subtle)"}`,
+        border: `2px dashed ${isDragOver ? "var(--primary-accent)" : "var(--border-subtle)"}`,
         background: isDragOver
-          ? "var(--accent-color, #3B82F6)10"
+          ? "color-mix(in srgb, var(--primary-accent) 6%, transparent)"
           : "transparent",
       }}
     >

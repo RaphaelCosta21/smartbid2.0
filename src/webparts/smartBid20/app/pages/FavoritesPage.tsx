@@ -601,7 +601,8 @@ export const FavoritesPage: React.FC = () => {
                 <StarIcon size={48} />
                 <p>No BIDs bookmarked yet.</p>
                 <p className={styles.emptyHint}>
-                  Open a BID and click the star icon to add it here.
+                  Open a closed-out BID (Completed, Canceled, No Bid…) or go
+                  to Past Bids and click the star icon to add it here.
                 </p>
               </div>
             </GlassCard>

@@ -5,7 +5,7 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { IBid } from "../../models";
-import { formatDate } from "../../utils/formatters";
+import { formatDate, parseDate } from "../../utils/formatters";
 import { getActiveRevision } from "./RevisionsTab";
 import styles from "./DueDateChangeModal.module.scss";
 
@@ -19,8 +19,8 @@ interface DueDateChangeModalProps {
 
 // Reads the stored value the same way formatDate does, so the input matches the UI
 const toInputDate = (value: string): string => {
-  const d = new Date(value);
-  return value && !isNaN(d.getTime()) ? format(d, "yyyy-MM-dd") : "";
+  const d = parseDate(value);
+  return d ? format(d, "yyyy-MM-dd") : "";
 };
 
 const inputDateToIso = (value: string): string => {

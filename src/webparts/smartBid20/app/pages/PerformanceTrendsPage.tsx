@@ -43,7 +43,7 @@ import {
   periodDelta,
   Delta,
 } from "../utils/analyticsHelpers";
-import { formatPercentage } from "../utils/formatters";
+import { formatPercentage, isPastDue } from "../utils/formatters";
 import styles from "./PerformanceTrendsPage.module.scss";
 
 const GRAN_SEGMENTS: SegmentOption<Granularity>[] = [
@@ -133,8 +133,10 @@ export const PerformanceTrendsPage: React.FC = () => {
     const otdBase = completed.filter((b) => b.desiredDueDate || b.dueDate);
     const onTime = otdBase.filter(
       (b) =>
-        new Date(b.completedDate as string).getTime() <=
-        new Date(b.desiredDueDate || b.dueDate).getTime() + MS_DAY,
+        !isPastDue(
+          b.desiredDueDate || b.dueDate,
+          new Date(b.completedDate as string),
+        ),
     ).length;
     const otdRate = otdBase.length
       ? Math.round((onTime / otdBase.length) * 100)

@@ -9,7 +9,7 @@ import { StatusBadge } from "../components/common/StatusBadge";
 import { IBid } from "../models";
 import { getPhaseLabel } from "../config/phases.config";
 import { getSubStatusDef } from "../config/status.config";
-import { differenceInDays, format } from "date-fns";
+import { formatDate, formatDaysLeft } from "../utils/formatters";
 import styles from "./BidBoardPage.module.scss";
 
 export const BidBoardPage: React.FC = () => {
@@ -40,8 +40,6 @@ export const BidBoardPage: React.FC = () => {
   const handleBidClick = (bid: IBid): void => {
     navigate(`/bid/${bid.bidNumber}`);
   };
-
-  const now = new Date();
 
   return (
     <div className={styles.page}>
@@ -85,13 +83,12 @@ export const BidBoardPage: React.FC = () => {
           ) : (
             <div className={styles.cardsGrid}>
               {group.bids.map((bid) => {
-                const daysLeft = differenceInDays(new Date(bid.dueDate), now);
-                const dueClass =
-                  daysLeft < 0
-                    ? styles.overdue
-                    : daysLeft <= 3
-                      ? styles.warning
-                      : styles.ok;
+                const due = formatDaysLeft(bid.dueDate);
+                const dueClass = due.isOverdue
+                  ? styles.overdue
+                  : due.days !== null && due.days <= 3
+                    ? styles.warning
+                    : styles.ok;
 
                 const phaseLabel = getPhaseLabel(bid.currentPhase);
                 const subStatusDef = getSubStatusDef(bid.currentStatus);
@@ -201,13 +198,9 @@ export const BidBoardPage: React.FC = () => {
                     {/* Footer: due date + owner first name */}
                     <div className={styles.cardFooter}>
                       <span className={`${styles.dueDate} ${dueClass}`}>
-                        {daysLeft < 0
-                          ? `${Math.abs(daysLeft)}d overdue`
-                          : daysLeft === 0
-                            ? "Due today"
-                            : `${daysLeft}d left`}
+                        {due.text}
                         {" — "}
-                        {format(new Date(bid.dueDate), "MMM d")}
+                        {formatDate(bid.dueDate, "MMM d")}
                       </span>
                       <span className={styles.ownerName}>
                         {(bid.creator?.name || "").split(" ")[0]}

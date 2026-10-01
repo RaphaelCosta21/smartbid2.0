@@ -66,6 +66,7 @@ export {
   type AIAnalysisReviewStatus,
   type IBidKnowledgeProfile,
   type IBidKnowledgeDoc,
+  type IBidTechnicalProposal,
   type IBidRevision,
   type IRevisionChange,
   type IAssetSubCost,

@@ -3,6 +3,7 @@
  */
 import { IBid, IBidErnLink, ISystemConfig, ErnDeadlineState } from "../models";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
+import { getDaysUntil } from "./formatters";
 
 /** Revision Reason dropdown options (used when Content Action = "Revise"). */
 export const ERN_REVISION_REASONS: string[] = [
@@ -120,10 +121,8 @@ export function getErnDeadlineState(
 ): ErnDeadlineState {
   if (!dueDate) return "none";
   if (isErnClosed(status)) return "ok";
-  const due = new Date(dueDate).getTime();
-  if (isNaN(due)) return "none";
-  const now = Date.now();
-  const days = Math.floor((due - now) / 86400000);
+  const days = getDaysUntil(dueDate);
+  if (days === null) return "none";
   if (days < 0) return "overdue";
   if (days <= SHAREPOINT_CONFIG.ern.dueSoonDays) return "due-soon";
   return "ok";
@@ -131,8 +130,5 @@ export function getErnDeadlineState(
 
 /** Days until (positive) or since (negative) the ERN due date. */
 export function getErnDaysLeft(dueDate: string | null | undefined): number {
-  if (!dueDate) return 0;
-  const due = new Date(dueDate).getTime();
-  if (isNaN(due)) return 0;
-  return Math.floor((due - Date.now()) / 86400000);
+  return getDaysUntil(dueDate) || 0;
 }

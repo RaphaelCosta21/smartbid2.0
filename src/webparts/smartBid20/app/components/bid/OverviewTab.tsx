@@ -41,12 +41,16 @@ import {
   formatDate,
   formatDateTime,
   formatCurrency,
+  getDaysUntil,
+  parseDate,
 } from "../../utils/formatters";
 import {
   buildCostSummary,
   calculateAssetsByResourceType,
 } from "../../utils/costCalculations";
 import { EmptySection } from "./EmptySection";
+import { TechnicalProposalChip } from "./TechnicalProposalChip";
+import { getTechnicalProposalState } from "../../utils/technicalProposalHelpers";
 import { getPhaseLabelForBid } from "../../utils/phaseHelpers";
 import { calcElapsedDays } from "../../utils/durationHelpers";
 import { getCurrentRevisionLetter, hasActiveRevision } from "./RevisionsTab";
@@ -436,6 +440,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const configPhases = useConfigPhases();
   const config = useConfigStore((s) => s.config);
   const isClosed = isTerminalStatus(bid.currentStatus);
+  const tpState = getTechnicalProposalState(bid);
   const spfxContext = useSpfxContext();
 
   // Only the Engineering team (or super admins) may create/select/change ERNs
@@ -1918,7 +1923,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     {isCompleted ? "✓" : idx}
                   </div>
                   <div className={styles.phaseInfo}>
-                    <div className={styles.phaseLabel}>{phase.label}</div>
+                    <div className={styles.phaseLabel}>
+                      {phase.label}
+                      {phase.value === "Technical Proposal" &&
+                        tpState !== "not-requested" && (
+                          <TechnicalProposalChip
+                            state={tpState}
+                            showRequested
+                            className={styles.tpChipInline}
+                          />
+                        )}
+                    </div>
                     <div className={styles.phaseStatus}>
                       {isCompleted
                         ? "Completed"
@@ -1988,18 +2003,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <InfoRow
               label="Overdue"
               value={(() => {
-                if (!bid.dueDate) return "No";
-                const now =
-                  isClosed && bid.completedDate
-                    ? new Date(bid.completedDate)
-                    : new Date();
-                const due = new Date(bid.dueDate);
-                const diffMs = now.getTime() - due.getTime();
-                if (diffMs > 0) {
-                  const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                  return `Yes (${days} days)`;
-                }
-                return "No";
+                const ref =
+                  (isClosed && parseDate(bid.completedDate)) || new Date();
+                const days = getDaysUntil(bid.dueDate, ref);
+                return days !== null && days < 0 ? `Yes (${-days} days)` : "No";
               })()}
             />
             <InfoRow

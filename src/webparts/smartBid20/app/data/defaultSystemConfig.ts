@@ -1123,6 +1123,15 @@ export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
       color: "#2563EB",
       category: "Technical Analysis,Cost & Resources",
     },
+    {
+      id: "ss-10",
+      label: "Under Construction",
+      value: "Under Construction",
+      isActive: true,
+      order: 10,
+      color: "#0EA5E9",
+      category: "Technical Proposal",
+    },
   ],
   terminalStatuses: [
     {

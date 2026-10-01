@@ -15,6 +15,7 @@ interface StatusColorLookup {
   getStatusColor: (statusValue: string) => string;
   getPriorityColor: (priority: string) => string;
   getDivisionColor: (division: string) => string;
+  getServiceLineColor: (serviceLine: string) => string;
 }
 
 export function useStatusColors(): StatusColorLookup {
@@ -24,6 +25,7 @@ export function useStatusColors(): StatusColorLookup {
     const phaseMap = new Map<string, string>();
     const subStatusMap = new Map<string, string>();
     const divisionMap = new Map<string, string>();
+    const serviceLineMap = new Map<string, string>();
 
     if (config) {
       (config.phases || []).forEach((p) => {
@@ -37,6 +39,9 @@ export function useStatusColors(): StatusColorLookup {
       });
       (config.divisions || []).forEach((d) => {
         if (d.value && d.color) divisionMap.set(d.value, d.color);
+      });
+      (config.serviceLines || []).forEach((s) => {
+        if (s.value && s.color) serviceLineMap.set(s.value, s.color);
       });
     }
 
@@ -53,6 +58,9 @@ export function useStatusColors(): StatusColorLookup {
 
       getDivisionColor: (division: string) =>
         divisionMap.get(division) || "#94a3b8",
+
+      getServiceLineColor: (serviceLine: string) =>
+        serviceLineMap.get(serviceLine) || "#94a3b8",
     };
   }, [config]);
 }

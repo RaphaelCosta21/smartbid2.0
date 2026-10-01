@@ -1,5 +1,7 @@
 .pageHeader {
-  background: var(--gradient-header);
+  background: var(--gradient-hero);
+  border: 1px solid var(--header-border);
+  box-shadow: var(--shadow-card);
   border-radius: 16px;
   padding: 24px 32px;
   margin-bottom: 24px;
@@ -12,7 +14,8 @@
   width: 52px;
   height: 52px;
   border-radius: 14px;
-  background: rgba(59, 130, 246, 0.12);
+  background: color-mix(in srgb, var(--primary-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary-accent) 28%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -21,7 +24,7 @@
   svg {
     width: 28px;
     height: 28px;
-    color: #93c5fd;
+    color: var(--primary-accent);
   }
 }
 
@@ -31,14 +34,14 @@
   h1 {
     font-size: 24px;
     font-weight: 700;
-    color: #f1f5f9;
+    color: var(--header-text-primary);
     margin: 0 0 4px;
     white-space: nowrap;
   }
 
   p {
     font-size: 13px;
-    color: #94a3b8;
+    color: var(--header-text-secondary);
     margin: 0;
   }
 }

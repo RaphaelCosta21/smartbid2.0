@@ -12,6 +12,7 @@ import {
 } from "../components/insights/MultiSelectDropdown";
 import { PastBidDrawer } from "../components/knowledge/PastBidDrawer";
 import { PastBidProfileModal } from "../components/knowledge/PastBidProfileModal";
+import { BidFavoriteButton } from "../components/bid/BidFavoriteButton";
 import { useBidStore } from "../stores/useBidStore";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import {
@@ -272,6 +273,12 @@ export const PastBidsPage: React.FC = () => {
   };
 
   const columns = [
+    {
+      key: "favorite",
+      header: "",
+      width: 40,
+      render: (r: IPastBidRow) => <BidFavoriteButton bid={r.bid} />,
+    },
     {
       key: "bidNumber",
       header: "BID",

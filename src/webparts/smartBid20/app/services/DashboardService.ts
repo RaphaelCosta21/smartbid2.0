@@ -11,6 +11,7 @@ import {
 } from "../models/IDashboard";
 import { IKPITargets } from "../models/ISystemConfig";
 import { KPI_DEFINITIONS } from "../config/kpi.config";
+import { getDaysUntil, isPastDue, parseDate } from "../utils/formatters";
 
 export class DashboardService {
   public static calculateKPIs(
@@ -21,9 +22,12 @@ export class DashboardService {
     const activeBids = bids.filter(
       (b) => !["Completed", "Canceled", "No Bid"].includes(b.currentStatus),
     );
-    const overdueBids = activeBids.filter((b) => b.kpis?.isOverdue);
+    const overdueBids = activeBids.filter((b) => isPastDue(b.dueDate));
 
-    const onTimeCount = completedBids.filter((b) => !b.kpis?.isOverdue).length;
+    const onTimeCount = completedBids.filter((b) => {
+      const done = parseDate(b.completedDate);
+      return done ? !isPastDue(b.dueDate, done) : false;
+    }).length;
     const onTimeRate =
       completedBids.length > 0
         ? Math.round((onTimeCount / completedBids.length) * 100)
@@ -124,7 +128,7 @@ export class DashboardService {
       divisions[div].activeBids++;
       if (bid.currentStatus === "Pending Approval")
         divisions[div].pendingApprovals++;
-      if (bid.kpis?.isOverdue) divisions[div].overdueBids++;
+      if (isPastDue(bid.dueDate)) divisions[div].overdueBids++;
     }
     return Object.values(divisions);
   }
@@ -152,10 +156,7 @@ export class DashboardService {
         .map((b) => ({
           bidNumber: b.bidNumber,
           dueDate: b.dueDate,
-          daysRemaining: Math.ceil(
-            (new Date(b.dueDate).getTime() - Date.now()) /
-              (1000 * 60 * 60 * 24),
-          ),
+          daysRemaining: getDaysUntil(b.dueDate) || 0,
         }))
         .filter((d) => d.daysRemaining > 0)
         .sort((a, b) => a.daysRemaining - b.daysRemaining)

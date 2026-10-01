@@ -4,9 +4,11 @@ import { BidService } from "../services/BidService";
 
 export type ViewMode = "kanban" | "list" | "table";
 
-interface BidFilters {
+export interface BidFilters {
   search: string;
   divisions: Division[];
+  serviceLines: string[];
+  phases: string[];
   statuses: string[];
   priorities: BidPriority[];
   clients: string[];
@@ -14,9 +16,11 @@ interface BidFilters {
   dateRange: { from: string | null; to: string | null };
 }
 
-const DEFAULT_FILTERS: BidFilters = {
+export const DEFAULT_FILTERS: BidFilters = {
   search: "",
   divisions: [],
+  serviceLines: [],
+  phases: [],
   statuses: [],
   priorities: [],
   clients: [],
@@ -46,7 +50,7 @@ export const useBidStore = create<BidState>((set, get) => ({
   bids: [],
   selectedBid: null,
   filters: DEFAULT_FILTERS,
-  viewMode: "table",
+  viewMode: "kanban",
   isLoading: false,
 
   setBids: (bids) => set({ bids }),
@@ -82,6 +86,16 @@ export const useBidStore = create<BidState>((set, get) => ({
 
     if (filters.divisions.length > 0) {
       result = result.filter((b) => filters.divisions.includes(b.division));
+    }
+
+    if (filters.serviceLines.length > 0) {
+      result = result.filter((b) =>
+        filters.serviceLines.includes(b.serviceLine),
+      );
+    }
+
+    if (filters.phases.length > 0) {
+      result = result.filter((b) => filters.phases.includes(b.currentPhase));
     }
 
     if (filters.statuses.length > 0) {

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { Link2 } from "lucide-react";
 import { useBidStore } from "../stores/useBidStore";
 import { ROUTES } from "../config/routes.config";
 import { StatusBadge } from "../components/common/StatusBadge";
@@ -15,6 +16,7 @@ import { ApprovalTab } from "../components/bid/ApprovalTab";
 import { BidActivityLog } from "../components/bid/BidActivityLog";
 import { BidExportTab } from "../components/bid/BidExportTab";
 import { BidTimeline } from "../components/bid/BidTimeline";
+import { BidFavoriteButton } from "../components/bid/BidFavoriteButton";
 import { OverviewTab } from "../components/bid/OverviewTab";
 import { DocumentsTab } from "../components/bid/DocumentsTab";
 import { NotesTab } from "../components/bid/NotesTab";
@@ -35,6 +37,8 @@ import {
 } from "../components/common/IntegratedDivisionTabs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { usePastBidPublisher } from "../hooks/usePastBidPublisher";
+import { useTechnicalProposalPublisher } from "../hooks/useTechnicalProposalPublisher";
+import { getTechnicalProposalAttachment } from "../utils/technicalProposalHelpers";
 import { useUIStore } from "../stores/useUIStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { BidService } from "../services/BidService";
@@ -221,6 +225,7 @@ export const BidDetailPage: React.FC = () => {
   const setSidebarExpanded = useUIStore((s) => s.setSidebarExpanded);
   const addToast = useUIStore((s) => s.addToast);
   const publishPastBid = usePastBidPublisher();
+  const publishTechnicalProposal = useTechnicalProposalPublisher();
 
   // Collapse sidebar when entering BidDetail, restore on leave
   React.useEffect(() => {
@@ -322,6 +327,15 @@ export const BidDetailPage: React.FC = () => {
           publishPastBid(merged, { runAi: !merged.knowledgeProfile }).catch(
             () => undefined,
           );
+          if (getTechnicalProposalAttachment(merged)) {
+            publishTechnicalProposal(merged).catch(() => undefined);
+          } else if (merged.technicalProposal?.requested) {
+            addToast({
+              type: "warning",
+              title: "Technical Proposal missing",
+              message: `BID ${merged.bidNumber} was completed without the requested Technical Proposal PDF. Attach it in the Documents tab and publish it to the Knowledge Base.`,
+            });
+          }
         } else if (
           merged.currentStatus === "Completed" &&
           merged.knowledgeProfile &&
@@ -358,7 +372,7 @@ export const BidDetailPage: React.FC = () => {
         });
       }
     },
-    [id, currentUser, addToast, publishPastBid],
+    [id, currentUser, addToast, publishPastBid, publishTechnicalProposal],
   );
 
   /** Builds a human-readable description of the patch for activity log */
@@ -589,6 +603,41 @@ export const BidDetailPage: React.FC = () => {
     setAiClarModalOpen(false);
   };
 
+  const copyShareLink = (): void => {
+    const { origin, pathname, search } = window.location;
+    const url = `${origin}${pathname}${search}#${ROUTES.bidDetail.replace(":id", encodeURIComponent(bid.bidNumber))}`;
+
+    // Fallback for contexts where the async Clipboard API is blocked (e.g. Teams iframe).
+    const legacyCopy = (): boolean => {
+      const textarea = document.createElement("textarea");
+      textarea.value = url;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return ok;
+    };
+
+    const notify = (ok: boolean): void =>
+      addToast(
+        ok
+          ? { type: "success", title: "BID link copied", message: url }
+          : { type: "error", title: "Could not copy link", message: url },
+      );
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(url)
+        .then(() => notify(true))
+        .catch(() => notify(legacyCopy()));
+    } else {
+      notify(legacyCopy());
+    }
+  };
+
   return (
     <div className={styles.bidDetail}>
       {/* Back Button */}
@@ -611,7 +660,7 @@ export const BidDetailPage: React.FC = () => {
       <div className={styles.bidHeader}>
         <div className={styles.bidHeaderLeft}>
           <div className={styles.bidHeaderTitle}>
-            <span className={styles.monoValue}>{bid.bidNumber}</span>
+            <span className={styles.bidNumber}>{bid.bidNumber}</span>
             <span className={styles.headerSep}>—</span>
             <span>{bid.opportunityInfo?.client || "—"}</span>
             <span className={styles.headerSep}>—</span>
@@ -621,66 +670,81 @@ export const BidDetailPage: React.FC = () => {
           </div>
           <div className={styles.bidHeaderMeta}>
             <span>
-              CRM: <span className={styles.monoValue}>{bid.crmNumber}</span>
+              <span className={styles.metaLabel}>CRM</span> {bid.crmNumber}
             </span>
             <span className={styles.headerSep}>|</span>
             <span>
-              ERN:{" "}
-              <span className={styles.monoValue}>
-                {(() => {
-                  const links = getErnLinks(bid);
-                  if (links.length === 0) return "TBD";
-                  return links
-                    .map((l) =>
-                      l.division
-                        ? `${l.ernNumber} (${l.division})`
-                        : l.ernNumber,
-                    )
-                    .join(", ");
-                })()}
-              </span>
+              <span className={styles.metaLabel}>ERN</span>{" "}
+              {(() => {
+                const links = getErnLinks(bid);
+                if (links.length === 0) return "TBD";
+                return links
+                  .map((l) =>
+                    l.division ? `${l.ernNumber} (${l.division})` : l.ernNumber,
+                  )
+                  .join(", ");
+              })()}
             </span>
             <span className={styles.headerSep}>|</span>
             <StatusBadge status={bid.currentStatus} />
             <span className={styles.headerSep}>|</span>
-            <span className={styles.monoValue} style={{ fontWeight: 600 }}>
-              Rev. {getCurrentRevisionLetter(bid)}
+            <span>
+              <span className={styles.metaLabel}>Rev.</span>{" "}
+              {getCurrentRevisionLetter(bid)}
             </span>
             <span className={styles.headerSep}>|</span>
             <span>
-              Due: {formatDate(bid.dueDate)}
+              <span className={styles.metaLabel}>Due</span>{" "}
+              {formatDate(bid.dueDate)}
               {daysLeftInfo.isOverdue && (
-                <span className={styles.overdueTag}>
-                  {" "}
-                  OVERDUE {Math.abs(daysLeft)}d
-                </span>
+                <span className={styles.overdueTag}>{daysLeftInfo.text}</span>
               )}
-              {!daysLeftInfo.isOverdue && daysLeft <= 5 && (
-                <span className={styles.warningTag}> {daysLeftInfo.text}</span>
-              )}
+              {!daysLeftInfo.isOverdue &&
+                daysLeft !== null &&
+                daysLeft <= 5 && (
+                  <span className={styles.warningTag}>{daysLeftInfo.text}</span>
+                )}
             </span>
           </div>
         </div>
-        <div className={styles.bidHeaderActions}>
-          <StatusBadge
-            status={bid.division}
-            color={
-              (config?.divisions || []).find((d) => d.value === bid.division)
-                ?.color
-            }
-          />
-          <StatusBadge
-            status={bid.serviceLine}
-            color={
-              (config?.serviceLines || []).find(
-                (sl) => sl.value === bid.serviceLine,
-              )?.color
-            }
-          />
-          <StatusBadge
-            status={bid.priority}
-            color={PRIORITY_COLORS[bid.priority] || PRIORITY_COLORS.Normal}
-          />
+        <div className={styles.bidHeaderRight}>
+          <div className={styles.bidHeaderActions}>
+            <StatusBadge
+              status={bid.division}
+              color={
+                (config?.divisions || []).find((d) => d.value === bid.division)
+                  ?.color
+              }
+            />
+            <StatusBadge
+              status={bid.serviceLine}
+              color={
+                (config?.serviceLines || []).find(
+                  (sl) => sl.value === bid.serviceLine,
+                )?.color
+              }
+            />
+            <StatusBadge
+              status={bid.priority}
+              color={PRIORITY_COLORS[bid.priority] || PRIORITY_COLORS.Normal}
+            />
+          </div>
+          <div className={styles.headerButtons}>
+            <BidFavoriteButton
+              bid={bid}
+              showLabel
+              className={styles.shareBtn}
+            />
+            <button
+              type="button"
+              className={styles.shareBtn}
+              onClick={copyShareLink}
+              title="Copy a direct link to this BID"
+            >
+              <Link2 size={14} />
+              Copy link
+            </button>
+          </div>
         </div>
       </div>
 
