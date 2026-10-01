@@ -5,11 +5,7 @@ import { SurveyEquipmentDetail } from "../components/survey/SurveyEquipmentDetai
 import { SurveyAddToPackageDialog } from "../components/survey/SurveyAddToPackageDialog";
 import { SurveyPackageDrawer } from "../components/survey/SurveyPackageDrawer";
 import { SURVEY_OCEAN_BG } from "../components/survey/surveyAssets";
-import {
-  SurveySystemIllustration,
-  SurveySceneLabel,
-} from "../components/survey/SurveySystemIllustration";
-import { SurveySystemDepthScene } from "../components/survey/SurveySystemDepthScene";
+import type { SurveySceneLabel } from "../components/survey/SurveySystemScene";
 import { EmptyState } from "../components/common/EmptyState";
 import { SkeletonLoader } from "../components/common/SkeletonLoader";
 import { useSurveyStore } from "../stores/useSurveyStore";
@@ -20,6 +16,13 @@ import {
 } from "../hooks/useSurveyPortal";
 import { SurveySceneAnchor } from "../models";
 import styles from "./SurveySystemPage.module.scss";
+
+const SurveySystemScene = React.lazy(
+  () =>
+    import(
+      /* webpackChunkName: "survey-3d" */ "../components/survey/SurveySystemScene"
+    ),
+);
 
 export const SurveySystemPage: React.FC = () => {
   const catalog = useSurveyStore((s) => s.catalog);
@@ -39,7 +42,6 @@ export const SurveySystemPage: React.FC = () => {
   const [packageOpen, setPackageOpen] = React.useState(false);
   const [systemId, setSystemId] = React.useState<string | null>(null);
   const [hoverAnchor, setHoverAnchor] = React.useState<SurveySceneAnchor | "">("");
-  const [mode, setMode] = React.useState<"depth" | "flat">("depth");
 
   const systems = React.useMemo(
     () =>
@@ -126,31 +128,17 @@ export const SurveySystemPage: React.FC = () => {
         />
       );
     }
-    const Scene = mode === "depth" ? SurveySystemDepthScene : SurveySystemIllustration;
     return (
-      <Scene
-        labels={labels}
-        highlight={highlight}
-        selectedId={detailOpen ? selectedId : null}
-        onSelect={handleSelect}
-      >
-        <div className={styles.modeToggle} role="tablist" aria-label="Scene style">
-          <button
-            role="tab"
-            aria-selected={mode === "depth"}
-            className={mode === "depth" ? styles.modeActive : ""}
-            onClick={() => setMode("depth")}
-          >
-            2.5D
-          </button>
-          <button
-            role="tab"
-            aria-selected={mode === "flat"}
-            className={mode === "flat" ? styles.modeActive : ""}
-            onClick={() => setMode("flat")}
-          >
-            2D
-          </button>
+      <div className={styles.stage}>
+        <div className={styles.sceneBox}>
+          <React.Suspense fallback={<SkeletonLoader height="100%" borderRadius={10} />}>
+            <SurveySystemScene
+              labels={labels}
+              highlight={highlight}
+              selectedId={detailOpen ? selectedId : null}
+              onSelect={handleSelect}
+            />
+          </React.Suspense>
         </div>
 
         {system && (
@@ -211,7 +199,7 @@ export const SurveySystemPage: React.FC = () => {
             onClose={closeAdd}
           />
         )}
-      </Scene>
+      </div>
     );
   };
 

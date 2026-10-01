@@ -11,59 +11,28 @@
   box-shadow: var(--shadow-card);
 }
 
-// The artboard reproduces Figma frame coordinates edge to edge, so no side padding here.
 .body {
-  padding: 0 0 24px;
+  padding: 0 28px 24px;
 }
 
-.modeToggle {
+.stage {
+  position: relative;
+  height: 740px;
+}
+
+.sceneBox {
   position: absolute;
-  left: 14.3%;
-  top: 3.2%;
-  z-index: 6;
-  display: inline-flex;
-  gap: 4px;
-
-  button {
-    padding: 4px 9px;
-    border-radius: 4px;
-    border: 1px solid var(--survey-line);
-    background: var(--survey-chip-bg);
-    color: var(--survey-navy);
-    font-size: 9px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform 250ms ease;
-
-    &:hover {
-      transform: translateY(-1px);
-    }
-  }
-}
-
-.modeActive {
-  background: var(--survey-navy) !important;
-  border-color: var(--survey-navy) !important;
-  color: var(--package-accent) !important;
-}
-
-.systemPanel {
-  position: absolute;
-  left: 2.6%;
-  top: 69%;
-  z-index: 6;
-  width: 287px;
-  max-width: 45%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 16px;
+  top: 0;
+  right: 6%;
+  bottom: 70px;
+  left: 14%;
   border-radius: 10px;
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass-strong);
+  background: var(--survey-glass);
   backdrop-filter: blur(10px);
   box-shadow: var(--survey-shadow);
-  animation: fadeUp 450ms 150ms ease both;
+  overflow: hidden;
+  animation: fadeUp 500ms ease both;
 }
 
 @keyframes fadeUp {
@@ -75,6 +44,26 @@
     opacity: 1;
     transform: none;
   }
+}
+
+.systemPanel {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 5;
+  width: 287px;
+  max-height: calc(100% - 40px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-glass-strong);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--survey-shadow);
+  animation: fadeUp 450ms 150ms ease both;
 }
 
 .systemTabs {
@@ -161,17 +150,36 @@
 
 .detailDrawer {
   position: absolute;
-  top: 1.7%;
-  right: 2%;
+  top: 0;
+  right: 0;
   bottom: 0;
-  z-index: 7;
+  z-index: 10;
   width: 440px;
-  max-width: 96%;
+  max-width: 100%;
   overflow-y: auto;
   border-radius: 10px;
 }
 
+@media (max-width: 1100px) {
+  .sceneBox {
+    left: 0;
+    right: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .stage {
+    height: 620px;
+  }
+
+  .systemPanel {
+    width: 100%;
+    max-height: 40%;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .sceneBox,
   .systemPanel {
     animation: none;
   }
