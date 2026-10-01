@@ -1,0 +1,420 @@
+.root {
+  position: relative;
+  width: 100%;
+  --tilt-x: 0;
+  --tilt-y: 0;
+  --dolly: 0px;
+}
+
+.scaler {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+
+.glassBox {
+  position: absolute;
+  border-radius: 10px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-glass);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--survey-shadow);
+  transform: translate3d(
+    calc(var(--tilt-y) * -1.5px),
+    calc(var(--tilt-x) * 1.5px),
+    0
+  );
+  animation: fadeUp 500ms ease both;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.viewport {
+  position: absolute;
+  inset: 0;
+  perspective-origin: 50% 50%;
+  pointer-events: none;
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: translateZ(var(--dolly)) rotateX(calc(var(--tilt-x) * 1deg))
+    rotateY(calc(var(--tilt-y) * 1deg));
+
+  > * {
+    position: absolute;
+  }
+}
+
+.particle {
+  left: 0;
+  top: 0;
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: var(--survey-ice);
+  opacity: 0;
+  transform: translate3d(var(--x), var(--y), var(--z));
+  animation: drift 10s linear infinite;
+}
+
+@keyframes drift {
+  0% {
+    opacity: 0;
+    transform: translate3d(var(--x), var(--y), var(--z));
+  }
+  20%,
+  80% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--x), calc(var(--y) - 90px), var(--z));
+  }
+}
+
+.sonar {
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+
+  > span {
+    position: absolute;
+  }
+}
+
+// Two crossed planes read as a volumetric sonar cone when the camera tilts.
+.cone {
+  left: -130px;
+  top: 0;
+  width: 260px;
+  height: 130px;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  background: linear-gradient(
+    180deg,
+    var(--survey-teal-glow) 0%,
+    transparent 100%
+  );
+  opacity: 0.7;
+}
+
+.coneCross {
+  transform: rotateY(90deg);
+}
+
+.ping {
+  left: -130px;
+  top: -130px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  border: 2px solid var(--survey-teal);
+  opacity: 0;
+  animation: ping3d 3s ease-out infinite;
+}
+
+@keyframes ping3d {
+  0% {
+    opacity: 0.9;
+    transform: translateY(0) rotateX(80deg) scale(0.05);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(120px) rotateX(80deg) scale(1);
+  }
+}
+
+.vessel {
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform-origin: 50% 62%;
+    // Figma motion on 71:1151: x -200 → 0, 0.5s easeOut; then a gentle bob.
+    animation: vesselIn 500ms ease-out both, bob 6s ease-in-out 500ms infinite;
+  }
+}
+
+@keyframes vesselIn {
+  from {
+    opacity: 0;
+    transform: translateX(-28%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(0.6%) rotate(0.5deg);
+  }
+}
+
+.glow > span {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    var(--survey-teal-glow) 0%,
+    transparent 70%
+  );
+  animation: glowPulse 3.2s ease-in-out infinite;
+}
+
+.glowLate > span {
+  animation-delay: 1.6s;
+}
+
+@keyframes glowPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+.satellite img,
+.cnav img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: float 6s ease-in-out infinite;
+}
+
+.cnav img {
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  animation-duration: 4s;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(-3%) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(3%) rotate(2deg);
+  }
+}
+
+.led {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--survey-green);
+  box-shadow: 0 0 0 2px var(--survey-ice);
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.beam,
+.link,
+.linkGhost {
+  height: 2px;
+  margin-top: -1px;
+  transform-origin: 0 50%;
+}
+
+.beam {
+  height: 3px;
+  margin-top: -1.5px;
+  background: linear-gradient(
+    90deg,
+    var(--survey-teal) 50%,
+    transparent 50%
+  );
+  background-size: 14px 100%;
+  box-shadow: 0 0 10px var(--survey-teal-glow);
+  animation: dashFlow 1s linear infinite;
+}
+
+.link {
+  background: linear-gradient(
+    90deg,
+    var(--survey-teal) 40%,
+    transparent 40%
+  );
+  background-size: 10px 100%;
+  opacity: 0.85;
+  animation: dashFlow 1.2s linear infinite;
+}
+
+@keyframes dashFlow {
+  to {
+    background-position: 14px 0;
+  }
+}
+
+.beamArrows {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  height: 233px;
+  transform: translate(-50%, -50%) translateY(-22px) rotate(-90deg);
+  background: linear-gradient(
+    180deg,
+    var(--survey-teal) 0%,
+    var(--survey-teal) 38%,
+    var(--survey-ice) 50%,
+    var(--survey-teal) 62%,
+    var(--survey-teal) 100%
+  );
+  background-size: 100% 300%;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: sweep 1.6s linear infinite;
+}
+
+@keyframes sweep {
+  from {
+    background-position: 0 100%;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+.packet,
+.packetAccent {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  opacity: 0;
+  animation: travel 2.4s linear infinite;
+}
+
+.packet {
+  background: var(--survey-ice);
+  border: 2px solid var(--survey-teal);
+  box-shadow: 0 0 8px var(--survey-teal);
+}
+
+.packetAccent {
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  background: var(--package-accent);
+  border: 1px solid var(--survey-navy);
+}
+
+@keyframes travel {
+  0% {
+    left: 0;
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
+.marker {
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: auto;
+}
+
+.chip,
+.chipSelected {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--survey-teal);
+  background: var(--survey-marker-bg);
+  color: var(--survey-ice);
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: var(--survey-glow);
+  animation: chipGlow 2.4s ease-in-out infinite;
+  transition: transform 250ms ease;
+
+  &:hover {
+    transform: scale(1.08);
+  }
+}
+
+.chipSelected {
+  border-color: var(--package-accent);
+  background: var(--package-accent);
+  color: var(--survey-navy);
+}
+
+.markerActive .chip {
+  border-color: var(--package-accent);
+  color: var(--package-accent);
+}
+
+@keyframes chipGlow {
+  50% {
+    box-shadow: 0 0 20px var(--survey-teal-glow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glassBox,
+  .particle,
+  .ping,
+  .vessel img,
+  .glow > span,
+  .satellite img,
+  .cnav img,
+  .led,
+  .beam,
+  .link,
+  .beamArrows,
+  .chip,
+  .chipSelected {
+    animation: none;
+  }
+
+  .particle {
+    opacity: 0.4;
+  }
+}

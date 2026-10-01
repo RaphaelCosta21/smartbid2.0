@@ -9,6 +9,7 @@ import {
   SurveySystemIllustration,
   SurveySceneLabel,
 } from "../components/survey/SurveySystemIllustration";
+import { SurveySystemDepthScene } from "../components/survey/SurveySystemDepthScene";
 import { EmptyState } from "../components/common/EmptyState";
 import { SkeletonLoader } from "../components/common/SkeletonLoader";
 import { useSurveyStore } from "../stores/useSurveyStore";
@@ -38,6 +39,7 @@ export const SurveySystemPage: React.FC = () => {
   const [packageOpen, setPackageOpen] = React.useState(false);
   const [systemId, setSystemId] = React.useState<string | null>(null);
   const [hoverAnchor, setHoverAnchor] = React.useState<SurveySceneAnchor | "">("");
+  const [mode, setMode] = React.useState<"depth" | "flat">("depth");
 
   const systems = React.useMemo(
     () =>
@@ -124,13 +126,33 @@ export const SurveySystemPage: React.FC = () => {
         />
       );
     }
+    const Scene = mode === "depth" ? SurveySystemDepthScene : SurveySystemIllustration;
     return (
-      <SurveySystemIllustration
+      <Scene
         labels={labels}
         highlight={highlight}
         selectedId={detailOpen ? selectedId : null}
         onSelect={handleSelect}
       >
+        <div className={styles.modeToggle} role="tablist" aria-label="Scene style">
+          <button
+            role="tab"
+            aria-selected={mode === "depth"}
+            className={mode === "depth" ? styles.modeActive : ""}
+            onClick={() => setMode("depth")}
+          >
+            2.5D
+          </button>
+          <button
+            role="tab"
+            aria-selected={mode === "flat"}
+            className={mode === "flat" ? styles.modeActive : ""}
+            onClick={() => setMode("flat")}
+          >
+            2D
+          </button>
+        </div>
+
         {system && (
           <div className={styles.systemPanel} key={system.id}>
             {systems.length > 1 && (
@@ -189,7 +211,7 @@ export const SurveySystemPage: React.FC = () => {
             onClose={closeAdd}
           />
         )}
-      </SurveySystemIllustration>
+      </Scene>
     );
   };
 

@@ -16,6 +16,37 @@
   padding: 0 0 24px;
 }
 
+.modeToggle {
+  position: absolute;
+  left: 14.3%;
+  top: 3.2%;
+  z-index: 6;
+  display: inline-flex;
+  gap: 4px;
+
+  button {
+    padding: 4px 9px;
+    border-radius: 4px;
+    border: 1px solid var(--survey-line);
+    background: var(--survey-chip-bg);
+    color: var(--survey-navy);
+    font-size: 9px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 250ms ease;
+
+    &:hover {
+      transform: translateY(-1px);
+    }
+  }
+}
+
+.modeActive {
+  background: var(--survey-navy) !important;
+  border-color: var(--survey-navy) !important;
+  color: var(--package-accent) !important;
+}
+
 .systemPanel {
   position: absolute;
   left: 2.6%;

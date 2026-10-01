@@ -7,6 +7,14 @@ import {
   SURVEY_SATELLITE_IMG,
   SURVEY_VESSEL_IMG,
 } from "./surveyAssets";
+import {
+  ANCHOR_POINTS,
+  ART_H as H,
+  ART_RECTS,
+  ART_W as W,
+  ArtRect,
+  FLOW_POINTS,
+} from "./surveyArtboard";
 import styles from "./SurveySystemIllustration.module.scss";
 
 export interface SurveySceneLabel {
@@ -23,11 +31,7 @@ interface SurveySystemIllustrationProps {
   children?: React.ReactNode;
 }
 
-// Artboard = Figma frame 71:761 (1301 wide), cropped from y=300 so the header stays in HTML.
-const W = 1301;
-const H = 1113;
-
-const rect = (x: number, y: number, w: number, h: number): React.CSSProperties => ({
+const rect = ([x, y, w, h]: ArtRect): React.CSSProperties => ({
   left: `${(x / W) * 100}%`,
   top: `${(y / H) * 100}%`,
   width: `${(w / W) * 100}%`,
@@ -39,23 +43,12 @@ const point = (x: number, y: number): React.CSSProperties => ({
   top: `${(y / H) * 100}%`,
 });
 
-// Marker positions; gnss/vessel come from the Figma "Equipment marker chip" layers.
-const ANCHOR_POINTS: Record<SurveySceneAnchor, [number, number]> = {
-  gnss: [1040, 116],
-  vessel: [825, 270],
-  "vessel-hull": [705, 612],
-  rov: [470, 650],
-  beacons: [565, 700],
-  seabed: [880, 690],
-  "subsea-target": [765, 712],
-};
-
-const SATELLITE_TX: [number, number] = [1069.7, 83.3];
-const CNAV_RX: [number, number] = [974.85, 303.4];
-const CNAV_OUT: [number, number] = [860, 312];
-const MAST: [number, number] = [660, 372];
-const HULL: [number, number] = [690, 600];
-const TARGET: [number, number] = [765, 712];
+const SATELLITE_TX = FLOW_POINTS.satelliteTx;
+const CNAV_RX = FLOW_POINTS.cnavRx;
+const CNAV_OUT = FLOW_POINTS.cnavOut;
+const MAST = FLOW_POINTS.mast;
+const HULL = FLOW_POINTS.hull;
+const TARGET = FLOW_POINTS.target;
 
 const reducedMotion = (): boolean =>
   !!window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -105,16 +98,16 @@ export const SurveySystemIllustration: React.FC<SurveySystemIllustrationProps> =
 
   return (
     <div className={styles.artboard}>
-      <div className={styles.glassBox} style={rect(173, 19, 974, 714)} />
+      <div className={styles.glassBox} style={rect(ART_RECTS.glassBox)} />
 
-      <span className={styles.glowLarge} style={rect(870, 9, 180, 169)} />
-      <span className={styles.glowSmall} style={rect(897, 41, 110, 117)} />
+      <span className={styles.glowLarge} style={rect(ART_RECTS.glowLarge)} />
+      <span className={styles.glowSmall} style={rect(ART_RECTS.glowSmall)} />
 
-      <div className={styles.satellite} style={rect(897, 21, 126, 157)}>
+      <div className={styles.satellite} style={rect(ART_RECTS.satellite)}>
         <img src={SURVEY_SATELLITE_IMG} alt="GNSS satellite" />
       </div>
 
-      <div className={styles.vessel} style={rect(302, -22, 713, 892)}>
+      <div className={styles.vessel} style={rect(ART_RECTS.vessel)}>
         <img src={SURVEY_VESSEL_IMG} alt="Survey vessel" />
       </div>
 
@@ -183,13 +176,13 @@ export const SurveySystemIllustration: React.FC<SurveySystemIllustrationProps> =
       <span
         className={styles.arrows}
         style={{
-          ...rect(1004 - 12, 210.4 - 116.7, 24, 233.4),
+          ...rect(ART_RECTS.arrows),
           WebkitMaskImage: `url("${SURVEY_FLOW_ARROWS}")`,
           maskImage: `url("${SURVEY_FLOW_ARROWS}")`,
         }}
       />
 
-      <div className={styles.cnav} style={rect(849, 292, 51, 36)}>
+      <div className={styles.cnav} style={rect(ART_RECTS.cnav)}>
         <img
           src={SURVEY_CNAV_IMG}
           alt="C-Nav receiver"
