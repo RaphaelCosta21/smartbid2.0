@@ -132,7 +132,26 @@ function buildProceduralVessel(): THREE.Group {
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.3, 8), std(PALETTE.steel));
   mast.position.set(3.1, 3.85, 0.6);
   g.add(mast);
+
+  // Survey online and ROV control containers on the aft deck
+  const containerMat = std(PALETTE.dark, { roughness: 0.5 });
+  const stripeMat = std(PALETTE.acoustic, { roughness: 0.4 });
+  [-1.4, -3.4].forEach((x) => {
+    g.add(box(1.7, 0.9, 1.0, containerMat, x, 1.25, -0.75));
+    g.add(box(1.72, 0.1, 1.02, stripeMat, x, 1.5, -0.75));
+  });
   return g;
+}
+
+/** Pulsing pin marking a vessel zone (works with the procedural vessel and the GLB). */
+function buildZoneMarker(): { group: THREE.Group; ring: THREE.Mesh } {
+  const group = new THREE.Group();
+  const pin = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 14), glow(PALETTE.yellow, 0.95));
+  group.add(pin);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.38, 32), glow(PALETTE.acoustic, 0.8));
+  ring.rotation.x = -Math.PI / 2;
+  group.add(ring);
+  return { group, ring };
 }
 
 function buildSatellite(): THREE.Group {
@@ -307,6 +326,20 @@ export function createSurveyScene(
   hullAnchor.position.set(0.5, -1.2, 0);
   vessel.add(hullAnchor);
 
+  // Spread zones on the vessel (one-line diagram rooms)
+  const zoneMarkers: Record<"mast" | "bridge" | "survey-online" | "rov-control", { group: THREE.Group; ring: THREE.Mesh }> = {
+    mast: buildZoneMarker(),
+    bridge: buildZoneMarker(),
+    "survey-online": buildZoneMarker(),
+    "rov-control": buildZoneMarker(),
+  };
+  zoneMarkers.mast.group.position.set(2.6, 4.9, -0.6);
+  zoneMarkers.bridge.group.position.set(4.1, 2.8, 0.9);
+  zoneMarkers["survey-online"].group.position.set(-1.4, 1.9, -0.75);
+  zoneMarkers["rov-control"].group.position.set(-3.4, 1.9, -0.75);
+  const zoneList = Object.keys(zoneMarkers).map((k) => zoneMarkers[k as keyof typeof zoneMarkers]);
+  zoneList.forEach((z) => vessel.add(z.group));
+
   let disposed = false;
   new GLTFLoader().load(
     opts.vesselModelUrl,
@@ -430,6 +463,10 @@ export function createSurveyScene(
   const anchors: Record<SurveySceneAnchor, THREE.Object3D> = {
     gnss: satellite,
     vessel: cnavAnchor,
+    mast: zoneMarkers.mast.group,
+    bridge: zoneMarkers.bridge.group,
+    "survey-online": zoneMarkers["survey-online"].group,
+    "rov-control": zoneMarkers["rov-control"].group,
     "vessel-hull": hullAnchor,
     rov,
     beacons: beacons[0],
@@ -439,6 +476,10 @@ export function createSurveyScene(
   const highlightTargets: Record<SurveySceneAnchor, THREE.Object3D> = {
     gnss: satellite,
     vessel: vessel,
+    mast: zoneMarkers.mast.group,
+    bridge: zoneMarkers.bridge.group,
+    "survey-online": zoneMarkers["survey-online"].group,
+    "rov-control": zoneMarkers["rov-control"].group,
     "vessel-hull": cone,
     rov,
     beacons: beacons[0],
@@ -550,8 +591,20 @@ export function createSurveyScene(
       (line.material as THREE.LineDashedMaterial).opacity = 0.35 + Math.max(0, Math.sin(t * 3 - i * 1.3)) * 0.6;
     });
 
+    zoneList.forEach((z, i) => {
+      const k = (t * 0.6 + i * 0.25) % 1;
+      z.ring.scale.setScalar(1 + k * 1.6);
+      (z.ring.material as THREE.MeshBasicMaterial).opacity = 0.85 * (1 - k);
+    });
+
     (Object.keys(highlightTargets) as SurveySceneAnchor[]).forEach((key) => {
-      const s = key === highlight ? 1 + Math.sin(t * 4) * 0.06 + 0.06 : 1;
+      const isZone = key in zoneMarkers;
+      const s =
+        key !== highlight
+          ? 1
+          : isZone
+            ? 1.8 + Math.sin(t * 4) * 0.2
+            : 1 + Math.sin(t * 4) * 0.06 + 0.06;
       highlightTargets[key].scale.setScalar(s);
     });
 

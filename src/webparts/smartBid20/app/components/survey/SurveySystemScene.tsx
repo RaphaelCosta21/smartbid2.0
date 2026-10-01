@@ -21,6 +21,9 @@ interface SurveySystemSceneProps {
   onSelect: (equipmentId: string) => void;
 }
 
+const COLLAPSE_AFTER = 4;
+const COLLAPSED_COUNT = 3;
+
 const SurveySystemScene: React.FC<SurveySystemSceneProps> = ({
   labels,
   highlight,
@@ -31,6 +34,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = ({
   const apiRef = React.useRef<SurveySceneApi | null>(null);
   const labelEls = React.useRef<Partial<Record<SurveySceneAnchor, HTMLElement>>>({});
   const [supported] = React.useState(isWebGLAvailable);
+  const [expanded, setExpanded] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!supported || !hostRef.current) return undefined;
@@ -74,23 +78,42 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = ({
     <div className={styles.root}>
       <div ref={hostRef} className={styles.canvasHost} />
       <div className={styles.labels}>
-        {labels.map((group) => (
-          <div
-            key={group.anchor}
-            ref={registerLabel(group.anchor)}
-            className={`${styles.label} ${group.anchor === highlight ? styles.labelActive : ""}`}
-          >
-            {group.items.map((item) => (
-              <button
-                key={item.id}
-                className={item.id === selectedId ? styles.itemSelected : ""}
-                onClick={() => onSelect(item.id)}
-              >
-                {item.text}
-              </button>
-            ))}
-          </div>
-        ))}
+        {labels.map((group) => {
+          const collapsible = group.items.length > COLLAPSE_AFTER;
+          const open = !collapsible || expanded === group.anchor;
+          const visible = open
+            ? group.items
+            : group.items.filter(
+                (item, i) => i < COLLAPSED_COUNT || item.id === selectedId,
+              );
+          const hidden = group.items.length - visible.length;
+          return (
+            <div
+              key={group.anchor}
+              ref={registerLabel(group.anchor)}
+              className={`${styles.label} ${group.anchor === highlight ? styles.labelActive : ""}`}
+            >
+              {visible.map((item) => (
+                <button
+                  key={item.id}
+                  className={item.id === selectedId ? styles.itemSelected : ""}
+                  onClick={() => onSelect(item.id)}
+                >
+                  {item.text}
+                </button>
+              ))}
+              {collapsible && (
+                <button
+                  className={styles.more}
+                  aria-expanded={open}
+                  onClick={() => setExpanded(open ? null : group.anchor)}
+                >
+                  {open ? "Show less" : `+${hidden} more`}
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
       <span className={styles.hint}>
         <MousePointer2 size={11} /> Drag to orbit · scroll to zoom

@@ -69,7 +69,13 @@ export function buildScopeItemsFromPackage(
         qtyOperational: line.qty,
         qtySpare: 0,
         needsCertification: false,
-        comments: "Added from Survey Portal",
+        comments: [
+          line.vesselSupplied ? "Vessel supplied — not priced" : "",
+          line.qtyLabel ? `Qty: ${line.qtyLabel}` : "",
+          line.spreadId ? `From spread template ${line.spreadId}` : "Added from Survey Portal",
+        ]
+          .filter(Boolean)
+          .join(" · "),
         importedFromTemplate: PACKAGE_TAG,
         integratedDivision: "SURVEY",
         source: "human",

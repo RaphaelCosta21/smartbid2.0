@@ -7,6 +7,10 @@
 export type SurveySceneAnchor =
   | "gnss"
   | "vessel"
+  | "mast"
+  | "bridge"
+  | "survey-online"
+  | "rov-control"
   | "vessel-hull"
   | "rov"
   | "beacons"
@@ -69,11 +73,53 @@ export interface ISurveyCatalog {
   families: ISurveyFamily[];
   equipment: ISurveyEquipment[];
   systems: ISurveySystem[];
+  spreads: ISurveySpread[];
+}
+
+export interface ISurveySpreadLine {
+  equipmentId: string;
+  qty: number;
+  /** Free-text quantity when it isn't a plain count (e.g. "1 set", "multiple channels"). */
+  qtyLabel?: string;
+  /** Provided by the vessel/client — kept in the scope but not priced. */
+  vesselSupplied?: boolean;
+}
+
+export interface ISurveySpreadZone {
+  id: string;
+  title: string;
+  lines: ISurveySpreadLine[];
+}
+
+/** Cable prefixes on the one-line diagram: SD data, SP power, SV video, SS RF, SPD subsea. */
+export type SurveyLinkKind = "data" | "power" | "video" | "rf" | "subsea" | "fibre" | "acoustic";
+
+export interface ISurveySpreadLink {
+  from: string;
+  to: string;
+  kind: SurveyLinkKind;
+  cable?: string;
+}
+
+/** A full equipment spread taken from a one-line diagram, reusable as a BID scope template. */
+export interface ISurveySpread {
+  id: string;
+  title: string;
+  drawingNo: string;
+  revision: string;
+  description: string;
+  zones: ISurveySpreadZone[];
+  links: ISurveySpreadLink[];
+  order: number;
 }
 
 export interface ISurveyPackageLine {
   equipmentId: string;
   qty: number;
+  qtyLabel?: string;
+  vesselSupplied?: boolean;
+  /** Spread template the line came from (traceability in the BID scope). */
+  spreadId?: string;
 }
 
 export interface ISurveyBidIntel {

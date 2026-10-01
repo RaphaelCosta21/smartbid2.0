@@ -33,6 +33,7 @@ export const SurveySystemPage: React.FC = () => {
   const selectEquipment = useSurveyStore((s) => s.selectEquipment);
   const packageLines = useSurveyStore((s) => s.packageLines);
   const addToPackage = useSurveyStore((s) => s.addToPackage);
+  const addSpreadToPackage = useSurveyStore((s) => s.addSpreadToPackage);
   const setFilters = useSurveyStore((s) => s.setFilters);
   const addToast = useUIStore((s) => s.addToast);
   const equipment = useFilteredSurveyEquipment();
@@ -41,6 +42,7 @@ export const SurveySystemPage: React.FC = () => {
   const [addingId, setAddingId] = React.useState<string | null>(null);
   const [packageOpen, setPackageOpen] = React.useState(false);
   const [systemId, setSystemId] = React.useState<string | null>(null);
+  const [spreadId, setSpreadId] = React.useState<string | null>(null);
   const [hoverAnchor, setHoverAnchor] = React.useState<SurveySceneAnchor | "">("");
 
   const systems = React.useMemo(
@@ -51,6 +53,8 @@ export const SurveySystemPage: React.FC = () => {
     [catalog, filters.familyId],
   );
   const system = systems.find((s) => s.id === systemId) || systems[0];
+  const spreads = catalog?.spreads || [];
+  const spread = spreads.find((s) => s.id === spreadId) || spreads[0];
 
   const labels = React.useMemo<SurveySceneLabel[]>(() => {
     const byAnchor: Record<string, SurveySceneLabel> = {};
@@ -103,6 +107,16 @@ export const SurveySystemPage: React.FC = () => {
     });
   };
 
+  const handleAddSpread = (): void => {
+    if (!spread) return;
+    const count = addSpreadToPackage(spread);
+    addToast({
+      type: "success",
+      title: "Spread added to bid package",
+      message: `${count} lines from ${spread.title}`,
+    });
+  };
+
   const handleConfirmAdd = (qty: number): void => {
     if (!adding) return;
     addToPackage(adding.id, qty);
@@ -140,6 +154,48 @@ export const SurveySystemPage: React.FC = () => {
             />
           </React.Suspense>
         </div>
+
+        {spread && (
+          <div className={styles.spreadPanel} key={spread.id}>
+            {spreads.length > 1 && (
+              <div className={styles.systemTabs}>
+                {spreads.map((s) => (
+                  <button
+                    key={s.id}
+                    className={s.id === spread.id ? styles.systemTabActive : ""}
+                    onClick={() => setSpreadId(s.id)}
+                  >
+                    {s.title}
+                  </button>
+                ))}
+              </div>
+            )}
+            <span className={styles.systemEyebrow}>
+              SPREAD TEMPLATE{spread.drawingNo ? ` · DWG ${spread.drawingNo}` : ""}
+              {spread.revision ? ` REV ${spread.revision}` : ""}
+            </span>
+            <h3 className={styles.systemTitle}>{spread.title}</h3>
+            <ul className={styles.zoneList}>
+              {spread.zones.map((zone) => {
+                const vessel = zone.lines.filter((l) => l.vesselSupplied).length;
+                return (
+                  <li key={zone.id}>
+                    <span>{zone.title}</span>
+                    <span className={styles.zoneCount}>
+                      {zone.lines.length} items
+                      {vessel > 0 && (
+                        <span className={styles.vesselTag}>{vessel} vessel</span>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <button className={styles.systemAdd} onClick={handleAddSpread}>
+              <PackagePlus size={13} /> ADD FULL SPREAD TO PACKAGE
+            </button>
+          </div>
+        )}
 
         {system && (
           <div className={styles.systemPanel} key={system.id}>

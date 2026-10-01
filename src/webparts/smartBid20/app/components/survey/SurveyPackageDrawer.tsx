@@ -144,7 +144,12 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
                   <div className={styles.lineCopy}>
                     <span className={styles.lineTitle}>{eq.title}</span>
                     <span className={styles.lineMeta}>
-                      {eq.partNumber ? `PN ${eq.partNumber}` : eq.technology}
+                      {line.vesselSupplied
+                        ? "VESSEL SUPPLIED — NOT PRICED"
+                        : eq.partNumber
+                          ? `PN ${eq.partNumber}`
+                          : eq.technology}
+                      {line.qtyLabel ? ` · ${line.qtyLabel}` : ""}
                     </span>
                   </div>
                   <div className={styles.stepper}>

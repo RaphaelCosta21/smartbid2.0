@@ -10,6 +10,7 @@ import {
   ISurveyCatalog,
   ISurveyEquipment,
   ISurveyFamily,
+  ISurveySpread,
   ISurveySystem,
 } from "../models";
 
@@ -17,8 +18,8 @@ const LIST_NAME = SHAREPOINT_CONFIG.lists.surveyCatalog;
 const F = SHAREPOINT_CONFIG.surveyCatalogFields;
 const IMAGE_EXT = /\.(png|jpe?g|webp|gif|svg)$/i;
 
-type ItemType = "family" | "equipment" | "system";
-type AnyEntry = ISurveyFamily | ISurveyEquipment | ISurveySystem;
+type ItemType = "family" | "equipment" | "system" | "spread";
+type AnyEntry = ISurveyFamily | ISurveyEquipment | ISurveySystem | ISurveySpread;
 
 let ensurePromise: Promise<void> | undefined;
 
@@ -121,7 +122,7 @@ export class SurveyCatalogService {
       throw err;
     }
 
-    const catalog: ISurveyCatalog = { families: [], equipment: [], systems: [] };
+    const catalog: ISurveyCatalog = { families: [], equipment: [], systems: [], spreads: [] };
     let skipped = 0;
     rows.forEach((row) => {
       if (row[F.isActive] === false) return;
@@ -144,6 +145,17 @@ export class SurveyCatalogService {
         catalog.families.push(base as ISurveyFamily);
       } else if (type === "system") {
         catalog.systems.push(SurveyCatalogService._normalizeSystem(base));
+      } else if (type === "spread") {
+        catalog.spreads.push({
+          id: base.id,
+          title: base.title,
+          drawingNo: base.drawingNo || "",
+          revision: base.revision || "",
+          description: base.description || "",
+          zones: base.zones || [],
+          links: base.links || [],
+          order: base.order,
+        });
       } else if (type === "equipment") {
         catalog.equipment.push(
           SurveyCatalogService._normalizeEquipment(base, row),
@@ -242,6 +254,9 @@ export class SurveyCatalogService {
     );
     (catalog.systems || []).forEach((e) =>
       entries.push({ type: "system", entry: e }),
+    );
+    (catalog.spreads || []).forEach((e) =>
+      entries.push({ type: "spread", entry: e }),
     );
 
     let written = 0;

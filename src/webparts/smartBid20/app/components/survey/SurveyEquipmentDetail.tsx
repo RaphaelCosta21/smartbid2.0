@@ -62,6 +62,33 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
     node.equipmentId === equipment.id ||
     node.label.toLowerCase() === equipment.title.toLowerCase();
 
+  // Spread links (one-line diagrams) first, then the hand-written connectsTo list.
+  const connections = React.useMemo(() => {
+    const result: string[] = [];
+    const seen: Record<string, boolean> = {};
+    const push = (label: string): void => {
+      const key = label.replace(/\s*#\d+$/, "").toLowerCase();
+      if (seen[key] || key === equipment.title.toLowerCase()) return;
+      seen[key] = true;
+      result.push(label);
+    };
+    const base = (node: string): string => node.split("#")[0];
+    (catalog.spreads || []).forEach((spread) =>
+      spread.links.forEach((link) => {
+        const other =
+          base(link.from) === equipment.id
+            ? base(link.to)
+            : base(link.to) === equipment.id
+              ? base(link.from)
+              : "";
+        const eq = other && catalog.equipment.find((e) => e.id === other);
+        if (eq) push(eq.title);
+      }),
+    );
+    equipment.connectsTo.forEach(push);
+    return result;
+  }, [catalog, equipment]);
+
   const bars = [
     { key: "inHouse", label: "In-house", value: intel.frequency.inHouse, cls: styles.barNavy },
     { key: "purchase", label: "Purchase", value: intel.frequency.purchase, cls: styles.barYellow },
@@ -151,10 +178,10 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
           </div>
         )}
 
-        {equipment.connectsTo.length > 0 && (
+        {connections.length > 0 && (
           <div className={styles.block}>
             <span className={styles.label}>CONNECTS TO</span>
-            <div className={styles.chips}>{equipment.connectsTo.map(renderChip)}</div>
+            <div className={styles.chips}>{connections.map(renderChip)}</div>
           </div>
         )}
 

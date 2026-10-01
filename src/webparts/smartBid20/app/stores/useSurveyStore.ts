@@ -3,6 +3,7 @@ import {
   IQuotationItem,
   ISurveyCatalog,
   ISurveyPackageLine,
+  ISurveySpread,
 } from "../models";
 import { SurveyCatalogService } from "../services/SurveyCatalogService";
 import { QuotationService } from "../services/QuotationService";
@@ -42,6 +43,8 @@ interface SurveyState {
   resetFilters: () => void;
   selectEquipment: (id: string | null) => void;
   addToPackage: (equipmentId: string, qty: number) => void;
+  /** Adds every line of a spread template; returns how many lines were added. */
+  addSpreadToPackage: (spread: ISurveySpread) => number;
   setPackageQty: (equipmentId: string, qty: number) => void;
   removeFromPackage: (equipmentId: string) => void;
   clearPackage: () => void;
@@ -67,7 +70,7 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
     try {
       const catalog = await SurveyCatalogService.getAll();
       set({
-        catalog: catalog || { families: [], equipment: [], systems: [] },
+        catalog: catalog || { families: [], equipment: [], systems: [], spreads: [] },
         listMissing: catalog === null,
         filters:
           catalog && !get().filters.familyId && catalog.families.length > 0
@@ -113,6 +116,27 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
           : [...state.packageLines, { equipmentId, qty }],
       };
     }),
+  addSpreadToPackage: (spread) => {
+    const known = get().catalog?.equipment || [];
+    const lines: ISurveyPackageLine[] = [];
+    spread.zones.forEach((zone) =>
+      zone.lines.forEach((l) => {
+        if (known.some((e) => e.id === l.equipmentId)) {
+          lines.push({ ...l, spreadId: spread.id });
+        }
+      }),
+    );
+    set((state) => {
+      const next = state.packageLines.slice();
+      lines.forEach((line) => {
+        const i = next.findIndex((l) => l.equipmentId === line.equipmentId);
+        if (i >= 0) next[i] = { ...next[i], qty: next[i].qty + line.qty };
+        else next.push(line);
+      });
+      return { packageLines: next };
+    });
+    return lines.length;
+  },
   setPackageQty: (equipmentId, qty) =>
     set((state) => ({
       packageLines: state.packageLines.map((l) =>

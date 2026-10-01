@@ -221,4 +221,9 @@ export {
   type ISurveyCatalog,
   type ISurveyPackageLine,
   type ISurveyBidIntel,
+  type ISurveySpread,
+  type ISurveySpreadZone,
+  type ISurveySpreadLine,
+  type ISurveySpreadLink,
+  type SurveyLinkKind,
 } from "./ISurveyCatalog";

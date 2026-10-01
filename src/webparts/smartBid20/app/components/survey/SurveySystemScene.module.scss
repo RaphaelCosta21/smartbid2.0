@@ -69,6 +69,12 @@
   color: var(--survey-navy) !important;
 }
 
+.label .more {
+  border-style: dashed;
+  background: var(--survey-navy);
+  color: var(--package-accent);
+}
+
 .hint {
   position: absolute;
   right: 14px;
