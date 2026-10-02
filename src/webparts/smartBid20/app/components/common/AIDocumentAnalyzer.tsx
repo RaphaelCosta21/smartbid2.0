@@ -1023,9 +1023,7 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
                       >
                         {c.baseType}
                       </span>
-                      <span className={styles.clarTitle}>
-                        {c.description}
-                      </span>
+                      <span className={styles.clarTitle}>{c.description}</span>
                       {c.relatedRef && (
                         <span className={styles.clarRef} title={c.relatedRef}>
                           {c.relatedRef}

@@ -824,7 +824,11 @@
 
 .statTileSelected {
   border-color: var(--primary-accent);
-  background: color-mix(in srgb, var(--primary-accent) 8%, var(--card-bg-elevated));
+  background: color-mix(
+    in srgb,
+    var(--primary-accent) 8%,
+    var(--card-bg-elevated)
+  );
 }
 
 .resultsMeta {
