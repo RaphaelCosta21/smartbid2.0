@@ -18,6 +18,12 @@ import {
 const LIST_NAME = SHAREPOINT_CONFIG.lists.surveyCatalog;
 const F = SHAREPOINT_CONFIG.surveyCatalogFields;
 const IMAGE_EXT = /\.(png|jpe?g|webp|gif|svg)$/i;
+const PHOTO_EXT: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 
 type ItemType = "family" | "equipment" | "system" | "spread";
 type AnyEntry = ISurveyFamily | ISurveyEquipment | ISurveySystem | ISurveySpread;
@@ -213,16 +219,16 @@ export class SurveyCatalogService {
 
   private static _normalizeEquipment(d: any, row: any): ISurveyEquipment {
     const partNumber = String(row[F.partNumber] || d.partNumber || "");
-    let imageUrl: string | null = d.imageUrl || null;
-    if (!imageUrl) {
-      const files: any[] = row.AttachmentFiles || [];
-      for (let i = 0; i < files.length; i++) {
-        if (IMAGE_EXT.test(files[i].FileName)) {
-          imageUrl = SurveyCatalogService._origin + files[i].ServerRelativeUrl;
-          break;
-        }
+    // An uploaded photo (row attachment) wins over a URL written in the JSON.
+    let imageUrl: string | null = null;
+    const files: any[] = row.AttachmentFiles || [];
+    for (let i = 0; i < files.length; i++) {
+      if (IMAGE_EXT.test(files[i].FileName)) {
+        imageUrl = SurveyCatalogService._origin + files[i].ServerRelativeUrl;
+        break;
       }
     }
+    if (!imageUrl) imageUrl = d.imageUrl || null;
     if (!imageUrl && partNumber) {
       imageUrl = `${SHAREPOINT_CONFIG.siteUrl}${SHAREPOINT_CONFIG.photosBaseUrl}/${encodeURIComponent(partNumber)}.jpg`;
     }
@@ -252,6 +258,42 @@ export class SurveyCatalogService {
       datasheetUrl: d.datasheetUrl || null,
       order: d.order,
     };
+  }
+
+  /**
+   * Replaces the photo of one equipment (stored as its row attachment) and returns
+   * the new URL. The new file is added before the old ones are removed.
+   */
+  public static async uploadEquipmentPhoto(equipmentId: string, file: File): Promise<string> {
+    const ext = PHOTO_EXT[file.type];
+    if (!ext) throw new Error("Use a PNG, JPG or WEBP image.");
+    if (file.size > PHOTO_MAX_BYTES) throw new Error("The photo must be 5 MB or smaller.");
+
+    const key = equipmentId.replace(/'/g, "''");
+    const rows: any[] = await SurveyCatalogService._list.items
+      .filter(`${F.itemType} eq 'equipment' and ${F.itemKey} eq '${key}'`)
+      .select("Id", "AttachmentFiles")
+      .expand("AttachmentFiles")
+      .top(1)();
+    if (rows.length === 0) {
+      throw new Error("This equipment is not in the SharePoint catalog yet. Import the catalog first.");
+    }
+
+    const item = SurveyCatalogService._list.items.getById(rows[0].Id);
+    // A timestamped name gives a fresh URL, so browsers never show the cached old photo.
+    const name = `${equipmentId.replace(/[^a-z0-9-]/gi, "-")}-${Date.now()}.${ext}`;
+    await item.attachmentFiles.add(name, file);
+    // The catalog shows the first image attachment, so keep a single photo per equipment.
+    const old = (rows[0].AttachmentFiles || []).filter(
+      (f: { FileName: string }) => IMAGE_EXT.test(f.FileName) && f.FileName !== name,
+    );
+    for (let i = 0; i < old.length; i++) {
+      await item.attachmentFiles.getByName(old[i].FileName).delete();
+    }
+
+    const saved = (await item.attachmentFiles()).find((f) => f.FileName === name);
+    if (!saved) throw new Error("The photo was uploaded but could not be read back.");
+    return SurveyCatalogService._origin + saved.ServerRelativeUrl;
   }
 
   /**

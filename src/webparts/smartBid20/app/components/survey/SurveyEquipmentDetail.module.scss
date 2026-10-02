@@ -117,6 +117,53 @@
   color: var(--survey-navy);
 }
 
+/* Clickable photo area (catalog editors only) */
+.photoEditable {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 200ms ease;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--survey-teal);
+    outline: none;
+  }
+
+  &:hover .photoOverlay,
+  &:focus-visible .photoOverlay {
+    opacity: 1;
+  }
+}
+
+.photoOverlay {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 6px;
+  background: var(--survey-navy);
+  color: var(--package-accent);
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.photoBusy {
+  cursor: wait;
+
+  .photoOverlay {
+    opacity: 1;
+  }
+}
+
 .info {
   flex: 1;
   min-width: 200px;
@@ -126,9 +173,10 @@
 }
 
 .tech {
-  font-size: 8px;
-  color: var(--survey-teal);
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--survey-navy);
 }
 
 .title {
@@ -147,14 +195,16 @@
 }
 
 .aliasLabel {
-  font-size: 7px;
-  color: var(--survey-slate);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--survey-navy);
 }
 
 .aliasLine {
   width: 16px;
   height: 1px;
-  background: var(--survey-muted);
+  background: var(--survey-navy);
 }
 
 .alias {

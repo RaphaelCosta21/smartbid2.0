@@ -1,11 +1,15 @@
 import * as React from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Camera } from "lucide-react";
 import {
   ISurveyBidIntel,
   ISurveyCatalog,
   ISurveyEquipment,
   ISurveyFitNode,
 } from "../../models";
+import { SurveyCatalogService } from "../../services/SurveyCatalogService";
+import { useAuthStore } from "../../stores/useAuthStore";
+import { useSurveyStore } from "../../stores/useSurveyStore";
+import { useUIStore } from "../../stores/useUIStore";
 import { SurveyEquipmentPhoto } from "./SurveyEquipmentCard";
 import { SURVEY_FIT_ICONS } from "./surveyAssets";
 import styles from "./SurveyEquipmentDetail.module.scss";
@@ -47,6 +51,39 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
 }) => {
   const datasheet = safeUrl(equipment.datasheetUrl);
   const status = (equipment.status || "Active").toUpperCase();
+  // Same permission that imports the catalog (Engineering, Commercial, super admins).
+  const canEditPhoto = useAuthStore((s) => s.hasAccess)("templates", "edit");
+  const setEquipmentImage = useSurveyStore((s) => s.setEquipmentImage);
+  const addToast = useUIStore((s) => s.addToast);
+  const photoInput = React.useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = React.useState(false);
+
+  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    const id = equipment.id;
+    setUploading(true);
+    try {
+      const url = await SurveyCatalogService.uploadEquipmentPhoto(id, file);
+      setEquipmentImage(id, url);
+      addToast({ type: "success", title: "Photo updated", message: equipment.title });
+    } catch (err) {
+      console.error("Survey photo upload failed:", err);
+      addToast({ type: "error", title: "Photo upload failed", message: (err as Error).message });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const photo = (
+    <>
+      <SurveyEquipmentPhoto equipment={equipment} size={140} />
+      <span className={styles.photoLabel}>
+        {(equipment.manufacturer || "PHOTO").toUpperCase()}
+      </span>
+    </>
+  );
 
   const findEquipment = (label: string): ISurveyEquipment | undefined => {
     const l = label.toLowerCase();
@@ -131,12 +168,34 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
 
       <div className={styles.content}>
         <div className={styles.identity}>
-          <div className={styles.photoLarge}>
-            <SurveyEquipmentPhoto equipment={equipment} size={140} />
-            <span className={styles.photoLabel}>
-              {(equipment.manufacturer || "PHOTO").toUpperCase()}
-            </span>
-          </div>
+          {canEditPhoto ? (
+            <>
+              <button
+                type="button"
+                className={`${styles.photoLarge} ${styles.photoEditable} ${
+                  uploading ? styles.photoBusy : ""
+                }`}
+                onClick={() => photoInput.current?.click()}
+                disabled={uploading}
+                title="Click to upload or replace the photo (PNG, JPG or WEBP, up to 5 MB)"
+                aria-label={`Upload a photo of ${equipment.title}`}
+              >
+                {photo}
+                <span className={styles.photoOverlay}>
+                  <Camera size={14} /> {uploading ? "Uploading…" : "Upload photo"}
+                </span>
+              </button>
+              <input
+                ref={photoInput}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                hidden
+                onChange={handlePhoto}
+              />
+            </>
+          ) : (
+            <div className={styles.photoLarge}>{photo}</div>
+          )}
           <div className={styles.info}>
             <span className={styles.tech}>{equipment.technology}</span>
             <h3 className={styles.title}>{equipment.title}</h3>

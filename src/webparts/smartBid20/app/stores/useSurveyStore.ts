@@ -38,6 +38,8 @@ interface SurveyState {
   setFilters: (filters: Partial<SurveyFilters>) => void;
   resetFilters: () => void;
   selectEquipment: (id: string | null) => void;
+  /** Updates a photo in the loaded catalog after an upload (no reload needed). */
+  setEquipmentImage: (equipmentId: string, imageUrl: string) => void;
   setSpreadId: (spreadId: string | null) => void;
   setBidNumber: (bidNumber: string | null) => void;
   addToPackage: (equipmentId: string, qty: number) => void;
@@ -102,6 +104,19 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
     set((state) => ({ filters: { ...state.filters, ...filters } })),
   resetFilters: () => set({ filters: DEFAULT_FILTERS }),
   selectEquipment: (id) => set({ selectedEquipmentId: id }),
+  setEquipmentImage: (equipmentId, imageUrl) =>
+    set((state) =>
+      state.catalog
+        ? {
+            catalog: {
+              ...state.catalog,
+              equipment: state.catalog.equipment.map((e) =>
+                e.id === equipmentId ? { ...e, imageUrl } : e,
+              ),
+            },
+          }
+        : {},
+    ),
   setSpreadId: (spreadId) => set({ spreadId }),
   setBidNumber: (bidNumber) => set({ bidNumber }),
 

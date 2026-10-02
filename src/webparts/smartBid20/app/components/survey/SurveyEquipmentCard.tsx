@@ -18,6 +18,7 @@ export const SurveyEquipmentPhoto: React.FC<{
   size: number;
 }> = ({ equipment, size }) => {
   const [failed, setFailed] = React.useState(false);
+  React.useEffect(() => setFailed(false), [equipment.imageUrl]);
   const hasImage = !!equipment.imageUrl && !failed;
   return (
     <span className={styles.photoWrap} style={{ width: size, height: size }}>
