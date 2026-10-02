@@ -21,9 +21,6 @@ interface SurveySpreadPanelProps {
   onAddSpread: () => void;
 }
 
-/** Same order as the 3D room labels (rooms only; BID-only groups stay neutral). */
-const ZONE_TONES = [styles.tone0, styles.tone1, styles.tone2, styles.tone3, styles.tone4, styles.tone5];
-
 /** Most frequent category of a zone; lines in another category get a tag. */
 const mainCategory = (zone: ISurveySpreadZone): string | undefined => {
   const counts: Record<string, number> = {};
@@ -95,7 +92,7 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
           const open = zone.id === activeZoneId;
           const vessel = zone.lines.filter((l) => l.vesselSupplied).length;
           const room = rooms.indexOf(zone);
-          const tone = room >= 0 ? ZONE_TONES[room % ZONE_TONES.length] : styles.toneNeutral;
+          const tone = room >= 0 ? styles.toneRoom : styles.toneNeutral;
           const main = mainCategory(zone);
           return (
             <li key={zone.id} className={`${tone} ${open ? styles.zoneOpen : ""}`}>

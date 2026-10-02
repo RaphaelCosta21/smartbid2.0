@@ -2,14 +2,14 @@
  * Overview trunks: one animated arc per pair of rooms that share cables on the
  * one-line diagram. Endpoints follow moving anchors (vessel heave, ROV), so the
  * arc is a 1px line plus a stream of instanced dots recomputed every frame.
+ * Kept monochrome so the overview stays calm; the hovered arc turns yellow.
  */
 import * as THREE from "three";
-import { SurveyLinkKind, SurveySceneAnchor } from "../../../models";
-import { LINK_COLORS, LINK_KINDS, SceneTrunk } from "./sceneTypes";
+import { SurveySceneAnchor } from "../../../models";
+import { SceneTrunk } from "./sceneTypes";
 
 interface Trunk {
   key: string;
-  kind: SurveyLinkKind;
   from: THREE.Object3D;
   to: THREE.Object3D;
   group: THREE.Group;
@@ -20,15 +20,24 @@ interface Trunk {
 
 const LINE_POINTS = 32;
 const DOTS = 14;
-const LINE_OPACITY = 0.55;
+const LINE_OPACITY = 0.4;
 const SURFACE_Y = -0.5;
+const COLOR = 0xf4fbff;
+const HOT_COLOR = 0xffc72c;
+
+const lineMat = (color: number): THREE.LineBasicMaterial =>
+  new THREE.LineBasicMaterial({ color, transparent: true, opacity: LINE_OPACITY, depthWrite: false });
+const dotMat = (color: number): THREE.MeshBasicMaterial =>
+  new THREE.MeshBasicMaterial({ color, transparent: true, depthWrite: false });
 
 export class TrunkNetwork {
   public readonly group = new THREE.Group();
   private trunks: Trunk[] = [];
   private dotGeo = new THREE.SphereGeometry(0.13, 8, 6);
-  private lineMats = {} as Record<SurveyLinkKind, THREE.LineBasicMaterial>;
-  private dotMats = {} as Record<SurveyLinkKind, THREE.MeshBasicMaterial>;
+  private lineMat = lineMat(COLOR);
+  private hotLineMat = lineMat(HOT_COLOR);
+  private dotMat = dotMat(COLOR);
+  private hotDotMat = dotMat(HOT_COLOR);
   private hoverKey: string | null = null;
   private fade = 1;
   private visibleTarget = true;
@@ -37,21 +46,7 @@ export class TrunkNetwork {
   private scale = new THREE.Vector3();
   private quat = new THREE.Quaternion();
 
-  constructor(private readonly resolve: (anchor: SurveySceneAnchor) => THREE.Object3D | null) {
-    LINK_KINDS.forEach((kind) => {
-      this.lineMats[kind] = new THREE.LineBasicMaterial({
-        color: LINK_COLORS[kind],
-        transparent: true,
-        opacity: LINE_OPACITY,
-        depthWrite: false,
-      });
-      this.dotMats[kind] = new THREE.MeshBasicMaterial({
-        color: LINK_COLORS[kind],
-        transparent: true,
-        depthWrite: false,
-      });
-    });
-  }
+  constructor(private readonly resolve: (anchor: SurveySceneAnchor) => THREE.Object3D | null) {}
 
   public build(trunks: SceneTrunk[]): void {
     this.clear();
@@ -65,16 +60,15 @@ export class TrunkNetwork {
         new THREE.BufferGeometry().setFromPoints(
           new Array(LINE_POINTS).fill(0).map(() => new THREE.Vector3()),
         ),
-        this.lineMats[t.kind],
+        this.lineMat,
       );
       line.frustumCulled = false;
-      const dots = new THREE.InstancedMesh(this.dotGeo, this.dotMats[t.kind], DOTS);
+      const dots = new THREE.InstancedMesh(this.dotGeo, this.dotMat, DOTS);
       dots.frustumCulled = false;
       group.add(line, dots);
       this.group.add(group);
       this.trunks.push({
         key: t.key,
-        kind: t.kind,
         from,
         to,
         group,
@@ -103,10 +97,10 @@ export class TrunkNetwork {
     this.group.visible = this.fade > 0.01;
     if (!this.group.visible) return;
     const anyHover = !!this.hoverKey;
-    LINK_KINDS.forEach((kind) => {
-      this.lineMats[kind].opacity = LINE_OPACITY * this.fade;
-      this.dotMats[kind].opacity = this.fade;
-    });
+    this.lineMat.opacity = LINE_OPACITY * this.fade;
+    this.hotLineMat.opacity = this.fade;
+    this.dotMat.opacity = this.fade;
+    this.hotDotMat.opacity = this.fade;
 
     this.trunks.forEach((t, ti) => {
       const c = t.curve;
@@ -132,6 +126,8 @@ export class TrunkNetwork {
 
       const hot = t.key === this.hoverKey;
       const muted = anyHover && !hot;
+      t.line.material = hot ? this.hotLineMat : this.lineMat;
+      t.dots.material = hot ? this.hotDotMat : this.dotMat;
       const speed = hot ? 0.5 : 0.18;
       const size = hot ? 1.7 : muted ? 0.6 : 1;
       for (let i = 0; i < DOTS; i++) {
@@ -161,9 +157,6 @@ export class TrunkNetwork {
   public dispose(): void {
     this.clear();
     this.dotGeo.dispose();
-    LINK_KINDS.forEach((kind) => {
-      this.lineMats[kind].dispose();
-      this.dotMats[kind].dispose();
-    });
+    [this.lineMat, this.hotLineMat, this.dotMat, this.hotDotMat].forEach((m) => m.dispose());
   }
 }

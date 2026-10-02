@@ -42,6 +42,8 @@ const PALETTE = {
 
 const SEABED_Y = -16;
 const DIORAMA_RADIUS = 40;
+/** Overview vessel is enlarged so its rooms sit further apart; it shrinks back while a room is open. */
+const VESSEL_SCALE = { overview: 1.7, focus: 1 };
 /** Rooms of the one-line diagram that live on the vessel; a click on the hull picks the nearest. */
 const VESSEL_ROOMS: SurveySceneAnchor[] = ["mast", "bridge", "survey-online", "rov-control", "vessel-hull"];
 
@@ -342,6 +344,9 @@ export function createSurveyScene(
 
   // Vessel (procedural until the GLB loads)
   const vessel = new THREE.Group();
+  let vesselScale = VESSEL_SCALE.overview;
+  let vesselScaleGoal = VESSEL_SCALE.overview;
+  vessel.scale.setScalar(vesselScale);
   let vesselModel: THREE.Object3D = buildProceduralVessel();
   vessel.add(vesselModel);
   scene.add(vessel);
@@ -814,6 +819,13 @@ export function createSurveyScene(
     waterPos.needsUpdate = true;
 
     vessel.position.y = Math.sin(t * 0.8) * 0.12;
+    if (vesselScale !== vesselScaleGoal) {
+      vesselScale = opts.reducedMotion
+        ? vesselScaleGoal
+        : THREE.MathUtils.damp(vesselScale, vesselScaleGoal, 3.5, dt);
+      if (Math.abs(vesselScale - vesselScaleGoal) < 0.002) vesselScale = vesselScaleGoal;
+      vessel.scale.setScalar(vesselScale);
+    }
     vessel.rotation.z = Math.sin(t * 0.6) * 0.015;
     vessel.rotation.x = Math.cos(t * 0.5) * 0.012;
 
@@ -949,6 +961,7 @@ export function createSurveyScene(
         rovFrozen = false;
         focusCtl.close();
         trunks.setVisible(true);
+        vesselScaleGoal = VESSEL_SCALE.overview;
         controls.minDistance = HOME_MIN_DISTANCE;
         flyTo(HOME_POSITION, HOME_TARGET);
         return;
@@ -961,6 +974,10 @@ export function createSurveyScene(
       focusZoneId = focus.zoneId;
       rovFrozen = focus.anchor === "rov";
       trunks.setVisible(false);
+      vesselScaleGoal = VESSEL_SCALE.focus;
+      // Lay the room out where its anchors will be once the vessel has shrunk.
+      vessel.scale.setScalar(vesselScaleGoal);
+      vessel.updateMatrixWorld(true);
 
       const view = ZONE_VIEW[focus.anchor] || { elevation: 0.25, lift: 1 };
       const target = zoneTarget(focus.anchor);
@@ -985,6 +1002,8 @@ export function createSurveyScene(
         lastClusters: [CATALOG_CLUSTER, PORTAL_CLUSTER],
         verticalFraction: Math.max(0.3, (height - insetTop) / (height + insetTop)),
       });
+      vessel.scale.setScalar(vesselScale);
+      vessel.updateMatrixWorld(true);
       focusCtl.open(focus, layout, origins);
       controls.minDistance = 4;
       focusView = { position: layout.cameraPosition.clone(), target: layout.center.clone() };

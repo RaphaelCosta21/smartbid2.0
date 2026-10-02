@@ -172,7 +172,7 @@ export const SurveySystemPage: React.FC = () => {
   );
   const sceneZones = React.useMemo<SceneZone[]>(
     () =>
-      rooms.map((z, i) => {
+      rooms.map((z) => {
         // Vessel-supplied lines are not priced, so they never count against the BID.
         const priced = z.lines.filter((l) => !l.vesselSupplied);
         const inBid = considered ? priced.filter((l) => considered[l.equipmentId]).length : 0;
@@ -180,7 +180,6 @@ export const SurveySystemPage: React.FC = () => {
           id: z.id,
           title: z.title,
           anchor: z.sceneAnchor as SurveySceneAnchor,
-          colorIndex: i,
           countLabel: considered
             ? `${inBid}/${priced.length} in BID`
             : `${z.lines.length} items`,

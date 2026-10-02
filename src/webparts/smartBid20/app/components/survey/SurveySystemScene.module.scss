@@ -54,9 +54,11 @@
   pointer-events: auto;
   cursor: pointer;
   transition: transform 250ms ease;
+  --zone-tone: var(--survey-ice);
 
   &:hover {
     transform: translateX(-50%) translateY(-3px);
+    --zone-tone: var(--package-accent);
   }
 
   &:focus-visible {
@@ -68,10 +70,7 @@
 /* Hovering the room on the vessel lights its label */
 .zoneHot {
   transform: translateX(-50%) translateY(-3px);
-
-  .zoneText {
-    color: var(--zone-tone);
-  }
+  --zone-tone: var(--package-accent);
 }
 
 /* Stem tiers keep neighbouring rooms' labels apart */
@@ -106,30 +105,6 @@
       top: -4px;
     }
   }
-}
-
-.zoneTone0 {
-  --zone-tone: var(--package-accent);
-}
-
-.zoneTone1 {
-  --zone-tone: var(--survey-teal);
-}
-
-.zoneTone2 {
-  --zone-tone: var(--survey-alert);
-}
-
-.zoneTone3 {
-  --zone-tone: var(--survey-green);
-}
-
-.zoneTone4 {
-  --zone-tone: var(--survey-muted);
-}
-
-.zoneTone5 {
-  --zone-tone: var(--survey-red);
 }
 
 .zoneText {

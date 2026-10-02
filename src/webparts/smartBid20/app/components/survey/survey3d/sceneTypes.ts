@@ -8,7 +8,6 @@ export interface SceneZone {
   id: string;
   title: string;
   anchor: SurveySceneAnchor;
-  colorIndex: number;
   /** e.g. "7 items" or "5/7 in BID". */
   countLabel: string;
 }

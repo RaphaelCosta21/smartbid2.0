@@ -68,28 +68,8 @@
   gap: 4px;
 }
 
-.tone0 {
-  --zone-tone: var(--package-accent);
-}
-
-.tone1 {
+.toneRoom {
   --zone-tone: var(--survey-teal);
-}
-
-.tone2 {
-  --zone-tone: var(--survey-alert);
-}
-
-.tone3 {
-  --zone-tone: var(--survey-green);
-}
-
-.tone4 {
-  --zone-tone: var(--survey-muted);
-}
-
-.tone5 {
-  --zone-tone: var(--survey-red);
 }
 
 .toneNeutral {

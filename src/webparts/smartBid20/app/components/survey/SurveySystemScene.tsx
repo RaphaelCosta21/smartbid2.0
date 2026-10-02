@@ -72,14 +72,6 @@ interface SurveySystemSceneProps {
 const FULL_LABEL_MAX = 18;
 const COMPACT_LABEL_MAX = 40;
 
-const ZONE_TONES = [
-  styles.zoneTone0,
-  styles.zoneTone1,
-  styles.zoneTone2,
-  styles.zoneTone3,
-  styles.zoneTone4,
-  styles.zoneTone5,
-];
 /** Rooms sit a few metres apart on deck: stagger stem heights so their labels never stack. */
 const STEM_TIERS: Partial<Record<SurveySceneAnchor, string>> = {
   "rov-control": styles.stemLow,
@@ -235,9 +227,10 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     nodeStates.hoverNodeId === id ||
     nodeStates.selectedNodeId === id ||
     nodeStates.traceNodeIds.indexOf(id) >= 0;
-  const legendKinds = LINK_KINDS.filter((k) =>
-    focus ? focus.links.some((l) => l.kind === k) : trunks.some((t) => t.kind === k),
-  );
+  // Overview arcs are monochrome, so the colour legend only applies inside a room.
+  const legendKinds = focus
+    ? LINK_KINDS.filter((k) => focus.links.some((l) => l.kind === k))
+    : [];
 
   return (
     <div
@@ -249,9 +242,9 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
         {zones.map((zone) => (
           <div key={zone.id} ref={registerLabel(`zone:${zone.id}`)} className={styles.anchor}>
             <button
-              className={`${styles.zoneLabel} ${ZONE_TONES[zone.colorIndex % ZONE_TONES.length]} ${
-                STEM_TIERS[zone.anchor] || ""
-              } ${hotZoneId === zone.id ? styles.zoneHot : ""}`}
+              className={`${styles.zoneLabel} ${STEM_TIERS[zone.anchor] || ""} ${
+                hotZoneId === zone.id ? styles.zoneHot : ""
+              }`}
               onClick={() => onZoneSelect(zone.id)}
             >
               <span className={styles.zoneText}>{zone.title}</span>
