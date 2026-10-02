@@ -219,11 +219,11 @@ export const OperationalSummaryPage: React.FC = () => {
         title: "Operational Summary",
         subtitle: `${filtered.length} BIDs`,
         kpis: [
-          { label: "Ativos", value: String(stats.active) },
-          { label: "Aprovações Pendentes", value: String(stats.pending) },
-          { label: "Atrasados", value: String(stats.overdue) },
-          { label: "Concluídos", value: String(stats.completed) },
-          { label: "Ciclo Médio", value: `${stats.avgCycle}d` },
+          { label: "Active", value: String(stats.active) },
+          { label: "Pending Approvals", value: String(stats.pending) },
+          { label: "Overdue", value: String(stats.overdue) },
+          { label: "Completed", value: String(stats.completed) },
+          { label: "Average Cycle", value: `${stats.avgCycle}d` },
         ],
         charts,
         fileName: "Operational-Summary.pdf",
@@ -240,7 +240,7 @@ export const OperationalSummaryPage: React.FC = () => {
     <div className={styles.page}>
       <PageHeader
         title="Operational Summary"
-        subtitle="Resumo operacional e throughput de BIDs"
+        subtitle="Operational overview and BID throughput"
         icon={
           <svg
             width="28"
@@ -277,53 +277,53 @@ export const OperationalSummaryPage: React.FC = () => {
       {filtered.length === 0 ? (
         <EmptyState
           variant="glass"
-          title="Nenhum BID no filtro atual"
-          description="Ajuste o período ou os filtros."
+          title="No BIDs Match Current Filters"
+          description="Adjust the period or filters."
         />
       ) : (
         <>
           <div className={styles.kpiRow}>
             <KPICard
               variant="glass"
-              label="BIDs Ativos"
+              label="Active BIDs"
               value={stats.active}
               accentColor={chart.accent}
-              subtitle="em andamento"
+              subtitle="in progress"
             />
             <KPICard
               variant="glass"
-              label="Aprovações Pendentes"
+              label="Pending Approvals"
               value={stats.pending}
               accentColor={chart.warning}
-              subtitle="aguardando"
+              subtitle="awaiting action"
             />
             <KPICard
               variant="glass"
-              label="Atrasados"
+              label="Overdue"
               value={stats.overdue}
               accentColor={chart.danger}
-              subtitle="ativos vencidos"
+              subtitle="overdue active BIDs"
             />
             <KPICard
               variant="glass"
-              label="Concluídos"
+              label="Completed"
               value={stats.completed}
               accentColor={chart.success}
-              subtitle="no período"
+              subtitle="in selected period"
             />
             <KPICard
               variant="glass"
-              label="Ciclo Médio"
+              label="Average Cycle"
               value={`${stats.avgCycle}d`}
               accentColor={chart.accentTertiary}
-              subtitle="criação → conclusão"
+              subtitle="creation → completion"
             />
             <KPICard
               variant="glass"
               label="Throughput"
               value={stats.completed}
               accentColor={chart.info}
-              subtitle="entregues no período"
+              subtitle="completed in selected period"
             />
           </div>
 
@@ -331,11 +331,11 @@ export const OperationalSummaryPage: React.FC = () => {
             <div ref={setRef("workload")}>
               <GlassCard
                 title="Division Workloads"
-                subtitle="Ativos, aprovações pendentes e atrasados por divisão"
+                subtitle="Active BIDs, pending approvals, and overdue BIDs by division"
                 accentColor={chart.accentSecondary}
               >
                 {divWorkloads.length === 0 ? (
-                  <EmptyState title="Sem BIDs ativos" />
+                  <EmptyState title="No Active BIDs" />
                 ) : (
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart
@@ -362,21 +362,21 @@ export const OperationalSummaryPage: React.FC = () => {
                       <Legend wrapperStyle={legendStyle} />
                       <Bar
                         dataKey="active"
-                        name="Ativos"
+                        name="Active"
                         fill={chart.accentSecondary}
                         radius={[4, 4, 0, 0]}
                         maxBarSize={30}
                       />
                       <Bar
                         dataKey="pending"
-                        name="Aprovações"
+                        name="Approvals"
                         fill={chart.warning}
                         radius={[4, 4, 0, 0]}
                         maxBarSize={30}
                       />
                       <Bar
                         dataKey="overdue"
-                        name="Atrasados"
+                        name="Overdue"
                         fill={chart.danger}
                         radius={[4, 4, 0, 0]}
                         maxBarSize={30}
@@ -390,11 +390,11 @@ export const OperationalSummaryPage: React.FC = () => {
             <div ref={setRef("phase")}>
               <GlassCard
                 title="Active BIDs by Phase"
-                subtitle="Distribuição dos BIDs ativos por fase"
+                subtitle="Distribution of active BIDs by phase"
                 accentColor={chart.accentTertiary}
               >
                 {phaseData.length === 0 ? (
-                  <EmptyState title="Sem BIDs ativos" />
+                  <EmptyState title="No Active BIDs" />
                 ) : (
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart
@@ -424,7 +424,7 @@ export const OperationalSummaryPage: React.FC = () => {
                       />
                       <Bar
                         dataKey="count"
-                        name="Ativos"
+                        name="Active"
                         radius={[0, 6, 6, 0]}
                         maxBarSize={22}
                       >
@@ -448,7 +448,7 @@ export const OperationalSummaryPage: React.FC = () => {
           <div ref={setRef("throughput")} className={styles.spanAll}>
             <GlassCard
               title="Throughput"
-              subtitle="BIDs concluídos por mês"
+              subtitle="Completed BIDs per month"
               accentColor={chart.success}
             >
               <ResponsiveContainer width="100%" height={280}>
@@ -475,7 +475,7 @@ export const OperationalSummaryPage: React.FC = () => {
                   />
                   <Bar
                     dataKey="completed"
-                    name="Concluídos"
+                    name="Completed"
                     fill={chart.success}
                     radius={[4, 4, 0, 0]}
                     maxBarSize={44}
@@ -494,14 +494,14 @@ export const OperationalSummaryPage: React.FC = () => {
 
           <div ref={setRef("sector")} className={styles.spanAll}>
             <GlassCard
-              title="Tempo Médio de Aprovação por Setor"
-              subtitle="Dias médios por setor (apenas aprovações concluídas)"
+              title="Average Approval Time by Department"
+              subtitle="Average days by department (completed approvals only)"
               accentColor={chart.warning}
             >
               {sectorData.length === 0 ? (
-                <EmptyState
-                  title="Sem aprovações concluídas"
-                  description="Assim que houver rodadas de aprovação fechadas, os tempos por setor aparecerão aqui."
+                  <EmptyState
+                    title="No Completed Approvals"
+                    description="Average department approval times will appear here once approval rounds are closed."
                 />
               ) : (
                 <ResponsiveContainer
@@ -537,7 +537,7 @@ export const OperationalSummaryPage: React.FC = () => {
                     />
                     <Bar
                       dataKey="avgDays"
-                      name="Dias médios"
+                      name="Average Days"
                       radius={[0, 6, 6, 0]}
                       maxBarSize={24}
                     >

@@ -55,9 +55,9 @@ type Scope = "all" | "active" | "completed";
 type Dimension = "phase" | "status";
 
 const SCOPE_SEGMENTS: SegmentOption<Scope>[] = [
-  { value: "all", label: "Todos" },
-  { value: "active", label: "Ativos" },
-  { value: "completed", label: "Concluídos" },
+  { value: "all", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "completed", label: "Completed" },
 ];
 
 const DIM_SEGMENTS: SegmentOption<Dimension>[] = [
@@ -66,9 +66,9 @@ const DIM_SEGMENTS: SegmentOption<Dimension>[] = [
 ];
 
 const STAT_SEGMENTS: SegmentOption<DurationStat>[] = [
-  { value: "avg", label: "Média" },
-  { value: "median", label: "Mediana" },
-  { value: "max", label: "Máx" },
+  { value: "avg", label: "Average" },
+  { value: "median", label: "Median" },
+  { value: "max", label: "Max" },
 ];
 
 const MS_DAY = 86400000;
@@ -238,7 +238,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
     <div className={styles.page}>
       <PageHeader
         title="Bottleneck Analysis"
-        subtitle="Tempo por fase e status, BIDs mais demorados e carga por divisão"
+        subtitle="Time by phase and status, longest-running BIDs, and workload by division"
         icon={
           <svg
             width="28"
@@ -268,7 +268,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
             segments={SCOPE_SEGMENTS}
             onChange={setScope}
             size="sm"
-            ariaLabel="Escopo"
+            ariaLabel="Scope"
           />
         }
       />
@@ -276,55 +276,55 @@ export const BottleneckAnalysisPage: React.FC = () => {
       {scoped.length === 0 ? (
         <EmptyState
           variant="glass"
-          title="Nenhum BID no filtro atual"
-          description="Ajuste o período, o escopo ou os filtros para investigar os gargalos."
+          title="No BIDs Match Current Filters"
+          description="Adjust the period, scope, or filters to investigate bottlenecks."
         />
       ) : (
         <>
           <div className={styles.kpiRow}>
             <KPICard
-              label="Ciclo Médio Total"
+              label="Average Total Cycle"
               value={`${stats.avgCycle}d`}
               variant="glass"
               accentColor={chart.accentTertiary}
-              subtitle="criação → conclusão"
+              subtitle="creation → completion"
             />
             <KPICard
-              label="Fase Mais Lenta"
+              label="Slowest Phase"
               value={stats.slowestPhase ? `${stats.slowestPhase.days}d` : "—"}
               variant="glass"
               accentColor={chart.danger}
               subtitle={
-                stats.slowestPhase ? stats.slowestPhase.phase : "sem dados"
+                stats.slowestPhase ? stats.slowestPhase.phase : "no data"
               }
             />
             <KPICard
-              label="Ciclo de Aprovação"
+              label="Approval Cycle"
               value={stats.avgApproval != null ? `${stats.avgApproval}d` : "—"}
               variant="glass"
               accentColor={chart.warning}
-              subtitle="média por BID"
+              subtitle="average per BID"
             />
             <KPICard
-              label="Bloqueados / Atrasados"
+              label="Blocked / Overdue"
               value={stats.blocked}
               variant="glass"
               accentColor={chart.info}
-              subtitle="BIDs ativos"
+              subtitle="active BIDs"
             />
           </div>
 
           <GlassCard
             title={
-              dimension === "phase" ? "Tempo por Fase" : "Tempo por Status"
+              dimension === "phase" ? "Time by Phase" : "Time by Status"
             }
-            subtitle={`Duração ${
+            subtitle={`Duration ${
               stat === "avg"
-                ? "média"
+                ? "average"
                 : stat === "median"
-                  ? "mediana"
-                  : "máxima"
-            } (dias) — gargalos acima de ${threshold}d destacados`}
+                  ? "median"
+                  : "maximum"
+            } (days) — bottlenecks above ${threshold}d highlighted`}
             accentColor={chart.danger}
             className={styles.spanAll}
             actions={
@@ -334,21 +334,21 @@ export const BottleneckAnalysisPage: React.FC = () => {
                   segments={DIM_SEGMENTS}
                   onChange={setDimension}
                   size="sm"
-                  ariaLabel="Dimensão"
+                  ariaLabel="Dimension"
                 />
                 <SegmentedControl<DurationStat>
                   value={stat}
                   segments={STAT_SEGMENTS}
                   onChange={setStat}
                   size="sm"
-                  ariaLabel="Estatística"
+                  ariaLabel="Statistic"
                 />
               </div>
             }
           >
             <div className={styles.thresholdRow}>
               <span className={styles.thresholdLabel}>
-                Limite de gargalo: <strong>{threshold}d</strong>
+                Bottleneck threshold: <strong>{threshold}d</strong>
               </span>
               <input
                 className={styles.slider}
@@ -357,7 +357,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
                 max={maxThreshold}
                 value={threshold}
                 onChange={(e) => setThreshold(Number(e.target.value))}
-                aria-label="Limite de gargalo em dias"
+                aria-label="Bottleneck threshold in days"
               />
               <span
                 className={styles.bottleneckTag}
@@ -366,7 +366,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
                   borderColor: bottleneckCount ? chart.danger : "transparent",
                 }}
               >
-                {bottleneckCount} gargalo(s)
+                {bottleneckCount} bottleneck(s)
               </span>
             </div>
             <ResponsiveContainer width="100%" height={dimHeight}>
@@ -400,7 +400,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
                   stroke={chart.warning}
                   strokeDasharray="5 4"
                   label={{
-                    value: `média ${avgDays}d`,
+                    value: `average ${avgDays}d`,
                     position: "top",
                     fill: chart.textMuted,
                     fontSize: 11,
@@ -428,15 +428,15 @@ export const BottleneckAnalysisPage: React.FC = () => {
           </GlassCard>
 
           <GlassCard
-            title="Tempo Médio de Aprovação por Setor"
-            subtitle="Dias médios por setor — apenas rodadas de aprovação concluídas"
+            title="Average Approval Time by Department"
+            subtitle="Average days by department — completed approval rounds only"
             accentColor={chart.warning}
             className={styles.spanAll}
           >
             {sectorApproval.length === 0 ? (
               <EmptyState
-                title="Sem aprovações concluídas"
-                description="Assim que houver rodadas de aprovação fechadas, os tempos médios por setor aparecerão aqui."
+                title="No Completed Approvals"
+                description="Average department approval times will appear here once approval rounds are closed."
               />
             ) : (
               <ResponsiveContainer
@@ -472,7 +472,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
                   />
                   <Bar
                     dataKey="avgDays"
-                    name="Dias médios"
+                    name="Average Days"
                     radius={[0, 6, 6, 0]}
                     barSize={22}
                   >
@@ -494,12 +494,12 @@ export const BottleneckAnalysisPage: React.FC = () => {
 
           <div className={styles.chartsGrid}>
             <GlassCard
-              title="Mapa de Calor — Divisão × Fase"
-              subtitle="Dias médios por fase em cada divisão"
+              title="Heatmap — Division × Phase"
+              subtitle="Average days by phase for each division"
               accentColor={chart.warning}
             >
               {matrix.phases.length === 0 ? (
-                <EmptyState title="Sem histórico de fases" />
+                <EmptyState title="No Phase History" />
               ) : (
                 <HeatmapGrid
                   rows={matrix.divisions}
@@ -516,8 +516,8 @@ export const BottleneckAnalysisPage: React.FC = () => {
             </GlassCard>
 
             <GlassCard
-              title="Funil de Fases"
-              subtitle="Quantos BIDs alcançaram cada fase"
+              title="Phase Funnel"
+              subtitle="Number of BIDs reaching each phase"
               accentColor={chart.accent}
             >
               <ResponsiveContainer width="100%" height={280}>
@@ -548,8 +548,8 @@ export const BottleneckAnalysisPage: React.FC = () => {
           </div>
 
           <GlassCard
-            title="BIDs Mais Demorados"
-            subtitle="Maior tempo decorrido — clique para abrir o detalhe"
+            title="Longest-Running BIDs"
+            subtitle="Longest elapsed time — click to open details"
             accentColor={chart.danger}
             className={styles.spanAll}
           >
@@ -577,7 +577,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
                       <DivisionBadge division={row.bid.division} />
                       <PhaseBadge phase={row.bid.currentPhase} />
                       {row.active && (
-                        <span className={styles.activeDot} title="Ativo" />
+                        <span className={styles.activeDot} title="Active" />
                       )}
                     </div>
                     <div className={styles.slowClient}>
@@ -599,13 +599,13 @@ export const BottleneckAnalysisPage: React.FC = () => {
           </GlassCard>
 
           <GlassCard
-            title="Carga por Divisão"
-            subtitle="BIDs ativos (WIP) e atrasados por divisão"
+            title="Workload by Division"
+            subtitle="Active BIDs (WIP) and overdue BIDs by division"
             accentColor={chart.accentSecondary}
             className={styles.spanAll}
           >
             {load.length === 0 ? (
-              <EmptyState title="Nenhum BID ativo" />
+              <EmptyState title="No Active BIDs" />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart
@@ -637,14 +637,14 @@ export const BottleneckAnalysisPage: React.FC = () => {
                   <Legend wrapperStyle={legendStyle} />
                   <Bar
                     dataKey="active"
-                    name="Ativos"
+                    name="Active"
                     fill={chart.accentSecondary}
                     radius={[4, 4, 0, 0]}
                     maxBarSize={48}
                   />
                   <Bar
                     dataKey="overdue"
-                    name="Atrasados"
+                    name="Overdue"
                     fill={chart.danger}
                     radius={[4, 4, 0, 0]}
                     maxBarSize={48}
@@ -656,10 +656,10 @@ export const BottleneckAnalysisPage: React.FC = () => {
 
           <AIInsightsPanel
             className={styles.spanAll}
-            description="Quando os recursos de IA estiverem disponíveis, esta seção identificará a causa-raiz dos gargalos e sugerirá ações corretivas."
+            description="When AI resources are available, this section will identify bottleneck root causes and suggest corrective actions."
             features={[
-              "Detecção de causa-raiz",
-              "Ações recomendadas",
+              "Root Cause Detection",
+              "Recommended Actions",
               "Ranking de impacto",
               "Alertas preventivos",
             ]}

@@ -25,7 +25,7 @@ export const PHASES_CONFIG: {
     label: "Request Submitted",
     order: 0,
     color: "#94A3B8",
-    description: "Comercial cria a solicitação",
+    description: "Commercial creates the request",
     tasks: [],
   },
   {
@@ -33,7 +33,7 @@ export const PHASES_CONFIG: {
     label: "Bid Kick Off",
     order: 1,
     color: "#3B82F6",
-    description: "Reunião inicial, documentação, clarificações",
+    description: "Initial meeting, documentation, and clarifications",
     tasks: [
       {
         taskId: "1.1",
@@ -70,7 +70,7 @@ export const PHASES_CONFIG: {
     label: "Technical Analysis",
     order: 2,
     color: "#06B6D4",
-    description: "Análise de documentação, escopo, horas, GAP",
+    description: "Documentation, scope, hours, and GAP analysis",
     tasks: [
       {
         taskId: "2.1",
@@ -137,7 +137,7 @@ export const PHASES_CONFIG: {
     label: "Cost & Resources",
     order: 3,
     color: "#8B5CF6",
-    description: "Levantamento de custos, recursos, Smart BID",
+    description: "Cost and resource planning, Smart BID",
     tasks: [
       {
         taskId: "3.1",
@@ -223,7 +223,7 @@ export const PHASES_CONFIG: {
     label: "Technical Proposal",
     order: 4,
     color: "#EC4899",
-    description: "Elaboração, revisão e aprovação da proposta",
+    description: "Technical proposal drafting, review, and approval",
     tasks: [
       {
         taskId: "4.1",
@@ -253,7 +253,7 @@ export const PHASES_CONFIG: {
     label: "Close Out",
     order: 5,
     color: "#10B981",
-    description: "Fechamento técnico, entrega ao comercial",
+    description: "Technical closeout and handoff to Commercial",
     tasks: [
       {
         taskId: "5.1",
@@ -269,7 +269,7 @@ export const PHASES_CONFIG: {
     label: "Rework",
     order: 6,
     color: "#F97316",
-    description: "Revisão e retrabalho após fechamento",
+    description: "Review and rework after closeout",
     tasks: [],
   },
 ];

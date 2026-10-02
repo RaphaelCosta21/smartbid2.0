@@ -176,14 +176,14 @@ export const BidDetailsReportPage: React.FC = () => {
     },
     {
       key: "description",
-      header: "Descrição",
+      header: "Description",
       render: (r: IScopeItem) => (
         <span className={styles.cellStrong}>{r.description || "—"}</span>
       ),
     },
     {
       key: "resourceType",
-      header: "Tipo",
+      header: "Type",
       render: (r: IScopeItem) => (
         <span className={styles.cellMuted}>
           {[r.resourceType, r.resourceSubType].filter(Boolean).join(" · ") ||
@@ -193,13 +193,13 @@ export const BidDetailsReportPage: React.FC = () => {
     },
     {
       key: "qtyOperational",
-      header: "Qtd Op.",
+      header: "Operational Qty.",
       width: 80,
       render: (r: IScopeItem) => r.qtyOperational ?? 0,
     },
     {
       key: "qtySpare",
-      header: "Qtd Spare",
+      header: "Spare Qty.",
       width: 90,
       render: (r: IScopeItem) => r.qtySpare ?? 0,
     },
@@ -243,16 +243,16 @@ export const BidDetailsReportPage: React.FC = () => {
         }`,
         kpis: [
           {
-            label: "Custo Total",
+            label: "Total Cost",
             value: formatCurrencyCompact(cs.totalCostUSD || 0, currency),
           },
           {
-            label: "Horas Totais",
+            label: "Total Hours",
             value: formatNumber(hs?.grandTotalHours || 0),
           },
-          { label: "Itens de Escopo", value: String(equipmentRows.length) },
+          { label: "Scope Items", value: String(equipmentRows.length) },
           {
-            label: "Ciclo Aprovação",
+            label: "Approval Cycle",
             value: cycleTime != null ? `${cycleTime}d` : "—",
           },
           { label: "Status", value: bid.currentStatus },
@@ -262,7 +262,7 @@ export const BidDetailsReportPage: React.FC = () => {
           sectorData.length > 0
             ? [
                 {
-                  head: ["Setor", "Dias", "Aprovadores"],
+                  head: ["Department", "Days", "Approvers"],
                   body: sectorData.map((s) => [
                     s.label,
                     `${s.days}d`,
@@ -285,7 +285,7 @@ export const BidDetailsReportPage: React.FC = () => {
     <div className={styles.page}>
       <PageHeader
         title="BID Details"
-        subtitle="Relatório detalhado de um BID específico"
+        subtitle="Detailed report for a specific BID"
         icon={
           <svg
             width="28"
@@ -316,7 +316,7 @@ export const BidDetailsReportPage: React.FC = () => {
           </svg>
           <input
             type="text"
-            placeholder="Buscar por número, cliente ou projeto…"
+            placeholder="Search by number, client, or project…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -327,7 +327,7 @@ export const BidDetailsReportPage: React.FC = () => {
           onChange={(e) => setSelected(e.target.value)}
         >
           {filteredOptions.length === 0 && (
-            <option value="">Sem resultados</option>
+            <option value="">No results</option>
           )}
           {filteredOptions.map((b) => (
             <option key={b.bidNumber} value={b.bidNumber}>
@@ -347,39 +347,39 @@ export const BidDetailsReportPage: React.FC = () => {
       {!bid ? (
         <EmptyState
           variant="glass"
-          title="Selecione um BID"
-          description="Escolha um BID acima para ver o relatório detalhado."
+          title="Select a BID"
+          description="Choose a BID above to view its detailed report."
         />
       ) : (
         <>
           <div className={styles.kpiRow}>
             <KPICard
               variant="glass"
-              label="Custo Total"
+              label="Total Cost"
               value={formatCurrencyCompact(cs.totalCostUSD || 0, currency)}
               accentColor={chart.accent}
               subtitle={formatCurrency(cs.totalCostUSD || 0, currency)}
             />
             <KPICard
               variant="glass"
-              label="Horas Totais"
+              label="Total Hours"
               value={formatNumber(hs?.grandTotalHours || 0)}
               accentColor={chart.accentTertiary}
               subtitle="eng + onshore + offshore"
             />
             <KPICard
               variant="glass"
-              label="Itens de Escopo"
+              label="Scope Items"
               value={equipmentRows.length}
               accentColor={chart.accentSecondary}
-              subtitle="equipamentos/serviços"
+              subtitle="equipment/services"
             />
             <KPICard
               variant="glass"
-              label="Ciclo de Aprovação"
+              label="Approval Cycle"
               value={cycleTime != null ? `${cycleTime}d` : "—"}
               accentColor={chart.warning}
-              subtitle="request → conclusão"
+              subtitle="request → completion"
             />
             <KPICard
               variant="glass"
@@ -394,11 +394,11 @@ export const BidDetailsReportPage: React.FC = () => {
             <div ref={setRef("cost")}>
               <GlassCard
                 title="Cost Composition"
-                subtitle={`Distribuição de custo (${currency})`}
+                subtitle={`Cost breakdown (${currency})`}
                 accentColor={chart.accent}
               >
                 {costData.length === 0 ? (
-                  <EmptyState title="Sem dados de custo" />
+                  <EmptyState title="No cost data" />
                 ) : (
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
@@ -445,11 +445,11 @@ export const BidDetailsReportPage: React.FC = () => {
             <div ref={setRef("hours")}>
               <GlassCard
                 title="Hours by Category"
-                subtitle="Distribuição de horas planejadas"
+                subtitle="Planned hours breakdown"
                 accentColor={chart.accentTertiary}
               >
                 {hoursData.length === 0 ? (
-                  <EmptyState title="Sem dados de horas" />
+                  <EmptyState title="No hours data" />
                 ) : (
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart
@@ -477,7 +477,7 @@ export const BidDetailsReportPage: React.FC = () => {
                       />
                       <Bar
                         dataKey="hours"
-                        name="Horas"
+                        name="Hours"
                         fill={chart.accentTertiary}
                         radius={[4, 4, 0, 0]}
                         maxBarSize={70}
@@ -498,14 +498,14 @@ export const BidDetailsReportPage: React.FC = () => {
 
           <div ref={setRef("sector")} className={styles.spanAll}>
             <GlassCard
-              title="Tempo de Aprovação por Setor"
-              subtitle="Dias por setor neste BID (rodadas concluídas)"
+              title="Approval Time by Department"
+              subtitle="Days by department for this BID (completed rounds)"
               accentColor={chart.warning}
             >
               {sectorData.length === 0 ? (
                 <EmptyState
-                  title="Sem aprovações concluídas"
-                  description="Os tempos por setor aparecem quando as rodadas de aprovação forem fechadas."
+                  title="No Completed Approvals"
+                  description="Department approval times appear once approval rounds are closed."
                 />
               ) : (
                 <ResponsiveContainer
@@ -539,9 +539,9 @@ export const BidDetailsReportPage: React.FC = () => {
                         <ChartTooltip valueFormatter={(v) => `${v} dias`} />
                       }
                     />
-                    <Bar
+                      <Bar
                       dataKey="days"
-                      name="Dias"
+                      name="Days"
                       radius={[0, 6, 6, 0]}
                       maxBarSize={26}
                     >
@@ -564,8 +564,8 @@ export const BidDetailsReportPage: React.FC = () => {
 
           <div className={styles.chartsGrid2}>
             <GlassCard
-              title="Itens de Escopo"
-              subtitle={`${equipmentRows.length} equipamentos/serviços`}
+              title="Scope Items"
+              subtitle={`${equipmentRows.length} equipment/services`}
               accentColor={chart.accentSecondary}
               noBodyPadding
             >
@@ -573,18 +573,18 @@ export const BidDetailsReportPage: React.FC = () => {
                 <DataTable
                   data={equipmentRows}
                   columns={equipmentColumns}
-                  emptyMessage="Sem itens de escopo"
+                  emptyMessage="No scope items"
                 />
               </div>
             </GlassCard>
 
             <GlassCard
-              title="Histórico de Atividades"
-              subtitle="Últimas 25 atividades"
+              title="Activity History"
+              subtitle="Latest 25 activities"
               accentColor={chart.info}
             >
               {timelineItems.length === 0 ? (
-                <EmptyState title="Sem atividades registradas" />
+                <EmptyState title="No Recorded Activities" />
               ) : (
                 <div className={styles.timelineWrap}>
                   <Timeline items={timelineItems} />
@@ -601,7 +601,7 @@ export const BidDetailsReportPage: React.FC = () => {
                 navigate(ROUTES.bidDetail.replace(":id", bid.bidNumber))
               }
             >
-              Abrir BID completo →
+              Open Full BID →
             </button>
           </div>
         </>

@@ -40,22 +40,22 @@ type ViewMode = "chart" | "leaderboard";
 type BidRoleFilter = "all" | "contributor" | "analyst";
 
 const ROLE_SEGMENTS: SegmentOption<BidRoleFilter>[] = [
-  { value: "all", label: "Todos" },
+  { value: "all", label: "All" },
   { value: "contributor", label: "Contributor" },
   { value: "analyst", label: "Analyst" },
 ];
 
 const METRIC_SEGMENTS: SegmentOption<Metric>[] = [
-  { value: "workload", label: "Carga" },
-  { value: "throughput", label: "Entregues" },
-  { value: "cycle", label: "Ciclo" },
+  { value: "workload", label: "Workload" },
+  { value: "throughput", label: "Completed" },
+  { value: "cycle", label: "Cycle" },
   { value: "winrate", label: "Win Rate" },
   { value: "erns", label: "ERNs" },
 ];
 
 const VIEW_SEGMENTS: SegmentOption<ViewMode>[] = [
-  { value: "chart", label: "Gráficos" },
-  { value: "leaderboard", label: "Ranking" },
+  { value: "chart", label: "Charts" },
+  { value: "leaderboard", label: "Leaderboard" },
 ];
 
 export const TeamAnalyticsPage: React.FC = () => {
@@ -188,7 +188,7 @@ export const TeamAnalyticsPage: React.FC = () => {
     <div className={styles.page}>
       <PageHeader
         title="Team Analytics"
-        subtitle="Engenharia (Contributor + Analyst): carga, entrega e balanceamento"
+        subtitle="Engineering (Contributor + Analyst): workload, delivery, and balance"
         icon={
           <svg
             width="28"
@@ -219,14 +219,14 @@ export const TeamAnalyticsPage: React.FC = () => {
               segments={ROLE_SEGMENTS}
               onChange={setBidRoleFilter}
               size="sm"
-              ariaLabel="Papel"
+              ariaLabel="Role"
             />
             <SegmentedControl<ViewMode>
               value={view}
               segments={VIEW_SEGMENTS}
               onChange={setView}
               size="sm"
-              ariaLabel="Visualização"
+              ariaLabel="View"
             />
           </div>
         }
@@ -237,35 +237,35 @@ export const TeamAnalyticsPage: React.FC = () => {
       ) : workload.length === 0 ? (
         <EmptyState
           variant="glass"
-          title="Sem dados da equipe"
-          description="Nenhum membro possui BIDs no filtro atual. Ajuste o período, o papel ou os filtros."
+          title="No Team Data"
+          description="No members have BIDs matching the current filters. Adjust the period, role, or filters."
         />
       ) : (
         <>
           <div className={styles.kpiRow}>
             <KPICard
-              label="Tamanho da Equipe"
+              label="Team Size"
               value={stats.teamSize}
               variant="glass"
               accentColor={chart.accentSecondary}
-              subtitle="com BIDs no período"
+              subtitle="with BIDs in selected period"
             />
             <KPICard
-              label="BIDs Ativos"
+              label="Active BIDs"
               value={stats.totalActive}
               variant="glass"
               accentColor={chart.accent}
-              subtitle="em andamento"
+              subtitle="in progress"
             />
             <KPICard
-              label="Média por Pessoa"
+              label="Average per Person"
               value={stats.avgPerPerson}
               variant="glass"
               accentColor={chart.info}
-              subtitle="BIDs ativos / pessoa"
+              subtitle="active BIDs / person"
             />
             <KPICard
-              label="Mais Carregado"
+              label="Most Loaded"
               value={stats.mostLoaded ? stats.mostLoaded.active : 0}
               variant="glass"
               accentColor={chart.warning}
@@ -276,7 +276,7 @@ export const TeamAnalyticsPage: React.FC = () => {
           {view === "chart" ? (
             <>
               <GlassCard
-                title="Ranking da Equipe"
+                title="Team Leaderboard"
                 subtitle={`Por ${metricLabel.toLowerCase()}`}
                 accentColor={metricColor}
                 className={styles.spanAll}
@@ -286,7 +286,7 @@ export const TeamAnalyticsPage: React.FC = () => {
                     segments={METRIC_SEGMENTS}
                     onChange={setMetric}
                     size="sm"
-                    ariaLabel="Métrica"
+                    ariaLabel="Metric"
                   />
                 }
               >
@@ -341,8 +341,8 @@ export const TeamAnalyticsPage: React.FC = () => {
 
               <div className={styles.chartsGrid}>
                 <GlassCard
-                  title="Balanceamento de Carga"
-                  subtitle="BIDs ativos acima/abaixo da média da equipe"
+                  title="Workload Balance"
+                  subtitle="Active BIDs above/below the team average"
                   accentColor={chart.warning}
                 >
                   <ResponsiveContainer width="100%" height={300}>
@@ -379,7 +379,7 @@ export const TeamAnalyticsPage: React.FC = () => {
                       <ReferenceLine x={0} stroke={chart.axis} />
                       <Bar
                         dataKey="balance"
-                        name="Desvio"
+                        name="Variance"
                         radius={[0, 4, 4, 0]}
                         barSize={18}
                       >
@@ -395,8 +395,8 @@ export const TeamAnalyticsPage: React.FC = () => {
                 </GlassCard>
 
                 <GlassCard
-                  title="Throughput × Carga"
-                  subtitle="Entregues (Y) vs. ativos (X) — bolha = ciclo médio"
+                  title="Throughput × Workload"
+                  subtitle="Completed (Y) vs. active (X) — bubble size = average cycle"
                   accentColor={chart.accent}
                 >
                   <ResponsiveContainer width="100%" height={300}>
@@ -407,7 +407,7 @@ export const TeamAnalyticsPage: React.FC = () => {
                       <XAxis
                         type="number"
                         dataKey="x"
-                        name="Ativos"
+                        name="Active"
                         tick={axisTick}
                         axisLine={false}
                         tickLine={false}
@@ -416,7 +416,7 @@ export const TeamAnalyticsPage: React.FC = () => {
                       <YAxis
                         type="number"
                         dataKey="y"
-                        name="Entregues"
+                        name="Completed"
                         tick={axisTick}
                         axisLine={false}
                         tickLine={false}
@@ -426,13 +426,13 @@ export const TeamAnalyticsPage: React.FC = () => {
                         type="number"
                         dataKey="z"
                         range={[60, 420]}
-                        name="Ciclo médio"
+                        name="Average Cycle"
                       />
                       <Tooltip
                         cursor={{ strokeDasharray: "3 3" }}
                         content={
                           <ChartTooltip
-                            labelFormatter={() => "Membro"}
+                            labelFormatter={() => "Member"}
                             valueFormatter={(v, entry) => `${entry.name}: ${v}`}
                           />
                         }

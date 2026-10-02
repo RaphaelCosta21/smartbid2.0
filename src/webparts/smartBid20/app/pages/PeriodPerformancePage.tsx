@@ -286,7 +286,7 @@ export const PeriodPerformancePage: React.FC = () => {
         }
       }
       const kpis = [
-        { label: "Total de BIDs", value: String(total) },
+        { label: "Total BIDs", value: String(total) },
         ...sCountsAll.map((s) => ({ label: s.label, value: String(s.count) })),
         { label: "Win Rate", value: `${winRate}%` },
       ];
@@ -332,7 +332,7 @@ export const PeriodPerformancePage: React.FC = () => {
   }> = ({ data }) => {
     const shown = data.filter((d) => d.count > 0);
     const sum = shown.reduce((s, d) => s + d.count, 0);
-    if (shown.length === 0) return <EmptyState title="Sem dados" />;
+    if (shown.length === 0) return <EmptyState title="No data" />;
     return (
       <ResponsiveContainer width="100%" height={280}>
         <PieChart>
@@ -429,7 +429,7 @@ export const PeriodPerformancePage: React.FC = () => {
   );
 
   const tableStatusSegments: SegmentOption<string>[] = [
-    { value: "all", label: "Todos" },
+    { value: "all", label: "All" },
     ...statusOptions.map((s) => ({ value: s.value, label: s.label })),
   ];
 
@@ -486,7 +486,7 @@ export const PeriodPerformancePage: React.FC = () => {
     <div className={styles.page}>
       <PageHeader
         title={`BID Analytics — ${year}`}
-        subtitle="Panorama consolidado de desempenho por período"
+        subtitle="Consolidated performance overview by period"
         icon={
           <svg
             width="28"
@@ -525,18 +525,18 @@ export const PeriodPerformancePage: React.FC = () => {
       {total === 0 ? (
         <EmptyState
           variant="glass"
-          title="Nenhum BID no filtro atual"
-          description="Ajuste o período ou os filtros para ver o panorama."
+          title="No BIDs Match Current Filters"
+          description="Adjust the period or filters to view the overview."
         />
       ) : (
         <>
           <div className={styles.kpiRow}>
             <KPICard
               variant="glass"
-              label="Total de BIDs"
+              label="Total BIDs"
               value={total}
               accentColor={chart.accentSecondary}
-              subtitle="no período"
+              subtitle="in selected period"
               sparkline={
                 <Sparkline
                   data={totalSeries}
@@ -567,7 +567,7 @@ export const PeriodPerformancePage: React.FC = () => {
             <div ref={setRef("status")}>
               <GlassCard
                 title="Status Distribution"
-                subtitle="Distribuição por resultado"
+                subtitle="Distribution by outcome"
                 accentColor={chart.accentSecondary}
               >
                 <Donut data={sCountsAll} />
@@ -576,7 +576,7 @@ export const PeriodPerformancePage: React.FC = () => {
             <div ref={setRef("division")}>
               <GlassCard
                 title="BIDs by Division"
-                subtitle="Distribuição por divisão"
+                subtitle="Distribution by division"
                 accentColor={chart.accent}
               >
                 <Donut data={divCounts} />
@@ -587,7 +587,7 @@ export const PeriodPerformancePage: React.FC = () => {
           <div ref={setRef("monthly")} className={styles.spanAll}>
             <GlassCard
               title="Monthly BID Status Distribution"
-              subtitle="Volume mensal por status"
+              subtitle="Monthly volume by status"
               accentColor={chart.accentTertiary}
             >
               <ResponsiveContainer width="100%" height={340}>
@@ -771,7 +771,7 @@ export const PeriodPerformancePage: React.FC = () => {
             <div ref={setRef("requester")}>
               <GlassCard
                 title="BIDs by Commercial Requester"
-                subtitle="Total vs. ganhos por solicitante"
+                subtitle="Total vs. won by requester"
                 accentColor={chart.accentSecondary}
               >
                 <ResponsiveContainer
@@ -840,7 +840,7 @@ export const PeriodPerformancePage: React.FC = () => {
             <div ref={setRef("businessLine")}>
               <GlassCard
                 title="BIDs by Business Line"
-                subtitle="Distribuição por service line"
+                subtitle="Distribution by service line"
                 accentColor={chart.accentTertiary}
               >
                 <Donut data={slCounts} />
@@ -869,7 +869,7 @@ export const PeriodPerformancePage: React.FC = () => {
                 onRowClick={(r) =>
                   navigate(`/bid/${encodeURIComponent(r.bidNumber)}`)
                 }
-                emptyMessage="Nenhum BID"
+                emptyMessage="No BIDs"
               />
             </div>
           </GlassCard>

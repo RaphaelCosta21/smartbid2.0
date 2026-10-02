@@ -88,7 +88,7 @@ export const HeatmapGrid: React.FC<HeatmapGridProps> = ({
                   }
                   title={
                     empty
-                      ? "Sem dados"
+                      ? "No data"
                       : `${row} · ${c.label}: ${value}${valueSuffix} (${count})`
                   }
                 >

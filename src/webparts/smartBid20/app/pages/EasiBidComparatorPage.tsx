@@ -7,7 +7,7 @@ export const EasiBidComparatorPage: React.FC = () => {
   return (
     <EasiModuleFrame
       title="Bid Comparator"
-      subtitle="Comparação lado a lado de BIDs a partir dos dados reais"
+      subtitle="Side-by-side comparison of BIDs from live data"
       icon={
         <svg
           width="28"

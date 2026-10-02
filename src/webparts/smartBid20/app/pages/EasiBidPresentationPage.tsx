@@ -7,7 +7,7 @@ export const EasiBidPresentationPage: React.FC = () => {
   return (
     <EasiModuleFrame
       title="BID Presentation"
-      subtitle="Apresentação consolidada do BID a partir dos dados reais"
+      subtitle="Consolidated BID presentation from live data"
       icon={
         <svg
           width="28"

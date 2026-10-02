@@ -84,7 +84,7 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                 className={styles.clearBtn}
                 onClick={() => onChange([])}
               >
-                Limpar
+                Clear
               </button>
             )}
           </div>
@@ -106,7 +106,7 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
               </label>
             ))}
             {options.length === 0 && (
-              <div className={styles.empty}>Sem opções</div>
+              <div className={styles.empty}>No options</div>
             )}
           </div>
         </div>

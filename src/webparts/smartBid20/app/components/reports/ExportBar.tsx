@@ -61,7 +61,7 @@ export const ExportBar: React.FC<ExportBarProps> = ({
           className={styles.btn}
           onClick={onExcel}
           disabled={busy}
-          title="Exportar Excel"
+          title="Export to Excel"
         >
           {ExcelIcon}
           <span>Excel</span>
@@ -73,7 +73,7 @@ export const ExportBar: React.FC<ExportBarProps> = ({
           className={`${styles.btn} ${styles.pdf}`}
           onClick={onPdf}
           disabled={busy}
-          title="Exportar PDF"
+          title="Export to PDF"
         >
           {PdfIcon}
           <span>PDF</span>
@@ -85,7 +85,7 @@ export const ExportBar: React.FC<ExportBarProps> = ({
           className={styles.btn}
           onClick={onCsv}
           disabled={busy}
-          title="Exportar CSV"
+          title="Export to CSV"
         >
           {CsvIcon}
           <span>CSV</span>
@@ -97,10 +97,10 @@ export const ExportBar: React.FC<ExportBarProps> = ({
           className={styles.btn}
           onClick={onPrint}
           disabled={busy}
-          title="Imprimir"
+          title="Print"
         >
           {PrintIcon}
-          <span>Imprimir</span>
+          <span>Print</span>
         </button>
       )}
     </div>
