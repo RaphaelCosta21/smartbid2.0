@@ -4,7 +4,7 @@
  */
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { SurveySceneShape } from "../../../models";
+import { SceneShape } from "./sceneTypes";
 
 const OII = {
   navy: 0x003b5c,
@@ -43,7 +43,7 @@ export class EquipmentModelFactory {
   private glbs: Record<string, Promise<THREE.Object3D>> = {};
   private loader = new GLTFLoader();
 
-  public build(shape: SurveySceneShape, muted: boolean): THREE.Object3D {
+  public build(shape: SceneShape, muted: boolean): THREE.Object3D {
     const key = `${shape}|${muted ? 1 : 0}`;
     if (!this.prototypes[key]) {
       this.prototypes[key] = normalize(this.buildShape(shape, muted));
@@ -91,7 +91,7 @@ export class EquipmentModelFactory {
     return this.geometries[key];
   }
 
-  private buildShape(shape: SurveySceneShape, muted: boolean): THREE.Group {
+  private buildShape(shape: SceneShape, muted: boolean): THREE.Group {
     const g = new THREE.Group();
     const m = (tone: Tone): THREE.Material => this.mat(tone, muted);
     const box = (w: number, h: number, d: number, tone: Tone, x = 0, y = 0, z = 0): THREE.Mesh => {
@@ -297,6 +297,13 @@ export class EquipmentModelFactory {
         sphere(0.22, "white", -0.32, -0.05);
         sphere(0.24, "white", 0.32, -0.03);
         torus(0.5, 0.025, "screen", 0, 0, 0).rotation.x = Math.PI / 2;
+        break;
+      }
+      case "portal": {
+        // Two crossed rings read as a gateway from any angle.
+        torus(0.5, 0.05, "accent");
+        torus(0.5, 0.05, "accent").rotation.y = Math.PI / 2;
+        sphere(0.2, "screen");
         break;
       }
       case "system-core":

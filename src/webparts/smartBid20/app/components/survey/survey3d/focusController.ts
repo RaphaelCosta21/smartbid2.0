@@ -32,6 +32,7 @@ const PLINTH = {
   package: 0xffc72c,
   vessel: 0x7a99ac,
   catalog: 0x5b7f95,
+  portal: 0x009b77,
   trace: 0xdc4405,
   selected: 0xffffff,
 };
@@ -53,6 +54,7 @@ const EMPTY_STATES: SceneNodeStates = {
   packageEquipmentIds: [],
   traceNodeIds: [],
   traceLinkKeys: [],
+  hoverLinkKeys: [],
 };
 
 export class FocusController {
@@ -158,6 +160,10 @@ export class FocusController {
     this.applyStates();
   }
 
+  public setCableHover(key: string | null): void {
+    this.cables.setHover(key);
+  }
+
   /** "node:<id>" or "cluster:<anchor>" label targets; null while hidden or still emerging. */
   public getLabelTarget(key: string): THREE.Object3D | null {
     if (key.indexOf("node:") === 0) {
@@ -249,11 +255,13 @@ export class FocusController {
       let color = PLINTH.normal;
       if (s.selectedNodeId === id) color = PLINTH.selected;
       else if (s.traceNodeIds.indexOf(id) >= 0) color = PLINTH.trace;
+      else if (e.node.role === "portal") color = PLINTH.portal;
       else if (e.node.vesselSupplied) color = PLINTH.vessel;
       else if (s.packageEquipmentIds.indexOf(e.node.equipmentId) >= 0) color = PLINTH.package;
-      else if (e.node.catalog) color = PLINTH.catalog;
+      else if (e.node.role === "catalog") color = PLINTH.catalog;
       (e.plinth.material as THREE.MeshBasicMaterial).color.setHex(color);
     });
-    this.cables.setTrace(s.traceLinkKeys.length ? s.traceLinkKeys : null);
+    const cableKeys = s.traceLinkKeys.length ? s.traceLinkKeys : s.hoverLinkKeys;
+    this.cables.setTrace(cableKeys.length ? cableKeys : null);
   }
 }

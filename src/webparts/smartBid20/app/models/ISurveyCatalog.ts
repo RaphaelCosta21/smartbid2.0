@@ -113,22 +113,37 @@ export interface ISurveySpreadLine {
   qtyLabel?: string;
   /** Provided by the vessel/client — kept in the scope but not priced. */
   vesselSupplied?: boolean;
-  /** Location of individual instances, keyed by instance number (e.g. switch "2" on the bridge). */
-  placement?: Record<string, SurveySceneAnchor>;
+  /** Diagram instance numbers this line covers when one equipment sits in several rooms (e.g. switch [2] on the bridge). */
+  instances?: number[];
+  /** BID grouping the line belongs to (spread `categories` id). */
+  category?: string;
 }
 
 export interface ISurveySpreadZone {
   id: string;
   title: string;
-  /** Where the zone orb sits in the 3D scene. */
-  sceneAnchor: SurveySceneAnchor;
+  /** Room location in the 3D scene; empty for BID-only groups that are not physical equipment. */
+  sceneAnchor: SurveySceneAnchor | "";
   /** One-paragraph explanation, also used as the guided-tour caption. */
   description: string;
   lines: ISurveySpreadLine[];
 }
 
-/** Cable prefixes on the one-line diagram: SD data, SP power, SV video, SS RF, SPD subsea. */
-export type SurveyLinkKind = "data" | "power" | "video" | "rf" | "subsea" | "fibre" | "acoustic";
+export interface ISurveySpreadCategory {
+  id: string;
+  title: string;
+}
+
+/** Cable prefixes on the one-line diagram: SD data, SP power, SV video, SS RF, SPD subsea; timing = PPS/ZDA. */
+export type SurveyLinkKind =
+  | "data"
+  | "power"
+  | "video"
+  | "rf"
+  | "subsea"
+  | "fibre"
+  | "acoustic"
+  | "timing";
 
 export interface ISurveySpreadLink {
   from: string;
@@ -146,6 +161,7 @@ export interface ISurveySpread {
   description: string;
   zones: ISurveySpreadZone[];
   links: ISurveySpreadLink[];
+  categories?: ISurveySpreadCategory[];
   order: number;
 }
 

@@ -1,21 +1,29 @@
 import * as React from "react";
-import { Keyboard, Play, ChevronLeft, ChevronRight, X, ArrowLeft } from "lucide-react";
+import {
+  Keyboard,
+  Play,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  ArrowLeft,
+  ArrowUpRight,
+  Cable,
+} from "lucide-react";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
-import { SurveyLinkKind } from "../../models";
+import { SurveyLinkKind, SurveySceneAnchor } from "../../models";
 import {
   createSurveyScene,
   isWebGLAvailable,
   SurveySceneApi,
 } from "./survey3d/createSurveyScene";
 import {
-  CLUSTER_TITLES,
   LINK_KINDS,
   LINK_LABELS,
   SceneFocus,
   SceneNodeStates,
   ScenePick,
+  SceneTrunk,
   SceneZone,
-  clusterKeyOf,
 } from "./survey3d/sceneTypes";
 import styles from "./SurveySystemScene.module.scss";
 
@@ -26,18 +34,34 @@ export interface SurveySceneTour {
   caption: string;
 }
 
+export interface SurveyCableInfo {
+  kind: SurveyLinkKind;
+  title: string;
+  detail: string;
+}
+
+export interface SurveyTraceStep {
+  id: string;
+  label: string;
+  /** Cable code of the link that reaches this step. */
+  cable?: string;
+}
+
 interface SurveySystemSceneProps {
   /** Height (px) of the UI floating over the top of the canvas. */
   topInset: number;
   zones: SceneZone[];
+  trunks: SceneTrunk[];
   focus: SceneFocus | null;
   spreadTitle: string;
   nodeStates: SceneNodeStates;
-  tracePath: { id: string; label: string }[] | null;
+  tracePath: SurveyTraceStep[] | null;
+  cableInfo: SurveyCableInfo | null;
   tour: SurveySceneTour | null;
   onZoneSelect: (zoneId: string | null) => void;
   onNodeSelect: (nodeId: string) => void;
   onNodeHover: (nodeId: string | null) => void;
+  onCableHover: (key: string | null) => void;
   onInteract: () => void;
   onTourStart: () => void;
   onTourStep: (delta: number) => void;
@@ -46,9 +70,30 @@ interface SurveySystemSceneProps {
 
 /** Node labels: full up to FULL_LABEL_MAX nodes, compact up to COMPACT_LABEL_MAX, then hover-only. */
 const FULL_LABEL_MAX = 18;
-const COMPACT_LABEL_MAX = 32;
+const COMPACT_LABEL_MAX = 40;
 
-const ZONE_TONES = [styles.zoneTone0, styles.zoneTone1, styles.zoneTone2];
+const ZONE_TONES = [
+  styles.zoneTone0,
+  styles.zoneTone1,
+  styles.zoneTone2,
+  styles.zoneTone3,
+  styles.zoneTone4,
+  styles.zoneTone5,
+];
+/** Rooms sit a few metres apart on deck: stagger stem heights so their labels never stack. */
+const STEM_TIERS: Partial<Record<SurveySceneAnchor, string>> = {
+  "rov-control": styles.stemLow,
+  bridge: styles.stemMid,
+  "survey-online": styles.stemHigh,
+  mast: styles.stemTop,
+  "vessel-hull": styles.zoneDown,
+  rov: styles.stemLow,
+};
+/** Anchors without a zone of their own open the closest room. */
+const ANCHOR_FALLBACK: Partial<Record<SurveySceneAnchor, SurveySceneAnchor>> = {
+  umbilical: "rov-control",
+  vessel: "survey-online",
+};
 const SWATCHES: Record<SurveyLinkKind, string> = {
   data: styles.swatchData,
   power: styles.swatchPower,
@@ -57,16 +102,23 @@ const SWATCHES: Record<SurveyLinkKind, string> = {
   subsea: styles.swatchSubsea,
   fibre: styles.swatchFibre,
   acoustic: styles.swatchAcoustic,
+  timing: styles.swatchTiming,
 };
+
+const zoneForAnchor = (zones: SceneZone[], anchor: SurveySceneAnchor): SceneZone | undefined =>
+  zones.find((z) => z.anchor === anchor) ||
+  (ANCHOR_FALLBACK[anchor] ? zones.find((z) => z.anchor === ANCHOR_FALLBACK[anchor]) : undefined);
 
 const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   const {
     topInset,
     zones,
+    trunks,
     focus,
     spreadTitle,
     nodeStates,
     tracePath,
+    cableInfo,
     tour,
     onZoneSelect,
     onNodeSelect,
@@ -81,31 +133,51 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   const latest = React.useRef(props);
   latest.current = props;
   const [supported] = React.useState(isWebGLAvailable);
+  const [hotZoneId, setHotZoneId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!supported || !hostRef.current) return undefined;
     const reducedMotion =
       !!window.matchMedia &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const zoneOfPick = (pick: ScenePick | null): string | null => {
+      if (!pick) return null;
+      if (pick.type === "zone") return pick.zoneId;
+      if (pick.type === "anchor") {
+        const zone = zoneForAnchor(latest.current.zones, pick.anchor);
+        return zone ? zone.id : null;
+      }
+      return null;
+    };
+    let hoverNode: string | null = null;
+    let hoverCable: string | null = null;
     const api = createSurveyScene(hostRef.current, {
       reducedMotion,
       vesselModelUrl: SHAREPOINT_CONFIG.surveyVesselModelUrl,
       onPick: (pick: ScenePick) => {
         const p = latest.current;
         if (pick.type === "node") p.onNodeSelect(pick.nodeId);
-        else if (pick.type === "zone") p.onZoneSelect(pick.zoneId);
+        else if (pick.type === "cable") return;
         else {
-          const zone = p.zones.find((z) => z.anchor === pick.anchor);
-          if (zone) p.onZoneSelect(zone.id);
+          const zoneId = zoneOfPick(pick);
+          if (zoneId) p.onZoneSelect(zoneId);
         }
       },
-      onHoverNode: (nodeId) => latest.current.onNodeHover(nodeId),
+      onHover: (pick) => {
+        const p = latest.current;
+        const node = pick && pick.type === "node" ? pick.nodeId : null;
+        const cable = pick && pick.type === "cable" ? pick.key : null;
+        if (node !== hoverNode) p.onNodeHover((hoverNode = node));
+        if (cable !== hoverCable) p.onCableHover((hoverCable = cable));
+        setHotZoneId(zoneOfPick(pick));
+      },
       onInteract: () => latest.current.onInteract(),
     });
     apiRef.current = api;
     Object.keys(labelEls.current).forEach((k) => api.setLabel(k, labelEls.current[k]));
     api.setViewInset(latest.current.topInset);
     api.setZones(latest.current.zones);
+    api.setTrunks(latest.current.trunks);
     api.setFocus(latest.current.focus);
     api.setNodeStates(latest.current.nodeStates);
     return () => {
@@ -120,6 +192,9 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   React.useEffect(() => {
     apiRef.current?.setZones(zones);
   }, [zones]);
+  React.useEffect(() => {
+    apiRef.current?.setTrunks(trunks);
+  }, [trunks]);
   React.useEffect(() => {
     apiRef.current?.setFocus(focus);
   }, [focus]);
@@ -146,23 +221,23 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   const clusters: { key: string; count: number }[] = [];
   if (focus) {
     focus.nodes.forEach((n) => {
-      const key = clusterKeyOf(n, focus);
-      const c = clusters.find((x) => x.key === key);
+      const c = clusters.find((x) => x.key === n.cluster);
       if (c) c.count++;
-      else clusters.push({ key, count: 1 });
+      else clusters.push({ key: n.cluster, count: 1 });
     });
   }
   const nodeCount = focus ? focus.nodes.length : 0;
   const labelAll = nodeCount <= COMPACT_LABEL_MAX;
   const compact = nodeCount > FULL_LABEL_MAX;
-  const nodeLabelVisible = (id: string): boolean =>
+  const nodeLabelVisible = (id: string, portal: boolean): boolean =>
+    portal ||
     labelAll ||
     nodeStates.hoverNodeId === id ||
     nodeStates.selectedNodeId === id ||
     nodeStates.traceNodeIds.indexOf(id) >= 0;
-  const legendKinds = focus
-    ? LINK_KINDS.filter((k) => focus.links.some((l) => l.kind === k))
-    : [];
+  const legendKinds = LINK_KINDS.filter((k) =>
+    focus ? focus.links.some((l) => l.kind === k) : trunks.some((t) => t.kind === k),
+  );
 
   return (
     <div
@@ -174,7 +249,9 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
         {zones.map((zone) => (
           <div key={zone.id} ref={registerLabel(`zone:${zone.id}`)} className={styles.anchor}>
             <button
-              className={`${styles.zoneLabel} ${ZONE_TONES[zone.colorIndex % ZONE_TONES.length]}`}
+              className={`${styles.zoneLabel} ${ZONE_TONES[zone.colorIndex % ZONE_TONES.length]} ${
+                STEM_TIERS[zone.anchor] || ""
+              } ${hotZoneId === zone.id ? styles.zoneHot : ""}`}
               onClick={() => onZoneSelect(zone.id)}
             >
               <span className={styles.zoneText}>{zone.title}</span>
@@ -185,29 +262,30 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
         ))}
 
         {focus &&
-          clusters.map((c) => (
+          clusters.map((c, i) => (
             <div key={c.key} ref={registerLabel(`cluster:${c.key}`)} className={styles.anchor}>
-              <span className={styles.clusterLabel}>
-                {CLUSTER_TITLES[c.key] || c.key} · {c.count}
+              <span className={`${styles.clusterLabel} ${i % 2 ? styles.clusterAlt : ""}`}>
+                {focus.clusterTitles[c.key] || c.key} · {c.count}
               </span>
             </div>
           ))}
 
         {focus &&
           focus.nodes
-            .filter((n) => nodeLabelVisible(n.id))
+            .filter((n) => nodeLabelVisible(n.id, n.role === "portal"))
             .map((n) => (
               <div key={n.id} ref={registerLabel(`node:${n.id}`)} className={styles.anchor}>
                 <button
                   className={`${styles.nodeLabel} ${compact ? styles.nodeCompact : ""} ${
-                    nodeStates.selectedNodeId === n.id ? styles.nodeActive : ""
-                  }`}
-                  title={n.label}
+                    n.role === "portal" ? styles.nodePortal : ""
+                  } ${nodeStates.selectedNodeId === n.id ? styles.nodeActive : ""}`}
+                  title={n.role === "portal" ? `Go to ${n.label}` : n.label}
                   onClick={() => onNodeSelect(n.id)}
                 >
+                  {n.role === "portal" && <ArrowUpRight size={10} className={styles.portalArrow} />}
                   {n.label}
                   {n.vesselSupplied && <span className={styles.nodeTag}>VESSEL</span>}
-                  {n.catalog && <span className={styles.nodeTag}>CATALOG</span>}
+                  {n.role === "catalog" && <span className={styles.nodeTag}>CATALOG</span>}
                 </button>
               </div>
             ))}
@@ -259,12 +337,26 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
             <span className={styles.traceTitle}>SIGNAL PATH</span>
             {tracePath.map((step, i) => (
               <React.Fragment key={step.id}>
-                {i > 0 && <ChevronRight size={10} className={styles.traceArrow} />}
+                {i > 0 && (
+                  <span className={styles.traceHop}>
+                    {step.cable && <span className={styles.traceCable}>{step.cable}</span>}
+                    <ChevronRight size={10} className={styles.traceArrow} />
+                  </span>
+                )}
                 <button className={styles.traceChip} onClick={() => onNodeSelect(step.id)}>
                   {step.label}
                 </button>
               </React.Fragment>
             ))}
+          </div>
+        )}
+
+        {cableInfo && (
+          <div className={styles.cableInfo} role="status">
+            <Cable size={12} className={styles.cableIcon} />
+            <span className={`${styles.legendSwatch} ${SWATCHES[cableInfo.kind]}`} />
+            <strong>{cableInfo.title}</strong>
+            <span className={styles.cableDetail}>{cableInfo.detail}</span>
           </div>
         )}
 

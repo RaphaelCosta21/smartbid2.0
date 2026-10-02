@@ -156,11 +156,15 @@ export class SurveyCatalogService {
           zones: (base.zones || []).map((z: any) => ({
             id: String(z.id),
             title: z.title || "",
-            sceneAnchor: z.sceneAnchor || SurveyCatalogService._guessZoneAnchor(z),
+            sceneAnchor:
+              z.sceneAnchor !== undefined
+                ? z.sceneAnchor
+                : SurveyCatalogService._guessZoneAnchor(z),
             description: z.description || "",
             lines: z.lines || [],
           })),
           links: base.links || [],
+          categories: base.categories || [],
           order: base.order,
         });
       } else if (type === "equipment") {
@@ -184,6 +188,11 @@ export class SurveyCatalogService {
   /** Catalogs imported before zones had a scene anchor fall back to a guess from the zone name. */
   private static _guessZoneAnchor(zone: { id?: string; title?: string }): SurveySceneAnchor {
     const text = `${zone.id || ""} ${zone.title || ""}`;
+    if (/mast/i.test(text)) return "mast";
+    if (/bridge/i.test(text)) return "bridge";
+    if (/rov control/i.test(text) || /rov-control/i.test(text)) return "rov-control";
+    if (/survey online|survey-online/i.test(text)) return "survey-online";
+    if (/^subsea$|subsea\s*$/i.test(zone.title || "")) return "vessel-hull";
     if (/subsea|rov/i.test(text)) return "rov";
     if (/infra|umbilical|backbone/i.test(text)) return "umbilical";
     return "vessel";

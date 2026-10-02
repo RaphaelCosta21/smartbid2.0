@@ -59,7 +59,23 @@
 }
 
 .tone2 {
+  --zone-tone: var(--survey-alert);
+}
+
+.tone3 {
   --zone-tone: var(--survey-green);
+}
+
+.tone4 {
+  --zone-tone: var(--survey-muted);
+}
+
+.tone5 {
+  --zone-tone: var(--survey-red);
+}
+
+.toneNeutral {
+  --zone-tone: var(--survey-slate);
 }
 
 .zoneRow {
@@ -132,6 +148,49 @@
   font-weight: 700;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.bidTag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--survey-slate);
+  color: var(--survey-ice);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.zoneNote {
+  font-size: 9px;
+  line-height: 1.4;
+  color: var(--survey-slate);
+}
+
+/* Line whose BID category differs from the room's main one */
+.categoryTag {
+  padding: 0 5px;
+  border-radius: 3px;
+  border: 1px solid var(--survey-slate);
+  color: var(--survey-slate);
+  font-size: 7px;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 9px;
+  color: var(--survey-slate);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.categoryTotal strong {
+  color: var(--survey-navy);
 }
 
 .zoneBody {

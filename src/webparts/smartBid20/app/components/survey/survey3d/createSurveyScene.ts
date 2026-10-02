@@ -8,13 +8,15 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { SurveySceneAnchor } from "../../../models";
 import { FocusController } from "./focusController";
 import { layoutExplode } from "./explodeLayout";
+import { TrunkNetwork } from "./trunkFlow";
 import {
   SceneFocus,
   SceneNodeStates,
   ScenePick,
+  SceneTrunk,
   SceneZone,
   CATALOG_CLUSTER,
-  clusterKeyOf,
+  PORTAL_CLUSTER,
 } from "./sceneTypes";
 
 // WebGL can't read CSS custom properties; OII palette mirrored here (light fog/white stay neutral).
@@ -40,11 +42,15 @@ const PALETTE = {
 
 const SEABED_Y = -16;
 const DIORAMA_RADIUS = 40;
+/** Rooms of the one-line diagram that live on the vessel; a click on the hull picks the nearest. */
+const VESSEL_ROOMS: SurveySceneAnchor[] = ["mast", "bridge", "survey-online", "rov-control", "vessel-hull"];
 
 export interface SurveySceneApi {
-  /** Keys: an anchor, "zone:<id>", "node:<id>" or "cluster:<anchor>". */
+  /** Keys: an anchor, "zone:<id>", "node:<id>" or "cluster:<key>". */
   setLabel: (key: string, el: HTMLElement | null) => void;
   setZones: (zones: SceneZone[]) => void;
+  /** Room-to-room cable arcs drawn in the overview. */
+  setTrunks: (trunks: SceneTrunk[]) => void;
   /** Pixels at the top of the canvas covered by UI; the scene is centred in the area below. */
   setViewInset: (top: number) => void;
   setFocus: (focus: SceneFocus | null) => void;
@@ -56,7 +62,8 @@ export interface SurveySceneOptions {
   reducedMotion: boolean;
   vesselModelUrl: string;
   onPick: (pick: ScenePick) => void;
-  onHoverNode: (nodeId: string | null) => void;
+  /** What is under the pointer (node, cable, room or anchor); null when nothing. */
+  onHover: (pick: ScenePick | null) => void;
   /** Any pointer press on the canvas (used to interrupt the guided tour). */
   onInteract: () => void;
 }
@@ -520,6 +527,8 @@ export function createSurveyScene(
   // Zone focus (exploded equipment + cables)
   const focusCtl = new FocusController(opts.reducedMotion);
   scene.add(focusCtl.group);
+  const trunks = new TrunkNetwork((anchor) => anchors[anchor] || null);
+  scene.add(trunks.group);
   let focusZoneId: string | null = null;
   let focusSignature = "";
   const HOME_POSITION = camera.position.clone();
@@ -584,13 +593,28 @@ export function createSurveyScene(
     });
   };
 
-  // Picking: click (not drag) on the vessel, ROV, umbilical or exploded nodes
+  // Picking: click (not drag) on the vessel rooms, ROV, umbilical, trunks, nodes or cables
   const raycaster = new THREE.Raycaster();
   raycaster.params.Line = { threshold: 0.6 };
   const pointer = new THREE.Vector2();
+  const roomPos = new THREE.Vector3();
   const isShown = (obj: THREE.Object3D | null): boolean => {
     for (let o = obj; o; o = o.parent) if (!o.visible) return false;
     return true;
+  };
+  /** Nearest vessel room zone to a point on the hull (rooms are only a few metres apart). */
+  const nearestRoom = (point: THREE.Vector3): string | null => {
+    let best: string | null = null;
+    let bestDist = Infinity;
+    zoneAnchors.forEach((z) => {
+      if (VESSEL_ROOMS.indexOf(z.zone.anchor) < 0) return;
+      const d = z.follow.getWorldPosition(roomPos).distanceToSquared(point);
+      if (d < bestDist) {
+        bestDist = d;
+        best = z.zone.id;
+      }
+    });
+    return best;
   };
   const pickAt = (clientX: number, clientY: number): ScenePick | null => {
     const rect = renderer.domElement.getBoundingClientRect();
@@ -601,18 +625,43 @@ export function createSurveyScene(
     raycaster.setFromCamera(pointer, camera);
     // The tether is rewritten every frame, so its cached bounds go stale.
     tetherGeo.computeBoundingSphere();
-    const roots: THREE.Object3D[] = [focusCtl.group, vessel, rov, tether];
+    const roots: THREE.Object3D[] = [focusCtl.group, trunks.group, vessel, rov, tether];
     const hits = raycaster.intersectObjects(roots, true);
     for (let i = 0; i < hits.length; i++) {
       let o: THREE.Object3D | null = hits[i].object;
       while (o && !o.userData.pick) o = o.parent;
-      if (o && isShown(o)) return o.userData.pick as ScenePick;
+      if (!o || !isShown(o)) continue;
+      const pick = o.userData.pick as ScenePick;
+      if (o === vessel) {
+        const zoneId = nearestRoom(hits[i].point);
+        if (zoneId) return { type: "zone", zoneId };
+      }
+      return pick;
     }
     return null;
   };
+  const pickKey = (pick: ScenePick | null): string =>
+    !pick
+      ? ""
+      : pick.type === "node"
+        ? `n:${pick.nodeId}`
+        : pick.type === "zone"
+          ? `z:${pick.zoneId}`
+          : pick.type === "cable"
+            ? `c:${pick.key}`
+            : `a:${pick.anchor}`;
   let down = { x: 0, y: 0, at: 0 };
-  let hoverNode: string | null = null;
+  let hoverKey = "";
   let hoverQueued = false;
+  const setHover = (pick: ScenePick | null): void => {
+    const key = pickKey(pick);
+    if (key === hoverKey) return;
+    hoverKey = key;
+    const cable = pick && pick.type === "cable" ? pick.key : null;
+    focusCtl.setCableHover(cable);
+    trunks.setHover(cable);
+    opts.onHover(pick);
+  };
   const onPointerDown = (e: PointerEvent): void => {
     down = { x: e.clientX, y: e.clientY, at: performance.now() };
     opts.onInteract();
@@ -628,13 +677,10 @@ export function createSurveyScene(
     hoverQueued = true;
     requestAnimationFrame(() => {
       hoverQueued = false;
+      if (disposed) return;
       const pick = pickAt(e.clientX, e.clientY);
       renderer.domElement.style.cursor = spaceHeld ? "move" : pick ? "pointer" : "";
-      const nodeId = pick && pick.type === "node" ? pick.nodeId : null;
-      if (nodeId !== hoverNode) {
-        hoverNode = nodeId;
-        opts.onHoverNode(nodeId);
-      }
+      setHover(pick);
     });
   };
   const onPointerEnter = (): void => {
@@ -643,10 +689,7 @@ export function createSurveyScene(
   const onPointerLeave = (): void => {
     pointerInside = false;
     renderer.domElement.style.cursor = "";
-    if (hoverNode) {
-      hoverNode = null;
-      opts.onHoverNode(null);
-    }
+    setHover(null);
   };
   renderer.domElement.addEventListener("pointerdown", onPointerDown);
   renderer.domElement.addEventListener("pointerup", onPointerUp);
@@ -849,6 +892,7 @@ export function createSurveyScene(
       }
     }
     focusCtl.update(dt, time);
+    trunks.update(dt, time, opts.reducedMotion);
 
     controls.update();
     clampTarget();
@@ -867,6 +911,12 @@ export function createSurveyScene(
 
   const ZONE_VIEW: Partial<Record<SurveySceneAnchor, { elevation: number; lift: number }>> = {
     vessel: { elevation: 0.42, lift: 3.4 },
+    mast: { elevation: 0.35, lift: 4 },
+    "survey-online": { elevation: 0.42, lift: 3.4 },
+    bridge: { elevation: 0.35, lift: 3 },
+    "rov-control": { elevation: 0.42, lift: 3 },
+    // Below the keel: the grid opens under the hull, in the water column.
+    "vessel-hull": { elevation: 0.12, lift: -7 },
     rov: { elevation: 0.16, lift: 1.4 },
     umbilical: { elevation: 0.22, lift: 0.6 },
   };
@@ -883,6 +933,9 @@ export function createSurveyScene(
     setZones: (zones) => {
       zoneAnchors = zones.map((zone) => ({ zone, follow: zoneFollow(zone.anchor) }));
     },
+    setTrunks: (list) => {
+      trunks.build(list);
+    },
     setViewInset: (top) => {
       insetTop = Math.max(0, Math.round(top));
       applyView();
@@ -895,6 +948,7 @@ export function createSurveyScene(
         focusView = null;
         rovFrozen = false;
         focusCtl.close();
+        trunks.setVisible(true);
         controls.minDistance = HOME_MIN_DISTANCE;
         flyTo(HOME_POSITION, HOME_TARGET);
         return;
@@ -904,6 +958,7 @@ export function createSurveyScene(
       focusSignature = signature;
       focusZoneId = focus.zoneId;
       rovFrozen = focus.anchor === "rov";
+      trunks.setVisible(false);
 
       const view = ZONE_VIEW[focus.anchor] || { elevation: 0.25, lift: 1 };
       const target = zoneTarget(focus.anchor);
@@ -915,18 +970,17 @@ export function createSurveyScene(
 
       const origins: Record<string, THREE.Vector3> = {};
       const items = focus.nodes.map((node) => {
-        const cluster = clusterKeyOf(node, focus);
         const from = (node.anchor && anchors[node.anchor]) || anchors[focus.anchor];
         const origin = from.getWorldPosition(new THREE.Vector3());
         origins[node.id] = origin;
-        return { id: node.id, cluster, origin };
+        return { id: node.id, cluster: node.cluster, origin };
       });
       const layout = layoutExplode(items, {
         target,
         viewDir,
         lift: view.lift,
         camera,
-        lastClusters: [CATALOG_CLUSTER],
+        lastClusters: [CATALOG_CLUSTER, PORTAL_CLUSTER],
         verticalFraction: Math.max(0.3, (height - insetTop) / (height + insetTop)),
       });
       focusCtl.open(focus, layout, origins);
@@ -952,6 +1006,7 @@ export function createSurveyScene(
       controls.removeEventListener("start", stopAutoRotate);
       controls.dispose();
       focusCtl.dispose();
+      trunks.dispose();
       disposeObject(scene);
       renderer.dispose();
       renderer.forceContextLoss();

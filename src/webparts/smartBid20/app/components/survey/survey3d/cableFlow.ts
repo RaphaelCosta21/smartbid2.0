@@ -11,6 +11,8 @@ interface Cable {
   kind: SurveyLinkKind;
   curve: THREE.QuadraticBezierCurve3;
   tube: THREE.Mesh;
+  /** Fat invisible tube for picking; shows the halo while hovered. */
+  hit: THREE.Mesh;
   particles: THREE.Mesh[];
 }
 
@@ -31,6 +33,7 @@ const makeMaterials = (opacity: number): KindMaterials => {
 
 const BASE_OPACITY = 0.9;
 const DIM_OPACITY = 0.12;
+const HALO_OPACITY = 0.35;
 const PARTICLES_PER_CABLE = 2;
 
 export class CableNetwork {
@@ -39,8 +42,11 @@ export class CableNetwork {
   private normal = makeMaterials(BASE_OPACITY);
   private dim = makeMaterials(DIM_OPACITY);
   private particle = makeMaterials(1);
+  private halo = makeMaterials(HALO_OPACITY);
+  private hidden = new THREE.MeshBasicMaterial({ visible: false });
   private particleGeo = new THREE.SphereGeometry(0.075, 10, 8);
   private trace: Record<string, boolean> | null = null;
+  private hoverKey: string | null = null;
   private fade = 0;
   private visibleTarget = false;
 
@@ -68,15 +74,25 @@ export class CableNetwork {
         this.normal[link.kind],
       );
       this.group.add(tube);
+      const hit = new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.14, 6, false), this.hidden);
+      hit.userData.pick = { type: "cable", key: link.key };
+      this.group.add(hit);
       const particles: THREE.Mesh[] = [];
       for (let i = 0; i < PARTICLES_PER_CABLE; i++) {
         const p = new THREE.Mesh(this.particleGeo, this.particle[link.kind]);
         particles.push(p);
         this.group.add(p);
       }
-      this.cables.push({ key: link.key, kind: link.kind, curve, tube, particles });
+      this.cables.push({ key: link.key, kind: link.kind, curve, tube, hit, particles });
     });
     this.applyTrace();
+  }
+
+  public setHover(key: string | null): void {
+    this.hoverKey = key;
+    this.cables.forEach((cable) => {
+      cable.hit.material = cable.key === key ? this.halo[cable.kind] : this.hidden;
+    });
   }
 
   /** Fades the network in/out (cables appear once the nodes have emerged). */
@@ -102,11 +118,12 @@ export class CableNetwork {
       this.normal[kind].opacity = BASE_OPACITY * this.fade;
       this.dim[kind].opacity = DIM_OPACITY * this.fade;
       this.particle[kind].opacity = this.fade;
+      this.halo[kind].opacity = HALO_OPACITY * this.fade;
     });
     if (!this.group.visible) return;
     this.cables.forEach((cable, c) => {
       const traced = !!this.trace && !!this.trace[cable.key];
-      const speed = traced ? 0.65 : 0.28;
+      const speed = traced || cable.key === this.hoverKey ? 0.65 : 0.28;
       cable.particles.forEach((p, i) => {
         const k = reducedMotion ? (i + 0.5) / PARTICLES_PER_CABLE : (time * speed + i / PARTICLES_PER_CABLE + c * 0.13) % 1;
         cable.curve.getPoint(k, p.position);
@@ -117,16 +134,20 @@ export class CableNetwork {
   public clear(): void {
     this.cables.forEach((cable) => {
       this.group.remove(cable.tube);
+      this.group.remove(cable.hit);
       cable.tube.geometry.dispose();
+      cable.hit.geometry.dispose();
       cable.particles.forEach((p) => this.group.remove(p));
     });
     this.cables = [];
+    this.hoverKey = null;
   }
 
   public dispose(): void {
     this.clear();
     this.particleGeo.dispose();
-    [this.normal, this.dim, this.particle].forEach((set) =>
+    this.hidden.dispose();
+    [this.normal, this.dim, this.particle, this.halo].forEach((set) =>
       LINK_KINDS.forEach((kind) => set[kind].dispose()),
     );
   }

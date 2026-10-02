@@ -5,10 +5,22 @@ import { SurveyEquipmentDetail } from "../components/survey/SurveyEquipmentDetai
 import { SurveyAddToPackageDialog } from "../components/survey/SurveyAddToPackageDialog";
 import { SurveyPackageDrawer } from "../components/survey/SurveyPackageDrawer";
 import { SurveySpreadPanel } from "../components/survey/SurveySpreadPanel";
-import type { SurveySceneTour } from "../components/survey/SurveySystemScene";
 import type {
+  SurveyCableInfo,
+  SurveySceneTour,
+  SurveyTraceStep,
+} from "../components/survey/SurveySystemScene";
+import {
+  CATALOG_CLUSTER,
+  LINK_LABELS,
+  PORTAL_CLUSTER,
+  PORTAL_PREFIX,
+  TRUNK_PREFIX,
   SceneFocus,
+  SceneLink,
+  SceneNode,
   SceneNodeStates,
+  SceneTrunk,
   SceneZone,
 } from "../components/survey/survey3d/sceneTypes";
 import { EmptyState } from "../components/common/EmptyState";
@@ -19,8 +31,9 @@ import {
   useFilteredSurveyEquipment,
   useSurveyBidIntel,
 } from "../hooks/useSurveyPortal";
-import { SurveySceneAnchor } from "../models";
+import { ISurveySpreadZone, SurveyLinkKind, SurveySceneAnchor } from "../models";
 import {
+  ISpreadLinkRef,
   ISpreadNode,
   catalogNodes,
   directLinks,
@@ -39,13 +52,31 @@ const SurveySystemScene = React.lazy(
 );
 
 const TOUR_STEP_MS = 8000;
-/** Tour reads topside → umbilical → subsea, whatever the zone order in the data. */
+/** Tour reads topside → hull → umbilical → subsea, whatever the zone order in the data. */
 const TOUR_DEPTH: Partial<Record<SurveySceneAnchor, number>> = {
+  "vessel-hull": 1,
   umbilical: 1,
   rov: 2,
   beacons: 2,
   seabed: 2,
   "subsea-target": 2,
+};
+
+interface ITrunkDetail {
+  from: ISurveySpreadZone;
+  to: ISurveySpreadZone;
+  links: ISpreadLinkRef[];
+}
+
+/** Most frequent cable kind of a trunk (ties keep the first seen). */
+const dominantKind = (links: ISpreadLinkRef[]): SurveyLinkKind => {
+  const counts: Partial<Record<SurveyLinkKind, number>> = {};
+  let best = links[0].kind;
+  links.forEach((l) => {
+    counts[l.kind] = (counts[l.kind] || 0) + 1;
+    if ((counts[l.kind] || 0) > (counts[best] || 0)) best = l.kind;
+  });
+  return best;
 };
 
 export const SurveySystemPage: React.FC = () => {
@@ -68,6 +99,7 @@ export const SurveySystemPage: React.FC = () => {
   const [activeZoneId, setActiveZoneId] = React.useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
   const [hoverNodeId, setHoverNodeId] = React.useState<string | null>(null);
+  const [hoverCableKey, setHoverCableKey] = React.useState<string | null>(null);
   const [tourStep, setTourStep] = React.useState<number | null>(null);
   const reducedMotion = React.useMemo(
     () =>
@@ -111,26 +143,77 @@ export const SurveySystemPage: React.FC = () => {
     });
     return result;
   }, [nodes]);
+  const nodeById = React.useMemo(() => {
+    const result: Record<string, ISpreadNode> = {};
+    nodes.forEach((n) => (result[n.id] = n));
+    return result;
+  }, [nodes]);
+  const linkByKey = React.useMemo(() => {
+    const result: Record<string, ISpreadLinkRef> = {};
+    links.forEach((l) => (result[l.key] = l));
+    return result;
+  }, [links]);
+  // Only physical rooms are drawn in 3D; BID-only groups (no anchor) live in the panel.
+  const rooms = React.useMemo(
+    () => (spread?.zones || []).filter((z) => !!z.sceneAnchor),
+    [spread],
+  );
   const sceneZones = React.useMemo<SceneZone[]>(
     () =>
-      (spread?.zones || []).map((z, i) => ({
+      rooms.map((z, i) => ({
         id: z.id,
         title: z.title,
-        anchor: z.sceneAnchor,
+        anchor: z.sceneAnchor as SurveySceneAnchor,
         colorIndex: i,
         count: z.lines.length,
       })),
-    [spread],
+    [rooms],
   );
+
+  // Cables between rooms, aggregated per room pair for the overview arcs.
+  const trunkDetails = React.useMemo(() => {
+    const result: Record<string, ITrunkDetail> = {};
+    links.forEach((l) => {
+      const a = rooms.find((z) => z.id === nodeById[l.from]?.zoneId);
+      const b = rooms.find((z) => z.id === nodeById[l.to]?.zoneId);
+      if (!a || !b || a === b || a.sceneAnchor === b.sceneAnchor) return;
+      const [from, to] = rooms.indexOf(a) < rooms.indexOf(b) ? [a, b] : [b, a];
+      const key = `${TRUNK_PREFIX}${from.id}|${to.id}`;
+      (result[key] || (result[key] = { from, to, links: [] })).links.push(l);
+    });
+    return result;
+  }, [links, rooms, nodeById]);
+  const trunks = React.useMemo<SceneTrunk[]>(
+    () =>
+      Object.keys(trunkDetails).map((key) => ({
+        key,
+        from: trunkDetails[key].from.sceneAnchor as SurveySceneAnchor,
+        to: trunkDetails[key].to.sceneAnchor as SurveySceneAnchor,
+        kind: dominantKind(trunkDetails[key].links),
+      })),
+    [trunkDetails],
+  );
+
   const focus = React.useMemo<SceneFocus | null>(() => {
-    const zone = spread?.zones.find((z) => z.id === activeZoneId);
+    const zone = rooms.find((z) => z.id === activeZoneId);
     if (!zone || !catalog) return null;
+    const familyOrder: Record<string, number> = {};
+    const clusterTitles: Record<string, string> = {
+      [CATALOG_CLUSTER]: "Also in catalog",
+      [PORTAL_CLUSTER]: "Connected rooms",
+    };
+    catalog.families.forEach((f) => {
+      familyOrder[f.id] = f.order;
+      clusterTitles[f.id] = f.title;
+    });
+
     const inZone: Record<string, boolean> = {};
-    const sceneNodes = nodes
+    const sceneNodes: SceneNode[] = nodes
       .filter((n) => n.zoneId === zone.id)
       .map((n) => {
         inZone[n.id] = true;
         const eq = catalog.equipment.find((e) => e.id === n.equipmentId)!;
+        const isCatalog = n.source === "catalog";
         return {
           id: n.id,
           equipmentId: n.equipmentId,
@@ -139,18 +222,63 @@ export const SurveySystemPage: React.FC = () => {
           modelUrl: eq.modelUrl || null,
           anchor: n.anchor,
           vesselSupplied: n.vesselSupplied,
-          catalog: n.source === "catalog",
+          role: isCatalog ? ("catalog" as const) : ("spread" as const),
+          cluster: isCatalog ? CATALOG_CLUSTER : eq.familyId,
         };
       });
+    const rank = (n: SceneNode): number =>
+      n.role === "catalog" ? 999 : familyOrder[n.cluster] !== undefined ? familyOrder[n.cluster] : 998;
+    sceneNodes.sort((a, b) => rank(a) - rank(b));
+
+    // Cables leaving the room end on a portal node that stands for the other room.
+    const portals: SceneNode[] = [];
+    const sceneLinks: SceneLink[] = [];
+    links.forEach((l) => {
+      const fromIn = !!inZone[l.from];
+      const toIn = !!inZone[l.to];
+      if (fromIn && toIn) {
+        sceneLinks.push({ key: l.key, from: l.from, to: l.to, kind: l.kind, cable: l.cable });
+        return;
+      }
+      if (!fromIn && !toIn) return;
+      const other = rooms.find((z) => z.id === nodeById[fromIn ? l.to : l.from]?.zoneId);
+      if (!other) return;
+      const portalId = `${PORTAL_PREFIX}${other.id}`;
+      if (!portals.some((p) => p.id === portalId)) {
+        portals.push({
+          id: portalId,
+          equipmentId: "",
+          label: other.title,
+          shape: "portal",
+          modelUrl: null,
+          anchor: other.sceneAnchor,
+          vesselSupplied: false,
+          role: "portal",
+          cluster: PORTAL_CLUSTER,
+        });
+      }
+      sceneLinks.push({
+        key: l.key,
+        from: fromIn ? l.from : portalId,
+        to: fromIn ? portalId : l.to,
+        kind: l.kind,
+        cable: l.cable,
+      });
+    });
+    portals.sort(
+      (a, b) =>
+        rooms.findIndex((z) => PORTAL_PREFIX + z.id === a.id) -
+        rooms.findIndex((z) => PORTAL_PREFIX + z.id === b.id),
+    );
+
     return {
       zoneId: zone.id,
-      anchor: zone.sceneAnchor,
-      nodes: sceneNodes,
-      links: links
-        .filter((l) => inZone[l.from] && inZone[l.to])
-        .map((l) => ({ key: l.key, from: l.from, to: l.to, kind: l.kind })),
+      anchor: zone.sceneAnchor as SurveySceneAnchor,
+      nodes: sceneNodes.concat(portals),
+      links: sceneLinks,
+      clusterTitles,
     };
-  }, [spread, activeZoneId, catalog, nodes, links]);
+  }, [rooms, activeZoneId, catalog, nodes, links, nodeById]);
 
   const trace = React.useMemo(
     () =>
@@ -163,38 +291,77 @@ export const SurveySystemPage: React.FC = () => {
     () => packageLines.map((l) => l.equipmentId),
     [packageLines],
   );
-  const nodeStates = React.useMemo<SceneNodeStates>(
-    () => ({
+  const nodeStates = React.useMemo<SceneNodeStates>(() => {
+    const traceNodeIds = trace ? trace.nodeIds.slice() : [];
+    // Steps in other rooms light the portal that leads there.
+    if (trace && activeZoneId) {
+      trace.nodeIds.forEach((id) => {
+        const zoneId = nodeById[id]?.zoneId;
+        if (zoneId && zoneId !== activeZoneId) traceNodeIds.push(`${PORTAL_PREFIX}${zoneId}`);
+      });
+    }
+    const hoverLinkKeys =
+      !selectedNodeId && hoverNodeId && focus
+        ? focus.links
+            .filter((l) => l.from === hoverNodeId || l.to === hoverNodeId)
+            .map((l) => l.key)
+        : [];
+    return {
       selectedNodeId,
       hoverNodeId,
       packageEquipmentIds,
-      traceNodeIds: trace ? trace.nodeIds : [],
+      traceNodeIds,
       traceLinkKeys: trace ? trace.linkKeys : [],
-    }),
-    [selectedNodeId, hoverNodeId, packageEquipmentIds, trace],
-  );
-  const tracePath = React.useMemo(
+      hoverLinkKeys,
+    };
+  }, [selectedNodeId, hoverNodeId, packageEquipmentIds, trace, activeZoneId, nodeById, focus]);
+  const tracePath = React.useMemo<SurveyTraceStep[] | null>(
     () =>
       trace
-        ? trace.nodeIds.map((id) => ({
+        ? trace.nodeIds.map((id, i) => ({
             id,
-            label: nodes.find((n) => n.id === id)?.label || id,
+            label: nodeById[id]?.label || id,
+            cable: i > 0 ? linkByKey[trace.linkKeys[i - 1]]?.cable : undefined,
           }))
         : null,
-    [trace, nodes],
+    [trace, nodeById, linkByKey],
   );
+  const cableInfo = React.useMemo<SurveyCableInfo | null>(() => {
+    if (!hoverCableKey) return null;
+    const trunk = trunkDetails[hoverCableKey];
+    if (trunk) {
+      const codes = trunk.links.filter((l) => !!l.cable).map((l) => l.cable);
+      const count = `${trunk.links.length} ${trunk.links.length === 1 ? "cable" : "cables"}`;
+      return {
+        kind: dominantKind(trunk.links),
+        title: `${trunk.from.title} ⇄ ${trunk.to.title}`,
+        detail: codes.length ? `${count} · ${codes.join(" · ")}` : count,
+      };
+    }
+    const link = linkByKey[hoverCableKey];
+    if (!link) return null;
+    const labelOf = (id: string): string => nodeById[id]?.label || id;
+    return {
+      kind: link.kind,
+      title: link.cable || LINK_LABELS[link.kind],
+      detail: `${labelOf(link.from)} → ${labelOf(link.to)} · ${LINK_LABELS[link.kind]}`,
+    };
+  }, [hoverCableKey, trunkDetails, linkByKey, nodeById]);
 
   const tourSteps = React.useMemo(() => {
     if (!spread) return [];
     const depth = (a: SurveySceneAnchor): number => TOUR_DEPTH[a] || 0;
-    const ordered = spread.zones
+    const ordered = rooms
       .slice()
-      .sort((a, b) => depth(a.sceneAnchor) - depth(b.sceneAnchor));
+      .sort(
+        (a, b) =>
+          depth(a.sceneAnchor as SurveySceneAnchor) - depth(b.sceneAnchor as SurveySceneAnchor),
+      );
     return [
       { zoneId: null as string | null, title: spread.title, caption: spread.description },
       ...ordered.map((z) => ({ zoneId: z.id as string | null, title: z.title, caption: z.description })),
     ];
-  }, [spread]);
+  }, [spread, rooms]);
   const tour: SurveySceneTour | null =
     tourStep !== null && tourSteps[tourStep]
       ? {
@@ -226,6 +393,7 @@ export const SurveySystemPage: React.FC = () => {
     setActiveZoneId(zoneId);
     setSelectedNodeId(null);
     setHoverNodeId(null);
+    setHoverCableKey(null);
   };
 
   const handleZoneSelect = (zoneId: string | null): void => {
@@ -240,7 +408,11 @@ export const SurveySystemPage: React.FC = () => {
   };
 
   const handleNodeSelect = (nodeId: string): void => {
-    const node = nodes.find((n) => n.id === nodeId);
+    if (nodeId.indexOf(PORTAL_PREFIX) === 0) {
+      handleZoneSelect(nodeId.slice(PORTAL_PREFIX.length));
+      return;
+    }
+    const node = nodeById[nodeId];
     if (!node) return;
     stopTour();
     if (node.zoneId !== activeZoneId) setActiveZoneId(node.zoneId);
@@ -421,14 +593,17 @@ export const SurveySystemPage: React.FC = () => {
             <SurveySystemScene
               topInset={headerHeight}
               zones={sceneZones}
+              trunks={trunks}
               focus={focus}
               spreadTitle={spread ? spread.title : ""}
               nodeStates={nodeStates}
               tracePath={tracePath}
+              cableInfo={cableInfo}
               tour={tour}
               onZoneSelect={handleZoneSelect}
               onNodeSelect={handleNodeSelect}
               onNodeHover={setHoverNodeId}
+              onCableHover={setHoverCableKey}
               onInteract={stopTour}
               onTourStart={() => setTourStep(0)}
               onTourStep={stepTour}

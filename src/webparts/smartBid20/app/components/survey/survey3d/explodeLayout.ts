@@ -37,7 +37,7 @@ export interface LayoutOptions {
   spacing?: number;
   maxRows?: number;
   gap?: number;
-  /** Clusters always placed at the right end (e.g. reference-only catalog items). */
+  /** Clusters always placed at the right end, in this order (e.g. catalog, then portals). */
   lastClusters?: string[];
   /** Share of the camera's vertical field that is actually visible (UI may cover part of it). */
   verticalFraction?: number;
@@ -68,7 +68,7 @@ export function layoutExplode(items: LayoutItem[], opts: LayoutOptions): Explode
     return sum.divideScalar(groups[key].length).dot(right);
   };
   const last = opts.lastClusters || [];
-  const rank = (key: string): number => (last.indexOf(key) >= 0 ? 1 : 0);
+  const rank = (key: string): number => last.indexOf(key) + 1;
   order.sort((a, b) => rank(a) - rank(b) || screenX(a) - screenX(b));
 
   const grids = order.map((key) => {

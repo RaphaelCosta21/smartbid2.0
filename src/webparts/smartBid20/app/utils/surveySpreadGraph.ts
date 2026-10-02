@@ -22,6 +22,7 @@ export interface ISpreadNode {
   qty: number;
   qtyLabel?: string;
   vesselSupplied: boolean;
+  category?: string;
   /** spread = zone line, diagram = only on the links, catalog = generic catalog item shown for reference. */
   source: "spread" | "diagram" | "catalog";
 }
@@ -40,6 +41,8 @@ export interface ISignalPath {
 }
 
 export const SIGNAL_HUB_ID = "online-master-pc";
+/** Video sources end on the online monitors when they never reach the hub. */
+const SIGNAL_FALLBACK_IDS = ["survey-online-monitors"];
 
 const baseId = (ref: string): string => ref.split("#")[0];
 const instanceOf = (ref: string): number => {
@@ -65,62 +68,69 @@ export function expandSpreadNodes(
   );
 
   const nodes: ISpreadNode[] = [];
-  const seen: Record<string, boolean> = {};
+  const seenNode: Record<string, boolean> = {};
+  const seenEq: Record<string, boolean> = {};
+  // Instance numbers claimed by lines that name them explicitly (e.g. switch [2] on the bridge line).
+  const claimed: Record<string, number[]> = {};
+  spread.zones.forEach((zone) =>
+    zone.lines.forEach((line) =>
+      (line.instances || []).forEach((n) =>
+        (claimed[line.equipmentId] || (claimed[line.equipmentId] = [])).push(n),
+      ),
+    ),
+  );
+
   spread.zones.forEach((zone) =>
     zone.lines.forEach((line) => {
       const eq = byId[line.equipmentId];
-      if (!eq || seen[eq.id]) return;
-      seen[eq.id] = true;
-      const nums = (instances[eq.id] || []).slice().sort((a, b) => a - b);
+      if (!eq) return;
+      const nums = (
+        line.instances
+          ? line.instances.slice()
+          : (instances[eq.id] || []).filter((n) => (claimed[eq.id] || []).indexOf(n) < 0)
+      ).sort((a, b) => a - b);
       const common = {
         equipmentId: eq.id,
         zoneId: zone.id,
+        anchor: zone.sceneAnchor || eq.sceneAnchor,
         qtyLabel: line.qtyLabel,
         vesselSupplied: !!line.vesselSupplied,
+        category: line.category,
         source: "spread" as const,
       };
       if (nums.length === 0) {
-        nodes.push({
-          ...common,
-          id: eq.id,
-          instance: 0,
-          label: eq.title,
-          anchor: eq.sceneAnchor,
-          qty: line.qty,
-        });
+        if (seenNode[eq.id]) return;
+        seenNode[eq.id] = seenEq[eq.id] = true;
+        nodes.push({ ...common, id: eq.id, instance: 0, label: eq.title, qty: line.qty });
         return;
       }
-      nums.forEach((n) =>
-        nodes.push({
-          ...common,
-          id: `${eq.id}#${n}`,
-          instance: n,
-          label: `${eq.title} #${n}`,
-          anchor: (line.placement && line.placement[String(n)]) || eq.sceneAnchor,
-          qty: 1,
-        }),
-      );
+      nums.forEach((n) => {
+        const id = `${eq.id}#${n}`;
+        if (seenNode[id]) return;
+        seenNode[id] = seenEq[eq.id] = true;
+        nodes.push({ ...common, id, instance: n, label: `${eq.title} #${n}`, qty: 1 });
+      });
     }),
   );
 
-  // Diagram-only equipment joins the zone of the first node it is wired to.
+  // Diagram-only equipment joins the room of the first node it is wired to.
   spread.links.forEach((l) => {
     [
       [l.from, l.to],
       [l.to, l.from],
     ].forEach(([ref, other]) => {
       const id = baseId(ref);
-      if (seen[id] || !byId[id]) return;
+      if (seenEq[id] || !byId[id]) return;
       const peer = nodes.find((n) => n.id === other || n.equipmentId === baseId(other));
       if (!peer) return;
-      seen[id] = true;
+      seenEq[id] = true;
       nodes.push({
         id,
         equipmentId: id,
         instance: 0,
         zoneId: peer.zoneId,
         label: byId[id].title,
-        anchor: byId[id].sceneAnchor,
+        anchor: peer.anchor,
         qty: 1,
         vesselSupplied: false,
         source: "diagram",
@@ -138,33 +148,45 @@ const anchorClass = (anchor: SurveySceneAnchor | ""): string =>
       ? "subsea"
       : "topside";
 
-/** Catalog equipment outside the spread, placed in the zone that matches its location. */
+/** Room a generic catalog item belongs to when no room shares its exact anchor. */
+const CATALOG_ROOM: Record<string, SurveySceneAnchor> = {
+  "": "survey-online",
+  vessel: "survey-online",
+  gnss: "survey-online",
+  beacons: "rov",
+  seabed: "rov",
+  "subsea-target": "rov",
+  umbilical: "rov-control",
+};
+
+/** Catalog equipment outside the spread, placed in the room (zone) that matches its location. */
 export function catalogNodes(
   spread: ISurveySpread,
   catalog: ISurveyCatalog,
   spreadNodes: ISpreadNode[],
 ): ISpreadNode[] {
-  if (spread.zones.length === 0) return [];
+  const rooms = spread.zones.filter((z) => !!z.sceneAnchor);
+  if (rooms.length === 0) return [];
   const used: Record<string, boolean> = {};
   spreadNodes.forEach((n) => (used[n.equipmentId] = true));
+  const roomFor = (anchor: SurveySceneAnchor | "") =>
+    rooms.find((z) => z.sceneAnchor === anchor) ||
+    rooms.find((z) => z.sceneAnchor === CATALOG_ROOM[anchor]) ||
+    rooms.find((z) => anchorClass(z.sceneAnchor) === anchorClass(anchor)) ||
+    rooms[0];
   return catalog.equipment
     .filter((eq) => !used[eq.id])
-    .map((eq) => {
-      const cls = anchorClass(eq.sceneAnchor);
-      const zone =
-        spread.zones.find((z) => anchorClass(z.sceneAnchor) === cls) || spread.zones[0];
-      return {
-        id: eq.id,
-        equipmentId: eq.id,
-        instance: 0,
-        zoneId: zone.id,
-        label: eq.title,
-        anchor: eq.sceneAnchor,
-        qty: 1,
-        vesselSupplied: false,
-        source: "catalog" as const,
-      };
-    });
+    .map((eq) => ({
+      id: eq.id,
+      equipmentId: eq.id,
+      instance: 0,
+      zoneId: roomFor(eq.sceneAnchor).id,
+      label: eq.title,
+      anchor: eq.sceneAnchor,
+      qty: 1,
+      vesselSupplied: false,
+      source: "catalog" as const,
+    }));
 }
 
 export function resolveSpreadLinks(
@@ -186,29 +208,49 @@ export function resolveSpreadLinks(
   return result;
 }
 
-/** Shortest wiring path (links are treated as bidirectional) from a node to the online hub. */
+/**
+ * Shortest wiring path from a node to the online hub. Timing (PPS/ZDA) cables are not signal
+ * paths and video only flows from → to; other links are bidirectional.
+ */
 export function traceSignalPath(
   links: ISpreadLinkRef[],
   fromId: string,
   hubEquipmentId: string = SIGNAL_HUB_ID,
 ): ISignalPath | null {
-  if (baseId(fromId) === hubEquipmentId) return null;
+  const targets = [hubEquipmentId].concat(SIGNAL_FALLBACK_IDS);
+  if (targets.indexOf(baseId(fromId)) >= 0) return null;
   const adjacency: Record<string, { to: string; key: string }[]> = {};
+  const edge = (a: string, b: string, key: string): void => {
+    (adjacency[a] || (adjacency[a] = [])).push({ to: b, key });
+  };
   links.forEach((l) => {
-    (adjacency[l.from] || (adjacency[l.from] = [])).push({ to: l.to, key: l.key });
-    (adjacency[l.to] || (adjacency[l.to] = [])).push({ to: l.from, key: l.key });
+    if (l.kind === "timing") return;
+    edge(l.from, l.to, l.key);
+    if (l.kind !== "video") edge(l.to, l.from, l.key);
   });
 
+  for (let t = 0; t < targets.length; t++) {
+    const path = shortestPath(adjacency, fromId, targets[t]);
+    if (path) return path;
+  }
+  return null;
+}
+
+function shortestPath(
+  adjacency: Record<string, { to: string; key: string }[]>,
+  fromId: string,
+  targetEquipmentId: string,
+): ISignalPath | null {
   const prev: Record<string, { node: string; key: string } | null> = { [fromId]: null };
   const queue = [fromId];
   let found: string | null = null;
   while (queue.length && !found) {
     const current = queue.shift()!;
-    (adjacency[current] || []).forEach((edge) => {
-      if (found || prev[edge.to] !== undefined) return;
-      prev[edge.to] = { node: current, key: edge.key };
-      if (baseId(edge.to) === hubEquipmentId) found = edge.to;
-      else queue.push(edge.to);
+    (adjacency[current] || []).forEach((e) => {
+      if (found || prev[e.to] !== undefined) return;
+      prev[e.to] = { node: current, key: e.key };
+      if (baseId(e.to) === targetEquipmentId) found = e.to;
+      else queue.push(e.to);
     });
   }
   if (!found) return null;

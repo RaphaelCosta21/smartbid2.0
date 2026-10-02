@@ -12,17 +12,24 @@ export interface SceneZone {
   count: number;
 }
 
+/** Equipment archetypes plus the scene-only gateway to another room. */
+export type SceneShape = SurveySceneShape | "portal";
+
+/** spread = line of the template, catalog = reference only, portal = link to another room. */
+export type SceneNodeRole = "spread" | "catalog" | "portal";
+
 export interface SceneNode {
   id: string;
   equipmentId: string;
   label: string;
-  shape: SurveySceneShape;
+  shape: SceneShape;
   modelUrl: string | null;
   /** Physical location the node emerges from; falls back to the zone anchor. */
   anchor: SurveySceneAnchor | "";
   vesselSupplied: boolean;
-  /** Generic catalog item shown for reference (not part of the spread). */
-  catalog: boolean;
+  role: SceneNodeRole;
+  /** Group in the exploded grid (equipment family, catalog or portal). */
+  cluster: string;
 }
 
 export interface SceneLink {
@@ -30,6 +37,7 @@ export interface SceneLink {
   from: string;
   to: string;
   kind: SurveyLinkKind;
+  cable?: string;
 }
 
 export interface SceneFocus {
@@ -37,6 +45,15 @@ export interface SceneFocus {
   anchor: SurveySceneAnchor;
   nodes: SceneNode[];
   links: SceneLink[];
+  clusterTitles: Record<string, string>;
+}
+
+/** Cables between two rooms, aggregated into one arc for the overview. */
+export interface SceneTrunk {
+  key: string;
+  from: SurveySceneAnchor;
+  to: SurveySceneAnchor;
+  kind: SurveyLinkKind;
 }
 
 export interface SceneNodeStates {
@@ -45,15 +62,16 @@ export interface SceneNodeStates {
   packageEquipmentIds: string[];
   traceNodeIds: string[];
   traceLinkKeys: string[];
+  /** Cables of the hovered node, highlighted while nothing is traced. */
+  hoverLinkKeys: string[];
 }
 
 export type ScenePick =
   | { type: "zone"; zoneId: string }
   | { type: "anchor"; anchor: SurveySceneAnchor }
-  | { type: "node"; nodeId: string };
-
-/** Zone orb colors by zone order (OII primary yellow, secondary teal, tertiary green). */
-export const ZONE_COLORS = [0xffc72c, 0x0097a9, 0x009b77];
+  | { type: "node"; nodeId: string }
+  /** A focus cable (link key) or an overview trunk (trunk key). */
+  | { type: "cable"; key: string };
 
 export const LINK_KINDS: SurveyLinkKind[] = [
   "data",
@@ -63,6 +81,7 @@ export const LINK_KINDS: SurveyLinkKind[] = [
   "subsea",
   "fibre",
   "acoustic",
+  "timing",
 ];
 
 export const LINK_COLORS: Record<SurveyLinkKind, number> = {
@@ -73,6 +92,7 @@ export const LINK_COLORS: Record<SurveyLinkKind, number> = {
   subsea: 0x009b77,
   fibre: 0x5b7f95,
   acoustic: 0xc8102e,
+  timing: 0xf4fbff,
 };
 
 export const LINK_LABELS: Record<SurveyLinkKind, string> = {
@@ -83,25 +103,10 @@ export const LINK_LABELS: Record<SurveyLinkKind, string> = {
   subsea: "Subsea",
   fibre: "Fibre",
   acoustic: "Acoustic",
+  timing: "Timing (PPS/ZDA)",
 };
 
 export const CATALOG_CLUSTER = "catalog";
-
-export const CLUSTER_TITLES: Record<string, string> = {
-  mast: "Mast",
-  bridge: "Bridge",
-  "survey-online": "Survey room",
-  "rov-control": "ROV control",
-  "vessel-hull": "Hull",
-  vessel: "Vessel",
-  umbilical: "Umbilical",
-  rov: "ROV",
-  beacons: "Seabed array",
-  seabed: "Seabed",
-  "subsea-target": "Target",
-  gnss: "GNSS",
-  [CATALOG_CLUSTER]: "Also in catalog",
-};
-
-export const clusterKeyOf = (node: SceneNode, focus: SceneFocus): string =>
-  node.catalog ? CATALOG_CLUSTER : node.anchor || focus.anchor;
+export const PORTAL_CLUSTER = "portal";
+export const PORTAL_PREFIX = "room:";
+export const TRUNK_PREFIX = "trunk:";
