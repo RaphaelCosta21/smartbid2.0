@@ -111,57 +111,106 @@ const box = (
   return m;
 };
 
-function buildProceduralVessel(): THREE.Group {
-  const g = new THREE.Group();
+/** Deck plan from `aft` to the bow (bow points +x), extruded upwards by `depth`. */
+const hullSlab = (aft: number, depth: number): THREE.ExtrudeGeometry => {
   const shape = new THREE.Shape();
-  shape.moveTo(-6, -1.3);
+  shape.moveTo(aft, -1.3);
   shape.lineTo(3.8, -1.3);
   shape.quadraticCurveTo(6.4, -0.9, 6.6, 0);
   shape.quadraticCurveTo(6.4, 0.9, 3.8, 1.3);
-  shape.lineTo(-6, 1.3);
-  shape.lineTo(-6, -1.3);
+  shape.lineTo(aft, 1.3);
+  shape.lineTo(aft, -1.3);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
+  geo.rotateX(-Math.PI / 2);
+  return geo;
+};
 
-  const hullGeo = new THREE.ExtrudeGeometry(shape, { depth: 1.7, bevelEnabled: false });
-  hullGeo.rotateX(-Math.PI / 2);
-  const hull = new THREE.Mesh(hullGeo, [std(PALETTE.deck), std(PALETTE.hull)]);
+/** Stylised IMR / survey vessel: navy hull, raised forecastle, white accommodation forward, bow helideck. */
+function buildProceduralVessel(): THREE.Group {
+  const g = new THREE.Group();
+  const hullMats = [std(PALETTE.deck), std(PALETTE.hull)];
+
+  const hull = new THREE.Mesh(hullSlab(-6, 1.7), hullMats);
   hull.position.y = -0.9;
   g.add(hull);
+  const forecastle = new THREE.Mesh(hullSlab(0.4, 0.55), hullMats);
+  forecastle.position.y = 0.8;
+  g.add(forecastle);
 
-  const bootGeo = new THREE.ExtrudeGeometry(shape, { depth: 0.22, bevelEnabled: false });
-  bootGeo.rotateX(-Math.PI / 2);
+  const bootGeo = hullSlab(-6, 0.22);
   bootGeo.scale(1.004, 1, 1.02);
   const boot = new THREE.Mesh(bootGeo, std(PALETTE.bootTop));
   boot.position.y = -0.35;
   g.add(boot);
+  const sheerGeo = hullSlab(-6, 0.07);
+  sheerGeo.scale(1.004, 1, 1.02);
+  const sheer = new THREE.Mesh(sheerGeo, std(PALETTE.superstructure, { roughness: 0.4 }));
+  sheer.position.y = 0.64;
+  g.add(sheer);
 
+  // Accommodation tiers stepping back from the foredeck, bridge with wraparound windows on top
   const white = std(PALETTE.superstructure, { roughness: 0.4 });
-  g.add(box(2.6, 1.4, 2.3, white, 2.8, 1.5, 0));
-  g.add(box(2.0, 1.0, 2.0, white, 3.0, 2.7, 0));
-  g.add(box(0.05, 0.35, 1.8, std(PALETTE.windows, { roughness: 0.2 }), 4.03, 2.8, 0));
+  const glass = std(PALETTE.windows, { roughness: 0.2 });
+  const tiers: [number, number, number, number, number][] = [
+    // [aftX, foreX, bottomY, height, width]
+    [0.4, 4.0, 1.35, 0.7, 2.4],
+    [0.8, 4.0, 2.05, 0.65, 2.3],
+    [1.3, 3.9, 2.7, 0.6, 2.2],
+  ];
+  tiers.forEach(([aft, fore, y, h, w]) => {
+    const len = fore - aft;
+    const cx = (aft + fore) / 2;
+    g.add(box(len, h, w, white, cx, y + h / 2, 0));
+    g.add(box(len - 0.3, 0.12, 0.02, glass, cx, y + h * 0.55, w / 2 + 0.01));
+    g.add(box(len - 0.3, 0.12, 0.02, glass, cx, y + h * 0.55, -w / 2 - 0.01));
+    g.add(box(0.02, 0.12, w - 0.3, glass, fore + 0.01, y + h * 0.55, 0));
+  });
+  g.add(box(1.9, 0.55, 2.5, white, 2.9, 3.575, 0));
+  g.add(box(0.03, 0.28, 2.3, glass, 3.86, 3.6, 0));
+  g.add(box(1.7, 0.28, 0.03, glass, 2.9, 3.6, 1.26));
+  g.add(box(1.7, 0.28, 0.03, glass, 2.9, 3.6, -1.26));
 
-  const heli = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.6, 1.6, 0.12, 8),
-    std(PALETTE.helideck),
-  );
-  heli.position.set(4.9, 3.4, 0);
+  // Helideck over the bow, carried by the bridge roof and two legs on the forecastle
+  const heli = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.55, 0.1, 8), std(PALETTE.helideck));
+  heli.position.set(4.5, 4.05, 0);
   g.add(heli);
-  g.add(box(0.2, 0.2, 0.2, std(PALETTE.steel), 4.9, 3.1, 0));
+  const touchdown = new THREE.Mesh(
+    new THREE.RingGeometry(0.95, 1.08, 32),
+    std(PALETTE.yellow, { side: THREE.DoubleSide }),
+  );
+  touchdown.rotation.x = -Math.PI / 2;
+  touchdown.position.set(4.5, 4.11, 0);
+  g.add(touchdown);
+  const steel = std(PALETTE.steel);
+  g.add(box(0.12, 2.64, 0.12, steel, 5.2, 2.67, 0.9));
+  g.add(box(0.12, 2.64, 0.12, steel, 5.2, 2.67, -0.9));
 
+  // Mast on the bridge roof with GNSS domes on the yard
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.4, 8), steel);
+  mast.position.set(2.3, 4.55, 0);
+  g.add(mast);
+  g.add(box(0.1, 0.07, 1.3, steel, 2.3, 4.85, 0));
+  const domeGeo = new THREE.SphereGeometry(0.11, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+  [0.6, -0.6].forEach((z) => {
+    const dome = new THREE.Mesh(domeGeo, white);
+    dome.position.set(2.3, 4.89, z);
+    g.add(dome);
+  });
+
+  // Offshore crane stowed aft on its boom rest, ROV LARS A-frame at the stern
   const yellow = std(PALETTE.yellow, { roughness: 0.45 });
-  const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.38, 1.4, 16), yellow);
-  pedestal.position.set(-2.8, 1.5, 0.7);
+  const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 1.1, 16), yellow);
+  pedestal.position.set(-0.2, 1.35, 0.85);
   g.add(pedestal);
-  const boom = box(5.2, 0.28, 0.28, yellow, -0.6, 3.0, 0.7);
-  boom.rotation.z = 0.55;
+  g.add(box(0.7, 0.5, 0.55, yellow, -0.25, 2.1, 0.85));
+  const boom = box(4.6, 0.22, 0.22, yellow, -2.45, 2.35, 0.85);
+  boom.rotation.z = 0.05;
   g.add(boom);
+  g.add(box(0.14, 1.33, 0.14, yellow, -4.5, 1.465, 0.85));
 
   g.add(box(0.25, 2.4, 0.25, yellow, -5.6, 2.0, 1.0));
   g.add(box(0.25, 2.4, 0.25, yellow, -5.6, 2.0, -1.0));
   g.add(box(0.3, 0.3, 2.3, yellow, -5.6, 3.2, 0));
-
-  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.3, 8), std(PALETTE.steel));
-  mast.position.set(3.1, 3.85, 0.6);
-  g.add(mast);
 
   // Survey online and ROV control containers on the aft deck
   const containerMat = std(PALETTE.dark, { roughness: 0.5 });
@@ -353,7 +402,7 @@ export function createSurveyScene(
   vessel.add(vesselModel);
   scene.add(vessel);
   const cnavAnchor = new THREE.Object3D();
-  cnavAnchor.position.set(3.1, 4.6, 0.6);
+  cnavAnchor.position.set(2.3, 5.0, 0.6);
   vessel.add(cnavAnchor);
   const hullAnchor = new THREE.Object3D();
   hullAnchor.position.set(0.5, -1.2, 0);
@@ -366,8 +415,8 @@ export function createSurveyScene(
     vessel.add(o);
     return o;
   };
-  const mastAnchor = roomAnchor(2.6, 4.9, -0.6);
-  const bridgeAnchor = roomAnchor(4.1, 2.8, 0.9);
+  const mastAnchor = roomAnchor(2.3, 5.25, -0.3);
+  const bridgeAnchor = roomAnchor(3.4, 3.55, 0.9);
   const surveyRoomAnchor = roomAnchor(-1.4, 1.9, -0.75);
   const rovControlAnchor = roomAnchor(-3.4, 1.9, -0.75);
   vessel.userData.pick = { type: "anchor", anchor: "vessel" };

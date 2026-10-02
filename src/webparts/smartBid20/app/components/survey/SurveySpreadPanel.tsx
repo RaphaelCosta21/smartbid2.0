@@ -90,7 +90,6 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
       <ul className={styles.zones}>
         {spread.zones.map((zone) => {
           const open = zone.id === activeZoneId;
-          const vessel = zone.lines.filter((l) => l.vesselSupplied).length;
           const room = rooms.indexOf(zone);
           const tone = room >= 0 ? styles.toneRoom : styles.toneNeutral;
           const main = mainCategory(zone);
@@ -107,7 +106,6 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
                   {considered
                     ? `${inBid(zone.lines)}/${priced(zone.lines).length} in BID`
                     : `${zone.lines.length} items`}
-                  {vessel > 0 && <span className={styles.vesselTag}>{vessel} vessel</span>}
                   {room < 0 && <span className={styles.bidTag}>BID only</span>}
                 </span>
                 <ChevronDown size={12} className={styles.chevron} />
