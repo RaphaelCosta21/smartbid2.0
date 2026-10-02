@@ -211,7 +211,11 @@ const AppLayoutInner: React.FC<{
 
         {isGuestUser && <GuestModeBanner />}
 
-        <div className={styles.contentArea}>
+        <div
+          className={`${styles.contentArea} ${
+            location.pathname === ROUTES.surveySystem ? styles.contentFlush : ""
+          }`}
+        >
           <Routes>
             <Route path={ROUTES.tracker} element={<BidTrackerPage />} />
             <Route path={ROUTES.dashboard} element={<DashboardPage />} />

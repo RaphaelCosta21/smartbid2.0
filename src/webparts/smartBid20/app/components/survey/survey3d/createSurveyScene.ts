@@ -953,7 +953,9 @@ export function createSurveyScene(
         flyTo(HOME_POSITION, HOME_TARGET);
         return;
       }
-      const signature = `${focus.zoneId}|${focus.nodes.map((n) => n.id).join(",")}|${focus.links.length}`;
+      const signature = `${focus.zoneId}|${focus.nodes
+        .map((n) => `${n.id}:${n.bidState || ""}`)
+        .join(",")}|${focus.links.length}`;
       if (signature === focusSignature) return;
       focusSignature = signature;
       focusZoneId = focus.zoneId;

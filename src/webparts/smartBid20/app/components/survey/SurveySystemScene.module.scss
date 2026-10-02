@@ -231,6 +231,12 @@
   color: var(--survey-navy-deep);
 }
 
+/* Not considered in the compared BID */
+.nodeOut {
+  border-color: var(--survey-slate);
+  color: var(--survey-muted);
+}
+
 /* Gateway to another room */
 .nodePortal {
   border-color: var(--survey-green);

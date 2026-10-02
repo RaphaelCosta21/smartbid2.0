@@ -3,94 +3,311 @@
   flex-direction: column;
 }
 
-.topBar {
+/* One compact bar: search, BID, diagram, view, import, package */
+.bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  height: 52px;
-  padding: 0 24px;
+  gap: 10px;
+  min-height: 56px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
   background: var(--survey-bar);
   border-bottom: 1px solid var(--survey-bar-border);
 }
 
-.breadcrumb {
-  display: flex;
-  gap: 6px;
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  color: var(--survey-slate);
-  white-space: nowrap;
+.searchWrap {
+  position: relative;
+  flex: 0 1 420px;
+  min-width: 220px;
 }
 
-.crumbSep {
-  color: var(--survey-muted);
-}
-
-.crumbActive {
-  color: var(--package-accent);
-}
-
-.topActions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.selectedChip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  animation: fadeIn 300ms ease both;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.aliasChip {
-  padding: 3px 7px;
+.clearBtn {
+  display: inline-flex;
+  padding: 3px;
+  border: none;
   border-radius: 4px;
-  border: 1px solid var(--package-accent);
+  background: transparent;
+  color: var(--survey-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--survey-ice);
+  }
+}
+
+.hits {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-navy-deep);
+  box-shadow: var(--survey-shadow);
+}
+
+.hit {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--survey-ice);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--survey-navy);
+    outline: none;
+  }
+}
+
+.hitTitle {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hitMeta {
+  flex-shrink: 0;
+  color: var(--survey-teal);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hitEmpty {
+  padding: 8px;
+  color: var(--survey-muted);
+  font-size: 11px;
+}
+
+.bidPicker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.bidBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-field);
+  color: var(--survey-ice);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 250ms ease;
+
+  &:hover {
+    border-color: var(--survey-teal);
+  }
+
+  svg {
+    color: var(--survey-teal);
+  }
+}
+
+.bidBtnActive {
+  border-color: var(--package-accent);
   background: var(--survey-navy);
   color: var(--package-accent);
-  font-size: 9px;
-  white-space: nowrap;
+  font-weight: 700;
+
+  svg {
+    color: var(--package-accent);
+  }
 }
 
-.aliasLine {
-  width: 18px;
-  height: 1px;
-  background: var(--survey-muted);
-  flex-shrink: 0;
-}
-
-.selectedName {
-  font-size: 10px;
-  color: var(--survey-ice);
-  white-space: nowrap;
+.bidLabel {
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.ghostBtn {
+.bidClear {
+  display: inline-flex;
+  margin-left: 4px;
+  padding: 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--survey-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--survey-ice);
+  }
+}
+
+.bidClient {
+  max-width: 160px;
+  overflow: hidden;
+  color: var(--survey-muted);
+  font-size: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bidPopover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 360px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-navy-deep);
+  box-shadow: var(--survey-shadow);
+}
+
+.bidSearch {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 4px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-navy);
+  color: var(--survey-ice);
+  font-size: 11px;
+  outline: none;
+
+  &:focus {
+    border-color: var(--survey-teal);
+  }
+
+  &::placeholder {
+    color: var(--survey-muted);
+  }
+}
+
+.bidList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.bidOption {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1px 8px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--survey-ice);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--survey-navy);
+  }
+}
+
+.bidOptionActive {
+  border-color: var(--package-accent);
+}
+
+.bidNumber {
+  color: var(--package-accent);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bidText {
+  overflow: hidden;
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bidMeta {
+  grid-column: 1 / -1;
+  color: var(--survey-muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bidEmpty {
+  padding: 8px;
+  color: var(--survey-muted);
+  font-size: 11px;
+}
+
+.selectChip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-field);
+  color: var(--survey-ice);
+
+  select {
+    appearance: none;
+    max-width: 200px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: inherit;
+    font-size: 11px;
+    cursor: pointer;
+
+    option {
+      color: var(--survey-navy);
+      background: var(--survey-ice);
+    }
+  }
+
+  svg {
+    pointer-events: none;
+    color: var(--survey-teal);
+  }
+}
+
+.selectLabel {
+  color: var(--survey-teal);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
   border-radius: 4px;
   border: 1px solid var(--survey-glass-border);
   background: var(--survey-field);
   color: var(--survey-muted);
-  font-size: 10px;
-  white-space: nowrap;
   cursor: pointer;
   transition: border-color 250ms ease, color 250ms ease;
 
@@ -135,65 +352,13 @@
   text-align: center;
 }
 
-.hero {
-  position: relative;
-  padding: 24px 28px 20px;
-  background: var(--survey-hero-overlay);
-  border-bottom: 1px solid var(--survey-glass-border);
-}
-
-.heroRow {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-
-.titleGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.eyebrow {
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  color: var(--survey-teal);
-  font-weight: 600;
-}
-
-.title {
-  margin: 0;
-  font-size: 34px;
-  line-height: 1.05;
-  font-weight: 700;
-  color: var(--survey-ice);
-}
-
-.subtitle {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--survey-ice);
-}
-
-.searchArea {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 480px;
-  max-width: 100%;
-}
-
 .searchInput {
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 46px;
-  padding: 0 14px;
-  border-radius: 8px;
+  gap: 10px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 6px;
   border: 1px solid var(--survey-glass-border);
   background: var(--survey-field);
   color: var(--survey-muted);
@@ -380,10 +545,4 @@
 .resultCount {
   font-size: 9px;
   color: var(--survey-ice);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .selectedChip {
-    animation: none;
-  }
 }

@@ -47,6 +47,17 @@
   }
 }
 
+/* Not considered in the compared BID */
+.outOfBid {
+  border-color: var(--survey-slate);
+  filter: grayscale(1);
+
+  .title,
+  .tech {
+    color: var(--survey-muted);
+  }
+}
+
 .photo {
   display: flex;
   align-items: center;

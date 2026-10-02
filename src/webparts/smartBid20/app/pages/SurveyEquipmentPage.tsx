@@ -12,6 +12,7 @@ import { useSurveyStore } from "../stores/useSurveyStore";
 import { useUIStore } from "../stores/useUIStore";
 import {
   useFilteredSurveyEquipment,
+  useSurveyBidComparison,
   useSurveyBidIntel,
 } from "../hooks/useSurveyPortal";
 import styles from "./SurveyEquipmentPage.module.scss";
@@ -28,6 +29,7 @@ export const SurveyEquipmentPage: React.FC = () => {
   const setFilters = useSurveyStore((s) => s.setFilters);
   const addToast = useUIStore((s) => s.addToast);
   const equipment = useFilteredSurveyEquipment();
+  const comparison = useSurveyBidComparison();
 
   const [addingId, setAddingId] = React.useState<string | null>(null);
   const [packageOpen, setPackageOpen] = React.useState(false);
@@ -99,6 +101,7 @@ export const SurveyEquipmentPage: React.FC = () => {
                 equipment={e}
                 selected={selected?.id === e.id}
                 inPackage={qtyOf(e.id) > 0}
+                outOfBid={!!comparison && !comparison.considered[e.id]}
                 onSelect={() => selectEquipment(e.id)}
                 onAdd={() => {
                   selectEquipment(e.id);

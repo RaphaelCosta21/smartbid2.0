@@ -1,6 +1,9 @@
 import * as React from "react";
 import { Radar } from "lucide-react";
-import { SurveyPortalHeader } from "../components/survey/SurveyPortalHeader";
+import {
+  SurveyPortalHeader,
+  SurveySearchHit,
+} from "../components/survey/SurveyPortalHeader";
 import { SurveyEquipmentDetail } from "../components/survey/SurveyEquipmentDetail";
 import { SurveyAddToPackageDialog } from "../components/survey/SurveyAddToPackageDialog";
 import { SurveyPackageDrawer } from "../components/survey/SurveyPackageDrawer";
@@ -29,6 +32,7 @@ import { useSurveyStore } from "../stores/useSurveyStore";
 import { useUIStore } from "../stores/useUIStore";
 import {
   useFilteredSurveyEquipment,
+  useSurveyBidComparison,
   useSurveyBidIntel,
 } from "../hooks/useSurveyPortal";
 import { ISurveySpreadZone, SurveyLinkKind, SurveySceneAnchor } from "../models";
@@ -79,6 +83,8 @@ const dominantKind = (links: ISpreadLinkRef[]): SurveyLinkKind => {
   return best;
 };
 
+const SEARCH_HITS_MAX = 8;
+
 export const SurveySystemPage: React.FC = () => {
   const catalog = useSurveyStore((s) => s.catalog);
   const isLoading = useSurveyStore((s) => s.isLoading);
@@ -89,13 +95,16 @@ export const SurveySystemPage: React.FC = () => {
   const addToPackage = useSurveyStore((s) => s.addToPackage);
   const addSpreadToPackage = useSurveyStore((s) => s.addSpreadToPackage);
   const setFilters = useSurveyStore((s) => s.setFilters);
+  const search = useSurveyStore((s) => s.filters.search);
+  const spreadId = useSurveyStore((s) => s.spreadId);
   const addToast = useUIStore((s) => s.addToast);
   const equipment = useFilteredSurveyEquipment();
+  const comparison = useSurveyBidComparison();
+  const considered = comparison ? comparison.considered : null;
 
   const [detailOpen, setDetailOpen] = React.useState(false);
   const [addingId, setAddingId] = React.useState<string | null>(null);
   const [packageOpen, setPackageOpen] = React.useState(false);
-  const [spreadId, setSpreadId] = React.useState<string | null>(null);
   const [activeZoneId, setActiveZoneId] = React.useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
   const [hoverNodeId, setHoverNodeId] = React.useState<string | null>(null);
@@ -160,15 +169,57 @@ export const SurveySystemPage: React.FC = () => {
   );
   const sceneZones = React.useMemo<SceneZone[]>(
     () =>
-      rooms.map((z, i) => ({
-        id: z.id,
-        title: z.title,
-        anchor: z.sceneAnchor as SurveySceneAnchor,
-        colorIndex: i,
-        count: z.lines.length,
-      })),
-    [rooms],
+      rooms.map((z, i) => {
+        // Vessel-supplied lines are not priced, so they never count against the BID.
+        const priced = z.lines.filter((l) => !l.vesselSupplied);
+        const inBid = considered ? priced.filter((l) => considered[l.equipmentId]).length : 0;
+        return {
+          id: z.id,
+          title: z.title,
+          anchor: z.sceneAnchor as SurveySceneAnchor,
+          colorIndex: i,
+          countLabel: considered
+            ? `${inBid}/${priced.length} in BID`
+            : `${z.lines.length} items`,
+        };
+      }),
+    [rooms, considered],
   );
+  const bidStateOf = React.useCallback(
+    (n: ISpreadNode): "in" | "out" | null => {
+      if (!considered) return null;
+      if (considered[n.equipmentId]) return "in";
+      return n.source === "catalog" || n.vesselSupplied ? null : "out";
+    },
+    [considered],
+  );
+
+  const searchHits = React.useMemo<SurveySearchHit[]>(() => {
+    const q = search.trim().toLowerCase();
+    if (!q || !catalog) return [];
+    const zoneTitle: Record<string, string> = {};
+    (spread?.zones || []).forEach((z) => (zoneTitle[z.id] = z.title));
+    const scored: { node: ISpreadNode; score: number }[] = [];
+    nodes.forEach((n) => {
+      const eq = catalog.equipment.find((e) => e.id === n.equipmentId);
+      if (!eq) return;
+      const title = n.label.toLowerCase();
+      const haystack = [title, eq.technology, eq.partNumber, eq.manufacturer, eq.model]
+        .concat(eq.aliases)
+        .join(" ")
+        .toLowerCase();
+      if (haystack.indexOf(q) < 0) return;
+      scored.push({ node: n, score: title.indexOf(q) === 0 ? 0 : title.indexOf(q) > 0 ? 1 : 2 });
+    });
+    return scored
+      .sort((a, b) => a.score - b.score)
+      .slice(0, SEARCH_HITS_MAX)
+      .map(({ node }) => ({
+        id: node.id,
+        title: node.label,
+        meta: zoneTitle[node.zoneId] || "",
+      }));
+  }, [search, catalog, spread, nodes]);
 
   // Cables between rooms, aggregated per room pair for the overview arcs.
   const trunkDetails = React.useMemo(() => {
@@ -224,6 +275,7 @@ export const SurveySystemPage: React.FC = () => {
           vesselSupplied: n.vesselSupplied,
           role: isCatalog ? ("catalog" as const) : ("spread" as const),
           cluster: isCatalog ? CATALOG_CLUSTER : eq.familyId,
+          bidState: bidStateOf(n),
         };
       });
     const rank = (n: SceneNode): number =>
@@ -255,6 +307,7 @@ export const SurveySystemPage: React.FC = () => {
           vesselSupplied: false,
           role: "portal",
           cluster: PORTAL_CLUSTER,
+          bidState: null,
         });
       }
       sceneLinks.push({
@@ -278,7 +331,7 @@ export const SurveySystemPage: React.FC = () => {
       links: sceneLinks,
       clusterTitles,
     };
-  }, [rooms, activeZoneId, catalog, nodes, links, nodeById]);
+  }, [rooms, activeZoneId, catalog, nodes, links, nodeById, bidStateOf]);
 
   const trace = React.useMemo(
     () =>
@@ -485,26 +538,23 @@ export const SurveySystemPage: React.FC = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [tourStep, detailOpen, selectedNodeId, activeZoneId]);
 
-  const handleAddSpread = (): void => {
-    if (!spread) return;
-    const count = addSpreadToPackage(spread);
+  /** Adds the spread (or one zone) to the package, skipping what the compared BID already has. */
+  const addLines = (zoneId?: string): void => {
+    const zone = zoneId ? spread?.zones.find((z) => z.id === zoneId) : undefined;
+    if (!spread || (zoneId && !zone)) return;
+    const count = addSpreadToPackage(spread, zoneId, considered || undefined);
+    const lines = (zone ? [zone] : spread.zones).reduce((n, z) => n + z.lines.length, 0);
+    const target = comparison ? `${comparison.bid.bidNumber} package` : "bid package";
     addToast({
       type: "success",
-      title: "Spread added to bid package",
-      message: `${count} lines from ${spread.title}`,
+      title: `${zone ? zone.title : spread.title} added to the ${target}`,
+      message: comparison
+        ? `${count} lines added · ${lines - count} already in ${comparison.bid.bidNumber}`
+        : `${count} lines from ${spread.title}`,
     });
   };
-
-  const handleAddZone = (zoneId: string): void => {
-    const zone = spread?.zones.find((z) => z.id === zoneId);
-    if (!spread || !zone) return;
-    const count = addSpreadToPackage(spread, zoneId);
-    addToast({
-      type: "success",
-      title: `${zone.title} added to bid package`,
-      message: `${count} lines from ${spread.title}`,
-    });
-  };
+  const handleAddSpread = (): void => addLines();
+  const handleAddZone = (zoneId: string): void => addLines(zoneId);
 
   const handleConfirmAdd = (qty: number): void => {
     if (!adding) return;
@@ -541,14 +591,14 @@ export const SurveySystemPage: React.FC = () => {
             key={spread.id}
           >
             <SurveySpreadPanel
-              spreads={spreads}
               spread={spread}
               catalog={catalog}
               activeZoneId={activeZoneId}
               selectedEquipmentId={detailOpen ? selectedId : null}
               packageEquipmentIds={packageEquipmentIds}
               catalogByZone={catalogByZone}
-              onSpreadChange={setSpreadId}
+              considered={considered}
+              bidNumber={comparison ? comparison.bid.bidNumber : null}
               onZoneToggle={handleZoneToggle}
               onSelectLine={handleSelectLine}
               onHoverLine={handleHoverLine}
@@ -618,6 +668,8 @@ export const SurveySystemPage: React.FC = () => {
             view="system"
             resultCount={equipment.length}
             onOpenPackage={() => setPackageOpen(true)}
+            searchHits={searchHits}
+            onSearchHit={handleNodeSelect}
           />
         </div>
         <div className={styles.body}>

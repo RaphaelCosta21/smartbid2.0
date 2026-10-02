@@ -255,7 +255,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
               onClick={() => onZoneSelect(zone.id)}
             >
               <span className={styles.zoneText}>{zone.title}</span>
-              <span className={styles.zoneCount}>{zone.count} items</span>
+              <span className={styles.zoneCount}>{zone.countLabel}</span>
               <span className={styles.zoneStem} />
             </button>
           </div>
@@ -278,14 +278,24 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
                 <button
                   className={`${styles.nodeLabel} ${compact ? styles.nodeCompact : ""} ${
                     n.role === "portal" ? styles.nodePortal : ""
-                  } ${nodeStates.selectedNodeId === n.id ? styles.nodeActive : ""}`}
-                  title={n.role === "portal" ? `Go to ${n.label}` : n.label}
+                  } ${n.bidState === "out" ? styles.nodeOut : ""} ${
+                    nodeStates.selectedNodeId === n.id ? styles.nodeActive : ""
+                  }`}
+                  title={
+                    n.role === "portal"
+                      ? `Go to ${n.label}`
+                      : n.bidState === "out"
+                        ? `${n.label} — not considered in the BID`
+                        : n.label
+                  }
                   onClick={() => onNodeSelect(n.id)}
                 >
                   {n.role === "portal" && <ArrowUpRight size={10} className={styles.portalArrow} />}
                   {n.label}
                   {n.vesselSupplied && <span className={styles.nodeTag}>VESSEL</span>}
-                  {n.role === "catalog" && <span className={styles.nodeTag}>CATALOG</span>}
+                  {n.role === "catalog" && (
+                    <span className={styles.nodeTag}>{n.bidState === "in" ? "IN BID" : "CATALOG"}</span>
+                  )}
                 </button>
               </div>
             ))}

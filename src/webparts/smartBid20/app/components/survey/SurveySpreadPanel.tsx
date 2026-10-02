@@ -1,10 +1,9 @@
 import * as React from "react";
-import { ChevronDown, PackagePlus } from "lucide-react";
+import { Check, ChevronDown, PackagePlus } from "lucide-react";
 import { ISurveyCatalog, ISurveySpread, ISurveySpreadZone } from "../../models";
 import styles from "./SurveySpreadPanel.module.scss";
 
 interface SurveySpreadPanelProps {
-  spreads: ISurveySpread[];
   spread: ISurveySpread;
   catalog: ISurveyCatalog;
   activeZoneId: string | null;
@@ -12,7 +11,9 @@ interface SurveySpreadPanelProps {
   packageEquipmentIds: string[];
   /** Catalog equipment outside the spread, by zone (reference only, never added to the package). */
   catalogByZone: Record<string, string[]>;
-  onSpreadChange: (spreadId: string) => void;
+  /** Equipment the compared BID already considers; null when no BID is selected. */
+  considered: Record<string, boolean> | null;
+  bidNumber: string | null;
   onZoneToggle: (zoneId: string) => void;
   onSelectLine: (zoneId: string, equipmentId: string) => void;
   onHoverLine: (equipmentId: string | null) => void;
@@ -36,14 +37,14 @@ const mainCategory = (zone: ISurveySpreadZone): string | undefined => {
 };
 
 export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
-  spreads,
   spread,
   catalog,
   activeZoneId,
   selectedEquipmentId,
   packageEquipmentIds,
   catalogByZone,
-  onSpreadChange,
+  considered,
+  bidNumber,
   onZoneToggle,
   onSelectLine,
   onHoverLine,
@@ -64,27 +65,30 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
       ),
     }))
     .filter((c) => c.qty > 0);
+  // Vessel-supplied lines are not priced, so they never count against the BID.
+  const priced = (lines: ISurveySpreadZone["lines"]) => lines.filter((l) => !l.vesselSupplied);
+  const inBid = (lines: ISurveySpreadZone["lines"]): number =>
+    considered ? priced(lines).filter((l) => considered[l.equipmentId]).length : 0;
+  const allLines: ISurveySpreadZone["lines"] = [];
+  spread.zones.forEach((z) => z.lines.forEach((l) => allLines.push(l)));
 
   return (
     <div className={styles.panel}>
-      {spreads.length > 1 && (
-        <div className={styles.tabs}>
-          {spreads.map((s) => (
-            <button
-              key={s.id}
-              className={s.id === spread.id ? styles.tabActive : ""}
-              onClick={() => onSpreadChange(s.id)}
-            >
-              {s.title}
-            </button>
-          ))}
-        </div>
-      )}
       <span className={styles.eyebrow}>
         SPREAD TEMPLATE{spread.drawingNo ? ` · DWG ${spread.drawingNo}` : ""}
         {spread.revision ? ` REV ${spread.revision}` : ""}
       </span>
       <h3 className={styles.title}>{spread.title}</h3>
+      {considered && bidNumber && (
+        <div className={styles.bidBanner}>
+          <span>
+            Compared with <strong>{bidNumber}</strong>
+          </span>
+          <span className={styles.bidScore}>
+            {inBid(allLines)}/{priced(allLines).length} considered
+          </span>
+        </div>
+      )}
 
       <ul className={styles.zones}>
         {spread.zones.map((zone) => {
@@ -103,7 +107,9 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
                 <span className={styles.zoneDot} />
                 <span className={styles.zoneTitle}>{zone.title}</span>
                 <span className={styles.zoneMeta}>
-                  {zone.lines.length} items
+                  {considered
+                    ? `${inBid(zone.lines)}/${priced(zone.lines).length} in BID`
+                    : `${zone.lines.length} items`}
                   {vessel > 0 && <span className={styles.vesselTag}>{vessel} vessel</span>}
                   {room < 0 && <span className={styles.bidTag}>BID only</span>}
                 </span>
@@ -122,12 +128,15 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
                       const inPackage = packageEquipmentIds.indexOf(line.equipmentId) >= 0;
                       const offCategory =
                         line.category && line.category !== main ? categoryTitle[line.category] : "";
+                      const bidIn = !!considered && !!considered[line.equipmentId];
+                      const bidOut = !!considered && !bidIn && !line.vesselSupplied;
                       return (
                         <li key={line.equipmentId}>
                           <button
                             className={`${styles.line} ${
                               line.equipmentId === selectedEquipmentId ? styles.lineSelected : ""
-                            }`}
+                            } ${bidOut ? styles.lineOut : ""}`}
+                            title={bidOut ? "Not considered in the BID" : undefined}
                             onClick={() => onSelectLine(zone.id, line.equipmentId)}
                             onMouseEnter={() => onHoverLine(line.equipmentId)}
                             onMouseLeave={() => onHoverLine(null)}
@@ -141,6 +150,9 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
                             </span>
                             {offCategory && <span className={styles.categoryTag}>{offCategory}</span>}
                             {line.vesselSupplied && <span className={styles.vesselTag}>vessel</span>}
+                            {bidIn && (
+                              <Check size={12} className={styles.bidCheck} aria-label="In the BID" />
+                            )}
                             {inPackage && (
                               <span className={styles.packageDot} title="Already in the bid package" />
                             )}
@@ -168,6 +180,9 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
                               <span className={styles.lineCopy}>
                                 <span className={styles.lineTitle}>{titleOf(id)}</span>
                               </span>
+                              {considered && considered[id] && (
+                                <span className={styles.vesselTag}>in BID</span>
+                              )}
                             </button>
                           </li>
                         ))}
@@ -195,7 +210,8 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
       )}
 
       <button className={styles.addSpread} onClick={onAddSpread}>
-        <PackagePlus size={13} /> ADD FULL SPREAD TO PACKAGE
+        <PackagePlus size={13} />{" "}
+        {bidNumber ? `ADD FULL SPREAD TO ${bidNumber} PACKAGE` : "ADD FULL SPREAD TO PACKAGE"}
       </button>
     </div>
   );

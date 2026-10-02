@@ -7,6 +7,8 @@ interface SurveyEquipmentCardProps {
   equipment: ISurveyEquipment;
   selected: boolean;
   inPackage: boolean;
+  /** Not considered in the BID compared in the header (shown grey). */
+  outOfBid?: boolean;
   onSelect: () => void;
   onAdd: () => void;
 }
@@ -38,11 +40,13 @@ export const SurveyEquipmentCard: React.FC<SurveyEquipmentCardProps> = ({
   equipment,
   selected,
   inPackage,
+  outOfBid,
   onSelect,
   onAdd,
 }) => (
   <div
-    className={`${styles.card} ${selected ? styles.selected : ""}`}
+    className={`${styles.card} ${selected ? styles.selected : ""} ${outOfBid ? styles.outOfBid : ""}`}
+    title={outOfBid ? "Not considered in the BID" : undefined}
     role="button"
     tabIndex={0}
     onClick={onSelect}

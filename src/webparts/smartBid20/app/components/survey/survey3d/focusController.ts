@@ -96,7 +96,7 @@ export class FocusController {
       if (!target) return;
       const group = new THREE.Group();
       group.userData.pick = { type: "node", nodeId: node.id };
-      const model = this.factory.build(node.shape, node.vesselSupplied);
+      const model = this.factory.build(node.shape, node.vesselSupplied || node.bidState === "out");
       group.add(model);
       const plinth = new THREE.Mesh(
         this.plinthGeo,
@@ -256,7 +256,7 @@ export class FocusController {
       if (s.selectedNodeId === id) color = PLINTH.selected;
       else if (s.traceNodeIds.indexOf(id) >= 0) color = PLINTH.trace;
       else if (e.node.role === "portal") color = PLINTH.portal;
-      else if (e.node.vesselSupplied) color = PLINTH.vessel;
+      else if (e.node.vesselSupplied || e.node.bidState === "out") color = PLINTH.vessel;
       else if (s.packageEquipmentIds.indexOf(e.node.equipmentId) >= 0) color = PLINTH.package;
       else if (e.node.role === "catalog") color = PLINTH.catalog;
       (e.plinth.material as THREE.MeshBasicMaterial).color.setHex(color);

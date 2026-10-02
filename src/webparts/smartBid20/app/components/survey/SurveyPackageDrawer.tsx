@@ -30,6 +30,7 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
   const remove = useSurveyStore((s) => s.removeFromPackage);
   const clearPackage = useSurveyStore((s) => s.clearPackage);
   const startRequest = useSurveyStore((s) => s.startRequestFromPackage);
+  const bidNumber = useSurveyStore((s) => s.bidNumber);
   const bids = useBidStore((s) => s.bids);
   const refreshBids = useBidStore((s) => s.refreshBids);
   const hasAccess = useAuthStore((s) => s.hasAccess);
@@ -41,6 +42,9 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
   const [saving, setSaving] = React.useState(false);
 
   const canEditBids = hasAccess("workspace", "edit");
+  // The BID compared in the portal header is the package's default destination.
+  const linkedBid = bidNumber ? bids.find((b) => b.bidNumber === bidNumber) : undefined;
+  const linkedOpen = !!linkedBid && CLOSED_STATUSES.indexOf(linkedBid.currentStatus) < 0;
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -120,7 +124,9 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
       >
         <div className={styles.head}>
           <div>
-            <span className={styles.eyebrow}>SURVEY PORTAL</span>
+            <span className={styles.eyebrow}>
+              SURVEY PORTAL{linkedBid ? ` · ${linkedBid.bidNumber}` : ""}
+            </span>
             <h3 className={styles.title}>Bid package</h3>
           </div>
           <button className={styles.close} onClick={onClose} aria-label="Close">
@@ -215,7 +221,20 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
 
         {lines.length > 0 && (
           <div className={styles.actions}>
-            <button className={styles.primary} onClick={handleNewRequest}>
+            {canEditBids && linkedBid && (
+              <button
+                className={styles.primary}
+                onClick={() => setTarget(linkedBid)}
+                disabled={!linkedOpen}
+                title={linkedOpen ? undefined : `${linkedBid.bidNumber} is ${linkedBid.currentStatus}`}
+              >
+                <FolderInput size={14} /> Add to {linkedBid.bidNumber}
+              </button>
+            )}
+            <button
+              className={linkedBid && canEditBids ? styles.secondary : styles.primary}
+              onClick={handleNewRequest}
+            >
               <FilePlus2 size={14} /> Create new request
             </button>
             {canEditBids && (
@@ -223,7 +242,7 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
                 className={styles.secondary}
                 onClick={() => setPickerOpen((o) => !o)}
               >
-                <FolderInput size={14} /> Add to existing BID
+                <FolderInput size={14} /> {linkedBid ? "Add to another BID" : "Add to existing BID"}
               </button>
             )}
             <button className={styles.link} onClick={clearPackage}>

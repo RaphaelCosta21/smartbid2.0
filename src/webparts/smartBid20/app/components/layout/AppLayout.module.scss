@@ -53,6 +53,14 @@
   overflow-anchor: none;
 }
 
+/* Edge-to-edge pages (survey 3D sea): no padding, the page owns the full viewport */
+.contentFlush {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
 .footerArea {
   height: 40px;
   flex-shrink: 0;

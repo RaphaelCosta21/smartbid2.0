@@ -9,7 +9,8 @@ export interface SceneZone {
   title: string;
   anchor: SurveySceneAnchor;
   colorIndex: number;
-  count: number;
+  /** e.g. "7 items" or "5/7 in BID". */
+  countLabel: string;
 }
 
 /** Equipment archetypes plus the scene-only gateway to another room. */
@@ -30,6 +31,8 @@ export interface SceneNode {
   role: SceneNodeRole;
   /** Group in the exploded grid (equipment family, catalog or portal). */
   cluster: string;
+  /** Compared BID: "in" = in its scope, "out" = not considered (greyed); null = no BID. */
+  bidState: "in" | "out" | null;
 }
 
 export interface SceneLink {

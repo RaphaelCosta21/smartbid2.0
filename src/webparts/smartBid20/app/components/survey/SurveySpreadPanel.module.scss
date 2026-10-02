@@ -4,29 +4,6 @@
   gap: 8px;
 }
 
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-
-  button {
-    padding: 4px 8px;
-    border-radius: 4px;
-    border: 1px solid var(--survey-line);
-    background: var(--survey-chip-bg);
-    color: var(--survey-slate);
-    font-size: 9px;
-    cursor: pointer;
-  }
-}
-
-.tabActive {
-  border-color: var(--package-accent) !important;
-  background: var(--survey-cream) !important;
-  color: var(--survey-navy) !important;
-  font-weight: 600;
-}
-
 .eyebrow {
   font-size: 8px;
   font-weight: 600;
@@ -39,6 +16,46 @@
   line-height: 1.05;
   font-weight: 700;
   color: var(--survey-navy);
+}
+
+.bidBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--survey-navy);
+  color: var(--survey-ice);
+  font-size: 10px;
+
+  strong {
+    color: var(--package-accent);
+  }
+}
+
+.bidScore {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Spread line the compared BID does not consider */
+.lineOut {
+  color: var(--survey-muted);
+
+  .lineQty,
+  .lineNote {
+    color: var(--survey-muted);
+  }
+
+  .lineTitle {
+    font-weight: 500;
+  }
+}
+
+.bidCheck {
+  flex-shrink: 0;
+  color: var(--survey-green);
 }
 
 .zones {

@@ -7,20 +7,37 @@ import {
   Package,
   Upload,
   ChevronDown,
+  FileSearch,
+  X,
 } from "lucide-react";
 import { ROUTES } from "../../config/routes.config";
 import { useSurveyStore } from "../../stores/useSurveyStore";
+import { useBidStore } from "../../stores/useBidStore";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useUIStore } from "../../stores/useUIStore";
 import { SurveyCatalogService } from "../../services/SurveyCatalogService";
-import { ISurveyCatalog } from "../../models";
+import { IBid, ISurveyCatalog } from "../../models";
 import styles from "./SurveyPortalHeader.module.scss";
+
+export interface SurveySearchHit {
+  id: string;
+  title: string;
+  meta: string;
+}
 
 interface SurveyPortalHeaderProps {
   view: "equipment" | "system";
   resultCount: number;
   onOpenPackage: () => void;
+  /** System view: equipment matching the search, offered in a dropdown. */
+  searchHits?: SurveySearchHit[];
+  onSearchHit?: (id: string) => void;
 }
+
+const BID_LIST_MAX = 40;
+/** Survey BIDs first, then integrated ones, then the rest. */
+const surveyRank = (b: IBid): number =>
+  b.division === "SSR-Survey" ? 0 : b.division === "SSR-Integrated" ? 1 : 2;
 
 const uniq = (values: string[]): string[] =>
   values
@@ -31,26 +48,82 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
   view,
   resultCount,
   onOpenPackage,
+  searchHits,
+  onSearchHit,
 }) => {
   const navigate = useNavigate();
   const catalog = useSurveyStore((s) => s.catalog);
   const filters = useSurveyStore((s) => s.filters);
   const setFilters = useSurveyStore((s) => s.setFilters);
   const packageLines = useSurveyStore((s) => s.packageLines);
-  const selectedId = useSurveyStore((s) => s.selectedEquipmentId);
+  const spreadId = useSurveyStore((s) => s.spreadId);
+  const setSpreadId = useSurveyStore((s) => s.setSpreadId);
+  const bidNumber = useSurveyStore((s) => s.bidNumber);
+  const setBidNumber = useSurveyStore((s) => s.setBidNumber);
   const load = useSurveyStore((s) => s.load);
+  const bids = useBidStore((s) => s.bids);
   const hasAccess = useAuthStore((s) => s.hasAccess);
   const addToast = useUIStore((s) => s.addToast);
   const fileRef = React.useRef<HTMLInputElement>(null);
+  const bidRef = React.useRef<HTMLDivElement>(null);
   const [importing, setImporting] = React.useState(false);
+  const [searchFocus, setSearchFocus] = React.useState(false);
+  const [bidOpen, setBidOpen] = React.useState(false);
+  const [bidQuery, setBidQuery] = React.useState("");
 
   // Same permission that edits Scope Templates (Engineering, Commercial, super admins).
   const canImport = hasAccess("templates", "edit");
   const equipment = catalog?.equipment || [];
   const families = catalog?.families || [];
   const family = families.find((f) => f.id === filters.familyId);
-  const selected = equipment.find((e) => e.id === selectedId);
+  const spreads = catalog?.spreads || [];
+  const spread = spreads.find((s) => s.id === spreadId) || spreads[0];
+  const selectedBid = bidNumber ? bids.find((b) => b.bidNumber === bidNumber) : undefined;
   const packageQty = packageLines.reduce((sum, l) => sum + l.qty, 0);
+
+  const bidOptions = React.useMemo(() => {
+    const q = bidQuery.trim().toLowerCase();
+    return bids
+      .filter(
+        (b) =>
+          !q ||
+          [b.bidNumber, b.crmNumber, b.opportunityInfo?.client, b.opportunityInfo?.projectName].some(
+            (v) => (v || "").toLowerCase().indexOf(q) >= 0,
+          ),
+      )
+      .sort(
+        (a, b) =>
+          surveyRank(a) - surveyRank(b) || (b.createdDate || "").localeCompare(a.createdDate || ""),
+      )
+      .slice(0, BID_LIST_MAX);
+  }, [bids, bidQuery]);
+
+  React.useEffect(() => {
+    if (!bidOpen) return undefined;
+    const onDown = (e: MouseEvent): void => {
+      if (bidRef.current && !bidRef.current.contains(e.target as Node)) setBidOpen(false);
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") setBidOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [bidOpen]);
+
+  const pickBid = (value: string | null): void => {
+    setBidNumber(value);
+    setBidOpen(false);
+    setBidQuery("");
+  };
+
+  const pickHit = (id: string): void => {
+    if (onSearchHit) onSearchHit(id);
+    setSearchFocus(false);
+  };
 
   const divisions = React.useMemo(() => {
     const all: string[] = [];
@@ -144,116 +217,205 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
 
   return (
     <div className={styles.root}>
-      <div className={styles.topBar}>
-        <div className={styles.breadcrumb}>
-          <span>SURVEY BID INTELLIGENCE</span>
-          <span className={styles.crumbSep}>/</span>
-          <span className={styles.crumbActive}>
-            {view === "equipment" ? "EQUIPMENT EXPLORER" : "SYSTEM VIEW"}
-          </span>
-        </div>
-        <div className={styles.topActions}>
-          {selected && (
-            <div className={styles.selectedChip}>
-              {selected.aliases[0] && (
-                <span className={styles.aliasChip}>{selected.aliases[0]}</span>
-              )}
-              <span className={styles.aliasLine} />
-              <span className={styles.selectedName}>{selected.title}</span>
-            </div>
-          )}
-          {canImport && (
-            <>
+      <div className={styles.bar}>
+        <div className={styles.searchWrap}>
+          <div className={styles.searchInput}>
+            <Search size={14} />
+            <input
+              value={filters.search}
+              onChange={(e) => setFilters({ search: e.target.value })}
+              onFocus={() => setSearchFocus(true)}
+              onBlur={() => setSearchFocus(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && searchHits && searchHits[0]) {
+                  pickHit(searchHits[0].id);
+                  e.currentTarget.blur();
+                }
+              }}
+              placeholder="Search equipment, alias or technology..."
+              aria-label="Search equipment, alias or technology"
+            />
+            {filters.search ? (
               <button
-                className={styles.ghostBtn}
-                onClick={() => fileRef.current?.click()}
-                disabled={importing}
-                title="Select survey-catalog.seed.json (and optionally the equipment photos)"
+                className={styles.clearBtn}
+                onClick={() => setFilters({ search: "" })}
+                aria-label="Clear search"
               >
-                <Upload size={12} />
-                {importing ? "Importing…" : "Import catalog"}
+                <X size={12} />
               </button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="application/json,.json,image/png,image/jpeg,image/webp"
-                multiple
-                hidden
-                onChange={handleImport}
-              />
-            </>
-          )}
-          <button className={styles.packageBtn} onClick={onOpenPackage}>
-            <Package size={13} />
-            Bid package
-            <span className={styles.packageCount}>{packageQty}</span>
-          </button>
-        </div>
-      </div>
-
-      <div className={styles.hero}>
-        <div className={styles.heroRow}>
-          <div className={styles.titleGroup}>
-            <span className={styles.eyebrow}>EQUIPMENT EXPLORER</span>
-            <h1 className={styles.title}>
-              {view === "equipment" ? "Survey Equipments" : "Survey System"}
-            </h1>
-            <p className={styles.subtitle}>
-              Explore the systems, equipment and technologies behind our Survey
-              capabilities.
-            </p>
-          </div>
-
-          <div className={styles.searchArea}>
-            <div className={styles.searchInput}>
-              <Search size={16} />
-              <input
-                value={filters.search}
-                onChange={(e) => setFilters({ search: e.target.value })}
-                placeholder="Search equipment, alias or technology..."
-              />
+            ) : (
               <span className={styles.aliasHint}>ALIASES SUPPORTED</span>
-            </div>
-            <div className={styles.filterRow}>
-              {renderSelect(filters.division, "All Divisions", divisions, (v) =>
-                setFilters({ division: v }),
+            )}
+          </div>
+          {searchHits && searchFocus && filters.search.trim() && (
+            <ul className={styles.hits} role="listbox" aria-label="Matching equipment">
+              {searchHits.length === 0 ? (
+                <li className={styles.hitEmpty}>No equipment in this diagram matches.</li>
+              ) : (
+                searchHits.map((h) => (
+                  <li key={h.id}>
+                    <button
+                      className={styles.hit}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pickHit(h.id)}
+                    >
+                      <span className={styles.hitTitle}>{h.title}</span>
+                      <span className={styles.hitMeta}>{h.meta}</span>
+                    </button>
+                  </li>
+                ))
               )}
-              {renderSelect(
-                filters.serviceLine,
-                "All Service Lines",
-                serviceLines,
-                (v) => setFilters({ serviceLine: v }),
-              )}
-              {renderSelect(filters.status, "All Statuses", statuses, (v) =>
-                setFilters({ status: v }),
-              )}
-              <span className={styles.spacer} />
-              <div className={styles.viewToggle} role="tablist">
+            </ul>
+          )}
+        </div>
+
+        <div className={styles.bidPicker} ref={bidRef}>
+          <button
+            className={`${styles.bidBtn} ${bidNumber ? styles.bidBtnActive : ""}`}
+            onClick={() => setBidOpen((o) => !o)}
+            aria-expanded={bidOpen}
+            title="Compare the diagram with an existing BID"
+          >
+            <FileSearch size={13} />
+            <span className={styles.bidLabel}>{bidNumber || "Compare with a BID"}</span>
+            <ChevronDown size={11} />
+          </button>
+          {bidNumber && (
+            <button
+              className={styles.bidClear}
+              onClick={() => pickBid(null)}
+              aria-label="Stop comparing with the BID"
+              title="View the diagram without a BID"
+            >
+              <X size={11} />
+            </button>
+          )}
+          {bidOpen && (
+            <div className={styles.bidPopover}>
+              <input
+                className={styles.bidSearch}
+                placeholder="Search BID number, CRM, client or project…"
+                value={bidQuery}
+                onChange={(e) => setBidQuery(e.target.value)}
+                autoFocus
+              />
+              <div className={styles.bidList}>
                 <button
-                  role="tab"
-                  aria-selected={view === "equipment"}
-                  className={view === "equipment" ? styles.viewActive : ""}
-                  onClick={() => navigate(ROUTES.surveyEquipment)}
-                  title="Equipment explorer"
+                  className={`${styles.bidOption} ${!bidNumber ? styles.bidOptionActive : ""}`}
+                  onClick={() => pickBid(null)}
                 >
-                  <LayoutGrid size={12} />
+                  <span className={styles.bidNumber}>No BID</span>
+                  <span className={styles.bidText}>View the diagram only</span>
                 </button>
-                <button
-                  role="tab"
-                  aria-selected={view === "system"}
-                  className={view === "system" ? styles.viewActive : ""}
-                  onClick={() => navigate(ROUTES.surveySystem)}
-                  title="3D system view"
-                >
-                  <Box size={12} />
-                </button>
+                {bidOptions.map((b) => (
+                  <button
+                    key={b.bidNumber}
+                    className={`${styles.bidOption} ${
+                      b.bidNumber === bidNumber ? styles.bidOptionActive : ""
+                    }`}
+                    onClick={() => pickBid(b.bidNumber)}
+                  >
+                    <span className={styles.bidNumber}>{b.bidNumber}</span>
+                    <span className={styles.bidText}>
+                      {[b.opportunityInfo?.client, b.opportunityInfo?.projectName]
+                        .filter(Boolean)
+                        .join(" · ") || "—"}
+                    </span>
+                    <span className={styles.bidMeta}>
+                      {b.division} · {b.currentStatus}
+                    </span>
+                  </button>
+                ))}
+                {bidOptions.length === 0 && (
+                  <span className={styles.bidEmpty}>No BIDs found.</span>
+                )}
               </div>
             </div>
-          </div>
+          )}
         </div>
+        {selectedBid && (
+          <span className={styles.bidClient}>
+            {selectedBid.opportunityInfo?.client || selectedBid.currentStatus}
+          </span>
+        )}
+
+        {view === "system" && spreads.length > 0 && (
+          <label className={styles.selectChip} title="One-line diagram (spread template)">
+            <span className={styles.selectLabel}>DIAGRAM</span>
+            <select
+              value={spread ? spread.id : ""}
+              onChange={(e) => setSpreadId(e.target.value)}
+              aria-label="Diagram"
+            >
+              {spreads.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={10} />
+          </label>
+        )}
+
+        <span className={styles.spacer} />
+
+        <div className={styles.viewToggle} role="tablist">
+          <button
+            role="tab"
+            aria-selected={view === "equipment"}
+            className={view === "equipment" ? styles.viewActive : ""}
+            onClick={() => navigate(ROUTES.surveyEquipment)}
+            title="Equipment explorer"
+          >
+            <LayoutGrid size={12} />
+          </button>
+          <button
+            role="tab"
+            aria-selected={view === "system"}
+            className={view === "system" ? styles.viewActive : ""}
+            onClick={() => navigate(ROUTES.surveySystem)}
+            title="3D system view"
+          >
+            <Box size={12} />
+          </button>
+        </div>
+        {canImport && (
+          <>
+            <button
+              className={styles.iconBtn}
+              onClick={() => fileRef.current?.click()}
+              disabled={importing}
+              title={
+                importing
+                  ? "Importing…"
+                  : "Import catalog (survey-catalog.seed.json and optional photos)"
+              }
+              aria-label="Import catalog"
+            >
+              <Upload size={13} />
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json,image/png,image/jpeg,image/webp"
+              multiple
+              hidden
+              onChange={handleImport}
+            />
+          </>
+        )}
+        <button
+          className={styles.packageBtn}
+          onClick={onOpenPackage}
+          title={bidNumber ? `Package for ${bidNumber}` : "Bid package"}
+        >
+          <Package size={13} />
+          Bid package
+          <span className={styles.packageCount}>{packageQty}</span>
+        </button>
       </div>
 
-      {families.length > 0 && (
+      {view === "equipment" && families.length > 0 && (
         <div className={styles.familyBar}>
           <div className={styles.familyCopy}>
             <span className={styles.familyEyebrow}>
@@ -268,6 +430,20 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
             )}
           </div>
           <div className={styles.familyRight}>
+            <div className={styles.filterRow}>
+              {renderSelect(filters.division, "All Divisions", divisions, (v) =>
+                setFilters({ division: v }),
+              )}
+              {renderSelect(
+                filters.serviceLine,
+                "All Service Lines",
+                serviceLines,
+                (v) => setFilters({ serviceLine: v }),
+              )}
+              {renderSelect(filters.status, "All Statuses", statuses, (v) =>
+                setFilters({ status: v }),
+              )}
+            </div>
             <div className={styles.familyTabs}>
               {families.map((f) => (
                 <button

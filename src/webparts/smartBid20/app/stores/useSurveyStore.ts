@@ -36,15 +36,28 @@ interface SurveyState {
   packageLines: ISurveyPackageLine[];
   /** Package handed to CreateRequestPage; cleared after the request is submitted. */
   requestPrefill: ISurveyPackageLine[] | null;
+  /** Diagram (spread template) shown in the System view; null = first one. */
+  spreadId: string | null;
+  /** BID compared against the diagram; its package target. */
+  bidNumber: string | null;
 
   load: (force?: boolean) => Promise<void>;
   loadQuotations: () => Promise<void>;
   setFilters: (filters: Partial<SurveyFilters>) => void;
   resetFilters: () => void;
   selectEquipment: (id: string | null) => void;
+  setSpreadId: (spreadId: string | null) => void;
+  setBidNumber: (bidNumber: string | null) => void;
   addToPackage: (equipmentId: string, qty: number) => void;
-  /** Adds every line of a spread template (or of one zone); returns how many lines were added. */
-  addSpreadToPackage: (spread: ISurveySpread, zoneId?: string) => number;
+  /**
+   * Adds every line of a spread template (or of one zone), except equipment in `skip`;
+   * returns how many lines were added.
+   */
+  addSpreadToPackage: (
+    spread: ISurveySpread,
+    zoneId?: string,
+    skip?: Record<string, boolean>,
+  ) => number;
   setPackageQty: (equipmentId: string, qty: number) => void;
   removeFromPackage: (equipmentId: string) => void;
   clearPackage: () => void;
@@ -63,6 +76,8 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
   selectedEquipmentId: null,
   packageLines: [],
   requestPrefill: null,
+  spreadId: null,
+  bidNumber: null,
 
   load: async (force) => {
     if (get().isLoading || (get().catalog && !force)) return;
@@ -102,6 +117,8 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
       filters: { ...DEFAULT_FILTERS, familyId: state.filters.familyId },
     })),
   selectEquipment: (id) => set({ selectedEquipmentId: id }),
+  setSpreadId: (spreadId) => set({ spreadId }),
+  setBidNumber: (bidNumber) => set({ bidNumber }),
 
   addToPackage: (equipmentId, qty) =>
     set((state) => {
@@ -116,12 +133,13 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
           : [...state.packageLines, { equipmentId, qty }],
       };
     }),
-  addSpreadToPackage: (spread, zoneId) => {
+  addSpreadToPackage: (spread, zoneId, skip) => {
     const known = get().catalog?.equipment || [];
     const lines: ISurveyPackageLine[] = [];
     spread.zones.forEach((zone) => {
       if (zoneId && zone.id !== zoneId) return;
       zone.lines.forEach((l) => {
+        if (skip && skip[l.equipmentId]) return;
         if (known.some((e) => e.id === l.equipmentId)) {
           lines.push({
             equipmentId: l.equipmentId,
