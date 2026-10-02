@@ -6,8 +6,9 @@ import {
   SECTION_LABELS,
   INavItem,
 } from "../../config/navigation.config";
-import { RequestService } from "../../services/RequestService";
 import { useAuthStore } from "../../stores/useAuthStore";
+import { useBidStore } from "../../stores/useBidStore";
+import { isUnassignedBid } from "../../utils/bidHelpers";
 import { canAccessKnowledge } from "../../utils/accessControl";
 import styles from "./Sidebar.module.scss";
 import { SidebarItem } from "./SidebarItem";
@@ -564,13 +565,10 @@ export const Sidebar: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
   const canKnowledge = canAccessKnowledge(currentUser);
 
-  // Fetch real unassigned request count
-  const [unassignedCount, setUnassignedCount] = React.useState<number>(0);
-  React.useEffect(() => {
-    RequestService.getUnassignedFromSP()
-      .then((data) => setUnassignedCount(data.length))
-      .catch(() => setUnassignedCount(0));
-  }, []);
+  // Derived from the store so assign/create actions update the badge immediately
+  const unassignedCount = useBidStore(
+    (s) => s.bids.filter(isUnassignedBid).length,
+  );
 
   const groupedItems = React.useMemo(() => {
     const grouped: Record<string, INavItem[]> = {};

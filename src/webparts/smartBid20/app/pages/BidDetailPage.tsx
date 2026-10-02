@@ -50,7 +50,6 @@ import {
   IBidComment,
   IActivityLogEntry,
   IAIImportMeta,
-  IAISuggestedClarification,
 } from "../models";
 import { ITeamMember } from "../models/ITeamMember";
 import { PRIORITY_COLORS } from "../utils/constants";
@@ -65,7 +64,6 @@ import { useConfigPhases } from "../hooks/useConfigPhases";
 import { EditControlService } from "../services/EditControlService";
 import { useEditControl } from "../hooks/useEditControl";
 import { EditableTabContent } from "../components/common/EditLockBanner";
-import { ClarificationSuggestionsModal } from "../components/bid/ClarificationSuggestionsModal";
 import { CollapsibleSidebar } from "../components/common/CollapsibleSidebar";
 import { mapSuggestedClarification } from "../utils/aiClarificationMapper";
 import styles from "./BidDetailPage.module.scss";
@@ -218,10 +216,6 @@ export const BidDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = React.useState<BidTab>("overview");
   const [navCollapsed, setNavCollapsed] = React.useState(false);
   const [teamMembers, setTeamMembers] = React.useState<ITeamMember[]>([]);
-  const [aiClarSuggestions, setAiClarSuggestions] = React.useState<
-    IAISuggestedClarification[]
-  >([]);
-  const [aiClarModalOpen, setAiClarModalOpen] = React.useState(false);
   const currentUser = useCurrentUser();
   const setSidebarExpanded = useUIStore((s) => s.setSidebarExpanded);
   const addToast = useUIStore((s) => s.addToast);
@@ -549,6 +543,13 @@ export const BidDetailPage: React.FC = () => {
       meta.editedCount > 0 || meta.addedCount > 0 || meta.removedCount > 0
         ? ` (${meta.editedCount} edited, ${meta.addedCount} added, ${meta.removedCount} removed before import)`
         : "";
+    const acceptedClarifications = (meta.suggestedClarifications || []).map(
+      (s) => mapSuggestedClarification(s),
+    );
+    const clarSummary =
+      acceptedClarifications.length > 0
+        ? ` and ${acceptedClarifications.length} clarification${acceptedClarifications.length === 1 ? "" : "s"}`
+        : "";
     const logEntry: IActivityLogEntry = {
       id: makeId("log"),
       type: "ai-import",
@@ -556,7 +557,7 @@ export const BidDetailPage: React.FC = () => {
       actor: currentUser.email,
       actorName: currentUser.displayName || currentUser.email,
       description:
-        `AI Analysis: imported ${meta.finalItemCount} item${meta.finalItemCount === 1 ? "" : "s"} ` +
+        `AI Analysis: imported ${meta.finalItemCount} item${meta.finalItemCount === 1 ? "" : "s"}${clarSummary} ` +
         `from ${meta.sourceDocument}${editSummary}`,
       metadata: {
         sourceDocument: meta.sourceDocument,
@@ -566,42 +567,33 @@ export const BidDetailPage: React.FC = () => {
         editedCount: meta.editedCount,
         addedCount: meta.addedCount,
         removedCount: meta.removedCount,
+        clarificationsImported: acceptedClarifications.length,
         warnings: meta.warnings,
+        ...(meta.userInstructions
+          ? { userInstructions: meta.userInstructions }
+          : {}),
       },
     };
 
     savePatch({
       scopeItems: [...existing, ...mapped],
+      ...(acceptedClarifications.length > 0
+        ? {
+            clarifications: [
+              ...(bid.clarifications || []),
+              ...acceptedClarifications,
+            ],
+          }
+        : {}),
       activityLog: [...(bid.activityLog || []), logEntry],
     });
 
-    if (
-      meta.suggestedClarifications &&
-      meta.suggestedClarifications.length > 0
-    ) {
-      setAiClarSuggestions(meta.suggestedClarifications);
-      setAiClarModalOpen(true);
-    }
-  };
-
-  /**
-   * Accept AI-suggested clarifications (from a scope analysis) into the BID's
-   * clarifications list.
-   */
-  const acceptAiClarifications = (
-    accepted: IAISuggestedClarification[],
-  ): void => {
-    if (accepted.length > 0) {
-      const mapped = accepted.map((s) => mapSuggestedClarification(s));
-      savePatch({
-        clarifications: [...(bid.clarifications || []), ...mapped],
-      });
+    if (acceptedClarifications.length > 0) {
       addToast({
         type: "success",
-        title: `${mapped.length} clarification${mapped.length > 1 ? "s" : ""} added`,
+        title: `${acceptedClarifications.length} clarification${acceptedClarifications.length > 1 ? "s" : ""} added`,
       });
     }
-    setAiClarModalOpen(false);
   };
 
   const copyShareLink = (): void => {
@@ -900,7 +892,15 @@ export const BidDetailPage: React.FC = () => {
                               ?.resourceAllocations || [];
                           const mergedEng = [...existingEng, ...engItems];
                           const mergedRes = resAlloc
-                            ? [...existingRes, ...resAlloc]
+                            ? [
+                                ...existingRes,
+                                ...resAlloc.filter(
+                                  (r) =>
+                                    !existingRes.some(
+                                      (e) => e.resourceType === r.resourceType,
+                                    ),
+                                ),
+                              ]
                             : existingRes;
                           const addedHours = engItems.reduce(
                             (s, e) => s + (e.totalHours || 0),
@@ -1803,14 +1803,6 @@ export const BidDetailPage: React.FC = () => {
         {/* end tabContent */}
       </div>
       {/* end detailLayout */}
-
-      {aiClarModalOpen && (
-        <ClarificationSuggestionsModal
-          suggestions={aiClarSuggestions}
-          onAccept={acceptAiClarifications}
-          onClose={() => setAiClarModalOpen(false)}
-        />
-      )}
     </div>
   );
 };

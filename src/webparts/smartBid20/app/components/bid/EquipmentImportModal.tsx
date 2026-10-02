@@ -5,6 +5,7 @@
 import * as React from "react";
 import styles from "./EquipmentImportModal.module.scss";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
+import { useConfigStore } from "../../stores/useConfigStore";
 import { useQueryCatalogStore } from "../../stores/useQueryCatalogStore";
 import { useQuotationStore } from "../../stores/useQuotationStore";
 import { AssetCatalogService } from "../../services/AssetCatalogService";
@@ -202,6 +203,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   const getGroupItemCount = useFavoritesStore((s) => s.getGroupItemCount);
   const getSubGroupItemCount = useFavoritesStore((s) => s.getSubGroupItemCount);
   const favAllEquipment: IFavoriteEquipment[] = favData?.equipment || [];
+  const configFavGroups = useConfigStore((s) => s.config?.favoriteGroups);
 
   // ── Query Catalog store ──
   const catalogData = useQueryCatalogStore((s) => s.data);
@@ -286,10 +288,22 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     null,
   );
 
+  // Groups come from System Configuration; fall back to legacy favorites data groups
   const groups: IFavoriteGroup[] = React.useMemo(() => {
-    const raw = favData?.groups || [];
-    return raw.slice().sort((a, b) => a.name.localeCompare(b.name));
-  }, [favData]);
+    const raw =
+      configFavGroups && configFavGroups.length > 0
+        ? configFavGroups
+        : favData?.groups || [];
+    return raw
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((g) => ({
+        ...g,
+        subGroups: (g.subGroups || [])
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+  }, [configFavGroups, favData]);
 
   /** Unique asset categories sorted alphabetically */
   const assetCategories: string[] = React.useMemo(() => {
@@ -486,9 +500,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
       return <div className={styles.emptyState}>No favorite groups found.</div>;
 
     const activeGroupObj = groups.find((g) => g.id === favActiveGroup);
-    const subGroups = (activeGroupObj?.subGroups || [])
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const subGroups = activeGroupObj?.subGroups || [];
 
     // Get parent-only equipment (no parentId)
     let equipment: IFavoriteEquipment[] = [];

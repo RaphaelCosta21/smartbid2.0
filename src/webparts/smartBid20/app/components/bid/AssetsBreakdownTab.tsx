@@ -3503,11 +3503,15 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       if (!tooltip) return;
       const rect = indicator.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
+      // Fixed (viewport) coords — .tableWrapper's overflow clips absolutely positioned tooltips
+      tooltip.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 410))}px`;
       // If the bottom of the indicator is in the lower 35% of the viewport, show above
       if (rect.bottom > viewportHeight * 0.65) {
-        tooltip.classList.add(styles.specsTooltipAbove);
+        tooltip.style.top = "auto";
+        tooltip.style.bottom = `${viewportHeight - rect.top + 4}px`;
       } else {
-        tooltip.classList.remove(styles.specsTooltipAbove);
+        tooltip.style.bottom = "auto";
+        tooltip.style.top = `${rect.bottom + 4}px`;
       }
     },
     [],

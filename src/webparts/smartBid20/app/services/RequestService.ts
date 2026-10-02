@@ -7,6 +7,7 @@ import { IBid, IPersonRef, IExchangeRateSnapshot } from "../models";
 import { BidService } from "./BidService";
 import { SystemConfigService } from "./SystemConfigService";
 import { makeId } from "../utils/idGenerator";
+import { isUnassignedBid } from "../utils/bidHelpers";
 
 export class RequestService {
   /**
@@ -15,13 +16,7 @@ export class RequestService {
    */
   public static async getUnassignedFromSP(): Promise<IBidRequest[]> {
     const allBids = await BidService.getAll();
-    const unassigned = allBids.filter((bid) => {
-      return (
-        !bid.engineerResponsible ||
-        (Array.isArray(bid.engineerResponsible) &&
-          bid.engineerResponsible.length === 0)
-      );
-    });
+    const unassigned = allBids.filter(isUnassignedBid);
 
     return unassigned.map((bid) => RequestService.bidToRequest(bid));
   }

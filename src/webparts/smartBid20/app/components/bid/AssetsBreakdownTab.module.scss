@@ -740,10 +740,8 @@
 
 .specsTooltip {
   display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 100;
+  position: fixed;
+  z-index: 1000;
   min-width: 280px;
   max-width: 400px;
   padding: 10px 14px;
@@ -751,18 +749,10 @@
   border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  margin-top: 4px;
   font-size: 12px;
   line-height: 1.5;
   white-space: normal;
   color: var(--text-primary);
-
-  &.specsTooltipAbove {
-    top: auto;
-    bottom: 100%;
-    margin-top: 0;
-    margin-bottom: 4px;
-  }
 }
 
 .specsTooltipTitle {

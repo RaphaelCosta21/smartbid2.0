@@ -4,7 +4,6 @@ import {
   IScopeItem,
   IScopeSubItem,
   IEngineeringHoursItem,
-  IEngineeringDeliverable,
   IResourceAllocation,
 } from "../../models";
 import { makeId } from "../../utils/idGenerator";
@@ -113,16 +112,28 @@ export const ScopeImportPreview: React.FC<ScopeImportPreviewProps> = ({
     return ids;
   }, [scopeItems]);
 
+  const visibleItemIds = React.useMemo(() => {
+    const ids: string[] = [];
+    scopeItems.forEach((item) => {
+      if (!item.isSection && passesFilter(item)) ids.push(item.id);
+    });
+    return ids;
+  }, [scopeItems, filterEng, filterResource]);
+
   const allSelected =
-    selectedIds.size === allItemIds.length && allItemIds.length > 0;
+    visibleItemIds.length > 0 &&
+    visibleItemIds.every((id) => selectedIds.has(id));
   const someSelected = selectedIds.size > 0;
+  const someVisibleSelected = visibleItemIds.some((id) => selectedIds.has(id));
 
   const toggleAll = (): void => {
+    const next = new Set(selectedIds);
     if (allSelected) {
-      setSelectedIds(new Set());
+      visibleItemIds.forEach((id) => next.delete(id));
     } else {
-      setSelectedIds(new Set(allItemIds));
+      visibleItemIds.forEach((id) => next.add(id));
     }
+    setSelectedIds(next);
   };
 
   const toggleSection = (
@@ -188,6 +199,7 @@ export const ScopeImportPreview: React.FC<ScopeImportPreviewProps> = ({
 
     const sectionMap = new Map<string, string>(); // old section id -> new section id
     const itemIdMap = new Map<string, string>(); // old item id -> new item id
+    const subIdMap = new Map<string, string>(); // old sub-item id -> new sub-item id
     const result: IScopeItem[] = [];
 
     // Create new sections first — preserve clientSpecs, attachments, sectionColor
@@ -220,7 +232,11 @@ export const ScopeImportPreview: React.FC<ScopeImportPreviewProps> = ({
         ? sectionMap.get(item.sectionId) || null
         : null;
       const clonedSubItems: IScopeSubItem[] | undefined = item.subItems
-        ? item.subItems.map((sub) => ({ ...sub, id: makeId("sub") }))
+        ? item.subItems.map((sub) => {
+            const newSubId = makeId("sub");
+            subIdMap.set(sub.id, newSubId);
+            return { ...sub, id: newSubId };
+          })
         : undefined;
       const newItemId = makeId("scope");
       itemIdMap.set(item.id, newItemId);
@@ -242,7 +258,34 @@ export const ScopeImportPreview: React.FC<ScopeImportPreviewProps> = ({
     let resAlloc: IResourceAllocation[] | undefined;
     if (sourceEngItems && sourceEngItems.length > 0) {
       const cloned: IEngineeringHoursItem[] = [];
+      const cloneEng = (
+        srcEng: IEngineeringHoursItem,
+        newScopeId: string,
+        item: IScopeItem,
+      ): void => {
+        cloned.push({
+          ...srcEng,
+          id: makeId("eng"),
+          scopeItemId: newScopeId,
+          source: "scope",
+          integratedDivision: item.integratedDivision,
+          deliverables: (srcEng.deliverables || []).map((d) => ({
+            ...d,
+            id: makeId("del"),
+          })),
+        });
+      };
       selected.forEach((item) => {
+        // Sub-items flagged for engineering keep their own hours entry
+        (item.subItems || []).forEach((sub) => {
+          if (!sub.needsEngineering) return;
+          const newSubId = subIdMap.get(sub.id);
+          const srcSubEng = sourceEngItems.find(
+            (e) => e.scopeItemId === sub.id,
+          );
+          if (newSubId && srcSubEng) cloneEng(srcSubEng, newSubId, item);
+        });
+
         if (!item.needsEngineering) return;
         const newScopeId = itemIdMap.get(item.id);
         if (!newScopeId) return;
@@ -250,20 +293,7 @@ export const ScopeImportPreview: React.FC<ScopeImportPreviewProps> = ({
         // Find engineering item in source linked to this scope item
         const srcEng = sourceEngItems.find((e) => e.scopeItemId === item.id);
         if (srcEng) {
-          const newDeliverables: IEngineeringDeliverable[] = (
-            srcEng.deliverables || []
-          ).map((d) => ({
-            ...d,
-            id: makeId("del"),
-          }));
-          cloned.push({
-            ...srcEng,
-            id: makeId("eng"),
-            scopeItemId: newScopeId,
-            source: "scope",
-            integratedDivision: item.integratedDivision,
-            deliverables: newDeliverables,
-          });
+          cloneEng(srcEng, newScopeId, item);
         } else {
           // No source eng item — create a placeholder entry
           cloned.push({
@@ -426,11 +456,14 @@ export const ScopeImportPreview: React.FC<ScopeImportPreviewProps> = ({
             className={styles.checkbox}
             checked={allSelected}
             ref={(el) => {
-              if (el) el.indeterminate = someSelected && !allSelected;
+              if (el) el.indeterminate = someVisibleSelected && !allSelected;
             }}
             onChange={toggleAll}
           />
-          <span>Select All ({allItemIds.length} items)</span>
+          <span>
+            Select All ({visibleItemIds.length} item
+            {visibleItemIds.length !== 1 ? "s" : ""})
+          </span>
         </label>
         {someSelected && (
           <button className={styles.importBtn} onClick={handleImport}>

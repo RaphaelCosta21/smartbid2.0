@@ -11,6 +11,15 @@ export function isActiveBid(bid: IBid): boolean {
   return terminalStatuses.indexOf(bid.currentStatus) < 0;
 }
 
+/** A BID stays in Unassigned Requests until an engineer responsible is set. */
+export function isUnassignedBid(bid: IBid): boolean {
+  return (
+    !bid.engineerResponsible ||
+    (Array.isArray(bid.engineerResponsible) &&
+      bid.engineerResponsible.length === 0)
+  );
+}
+
 /**
  * When the BID first reached a terminal status. The due/overdue count stops
  * there and stays frozen even after a revision reopens the BID. Null = never closed.

@@ -93,6 +93,23 @@ export const AppLayout: React.FC = () => {
   const dismissToast = useUIStore((s) => s.dismissToast);
   const setConfig = useConfigStore((s) => s.setConfig);
 
+  // Every link to a file/URL opens in a new tab. data-interception="off" stops
+  // SharePoint's page router from hijacking the click into the current tab.
+  React.useEffect(() => {
+    const onClick = (e: MouseEvent): void => {
+      const target = e.target as Element | null;
+      const anchor = target?.closest ? target.closest("a[href]") : null;
+      if (!anchor || !anchor.closest(`.${globalStyles.smartBidRoot}`)) return;
+      const href = (anchor.getAttribute("href") || "").trim();
+      if (!href || /^(#|mailto:|tel:|javascript:)/i.test(href)) return;
+      anchor.setAttribute("target", "_blank");
+      anchor.setAttribute("rel", "noopener noreferrer");
+      anchor.setAttribute("data-interception", "off");
+    };
+    window.addEventListener("click", onClick, true);
+    return () => window.removeEventListener("click", onClick, true);
+  }, []);
+
   React.useEffect(() => {
     BidService.getAll()
       .then((bids) => setBids(bids))

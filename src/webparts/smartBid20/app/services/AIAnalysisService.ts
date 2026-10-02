@@ -319,6 +319,7 @@ export class AIAnalysisService {
         request.systemPrompt = buildScopeOfSupplyPrompt(
           resourceTypeOptions,
           context.assetCatalogOptions || [],
+          context.userInstructions,
         );
         request.promptVersion = SCOPE_OF_SUPPLY_PROMPT_VERSION;
       } else if (useCase === "quotation") {

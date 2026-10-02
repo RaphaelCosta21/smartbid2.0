@@ -38,8 +38,20 @@
 /* ─── Toolbar ─── */
 .toolbar {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.toolbarDivider {
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--border);
+}
+
+.toolbarEnd {
+  margin-left: auto;
 }
 
 /* ─── Resource Type Sub-Tabs ─── */
@@ -73,29 +85,56 @@
 }
 
 .toolbarBtn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  height: 32px;
+  padding: 0 14px;
   border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border);
+  background: var(--card-bg);
   color: var(--text-primary);
   font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
-  transition: all 0.15s;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease;
+
+  svg {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+    transition: color 150ms ease;
+  }
 
   &:hover {
-    border-color: var(--accent-color);
-    background: var(--accent-color-10, rgba(20, 184, 166, 0.1));
+    border-color: var(--primary-accent);
+    background: color-mix(in srgb, var(--primary-accent) 8%, var(--card-bg));
+
+    svg {
+      color: var(--primary-accent);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
   }
 
   &.primary {
-    background: var(--accent-color, var(--primary-accent, #0d9488));
+    background: var(--primary-accent);
+    border-color: var(--primary-accent);
     color: #fff;
-    border-color: var(--accent-color, var(--primary-accent, #0d9488));
+    font-weight: 600;
+
+    svg {
+      color: currentColor;
+    }
 
     &:hover {
+      background: var(--primary-accent);
       opacity: 0.9;
     }
   }
@@ -218,46 +257,349 @@
 }
 
 .chevron {
+  display: inline-flex;
+  align-items: center;
   transition: transform 0.2s;
-  font-size: 12px;
 
   &.collapsed {
     transform: rotate(-90deg);
   }
 }
 
+/* ─── Section header actions ─── */
 .sectionActions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
   gap: 4px;
   margin-left: auto;
-  align-items: center;
+  font-weight: 400;
+  cursor: default;
 }
 
-/* ─── Bulk "Set All" select ─── */
-.setAllSelect {
-  padding: 3px 6px;
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-  border-radius: 5px;
-  background: var(--input-bg, rgba(255, 255, 255, 0.06));
+/* Labelled ghost button ("+ Item", "From catalog") */
+.sectionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
-  transition: all 200ms ease;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease;
+
+  &:hover {
+    border-color: var(--primary-accent);
+    background: color-mix(in srgb, var(--primary-accent) 8%, var(--card-bg));
+    color: var(--primary-accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Icon-only button (specs, attach, color, more) */
+.iconBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease;
+
+  &:hover {
+    background: var(--card-bg);
+    border-color: var(--border);
+    color: var(--text-primary);
+  }
+
+  /* Has content (specs filled / files attached) */
+  &.iconBtnOn {
+    color: var(--primary-accent);
+  }
+
+  &[aria-pressed="true"],
+  &[aria-expanded="true"] {
+    color: var(--primary-accent);
+    background: color-mix(in srgb, var(--primary-accent) 12%, transparent);
+    border-color: color-mix(in srgb, var(--primary-accent) 35%, transparent);
+  }
+
+  &.iconBtnCount {
+    padding: 0 8px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+}
+
+.btnCount {
+  line-height: 1;
+}
+
+/* Current section color indicator on the palette button */
+.colorDot {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--card-bg);
+}
+
+.actionDivider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--border);
+}
+
+/* ─── Bulk "Set all" select ─── */
+.setAllSelect {
+  height: 28px;
+  max-width: 160px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease;
 
   option {
-    background: var(--card-bg, #1e1e28);
+    background: var(--card-bg);
     color: var(--text-primary);
   }
 
   &:hover {
-    border-color: var(--accent-color, var(--primary-accent, #0d9488));
+    border-color: var(--primary-accent);
     color: var(--text-primary);
   }
 
   &:focus {
     outline: none;
-    border-color: var(--accent-color, var(--primary-accent, #0d9488));
-    box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--primary-accent) 20%, transparent);
+  }
+}
+
+/* ─── Popover menus (section color / more, row move) ─── */
+.menuAnchor {
+  position: relative;
+  display: inline-flex;
+}
+
+@keyframes sosMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  max-width: 280px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-card-hover);
+  font-size: 12px;
+  font-weight: 400;
+  text-align: left;
+  cursor: default;
+  animation: sosMenuIn 120ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu {
+    animation: none;
+  }
+}
+
+.menuLabel {
+  padding: 6px 8px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+
+  svg {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+  }
+
+  &:hover {
+    background: var(--card-bg-elevated);
+
+    svg {
+      color: var(--primary-accent);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: -2px;
+  }
+
+  &.menuItemCurrent {
+    color: var(--primary-accent);
+    font-weight: 600;
+
+    svg {
+      color: var(--primary-accent);
+    }
+  }
+
+  &.menuItemDanger {
+    color: var(--danger);
+
+    svg {
+      color: var(--danger);
+    }
+
+    &:hover {
+      background: color-mix(in srgb, var(--danger) 10%, transparent);
+
+      svg {
+        color: var(--danger);
+      }
+    }
+  }
+}
+
+.menuItemText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menuSeparator {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--border-subtle);
+}
+
+/* Section color picker */
+.colorMenu {
+  min-width: 0;
+}
+
+.swatchGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 22px);
+  gap: 8px;
+  padding: 4px 6px 6px;
+}
+
+.colorSwatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--text-primary) 15%, transparent);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+
+  &:hover {
+    transform: scale(1.12);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+
+  /* "Default" swatch — empty circle with a diagonal slash */
+  &.colorSwatchNone {
+    background:
+      linear-gradient(
+        135deg,
+        transparent calc(50% - 1px),
+        var(--text-muted) calc(50% - 1px),
+        var(--text-muted) calc(50% + 1px),
+        transparent calc(50% + 1px)
+      ),
+      var(--card-bg);
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+
+  &.colorSwatchActive {
+    box-shadow:
+      0 0 0 2px var(--card-bg),
+      0 0 0 4px var(--primary-accent);
   }
 }
 
@@ -280,7 +622,7 @@
     opacity: 1;
     background: var(--glass-bg, rgba(255, 255, 255, 0.08));
     border-color: var(--border-subtle);
-    color: var(--accent-color);
+    color: var(--primary-accent);
   }
 }
 
@@ -367,31 +709,6 @@
 }
 
 /* ─── Action buttons ─── */
-.actionBtn {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 13px;
-  padding: 2px 6px;
-  border-radius: 4px;
-
-  &.delete {
-    color: #ef4444;
-
-    &:hover {
-      background: rgba(239, 68, 68, 0.1);
-    }
-  }
-
-  &.edit {
-    color: var(--accent-color);
-
-    &:hover {
-      background: var(--accent-color-10, rgba(20, 184, 166, 0.1));
-    }
-  }
-}
-
 .actionsCell {
   display: flex;
   gap: 4px;
@@ -437,19 +754,6 @@
   &:hover {
     opacity: 1;
     color: var(--accent-color);
-  }
-}
-
-.actionBtn.reorder {
-  font-size: 10px;
-  padding: 1px 4px;
-  color: var(--text-secondary);
-  opacity: 0.6;
-
-  &:hover {
-    opacity: 1;
-    color: var(--accent-color);
-    background: var(--accent-color-10, rgba(20, 184, 166, 0.1));
   }
 }
 
@@ -555,46 +859,85 @@
   opacity: 0.4;
 }
 
-/* ─── Row actions (prototype-style) ─── */
+/* ─── Row actions (revealed on row hover) ─── */
 .rowActions {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 2px;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity 150ms ease;
 
-  .mainItemRow:hover & {
+  .mainItemRow:hover &,
+  .drawerOpenRow &,
+  &:focus-within,
+  &.rowActionsPinned {
     opacity: 1;
   }
-  .drawerOpenRow & {
-    opacity: 1;
+
+  .actionDivider {
+    height: 14px;
+    margin: 0 2px;
   }
 }
 
 .rowActionBtn {
-  width: 22px;
-  height: 22px;
-  display: flex;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  padding: 0;
+  border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
   cursor: pointer;
   color: var(--text-secondary);
-  transition: all 0.15s;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease;
 
-  &:hover {
-    background: var(--glass-bg, rgba(255, 255, 255, 0.08));
-    border-color: var(--border-subtle);
-    color: var(--text-primary);
+  &:hover:not(:disabled) {
+    background: var(--card-bg-elevated);
+    border-color: var(--border);
+    color: var(--primary-accent);
   }
 
-  &.rowActionDanger:hover {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.3);
-    color: #ef4444;
+  &[aria-expanded="true"] {
+    color: var(--primary-accent);
+    background: color-mix(in srgb, var(--primary-accent) 12%, transparent);
+    border-color: color-mix(in srgb, var(--primary-accent) 35%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    cursor: progress;
+    opacity: 0.6;
+  }
+
+  /* Needs PN / Equipment Offer before it can be favorited */
+  &.rowActionMuted {
+    opacity: 0.45;
+  }
+
+  &.rowActionFav {
+    color: var(--warning);
+
+    &:hover:not(:disabled) {
+      color: var(--warning);
+    }
+  }
+
+  &.rowActionDanger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--danger) 10%, transparent);
+    border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+    color: var(--danger);
   }
 }
 
@@ -1357,28 +1700,6 @@
   }
 }
 
-/* Specs toggle button in actions */
-.specsToggle {
-  font-size: 11px !important;
-  color: var(--text-secondary) !important;
-  opacity: 0.6;
-  transition:
-    opacity 0.15s,
-    color 0.15s;
-  white-space: nowrap;
-
-  &:hover {
-    opacity: 1;
-    color: #3b82f6 !important;
-    background: rgba(59, 130, 246, 0.08) !important;
-  }
-
-  &.hasSpecs {
-    opacity: 1;
-    color: #3b82f6 !important;
-  }
-}
-
 /* Detail row below data row */
 .specsDetailRow {
   td {
@@ -1685,138 +2006,6 @@
   }
 }
 
-/* ─── Section Actions Menu ─── */
-.sectionMenu {
-  position: relative;
-  display: inline-flex;
-}
-
-.sectionMenuDropdown {
-  display: none;
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 300;
-  padding: 4px 0;
-  border-radius: 8px;
-  background: var(--card-bg, #1e1e2e);
-  border: 1px solid var(--border-subtle);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  min-width: 180px;
-  margin-top: 4px;
-  flex-direction: column;
-
-  .sectionMenu:hover & {
-    display: flex;
-  }
-}
-
-.sectionMenuItem {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  text-align: left;
-  width: 100%;
-  transition: background 0.1s;
-
-  &:hover {
-    background: var(--accent-color-10, rgba(20, 184, 166, 0.1));
-  }
-}
-
-/* ─── Section Color Picker ─── */
-.colorPicker {
-  position: relative;
-  display: inline-flex;
-}
-
-.colorPickerBtn {
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 11px;
-  cursor: pointer;
-  background: transparent;
-  transition: border-color 0.15s;
-
-  &:hover {
-    border-color: var(--accent-color);
-  }
-}
-
-.colorPickerDropdown {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 300;
-  padding: 6px;
-  border-radius: 8px;
-  background: var(--card-bg, #1e1e2e);
-  border: 1px solid var(--border-subtle);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  gap: 4px;
-  flex-wrap: wrap;
-  width: 120px;
-  margin-top: 4px;
-
-  .colorPicker:hover & {
-    display: flex;
-  }
-}
-
-.colorSwatch {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition:
-    transform 0.15s,
-    border-color 0.15s;
-
-  &:hover {
-    transform: scale(1.2);
-  }
-
-  &.colorSwatchActive {
-    border-color: #fff;
-    box-shadow: 0 0 0 2px var(--accent-color);
-  }
-}
-
-/* ─── Move to Section Select ─── */
-.moveSectionSelect {
-  max-width: 90px;
-  padding: 2px 4px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  background: var(--input-bg, rgba(255, 255, 255, 0.06));
-  color: var(--text-secondary);
-  font-size: 10px;
-  cursor: pointer;
-  transition: border-color 0.15s;
-
-  option {
-    background: var(--card-bg, #fff);
-    color: var(--text-primary);
-  }
-
-  &:focus {
-    outline: none;
-    border-color: var(--accent-color);
-    color: var(--text-primary);
-  }
-}
-
 /* ─── Sub-Items Panel ─── */
 .subItemsToggle {
   font-size: 11px !important;
@@ -2042,29 +2231,20 @@
   }
 }
 
-/* ─── AI Generate Button ─── */
+/* ─── AI Generate button (accent outline) ─── */
 .aiBtn {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
-  color: #fff !important;
-  border: none !important;
-  font-weight: 600;
-  &:hover {
-    background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-  }
-}
+  &.toolbarBtn {
+    border-color: color-mix(in srgb, var(--primary-accent) 45%, transparent);
+    color: var(--primary-accent);
 
-/* ─── Import BID/Template Button ─── */
-.importBidBtn {
-  background: linear-gradient(135deg, #0ea5e9, #3b82f6) !important;
-  color: #fff !important;
-  border: none !important;
-  font-weight: 600;
-  &:hover {
-    background: linear-gradient(135deg, #0284c7, #2563eb) !important;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    svg {
+      color: currentColor;
+    }
+
+    &:hover {
+      border-color: var(--primary-accent);
+      background: color-mix(in srgb, var(--primary-accent) 12%, var(--card-bg));
+    }
   }
 }
 
@@ -2179,22 +2359,6 @@
   margin: 0;
 }
 
-.attachBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  border-radius: 7px;
-  background: var(--accent-color, #14b8a6);
-  color: #fff;
-  font-size: 9px;
-  font-weight: 700;
-  margin-left: 2px;
-  line-height: 1;
-}
-
 /* ─── Section attachments list ─── */
 .sectionAttachRow {
   td {
@@ -2256,68 +2420,6 @@
   &:hover {
     color: #ef4444;
     background: rgba(239, 68, 68, 0.1);
-  }
-}
-
-/* ─── AI Modal Overlay ─── */
-.aiOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-modal);
-  backdrop-filter: blur(4px);
-}
-
-.aiModal {
-  background: var(--card-bg, #1e1e2e);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
-  border-radius: 16px;
-  max-width: 95vw;
-  width: 95vw;
-  max-height: 92vh;
-  height: 92vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
-}
-
-.aiModalHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
-  flex-shrink: 0;
-
-  h3 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-primary, #fff);
-  }
-}
-
-.aiModalClose {
-  background: transparent;
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
-  color: var(--text-secondary, #aaa);
-  font-size: 18px;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--text-primary, #fff);
   }
 }
 

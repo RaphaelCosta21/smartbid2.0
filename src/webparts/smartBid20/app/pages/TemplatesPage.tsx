@@ -3,7 +3,7 @@ import { PageHeader } from "../components/common/PageHeader";
 import { TemplateCard } from "../components/template/TemplateCard";
 import { TemplateEditor } from "../components/template/TemplateEditor";
 import { TemplatePreview } from "../components/template/TemplatePreview";
-import { AIDocumentAnalyzer } from "../components/common/AIDocumentAnalyzer";
+import { AIAnalyzerModal } from "../components/common/AIAnalyzerModal";
 import { useTemplates } from "../hooks/useTemplates";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useUIStore } from "../stores/useUIStore";
@@ -512,37 +512,17 @@ export const TemplatesPage: React.FC = () => {
       )}
       {/* AI Analyzer modal */}
       {showAIAnalyzer && (
-        <div className={styles.overlay}>
-          <div
-            className={`${styles.modal} ${styles.aiModal}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className={styles.aiModalHeader}>
-              <h3>🤖 Generate Template from Document</h3>
-              <p>
-                Upload a client document (PDF or Word) and AI will extract scope
-                items to create a new template.
-              </p>
-            </div>
-            <AIDocumentAnalyzer
-              templateId={aiTemplateId}
-              onImport={handleAIImport}
-              importLabel="Create Template with These Items"
-              compact
-            />
-            <div className={styles.modalActions}>
-              <button
-                className={styles.modalCloseBtn}
-                onClick={() => {
-                  setShowAIAnalyzer(false);
-                  setAiTemplateId("");
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <AIAnalyzerModal
+          title="Generate Template from Document"
+          subtitle="Upload a client document (PDF or Word) and the AI will extract scope items to create a new template."
+          onClose={() => {
+            setShowAIAnalyzer(false);
+            setAiTemplateId("");
+          }}
+          templateId={aiTemplateId}
+          onImport={handleAIImport}
+          importLabel="Create Template with These Items"
+        />
       )}
     </div>
   );

@@ -24,6 +24,9 @@ const BUCKET_ORDER: CatalogSearchBucket[] = [
 
 const EMPTY_RESULTS: ISearchResultItem[] = [];
 
+/** Inside a `true` provider, autocompletes don't auto-load the heavy Query catalog on mount. */
+export const DeferQueryCatalogContext = React.createContext(false);
+
 interface UseQuerySearchOptions {
   /** Which field to match: PN prefix, description words, or both */
   searchField: SearchField;
@@ -169,6 +172,7 @@ export function useQuerySearch(
 ): UseQuerySearchReturn {
   const { searchField, debounceMs = 300, limit = 8 } = options;
   const skipLoad = options.skipLoad || false;
+  const deferQueryCatalog = React.useContext(DeferQueryCatalogContext);
   const minChars = options.minChars || (searchField === "pn" ? 2 : 3);
   // String key so an inline `sources` array doesn't re-run the effects every render
   const sourcesKey = (options.sources || BUCKET_ORDER).join(",");
@@ -191,7 +195,7 @@ export function useQuerySearch(
   React.useEffect(() => {
     if (skipLoad) return;
     const active = sourcesKey.split(",");
-    if (active.indexOf("query") >= 0)
+    if (active.indexOf("query") >= 0 && !deferQueryCatalog)
       useQueryCatalogStore.getState().loadCatalog();
     if (active.indexOf("quotations") >= 0)
       useQuotationStore.getState().loadQuotations();
@@ -201,7 +205,7 @@ export function useQuerySearch(
       useAssetCatalogStore.getState().loadAssets();
     if (active.indexOf("favorites") >= 0)
       useFavoritesStore.getState().loadFavorites();
-  }, [skipLoad, sourcesKey]);
+  }, [skipLoad, sourcesKey, deferQueryCatalog]);
 
   // Debounced cascade search
   React.useEffect(() => {

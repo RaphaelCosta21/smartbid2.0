@@ -8,6 +8,7 @@ import {
   getDueFreezeDate,
   isActiveBid,
   isOverdueBid,
+  isUnassignedBid,
 } from "../utils/bidHelpers";
 import { getPhaseProgressByIndex } from "../utils/phaseHelpers";
 import { getErnLinks } from "../utils/ernHelpers";
@@ -36,6 +37,10 @@ const VIEW_OPTIONS: { mode: ViewMode; label: string; icon: React.ReactNode }[] =
   ];
 
 const PRIORITIES: BidPriority[] = ["Urgent", "Normal", "Low"];
+
+// Unassigned BIDs live in Unassigned Requests until an engineer is assigned
+const isTrackedBid = (bid: IBid): boolean =>
+  isActiveBid(bid) && !isUnassignedBid(bid);
 
 function uniqueSorted(values: (string | undefined)[]): string[] {
   const seen: Record<string, true> = {};
@@ -108,12 +113,12 @@ export const BidTrackerPage: React.FC = () => {
   }, [debouncedSearch]);
 
   const activeBids = React.useMemo(
-    () => filteredBids.filter(isActiveBid),
+    () => filteredBids.filter(isTrackedBid),
     [filteredBids],
   );
 
   // Unfiltered active BIDs feed the filter options so choices don't vanish while filtering
-  const allActiveBids = React.useMemo(() => bids.filter(isActiveBid), [bids]);
+  const allActiveBids = React.useMemo(() => bids.filter(isTrackedBid), [bids]);
 
   /* ── Filter options ── */
   const divisionOptions = React.useMemo<MultiSelectOption[]>(

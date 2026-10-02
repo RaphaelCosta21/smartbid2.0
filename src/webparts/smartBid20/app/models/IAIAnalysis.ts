@@ -76,6 +76,8 @@ export interface IAIAnalysisContext {
   scopeCategoryOptions?: string[];
   /** Optional extra context (KB summaries, past-bid hints). */
   contextSummary?: string;
+  /** Free-text focus/exclusion instructions typed by the user for this analysis. */
+  userInstructions?: string;
 }
 
 /** Request payload POSTed to the Azure AI backend. */
@@ -154,8 +156,10 @@ export interface IAIImportMeta {
   removedCount: number;
   /** Warnings surfaced by the analysis. */
   warnings: string[];
-  /** Clarifications/qualifications the AI suggested alongside the scope. */
+  /** AI-suggested clarifications/qualifications the user selected to import. */
   suggestedClarifications?: IAISuggestedClarification[];
+  /** User instructions applied to the analysis that produced these items. */
+  userInstructions?: string;
 }
 
 /** A clarification/qualification the AI proposes from retrieved past ones. */
