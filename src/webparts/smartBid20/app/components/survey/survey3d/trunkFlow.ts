@@ -41,6 +41,7 @@ export class TrunkNetwork {
   private hoverKey: string | null = null;
   private fade = 1;
   private visibleTarget = true;
+  private enabled = true;
   private matrix = new THREE.Matrix4();
   private point = new THREE.Vector3();
   private scale = new THREE.Vector3();
@@ -87,12 +88,16 @@ export class TrunkNetwork {
     this.visibleTarget = visible;
   }
 
+  public setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+  }
+
   public setHover(key: string | null): void {
     this.hoverKey = key;
   }
 
   public update(dt: number, time: number, reducedMotion: boolean): void {
-    const goal = this.visibleTarget ? 1 : 0;
+    const goal = this.visibleTarget && this.enabled ? 1 : 0;
     this.fade = reducedMotion ? goal : THREE.MathUtils.damp(this.fade, goal, 5, dt);
     this.group.visible = this.fade > 0.01;
     if (!this.group.visible) return;

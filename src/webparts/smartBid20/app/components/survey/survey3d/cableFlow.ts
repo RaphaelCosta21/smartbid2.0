@@ -49,6 +49,7 @@ export class CableNetwork {
   private hoverKey: string | null = null;
   private fade = 0;
   private visibleTarget = false;
+  private enabled = true;
 
   public build(
     links: SceneLink[],
@@ -100,6 +101,11 @@ export class CableNetwork {
     this.visibleTarget = visible;
   }
 
+  /** User switch: hides the network regardless of the emerge animation. */
+  public setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+  }
+
   public setTrace(linkKeys: string[] | null): void {
     if (!linkKeys || linkKeys.length === 0) {
       this.trace = null;
@@ -111,7 +117,7 @@ export class CableNetwork {
   }
 
   public update(dt: number, time: number, reducedMotion: boolean): void {
-    const goal = this.visibleTarget ? 1 : 0;
+    const goal = this.visibleTarget && this.enabled ? 1 : 0;
     this.fade = reducedMotion ? goal : THREE.MathUtils.damp(this.fade, goal, 6, dt);
     this.group.visible = this.fade > 0.01;
     LINK_KINDS.forEach((kind) => {

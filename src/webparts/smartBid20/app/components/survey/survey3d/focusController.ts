@@ -164,6 +164,10 @@ export class FocusController {
     this.cables.setHover(key);
   }
 
+  public setCablesEnabled(enabled: boolean): void {
+    this.cables.setEnabled(enabled);
+  }
+
   /** "node:<id>" or "cluster:<anchor>" label targets; null while hidden or still emerging. */
   public getLabelTarget(key: string): THREE.Object3D | null {
     if (key.indexOf("node:") === 0) {

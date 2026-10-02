@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Cable,
+  Unplug,
 } from "lucide-react";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import { SurveyLinkKind, SurveySceneAnchor } from "../../models";
@@ -126,6 +127,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   latest.current = props;
   const [supported] = React.useState(isWebGLAvailable);
   const [hotZoneId, setHotZoneId] = React.useState<string | null>(null);
+  const [linesOn, setLinesOn] = React.useState(true);
 
   React.useEffect(() => {
     if (!supported || !hostRef.current) return undefined;
@@ -193,6 +195,9 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   React.useEffect(() => {
     apiRef.current?.setNodeStates(nodeStates);
   }, [nodeStates]);
+  React.useEffect(() => {
+    apiRef.current?.setLinksVisible(linesOn);
+  }, [linesOn]);
 
   const registerLabel = (key: string) => (el: HTMLDivElement | null) => {
     if (el) labelEls.current[key] = el;
@@ -228,7 +233,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     nodeStates.selectedNodeId === id ||
     nodeStates.traceNodeIds.indexOf(id) >= 0;
   // Overview arcs are monochrome, so the colour legend only applies inside a room.
-  const legendKinds = focus
+  const legendKinds = focus && linesOn
     ? LINK_KINDS.filter((k) => focus.links.some((l) => l.kind === k))
     : [];
 
@@ -305,11 +310,22 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
         </div>
       )}
 
-      {zones.length > 0 && !tour && (
-        <button className={styles.tourButton} onClick={onTourStart}>
-          <Play size={11} /> Guided tour
+      <div className={styles.sceneTools}>
+        <button
+          className={`${styles.linesToggle} ${linesOn ? "" : styles.linesOff}`}
+          onClick={() => setLinesOn(!linesOn)}
+          aria-pressed={!linesOn}
+          title={linesOn ? "Hide connection lines" : "Show connection lines"}
+        >
+          {linesOn ? <Unplug size={11} /> : <Cable size={11} />}
+          {linesOn ? "Hide lines" : "Show lines"}
         </button>
-      )}
+        {zones.length > 0 && !tour && (
+          <button className={styles.tourButton} onClick={onTourStart}>
+            <Play size={11} /> Guided tour
+          </button>
+        )}
+      </div>
 
       <div className={styles.bottomStack}>
         {tour && (
@@ -354,7 +370,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
           </div>
         )}
 
-        {cableInfo && (
+        {cableInfo && linesOn && (
           <div className={styles.cableInfo} role="status">
             <Cable size={12} className={styles.cableIcon} />
             <span className={`${styles.legendSwatch} ${SWATCHES[cableInfo.kind]}`} />

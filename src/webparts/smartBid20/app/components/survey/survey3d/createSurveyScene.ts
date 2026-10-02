@@ -57,6 +57,8 @@ export interface SurveySceneApi {
   setViewInset: (top: number) => void;
   setFocus: (focus: SceneFocus | null) => void;
   setNodeStates: (states: SceneNodeStates) => void;
+  /** Shows or hides every connection line (room cables and overview trunks). */
+  setLinksVisible: (visible: boolean) => void;
   dispose: () => void;
 }
 
@@ -1011,6 +1013,10 @@ export function createSurveyScene(
     },
     setNodeStates: (states) => {
       focusCtl.setStates(states);
+    },
+    setLinksVisible: (visible) => {
+      focusCtl.setCablesEnabled(visible);
+      trunks.setEnabled(visible);
     },
     dispose: () => {
       disposed = true;

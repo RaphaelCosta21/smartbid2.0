@@ -279,10 +279,41 @@
   cursor: pointer;
 }
 
-.tourButton {
+.sceneTools {
   position: absolute;
   top: calc(var(--scene-top, 0px) + 12px);
   right: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.linesToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--survey-slate);
+  background: var(--survey-navy-deep);
+  color: var(--survey-ice);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 250ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.linesOff {
+  border-color: var(--survey-ice);
+  background: var(--survey-ice);
+  color: var(--survey-navy-deep);
+}
+
+.tourButton {
   display: inline-flex;
   align-items: center;
   gap: 6px;
