@@ -48,8 +48,7 @@ export const SurveyEquipmentPage: React.FC = () => {
   }, [selected, selectedId, selectEquipment]);
 
   const handleSelectLinked = (id: string): void => {
-    const eq = catalog?.equipment.find((e) => e.id === id);
-    if (eq) setFilters({ familyId: eq.familyId, search: "" });
+    setFilters({ search: "" });
     selectEquipment(id);
   };
 
@@ -143,7 +142,6 @@ export const SurveyEquipmentPage: React.FC = () => {
     >
       <SurveyPortalHeader
         view="equipment"
-        resultCount={equipment.length}
         onOpenPackage={() => setPackageOpen(true)}
       />
       <div className={styles.body}>{renderBody()}</div>

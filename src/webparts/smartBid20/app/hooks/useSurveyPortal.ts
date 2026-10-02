@@ -22,7 +22,7 @@ export function useSurveyBidComparison(): ISurveyBidComparison | null {
   }, [catalog, bidNumber, bids]);
 }
 
-/** Loads the survey catalog and returns the equipment matching the current filters. */
+/** Loads the survey catalog and returns the equipment matching the search. */
 export function useFilteredSurveyEquipment(): ISurveyEquipment[] {
   const catalog = useSurveyStore((s) => s.catalog);
   const filters = useSurveyStore((s) => s.filters);
@@ -35,14 +35,8 @@ export function useFilteredSurveyEquipment(): ISurveyEquipment[] {
   return React.useMemo(() => {
     if (!catalog) return [];
     const q = filters.search.trim().toLowerCase();
+    if (!q) return catalog.equipment;
     return catalog.equipment.filter((e) => {
-      // A text search spans every family so aliases resolve from anywhere.
-      if (!q && filters.familyId && e.familyId !== filters.familyId) return false;
-      if (filters.division && e.divisions.indexOf(filters.division) < 0) return false;
-      if (filters.serviceLine && e.serviceLines.indexOf(filters.serviceLine) < 0)
-        return false;
-      if (filters.status && e.status !== filters.status) return false;
-      if (!q) return true;
       const haystack = [
         e.title,
         e.technology,

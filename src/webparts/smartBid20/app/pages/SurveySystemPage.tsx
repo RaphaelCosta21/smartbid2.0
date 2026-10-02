@@ -31,7 +31,6 @@ import { SkeletonLoader } from "../components/common/SkeletonLoader";
 import { useSurveyStore } from "../stores/useSurveyStore";
 import { useUIStore } from "../stores/useUIStore";
 import {
-  useFilteredSurveyEquipment,
   useSurveyBidComparison,
   useSurveyBidIntel,
 } from "../hooks/useSurveyPortal";
@@ -97,8 +96,8 @@ export const SurveySystemPage: React.FC = () => {
   const setFilters = useSurveyStore((s) => s.setFilters);
   const search = useSurveyStore((s) => s.filters.search);
   const spreadId = useSurveyStore((s) => s.spreadId);
+  const load = useSurveyStore((s) => s.load);
   const addToast = useUIStore((s) => s.addToast);
-  const equipment = useFilteredSurveyEquipment();
   const comparison = useSurveyBidComparison();
   const considered = comparison ? comparison.considered : null;
 
@@ -116,6 +115,10 @@ export const SurveySystemPage: React.FC = () => {
       window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     [],
   );
+
+  React.useEffect(() => {
+    load().catch(() => undefined);
+  }, [load]);
 
   const headerRef = React.useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = React.useState(0);
@@ -490,8 +493,7 @@ export const SurveySystemPage: React.FC = () => {
       handleNodeSelect(node.id);
       return;
     }
-    const eq = catalog?.equipment.find((e) => e.id === id);
-    if (eq) setFilters({ familyId: eq.familyId, search: "" });
+    setFilters({ search: "" });
     handleSelect(id);
   };
 
@@ -666,7 +668,6 @@ export const SurveySystemPage: React.FC = () => {
         <div ref={headerRef} className={styles.headerLayer}>
           <SurveyPortalHeader
             view="system"
-            resultCount={equipment.length}
             onOpenPackage={() => setPackageOpen(true)}
             searchHits={searchHits}
             onSearchHit={handleNodeSelect}

@@ -27,7 +27,6 @@ export interface SurveySearchHit {
 
 interface SurveyPortalHeaderProps {
   view: "equipment" | "system";
-  resultCount: number;
   onOpenPackage: () => void;
   /** System view: equipment matching the search, offered in a dropdown. */
   searchHits?: SurveySearchHit[];
@@ -39,14 +38,8 @@ const BID_LIST_MAX = 40;
 const surveyRank = (b: IBid): number =>
   b.division === "SSR-Survey" ? 0 : b.division === "SSR-Integrated" ? 1 : 2;
 
-const uniq = (values: string[]): string[] =>
-  values
-    .filter((v, i) => !!v && values.indexOf(v) === i)
-    .sort((a, b) => a.localeCompare(b));
-
 export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
   view,
-  resultCount,
   onOpenPackage,
   searchHits,
   onSearchHit,
@@ -73,9 +66,6 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
 
   // Same permission that edits Scope Templates (Engineering, Commercial, super admins).
   const canImport = hasAccess("templates", "edit");
-  const equipment = catalog?.equipment || [];
-  const families = catalog?.families || [];
-  const family = families.find((f) => f.id === filters.familyId);
   const spreads = catalog?.spreads || [];
   const spread = spreads.find((s) => s.id === spreadId) || spreads[0];
   const selectedBid = bidNumber ? bids.find((b) => b.bidNumber === bidNumber) : undefined;
@@ -124,21 +114,6 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
     if (onSearchHit) onSearchHit(id);
     setSearchFocus(false);
   };
-
-  const divisions = React.useMemo(() => {
-    const all: string[] = [];
-    equipment.forEach((e) => e.divisions.forEach((d) => all.push(d)));
-    return uniq(all);
-  }, [equipment]);
-  const serviceLines = React.useMemo(() => {
-    const all: string[] = [];
-    equipment.forEach((e) => e.serviceLines.forEach((d) => all.push(d)));
-    return uniq(all);
-  }, [equipment]);
-  const statuses = React.useMemo(
-    () => uniq(equipment.map((e) => e.status)),
-    [equipment],
-  );
 
   const handleImport = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -191,29 +166,6 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
       setImporting(false);
     }
   };
-
-  const renderSelect = (
-    value: string,
-    placeholder: string,
-    options: string[],
-    onChange: (v: string) => void,
-  ): React.ReactNode => (
-    <label className={styles.filterChip}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={placeholder}
-      >
-        <option value="">{placeholder}</option>
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-      <ChevronDown size={10} />
-    </label>
-  );
 
   return (
     <div className={styles.root}>
@@ -414,53 +366,6 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
           <span className={styles.packageCount}>{packageQty}</span>
         </button>
       </div>
-
-      {view === "equipment" && families.length > 0 && (
-        <div className={styles.familyBar}>
-          <div className={styles.familyCopy}>
-            <span className={styles.familyEyebrow}>
-              {String(
-                Math.max(1, families.findIndex((f) => f.id === filters.familyId) + 1),
-              ).padStart(2, "0")}{" "}
-              / SELECTED FAMILY
-            </span>
-            <h2 className={styles.familyTitle}>{family?.title || "All families"}</h2>
-            {family?.description && (
-              <p className={styles.familyDesc}>{family.description}</p>
-            )}
-          </div>
-          <div className={styles.familyRight}>
-            <div className={styles.filterRow}>
-              {renderSelect(filters.division, "All Divisions", divisions, (v) =>
-                setFilters({ division: v }),
-              )}
-              {renderSelect(
-                filters.serviceLine,
-                "All Service Lines",
-                serviceLines,
-                (v) => setFilters({ serviceLine: v }),
-              )}
-              {renderSelect(filters.status, "All Statuses", statuses, (v) =>
-                setFilters({ status: v }),
-              )}
-            </div>
-            <div className={styles.familyTabs}>
-              {families.map((f) => (
-                <button
-                  key={f.id}
-                  className={`${styles.familyTab} ${f.id === filters.familyId ? styles.familyTabActive : ""}`}
-                  onClick={() => setFilters({ familyId: f.id })}
-                >
-                  {f.title}
-                </button>
-              ))}
-            </div>
-            <span className={styles.resultCount}>
-              {resultCount} EQUIPMENT RESULTS
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

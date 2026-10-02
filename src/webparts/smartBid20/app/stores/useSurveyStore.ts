@@ -10,18 +10,10 @@ import { QuotationService } from "../services/QuotationService";
 
 export interface SurveyFilters {
   search: string;
-  division: string;
-  serviceLine: string;
-  status: string;
-  familyId: string;
 }
 
 const DEFAULT_FILTERS: SurveyFilters = {
   search: "",
-  division: "",
-  serviceLine: "",
-  status: "",
-  familyId: "",
 };
 
 interface SurveyState {
@@ -87,10 +79,6 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
       set({
         catalog: catalog || { families: [], equipment: [], systems: [], spreads: [] },
         listMissing: catalog === null,
-        filters:
-          catalog && !get().filters.familyId && catalog.families.length > 0
-            ? { ...get().filters, familyId: catalog.families[0].id }
-            : get().filters,
       });
     } catch (err) {
       console.error("Survey catalog load failed:", err);
@@ -112,10 +100,7 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
 
   setFilters: (filters) =>
     set((state) => ({ filters: { ...state.filters, ...filters } })),
-  resetFilters: () =>
-    set((state) => ({
-      filters: { ...DEFAULT_FILTERS, familyId: state.filters.familyId },
-    })),
+  resetFilters: () => set({ filters: DEFAULT_FILTERS }),
   selectEquipment: (id) => set({ selectedEquipmentId: id }),
   setSpreadId: (spreadId) => set({ spreadId }),
   setBidNumber: (bidNumber) => set({ bidNumber }),
