@@ -93,7 +93,7 @@ export const LINK_COLORS: Record<SurveyLinkKind, number> = {
   rf: 0x7a99ac,
   subsea: 0x009b77,
   fibre: 0x5b7f95,
-  acoustic: 0xc8102e,
+  acoustic: 0xb0bac1,
   timing: 0xf4fbff,
 };
 
