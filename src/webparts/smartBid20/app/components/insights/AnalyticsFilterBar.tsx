@@ -23,7 +23,7 @@ const PRESETS: SegmentOption<DatePreset>[] = [
   { value: "180d", label: "180d" },
   { value: "ytd", label: "YTD" },
   { value: "12m", label: "12m" },
-  { value: "all", label: "Tudo" },
+  { value: "all", label: "All" },
 ];
 
 const DivisionIcon = (
@@ -114,7 +114,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
           segments={PRESETS}
           onChange={onPreset}
           size="sm"
-          ariaLabel="Período"
+          ariaLabel="Period"
         />
 
         <div className={styles.dates}>
@@ -126,7 +126,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
             onChange={(e) =>
               onPatch({ preset: "custom", from: e.target.value })
             }
-            aria-label="De"
+            aria-label="From"
           />
           <span className={styles.dateSep}>–</span>
           <input
@@ -135,12 +135,12 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
             value={filters.to}
             min={filters.from || undefined}
             onChange={(e) => onPatch({ preset: "custom", to: e.target.value })}
-            aria-label="Até"
+            aria-label="To"
           />
         </div>
 
         <MultiSelectDropdown
-          label="Divisão"
+          label="Division"
           icon={DivisionIcon}
           options={divisions}
           selected={filters.divisions}
@@ -159,7 +159,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
 
         {bidTypes && bidTypes.length > 0 && (
           <MultiSelectDropdown
-            label="Tipo"
+            label="Type"
             icon={BidTypeIcon}
             options={bidTypes}
             selected={filters.bidTypes}
@@ -179,7 +179,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
           </svg>
           <input
             type="text"
-            placeholder="Buscar BID, cliente, projeto…"
+            placeholder="Search BIDs, clients, projects…"
             value={filters.search}
             onChange={(e) => onPatch({ search: e.target.value })}
           />
@@ -196,7 +196,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
               className={styles.chip}
               key={c.key}
               onClick={c.onRemove}
-              title="Remover filtro"
+              title="Remove filter"
             >
               <span>{c.label}</span>
               <svg
@@ -212,7 +212,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
           ))}
           {hasActive && (
             <button type="button" className={styles.clearAll} onClick={onReset}>
-              Limpar tudo
+              Clear All
             </button>
           )}
         </div>

@@ -220,3 +220,20 @@ export {
   type ISupplierContact,
   type ISupplierInput,
 } from "./ISupplier";
+export {
+  type SurveySceneAnchor,
+  type ISurveyFamily,
+  type ISurveyFitNode,
+  type ISurveyEquipment,
+  type ISurveySystem,
+  type ISurveyCatalog,
+  type ISurveyPackageLine,
+  type ISurveyBidIntel,
+  type ISurveySpread,
+  type ISurveySpreadZone,
+  type ISurveySpreadLine,
+  type ISurveySpreadLink,
+  type ISurveySpreadCategory,
+  type SurveyLinkKind,
+  type SurveySceneShape,
+} from "./ISurveyCatalog";

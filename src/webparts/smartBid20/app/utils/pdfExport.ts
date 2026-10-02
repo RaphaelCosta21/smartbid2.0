@@ -85,7 +85,7 @@ export async function buildReportPdf(args: BuildPdfArgs): Promise<void> {
   if (args.kpis && args.kpis.length > 0) {
     autoTable(doc, {
       startY: y + 6,
-      head: [["Indicador", "Valor"]],
+      head: [["Metric", "Value"]],
       body: args.kpis.map((k) => [k.label, k.value]),
       theme: "grid",
       styles: { fontSize: 9 },

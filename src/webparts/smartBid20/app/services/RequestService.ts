@@ -186,7 +186,7 @@ export class RequestService {
         byDivision: {},
       },
       equipmentList: [],
-      scopeItems: [],
+      scopeItems: request.scopeItems || [],
       assetBreakdown: [],
       logisticsBreakdown: [],
       certificationsBreakdown: [],

@@ -1,0 +1,214 @@
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 248px;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-glass);
+  backdrop-filter: blur(9px);
+  box-shadow: var(--survey-shadow);
+  cursor: pointer;
+  outline: none;
+  animation: cardIn 400ms ease both;
+  transition: transform 250ms ease, box-shadow 250ms ease,
+    border-color 250ms ease, background 250ms ease;
+
+  &:hover,
+  &:focus-visible {
+    transform: translateY(-2px);
+    border-color: var(--survey-teal);
+    background: var(--survey-glass-strong);
+    box-shadow: var(--survey-glow), var(--survey-shadow);
+  }
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.selected {
+  border: 1px solid var(--package-accent);
+  background: var(--survey-glass-strong);
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--package-accent);
+  }
+}
+
+/* Not considered in the compared BID */
+.outOfBid {
+  border-color: var(--survey-slate);
+  filter: grayscale(1);
+
+  .title,
+  .tech {
+    color: var(--survey-muted);
+  }
+}
+
+.photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 106px;
+  border-radius: 6px;
+  border: 1px solid var(--survey-line);
+  background: var(--survey-glass);
+  overflow: hidden;
+}
+
+.photoWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.photoCircle {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 40%,
+    var(--survey-ice) 0%,
+    var(--survey-line) 100%
+  );
+  box-shadow: inset 0 0 0 1px var(--survey-line);
+}
+
+.photoImg {
+  position: relative;
+  width: 108%;
+  height: 110%;
+  object-fit: contain;
+  transition: transform 350ms ease;
+}
+
+.photoIcon {
+  position: relative;
+  color: var(--survey-teal);
+}
+
+.card:hover .photoImg {
+  transform: scale(1.08) rotate(-2deg);
+}
+
+.tech {
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  color: var(--survey-slate);
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--survey-navy);
+}
+
+.alias {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.aliasLabel {
+  font-size: 7px;
+  color: var(--survey-slate);
+  white-space: nowrap;
+}
+
+.aliasLine {
+  width: 10px;
+  height: 1px;
+  background: var(--survey-muted);
+  flex-shrink: 0;
+}
+
+.aliasChip {
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--package-accent);
+  background: var(--survey-cream);
+  color: var(--survey-navy);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.summary {
+  font-size: 10px;
+  color: var(--survey-navy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explore {
+  font-size: 8px;
+  color: var(--survey-teal);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: transform 250ms ease;
+}
+
+.card:hover .explore {
+  transform: translateX(3px);
+}
+
+.addBtn {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  border: 1px solid var(--package-accent);
+  background: var(--package-accent);
+  color: var(--survey-navy);
+  cursor: pointer;
+  transition: transform 250ms ease, box-shadow 250ms ease;
+
+  &:hover {
+    transform: scale(1.12) rotate(90deg);
+    box-shadow: 0 0 0 4px var(--survey-glass-strong);
+  }
+}
+
+.addBtnIn {
+  background: var(--survey-navy);
+  color: var(--package-accent);
+
+  &:hover {
+    transform: scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+}

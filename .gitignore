@@ -33,6 +33,9 @@ obj
 # Styles Generated Code
 *.scss.ts
 
+# Controlled Oceaneering drawings (one-line diagrams) — must not be versioned
+templates/survey-catalog/diagramas Survey/
+
 # graphify (commit the graph; keep local-only cost + cache out)
 graphify-out/cost.json
 graphify-out/cache/

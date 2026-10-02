@@ -706,11 +706,11 @@ export const FollowUpPage: React.FC = () => {
       <div className={styles.chartsRow}>
         <GlassCard
           title="Outcome Distribution"
-          subtitle="Resultados dos BIDs concluídos"
+          subtitle="Results for completed BIDs"
           accentColor={chart.accentSecondary}
         >
           {chartTotal === 0 ? (
-            <div className={styles.chartEmpty}>Sem resultados no período.</div>
+            <div className={styles.chartEmpty}>No results for this period.</div>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
@@ -767,7 +767,7 @@ export const FollowUpPage: React.FC = () => {
 
         <GlassCard
           title="Win Rate by Division"
-          subtitle="Percentual de vitórias por divisão"
+          subtitle="Win rate by division"
           accentColor={chart.success}
         >
           <ResponsiveContainer

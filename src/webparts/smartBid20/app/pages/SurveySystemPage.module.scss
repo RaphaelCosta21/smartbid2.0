@@ -1,0 +1,107 @@
+.page {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: clip;
+  background: radial-gradient(
+    ellipse at 50% 32%,
+    var(--survey-teal) 0%,
+    var(--survey-navy) 52%,
+    var(--survey-navy-deep) 100%
+  );
+}
+
+/* The 3D sea fills the whole page; header and cards float above it */
+.sceneLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.overlay {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  pointer-events: none;
+}
+
+.headerLayer {
+  pointer-events: auto;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  padding: 14px 16px 16px;
+}
+
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+
+  > * {
+    pointer-events: auto;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.spreadPanel {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  width: 287px;
+  max-height: 42%;
+  overflow-y: auto;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-glass-strong);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--survey-shadow);
+  transition: max-height 350ms ease;
+  animation: fadeUp 450ms 80ms ease both;
+}
+
+.spreadPanelOpen {
+  max-height: calc(100% - 16px);
+}
+
+.detailDrawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  width: 440px;
+  max-width: 100%;
+  overflow-y: auto;
+  border-radius: 10px;
+}
+
+@media (max-width: 900px) {
+  .spreadPanel {
+    width: 100%;
+    max-height: 30%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spreadPanel {
+    animation: none;
+  }
+}

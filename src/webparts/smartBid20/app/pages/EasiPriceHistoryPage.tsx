@@ -7,7 +7,7 @@ export const EasiPriceHistoryPage: React.FC = () => {
   return (
     <EasiModuleFrame
       title="Price History"
-      subtitle="Consulta histórica de preços e modalidades a partir dos BIDs reais"
+      subtitle="Historical prices and pricing modes from live BIDs"
       icon={
         <svg
           width="28"

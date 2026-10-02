@@ -43,7 +43,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
         <div className={styles.titleBlock}>
           <div className={styles.titleRow}>
             <h4 className={styles.title}>{title}</h4>
-            <span className={styles.badge}>Em breve</span>
+            <span className={styles.badge}>Coming Soon</span>
           </div>
           <p className={styles.description}>{description}</p>
         </div>
@@ -61,7 +61,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
 
       <div className={styles.footer}>
         <span className={styles.pulse} />
-        Aguardando disponibilização dos recursos de IA pelo TI
+        Waiting for IT to enable AI resources
       </div>
     </div>
   );

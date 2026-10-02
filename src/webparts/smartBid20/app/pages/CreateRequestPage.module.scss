@@ -295,6 +295,33 @@
   }
 }
 
+.surveyBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--package-accent);
+  border-left-width: 4px;
+  background: var(--card-bg-elevated);
+  color: var(--text-primary);
+  font-size: 13px;
+
+  button {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--danger);
+    }
+  }
+}
+
 /* ── People Picker ── */
 .peoplePickerWrapper {
   position: relative;

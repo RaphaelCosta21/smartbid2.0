@@ -112,7 +112,7 @@ export const SuppliersRegistry: React.FC = () => {
     } catch (err) {
       console.error("[Suppliers] falha ao carregar", err);
       setError(
-        "Não foi possível carregar os fornecedores. Verifique se a lista smartbid-suppliers existe neste site.",
+        "Could not load suppliers. Check that the smartbid-suppliers list exists on this site.",
       );
     } finally {
       setLoading(false);
@@ -189,7 +189,7 @@ export const SuppliersRegistry: React.FC = () => {
 
   const submit = async (): Promise<void> => {
     if (!form.name.trim()) {
-      addToast({ type: "warning", title: "Informe o nome do fornecedor." });
+      addToast({ type: "warning", title: "Enter the supplier name." });
       return;
     }
     setSaving(true);
@@ -205,10 +205,10 @@ export const SuppliersRegistry: React.FC = () => {
     try {
       if (editing === "new") {
         await SupplierService.create(input, logoFile);
-        addToast({ type: "success", title: "Fornecedor adicionado." });
+        addToast({ type: "success", title: "Supplier added." });
       } else if (typeof editing === "number") {
         await SupplierService.update(editing, input, logoFile, removeLogo);
-        addToast({ type: "success", title: "Fornecedor atualizado." });
+        addToast({ type: "success", title: "Supplier updated." });
       }
       closeForm();
       await load();
@@ -216,7 +216,7 @@ export const SuppliersRegistry: React.FC = () => {
       console.error("[Suppliers] falha ao salvar", err);
       addToast({
         type: "error",
-        title: "Não foi possível salvar o fornecedor.",
+        title: "Could not save the supplier.",
       });
     } finally {
       setSaving(false);
@@ -224,18 +224,18 @@ export const SuppliersRegistry: React.FC = () => {
   };
 
   const remove = async (s: ISupplier): Promise<void> => {
-    if (!window.confirm(`Remover o fornecedor "${s.name}"?`)) return;
+    if (!window.confirm(`Remove supplier "${s.name}"?`)) return;
     setDeletingId(s.id);
     try {
       await SupplierService.remove(s.id);
-      addToast({ type: "info", title: "Fornecedor removido." });
+      addToast({ type: "info", title: "Supplier removed." });
       if (editing === s.id) closeForm();
       await load();
     } catch (err) {
       console.error("[Suppliers] falha ao remover", err);
       addToast({
         type: "error",
-        title: "Não foi possível remover o fornecedor.",
+        title: "Could not remove the supplier.",
       });
     } finally {
       setDeletingId(null);
@@ -264,13 +264,13 @@ export const SuppliersRegistry: React.FC = () => {
       <div className={styles.toolbar}>
         <input
           className={styles.search}
-          placeholder="Buscar por nome, país, categoria ou PN…"
+          placeholder="Search by name, country, category or PN…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
         {editing === null && (
           <button className={styles.btnPrimary} onClick={openNew}>
-            ＋ Adicionar fornecedor
+            ＋ Add supplier
           </button>
         )}
       </div>
@@ -279,7 +279,7 @@ export const SuppliersRegistry: React.FC = () => {
         <div className={styles.card}>
           <div className={styles.cardHeader}>
             <h3 className={styles.cardTitle}>
-              {editing === "new" ? "Novo fornecedor" : "Editar fornecedor"}
+              {editing === "new" ? "New supplier" : "Edit supplier"}
             </h3>
           </div>
           <div className={styles.cardBody}>
@@ -288,7 +288,7 @@ export const SuppliersRegistry: React.FC = () => {
                 <label className={styles.label}>
                   Logo{" "}
                   <span className={styles.hint}>
-                    (PNG, JPG, WEBP, SVG ou GIF — até 1 MB)
+                    (PNG, JPG, WEBP, SVG or GIF — up to 1 MB)
                   </span>
                 </label>
                 <div className={styles.logoField}>
@@ -307,7 +307,7 @@ export const SuppliersRegistry: React.FC = () => {
                     onClick={() => fileInputRef.current?.click()}
                     disabled={saving}
                   >
-                    {logoPreview ? "Trocar imagem" : "Escolher imagem"}
+                    {logoPreview ? "Change image" : "Choose image"}
                   </button>
                   {logoPreview && (
                     <button
@@ -315,14 +315,14 @@ export const SuppliersRegistry: React.FC = () => {
                       onClick={clearLogo}
                       disabled={saving}
                     >
-                      Remover logo
+                      Remove logo
                     </button>
                   )}
                 </div>
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>Nome do fornecedor *</label>
+                <label className={styles.label}>Supplier name *</label>
                 <input
                   className={styles.input}
                   value={form.name}
@@ -330,7 +330,7 @@ export const SuppliersRegistry: React.FC = () => {
                 />
               </div>
               <div className={styles.field}>
-                <label className={styles.label}>País</label>
+                <label className={styles.label}>Country</label>
                 <input
                   className={styles.input}
                   value={form.country}
@@ -339,8 +339,8 @@ export const SuppliersRegistry: React.FC = () => {
               </div>
               <div className={styles.field}>
                 <label className={styles.label}>
-                  Categorias{" "}
-                  <span className={styles.hint}>(separadas por vírgula)</span>
+                  Categories{" "}
+                  <span className={styles.hint}>(comma-separated)</span>
                 </label>
                 <input
                   className={styles.input}
@@ -352,7 +352,7 @@ export const SuppliersRegistry: React.FC = () => {
               <div className={styles.field}>
                 <label className={styles.label}>
                   Part Numbers{" "}
-                  <span className={styles.hint}>(um por linha)</span>
+                  <span className={styles.hint}>(one per line)</span>
                 </label>
                 <textarea
                   className={styles.textarea}
@@ -362,12 +362,12 @@ export const SuppliersRegistry: React.FC = () => {
               </div>
 
               <div className={styles.fieldFull}>
-                <label className={styles.label}>Contatos</label>
+                <label className={styles.label}>Contacts</label>
                 {form.contacts.map((c, i) => (
                   <div key={i} className={styles.contactRow}>
                     <input
                       className={styles.input}
-                      placeholder="Nome"
+                      placeholder="Name"
                       value={c.name}
                       onChange={(e) => setContact(i, { name: e.target.value })}
                     />
@@ -379,7 +379,7 @@ export const SuppliersRegistry: React.FC = () => {
                     />
                     <input
                       className={styles.input}
-                      placeholder="Telefone"
+                      placeholder="Phone"
                       value={c.phone || ""}
                       onChange={(e) => setContact(i, { phone: e.target.value })}
                     />
@@ -387,19 +387,19 @@ export const SuppliersRegistry: React.FC = () => {
                       className={styles.iconBtn}
                       onClick={() => removeContactRow(i)}
                       disabled={form.contacts.length <= 1}
-                      title="Remover contato"
+                      title="Remove contact"
                     >
                       ✕
                     </button>
                   </div>
                 ))}
                 <button className={styles.linkBtn} onClick={addContactRow}>
-                  ＋ Adicionar contato
+                  ＋ Add contact
                 </button>
               </div>
 
               <div className={styles.fieldFull}>
-                <label className={styles.label}>Notas</label>
+                <label className={styles.label}>Notes</label>
                 <textarea
                   className={styles.textarea}
                   value={form.notes}
@@ -414,7 +414,7 @@ export const SuppliersRegistry: React.FC = () => {
                     checked={form.active}
                     onChange={(e) => set({ active: e.target.checked })}
                   />
-                  Fornecedor ativo
+                  Active supplier
                 </label>
               </div>
             </div>
@@ -425,7 +425,7 @@ export const SuppliersRegistry: React.FC = () => {
                 onClick={closeForm}
                 disabled={saving}
               >
-                Cancelar
+                Cancel
               </button>
               <button
                 className={styles.btnPrimary}
@@ -433,10 +433,10 @@ export const SuppliersRegistry: React.FC = () => {
                 disabled={saving}
               >
                 {saving
-                  ? "Salvando…"
+                  ? "Saving…"
                   : editing === "new"
-                    ? "Adicionar"
-                    : "Salvar alterações"}
+                    ? "Add"
+                    : "Save changes"}
               </button>
             </div>
           </div>
@@ -445,22 +445,22 @@ export const SuppliersRegistry: React.FC = () => {
 
       <div className={styles.sectionHeader}>
         <h3 className={styles.sectionTitle}>
-          Fornecedores <span className={styles.subtle}>({filtered.length})</span>
+          Suppliers <span className={styles.subtle}>({filtered.length})</span>
         </h3>
       </div>
 
       {loading ? (
         <div className={`${styles.card} ${styles.stateBox}`}>
           <span className={styles.spinner} />
-          <p className={styles.stateText}>Carregando fornecedores…</p>
+          <p className={styles.stateText}>Loading suppliers…</p>
         </div>
       ) : error ? (
         <div className={`${styles.card} ${styles.stateBox}`}>
           <span className={styles.stateIcon}>⚠️</span>
-          <p className={styles.stateTitle}>Erro ao carregar</p>
+          <p className={styles.stateTitle}>Failed to load</p>
           <p className={styles.stateText}>{error}</p>
           <button className={styles.btnGhost} onClick={() => void load()}>
-            Tentar novamente
+            Try again
           </button>
         </div>
       ) : filtered.length === 0 ? (
@@ -468,13 +468,13 @@ export const SuppliersRegistry: React.FC = () => {
           <span className={styles.stateIcon}>📇</span>
           <p className={styles.stateTitle}>
             {suppliers.length === 0
-              ? "Nenhum fornecedor cadastrado"
-              : "Nenhum resultado para a busca"}
+              ? "No suppliers yet"
+              : "No results for this search"}
           </p>
           <p className={styles.stateText}>
             {suppliers.length === 0
-              ? "Use o botão “Adicionar fornecedor” para cadastrar o primeiro."
-              : "Ajuste os termos da busca."}
+              ? "Use “Add supplier” to register the first one."
+              : "Try different search terms."}
           </p>
         </div>
       ) : (
@@ -490,14 +490,14 @@ export const SuppliersRegistry: React.FC = () => {
                 <SupplierLogo name={s.name} url={s.logoUrl} />
                 <div className={styles.supplierTitleBlock}>
                   <p className={styles.supplierName} title={s.name}>
-                    {s.name || "(sem nome)"}
+                    {s.name || "(no name)"}
                   </p>
-                  <p className={styles.subtle}>{s.country || "País não informado"}</p>
+                  <p className={styles.subtle}>{s.country || "Country not set"}</p>
                 </div>
                 {s.active ? (
-                  <span className={styles.badgeActive}>Ativo</span>
+                  <span className={styles.badgeActive}>Active</span>
                 ) : (
-                  <span className={styles.badgeInactive}>Inativo</span>
+                  <span className={styles.badgeInactive}>Inactive</span>
                 )}
               </div>
 
@@ -513,7 +513,7 @@ export const SuppliersRegistry: React.FC = () => {
 
               <div className={styles.supplierMeta}>
                 <div className={styles.metaRow}>
-                  <span className={styles.metaLabel}>Contato</span>
+                  <span className={styles.metaLabel}>Contact</span>
                   {s.contacts.length ? (
                     <span className={styles.metaValue}>
                       {s.contacts[0].name || s.contacts[0].email}
@@ -540,14 +540,14 @@ export const SuppliersRegistry: React.FC = () => {
 
               <div className={styles.supplierActions}>
                 <button className={styles.iconBtn} onClick={() => openEdit(s)}>
-                  Editar
+                  Edit
                 </button>
                 <button
                   className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
                   onClick={() => void remove(s)}
                   disabled={deletingId === s.id}
                 >
-                  {deletingId === s.id ? "…" : "Excluir"}
+                  {deletingId === s.id ? "…" : "Delete"}
                 </button>
               </div>
             </div>

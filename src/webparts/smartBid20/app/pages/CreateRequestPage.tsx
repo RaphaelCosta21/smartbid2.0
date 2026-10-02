@@ -7,6 +7,8 @@ import { PersonaCard } from "../components/common/PersonaCard";
 import { useRequestStore } from "../stores/useRequestStore";
 import { useBidStore } from "../stores/useBidStore";
 import { useConfigStore } from "../stores/useConfigStore";
+import { useSurveyStore } from "../stores/useSurveyStore";
+import { buildScopeItemsFromPackage } from "../utils/surveyPackage";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useSpfxContext } from "../config/SpfxContext";
 import { sanitizeText } from "../utils/validators";
@@ -89,6 +91,10 @@ export const CreateRequestPage: React.FC = () => {
   const config = useConfigStore((s) => s.config);
   const addRequest = useRequestStore((s) => s.setRequests);
   const requests = useRequestStore((s) => s.requests);
+  const surveyPrefill = useSurveyStore((s) => s.requestPrefill);
+  const surveyCatalog = useSurveyStore((s) => s.catalog);
+  const clearSurveyPrefill = useSurveyStore((s) => s.clearRequestPrefill);
+  const clearSurveyPackage = useSurveyStore((s) => s.clearPackage);
   const [step, setStep] = React.useState(0);
   const [form, setForm] = React.useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = React.useState<string[]>([]);
@@ -143,6 +149,33 @@ export const CreateRequestPage: React.FC = () => {
       (sl) => sl.isActive && sl.category === form.division,
     );
   }, [config?.serviceLines, form.division]);
+
+  const surveyPackageCount = surveyPrefill
+    ? surveyPrefill.reduce((sum, l) => sum + l.qty, 0)
+    : 0;
+
+  // A Survey Portal package pre-selects the Survey division / service line.
+  React.useEffect(() => {
+    if (!surveyPrefill || !config?.divisions) return;
+    const isSurvey = (o: { value: string; label: string }): boolean =>
+      /survey/i.test(o.value) || /survey/i.test(o.label);
+    const division = config.divisions.find((d) => d.isActive && isSurvey(d));
+    if (!division) return;
+    const serviceLine = (config.serviceLines || []).find(
+      (sl) => sl.isActive && sl.category === division.value && isSurvey(sl),
+    );
+    setForm((f) =>
+      f.division
+        ? f
+        : {
+            ...f,
+            division: division.value,
+            serviceLine: serviceLine ? serviceLine.value : f.serviceLine,
+          },
+    );
+  }, [surveyPrefill, config?.divisions, config?.serviceLines]);
+
+  React.useEffect(() => () => clearSurveyPrefill(), [clearSurveyPrefill]);
 
   // Project managers: sector=project, bidRole=manager, filtered by division
   const projectManagerOptions = React.useMemo(() => {
@@ -459,6 +492,10 @@ export const CreateRequestPage: React.FC = () => {
         assignedDate: null,
         rejectionReason: null,
         convertedBidNumber: null,
+        scopeItems:
+          surveyPrefill && surveyCatalog
+            ? buildScopeItemsFromPackage(surveyPrefill, surveyCatalog)
+            : undefined,
       };
 
       // 1. Save to SharePoint smartbid-tracker list (returns the SP item ID)
@@ -502,6 +539,8 @@ export const CreateRequestPage: React.FC = () => {
 
       // 6. Refresh bid store so other pages see the new bid
       await useBidStore.getState().refreshBids();
+
+      if (surveyPrefill) clearSurveyPackage();
 
       navigate("/requests");
     } catch (err) {
@@ -603,6 +642,18 @@ export const CreateRequestPage: React.FC = () => {
 
         {/* ── Form Body ── */}
         <div className={styles.formBody}>
+          {surveyPrefill && surveyPrefill.length > 0 && (
+            <div className={styles.surveyBanner}>
+              <span>
+                Survey package attached — {surveyPackageCount} unit(s) across{" "}
+                {surveyPrefill.length} equipment will be added to the Scope of
+                Supply.
+              </span>
+              <button type="button" onClick={clearSurveyPrefill}>
+                Detach
+              </button>
+            </div>
+          )}
           {errors.length > 0 && (
             <div className={styles.errorBox}>
               {errors.map((e, i) => (

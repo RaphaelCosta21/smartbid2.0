@@ -20,6 +20,8 @@ export const ROUTES = {
   pastBids: "/knowledge/past-bids",
   clarificationsDb: "/knowledge/clarifications",
   linksRecommendations: "/knowledge/links",
+  surveyEquipment: "/knowledge/survey/equipment",
+  surveySystem: "/knowledge/survey/system",
   analytics: "/analytics",
   reports: "/reports",
   periodPerformance: "/reports/period",

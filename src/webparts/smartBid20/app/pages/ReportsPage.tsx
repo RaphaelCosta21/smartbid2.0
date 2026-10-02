@@ -42,7 +42,7 @@ export const ReportsPage: React.FC = () => {
       route: ROUTES.periodPerformance,
       title: "Period Performance",
       description:
-        "Panorama consolidado: status, divisão, clientes, requesters e tendências mensais.",
+        "Consolidated overview: status, division, clients, requesters, and monthly trends.",
       color: chart.accentSecondary,
       series: createdSeries,
       icon: (
@@ -63,7 +63,7 @@ export const ReportsPage: React.FC = () => {
       route: ROUTES.bidDetailsReport,
       title: "BID Details",
       description:
-        "Relatório detalhado por BID: custos, horas, equipamentos, histórico e aprovações.",
+        "Detailed BID report: costs, hours, equipment, history, and approvals.",
       color: chart.accentTertiary,
       series: completedSeries,
       icon: (
@@ -85,7 +85,7 @@ export const ReportsPage: React.FC = () => {
       route: ROUTES.operationalSummary,
       title: "Operational Summary",
       description:
-        "Resumo operacional, workloads por divisão, throughput e tempo de aprovação por setor.",
+        "Operational overview, workloads by division, throughput, and approval time by department.",
       color: chart.accent,
       series: completedSeries,
       icon: (
@@ -105,7 +105,7 @@ export const ReportsPage: React.FC = () => {
     <div className={styles.page}>
       <PageHeader
         title="Reports & Export"
-        subtitle="Relatórios consolidados e exportação"
+        subtitle="Consolidated reports and exports"
         icon={
           <svg
             width="28"
@@ -126,18 +126,18 @@ export const ReportsPage: React.FC = () => {
       {bids.length === 0 ? (
         <EmptyState
           variant="glass"
-          title="Sem BIDs para relatar"
-          description="Assim que houver BIDs, os relatórios aparecerão aqui."
+          title="No BIDs to Report"
+          description="Reports will appear here once BIDs are available."
         />
       ) : (
         <>
           <div className={styles.heroGrid}>
             <KPICard
               variant="glass"
-              label="Total de BIDs"
+              label="Total BIDs"
               value={kpis.totalBids}
               accentColor={chart.accentSecondary}
-              subtitle="no período"
+              subtitle="in selected period"
               sparkline={
                 <Sparkline
                   data={createdSeries}
@@ -148,17 +148,17 @@ export const ReportsPage: React.FC = () => {
             />
             <KPICard
               variant="glass"
-              label="Em Andamento"
+              label="In Progress"
               value={kpis.activeBids}
               accentColor={chart.accent}
-              subtitle="BIDs ativos"
+              subtitle="active BIDs"
             />
             <KPICard
               variant="glass"
-              label="Concluídos"
+              label="Completed"
               value={completed}
               accentColor={chart.info}
-              subtitle="terminais"
+              subtitle="terminal statuses"
               sparkline={
                 <Sparkline
                   data={completedSeries}

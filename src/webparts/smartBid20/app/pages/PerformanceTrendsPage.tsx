@@ -47,9 +47,9 @@ import { formatPercentage, isPastDue } from "../utils/formatters";
 import styles from "./PerformanceTrendsPage.module.scss";
 
 const GRAN_SEGMENTS: SegmentOption<Granularity>[] = [
-  { value: "week", label: "Semana" },
-  { value: "month", label: "Mês" },
-  { value: "quarter", label: "Trim." },
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+  { value: "quarter", label: "Qtr." },
 ];
 
 const MS_DAY = 86400000;
@@ -155,7 +155,7 @@ export const PerformanceTrendsPage: React.FC = () => {
     <div className={styles.page}>
       <PageHeader
         title="Performance Trends"
-        subtitle="Tendências de volume, conclusão, win rate e entregas no prazo"
+        subtitle="Trends in volume, completion, win rate, and on-time delivery"
         icon={
           <svg
             width="28"
@@ -185,7 +185,7 @@ export const PerformanceTrendsPage: React.FC = () => {
             segments={GRAN_SEGMENTS}
             onChange={setGran}
             size="sm"
-            ariaLabel="Granularidade"
+            ariaLabel="Granularity"
           />
         }
       />
@@ -193,14 +193,14 @@ export const PerformanceTrendsPage: React.FC = () => {
       {filtered.length === 0 ? (
         <EmptyState
           variant="glass"
-          title="Nenhum BID no filtro atual"
-          description="Ajuste o período ou os filtros para visualizar as tendências."
+          title="No BIDs Match Current Filters"
+          description="Adjust the period or filters to view trends."
         />
       ) : (
         <>
           <div className={styles.kpiRow}>
             <KPICard
-              label="Total de BIDs"
+              label="Total BIDs"
               value={stats.total}
               variant="glass"
               accentColor={chart.accentSecondary}
@@ -208,7 +208,7 @@ export const PerformanceTrendsPage: React.FC = () => {
                 value: String(Math.abs(volDelta.value)),
                 direction: volDelta.direction,
               }}
-              subtitle="criados no período"
+              subtitle="created in selected period"
               sparkline={
                 <Sparkline
                   data={createdSpark}
@@ -218,11 +218,11 @@ export const PerformanceTrendsPage: React.FC = () => {
               }
             />
             <KPICard
-              label="Tempo Médio de Conclusão"
+              label="Average Completion Time"
               value={`${stats.avgCompletion}d`}
               variant="glass"
               accentColor={chart.accentTertiary}
-              subtitle={`meta ${DEFAULT_KPI_TARGETS.targetAvgCompletionDays}d`}
+              subtitle={`target ${DEFAULT_KPI_TARGETS.targetAvgCompletionDays}d`}
               sparkline={
                 <Sparkline
                   data={compSpark}
@@ -240,7 +240,7 @@ export const PerformanceTrendsPage: React.FC = () => {
                 value: `${Math.abs(winDelta.value)}`,
                 direction: winDelta.direction,
               }}
-              subtitle={`meta ${DEFAULT_KPI_TARGETS.targetWinRate}%`}
+              subtitle={`target ${DEFAULT_KPI_TARGETS.targetWinRate}%`}
               sparkline={
                 <Sparkline data={winSpark} color={chart.success} height={34} />
               }
@@ -254,7 +254,7 @@ export const PerformanceTrendsPage: React.FC = () => {
                 value: `${Math.abs(otdDelta.value)}`,
                 direction: otdDelta.direction,
               }}
-              subtitle={`meta ${DEFAULT_KPI_TARGETS.targetOnTimeDelivery}%`}
+              subtitle={`target ${DEFAULT_KPI_TARGETS.targetOnTimeDelivery}%`}
               sparkline={
                 <Sparkline data={otdSpark} color={chart.info} height={34} />
               }
@@ -262,8 +262,8 @@ export const PerformanceTrendsPage: React.FC = () => {
           </div>
 
           <GlassCard
-            title="Volume de BIDs"
-            subtitle="Criados vs. concluídos ao longo do tempo"
+            title="BID Volume"
+            subtitle="Created vs. completed over time"
             accentColor={chart.accentSecondary}
             className={styles.spanAll}
           >
@@ -304,7 +304,7 @@ export const PerformanceTrendsPage: React.FC = () => {
                 <Area
                   type="monotone"
                   dataKey="created"
-                  name="Criados"
+                  name="Created"
                   stroke={chart.accentSecondary}
                   strokeWidth={2}
                   fill="url(#volArea)"
@@ -312,7 +312,7 @@ export const PerformanceTrendsPage: React.FC = () => {
                 <Line
                   type="monotone"
                   dataKey="completed"
-                  name="Concluídos"
+                  name="Completed"
                   stroke={chart.accent}
                   strokeWidth={2}
                   dot={false}
@@ -330,8 +330,8 @@ export const PerformanceTrendsPage: React.FC = () => {
 
           <div className={styles.chartsGrid}>
             <GlassCard
-              title="Tempo Médio de Conclusão"
-              subtitle="Dias da criação à conclusão"
+              title="Average Completion Time"
+              subtitle="Days from creation to completion"
               accentColor={chart.accentTertiary}
             >
               <ResponsiveContainer width="100%" height={260}>
@@ -371,7 +371,7 @@ export const PerformanceTrendsPage: React.FC = () => {
                   <Line
                     type="monotone"
                     dataKey="avgDays"
-                    name="Dias médios"
+                    name="Average Days"
                     stroke={chart.accentTertiary}
                     strokeWidth={2.5}
                     dot={{ r: 3, strokeWidth: 0, fill: chart.accentTertiary }}
@@ -383,7 +383,7 @@ export const PerformanceTrendsPage: React.FC = () => {
 
             <GlassCard
               title="Win Rate"
-              subtitle="Percentual de BIDs ganhos entre os decididos"
+              subtitle="Percentage of decided BIDs won"
               accentColor={chart.success}
             >
               <ResponsiveContainer width="100%" height={260}>
@@ -447,15 +447,15 @@ export const PerformanceTrendsPage: React.FC = () => {
           </div>
 
           <GlassCard
-            title="Entregas no Prazo (OTD)"
-            subtitle="No prazo vs. atrasadas, por período de conclusão"
+            title="On-Time Delivery (OTD)"
+            subtitle="On time vs. late, by completion period"
             accentColor={chart.info}
             className={styles.spanAll}
             actions={
               <SegmentedControl<"count" | "percent">
                 value={otdMode}
                 segments={[
-                  { value: "count", label: "Qtd" },
+                  { value: "count", label: "Count" },
                   { value: "percent", label: "%" },
                 ]}
                 onChange={setOtdMode}
@@ -495,7 +495,7 @@ export const PerformanceTrendsPage: React.FC = () => {
                 <Legend wrapperStyle={legendStyle} />
                 <Bar
                   dataKey="onTime"
-                  name="No prazo"
+                  name="On time"
                   stackId="otd"
                   fill={chart.success}
                   radius={[4, 4, 0, 0]}
@@ -503,7 +503,7 @@ export const PerformanceTrendsPage: React.FC = () => {
                 />
                 <Bar
                   dataKey="late"
-                  name="Atrasadas"
+                  name="Late"
                   stackId="otd"
                   fill={chart.danger}
                   radius={[4, 4, 0, 0]}
@@ -514,8 +514,8 @@ export const PerformanceTrendsPage: React.FC = () => {
           </GlassCard>
 
           <GlassCard
-            title="ERNs Criadas ao Longo do Tempo"
-            subtitle="Volume de ERNs vinculadas por período (respeita os filtros)"
+            title="ERNs Created Over Time"
+            subtitle="Linked ERN volume by period (respects filters)"
             accentColor={chart.info}
             className={styles.spanAll}
           >
@@ -565,12 +565,12 @@ export const PerformanceTrendsPage: React.FC = () => {
 
           <AIInsightsPanel
             className={styles.spanAll}
-            description="Quando os recursos de IA estiverem disponíveis, esta seção fará previsão de tendências e antecipará desvios de volume, prazo e win rate."
+            description="When AI resources are available, this section will forecast trends and flag deviations in volume, timelines, and win rate."
             features={[
-              "Forecast de volume de BIDs",
-              "Previsão de prazo de conclusão",
-              "Projeção de win rate",
-              "Alertas de desvio",
+              "BID volume forecast",
+              "Completion time forecast",
+              "Win rate projection",
+              "Deviation alerts",
             ]}
           />
         </>

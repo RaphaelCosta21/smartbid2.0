@@ -43,6 +43,36 @@
   --scrollbar-thumb: #cbd5e1;
   --scrollbar-track: #f1f5f9;
 
+  /* Survey Portal "bid package" accent */
+  --package-accent: #ffc72c;
+  --package-accent-contrast: #003b5c;
+
+  /* Survey Portal — OII palette (Figma "Survey Knowledge & BID Portal"), same in both themes */
+  --survey-navy: #003b5c;
+  --survey-navy-deep: #00263e;
+  --survey-slate: #5b7f95;
+  --survey-muted: #7a99ac;
+  --survey-teal: #0097a9;
+  --survey-green: #009b77;
+  --survey-alert: #dc4405;
+  --survey-red: #c8102e;
+  --survey-silver: #b0bac1;
+  --survey-ice: #f4fbff;
+  --survey-cream: #fff7ed;
+  --survey-line: #d7e2ec;
+  --survey-chip-bg: #f1f5f9;
+  --survey-glass: rgba(255, 255, 255, 0.3);
+  --survey-glass-strong: rgba(255, 255, 255, 0.42);
+  --survey-glass-border: rgba(0, 151, 169, 0.28);
+  --survey-bar: rgba(0, 38, 62, 0.72);
+  --survey-bar-border: rgba(91, 127, 149, 0.4);
+  --survey-field: rgba(0, 38, 62, 0.88);
+  --survey-hero-overlay: rgba(0, 38, 62, 0.52);
+  --survey-marker-bg: rgba(0, 38, 62, 0.62);
+  --survey-shadow: 0 4px 20px rgba(0, 59, 92, 0.1);
+  --survey-glow: 0 0 12px rgba(0, 151, 169, 0.45);
+  --survey-teal-glow: rgba(0, 151, 169, 0.55);
+
   /* Sidebar always has dark bg — text must stay light */
   --sidebar-text-primary: #f1f5f9;
   --sidebar-text-secondary: #94a3b8;

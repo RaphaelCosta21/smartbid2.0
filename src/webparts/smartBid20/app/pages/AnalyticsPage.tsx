@@ -79,7 +79,7 @@ export const AnalyticsPage: React.FC = () => {
       route: ROUTES.performanceTrends,
       title: "Performance Trends",
       description:
-        "Volume, tempo médio de conclusão, win rate e entregas no prazo ao longo do tempo.",
+        "Volume, average completion time, win rate, and on-time delivery over time.",
       color: chart.accentSecondary,
       series: createdSeries,
       icon: (
@@ -99,7 +99,7 @@ export const AnalyticsPage: React.FC = () => {
       route: ROUTES.bottleneckAnalysis,
       title: "Bottleneck Analysis",
       description:
-        "Tempo por fase e status, BIDs mais demorados e carga por divisão.",
+        "Time by phase and status, longest-running BIDs, and workload by division.",
       color: chart.warning,
       series: completionSeries,
       icon: (
@@ -119,7 +119,7 @@ export const AnalyticsPage: React.FC = () => {
       route: ROUTES.teamAnalytics,
       title: "Team Analytics",
       description:
-        "Desempenho e carga da equipe: BIDs por owner, entrega média e balanceamento.",
+        "Team performance and workload: BIDs by owner, average delivery, and balance.",
       color: chart.accent,
       series: completedSeries,
       icon: (
@@ -143,7 +143,7 @@ export const AnalyticsPage: React.FC = () => {
     <div className={styles.page}>
       <PageHeader
         title="Analytics"
-        subtitle="Visão geral de desempenho, gargalos e equipe"
+        subtitle="Overview of performance, bottlenecks, and team"
         icon={
           <svg
             width="28"
@@ -163,14 +163,14 @@ export const AnalyticsPage: React.FC = () => {
       {bids.length === 0 ? (
         <EmptyState
           variant="glass"
-          title="Sem BIDs para analisar"
-          description="Assim que houver BIDs registrados, os indicadores e gráficos aparecerão aqui."
+          title="No BIDs to Analyze"
+          description="Metrics and charts will appear here once BIDs are recorded."
         />
       ) : (
         <>
           <div className={styles.heroGrid}>
             <KPICard
-              label="Total de BIDs"
+              label="Total BIDs"
               value={kpis.totalBids}
               variant="glass"
               accentColor={chart.accentSecondary}
@@ -178,7 +178,7 @@ export const AnalyticsPage: React.FC = () => {
                 value: `${Math.abs(volumeDelta.value)}`,
                 direction: volumeDelta.direction,
               }}
-              subtitle="no período carregado"
+              subtitle="in selected period"
               sparkline={
                 <Sparkline
                   data={createdSeries}
@@ -188,11 +188,11 @@ export const AnalyticsPage: React.FC = () => {
               }
             />
             <KPICard
-              label="Em Andamento"
+              label="In Progress"
               value={kpis.activeBids}
               variant="glass"
               accentColor={chart.accent}
-              subtitle="BIDs ativos"
+              subtitle="active BIDs"
             />
             <KPICard
               label="Win Rate"
@@ -202,11 +202,11 @@ export const AnalyticsPage: React.FC = () => {
               subtitle="won / decididos"
             />
             <KPICard
-              label="Ciclo Médio"
+              label="Average Cycle"
               value={`${Math.round(kpis.avgCycleTimeDays)}d`}
               variant="glass"
               accentColor={chart.accentTertiary}
-              subtitle="criação → conclusão"
+              subtitle="creation → completion"
               sparkline={
                 <Sparkline
                   data={completionSeries}
@@ -216,18 +216,18 @@ export const AnalyticsPage: React.FC = () => {
               }
             />
             <KPICard
-              label="Taxa de Atraso"
+              label="Overdue Rate"
               value={formatPercentage(kpis.overdueRate)}
               variant="glass"
               accentColor={chart.danger}
-              subtitle="dos BIDs ativos"
+              subtitle="of active BIDs"
             />
             <KPICard
               label="Pipeline"
               value={formatCurrencyCompact(kpis.totalPipelineValueUSD)}
               variant="glass"
               accentColor={chart.info}
-              subtitle="valor estimado ativo"
+              subtitle="estimated active value"
             />
           </div>
 
@@ -276,7 +276,7 @@ export const AnalyticsPage: React.FC = () => {
           </div>
 
           <GlassCard
-            title="Carga por Divisão"
+            title="Workload by Division"
             titleIcon={
               <svg
                 width="18"
@@ -294,7 +294,7 @@ export const AnalyticsPage: React.FC = () => {
             }
           >
             {divLoad.length === 0 ? (
-              <EmptyState title="Nenhum BID ativo" />
+              <EmptyState title="No Active BIDs" />
             ) : (
               <ResponsiveContainer width="100%" height={chartHeight}>
                 <BarChart
@@ -329,7 +329,7 @@ export const AnalyticsPage: React.FC = () => {
                   />
                   <Bar
                     dataKey="active"
-                    name="Ativos"
+                    name="Active"
                     radius={[0, 6, 6, 0]}
                     barSize={22}
                   >

@@ -51,17 +51,17 @@ export const EasiModuleFrame: React.FC<EasiModuleFrameProps> = ({
       {state === "loading" && (
         <div className={styles.stateBox}>
           <span className={styles.spinner} />
-          <p className={styles.stateText}>Carregando dados dos BIDs…</p>
+          <p className={styles.stateText}>Loading BID data…</p>
         </div>
       )}
 
       {state === "empty" && (
         <div className={styles.stateBox}>
           <span className={styles.stateIcon}>📭</span>
-          <p className={styles.stateTitle}>Nenhum dado disponível</p>
+          <p className={styles.stateTitle}>No data available</p>
           <p className={styles.stateText}>
-            Os BIDs deste módulo ficam em outro site do SharePoint. Abra a
-            ferramenta no site que contém a lista de BIDs para visualizar os dados.
+            This module's BIDs live on another SharePoint site. Open the tool on
+            the site that holds the BID list to see the data.
           </p>
         </div>
       )}

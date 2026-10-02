@@ -1,0 +1,663 @@
+.root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.canvasHost {
+  position: absolute;
+  inset: 0;
+
+  canvas {
+    display: block;
+    outline: none;
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+}
+
+.labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.anchor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  transition: opacity 250ms ease;
+  will-change: transform;
+}
+
+/* Zone blocks: text only, with a stem pointing at the zone location */
+.zoneLabel {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--survey-ice);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: transform 250ms ease;
+  --zone-tone: var(--survey-ice);
+
+  &:hover {
+    transform: translateX(-50%) translateY(-3px);
+    --zone-tone: var(--package-accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--zone-tone);
+    outline-offset: 4px;
+  }
+}
+
+/* Hovering the room on the vessel lights its label */
+.zoneHot {
+  transform: translateX(-50%) translateY(-3px);
+  --zone-tone: var(--package-accent);
+}
+
+/* Stem tiers keep neighbouring rooms' labels apart */
+.stemLow .zoneStem {
+  height: 12px;
+}
+
+.stemMid .zoneStem {
+  height: 44px;
+}
+
+.stemHigh .zoneStem {
+  height: 100px;
+}
+
+.stemTop .zoneStem {
+  height: 110px;
+}
+
+/* Below the keel: stem points up at the hull, text underneath */
+.zoneDown {
+  bottom: auto;
+  top: 0;
+  flex-direction: column-reverse;
+
+  .zoneStem {
+    height: 20px;
+    margin: 0 0 4px;
+
+    &::after {
+      bottom: auto;
+      top: -4px;
+    }
+  }
+}
+
+.zoneText {
+  padding-bottom: 3px;
+  border-bottom: 3px solid var(--zone-tone);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow: 0 2px 10px var(--survey-navy-deep);
+  transition: color 200ms ease;
+}
+
+.zoneCount {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--zone-tone);
+  text-shadow: 0 1px 6px var(--survey-navy-deep);
+}
+
+.zoneStem {
+  position: relative;
+  width: 2px;
+  height: 34px;
+  margin-top: 4px;
+  background: var(--zone-tone);
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--zone-tone);
+    transform: translateX(-50%);
+  }
+}
+
+/* Exploded zone */
+.clusterLabel {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: var(--survey-navy-deep);
+  border-left: 3px solid var(--package-accent);
+  color: var(--survey-ice);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Every other cluster title sits higher so narrow neighbours don't collide */
+.clusterAlt {
+  bottom: 18px;
+}
+
+.nodeLabel {
+  position: absolute;
+  left: 0;
+  top: 22px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 140px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--survey-teal);
+  background: var(--survey-navy-deep);
+  color: var(--survey-ice);
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.nodeCompact {
+  max-width: 84px;
+  padding: 2px 6px;
+  font-size: 8px;
+}
+
+.nodeActive {
+  border-color: var(--package-accent);
+  background: var(--package-accent);
+  color: var(--survey-navy-deep);
+}
+
+/* Not considered in the compared BID */
+.nodeOut {
+  border-color: var(--survey-slate);
+  color: var(--survey-muted);
+}
+
+/* Gateway to another room */
+.nodePortal {
+  border-color: var(--survey-green);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+
+  &:hover {
+    background: var(--survey-green);
+  }
+}
+
+.portalArrow {
+  flex-shrink: 0;
+  color: var(--survey-green);
+
+  .nodePortal:hover & {
+    color: var(--survey-ice);
+  }
+}
+
+.nodeTag {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--survey-muted);
+  color: var(--survey-navy-deep);
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.breadcrumb {
+  position: absolute;
+  top: calc(var(--scene-top, 0px) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 5px;
+  border-radius: 999px;
+  background: var(--survey-navy-deep);
+  color: var(--survey-ice);
+  font-size: 10px;
+  white-space: nowrap;
+  box-shadow: var(--survey-shadow);
+
+  strong {
+    color: var(--package-accent);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+}
+
+.crumbBack {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: none;
+  background: var(--package-accent);
+  color: var(--survey-navy-deep);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sceneTools {
+  position: absolute;
+  top: calc(var(--scene-top, 0px) + 12px);
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.linesToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--survey-slate);
+  background: var(--survey-navy-deep);
+  color: var(--survey-ice);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 250ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.linesOff {
+  border-color: var(--survey-ice);
+  background: var(--survey-ice);
+  color: var(--survey-navy-deep);
+}
+
+.tourButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--package-accent);
+  background: var(--survey-navy-deep);
+  color: var(--package-accent);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 250ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.bottomStack {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(620px, 90%);
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+}
+
+.tourCard {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border-top: 3px solid var(--package-accent);
+  background: var(--survey-navy-deep);
+  color: var(--survey-ice);
+  box-shadow: var(--survey-shadow);
+  animation: tourIn 350ms ease both;
+}
+
+@keyframes tourIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.tourHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.tourStep {
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--package-accent);
+  color: var(--survey-navy-deep);
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.tourIcon {
+  margin-left: auto;
+  display: inline-flex;
+  padding: 3px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--survey-ice);
+  cursor: pointer;
+}
+
+.tourCaption {
+  margin: 6px 0 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--survey-ice);
+}
+
+.tourActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--survey-teal);
+    background: var(--survey-navy);
+    color: var(--survey-ice);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:last-child {
+      border-color: var(--package-accent);
+      background: var(--package-accent);
+      color: var(--survey-navy-deep);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+  }
+}
+
+.tracePath {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border-left: 3px solid var(--survey-alert);
+  background: var(--survey-navy-deep);
+}
+
+.traceTitle {
+  margin-right: 4px;
+  color: var(--survey-alert);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.traceArrow {
+  color: var(--survey-alert);
+}
+
+.traceHop {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.traceCable {
+  color: var(--survey-muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.traceChip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--survey-alert);
+  background: var(--survey-navy);
+  color: var(--survey-ice);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--survey-navy-deep);
+}
+
+.cableInfo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-navy-deep);
+  color: var(--survey-ice);
+  font-size: 10px;
+  box-shadow: var(--survey-shadow);
+  animation: tourIn 200ms ease both;
+
+  strong {
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+  }
+}
+
+.cableIcon {
+  flex-shrink: 0;
+  color: var(--package-accent);
+}
+
+.cableDetail {
+  overflow: hidden;
+  color: var(--survey-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--survey-ice);
+  font-size: 9px;
+}
+
+.legendSwatch {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.swatchData {
+  background: var(--survey-teal);
+}
+
+.swatchPower {
+  background: var(--survey-alert);
+}
+
+.swatchVideo {
+  background: var(--package-accent);
+}
+
+.swatchRf {
+  background: var(--survey-muted);
+}
+
+.swatchSubsea {
+  background: var(--survey-green);
+}
+
+.swatchFibre {
+  background: var(--survey-slate);
+}
+
+.swatchAcoustic {
+  background: var(--survey-silver);
+}
+
+.swatchTiming {
+  background: var(--survey-ice);
+}
+
+.hint {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 6px;
+  color: var(--survey-ice);
+  font-size: 9px;
+  outline: none;
+
+  kbd {
+    display: inline-block;
+    min-width: 14px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    border: 1px solid var(--survey-glass-border);
+    background: var(--survey-navy);
+    color: var(--survey-ice);
+    font-family: inherit;
+    font-size: 8px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  &:hover .hintList,
+  &:focus-within .hintList {
+    opacity: 1;
+    transform: none;
+    visibility: visible;
+  }
+
+  &:focus-visible .hintTip {
+    outline: 2px solid var(--package-accent);
+    outline-offset: 2px;
+  }
+}
+
+.hintTip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-navy-deep);
+  cursor: help;
+}
+
+.hintList {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 5px 12px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-navy-deep);
+  box-shadow: var(--survey-shadow);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity 200ms ease, transform 200ms ease, visibility 200ms;
+
+  dt {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    white-space: nowrap;
+  }
+
+  dd {
+    margin: 0;
+    color: var(--survey-muted);
+    white-space: nowrap;
+  }
+}
+
+.fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--survey-navy);
+  font-size: 13px;
+}

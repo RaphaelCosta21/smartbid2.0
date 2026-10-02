@@ -13,7 +13,7 @@ export const EasiSuppliersPage: React.FC = () => {
     <div className={styles.page}>
       <PageHeader
         title="Suppliers"
-        subtitle="Cadastro de fornecedores do SMART BID 2.0"
+        subtitle="SMART BID 2.0 supplier registry"
         icon={
           <svg
             width="28"

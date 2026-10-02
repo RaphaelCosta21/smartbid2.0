@@ -81,6 +81,14 @@ export const NAVIGATION_ITEMS: INavItem[] = [
 
   // KNOWLEDGE BASE
   {
+    key: "survey-portal",
+    label: "Survey Portal",
+    icon: "Radar",
+    route: "/knowledge/survey/equipment",
+    section: "knowledge",
+    requiredAccess: "engineering",
+  },
+  {
     key: "assets-catalog",
     label: "Assets Catalog",
     icon: "Package",

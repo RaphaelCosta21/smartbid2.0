@@ -47,6 +47,8 @@ import { TechnicalProposalsPage } from "../../pages/TechnicalProposalsPage";
 import { PastBidsPage } from "../../pages/PastBidsPage";
 import { ClarificationsDbPage } from "../../pages/ClarificationsDbPage";
 import { LinksRecommendationsPage } from "../../pages/LinksRecommendationsPage";
+import { SurveyEquipmentPage } from "../../pages/SurveyEquipmentPage";
+import { SurveySystemPage } from "../../pages/SurveySystemPage";
 import { AnalyticsPage } from "../../pages/AnalyticsPage";
 import { PerformanceTrendsPage } from "../../pages/PerformanceTrendsPage";
 import { BottleneckAnalysisPage } from "../../pages/BottleneckAnalysisPage";
@@ -227,7 +229,11 @@ const AppLayoutInner: React.FC<{
 
         {isGuestUser && <GuestModeBanner />}
 
-        <div className={styles.contentArea}>
+        <div
+          className={`${styles.contentArea} ${
+            location.pathname === ROUTES.surveySystem ? styles.contentFlush : ""
+          }`}
+        >
           <Routes>
             <Route path={ROUTES.tracker} element={<BidTrackerPage />} />
             <Route path={ROUTES.dashboard} element={<DashboardPage />} />
@@ -300,6 +306,22 @@ const AppLayoutInner: React.FC<{
               element={
                 <RequireEngineering>
                   <LinksRecommendationsPage />
+                </RequireEngineering>
+              }
+            />
+            <Route
+              path={ROUTES.surveyEquipment}
+              element={
+                <RequireEngineering>
+                  <SurveyEquipmentPage />
+                </RequireEngineering>
+              }
+            />
+            <Route
+              path={ROUTES.surveySystem}
+              element={
+                <RequireEngineering>
+                  <SurveySystemPage />
                 </RequireEngineering>
               }
             />

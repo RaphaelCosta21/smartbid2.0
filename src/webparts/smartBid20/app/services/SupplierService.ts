@@ -32,8 +32,8 @@ export const LOGO_MAX_BYTES = 1024 * 1024;
 /** Returns an error message, or null when the file is an acceptable logo. */
 export function validateLogo(file: File): string | null {
   if (LOGO_TYPES.indexOf(file.type) === -1)
-    return "Use uma imagem PNG, JPG, WEBP, SVG ou GIF.";
-  if (file.size > LOGO_MAX_BYTES) return "A imagem deve ter no máximo 1 MB.";
+    return "Use a PNG, JPG, WEBP, SVG or GIF image.";
+  if (file.size > LOGO_MAX_BYTES) return "The image must be 1 MB or smaller.";
   return null;
 }
 

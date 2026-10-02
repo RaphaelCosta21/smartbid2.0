@@ -1,0 +1,423 @@
+.root {
+  display: flex;
+  flex-direction: column;
+}
+
+/* One compact bar: search, BID, diagram, view, import, package */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+  background: var(--survey-bar);
+  border-bottom: 1px solid var(--survey-bar-border);
+}
+
+.searchWrap {
+  position: relative;
+  flex: 0 1 420px;
+  min-width: 220px;
+}
+
+.clearBtn {
+  display: inline-flex;
+  padding: 3px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--survey-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--survey-ice);
+  }
+}
+
+.hits {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-navy-deep);
+  box-shadow: var(--survey-shadow);
+}
+
+.hit {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--survey-ice);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--survey-navy);
+    outline: none;
+  }
+}
+
+.hitTitle {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hitMeta {
+  flex-shrink: 0;
+  color: var(--survey-teal);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hitEmpty {
+  padding: 8px;
+  color: var(--survey-muted);
+  font-size: 11px;
+}
+
+.bidPicker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.bidBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-field);
+  color: var(--survey-ice);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 250ms ease;
+
+  &:hover {
+    border-color: var(--survey-teal);
+  }
+
+  svg {
+    color: var(--survey-teal);
+  }
+}
+
+.bidBtnActive {
+  border-color: var(--package-accent);
+  background: var(--survey-navy);
+  color: var(--package-accent);
+  font-weight: 700;
+
+  svg {
+    color: var(--package-accent);
+  }
+}
+
+.bidLabel {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bidClear {
+  display: inline-flex;
+  margin-left: 4px;
+  padding: 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--survey-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--survey-ice);
+  }
+}
+
+.bidClient {
+  max-width: 160px;
+  overflow: hidden;
+  color: var(--survey-muted);
+  font-size: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bidPopover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 360px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-navy-deep);
+  box-shadow: var(--survey-shadow);
+}
+
+.bidSearch {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 4px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-navy);
+  color: var(--survey-ice);
+  font-size: 11px;
+  outline: none;
+
+  &:focus {
+    border-color: var(--survey-teal);
+  }
+
+  &::placeholder {
+    color: var(--survey-muted);
+  }
+}
+
+.bidList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.bidOption {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1px 8px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--survey-ice);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--survey-navy);
+  }
+}
+
+.bidOptionActive {
+  border-color: var(--package-accent);
+}
+
+.bidNumber {
+  color: var(--package-accent);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bidText {
+  overflow: hidden;
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bidMeta {
+  grid-column: 1 / -1;
+  color: var(--survey-muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bidEmpty {
+  padding: 8px;
+  color: var(--survey-muted);
+  font-size: 11px;
+}
+
+.selectChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-field);
+  color: var(--survey-ice);
+
+  select {
+    appearance: none;
+    max-width: 200px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: inherit;
+    font-size: 11px;
+    cursor: pointer;
+
+    option {
+      color: var(--survey-navy);
+      background: var(--survey-ice);
+    }
+  }
+
+  svg {
+    pointer-events: none;
+    color: var(--survey-teal);
+  }
+}
+
+.selectLabel {
+  color: var(--survey-teal);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-field);
+  color: var(--survey-muted);
+  cursor: pointer;
+  transition: border-color 250ms ease, color 250ms ease;
+
+  &:hover:not(:disabled) {
+    color: var(--survey-ice);
+    border-color: var(--survey-teal);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+}
+
+.packageBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 5px 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--package-accent);
+  background: var(--survey-navy);
+  color: var(--package-accent);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 250ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.packageCount {
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--package-accent);
+  color: var(--survey-navy);
+  font-weight: 700;
+  text-align: center;
+}
+
+.searchInput {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-field);
+  color: var(--survey-muted);
+  transition: border-color 250ms ease, box-shadow 250ms ease;
+
+  &:focus-within {
+    border-color: var(--survey-teal);
+    box-shadow: var(--survey-glow);
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--survey-ice);
+    font-size: 13px;
+
+    &::placeholder {
+      color: var(--survey-muted);
+    }
+  }
+}
+
+.aliasHint {
+  font-size: 9px;
+  color: var(--survey-teal);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.viewToggle {
+  display: inline-flex;
+  gap: 8px;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--survey-line);
+    background: var(--survey-chip-bg);
+    color: var(--survey-navy);
+    cursor: pointer;
+    transition: transform 250ms ease;
+
+    &:hover {
+      transform: translateY(-1px);
+    }
+  }
+}
+
+.viewActive {
+  background: var(--survey-navy) !important;
+  border-color: var(--survey-navy) !important;
+  color: var(--package-accent) !important;
+}
