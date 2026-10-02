@@ -676,6 +676,15 @@ export interface IApprovalOverride {
   approvalsAtOverride: IApprovalOverrideParticipant[];
 }
 
+/** Required approval sector marked as not required for a specific BID. */
+export interface IApprovalSectorWaiver {
+  sector: Sector;
+  sectorLabel: string;
+  reason: string;
+  waivedBy: IPersonRef;
+  waivedDate: string;
+}
+
 export interface IApprovalRound {
   round: number;
   startedDate: string;
@@ -686,6 +695,8 @@ export interface IApprovalRound {
   /** Per-sector durations computed & persisted when the round completes. */
   sectorDurations?: ISectorApprovalDuration[];
   override?: IApprovalOverride;
+  /** Required sectors excluded from this round (snapshot at round start). */
+  waivedSectors?: IApprovalSectorWaiver[];
 }
 
 export interface IBidAttachment {
@@ -917,6 +928,8 @@ export interface IBid {
   approvalRounds?: IApprovalRound[];
   /** Approvers selected for the next round, saved before the round starts. */
   approvalDraftSelections?: Partial<Record<Sector, IPersonRef[]>>;
+  /** Required approval sectors marked as not required for this BID. */
+  approvalSectorWaivers?: Partial<Record<Sector, IApprovalSectorWaiver>>;
   attachments: IBidAttachment[];
   comments: IBidComment[];
   activityLog: IActivityLogEntry[];

@@ -122,6 +122,9 @@ export const SHAREPOINT_CONFIG = {
     overriddenBy: "OverriddenBy",
     overriddenDate: "OverriddenDate",
     overrideReason: "OverrideReason",
+    nativeApprovalId: "NativeApprovalId",
+    approverComments: "ApproverComments",
+    lastReminderDate: "LastReminderDate",
   },
 
   /** Internal field names for the "Clarifications Database" list */

@@ -4,6 +4,7 @@
  */
 import { SPService } from "./SPService";
 import "@pnp/sp/fields";
+import { DateTimeFieldFormatType } from "@pnp/sp/fields";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import {
   IBidApprovalState,
@@ -61,7 +62,10 @@ export class ApprovalService {
     const addDateTime = async (name: string): Promise<void> => {
       if (has(name)) return;
       try {
-        await fieldsApi.addDateTime(name);
+        // PnP defaults to DateOnly, which drops the time and the UTC "Z" the flow needs.
+        await fieldsApi.addDateTime(name, {
+          DisplayFormat: DateTimeFieldFormatType.DateTime,
+        });
       } catch (e) {
         /* ignore */
       }
@@ -77,18 +81,18 @@ export class ApprovalService {
         /* ignore */
       }
     };
-    const addNote = async (name: string): Promise<void> => {
+    const addNote = async (name: string, richText = true): Promise<void> => {
       if (has(name)) return;
       try {
-        await fieldsApi.addMultilineText(name);
+        await fieldsApi.addMultilineText(name, { RichText: richText });
       } catch (e) {
         /* ignore */
       }
     };
-    // Lists provisioned before the override feature lack the "Overridden" choice.
-    const ensureChoiceOption = async (
+    // Lists provisioned before later features lack the newer ApprovalStatus choices.
+    const ensureChoiceOptions = async (
       name: string,
-      option: string,
+      options: string[],
     ): Promise<void> => {
       if (!has(name)) return;
       try {
@@ -100,14 +104,18 @@ export class ApprovalService {
         const current: string[] = Array.isArray(raw)
           ? raw
           : (raw && raw.results) || [];
-        if (current.indexOf(option) >= 0) return;
+        const missing = options.filter((o) => current.indexOf(o) < 0);
+        if (missing.length === 0) return;
         await field.update(
-          { "@odata.type": "#SP.FieldChoice", Choices: [...current, option] },
+          {
+            "@odata.type": "#SP.FieldChoice",
+            Choices: [...current, ...missing],
+          },
           "SP.FieldChoice",
         );
       } catch (e) {
         console.warn(
-          `ApprovalService.ensureApprovalColumns: cannot add choice "${option}" to ${name}`,
+          `ApprovalService.ensureApprovalColumns: cannot add choices "${options.join(", ")}" to ${name}`,
           e,
         );
       }
@@ -120,8 +128,18 @@ export class ApprovalService {
     await addText(F.approverName);
     await addText(F.sector);
     await addText(F.sectorLabel);
-    await addChoice(F.approvalStatus, ["Pending", "Approved", "Overridden"]);
-    await ensureChoiceOption(F.approvalStatus, "Overridden");
+    await addChoice(F.approvalStatus, [
+      "Pending",
+      "Approved",
+      "Overridden",
+      "Rejected",
+      "Expired",
+    ]);
+    await ensureChoiceOptions(F.approvalStatus, [
+      "Overridden",
+      "Rejected",
+      "Expired",
+    ]);
     await addDateTime(F.respondedDate);
     await addText(F.chatId);
     await addText(F.statusCardMessageId);
@@ -129,6 +147,10 @@ export class ApprovalService {
     await addText(F.overriddenBy);
     await addDateTime(F.overriddenDate);
     await addNote(F.overrideReason);
+    // Written by the Teams flow in power-automate/APPROVALS-INDIVIDUAL.md.
+    await addText(F.nativeApprovalId);
+    await addNote(F.approverComments, false);
+    await addDateTime(F.lastReminderDate);
   }
 
   public static async requestApproval(
@@ -276,6 +298,8 @@ export class ApprovalService {
           email: p.email,
         })),
         client: bid.opportunityInfo?.client || "",
+        projectName: bid.opportunityInfo?.projectName || "",
+        crmNumber: bid.crmNumber || "",
         requestedDate: new Date().toISOString(),
         deepLink,
         status: "pending",

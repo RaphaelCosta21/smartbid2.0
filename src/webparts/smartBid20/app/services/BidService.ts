@@ -9,12 +9,17 @@ import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 
 const F = SHAREPOINT_CONFIG.bidTrackerFields;
 
+/** Re-reads after a 412 (the Teams approval flow wrote the same item). */
+const MAX_PATCH_ATTEMPTS = 3;
+
 /** Runs at most once per session; the columns only need provisioning the first time. */
 let ensureColumnsPromise: Promise<void> | undefined;
 
 export class BidService {
   /** Serialize read-modify-write patches for the same JSON-backed BID. */
   private static readonly _pendingPatches: Record<string, Promise<void>> = {};
+  /** Bumped on every local patch so background reads can detect a racing save. */
+  private static readonly _patchVersions: Record<string, number> = {};
 
   private static get _list() {
     return SPService.sp.web.lists.getByTitle(
@@ -195,6 +200,8 @@ export class BidService {
     bidNumber: string,
     patch: Partial<IBid>,
   ): Promise<void> {
+    BidService._patchVersions[bidNumber] =
+      BidService.getPatchVersion(bidNumber) + 1;
     const previous = BidService._pendingPatches[bidNumber];
     const pending = previous
       ? previous.then(
@@ -212,26 +219,49 @@ export class BidService {
     }
   }
 
+  public static hasPendingPatch(bidNumber: string): boolean {
+    return !!BidService._pendingPatches[bidNumber];
+  }
+
+  public static getPatchVersion(bidNumber: string): number {
+    return BidService._patchVersions[bidNumber] || 0;
+  }
+
   private static async _patchByBidNumber(
     bidNumber: string,
     patch: Partial<IBid>,
   ): Promise<void> {
-    const items = await BidService._list.items
-      .filter(`Title eq '${bidNumber}'`)
-      .select("Id", "jsondata")
-      .top(1)();
-    if (items.length === 0) return;
-    const row = items[0] as { Id: number; jsondata: string };
-    const bid = JSON.parse(row.jsondata) as IBid;
-    const merged = { ...bid, ...patch };
-    const dueDateChanged =
-      patch.dueDate !== undefined || patch.desiredDueDate !== undefined;
-    await BidService._list.items.getById(row.Id).update({
-      jsondata: JSON.stringify(merged),
-      ...BidService._searchColumns(merged),
-      ...(dueDateChanged
-        ? { DueDate: merged.desiredDueDate || merged.dueDate }
-        : {}),
-    });
+    for (let attempt = 1; attempt <= MAX_PATCH_ATTEMPTS; attempt++) {
+      const items = await BidService._list.items
+        .filter(`Title eq '${bidNumber}'`)
+        .select("Id", "jsondata")
+        .top(1)();
+      if (items.length === 0) return;
+      const row = items[0] as {
+        Id: number;
+        jsondata: string;
+        "odata.etag"?: string;
+      };
+      const bid = JSON.parse(row.jsondata) as IBid;
+      const merged = { ...bid, ...patch };
+      const dueDateChanged =
+        patch.dueDate !== undefined || patch.desiredDueDate !== undefined;
+      try {
+        await BidService._list.items.getById(row.Id).update(
+          {
+            jsondata: JSON.stringify(merged),
+            ...BidService._searchColumns(merged),
+            ...(dueDateChanged
+              ? { DueDate: merged.desiredDueDate || merged.dueDate }
+              : {}),
+          },
+          row["odata.etag"] || "*",
+        );
+        return;
+      } catch (err) {
+        const status = (err as { status?: number }).status;
+        if (status !== 412 || attempt === MAX_PATCH_ATTEMPTS) throw err;
+      }
+    }
   }
 }

@@ -30,7 +30,7 @@ declare module "@pnp/sp" {
   }
   export interface SPItem {
     select(...fields: string[]): SPItem;
-    update(item: Record<string, unknown>): Promise<unknown>;
+    update(item: Record<string, unknown>, eTag?: string): Promise<unknown>;
     delete(): Promise<void>;
     attachmentFiles: SPAttachmentFiles;
     (): Promise<unknown>;

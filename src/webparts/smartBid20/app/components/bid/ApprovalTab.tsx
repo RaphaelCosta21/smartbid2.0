@@ -7,8 +7,15 @@ import {
   RefreshCw,
   FastForward,
   ShieldCheck,
+  Ban,
+  Undo2,
 } from "lucide-react";
-import { IBid, IApprovalRound, IApprovalOverride } from "../../models/IBid";
+import {
+  IBid,
+  IApprovalRound,
+  IApprovalOverride,
+  IApprovalSectorWaiver,
+} from "../../models/IBid";
 import { IBidApproval } from "../../models/IBid";
 import { IApprovalSectorGroup } from "../../models/IBidApproval";
 import { ITeamMember } from "../../models/ITeamMember";
@@ -227,6 +234,11 @@ const STATUS_DISPLAY: Record<
     color: "var(--tertiary-accent)",
     label: "Bypassed by override",
   },
+  waived: {
+    icon: <Ban size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--text-secondary)",
+    label: "Not required",
+  },
 };
 
 export const ApprovalTab: React.FC<ApprovalTabProps> = ({
@@ -346,6 +358,10 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   const [showOverrideConfirm, setShowOverrideConfirm] = React.useState(false);
   const [overrideReason, setOverrideReason] = React.useState("");
   const [overriding, setOverriding] = React.useState(false);
+  const [waiverTarget, setWaiverTarget] = React.useState<SectorConfig | null>(
+    null,
+  );
+  const [waiverReason, setWaiverReason] = React.useState("");
   const addToast = useUIStore((s) => s.addToast);
 
   const pickerRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
@@ -455,11 +471,101 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     return (lockedApprovers[sector] || []).some((l) => l.email === email);
   };
 
+  // ── Sector waivers (required sector marked as not required for this BID) ──
+  const sectorWaivers = bid.approvalSectorWaivers || {};
+  // Auto-locked sectors (e.g. CAPEX rule) can't be waived
+  const getWaiver = (cfg: SectorConfig): IApprovalSectorWaiver | null =>
+    cfg.required && (lockedApprovers[cfg.sector] || []).length === 0
+      ? sectorWaivers[cfg.sector] || null
+      : null;
+
+  const closeWaiverDialog = (): void => {
+    setWaiverTarget(null);
+    setWaiverReason("");
+  };
+
+  const handleWaiveSector = (): void => {
+    const reason = waiverReason.trim();
+    if (!waiverTarget || !reason || !canManageApproval) return;
+    const actor: IPersonRef = {
+      name: currentUser.name,
+      email: currentUser.email,
+      role: currentUser.role,
+    };
+    const waiver: IApprovalSectorWaiver = {
+      sector: waiverTarget.sector,
+      sectorLabel: waiverTarget.label,
+      reason,
+      waivedBy: actor,
+      waivedDate: new Date().toISOString(),
+    };
+    const logEntry = createActivityLogEntry(
+      "APPROVAL_SECTOR_WAIVED",
+      `${waiver.sectorLabel} approval marked as not required for this BID. Justification: "${reason}"`,
+      actor.email,
+      actor.name,
+      {
+        sector: waiver.sector,
+        sectorLabel: waiver.sectorLabel,
+        round: currentRoundNumber,
+        reason,
+      },
+    );
+    onPatchBid({
+      approvalSectorWaivers: { ...sectorWaivers, [waiver.sector]: waiver },
+      activityLog: [...(bid.activityLog || []), logEntry],
+    });
+    closeWaiverDialog();
+  };
+
+  const handleReinstateSector = (
+    cfg: SectorConfig,
+    waiver: IApprovalSectorWaiver,
+  ): void => {
+    if (!canManageApproval) return;
+    const next = { ...sectorWaivers };
+    delete next[cfg.sector];
+    const logEntry = createActivityLogEntry(
+      "APPROVAL_SECTOR_REINSTATED",
+      `${cfg.label} approval marked as required again for this BID (previous justification: "${waiver.reason}")`,
+      currentUser.email,
+      currentUser.name,
+      {
+        sector: cfg.sector,
+        sectorLabel: cfg.label,
+        round: currentRoundNumber,
+        previousReason: waiver.reason,
+        previousWaivedBy: waiver.waivedBy,
+        previousWaivedDate: waiver.waivedDate,
+      },
+    );
+    onPatchBid({
+      approvalSectorWaivers: next,
+      activityLog: [...(bid.activityLog || []), logEntry],
+    });
+  };
+
+  const renderWaiverNote = (waiver: IApprovalSectorWaiver): JSX.Element => (
+    <div className={styles.waiverNote}>
+      <span className={styles.waiverLabel}>Not required for this BID</span>
+      <span className={styles.waiverReason}>{waiver.reason}</span>
+      <span className={styles.waiverMeta}>
+        by {waiver.waivedBy.name} · {formatDate(waiver.waivedDate)}
+      </span>
+    </div>
+  );
+
   // ── Validation ──
   const validationErrors: string[] = [];
   const visibleSectors = SECTOR_CONFIGS.filter((cfg) => cfg.isVisible(bid));
-
+  const activeSectors = visibleSectors.filter((cfg) => !getWaiver(cfg));
+  const activeWaivers: IApprovalSectorWaiver[] = [];
   visibleSectors.forEach((cfg) => {
+    const w = getWaiver(cfg);
+    if (w) activeWaivers.push(w);
+  });
+
+  activeSectors.forEach((cfg) => {
     if (cfg.required) {
       const count = (sectorSelections[cfg.sector] || []).length;
       if (count < Math.max(cfg.minCount, 1)) {
@@ -469,6 +575,14 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       }
     }
   });
+
+  const totalSelectedApprovers = activeSectors.reduce(
+    (sum, cfg) => sum + (sectorSelections[cfg.sector] || []).length,
+    0,
+  );
+  if (validationErrors.length === 0 && totalSelectedApprovers === 0) {
+    validationErrors.push("Select at least one approver");
+  }
 
   const canStart = validationErrors.length === 0 && canManageApproval;
 
@@ -493,7 +607,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       // Build IBidApproval[] from selections
       const approvals: IBidApproval[] = [];
       let stepOrder = 1;
-      visibleSectors.forEach((cfg) => {
+      activeSectors.forEach((cfg) => {
         const selected = sectorSelections[cfg.sector] || [];
         selected.forEach((person) => {
           approvals.push({
@@ -516,7 +630,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       });
 
       // Build sector groups for SP list
-      const sectorGroups: IApprovalSectorGroup[] = visibleSectors.map(
+      const sectorGroups: IApprovalSectorGroup[] = activeSectors.map(
         (cfg) => ({
           sector: cfg.sector,
           sectorLabel: cfg.label,
@@ -543,6 +657,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
         status: "pending",
         completedDate: null,
         approvals,
+        ...(activeWaivers.length > 0 ? { waivedSectors: activeWaivers } : {}),
       };
 
       // Append to rounds history (preserve all previous rounds)
@@ -814,6 +929,48 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     </div>
   ) : null;
 
+  const waiverDialog = waiverTarget ? (
+    <div className={styles.confirmOverlay}>
+      <div className={`${styles.confirmBox} ${styles.overrideBox}`}>
+        <div className={styles.confirmTitle}>
+          Mark {waiverTarget.label} as not required?
+        </div>
+        <div className={styles.confirmText}>
+          The <strong>{waiverTarget.label}</strong> team will not be included
+          in the approval flow for this BID. The justification is saved on the
+          Approvals tab and in the activity log.
+        </div>
+        <label className={styles.overrideLabel} htmlFor="approval-waiver-reason">
+          Justification <span className={styles.requiredMark}>*</span>
+        </label>
+        <textarea
+          id="approval-waiver-reason"
+          className={styles.overrideReason}
+          value={waiverReason}
+          onChange={(e) => setWaiverReason(e.target.value)}
+          placeholder={`Explain why ${waiverTarget.label} is not involved in this BID...`}
+          maxLength={1000}
+          rows={4}
+        />
+        <div className={styles.confirmActions}>
+          <button
+            className={styles.confirmBtnCancel}
+            onClick={closeWaiverDialog}
+          >
+            Cancel
+          </button>
+          <button
+            className={styles.confirmBtnStart}
+            onClick={handleWaiveSector}
+            disabled={!waiverReason.trim()}
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   // ═══════════════════════════════════════════════════════
   // RENDER: Gate Banner (not in Close Out / Pending Approval)
   // Only shown for users who cannot manage approvals
@@ -872,6 +1029,12 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       : [];
     const isBypassed = (a: IBidApproval): boolean =>
       bypassedEmails.indexOf(a.stakeholder.email.toLowerCase()) >= 0;
+
+    const roundWaivers =
+      existingRounds.length > 0
+        ? existingRounds[existingRounds.length - 1].waivedSectors || []
+        : [];
+    const waivedDisplay = STATUS_DISPLAY["waived"];
 
     // Group approvals by stakeholderRole
     const grouped: Record<string, IBidApproval[]> = {};
@@ -1011,6 +1174,30 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
               </div>
             );
           })}
+          {roundWaivers.map((waiver) => (
+            <div
+              key={`waived-${waiver.sector}`}
+              className={`${styles.trackingCard} ${styles.sectorCardWaived}`}
+            >
+              <div className={styles.trackingCardHeader}>
+                <span className={styles.sectorIcon}>
+                  {SECTOR_CONFIGS.find((c) => c.sector === waiver.sector)
+                    ?.icon || "📌"}
+                </span>
+                <span className={styles.sectorName}>{waiver.sectorLabel}</span>
+                <span
+                  className={styles.trackingSectorStatus}
+                  style={{
+                    background: `color-mix(in srgb, ${waivedDisplay.color} 12%, transparent)`,
+                    color: waivedDisplay.color,
+                  }}
+                >
+                  {waivedDisplay.icon} {waivedDisplay.label}
+                </span>
+              </div>
+              {renderWaiverNote(waiver)}
+            </div>
+          ))}
         </div>
 
         {overrideDialog}
@@ -1093,11 +1280,13 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
           const sectorLocks = lockedApprovers[cfg.sector] || [];
           const hasAutoLock = sectorLocks.length > 0;
           const filteredMembers = getSearchFiltered(cfg);
+          const waiver = getWaiver(cfg);
+          const canWaive = canManageApproval && cfg.required && !hasAutoLock;
 
           return (
             <div
               key={cfg.sector}
-              className={`${styles.sectorCard} ${hasAutoLock ? styles.sectorCardLocked : ""}`}
+              className={`${styles.sectorCard} ${hasAutoLock ? styles.sectorCardLocked : ""} ${waiver ? styles.sectorCardWaived : ""}`}
               ref={(el) => {
                 pickerRefs.current[cfg.sector] = el;
               }}
@@ -1111,6 +1300,12 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
                     className={`${styles.sectorBadge} ${styles.badgeLocked}`}
                   >
                     🔒 Auto-locked
+                  </span>
+                ) : waiver ? (
+                  <span
+                    className={`${styles.sectorBadge} ${styles.badgeWaived}`}
+                  >
+                    Not required
                   </span>
                 ) : cfg.required ? (
                   <span
@@ -1127,8 +1322,22 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
                 )}
               </div>
 
+              {waiver && (
+                <>
+                  {renderWaiverNote(waiver)}
+                  {canManageApproval && (
+                    <button
+                      className={styles.waiverToggleBtn}
+                      onClick={() => handleReinstateSector(cfg, waiver)}
+                    >
+                      <Undo2 size={13} /> Mark as required
+                    </button>
+                  )}
+                </>
+              )}
+
               {/* Selected Approvers */}
-              {selected.length > 0 && (
+              {!waiver && selected.length > 0 && (
                 <div className={styles.selectedList}>
                   {selected.map((person) => {
                     const locked = isLocked(cfg.sector, person.email);
@@ -1165,7 +1374,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
               )}
 
               {/* Picker Input */}
-              {canManageApproval && (
+              {!waiver && canManageApproval && (
                 <div className={styles.pickerWrapper}>
                   <input
                     className={styles.pickerInput}
@@ -1206,6 +1415,18 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
                     </div>
                   )}
                 </div>
+              )}
+
+              {!waiver && canWaive && (
+                <button
+                  className={styles.waiverToggleBtn}
+                  onClick={() => {
+                    setOpenPicker(null);
+                    setWaiverTarget(cfg);
+                  }}
+                >
+                  <Ban size={13} /> Not required for this BID
+                </button>
               )}
             </div>
           );
@@ -1264,23 +1485,23 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
               flow. You won't be able to modify approvers after starting.
               <br />
               <br />
-              <strong>
-                {visibleSectors.reduce(
-                  (sum, cfg) =>
-                    sum + (sectorSelections[cfg.sector] || []).length,
-                  0,
-                )}{" "}
-                approvers
-              </strong>{" "}
-              across{" "}
+              <strong>{totalSelectedApprovers} approvers</strong> across{" "}
               <strong>
                 {
-                  visibleSectors.filter(
+                  activeSectors.filter(
                     (cfg) => (sectorSelections[cfg.sector] || []).length > 0,
                   ).length
                 }
               </strong>{" "}
               sectors will be included.
+              {activeWaivers.length > 0 && (
+                <>
+                  <br />
+                  <br />
+                  <strong>Not required for this BID:</strong>{" "}
+                  {activeWaivers.map((w) => w.sectorLabel).join(", ")}
+                </>
+              )}
             </div>
             <div className={styles.confirmActions}>
               <button
@@ -1302,6 +1523,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       )}
 
       {overrideDialog}
+      {waiverDialog}
     </div>
   );
 };

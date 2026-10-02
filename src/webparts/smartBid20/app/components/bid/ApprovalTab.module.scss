@@ -385,6 +385,7 @@
 
 .trackingApproverRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   padding: 8px 0;
@@ -411,10 +412,13 @@
 }
 
 .trackingComments {
+  flex-basis: 100%;
   font-size: 12px;
   color: var(--text-secondary);
   font-style: italic;
   margin-top: 2px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* ── Confirm Dialog ── */
@@ -485,8 +489,13 @@
   font-weight: 600;
   cursor: pointer;
 
-  &:hover {
+  &:hover:not(:disabled) {
     opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
 }
 
@@ -607,6 +616,71 @@
   font-size: 11px;
   font-weight: 500;
   color: var(--tertiary-accent);
+}
+
+/* ── Sector waiver (required sector not required for this BID) ── */
+.sectorCardWaived {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--text-muted) 6%, transparent);
+}
+
+.badgeWaived {
+  background: color-mix(in srgb, var(--text-muted) 16%, transparent);
+  color: var(--text-secondary);
+}
+
+.waiverNote {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--border-subtle);
+}
+
+.waiverLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.waiverReason {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.waiverMeta {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.waiverToggleBtn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    background 150ms ease;
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--hover-bg);
+  }
 }
 
 /* ── Validation Warning ── */

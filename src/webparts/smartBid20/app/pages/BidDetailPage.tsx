@@ -37,6 +37,7 @@ import {
 } from "../components/common/IntegratedDivisionTabs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { usePastBidPublisher } from "../hooks/usePastBidPublisher";
+import { useApprovalSync } from "../hooks/useApprovalSync";
 import { useTechnicalProposalPublisher } from "../hooks/useTechnicalProposalPublisher";
 import { getTechnicalProposalAttachment } from "../utils/technicalProposalHelpers";
 import { useUIStore } from "../stores/useUIStore";
@@ -467,6 +468,7 @@ export const BidDetailPage: React.FC = () => {
   );
 
   const bid = bids.find((b) => b.bidNumber === id);
+  useApprovalSync(id, bid?.approvalStatus === "pending");
 
   if (!bid) {
     return (

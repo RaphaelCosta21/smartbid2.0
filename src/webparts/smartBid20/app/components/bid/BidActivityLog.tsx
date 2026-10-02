@@ -41,6 +41,8 @@ function getActivityColor(type: string): string {
     APPROVAL_REQUESTED: "var(--warning-color, #F59E0B)",
     APPROVAL_RESPONSE: "var(--success-color, #10B981)",
     APPROVAL_OVERRIDE: "var(--tertiary-accent)",
+    APPROVAL_SECTOR_WAIVED: "var(--warning)",
+    APPROVAL_SECTOR_REINSTATED: "var(--primary-accent)",
     COMMENT_ADDED: "var(--accent-cyan, #06B6D4)",
     BID_CREATED: "var(--success-color, #22C55E)",
     ERN_LINKED: "var(--primary-accent, #3B82F6)",

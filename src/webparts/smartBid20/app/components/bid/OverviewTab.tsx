@@ -328,52 +328,70 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
                         : APPROVAL_STATUS_DISPLAY[a.status] ||
                           APPROVAL_STATUS_DISPLAY["pending"];
                       return (
-                        <div
-                          key={a.id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            fontSize: 12,
-                          }}
-                        >
-                          {a.stakeholder.photoUrl ? (
-                            <img
-                              src={a.stakeholder.photoUrl}
-                              alt=""
-                              style={{
-                                width: 22,
-                                height: 22,
-                                borderRadius: "50%",
-                                objectFit: "cover",
-                              }}
-                            />
-                          ) : (
+                        <div key={a.id}>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              fontSize: 12,
+                            }}
+                          >
+                            {a.stakeholder.photoUrl ? (
+                              <img
+                                src={a.stakeholder.photoUrl}
+                                alt=""
+                                style={{
+                                  width: 22,
+                                  height: 22,
+                                  borderRadius: "50%",
+                                  objectFit: "cover",
+                                }}
+                              />
+                            ) : (
+                              <span
+                                style={{
+                                  width: 22,
+                                  height: 22,
+                                  borderRadius: "50%",
+                                  background: "var(--border-subtle)",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  color: "var(--text-secondary)",
+                                }}
+                              >
+                                {a.stakeholder.name.charAt(0).toUpperCase()}
+                              </span>
+                            )}
                             <span
+                              style={{ flex: 1, color: "var(--text-primary)" }}
+                            >
+                              {a.stakeholder.name}
+                            </span>
+                            <span
+                              style={{ fontSize: 11 }}
+                              title={aStatus.label}
+                            >
+                              {aStatus.icon}
+                            </span>
+                          </div>
+                          {a.comments && (
+                            <div
                               style={{
-                                width: 22,
-                                height: 22,
-                                borderRadius: "50%",
-                                background: "var(--border-subtle)",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: 10,
-                                fontWeight: 600,
+                                paddingLeft: 28,
+                                fontSize: 11,
+                                fontStyle: "italic",
                                 color: "var(--text-secondary)",
+                                whiteSpace: "pre-wrap",
+                                wordBreak: "break-word",
                               }}
                             >
-                              {a.stakeholder.name.charAt(0).toUpperCase()}
-                            </span>
+                              &ldquo;{a.comments}&rdquo;
+                            </div>
                           )}
-                          <span
-                            style={{ flex: 1, color: "var(--text-primary)" }}
-                          >
-                            {a.stakeholder.name}
-                          </span>
-                          <span style={{ fontSize: 11 }} title={aStatus.label}>
-                            {aStatus.icon}
-                          </span>
                         </div>
                       );
                     })}
