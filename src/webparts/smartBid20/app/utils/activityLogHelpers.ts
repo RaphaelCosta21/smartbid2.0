@@ -11,15 +11,14 @@ export type ActivityCategory =
   | "exports"
   | "lifecycle";
 
-export const ACTIVITY_CATEGORIES: { key: ActivityCategory; label: string }[] =
-  [
-    { key: "statusPhase", label: "Status & Phase" },
-    { key: "approvals", label: "Approvals" },
-    { key: "documents", label: "Documents" },
-    { key: "edits", label: "Edits" },
-    { key: "exports", label: "Exports" },
-    { key: "lifecycle", label: "Lifecycle" },
-  ];
+export const ACTIVITY_CATEGORIES: { key: ActivityCategory; label: string }[] = [
+  { key: "statusPhase", label: "Status & Phase" },
+  { key: "approvals", label: "Approvals" },
+  { key: "documents", label: "Documents" },
+  { key: "edits", label: "Edits" },
+  { key: "exports", label: "Exports" },
+  { key: "lifecycle", label: "Lifecycle" },
+];
 
 export interface IActivityMeta {
   label: string;

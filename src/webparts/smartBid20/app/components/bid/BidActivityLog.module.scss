@@ -41,7 +41,9 @@
   font-size: 13px;
   font-family: inherit;
   outline: none;
-  transition: border-color 200ms ease, box-shadow 200ms ease;
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease;
 
   &::placeholder {
     color: var(--text-muted);
@@ -49,7 +51,8 @@
 
   &:focus {
     border-color: var(--primary-accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-accent) 18%, transparent);
+    box-shadow: 0 0 0 3px
+      color-mix(in srgb, var(--primary-accent) 18%, transparent);
   }
 }
 
@@ -96,7 +99,10 @@
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
-  transition: background 200ms ease, border-color 200ms ease, color 200ms ease;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease;
 
   &:hover {
     background: var(--hover-bg);
@@ -375,7 +381,10 @@
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
-  transition: background 200ms ease, border-color 200ms ease, color 200ms ease;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease;
 
   &:hover {
     background: var(--hover-bg);

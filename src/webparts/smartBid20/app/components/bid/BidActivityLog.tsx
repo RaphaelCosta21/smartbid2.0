@@ -190,7 +190,9 @@ function renderDetail(entry: IActivityLogEntry): React.ReactNode {
               }
               to={<span className={styles.datePill}>{formatDate(next)}</span>}
             />
-            {reason && <blockquote className={styles.quote}>{reason}</blockquote>}
+            {reason && (
+              <blockquote className={styles.quote}>{reason}</blockquote>
+            )}
           </>
         );
       }
@@ -325,7 +327,11 @@ export const BidActivityLog: React.FC<BidActivityLogProps> = ({
         }
         actions={
           <div className={styles.searchBox}>
-            <Search size={14} className={styles.searchIcon} aria-hidden="true" />
+            <Search
+              size={14}
+              className={styles.searchIcon}
+              aria-hidden="true"
+            />
             <input
               type="text"
               className={styles.searchInput}
@@ -347,7 +353,11 @@ export const BidActivityLog: React.FC<BidActivityLogProps> = ({
           </div>
         }
       >
-        <div className={styles.chips} role="tablist" aria-label="Filter by category">
+        <div
+          className={styles.chips}
+          role="tablist"
+          aria-label="Filter by category"
+        >
           <button
             type="button"
             role="tab"
@@ -399,7 +409,11 @@ export const BidActivityLog: React.FC<BidActivityLogProps> = ({
                       "--activity-color": meta.colorVar,
                     } as React.CSSProperties;
                     return (
-                      <li key={entry.id} className={styles.item} style={colorStyle}>
+                      <li
+                        key={entry.id}
+                        className={styles.item}
+                        style={colorStyle}
+                      >
                         <span className={styles.time}>
                           {formatDate(entry.timestamp, "HH:mm")}
                         </span>
