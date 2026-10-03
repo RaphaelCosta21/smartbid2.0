@@ -115,7 +115,7 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
                 <div className={styles.zoneBody}>
                   {room < 0 && (
                     <span className={styles.zoneNote}>
-                      Commercial systems that group the hardware above — not drawn in 3D.
+                      Commercial systems that group the hardware above - not drawn in 3D.
                     </span>
                   )}
                   <ul className={styles.lines}>

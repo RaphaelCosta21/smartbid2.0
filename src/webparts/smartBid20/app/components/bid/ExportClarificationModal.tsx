@@ -126,7 +126,7 @@ export const ExportClarificationModal: React.FC<
                   <span className={styles.itemNumber}>{idx + 1}</span>
                   <span className={styles.itemText}>
                     {c.item || c.description || "(No description)"}
-                    {c.clarification && ` — ${c.clarification}`}
+                    {c.clarification && ` - ${c.clarification}`}
                   </span>
                 </div>
               ))}

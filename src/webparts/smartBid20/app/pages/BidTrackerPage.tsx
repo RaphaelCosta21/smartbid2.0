@@ -311,7 +311,7 @@ export const BidTrackerPage: React.FC = () => {
       sortable: true,
       width: 130,
       render: (bid: IBid) => (
-        <span className={styles.mono}>{bid.crmNumber || "—"}</span>
+        <span className={styles.mono}>{bid.crmNumber || "-"}</span>
       ),
     },
     {
@@ -353,7 +353,7 @@ export const BidTrackerPage: React.FC = () => {
             color={getServiceLineColor(bid.serviceLine)}
           />
         ) : (
-          "—"
+          "-"
         ),
     },
     {
@@ -396,7 +396,7 @@ export const BidTrackerPage: React.FC = () => {
                 {getInitials(name)}
               </span>
             ) : null}
-            <span>{name || "\u2014"}</span>
+            <span>{name || "-"}</span>
           </span>
         );
       },
@@ -406,7 +406,7 @@ export const BidTrackerPage: React.FC = () => {
       header: "Due Date",
       sortable: true,
       render: (bid: IBid) => {
-        if (!bid.dueDate) return <span>—</span>;
+        if (!bid.dueDate) return <span>-</span>;
         return (
           <span
             className={

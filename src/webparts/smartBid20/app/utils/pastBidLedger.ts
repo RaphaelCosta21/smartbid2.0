@@ -108,7 +108,7 @@ function hasIntent(normalized: string): boolean {
 
 function day(iso: string | null | undefined): string {
   const d = iso ? formatDate(iso, "yyyy-MM-dd") : "";
-  return d === "—" ? "" : d;
+  return d === "-" ? "" : d;
 }
 
 function clean(value: string | null | undefined): string {

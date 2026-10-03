@@ -271,7 +271,7 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
                     <span className={styles.bidText}>
                       {[b.opportunityInfo?.client, b.opportunityInfo?.projectName]
                         .filter(Boolean)
-                        .join(" · ") || "—"}
+                        .join(" · ") || "-"}
                     </span>
                     <span className={styles.bidMeta}>
                       {b.division} · {b.currentStatus}

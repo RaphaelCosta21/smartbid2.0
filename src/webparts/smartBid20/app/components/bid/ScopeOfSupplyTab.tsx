@@ -309,7 +309,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       addToast({
         type: "success",
         title: "Added to Favorites",
-        message: `${label} — assign a group in Favorites › Equipment Catalog.`,
+        message: `${label} - assign a group in Favorites › Equipment Catalog.`,
       });
     } catch (err) {
       addToast({
@@ -1503,7 +1503,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
           Comments
         </label>
         {readOnly && !onSaveTabNotes ? (
-          <p className={styles.tabNotesText}>{tabNotes || "—"}</p>
+          <p className={styles.tabNotesText}>{tabNotes || "-"}</p>
         ) : (
           <textarea
             className={styles.tabNotesInput}
@@ -2133,7 +2133,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                     Client Technical Specifications
                                   </span>
                                   <span className={styles.specsPanelSubtitle}>
-                                    Optional — fill in when the client provides
+                                    Optional - fill in when the client provides
                                     detailed requirements in the ET for this
                                     section
                                   </span>
@@ -2421,7 +2421,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                           onClick={() => toggleDrawer(item.id)}
                           title={
                             itemHasSubItems
-                              ? `${(item.subItems || []).length} sub-item(s) — click to expand`
+                              ? `${(item.subItems || []).length} sub-item(s) - click to expand`
                               : "Expand / Collapse details"
                           }
                         >
@@ -2476,7 +2476,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                             }
                             title={item.clientDocRef || undefined}
                           >
-                            {item.clientDocRef || "—"}
+                            {item.clientDocRef || "-"}
                           </div>
                         )}
                       </td>
@@ -2507,7 +2507,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                               ? "Yes"
                               : item.compliance === "no"
                                 ? "No"
-                                : "—"}
+                                : "-"}
                           </span>
                         ) : (
                           <div className={styles.complianceToggle}>
@@ -2538,7 +2538,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                             {item.compliance === "no" && (
                               <span
                                 className={styles.clarIndicator}
-                                title="Clarification/Qualification required — click to view"
+                                title="Clarification/Qualification required - click to view"
                                 onClick={(e) => {
                                   const rect = (
                                     e.target as HTMLElement
@@ -2558,7 +2558,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                       </td>
                       <td>
                         {readOnly ? (
-                          item.resourceType || "—"
+                          item.resourceType || "-"
                         ) : (
                           <select
                             className={emptyIf(
@@ -2589,7 +2589,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                       </td>
                       <td className={styles.subTypeCell}>
                         {readOnly ? (
-                          item.resourceSubType || "—"
+                          item.resourceSubType || "-"
                         ) : (
                           <select
                             className={emptyIf(
@@ -2762,7 +2762,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                             }
                             title={item.comments || undefined}
                           >
-                            {item.comments || "—"}
+                            {item.comments || "-"}
                           </div>
                         )}
                       </td>
@@ -3104,7 +3104,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </div>
                                           <div className={styles.subCell}>
                                             {readOnly ? (
-                                              sub.description || "—"
+                                              sub.description || "-"
                                             ) : (
                                               <input
                                                 className={styles.subInp}
@@ -3123,7 +3123,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </div>
                                           <div className={styles.subCell}>
                                             {readOnly ? (
-                                              sub.subType || "—"
+                                              sub.subType || "-"
                                             ) : (
                                               <select
                                                 className={styles.subSel}
@@ -3161,7 +3161,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                             className={`${styles.subCell} ${styles.subEquipmentCell}`}
                                           >
                                             {readOnly ? (
-                                              sub.equipmentOffer || "—"
+                                              sub.equipmentOffer || "-"
                                             ) : (
                                               <PartNumberAutocomplete
                                                 value={sub.equipmentOffer}
@@ -3191,7 +3191,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           <div className={styles.subCell}>
                                             {readOnly ? (
                                               <span className={styles.cellMono}>
-                                                {sub.partNumber || "—"}
+                                                {sub.partNumber || "-"}
                                               </span>
                                             ) : (
                                               <PartNumberAutocomplete
@@ -3242,7 +3242,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </div>
                                           <div className={styles.subCell}>
                                             {readOnly ? (
-                                              sub.comments || "—"
+                                              sub.comments || "-"
                                             ) : (
                                               <input
                                                 className={styles.subInp}
@@ -3494,7 +3494,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                       <textarea
                                         className={styles.reqTextarea}
                                         value={item.clientRequirement || ""}
-                                        placeholder="Optional — fill in when the client provides detailed requirements in the ET…"
+                                        placeholder="Optional - fill in when the client provides detailed requirements in the ET…"
                                         rows={4}
                                         onChange={(e) =>
                                           updateSpecs(
@@ -3839,7 +3839,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </div>
                                           <div className={styles.subCell}>
                                             {readOnly ? (
-                                              pcf.description || "—"
+                                              pcf.description || "-"
                                             ) : (
                                               <input
                                                 className={styles.subInp}
@@ -3858,7 +3858,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </div>
                                           <div className={styles.subCell}>
                                             {readOnly ? (
-                                              pcf.subType || "—"
+                                              pcf.subType || "-"
                                             ) : (
                                               <select
                                                 className={styles.subSel}
@@ -3872,7 +3872,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                                   )
                                                 }
                                               >
-                                                <option value="">—</option>
+                                                <option value="">-</option>
                                                 <option value="Structural">
                                                   Structural
                                                 </option>
@@ -3898,7 +3898,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                             className={`${styles.subCell} ${styles.subEquipmentCell}`}
                                           >
                                             {readOnly ? (
-                                              pcf.equipmentOffer || "—"
+                                              pcf.equipmentOffer || "-"
                                             ) : (
                                               <PartNumberAutocomplete
                                                 value={pcf.equipmentOffer}
@@ -3928,7 +3928,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           <div className={styles.subCell}>
                                             {readOnly ? (
                                               <span className={styles.cellMono}>
-                                                {pcf.partNumber || "—"}
+                                                {pcf.partNumber || "-"}
                                               </span>
                                             ) : (
                                               <PartNumberAutocomplete
@@ -3979,7 +3979,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </div>
                                           <div className={styles.subCell}>
                                             {readOnly ? (
-                                              pcf.comments || "—"
+                                              pcf.comments || "-"
                                             ) : (
                                               <input
                                                 className={styles.subInp}
@@ -4253,7 +4253,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       {showAIModal && bidNumber && (
         <AIAnalyzerModal
           title="Generate Scope of Supply with AI"
-          subtitle="Upload the client's technical specification — the AI extracts sections, items and clarifications for your review."
+          subtitle="Upload the client's technical specification - the AI extracts sections, items and clarifications for your review."
           badge={bidNumber}
           onClose={() => setShowAIModal(false)}
           bidNumber={bidNumber}
@@ -4429,7 +4429,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
 }) => {
   if (readOnly)
     return (
-      <span className={mono ? styles.cellMono : undefined}>{value || "—"}</span>
+      <span className={mono ? styles.cellMono : undefined}>{value || "-"}</span>
     );
 
   if (isEditing) {
@@ -4453,7 +4453,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
       onDoubleClick={onStartEdit}
       style={{ cursor: "text", minHeight: 20, display: "block" }}
     >
-      {value || "—"}
+      {value || "-"}
     </span>
   );
 };

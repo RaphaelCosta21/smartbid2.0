@@ -230,7 +230,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
         .filter((c) => (c.clarification || c.description || "").trim())
         .map(
           (c) =>
-            `- ${c.baseType || "Clarification"}: ${c.description || ""} — ${c.clarification || ""}`,
+            `- ${c.baseType || "Clarification"}: ${c.description || ""} - ${c.clarification || ""}`,
         )
         .concat(
           tables.reduce<string[]>(
@@ -517,7 +517,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                           }}
                         />
                       ) : (
-                        qi.description || "—"
+                        qi.description || "-"
                       )}
                     </td>
                     <td
@@ -548,7 +548,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                           }}
                         />
                       ) : (
-                        qi.comments || "—"
+                        qi.comments || "-"
                       )}
                     </td>
                     {canEditQual && (
@@ -897,7 +897,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                               : undefined,
                           }}
                         >
-                          {c.item || "—"}
+                          {c.item || "-"}
                         </span>
                       )}
                     </td>
@@ -928,7 +928,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                           }}
                         />
                       ) : (
-                        c.description || "—"
+                        c.description || "-"
                       )}
                     </td>
                     <td
@@ -958,7 +958,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                           }}
                         />
                       ) : (
-                        c.clarification || "—"
+                        c.clarification || "-"
                       )}
                     </td>
                     <td
@@ -988,7 +988,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                           }}
                         />
                       ) : (
-                        c.clientResponse || "—"
+                        c.clientResponse || "-"
                       )}
                     </td>
                     <td
@@ -1002,7 +1002,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                     >
                       {c.createdDate
                         ? new Date(c.createdDate).toLocaleDateString()
-                        : "—"}
+                        : "-"}
                     </td>
                     <td
                       style={{
@@ -1017,7 +1017,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                     >
                       {c.responseDate
                         ? new Date(c.responseDate).toLocaleDateString()
-                        : "—"}
+                        : "-"}
                     </td>
                     <td
                       style={{

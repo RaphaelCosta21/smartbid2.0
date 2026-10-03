@@ -233,11 +233,11 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
             <div className={styles.title}>
               Create Engineering Request (ERN)
               {division
-                ? ` — ${division === "SURVEY" ? "Survey" : division}`
+                ? ` - ${division === "SURVEY" ? "Survey" : division}`
                 : ""}
             </div>
             <div className={styles.subtitle}>
-              {bid.bidNumber} · {bid.opportunityInfo?.client || "—"}
+              {bid.bidNumber} · {bid.opportunityInfo?.client || "-"}
             </div>
           </div>
           <button

@@ -71,7 +71,7 @@ export const DueDateChangeModal: React.FC<DueDateChangeModalProps> = ({
               Change Due Date
             </div>
             <div className={styles.subtitle}>
-              {bid.bidNumber} · {bid.opportunityInfo?.client || "—"}
+              {bid.bidNumber} · {bid.opportunityInfo?.client || "-"}
             </div>
           </div>
           <button

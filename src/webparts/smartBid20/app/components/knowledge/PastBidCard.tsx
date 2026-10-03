@@ -69,7 +69,7 @@ export const PastBidCard: React.FC<PastBidCardProps> = ({
       </div>
 
       <div>
-        <div className={styles.client}>{row.client || "—"}</div>
+        <div className={styles.client}>{row.client || "-"}</div>
         {row.project && <div className={styles.project}>{row.project}</div>}
       </div>
 
@@ -116,16 +116,16 @@ export const PastBidCard: React.FC<PastBidCardProps> = ({
 
       <div className={styles.meta}>
         <span className={styles.label}>Creator</span>
-        <span className={styles.metaValue}>{bid.creator?.name || "—"}</span>
+        <span className={styles.metaValue}>{bid.creator?.name || "-"}</span>
         <span className={styles.label}>
           {engineers.length > 1 ? "Engineers" : "Engineer"}
         </span>
         <span className={styles.metaValue}>
-          {engineers.length ? engineers.join(", ") : "—"}
+          {engineers.length ? engineers.join(", ") : "-"}
         </span>
         <span className={styles.label}>Completed</span>
         <span className={styles.metaValue}>
-          {row.completedDate ? formatDate(row.completedDate) : "—"}
+          {row.completedDate ? formatDate(row.completedDate) : "-"}
         </span>
         {contract && (
           <>

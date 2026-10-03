@@ -151,7 +151,7 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
         ? { ok: true, label: "BID approved (Close Out · Completed)" }
         : {
             ok: false,
-            label: `BID not approved yet — ${approval.statusLabel} · ${approval.phaseLabel}`,
+            label: `BID not approved yet - ${approval.statusLabel} · ${approval.phaseLabel}`,
           },
     );
     const missing = s.missingRateCurrencies || [];
@@ -160,7 +160,7 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
     } else if (missing.length > 0) {
       list.push({
         ok: false,
-        label: `No exchange rate for ${missing.join(", ")} — left out of USD totals`,
+        label: `No exchange rate for ${missing.join(", ")} - left out of USD totals`,
       });
     } else {
       list.push({
@@ -264,7 +264,7 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
         type: approval.approved ? "success" : "warning",
         title: approval.approved
           ? "Excel exported"
-          : "Excel exported — NOT APPROVED",
+          : "Excel exported - NOT APPROVED",
         message: name,
       });
     } catch (err) {
@@ -309,7 +309,7 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
           <h2 className={styles.heroTitle}>
             {[opp && opp.client, opp && opp.projectName]
               .filter(Boolean)
-              .join(" · ") || "—"}
+              .join(" · ") || "-"}
           </h2>
           <p className={styles.heroSub}>
             {bid.crmNumber?.trim() || bid.bidNumber}
@@ -541,7 +541,7 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
               <div className={styles.figure}>
                 <span className={styles.figureLabel}>PTAX (USD→BRL)</span>
                 <span className={styles.figureValue}>
-                  {s.ptaxUsed > 0 ? s.ptaxUsed.toFixed(4) : "—"}
+                  {s.ptaxUsed > 0 ? s.ptaxUsed.toFixed(4) : "-"}
                 </span>
                 {view.fx.capturedDate && (
                   <span className={styles.figureSub}>
@@ -582,7 +582,7 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
             </ul>
             {warnings > 0 && (
               <p className={styles.hint}>
-                Warnings don&apos;t block the export — they are also noted in
+                Warnings don&apos;t block the export - they are also noted in
                 the workbook.
               </p>
             )}

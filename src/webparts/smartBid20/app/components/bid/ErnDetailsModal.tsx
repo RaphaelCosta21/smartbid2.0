@@ -85,7 +85,7 @@ export const ErnDetailsModal: React.FC<ErnDetailsModalProps> = ({
                     className={styles.statusPill}
                     style={{ background: stateColor[deadline] }}
                   >
-                    {ern.status || "—"}
+                    {ern.status || "-"}
                   </span>
                 </Row>
                 <Row label="Deliverable Type" value={ern.deliverableType} />
@@ -96,7 +96,7 @@ export const ErnDetailsModal: React.FC<ErnDetailsModalProps> = ({
               </div>
               <div className={styles.descBlock}>
                 <div className={styles.descLabel}>Deliverable Description</div>
-                <div className={styles.descValue}>{ern.description || "—"}</div>
+                <div className={styles.descValue}>{ern.description || "-"}</div>
               </div>
               <a
                 className={styles.appLink}
@@ -121,6 +121,6 @@ const Row: React.FC<{
 }> = ({ label, value, children }) => (
   <div className={styles.row}>
     <span className={styles.rowLabel}>{label}</span>
-    <span className={styles.rowValue}>{children || value || "—"}</span>
+    <span className={styles.rowValue}>{children || value || "-"}</span>
   </div>
 );

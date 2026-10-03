@@ -19,7 +19,7 @@ import {
 } from "../rows";
 
 const DASH: XlValue = {
-  value: "—",
+  value: "-",
   color: XL_COLORS.textMuted,
   align: "center",
 };
@@ -260,12 +260,12 @@ export function buildAssetsSheet(ctx: IBidExcelContext): void {
   });
   x.gap(6);
   x.note(
-    `Assets in BRL: ${fmtBRL(assetsTotal * s.ptaxUsed)} (USD × PTAX ${s.ptaxUsed > 0 ? s.ptaxUsed.toFixed(4) : "—"}).`,
+    `Assets in BRL: ${fmtBRL(assetsTotal * s.ptaxUsed)} (USD × PTAX ${s.ptaxUsed > 0 ? s.ptaxUsed.toFixed(4) : "-"}).`,
     span,
     "muted",
   );
   x.note(
-    "One line per item. Total Cost USD rolls up everything tied to the item — equipment, availability splits, sub-items, PCF (when it drives the cost) and services & fees — exactly as counted in the Cost Summary.",
+    "One line per item. Total Cost USD rolls up everything tied to the item - equipment, availability splits, sub-items, PCF (when it drives the cost) and services & fees - exactly as counted in the Cost Summary.",
     span,
     "info",
   );

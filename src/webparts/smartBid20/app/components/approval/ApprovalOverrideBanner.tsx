@@ -36,7 +36,7 @@ export const ApprovalOverrideBanner: React.FC<ApprovalOverrideBannerProps> = ({
 
       <div className={styles.summary}>
         {override.totalApprovers === 0 ? (
-          "The approval flow had not been started — no approver responses were recorded."
+          "The approval flow had not been started - no approver responses were recorded."
         ) : (
           <>
             <strong>

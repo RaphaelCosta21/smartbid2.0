@@ -245,26 +245,26 @@ function summarizeAsset(
   let category = buckets.length > 1 ? "Mixed" : buckets[0] || "";
   if (!category) {
     const eff = getEffectiveCategory(asset);
-    category = eff === "UNCATEGORIZED" ? "—" : eff;
+    category = eff === "UNCATEGORIZED" ? "-" : eff;
   }
 
   return {
     lineNo,
     division: (si && si.integratedDivision) || asset.integratedDivision || "",
-    equipmentOffer: (si && (si.equipmentOffer || si.description)) || "—",
+    equipmentOffer: (si && (si.equipmentOffer || si.description)) || "-",
     partNumber: (si && si.partNumber) || "",
     resourceType: (si && si.resourceType) || "",
     subType: (si && si.resourceSubType) || "",
     qtyOp: (si && si.qtyOperational) || 0,
     qtySp: (si && si.qtySpare) || 0,
-    availability: hasSplits ? `Split (${splits.length})` : avail || "—",
+    availability: hasSplits ? `Split (${splits.length})` : avail || "-",
     acqType: hasSplits
-      ? unique(splits.map((s) => s.acquisitionType)).join(" / ") || "—"
+      ? unique(splits.map((s) => s.acquisitionType)).join(" / ") || "-"
       : noCost
         ? notOffered
           ? "Not Offered"
           : "N/A"
-        : asset.acquisitionType || "—",
+        : asset.acquisitionType || "-",
     unitCost,
     unitIsDaily: rental && unitCost !== null,
     total: bd.total,
@@ -364,7 +364,7 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
 
   (bid.assetBreakdown || []).forEach((asset) => {
     const si = scopeMap.get(asset.scopeItemId);
-    const parentName = (si && (si.equipmentOffer || si.description)) || "—";
+    const parentName = (si && (si.equipmentOffer || si.description)) || "-";
     const base = {
       parent: "",
       resourceType: (si && si.resourceType) || "",
@@ -461,7 +461,7 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
       list.forEach((sic) => {
         const child = findChild(si, sic.subItemId);
         const name =
-          (child && (child.equipmentOffer || child.description)) || "—";
+          (child && (child.equipmentOffer || child.description)) || "-";
         const pn = (child && child.partNumber) || "";
         const childSplits = sic.availabilitySplits || [];
         if (childSplits.length > 0) {

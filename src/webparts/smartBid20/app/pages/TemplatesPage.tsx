@@ -244,7 +244,7 @@ export const TemplatesPage: React.FC = () => {
     <div className={styles.page}>
       <PageHeader
         title="Scope Templates"
-        subtitle={`${templates.length} templates — ${activeCount} active — ${totalScopeItems} total scope items`}
+        subtitle={`${templates.length} templates - ${activeCount} active - ${totalScopeItems} total scope items`}
         icon={
           <svg
             width="28"
@@ -434,9 +434,9 @@ export const TemplatesPage: React.FC = () => {
                         {tpl.name}
                       </button>
                     </td>
-                    <td>{tpl.division || "—"}</td>
-                    <td>{tpl.serviceLine || "—"}</td>
-                    <td>{tpl.category || "—"}</td>
+                    <td>{tpl.division || "-"}</td>
+                    <td>{tpl.serviceLine || "-"}</td>
+                    <td>{tpl.category || "-"}</td>
                     <td>{itemCount}</td>
                     <td>{tpl.usageCount}x</td>
                     <td>

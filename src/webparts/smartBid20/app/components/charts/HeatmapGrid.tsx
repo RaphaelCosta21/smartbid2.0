@@ -92,7 +92,7 @@ export const HeatmapGrid: React.FC<HeatmapGridProps> = ({
                       : `${row} · ${c.label}: ${value}${valueSuffix} (${count})`
                   }
                 >
-                  {empty ? "—" : `${value}${valueSuffix}`}
+                  {empty ? "-" : `${value}${valueSuffix}`}
                 </div>
               );
             })}

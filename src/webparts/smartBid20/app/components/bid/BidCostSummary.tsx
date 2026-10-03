@@ -33,7 +33,7 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
     },
     {
       label: "PTAX Used (USD→BRL)",
-      value: s.ptaxUsed > 0 ? s.ptaxUsed.toFixed(4) : "—",
+      value: s.ptaxUsed > 0 ? s.ptaxUsed.toFixed(4) : "-",
       sub: fx.capturedDate
         ? `Registered ${formatDate(fx.capturedDate)}`
         : undefined,
@@ -299,7 +299,7 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
           <div className={styles.notes}>
             Uncategorized assets (no CAPEX/OPEX set):{" "}
             {formatCurrency(view.uncategorized.usd)} ·{" "}
-            {formatCurrency(view.uncategorized.brl, "BRL")} — included in the
+            {formatCurrency(view.uncategorized.brl, "BRL")} - included in the
             total but not in CAPEX or OPEX.
           </div>
         )}

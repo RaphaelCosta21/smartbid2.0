@@ -400,16 +400,16 @@ export const AdvancedCatalogSearch: React.FC<AdvancedCatalogSearchProps> = ({
                             {item.description}
                           </td>
                           <td className={styles.cellBu}>
-                            {item.businessUnit || "—"}
+                            {item.businessUnit || "-"}
                           </td>
                           {tab === "brazil" && (
                             <td className={styles.cellMfg}>
-                              {item.mfgId || "—"}
+                              {item.mfgId || "-"}
                             </td>
                           )}
                           {tab === "brazil" && (
                             <td className={styles.cellMfg}>
-                              {item.mfgItmId || "—"}
+                              {item.mfgItmId || "-"}
                             </td>
                           )}
                           <td className={styles.cellAct}>

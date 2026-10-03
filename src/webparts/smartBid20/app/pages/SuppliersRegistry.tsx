@@ -288,7 +288,7 @@ export const SuppliersRegistry: React.FC = () => {
                 <label className={styles.label}>
                   Logo{" "}
                   <span className={styles.hint}>
-                    (PNG, JPG, WEBP, SVG or GIF — up to 1 MB)
+                    (PNG, JPG, WEBP, SVG or GIF - up to 1 MB)
                   </span>
                 </label>
                 <div className={styles.logoField}>
@@ -525,13 +525,13 @@ export const SuppliersRegistry: React.FC = () => {
                       )}
                     </span>
                   ) : (
-                    <span className={styles.subtle}>—</span>
+                    <span className={styles.subtle}>-</span>
                   )}
                 </div>
                 <div className={styles.metaRow}>
                   <span className={styles.metaLabel}>Part Numbers</span>
                   <span className={styles.metaValue}>
-                    {s.partNumbers.length || <span className={styles.subtle}>—</span>}
+                    {s.partNumbers.length || <span className={styles.subtle}>-</span>}
                   </span>
                 </div>
               </div>

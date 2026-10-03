@@ -426,7 +426,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
           <div className={styles.scopeHeader}>
             <div>
               <h3 className={styles.scopeTitle}>
-                Scope of Supply — {name || "Template"}
+                Scope of Supply - {name || "Template"}
               </h3>
               <p className={styles.scopeSubtitle}>
                 {isScopeEditing
@@ -486,7 +486,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
           <div className={styles.scopeHeader}>
             <div>
               <h3 className={styles.scopeTitle}>
-                Hours &amp; Personnel — {name || "Template"}
+                Hours &amp; Personnel - {name || "Template"}
               </h3>
               <p className={styles.scopeSubtitle}>
                 {isHoursEditing

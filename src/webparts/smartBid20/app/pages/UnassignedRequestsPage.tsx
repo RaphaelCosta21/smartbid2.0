@@ -468,7 +468,7 @@ export const UnassignedRequestsPage: React.FC = () => {
         timestamp: now,
         actor: engineers[0]?.email || "",
         actorName: engineers[0]?.name || "",
-        description: `BID assigned — moved from ${prevPhase} / ${prevStatus} to Bid Kick Off / Awaiting Kick Off`,
+        description: `BID assigned - moved from ${prevPhase} / ${prevStatus} to Bid Kick Off / Awaiting Kick Off`,
         metadata: {
           previousPhase: prevPhase,
           previousStatus: prevStatus,
@@ -784,25 +784,25 @@ export const UnassignedRequestsPage: React.FC = () => {
                 <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>Client</span>
                   <span className={styles.modalFieldValue}>
-                    {r.client || "—"}
+                    {r.client || "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>Client Contact</span>
                   <span className={styles.modalFieldValue}>
-                    {r.clientContact || "—"}
+                    {r.clientContact || "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>CRM</span>
                   <span className={styles.modalFieldValue}>
-                    {r.crmNumber || "—"}
+                    {r.crmNumber || "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>Project Name</span>
                   <span className={styles.modalFieldValue}>
-                    {r.projectName || "—"}
+                    {r.projectName || "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
@@ -814,7 +814,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                 <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>Service Line</span>
                   <span className={styles.modalFieldValue}>
-                    {r.serviceLine || "—"}
+                    {r.serviceLine || "-"}
                   </span>
                 </div>
                 <div
@@ -822,7 +822,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                 >
                   <span className={styles.modalFieldLabel}>Description</span>
                   <span className={styles.modalFieldValue}>
-                    {r.projectDescription || "—"}
+                    {r.projectDescription || "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
@@ -832,7 +832,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                   <span className={styles.modalFieldValue}>
                     {r.operationStartDate
                       ? formatDate(r.operationStartDate, "MMM d, yyyy")
-                      : "—"}
+                      : "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
@@ -840,7 +840,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                     Expected Duration
                   </span>
                   <span className={styles.modalFieldValue}>
-                    {r.totalDuration ? `${r.totalDuration} days` : "—"}
+                    {r.totalDuration ? `${r.totalDuration} days` : "-"}
                   </span>
                 </div>
               </div>
@@ -880,7 +880,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                         </span>
                       ))
                     ) : (
-                      <span style={{ color: "var(--text-tertiary)" }}>—</span>
+                      <span style={{ color: "var(--text-tertiary)" }}>-</span>
                     )}
                   </div>
                 </div>
@@ -904,7 +904,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                   <span className={styles.modalFieldValue}>
                     {r.creationDate
                       ? format(new Date(r.creationDate), "MMM d, yyyy")
-                      : "—"}
+                      : "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
@@ -931,7 +931,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                           )}
                         </span>
                       )}
-                      {r.creator?.name || r.requestedBy?.name || "—"}
+                      {r.creator?.name || r.requestedBy?.name || "-"}
                     </span>
                   </div>
                 </div>
@@ -942,7 +942,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                   <span className={styles.modalFieldValue}>
                     {r.desiredDueDate
                       ? formatDate(r.desiredDueDate, "MMM d, yyyy")
-                      : "—"}
+                      : "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
@@ -960,7 +960,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                         }
                       />
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -979,7 +979,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                         }
                       />
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -995,13 +995,13 @@ export const UnassignedRequestsPage: React.FC = () => {
                 <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>Vessel</span>
                   <span className={styles.modalFieldValue}>
-                    {r.vessel || "—"}
+                    {r.vessel || "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>Field</span>
                   <span className={styles.modalFieldValue}>
-                    {r.field || "—"}
+                    {r.field || "-"}
                   </span>
                 </div>
                 <div
@@ -1021,7 +1021,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                         {r.commercialFolderUrl} ↗
                       </a>
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -1030,7 +1030,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                 >
                   <span className={styles.modalFieldLabel}>Notes</span>
                   <span className={styles.modalFieldValue}>
-                    {r.notes || "—"}
+                    {r.notes || "-"}
                   </span>
                 </div>
                 <div
@@ -1090,7 +1090,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                       className={styles.modalFieldValue}
                       style={{ color: "var(--text-tertiary)" }}
                     >
-                      —
+                      -
                     </span>
                   )}
                 </div>
@@ -1164,7 +1164,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                 <div className={styles.cardMetaItem}>
                   <span className={styles.cardMetaLabel}>CRM</span>
                   <span className={styles.cardMetaValue}>
-                    {r.crmNumber || "—"}
+                    {r.crmNumber || "-"}
                   </span>
                 </div>
                 <div className={styles.cardMetaItem}>
@@ -1182,7 +1182,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                         }
                       />
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -1195,7 +1195,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                   <span className={styles.cardMetaValue}>
                     {r.desiredDueDate
                       ? formatDate(r.desiredDueDate, "MMM d")
-                      : "—"}
+                      : "-"}
                   </span>
                 </div>
                 <div className={styles.cardMetaItem}>
@@ -1207,7 +1207,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                         color={statusColors.getPhaseColor(r.currentPhase)}
                       />
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -1220,7 +1220,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                         color={statusColors.getStatusColor(r.currentStatus)}
                       />
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -1286,7 +1286,7 @@ export const UnassignedRequestsPage: React.FC = () => {
       sortable: true,
       width: 110,
       render: (r: IBidRequest) => (
-        <span className={styles.mono}>{r.crmNumber || "—"}</span>
+        <span className={styles.mono}>{r.crmNumber || "-"}</span>
       ),
     },
     {
@@ -1382,14 +1382,14 @@ export const UnassignedRequestsPage: React.FC = () => {
       header: "Date",
       sortable: true,
       render: (r: IBidRequest) =>
-        r.requestDate ? format(new Date(r.requestDate), "MMM d, yyyy") : "—",
+        r.requestDate ? format(new Date(r.requestDate), "MMM d, yyyy") : "-",
     },
     {
       key: "desiredDueDate",
       header: "Due Date",
       sortable: true,
       render: (r: IBidRequest) =>
-        r.desiredDueDate ? formatDate(r.desiredDueDate, "MMM d, yyyy") : "—",
+        r.desiredDueDate ? formatDate(r.desiredDueDate, "MMM d, yyyy") : "-",
     },
     {
       key: "currentPhase",
@@ -1401,7 +1401,7 @@ export const UnassignedRequestsPage: React.FC = () => {
         return r.currentPhase ? (
           <StatusBadge status={r.currentPhase} color={phaseColor} />
         ) : (
-          "—"
+          "-"
         );
       },
     },
@@ -1415,7 +1415,7 @@ export const UnassignedRequestsPage: React.FC = () => {
         return r.currentStatus ? (
           <StatusBadge status={r.currentStatus} color={statusColor} />
         ) : (
-          "—"
+          "-"
         );
       },
     },

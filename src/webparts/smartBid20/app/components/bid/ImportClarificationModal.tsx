@@ -187,21 +187,21 @@ export const ImportClarificationModal: React.FC<
                         {it.baseType}
                       </span>
                     </td>
-                    <td>{it.clientDocRef || "—"}</td>
+                    <td>{it.clientDocRef || "-"}</td>
                     <td>
-                      <div className={styles.cellText}>{it.etTopic || "—"}</div>
+                      <div className={styles.cellText}>{it.etTopic || "-"}</div>
                     </td>
                     <td>
                       <div className={styles.cellText}>
-                        {it.clarification || "—"}
+                        {it.clarification || "-"}
                       </div>
                     </td>
                     <td>
                       <div className={styles.cellText}>
-                        {it.clientReply || "—"}
+                        {it.clientReply || "-"}
                       </div>
                     </td>
-                    <td>{it.client || "—"}</td>
+                    <td>{it.client || "-"}</td>
                   </tr>
                 ))}
               </tbody>

@@ -402,7 +402,7 @@ export const FollowUpPage: React.FC = () => {
       header: "Client",
       render: (bid: IBid) => (
         <span className={styles.clientText}>
-          {bid.opportunityInfo?.client || "—"}
+          {bid.opportunityInfo?.client || "-"}
         </span>
       ),
     },
@@ -411,7 +411,7 @@ export const FollowUpPage: React.FC = () => {
       header: "Project",
       render: (bid: IBid) => (
         <span className={styles.clientText}>
-          {bid.opportunityInfo?.projectName || "—"}
+          {bid.opportunityInfo?.projectName || "-"}
         </span>
       ),
     },
@@ -419,7 +419,7 @@ export const FollowUpPage: React.FC = () => {
       key: "crmNumber",
       header: "CRM",
       render: (bid: IBid) => (
-        <span className={styles.serviceLineText}>{bid.crmNumber || "—"}</span>
+        <span className={styles.serviceLineText}>{bid.crmNumber || "-"}</span>
       ),
     },
     {
@@ -431,7 +431,7 @@ export const FollowUpPage: React.FC = () => {
       key: "serviceLine",
       header: "Service Line",
       render: (bid: IBid) => (
-        <span className={styles.serviceLineText}>{bid.serviceLine || "—"}</span>
+        <span className={styles.serviceLineText}>{bid.serviceLine || "-"}</span>
       ),
     },
     {
@@ -440,7 +440,7 @@ export const FollowUpPage: React.FC = () => {
       sortable: true,
       render: (bid: IBid) => (
         <span className={styles.dateText}>
-          {bid.createdDate ? formatDate(bid.createdDate) : "—"}
+          {bid.createdDate ? formatDate(bid.createdDate) : "-"}
         </span>
       ),
     },
@@ -450,7 +450,7 @@ export const FollowUpPage: React.FC = () => {
       sortable: true,
       render: (bid: IBid) => (
         <span className={styles.dateText}>
-          {bid.completedDate ? formatDate(bid.completedDate) : "—"}
+          {bid.completedDate ? formatDate(bid.completedDate) : "-"}
         </span>
       ),
     },
@@ -490,7 +490,7 @@ export const FollowUpPage: React.FC = () => {
             {bid.bidResult.lostReason}
           </span>
         ) : (
-          <span className={styles.dateText}>—</span>
+          <span className={styles.dateText}>-</span>
         ),
     },
     {
@@ -500,7 +500,7 @@ export const FollowUpPage: React.FC = () => {
         <span className={styles.dateText}>
           {bid.bidResult?.outcomeDate
             ? formatDate(bid.bidResult.outcomeDate)
-            : "—"}
+            : "-"}
         </span>
       ),
     },
@@ -988,14 +988,14 @@ export const FollowUpPage: React.FC = () => {
                   {drawerBid.bidNumber} ↗
                 </span>
                 <span className={styles.drawerClient}>
-                  {drawerBid.opportunityInfo?.client || "—"}
+                  {drawerBid.opportunityInfo?.client || "-"}
                 </span>
                 <span className={styles.drawerProject}>
-                  {drawerBid.opportunityInfo?.projectName || "—"}
+                  {drawerBid.opportunityInfo?.projectName || "-"}
                 </span>
                 <div className={styles.drawerMeta}>
                   <span>{drawerBid.division}</span>
-                  <span>{drawerBid.serviceLine || "—"}</span>
+                  <span>{drawerBid.serviceLine || "-"}</span>
                   {drawerBid.completedDate && (
                     <span>Completed {formatDate(drawerBid.completedDate)}</span>
                   )}

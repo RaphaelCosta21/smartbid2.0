@@ -70,7 +70,7 @@ export const ErnDashboardSection: React.FC<ErnDashboardSectionProps> = ({
           division: l.division,
           status: live?.status || l.ernStatus || "Unknown",
           dueDate: live?.dueDate || l.ernDueDate || "",
-          serviceLine: l.division || b.serviceLine || "—",
+          serviceLine: l.division || b.serviceLine || "-",
         });
       });
     });
@@ -104,7 +104,7 @@ export const ErnDashboardSection: React.FC<ErnDashboardSectionProps> = ({
   const byDivision = React.useMemo(() => {
     const map: Record<string, number> = {};
     links.forEach((l) => {
-      const key = l.bid.division || "—";
+      const key = l.bid.division || "-";
       map[key] = (map[key] || 0) + 1;
     });
     return Object.keys(map).map((k) => ({

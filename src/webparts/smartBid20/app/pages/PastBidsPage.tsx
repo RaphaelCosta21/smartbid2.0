@@ -212,7 +212,7 @@ export const PastBidsPage: React.FC = () => {
       sortable: true,
       render: (r: IPastBidRow) => (
         <div className={styles.stack}>
-          <span className={styles.primaryText}>{r.client || "—"}</span>
+          <span className={styles.primaryText}>{r.client || "-"}</span>
           {r.project && <span className={styles.muted}>{r.project}</span>}
         </div>
       ),
@@ -223,7 +223,7 @@ export const PastBidsPage: React.FC = () => {
       sortable: true,
       render: (r: IPastBidRow) => (
         <div className={styles.stack}>
-          {r.division ? <DivisionBadge division={r.division} /> : "—"}
+          {r.division ? <DivisionBadge division={r.division} /> : "-"}
           {r.serviceLine && (
             <span className={styles.muted}>{r.serviceLine}</span>
           )}
@@ -258,7 +258,7 @@ export const PastBidsPage: React.FC = () => {
       sortable: true,
       render: (r: IPastBidRow) => (
         <span className={styles.dateText}>
-          {r.completedDate ? formatDate(r.completedDate) : "—"}
+          {r.completedDate ? formatDate(r.completedDate) : "-"}
         </span>
       ),
     },

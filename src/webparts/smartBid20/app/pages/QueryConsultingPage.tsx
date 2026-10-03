@@ -1263,7 +1263,7 @@ export function QueryConsultingPage(): React.ReactElement {
       {/* ── Pagination ──────────────────────────────────────────────────── */}
       <div className={styles.paginationBar}>
         <span className={styles.resultCount}>
-          Showing {Math.min(page * PAGE_SIZE + 1, filteredCount)}–
+          Showing {Math.min(page * PAGE_SIZE + 1, filteredCount)}-
           {Math.min((page + 1) * PAGE_SIZE, filteredCount)} of{" "}
           {filteredCount.toLocaleString()} items
         </span>

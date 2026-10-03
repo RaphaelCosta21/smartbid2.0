@@ -625,7 +625,7 @@ export const EngineeringHoursSection: React.FC<
                               </td>
                               {resourceColumns.map((rc) => (
                                 <td key={rc} className={styles.delivHours}>
-                                  {d.hoursByResource?.[rc] || "—"}
+                                  {d.hoursByResource?.[rc] || "-"}
                                 </td>
                               ))}
                               <td className={styles.delivHours}>{d.hours}</td>
@@ -643,7 +643,7 @@ export const EngineeringHoursSection: React.FC<
                               );
                               return (
                                 <td key={rc} className={styles.delivHours}>
-                                  {colTotal > 0 ? colTotal : "—"}
+                                  {colTotal > 0 ? colTotal : "-"}
                                 </td>
                               );
                             })}
@@ -658,7 +658,7 @@ export const EngineeringHoursSection: React.FC<
                     <div className={styles.notesSection}>
                       <label className={styles.notesLabel}>Notes</label>
                       {readOnly ? (
-                        <p className={styles.notesText}>{item.notes || "—"}</p>
+                        <p className={styles.notesText}>{item.notes || "-"}</p>
                       ) : (
                         <textarea
                           className={styles.notesInput}
@@ -944,7 +944,7 @@ export const EngineeringHoursSection: React.FC<
                               <td key={rc} className={styles.gridMfgCell}>
                                 {mfgHours[rc] > 0
                                   ? mfgHours[rc].toFixed(1)
-                                  : "—"}
+                                  : "-"}
                               </td>
                             ))}
                           </tr>

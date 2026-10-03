@@ -418,7 +418,7 @@ export function divisionPhaseMatrix(
   const raw: { [div: string]: { [phase: string]: number[] } } = {};
   const divisionsSet: { [d: string]: true } = {};
   bids.forEach((b) => {
-    const div = b.division || "—";
+    const div = b.division || "-";
     divisionsSet[div] = true;
     (b.phaseHistory || []).forEach((e) => {
       if (e.durationHours != null && e.durationHours >= 0) {
@@ -519,7 +519,7 @@ export function divisionLoad(
   const map: { [div: string]: DivisionLoadRow } = {};
   bids.forEach((b) => {
     if (!isBidActive(b, terminalStatuses)) return;
-    const div = b.division || "—";
+    const div = b.division || "-";
     const row = (map[div] = map[div] || {
       division: div,
       active: 0,

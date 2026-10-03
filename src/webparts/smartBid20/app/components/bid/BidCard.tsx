@@ -120,12 +120,12 @@ export const BidCard: React.FC<BidCardProps> = ({
 
       <div className={styles.cardMeta}>
         <span className={styles.metaLabel}>Creator</span>
-        <span className={styles.metaValue}>{bid.creator?.name || "—"}</span>
+        <span className={styles.metaValue}>{bid.creator?.name || "-"}</span>
         <span className={styles.metaLabel}>
           {engineers.length > 1 ? "Engineers" : "Engineer"}
         </span>
         <span className={styles.metaValue}>
-          {engineers.length > 0 ? engineers.join(", ") : "—"}
+          {engineers.length > 0 ? engineers.join(", ") : "-"}
         </span>
         {analysts.length > 0 && (
           <>

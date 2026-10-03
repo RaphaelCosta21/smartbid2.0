@@ -69,17 +69,17 @@ export function formatDate(
   pattern: string = "MMM d, yyyy",
 ): string {
   const d = parseDate(dateStr);
-  return d ? format(d, pattern) : "—";
+  return d ? format(d, pattern) : "-";
 }
 
 export function formatDateTime(dateStr: string): string {
   const d = parseDate(dateStr);
-  return d ? format(d, "MMM d, yyyy HH:mm") : "—";
+  return d ? format(d, "MMM d, yyyy HH:mm") : "-";
 }
 
 export function formatRelativeTime(dateStr: string): string {
   const d = new Date(dateStr);
-  if (!dateStr || isNaN(d.getTime())) return "—";
+  if (!dateStr || isNaN(d.getTime())) return "-";
   return formatDistanceToNow(d, { addSuffix: true });
 }
 

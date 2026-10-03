@@ -61,7 +61,7 @@ function claimText(
   claims: Record<string, unknown> | undefined,
   key: string,
 ): string {
-  if (!claims || claims[key] === undefined || claims[key] === null) return "—";
+  if (!claims || claims[key] === undefined || claims[key] === null) return "-";
   const value = claims[key];
   if (Array.isArray(value))
     return value.length > 0 ? value.join(", ") : "(empty array)";
@@ -73,9 +73,9 @@ function upnClaim(claims: Record<string, unknown> | undefined): string {
   const keys = ["upn", "preferred_username", "unique_name", "email"];
   for (let i = 0; i < keys.length; i++) {
     const v = claimText(claims, keys[i]);
-    if (v !== "—") return v + "  (claim: " + keys[i] + ")";
+    if (v !== "-") return v + "  (claim: " + keys[i] + ")";
   }
-  return "— NO UPN CLAIM IN TOKEN";
+  return "- NO UPN CLAIM IN TOKEN";
 }
 
 /** "api://x/user_impersonation" -> "api://x" (the audience Entra will stamp). */
@@ -90,7 +90,7 @@ const GUID_RE =
 function errorText(e: unknown): string {
   if (e instanceof Error) {
     const code = (e as { errorCode?: string }).errorCode;
-    return (code ? code + " — " : "") + e.message;
+    return (code ? code + " - " : "") + e.message;
   }
   return String(e);
 }
@@ -173,11 +173,11 @@ const STEP_LABEL: Record<string, string> = {
   config: "1) Configuration (ai.config.ts)",
   identity: "2) SharePoint session identity",
   token: "3) Entra ID token (MSAL, auth code + PKCE)",
-  scopeProbe: "3b) Scope discovery — which scope does Entra accept?",
+  scopeProbe: "3b) Scope discovery - which scope does Entra accept?",
   claims: "4) Token claims & audience match",
   cors: "5) Endpoint reachability / CORS",
-  ai: "6) AI round trip (Azure OpenAI — quotation extract)",
-  scopeRag: "7) Scope of Supply + RAG (AI Search) — pre-extracted text",
+  ai: "6) AI round trip (Azure OpenAI - quotation extract)",
+  scopeRag: "7) Scope of Supply + RAG (AI Search) - pre-extracted text",
   scopeFile: "8) Scope of Supply with your own document (backend parsing)",
 };
 
@@ -251,7 +251,7 @@ const SAMPLE_SCOPE_DOCUMENT = [
 function traceRows(): Array<[string, string]> {
   return AiAuthService.trace.map(
     (t) =>
-      [t.outcome.toUpperCase() + " " + t.step, t.detail || "—"] as [
+      [t.outcome.toUpperCase() + " " + t.step, t.detail || "-"] as [
         string,
         string,
       ],
@@ -329,7 +329,7 @@ export const EntraTokenTest: React.FC = () => {
       configProblems.push("apiBaseUrl must be an https URL.");
     if (!AI_CONFIG.enabled)
       configProblems.push(
-        "AI_CONFIG.enabled is false, so AI features stay hidden in the app. This diagnostic bypasses the flag — flip it to true once every step below passes.",
+        "AI_CONFIG.enabled is false, so AI features stay hidden in the app. This diagnostic bypasses the flag - flip it to true once every step below passes.",
       );
 
     push({
@@ -366,13 +366,13 @@ export const EntraTokenTest: React.FC = () => {
       id: "identity",
       label: STEP_LABEL.identity,
       status: "ok",
-      summary: "Read from the SPFx page context — no approval needed",
+      summary: "Read from the SPFx page context - no approval needed",
       rows: [
-        ["displayName", String(pc.user.displayName || "—")],
-        ["loginName (upn)", String(pc.user.loginName || "—")],
-        ["email", String(pc.user.email || "—")],
-        ["Entra object id (oid)", String(pc.aadInfo?.userId || "—")],
-        ["Entra tenant id (tid)", String(pc.aadInfo?.tenantId || "—")],
+        ["displayName", String(pc.user.displayName || "-")],
+        ["loginName (upn)", String(pc.user.loginName || "-")],
+        ["email", String(pc.user.email || "-")],
+        ["Entra object id (oid)", String(pc.aadInfo?.userId || "-")],
+        ["Entra tenant id (tid)", String(pc.aadInfo?.tenantId || "-")],
       ],
     });
 
@@ -426,7 +426,7 @@ export const EntraTokenTest: React.FC = () => {
         id: "scopeProbe",
         label: STEP_LABEL.scopeProbe,
         status: "skipped",
-        summary: "Not needed — the configured scope already works",
+        summary: "Not needed - the configured scope already works",
       });
     } else {
       const probeStart = Date.now();
@@ -448,9 +448,9 @@ export const EntraTokenTest: React.FC = () => {
           accepted.push(r.scope);
         const verdictText =
           r.verdict === "works"
-            ? "ACCEPTED — token issued"
+            ? "ACCEPTED - token issued"
             : r.verdict === "exists"
-              ? "ACCEPTED — exists, needs consent"
+              ? "ACCEPTED - exists, needs consent"
               : r.verdict === "missing"
                 ? "scope name does not exist"
                 : r.verdict === "no-resource"
@@ -557,15 +557,15 @@ export const EntraTokenTest: React.FC = () => {
         id: "cors",
         label: STEP_LABEL.cors,
         status: "ok",
-        summary: "Reachable — the CORS preflight passed",
+        summary: "Reachable - the CORS preflight passed",
         durationMs: Date.now() - corsStart,
         rows: [
           ["HTTP status (no token)", String(res.status)],
           [
             "interpretation",
             res.status === 401 || res.status === 403
-              ? "EasyAuth is active and rejects anonymous calls — correct. The red 401 in the browser console belongs to THIS probe, not to a real failure."
-              : "Endpoint answered anonymously — confirm with IT that auth is enforced",
+              ? "EasyAuth is active and rejects anonymous calls - correct. The red 401 in the browser console belongs to THIS probe, not to a real failure."
+              : "Endpoint answered anonymously - confirm with IT that auth is enforced",
           ],
         ],
       });
@@ -588,7 +588,7 @@ export const EntraTokenTest: React.FC = () => {
         id: "ai",
         label: STEP_LABEL.ai,
         status: "skipped",
-        summary: "No token — cannot call the AI endpoint",
+        summary: "No token - cannot call the AI endpoint",
       });
     } else {
       const aiStart = Date.now();
@@ -600,7 +600,7 @@ export const EntraTokenTest: React.FC = () => {
         serviceLine: "ROV",
         resourceTypes: [],
         contextSummary:
-          "SmartBid connectivity diagnostic — synthetic quotation, not a real BID.",
+          "SmartBid connectivity diagnostic - synthetic quotation, not a real BID.",
         bidNumber: "DIAGNOSTIC",
         useCase: "quotation",
       };
@@ -634,7 +634,7 @@ export const EntraTokenTest: React.FC = () => {
         const body = await res.text();
         console.log("[SmartBid AI] HTTP " + res.status, body);
 
-        let itemCount = "—";
+        let itemCount = "-";
         try {
           const parsed = JSON.parse(body) as Record<string, unknown>;
           const items = parsed.items || parsed.quotations || parsed.scopeItems;
@@ -649,10 +649,10 @@ export const EntraTokenTest: React.FC = () => {
             "EasyAuth rejected the token itself. The aud claim from step 4 must be listed in the Function App allowedAudiences.";
         else if (res.status === 403)
           hint =
-            "EasyAuth accepted the token but the Function App refused the call. Check the Application Insights log for this timestamp — the request never reached the model.";
+            "EasyAuth accepted the token but the Function App refused the call. Check the Application Insights log for this timestamp - the request never reached the model.";
         else if (res.status === 404)
           hint =
-            "The route does not exist. Confirm the exact path with IT — ai.config.ts currently uses " +
+            "The route does not exist. Confirm the exact path with IT - ai.config.ts currently uses " +
             AI_CONFIG.endpoints.extractQuotation +
             ".";
         else if (res.status >= 500)
@@ -670,10 +670,10 @@ export const EntraTokenTest: React.FC = () => {
           summary: res.ok
             ? "HTTP " +
               res.status +
-              " — AI responded with " +
+              " - AI responded with " +
               itemCount +
               " quotation line(s)"
-            : "HTTP " + res.status + " — request rejected",
+            : "HTTP " + res.status + " - request rejected",
           durationMs: Date.now() - aiStart,
           rows: [
             ["HTTP status", String(res.status)],
@@ -718,7 +718,7 @@ export const EntraTokenTest: React.FC = () => {
         serviceLine: "ROV",
         resourceTypes: resourceTypeOptions.map((r) => r.label),
         contextSummary:
-          "SmartBid connectivity diagnostic — synthetic scope request, not a real BID.",
+          "SmartBid connectivity diagnostic - synthetic scope request, not a real BID.",
         bidNumber: "DIAGNOSTIC",
         useCase: "scope-of-supply",
       };
@@ -770,8 +770,8 @@ export const EntraTokenTest: React.FC = () => {
         console.log("[SmartBid AI] HTTP " + res.status, body);
         const elapsedMs = Date.now() - start;
 
-        let itemCount = "—";
-        let warningText = "—";
+        let itemCount = "-";
+        let warningText = "-";
         try {
           const parsed = JSON.parse(body) as Record<string, unknown>;
           if (Array.isArray(parsed.scopeItems))
@@ -789,10 +789,10 @@ export const EntraTokenTest: React.FC = () => {
           summary: res.ok
             ? "HTTP " +
               res.status +
-              " — " +
+              " - " +
               itemCount +
               " scope item(s) returned"
-            : "HTTP " + res.status + " — request rejected",
+            : "HTTP " + res.status + " - request rejected",
           durationMs: elapsedMs,
           rows: (
             [
@@ -817,7 +817,7 @@ export const EntraTokenTest: React.FC = () => {
           rows: extraRows,
           raw: errorText(e),
           hint:
-            "No HTTP status came back — the call timed out or was dropped. Scope generation is the slowest route (parsing + retrieval + model). Current timeout: " +
+            "No HTTP status came back - the call timed out or was dropped. Scope generation is the slowest route (parsing + retrieval + model). Current timeout: " +
             AI_CONFIG.requestTimeoutMs +
             " ms.",
         });
@@ -831,7 +831,7 @@ export const EntraTokenTest: React.FC = () => {
         id: "scopeRag",
         label: STEP_LABEL.scopeRag,
         status: "skipped",
-        summary: "No token — cannot call the AI endpoint",
+        summary: "No token - cannot call the AI endpoint",
       });
     } else {
       scopeRagOk = await runScopeProbe(
@@ -852,7 +852,7 @@ export const EntraTokenTest: React.FC = () => {
               : undefined;
           }
           if (status === 422)
-            return "The backend could not read the sample text — it is ignoring documentText. Ask IT to confirm the deployed function_app.py matches this repo.";
+            return "The backend could not read the sample text - it is ignoring documentText. Ask IT to confirm the deployed function_app.py matches this repo.";
           if (status === 404)
             return (
               "The route does not exist. ai.config.ts uses " +
@@ -861,21 +861,21 @@ export const EntraTokenTest: React.FC = () => {
             );
           if (status >= 500) {
             if (!quotationOk)
-              return "Step 6 failed too, so this is NOT specific to scope generation — the shared part (Azure OpenAI deployment, API version or the Function App itself) is broken. Start from step 6.";
+              return "Step 6 failed too, so this is NOT specific to scope generation - the shared part (Azure OpenAI deployment, API version or the Function App itself) is broken. Start from step 6.";
             const timing =
               elapsedMs < 3000
                 ? "It failed in " +
                   elapsedMs +
-                  " ms — far too fast for a model call (step 6 took seconds), so it broke BEFORE Azure OpenAI was reached. "
+                  " ms - far too fast for a model call (step 6 took seconds), so it broke BEFORE Azure OpenAI was reached. "
                 : "";
             return (
               "DIAGNOSIS: step 6 passed with the same auth, model and document text. The only extra component in this route is AI SEARCH RETRIEVAL. " +
               timing +
               "Checklist for IT on srch-opgbbes-prd, in order of likelihood:\n" +
-              "  (1) Keys → API access control must be 'Both' or 'Role-based access control'. It is KEY-ONLY by default, and in that mode a managed-identity token is rejected even with the role assigned — this is the most common cause.\n" +
-              "  (2) Role assignment: the Function App's system-assigned identity (fa-opgb-bes-prd-fa) needs 'Search Index Data Reader' on the search service. The indexer running fine proves nothing here — it uses a different identity.\n" +
+              "  (1) Keys → API access control must be 'Both' or 'Role-based access control'. It is KEY-ONLY by default, and in that mode a managed-identity token is rejected even with the role assigned - this is the most common cause.\n" +
+              "  (2) Role assignment: the Function App's system-assigned identity (fa-opgb-bes-prd-fa) needs 'Search Index Data Reader' on the search service. The indexer running fine proves nothing here - it uses a different identity.\n" +
               "  (3) App settings AZURE_SEARCH_ENDPOINT and AZURE_SEARCH_INDEX must match the real service and the index name 'smartbid-docs-index'.\n" +
-              "  (4) The index needs the azureOpenAI vectorizer on field text_vector, and the embedding deployment it points to must exist — the vectorizer is only used at QUERY time, so a broken one does not show up in the indexer history.\n" +
+              "  (4) The index needs the azureOpenAI vectorizer on field text_vector, and the embedding deployment it points to must exist - the vectorizer is only used at QUERY time, so a broken one does not show up in the indexer history.\n" +
               "  (5) Networking: if the search service has public network access disabled or an IP firewall, the Function App must be allowed through (VNet integration or a firewall rule)."
             );
           }
@@ -890,10 +890,10 @@ export const EntraTokenTest: React.FC = () => {
         label: STEP_LABEL.scopeFile,
         status: "skipped",
         summary: !accessToken
-          ? "No token — cannot call the AI endpoint"
+          ? "No token - cannot call the AI endpoint"
           : "No document selected",
         hint: accessToken
-          ? "Select the exact document that failed in the BID and run again — this step reproduces the production call, including backend PDF/DOCX parsing."
+          ? "Select the exact document that failed in the BID and run again - this step reproduces the production call, including backend PDF/DOCX parsing."
           : undefined,
       });
     } else {
@@ -909,11 +909,11 @@ export const EntraTokenTest: React.FC = () => {
         (status) => {
           if (status < 400) return undefined;
           if (status === 422)
-            return "The backend extracted no text. If this is a scanned PDF, vision OCR also failed — check the gpt-5-mini deployment quota and MAX_VISION_PAGES.";
+            return "The backend extracted no text. If this is a scanned PDF, vision OCR also failed - check the gpt-5-mini deployment quota and MAX_VISION_PAGES.";
           if (status >= 500) {
             return scopeRagOk
-              ? "DIAGNOSIS: step 7 passed with the same endpoint and prompt, so retrieval and the model are fine. The extra component here is BACKEND DOCUMENT PARSING of this file — a corrupt/encrypted PDF, an unsupported extension, or a file large enough to blow the model context. Try a small text-based PDF to confirm."
-              : "Step 7 failed too — fix that one first; it is the simpler case.";
+              ? "DIAGNOSIS: step 7 passed with the same endpoint and prompt, so retrieval and the model are fine. The extra component here is BACKEND DOCUMENT PARSING of this file - a corrupt/encrypted PDF, an unsupported extension, or a file large enough to blow the model context. Try a small text-based PDF to confirm."
+              : "Step 7 failed too - fix that one first; it is the simpler case.";
           }
           return undefined;
         },
@@ -926,7 +926,7 @@ export const EntraTokenTest: React.FC = () => {
 
   const copyReport = (): void => {
     const lines: string[] = [
-      "SmartBid AI diagnostic — " + new Date().toISOString(),
+      "SmartBid AI diagnostic - " + new Date().toISOString(),
       "",
     ];
     steps.forEach((s) => {
@@ -935,7 +935,7 @@ export const EntraTokenTest: React.FC = () => {
           s.status.toUpperCase() +
           "] " +
           s.label +
-          (s.summary ? " — " + s.summary : ""),
+          (s.summary ? " - " + s.summary : ""),
       );
       (s.rows || []).forEach(([k, v]) => lines.push("    " + k + ": " + v));
       if (s.hint) lines.push("    HINT: " + s.hint);
@@ -1069,7 +1069,7 @@ export const EntraTokenTest: React.FC = () => {
           </button>
         )}
         <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
-          Use “Clear token cache” after any Entra ID change — a cached token
+          Use “Clear token cache” after any Entra ID change - a cached token
           keeps the old claims for about an hour.
         </span>
       </div>

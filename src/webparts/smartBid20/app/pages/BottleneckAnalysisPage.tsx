@@ -291,7 +291,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
             />
             <KPICard
               label="Slowest Phase"
-              value={stats.slowestPhase ? `${stats.slowestPhase.days}d` : "—"}
+              value={stats.slowestPhase ? `${stats.slowestPhase.days}d` : "-"}
               variant="glass"
               accentColor={chart.danger}
               subtitle={
@@ -300,7 +300,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
             />
             <KPICard
               label="Approval Cycle"
-              value={stats.avgApproval != null ? `${stats.avgApproval}d` : "—"}
+              value={stats.avgApproval != null ? `${stats.avgApproval}d` : "-"}
               variant="glass"
               accentColor={chart.warning}
               subtitle="average per BID"
@@ -324,7 +324,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
                 : stat === "median"
                   ? "median"
                   : "maximum"
-            } (days) — bottlenecks above ${threshold}d highlighted`}
+            } (days) - bottlenecks above ${threshold}d highlighted`}
             accentColor={chart.danger}
             className={styles.spanAll}
             actions={
@@ -429,7 +429,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
 
           <GlassCard
             title="Average Approval Time by Department"
-            subtitle="Average days by department — completed approval rounds only"
+            subtitle="Average days by department - completed approval rounds only"
             accentColor={chart.warning}
             className={styles.spanAll}
           >
@@ -494,7 +494,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
 
           <div className={styles.chartsGrid}>
             <GlassCard
-              title="Heatmap — Division × Phase"
+              title="Heatmap - Division × Phase"
               subtitle="Average days by phase for each division"
               accentColor={chart.warning}
             >
@@ -549,7 +549,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
 
           <GlassCard
             title="Longest-Running BIDs"
-            subtitle="Longest elapsed time — click to open details"
+            subtitle="Longest elapsed time - click to open details"
             accentColor={chart.danger}
             className={styles.spanAll}
           >
@@ -581,7 +581,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
                       )}
                     </div>
                     <div className={styles.slowClient}>
-                      {row.bid.opportunityInfo?.client || "—"}
+                      {row.bid.opportunityInfo?.client || "-"}
                       {row.bid.opportunityInfo?.projectName
                         ? ` · ${row.bid.opportunityInfo.projectName}`
                         : ""}

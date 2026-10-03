@@ -128,7 +128,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
             }
             aria-label="From"
           />
-          <span className={styles.dateSep}>–</span>
+          <span className={styles.dateSep}>-</span>
           <input
             type="date"
             className={styles.dateInput}

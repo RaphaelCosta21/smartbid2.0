@@ -99,7 +99,7 @@ export const ApprovalsPage: React.FC = () => {
               </div>
 
               <div className={styles.requestInfo}>
-                Requested by <strong>{bid.creator?.name || "—"}</strong> (
+                Requested by <strong>{bid.creator?.name || "-"}</strong> (
                 {bid.creator?.role || ""}) on {formatDateTime(bid.createdDate)}
               </div>
 
@@ -122,7 +122,7 @@ export const ApprovalsPage: React.FC = () => {
                             : "1"}
                       </div>
                       <div className={styles.stepName}>
-                        {approval.stakeholder?.name?.split(" ")[0] || "—"}
+                        {approval.stakeholder?.name?.split(" ")[0] || "-"}
                       </div>
                       <div className={styles.stepRole}>
                         {approval.stakeholder?.role || ""}

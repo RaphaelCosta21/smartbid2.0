@@ -158,7 +158,7 @@ export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
                   <td className={styles.cellCenter}>{item.lineNumber}</td>
                   <td>
                     {readOnly ? (
-                      item.item || "—"
+                      item.item || "-"
                     ) : (
                       <input
                         className={styles.editInput}
@@ -171,7 +171,7 @@ export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
                   </td>
                   <td>
                     {readOnly ? (
-                      item.description || "—"
+                      item.description || "-"
                     ) : (
                       <input
                         className={styles.editInput}
@@ -256,7 +256,7 @@ export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
                   />
                   <td>
                     {readOnly ? (
-                      item.notes || "—"
+                      item.notes || "-"
                     ) : (
                       <input
                         className={styles.editInput}

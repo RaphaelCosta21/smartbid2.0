@@ -75,7 +75,7 @@ function heading(level: number, text: string): string {
 function day(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = formatDate(iso, "yyyy-MM-dd");
-  return d === "—" ? "" : d;
+  return d === "-" ? "" : d;
 }
 
 function money(value: number | null | undefined, currency: string): string {

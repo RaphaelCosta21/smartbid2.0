@@ -55,7 +55,7 @@ export function buildInfoSheet(ctx: IBidExcelContext): void {
     },
     {
       label: "PTAX used (USD→BRL)",
-      value: s.ptaxUsed > 0 ? s.ptaxUsed : "—",
+      value: s.ptaxUsed > 0 ? s.ptaxUsed : "-",
       numFmt: NUM.rate,
       from: 4,
       to: 5,
@@ -197,15 +197,15 @@ export function buildInfoSheet(ctx: IBidExcelContext): void {
   kv("Exported by", ctx.opts.exportedBy);
   kv("Exported at", toExcelDateTime(ctx.exportedAt), { numFmt: NUM.dateTime });
   if (ctx.approved) {
-    kv("BID Approval", "Approved — Close Out · Completed");
+    kv("BID Approval", "Approved - Close Out · Completed");
   } else {
     kv(
       "BID Approval",
-      `NOT APPROVED — exported anyway while in "${status ? status.label : bid.currentStatus}" (phase: ${phase ? phase.label : bid.currentPhase})`,
+      `NOT APPROVED - exported anyway while in "${status ? status.label : bid.currentStatus}" (phase: ${phase ? phase.label : bid.currentPhase})`,
       { bold: true, wrap: true, color: XL_COLORS.danger },
     );
   }
-  kv("Source", "SmartBid 2.0 — values as shown on the BID Details screens");
+  kv("Source", "SmartBid 2.0 - values as shown on the BID Details screens");
   x.gap(8);
   x.note(
     "Generated from SmartBid 2.0. Costs reflect the BID data at the export time; edit the BID in SmartBid and export again to refresh this workbook.",

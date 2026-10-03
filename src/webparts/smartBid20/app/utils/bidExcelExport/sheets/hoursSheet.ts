@@ -236,7 +236,7 @@ function writeHoursTable(
     let zebra = false;
     list.forEach((i) => {
       if (i.isSeparator) {
-        x.dataRow(cols, pickRow(cols, { fn: i.separatorLabel || "—" }), {
+        x.dataRow(cols, pickRow(cols, { fn: i.separatorLabel || "-" }), {
           italic: true,
           muted: true,
           fill: XL_COLORS.band,
@@ -330,7 +330,7 @@ function writeEngineeringItems(
     x.dataRow(
       cols,
       pickRow(cols, {
-        fn: { value: `${idx + 1}. ${item.description || "—"}`, bold: true },
+        fn: { value: `${idx + 1}. ${item.description || "-"}`, bold: true },
         phase:
           item.sectionName ||
           (item.source === "manual" || !item.scopeItemId ? "Manual" : ""),

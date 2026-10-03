@@ -73,7 +73,7 @@ export class AiAuthService {
     let text: string | undefined;
     if (detail instanceof Error) {
       const code = (detail as { errorCode?: string }).errorCode;
-      text = (code ? code + " — " : "") + detail.message;
+      text = (code ? code + " - " : "") + detail.message;
     } else if (typeof detail === "string") {
       text = detail;
     } else if (detail !== undefined) {
@@ -85,7 +85,7 @@ export class AiAuthService {
     }
     AiAuthService.trace.push({ at: Date.now(), step, outcome, detail: text });
     if (AiAuthService.trace.length > 60) AiAuthService.trace.shift();
-    const line = "[SmartBid AI][auth] " + step + (text ? " — " + text : "");
+    const line = "[SmartBid AI][auth] " + step + (text ? " - " + text : "");
     if (outcome === "fail") console.error(line);
     else if (outcome === "warn") console.warn(line);
     else console.log(line);
@@ -269,7 +269,7 @@ export class AiAuthService {
       "account=" +
         (result.account ? result.account.username : "(unknown)") +
         " expiresOn=" +
-        String(result.expiresOn || "—"),
+        String(result.expiresOn || "-"),
     );
     return result.accessToken;
   }

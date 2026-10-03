@@ -38,7 +38,7 @@ export function buildCostSummarySheet(ctx: IBidExcelContext): void {
     },
     {
       label: "PTAX used (USD→BRL)",
-      value: s.ptaxUsed > 0 ? s.ptaxUsed : "—",
+      value: s.ptaxUsed > 0 ? s.ptaxUsed : "-",
       numFmt: NUM.rate,
       sub: view.fx.capturedDate
         ? `Registered ${displayDate(view.fx.capturedDate)}`
@@ -286,7 +286,7 @@ export function buildCostSummarySheet(ctx: IBidExcelContext): void {
   const missing = s.missingRateCurrencies || [];
   if (missing.length > 0) {
     x.note(
-      `No exchange rate registered on this BID for ${missing.join(", ")} — these values are left out of the USD totals. Update the rates on the Overview tab.`,
+      `No exchange rate registered on this BID for ${missing.join(", ")} - these values are left out of the USD totals. Update the rates on the Overview tab.`,
       span,
       "warning",
     );
@@ -306,7 +306,7 @@ export function buildCostSummarySheet(ctx: IBidExcelContext): void {
   );
   if (completeness.totalMissing > 0) {
     x.note(
-      `${completeness.totalMissing} of ${completeness.totalItems} asset lines (items, sub-items, PCF) have no cost mapped yet — the assets total may be understated.`,
+      `${completeness.totalMissing} of ${completeness.totalItems} asset lines (items, sub-items, PCF) have no cost mapped yet - the assets total may be understated.`,
       span,
       "warning",
     );

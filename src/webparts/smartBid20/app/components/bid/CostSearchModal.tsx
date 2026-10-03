@@ -619,7 +619,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
     if (source === "bom") return "BOM COST";
     if (source === "quote") return `QUOTE`;
     if (source === "catalog" && row.result) return row.result.sourceTab;
-    return "—";
+    return "-";
   };
 
   /** Date age class */
@@ -637,7 +637,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
 
   /** Format date DD/Mon/YYYY */
   const fmtDate = (dateRef: string): string => {
-    if (!dateRef) return "—";
+    if (!dateRef) return "-";
     const d = new Date(dateRef);
     if (isNaN(d.getTime())) return dateRef;
     const months = [
@@ -787,7 +787,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                       <td className={styles.tdCheck} />
                       <td className={styles.tdEquip} colSpan={2}>
                         <span className={styles.parentContextLabel}>
-                          {row.scopeItem.equipmentOffer || "—"}
+                          {row.scopeItem.equipmentOffer || "-"}
                         </span>
                         {row.scopeItem.partNumber && (
                           <span className={styles.parentContextPN}>
@@ -806,7 +806,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                               size={12}
                               style={{ verticalAlign: "-2px" }}
                             />{" "}
-                            has cost — sub-items below
+                            has cost - sub-items below
                           </>
                         )}
                       </td>
@@ -826,7 +826,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                   ? row.subItemScope.equipmentOffer ||
                     row.subItemScope.description ||
                     "Sub-item"
-                  : row.scopeItem.equipmentOffer || "—";
+                  : row.scopeItem.equipmentOffer || "-";
                 const alias = row.quoteResult?.viaAlias;
                 return (
                   <tr
@@ -858,13 +858,13 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                       )}
                     </td>
                     <td className={styles.tdPN}>
-                      {pn || "—"}
+                      {pn || "-"}
                       {alias && (
                         <div
                           className={styles.aliasHint}
                           title={`Quotation matched by cross-reference ${pn} ↔ ${alias.pn}${
                             alias.mfgName ? ` (${alias.mfgName})` : ""
-                          } — ${
+                          } - ${
                             alias.source === "FAR"
                               ? "Financials Active Registered with Manuf."
                               : "Active Registered - Brazil"
@@ -877,7 +877,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                     </td>
                     <td className={styles.tdStatus}>
                       {!hasSearched ? (
-                        <span className={styles.pending}>—</span>
+                        <span className={styles.pending}>-</span>
                       ) : !pn.trim() ? (
                         <span className={styles.noPN}>No PN</span>
                       ) : hasAny ? (
@@ -897,7 +897,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                           ? `$${row.quoteResult.costUSD.toFixed(2)}`
                           : found
                             ? `$${row.result!.costPerItemUSD.toFixed(2)}`
-                            : "—"}
+                            : "-"}
                       {found &&
                         row.selectedSource === "catalog" &&
                         row.result!.currency !== "USD" && (
@@ -971,7 +971,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                     <td>
                       {(() => {
                         const dr = getRowDateRef(row);
-                        if (!dr) return "—";
+                        if (!dr) return "-";
                         return (
                           <span
                             className={`${styles.dateBadge} ${dateAgeClass(dr)}`}
@@ -996,7 +996,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                           row.bomResult.leadTimeDays > 0
                         )
                           return `${row.bomResult.leadTimeDays}d`;
-                        return "—";
+                        return "-";
                       })()}
                     </td>
                     <td className={styles.tdOverride}>
@@ -1004,7 +1004,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                         <input
                           type="number"
                           className={styles.overrideInput}
-                          placeholder="—"
+                          placeholder="-"
                           value={
                             row.costOverride != null ? row.costOverride : ""
                           }

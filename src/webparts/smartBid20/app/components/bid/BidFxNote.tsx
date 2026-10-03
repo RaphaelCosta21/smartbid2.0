@@ -35,7 +35,7 @@ export const UsdAmountCell: React.FC<UsdAmountCellProps> = ({
           : undefined
       }
     >
-      {usd === null ? "—" : formatCurrency(usd)}
+      {usd === null ? "-" : formatCurrency(usd)}
     </td>
   );
 };
@@ -81,7 +81,7 @@ export const BidFxNote: React.FC<BidFxNoteProps> = ({
       )}
       {missing.length > 0 && (
         <div className={styles.fxWarning}>
-          No exchange rate registered on this BID for {missing.join(", ")} —
+          No exchange rate registered on this BID for {missing.join(", ")} -
           these values are left out of the USD totals. Update the rates on the
           Overview tab.
         </div>

@@ -158,12 +158,12 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
         const uncategorized = drafts.filter((d) => !d.groupId).length;
         addToast({
           type: "success",
-          title: `${drafts.length} item${drafts.length > 1 ? "s" : ""} extracted — review before saving`,
+          title: `${drafts.length} item${drafts.length > 1 ? "s" : ""} extracted - review before saving`,
         });
         if (uncategorized > 0) {
           addToast({
             type: "warning",
-            title: `${uncategorized} item${uncategorized > 1 ? "s" : ""} could not be matched to a Group — select it manually`,
+            title: `${uncategorized} item${uncategorized > 1 ? "s" : ""} could not be matched to a Group - select it manually`,
           });
         }
       } else {

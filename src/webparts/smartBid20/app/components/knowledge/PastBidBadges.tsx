@@ -20,7 +20,7 @@ export const PastBidChips: React.FC<PastBidChipsProps> = ({
   values,
   accent,
   max,
-  emptyLabel = "—",
+  emptyLabel = "-",
   className,
 }) => {
   if (!values.length) return <span className={styles.empty}>{emptyLabel}</span>;

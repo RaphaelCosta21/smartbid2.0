@@ -158,7 +158,7 @@ export function detectRevisionChanges(
             id: makeId("chg"),
             section: SECTION_LABELS[section],
             changeType: "added",
-            description: `Added: "${getAssetLabel(item)}" — $${item.totalCostUSD.toLocaleString()} (${item.acquisitionType || "N/A"})`,
+            description: `Added: "${getAssetLabel(item)}" - $${item.totalCostUSD.toLocaleString()} (${item.acquisitionType || "N/A"})`,
             fieldPath: `assetBreakdown[${item.id}]`,
             previousValue: null,
             newValue: `$${item.totalCostUSD}`,
@@ -174,7 +174,7 @@ export function detectRevisionChanges(
             id: makeId("chg"),
             section: SECTION_LABELS[section],
             changeType: "removed",
-            description: `Removed: "${getAssetLabel(item)}" — was $${item.totalCostUSD.toLocaleString()}`,
+            description: `Removed: "${getAssetLabel(item)}" - was $${item.totalCostUSD.toLocaleString()}`,
             fieldPath: `assetBreakdown[${item.id}]`,
             previousValue: `$${item.totalCostUSD}`,
             newValue: null,
@@ -202,12 +202,12 @@ export function detectRevisionChanges(
             }
             if (oldItem.acquisitionType !== newItem.acquisitionType) {
               fieldChanges.push(
-                `type: ${oldItem.acquisitionType || "—"} → ${newItem.acquisitionType || "—"}`,
+                `type: ${oldItem.acquisitionType || "-"} → ${newItem.acquisitionType || "-"}`,
               );
             }
             if (oldItem.supplier !== newItem.supplier) {
               fieldChanges.push(
-                `supplier: ${oldItem.supplier || "—"} → ${newItem.supplier || "—"}`,
+                `supplier: ${oldItem.supplier || "-"} → ${newItem.supplier || "-"}`,
               );
             }
             if (oldItem.leadTimeDays !== newItem.leadTimeDays) {
@@ -217,7 +217,7 @@ export function detectRevisionChanges(
             }
             if (oldItem.availabilityStatus !== newItem.availabilityStatus) {
               fieldChanges.push(
-                `availability: ${oldItem.availabilityStatus || "—"} → ${newItem.availabilityStatus || "—"}`,
+                `availability: ${oldItem.availabilityStatus || "-"} → ${newItem.availabilityStatus || "-"}`,
               );
             }
             const detail =
@@ -259,7 +259,7 @@ export function detectRevisionChanges(
               id: makeId("chg"),
               section: SECTION_LABELS[section],
               changeType: "added",
-              description: `Added ${label}: "${desc}" — $${(item.totalCost || 0).toLocaleString()}`,
+              description: `Added ${label}: "${desc}" - $${(item.totalCost || 0).toLocaleString()}`,
               fieldPath: `${fieldName}[${item.id}]`,
               previousValue: null,
               newValue: `$${item.totalCost || 0}`,
@@ -278,7 +278,7 @@ export function detectRevisionChanges(
               id: makeId("chg"),
               section: SECTION_LABELS[section],
               changeType: "removed",
-              description: `Removed ${label}: "${desc}" — was $${(item.totalCost || 0).toLocaleString()}`,
+              description: `Removed ${label}: "${desc}" - was $${(item.totalCost || 0).toLocaleString()}`,
               fieldPath: `${fieldName}[${item.id}]`,
               previousValue: `$${item.totalCost || 0}`,
               newValue: null,
@@ -377,7 +377,7 @@ export function detectRevisionChanges(
             id: makeId("chg"),
             section: SECTION_LABELS[section],
             changeType: "added",
-            description: `Added: "${label}" — ${item.qty}x $${item.unitCost} = $${item.totalCost.toLocaleString()}`,
+            description: `Added: "${label}" - ${item.qty}x $${item.unitCost} = $${item.totalCost.toLocaleString()}`,
             fieldPath: `logisticsBreakdown[${item.id}]`,
             previousValue: null,
             newValue: `$${item.totalCost}`,
@@ -395,7 +395,7 @@ export function detectRevisionChanges(
             id: makeId("chg"),
             section: SECTION_LABELS[section],
             changeType: "removed",
-            description: `Removed: "${label}" — was $${item.totalCost.toLocaleString()}`,
+            description: `Removed: "${label}" - was $${item.totalCost.toLocaleString()}`,
             fieldPath: `logisticsBreakdown[${item.id}]`,
             previousValue: `$${item.totalCost}`,
             newValue: null,
@@ -463,7 +463,7 @@ export function detectRevisionChanges(
             id: makeId("chg"),
             section: SECTION_LABELS[section],
             changeType: "added",
-            description: `Added: "${label}" — ${item.qty}x $${item.unitCost} = $${item.totalCost.toLocaleString()}`,
+            description: `Added: "${label}" - ${item.qty}x $${item.unitCost} = $${item.totalCost.toLocaleString()}`,
             fieldPath: `certificationsBreakdown[${item.id}]`,
             previousValue: null,
             newValue: `$${item.totalCost}`,
@@ -480,7 +480,7 @@ export function detectRevisionChanges(
             id: makeId("chg"),
             section: SECTION_LABELS[section],
             changeType: "removed",
-            description: `Removed: "${label}" — was $${item.totalCost.toLocaleString()}`,
+            description: `Removed: "${label}" - was $${item.totalCost.toLocaleString()}`,
             fieldPath: `certificationsBreakdown[${item.id}]`,
             previousValue: `$${item.totalCost}`,
             newValue: null,
@@ -511,7 +511,7 @@ export function detectRevisionChanges(
             }
             if (oldItem.expiryPeriod !== newItem.expiryPeriod) {
               fieldChanges.push(
-                `expiry: ${oldItem.expiryPeriod || "—"} → ${newItem.expiryPeriod || "—"}`,
+                `expiry: ${oldItem.expiryPeriod || "-"} → ${newItem.expiryPeriod || "-"}`,
               );
             }
             const detail =

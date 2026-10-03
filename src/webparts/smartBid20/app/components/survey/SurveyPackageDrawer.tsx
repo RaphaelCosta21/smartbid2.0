@@ -151,7 +151,7 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
                     <span className={styles.lineTitle}>{eq.title}</span>
                     <span className={styles.lineMeta}>
                       {line.vesselSupplied
-                        ? "VESSEL SUPPLIED — NOT PRICED"
+                        ? "VESSEL SUPPLIED - NOT PRICED"
                         : eq.partNumber
                           ? `PN ${eq.partNumber}`
                           : eq.technology}
@@ -207,7 +207,7 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
                     >
                       <span className={styles.pickerNumber}>{b.bidNumber}</span>
                       <span className={styles.pickerText}>
-                        {b.opportunityInfo?.client || "—"} ·{" "}
+                        {b.opportunityInfo?.client || "-"} ·{" "}
                         {b.opportunityInfo?.projectName || ""}
                       </span>
                       <span className={styles.pickerStatus}>{b.currentStatus}</span>

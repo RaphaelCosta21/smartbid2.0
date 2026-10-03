@@ -302,7 +302,7 @@ export const FavoritesPage: React.FC = () => {
       sortable: true,
       render: (r: IFavoriteBidRow) => (
         <div className={styles.cellStack}>
-          <span className={styles.cellPrimary}>{r.client || "—"}</span>
+          <span className={styles.cellPrimary}>{r.client || "-"}</span>
           {r.project && <span className={styles.cellMuted}>{r.project}</span>}
         </div>
       ),
@@ -313,7 +313,7 @@ export const FavoritesPage: React.FC = () => {
       sortable: true,
       render: (r: IFavoriteBidRow) => (
         <div className={styles.cellStack}>
-          {r.division ? <DivisionBadge division={r.division} /> : "—"}
+          {r.division ? <DivisionBadge division={r.division} /> : "-"}
           {r.serviceLine && (
             <span className={styles.cellMuted}>{r.serviceLine}</span>
           )}
@@ -348,7 +348,7 @@ export const FavoritesPage: React.FC = () => {
       sortable: true,
       render: (r: IFavoriteBidRow) => (
         <span className={styles.cellDate}>
-          {r.completedDate ? formatDate(r.completedDate) : "—"}
+          {r.completedDate ? formatDate(r.completedDate) : "-"}
         </span>
       ),
     },
@@ -371,7 +371,7 @@ export const FavoritesPage: React.FC = () => {
       render: (r: IFavoriteBidRow) => (
         <div className={styles.cellStack}>
           <span className={styles.cellDate}>
-            {r.addedDate ? formatDate(r.addedDate) : "—"}
+            {r.addedDate ? formatDate(r.addedDate) : "-"}
           </span>
           {r.addedBy && <span className={styles.cellMuted}>{r.addedBy}</span>}
         </div>
@@ -409,7 +409,7 @@ export const FavoritesPage: React.FC = () => {
 
   const handleRemoveEquipment = (id: string): void => {
     const eq = equipment.find((e) => e.id === id);
-    const label = eq ? `${eq.partNumber} — ${eq.description}` : id;
+    const label = eq ? `${eq.partNumber} - ${eq.description}` : id;
     if (!confirm(`Remove "${label}" from favorites?`)) return;
     removeEquipment(id);
   };
@@ -470,7 +470,7 @@ export const FavoritesPage: React.FC = () => {
         ? grp.subGroups.find((s) => s.id === existing.subGroupId)
         : undefined;
       return {
-        groupName: grp?.name || "—",
+        groupName: grp?.name || "-",
         subGroupName: sub?.name || "",
         isChild: !!existing.parentId,
       };
@@ -539,7 +539,7 @@ export const FavoritesPage: React.FC = () => {
             {parentItem && (
               <div className={styles.parentBanner}>
                 🔗 Adding sub-item for: <strong>{parentItem.partNumber}</strong>{" "}
-                — {parentItem.description}
+                - {parentItem.description}
               </div>
             )}
             {/* Loading indicator while catalog loads */}
@@ -578,7 +578,7 @@ export const FavoritesPage: React.FC = () => {
                   setSubGroupId("");
                 }}
               >
-                <option value="">— Select Group —</option>
+                <option value="">- Select Group -</option>
                 {groups.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.name}
@@ -596,7 +596,7 @@ export const FavoritesPage: React.FC = () => {
                   disabled={!!parentItem}
                   onChange={(e) => setSubGroupId(e.target.value)}
                 >
-                  <option value="">— Select Sub-Group —</option>
+                  <option value="">- Select Sub-Group -</option>
                   {selectedGroupObj.subGroups.map((sg) => (
                     <option key={sg.id} value={sg.id}>
                       {sg.name}
@@ -1243,7 +1243,7 @@ export const FavoritesPage: React.FC = () => {
                           {eq.description}
                         </span>
                         <span className={styles.listColNotes}>
-                          {eq.notes || "—"}
+                          {eq.notes || "-"}
                         </span>
                         <span className={styles.listColSrc}>
                           <span className={`${styles.srcBadge} ${src.cls}`}>
@@ -1336,7 +1336,7 @@ export const FavoritesPage: React.FC = () => {
                                 {child.description}
                               </span>
                               <span className={styles.listColNotes}>
-                                {child.notes || "—"}
+                                {child.notes || "-"}
                               </span>
                               <span className={styles.listColSrc}>
                                 <span
@@ -1477,7 +1477,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
                 setSubGroupId("");
               }}
             >
-              <option value="">— Select Group —</option>
+              <option value="">- Select Group -</option>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.name}
@@ -1494,7 +1494,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
                 value={subGroupId}
                 onChange={(e) => setSubGroupId(e.target.value)}
               >
-                <option value="">— None —</option>
+                <option value="">- None -</option>
                 {selectedGroupObj.subGroups.map((sg) => (
                   <option key={sg.id} value={sg.id}>
                     {sg.name}

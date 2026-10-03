@@ -291,7 +291,7 @@ export const CertificationsBreakdownTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.itemRef || "—"
+          item.itemRef || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -319,7 +319,7 @@ export const CertificationsBreakdownTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.expiryPeriod || "—"
+          item.expiryPeriod || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -377,7 +377,7 @@ export const CertificationsBreakdownTab: React.FC<
       />
       <td>
         {readOnly ? (
-          item.costReference || "—"
+          item.costReference || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -391,7 +391,7 @@ export const CertificationsBreakdownTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.notes || "—"
+          item.notes || "-"
         ) : (
           <input
             className={styles.editInput}

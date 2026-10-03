@@ -45,7 +45,7 @@ export function useTechnicalProposalPublisher(): (
             message:
               technicalProposal.aiStatus === "ok"
                 ? `BID ${bid.bidNumber}'s proposal was added to Knowledge Base › Technical Proposals with AI-filled metadata.`
-                : `BID ${bid.bidNumber}'s proposal was added to Knowledge Base › Technical Proposals. AI metadata was unavailable — review it there.`,
+                : `BID ${bid.bidNumber}'s proposal was added to Knowledge Base › Technical Proposals. AI metadata was unavailable - review it there.`,
           });
         }
         return technicalProposal;

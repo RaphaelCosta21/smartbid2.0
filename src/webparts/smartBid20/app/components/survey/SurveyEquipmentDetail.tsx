@@ -337,7 +337,7 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
             <div className={styles.metric}>
               <span className={styles.metricLabel}>MEDIAN HISTORICAL COST</span>
               <span className={styles.metricValue}>
-                {intel.medianCostUSD !== null ? formatUSD(intel.medianCostUSD) : "—"}
+                {intel.medianCostUSD !== null ? formatUSD(intel.medianCostUSD) : "-"}
               </span>
               <span className={styles.metricHint}>PURCHASE · USD</span>
             </div>
@@ -347,8 +347,8 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
                 {intel.leadTimeWeeksMin !== null
                   ? intel.leadTimeWeeksMin === intel.leadTimeWeeksMax
                     ? `~${intel.leadTimeWeeksMin} wks`
-                    : `~${intel.leadTimeWeeksMin}–${intel.leadTimeWeeksMax} wks`
-                  : "—"}
+                    : `~${intel.leadTimeWeeksMin}-${intel.leadTimeWeeksMax} wks`
+                  : "-"}
               </span>
               <span className={styles.metricHint}>QUOTATIONS + BIDS</span>
             </div>

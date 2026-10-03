@@ -8,7 +8,7 @@ import styles from "./AssetsCatalogPage.module.scss";
 
 type ViewMode = "grid" | "list";
 
-const dash = (val: string): string => (val ? val : "—");
+const dash = (val: string): string => (val ? val : "-");
 
 /** Return a CSS class for a status value based on common keywords */
 const getStatusClass = (status: string): string => {
@@ -360,7 +360,7 @@ export const AssetsCatalogPage: React.FC = () => {
                     ? asset.description.length > 120
                       ? asset.description.substring(0, 120) + "..."
                       : asset.description
-                    : "—"}
+                    : "-"}
                 </p>
 
                 {(asset.features1 || asset.features2 || asset.features3) && (
@@ -490,7 +490,7 @@ export const AssetsCatalogPage: React.FC = () => {
                     ? asset.description.length > 100
                       ? asset.description.substring(0, 100) + "..."
                       : asset.description
-                    : "—"}
+                    : "-"}
                 </span>
               </div>
               <div className={styles.colStatus}>
@@ -633,7 +633,7 @@ export const AssetsCatalogPage: React.FC = () => {
                           {selectedAsset.emailForSupport}
                         </a>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </span>
                   </div>

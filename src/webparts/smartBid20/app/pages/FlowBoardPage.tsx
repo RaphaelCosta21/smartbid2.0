@@ -112,7 +112,7 @@ export const FlowBoardPage: React.FC = () => {
                     </div>
                     <div className={styles.cardFooter}>
                       <span className={styles.cardOwner}>
-                        {(bid.creator?.name || "—").split(" ")[0]}
+                        {(bid.creator?.name || "-").split(" ")[0]}
                       </span>
                       <span
                         className={`${styles.cardDaysLeft} ${due.isOverdue ? styles.cardOverdue : due.days !== null && due.days <= 3 ? styles.cardWarning : styles.cardOk}`}

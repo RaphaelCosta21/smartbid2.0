@@ -127,7 +127,7 @@ export function buildScopeSheet(ctx: IBidExcelContext): void {
               ? { value: "Yes", color: XL_COLORS.tealDark, bold: true }
               : item.compliance === "no"
                 ? { value: "No", color: XL_COLORS.danger, bold: true }
-                : "—",
+                : "-",
           resType: item.resourceType,
           subType: item.resourceSubType,
           offer: { value: item.equipmentOffer, bold: true },

@@ -798,7 +798,7 @@ export const PreparationMobilizationTab: React.FC<
       <td className={styles.cellCenter}>{item.lineNumber}</td>
       <td>
         {readOnly ? (
-          getScopeName(item.scopeItemId) || "—"
+          getScopeName(item.scopeItemId) || "-"
         ) : (
           <select
             className={styles.selectCell}
@@ -821,7 +821,7 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.description || "—"
+          item.description || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -832,7 +832,7 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          RTS_TYPES.find((t) => t.value === item.costType)?.label || "—"
+          RTS_TYPES.find((t) => t.value === item.costType)?.label || "-"
         ) : (
           <select
             className={styles.selectCell}
@@ -912,7 +912,7 @@ export const PreparationMobilizationTab: React.FC<
       />
       <td>
         {readOnly ? (
-          item.costReference || "—"
+          item.costReference || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -926,7 +926,7 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.notes || "—"
+          item.notes || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -956,7 +956,7 @@ export const PreparationMobilizationTab: React.FC<
                   cursor: "pointer",
                 }}
               >
-                <option value="">— None —</option>
+                <option value="">- None -</option>
                 {(rtsSections || []).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.title || "Untitled"}
@@ -987,7 +987,7 @@ export const PreparationMobilizationTab: React.FC<
       <td className={styles.cellCenter}>{item.lineNumber}</td>
       <td>
         {readOnly ? (
-          item.description || "—"
+          item.description || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -998,7 +998,7 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          MOB_TYPES.find((t) => t.value === item.costType)?.label || "—"
+          MOB_TYPES.find((t) => t.value === item.costType)?.label || "-"
         ) : (
           <select
             className={styles.selectCell}
@@ -1078,7 +1078,7 @@ export const PreparationMobilizationTab: React.FC<
       />
       <td>
         {readOnly ? (
-          item.costReference || "—"
+          item.costReference || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -1092,7 +1092,7 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.notes || "—"
+          item.notes || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -1122,7 +1122,7 @@ export const PreparationMobilizationTab: React.FC<
                   cursor: "pointer",
                 }}
               >
-                <option value="">— None —</option>
+                <option value="">- None -</option>
                 {(mobSections || []).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.title || "Untitled"}
@@ -1153,7 +1153,7 @@ export const PreparationMobilizationTab: React.FC<
       <td className={styles.cellCenter}>{item.lineNumber}</td>
       <td>
         {readOnly ? (
-          item.item || "—"
+          item.item || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -1164,7 +1164,7 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.description || "—"
+          item.description || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -1235,7 +1235,7 @@ export const PreparationMobilizationTab: React.FC<
       />
       <td>
         {readOnly ? (
-          item.costReference || "—"
+          item.costReference || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -1249,7 +1249,7 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.notes || "—"
+          item.notes || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -1279,7 +1279,7 @@ export const PreparationMobilizationTab: React.FC<
                   cursor: "pointer",
                 }}
               >
-                <option value="">— None —</option>
+                <option value="">- None -</option>
                 {(consSections || []).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.title || "Untitled"}
@@ -1343,7 +1343,7 @@ export const PreparationMobilizationTab: React.FC<
             >
               ▼
             </span>
-            🔧 RTS — Ready To Service
+            🔧 RTS - Ready To Service
             <span className={styles.sectionBadge}>{rts.length} items</span>
           </div>
           <div

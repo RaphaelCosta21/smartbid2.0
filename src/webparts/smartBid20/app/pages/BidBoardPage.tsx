@@ -168,7 +168,7 @@ export const BidBoardPage: React.FC = () => {
                     <div className={styles.cardMeta}>
                       <span>
                         <span className={styles.metaLabel}>Creator</span>{" "}
-                        {bid.creator?.name || "—"}
+                        {bid.creator?.name || "-"}
                       </span>
                       <span>
                         <span className={styles.metaLabel}>Engineer</span>{" "}
@@ -199,7 +199,7 @@ export const BidBoardPage: React.FC = () => {
                     <div className={styles.cardFooter}>
                       <span className={`${styles.dueDate} ${dueClass}`}>
                         {due.text}
-                        {" — "}
+                        {" - "}
                         {formatDate(bid.dueDate, "MMM d")}
                       </span>
                       <span className={styles.ownerName}>

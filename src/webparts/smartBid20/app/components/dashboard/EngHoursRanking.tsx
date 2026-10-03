@@ -96,7 +96,7 @@ export const EngHoursRanking: React.FC<EngHoursRankingProps> = ({
                   />
                 </div>
                 <div className={styles.subline}>
-                  {r.bid.opportunityInfo?.client || "—"}
+                  {r.bid.opportunityInfo?.client || "-"}
                   {r.bid.opportunityInfo?.projectName
                     ? ` · ${r.bid.opportunityInfo.projectName}`
                     : ""}

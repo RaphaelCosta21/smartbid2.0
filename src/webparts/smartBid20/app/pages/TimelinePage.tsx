@@ -168,7 +168,7 @@ export const TimelinePage: React.FC = () => {
                       color: divColor,
                     }}
                   >
-                    {formatDate(bid.createdDate, "MMM d")} —{" "}
+                    {formatDate(bid.createdDate, "MMM d")} -{" "}
                     {formatDate(bid.dueDate, "MMM d")}
                   </div>
                 </div>

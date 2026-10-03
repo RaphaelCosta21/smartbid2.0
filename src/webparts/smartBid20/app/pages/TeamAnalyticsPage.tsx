@@ -269,7 +269,7 @@ export const TeamAnalyticsPage: React.FC = () => {
               value={stats.mostLoaded ? stats.mostLoaded.active : 0}
               variant="glass"
               accentColor={chart.warning}
-              subtitle={stats.mostLoaded ? stats.mostLoaded.member.name : "—"}
+              subtitle={stats.mostLoaded ? stats.mostLoaded.member.name : "-"}
             />
           </div>
 
@@ -396,7 +396,7 @@ export const TeamAnalyticsPage: React.FC = () => {
 
                 <GlassCard
                   title="Throughput × Workload"
-                  subtitle="Completed (Y) vs. active (X) — bubble size = average cycle"
+                  subtitle="Completed (Y) vs. active (X) - bubble size = average cycle"
                   accentColor={chart.accent}
                 >
                   <ResponsiveContainer width="100%" height={300}>

@@ -47,7 +47,7 @@ export const XL_TAB_COLORS = {
 };
 
 const FONT = "Calibri";
-const ZERO = '"–"';
+const ZERO = '"-"';
 
 export const NUM = {
   usd: `"US$ "#,##0.00;[Red]-"US$ "#,##0.00;${ZERO}`,
@@ -672,7 +672,7 @@ export class XlSheet {
       this.ws.mergeCells(this.row, valueCol, this.row, valueEnd);
     }
     const isEmpty = value === null || value === undefined || value === "";
-    this.setValue(r, valueCol, isEmpty ? "—" : value);
+    this.setValue(r, valueCol, isEmpty ? "-" : value);
     const vc = r.getCell(valueCol);
     if (opts.numFmt && !isEmpty) vc.numFmt = opts.numFmt;
     vc.font = this.font({

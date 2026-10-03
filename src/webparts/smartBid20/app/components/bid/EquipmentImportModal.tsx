@@ -675,10 +675,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                             })()}
                           </div>
                           <div className={`${styles.colPn} ${styles.mono}`}>
-                            {eq.partNumber || "—"}
+                            {eq.partNumber || "-"}
                           </div>
                           <div className={styles.colDesc}>
-                            {eq.description || "—"}
+                            {eq.description || "-"}
                             {hasChildren && (
                               <span className={styles.childBadge}>
                                 {children.length} sub-item
@@ -740,10 +740,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                                 <div
                                   className={`${styles.colPn} ${styles.mono}`}
                                 >
-                                  {child.partNumber || "—"}
+                                  {child.partNumber || "-"}
                                 </div>
                                 <div className={styles.colDesc}>
-                                  {child.description || "—"}
+                                  {child.description || "-"}
                                 </div>
                               </div>
                             ))}
@@ -816,9 +816,9 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                 }
               >
                 <div className={`${styles.colPn} ${styles.mono}`}>
-                  {a.mainPartNumber || "—"}
+                  {a.mainPartNumber || "-"}
                 </div>
-                <div className={styles.colDesc}>{a.mainDescription || "—"}</div>
+                <div className={styles.colDesc}>{a.mainDescription || "-"}</div>
                 {renderSelectCell(a.mainPartNumber, a.mainDescription)}
               </div>
             );
@@ -876,10 +876,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                 }
               >
                 <div className={`${styles.colPn} ${styles.mono}`}>
-                  {q.partNumber || "—"}
+                  {q.partNumber || "-"}
                 </div>
-                <div className={styles.colDesc}>{q.description || "—"}</div>
-                <div className={styles.colSupplier}>{q.supplier || "—"}</div>
+                <div className={styles.colDesc}>{q.description || "-"}</div>
+                <div className={styles.colSupplier}>{q.supplier || "-"}</div>
                 {renderSelectCell(q.partNumber, q.description)}
               </div>
             );
@@ -1462,10 +1462,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                       )}
                     </div>
                     <div className={`${styles.colPn} ${styles.mono}`}>
-                      {item.pn || "—"}
+                      {item.pn || "-"}
                     </div>
                     <div className={styles.colDesc}>
-                      {item.title || item.description || "—"}
+                      {item.title || item.description || "-"}
                       {item.keyword && (
                         <span className={styles.childBadge}>
                           {item.keyword}
@@ -1621,11 +1621,11 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
               <div className={styles.selectedPreview}>
                 <span className={styles.selectedLabel}>Selected:</span>
                 <span className={`${styles.selectedPn} ${styles.mono}`}>
-                  {selectedItem.pn || "—"}
+                  {selectedItem.pn || "-"}
                 </span>
-                <span className={styles.selectedSep}>—</span>
+                <span className={styles.selectedSep}>-</span>
                 <span className={styles.selectedDesc}>
-                  {selectedItem.desc || "—"}
+                  {selectedItem.desc || "-"}
                 </span>
                 {selectedItem.subs && selectedItem.subs.length > 0 && (
                   <span className={styles.selectedSubsBadge}>

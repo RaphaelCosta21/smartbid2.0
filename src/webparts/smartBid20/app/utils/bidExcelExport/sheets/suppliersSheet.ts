@@ -83,7 +83,7 @@ export function buildSuppliersSheet(ctx: IBidExcelContext): void {
   x.kpis([
     {
       label: "Longest lead time",
-      value: longest > 0 ? `${longest} days` : "—",
+      value: longest > 0 ? `${longest} days` : "-",
       sub:
         longest > 0
           ? `≈ ${Math.ceil(longest / 7)} weeks`

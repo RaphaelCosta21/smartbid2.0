@@ -277,7 +277,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
             ) : (
               <span>
                 {tp?.requested
-                  ? 'Not attached yet — attach it with "This is the Technical Proposal".'
+                  ? 'Not attached yet - attach it with "This is the Technical Proposal".'
                   : "Not attached"}
               </span>
             )}

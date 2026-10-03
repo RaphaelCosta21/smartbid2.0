@@ -309,18 +309,18 @@ export const ClarificationsDbPage: React.FC = () => {
                         {it.baseType}
                       </span>
                     </td>
-                    <td>{it.clientDocRef || "—"}</td>
+                    <td>{it.clientDocRef || "-"}</td>
                     <td>
-                      <div className={styles.cellText}>{it.etTopic || "—"}</div>
+                      <div className={styles.cellText}>{it.etTopic || "-"}</div>
                     </td>
                     <td>
                       <div className={styles.cellText}>
-                        {it.clarification || "—"}
+                        {it.clarification || "-"}
                       </div>
                     </td>
                     <td>
                       <div className={styles.cellText}>
-                        {it.clientReply || "—"}
+                        {it.clientReply || "-"}
                       </div>
                     </td>
                     <td>
@@ -332,10 +332,10 @@ export const ClarificationsDbPage: React.FC = () => {
                         {it.approved ? "Yes" : "No"}
                       </span>
                     </td>
-                    <td>{it.date ? formatDate(it.date) : "—"}</td>
-                    <td>{it.keyword || "—"}</td>
-                    <td>{it.client || "—"}</td>
-                    <td>{it.createdBy || "—"}</td>
+                    <td>{it.date ? formatDate(it.date) : "-"}</td>
+                    <td>{it.keyword || "-"}</td>
+                    <td>{it.client || "-"}</td>
+                    <td>{it.createdBy || "-"}</td>
                     {canManage && (
                       <td>
                         <div className={styles.rowActions}>

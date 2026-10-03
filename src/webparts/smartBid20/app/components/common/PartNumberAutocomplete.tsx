@@ -170,7 +170,7 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
   if (readOnly) {
     return (
       <span className={mono ? styles.monoText : styles.plainText}>
-        {value || "—"}
+        {value || "-"}
       </span>
     );
   }

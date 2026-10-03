@@ -461,7 +461,7 @@ const SystemConfiguration: React.FC = () => {
         showMsg("success", "Configuration saved to SharePoint");
       } catch (err) {
         console.error("Failed to save config:", err);
-        showMsg("error", "Failed to save — check console for details");
+        showMsg("error", "Failed to save - check console for details");
       } finally {
         setSaving(false);
       }
@@ -595,7 +595,7 @@ const SystemConfiguration: React.FC = () => {
       updateConfig({ subStatuses: [...list, newStatus] });
       showMsg(
         "success",
-        `"${label}" added — click Save Changes to store it in SharePoint`,
+        `"${label}" added - click Save Changes to store it in SharePoint`,
       );
       setShowPanel(false);
       return;
@@ -680,7 +680,7 @@ const SystemConfiguration: React.FC = () => {
       console.error("Failed to fetch BCB rates:", err);
       showMsg(
         "error",
-        "Failed to fetch exchange rates from BCB — check console",
+        "Failed to fetch exchange rates from BCB - check console",
       );
     } finally {
       setFetchingRates(false);
@@ -1694,7 +1694,7 @@ const SystemConfiguration: React.FC = () => {
           setAddCurrencyLoading(false);
           showMsg(
             "success",
-            `${code} added with rate ${finalRate > 0 ? finalRate.toFixed(4) : "(no rate — update manually)"}`,
+            `${code} added with rate ${finalRate > 0 ? finalRate.toFixed(4) : "(no rate - update manually)"}`,
           );
         })
         .catch(() => {
@@ -1717,7 +1717,7 @@ const SystemConfiguration: React.FC = () => {
               rel="noopener noreferrer"
               style={{ color: "var(--primary-accent)" }}
             >
-              Banco Central do Brasil — PTAX
+              Banco Central do Brasil - PTAX
             </a>
             .
           </p>
@@ -2009,7 +2009,7 @@ const SystemConfiguration: React.FC = () => {
       await BidService.ensureColumns();
       await QuotationService.ensureColumns();
       setProvisionResult(
-        "OK — columns created on smartbid-tracker (BidClient, BidProjectName, BidDivision, BidScopeSummary) and smartbid-quotations (20 quotation columns). Existing rows only fill in as they are saved.",
+        "OK - columns created on smartbid-tracker (BidClient, BidProjectName, BidDivision, BidScopeSummary) and smartbid-quotations (20 quotation columns). Existing rows only fill in as they are saved.",
       );
     } catch (err) {
       setProvisionResult(
@@ -2023,7 +2023,7 @@ const SystemConfiguration: React.FC = () => {
   const renderApiDiagnostics = (): React.ReactElement => (
     <div>
       <div className={styles.sectionHeader}>
-        <h3>API Diagnostics — SmartBid AI backend</h3>
+        <h3>API Diagnostics - SmartBid AI backend</h3>
         <p>
           Runs the production code path end to end: configuration, session
           identity, Entra ID token (MSAL, authorization code + PKCE), token
@@ -2040,7 +2040,7 @@ const SystemConfiguration: React.FC = () => {
         <h3>Provision AI Search columns (one-off)</h3>
         <p>
           Creates the plain columns that let AI Search index bids and quotations
-          without parsing their JSON. Safe to run more than once — existing
+          without parsing their JSON. Safe to run more than once - existing
           columns are skipped. Delete this panel once every environment has been
           migrated.
         </p>
@@ -2911,7 +2911,7 @@ const SystemConfiguration: React.FC = () => {
       const itemCount = getGroupItemCount(groupId);
       if (itemCount > 0) {
         alert(
-          `Cannot delete "${g.name}" — it still contains ${itemCount} equipment item(s) in the Favorites catalog. Remove or move them first.`,
+          `Cannot delete "${g.name}" - it still contains ${itemCount} equipment item(s) in the Favorites catalog. Remove or move them first.`,
         );
         return;
       }
@@ -2940,7 +2940,7 @@ const SystemConfiguration: React.FC = () => {
       const itemCount = getSubGroupItemCount(subGroupId);
       if (itemCount > 0) {
         alert(
-          `Cannot delete sub-group "${sg.name}" — it still contains ${itemCount} equipment item(s) in the Favorites catalog. Remove or move them first.`,
+          `Cannot delete sub-group "${sg.name}" - it still contains ${itemCount} equipment item(s) in the Favorites catalog. Remove or move them first.`,
         );
         return;
       }
@@ -3011,7 +3011,7 @@ const SystemConfiguration: React.FC = () => {
                         onClick={() => handleDeleteGroup(g.id)}
                         title={
                           gCount > 0
-                            ? "Cannot delete — has equipment items"
+                            ? "Cannot delete - has equipment items"
                             : "Delete group"
                         }
                       >
@@ -3052,7 +3052,7 @@ const SystemConfiguration: React.FC = () => {
                                 }
                                 title={
                                   sgCount > 0
-                                    ? "Cannot delete — has equipment items"
+                                    ? "Cannot delete - has equipment items"
                                     : "Delete sub-group"
                                 }
                               >
@@ -3355,7 +3355,7 @@ const SystemConfiguration: React.FC = () => {
                       })
                     }
                   >
-                    <option value="">— Select —</option>
+                    <option value="">- Select -</option>
                     {config.divisions
                       .filter((d) => d.isActive)
                       .map((d) => (
@@ -3570,7 +3570,7 @@ const SystemConfiguration: React.FC = () => {
                           });
                         }}
                       >
-                        <option value="">— Select —</option>
+                        <option value="">- Select -</option>
                         {(config.availabilityStatuses || [])
                           .filter((a) => a.isActive !== false)
                           .map((a) => (

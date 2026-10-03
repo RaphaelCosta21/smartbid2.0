@@ -92,7 +92,7 @@ export const PastBidDrawer: React.FC<PastBidDrawerProps> = ({
         <div className={styles.header}>
           <div className={styles.headerInfo}>
             <span className={styles.bidNumber}>{bid.bidNumber}</span>
-            <span className={styles.client}>{opp?.client || "—"}</span>
+            <span className={styles.client}>{opp?.client || "-"}</span>
             {opp?.projectName && (
               <span className={styles.project}>{opp.projectName}</span>
             )}
@@ -101,7 +101,7 @@ export const PastBidDrawer: React.FC<PastBidDrawerProps> = ({
               {bid.serviceLine && <span>{bid.serviceLine}</span>}
               <span>
                 Completed{" "}
-                {bid.completedDate ? formatDate(bid.completedDate) : "—"}
+                {bid.completedDate ? formatDate(bid.completedDate) : "-"}
               </span>
             </div>
           </div>
@@ -190,7 +190,7 @@ export const PastBidDrawer: React.FC<PastBidDrawerProps> = ({
             )}
             {profile && profile.aiStatus === "failed" && (
               <span className={styles.muted}>
-                AI classification failed — tags come from the scope only. Use
+                AI classification failed - tags come from the scope only. Use
                 Edit to add them or suggest them again.
               </span>
             )}
@@ -221,7 +221,7 @@ export const PastBidDrawer: React.FC<PastBidDrawerProps> = ({
                       </span>
                     </div>
                     <span className={styles.relatedClient}>
-                      {r.bid.opportunityInfo?.client || "—"}
+                      {r.bid.opportunityInfo?.client || "-"}
                       {r.bid.opportunityInfo?.projectName
                         ? ` · ${r.bid.opportunityInfo.projectName}`
                         : ""}

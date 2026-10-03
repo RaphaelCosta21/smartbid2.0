@@ -85,7 +85,7 @@ const ChatBubble: React.FC<IBubbleProps> = ({ message, onFollowUp }) => {
                   title={
                     pastBid
                       ? `Open BID ${pastBid}`
-                      : `${c.title}${c.docType ? ` — ${c.docType}` : ""}`
+                      : `${c.title}${c.docType ? ` - ${c.docType}` : ""}`
                   }
                 >
                   <FileText size={13} className={styles.citationIcon} />
@@ -270,7 +270,7 @@ export const ChatAssistant: React.FC = () => {
                 ))}
                 <p className={styles.emptyNote}>
                   Answers are grounded in our technical proposals, datasheets,
-                  manuals and catalogs — and show the documents they came from.
+                  manuals and catalogs - and show the documents they came from.
                 </p>
               </div>
             )}

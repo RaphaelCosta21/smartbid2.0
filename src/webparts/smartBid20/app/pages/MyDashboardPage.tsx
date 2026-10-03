@@ -91,7 +91,7 @@ export const MyDashboardPage: React.FC = () => {
                 >
                   <span className={styles.bidRowNumber}>{bid.bidNumber}</span>
                   <span className={styles.bidRowInfo}>
-                    {bid.opportunityInfo.client} —{" "}
+                    {bid.opportunityInfo.client} -{" "}
                     {bid.opportunityInfo.projectName}
                   </span>
                   <StatusBadge status={bid.currentStatus} />

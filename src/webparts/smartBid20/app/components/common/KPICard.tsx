@@ -52,7 +52,7 @@ export const KPICard: React.FC<KPICardProps> = ({
               ? "▲"
               : trend.direction === "down"
                 ? "▼"
-                : "—"}
+                : "-"}
             {trend.value}
           </span>
         )}

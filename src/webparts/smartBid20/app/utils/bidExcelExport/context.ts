@@ -28,7 +28,7 @@ export const BID_EXCEL_SHEETS: IBidExcelSheetDef[] = [
   {
     key: "scope",
     name: "Scope of Supply",
-    description: "What we will provide — items, quantities, sub-items",
+    description: "What we will provide - items, quantities, sub-items",
   },
   {
     key: "assets",
@@ -80,8 +80,8 @@ export function getBidApprovalState(bid: IBid): IBidApprovalState {
   return {
     approved:
       bid.currentPhase === "Close Out" && bid.currentStatus === "Completed",
-    statusLabel: (status && status.label) || bid.currentStatus || "—",
-    phaseLabel: (phase && phase.label) || bid.currentPhase || "—",
+    statusLabel: (status && status.label) || bid.currentStatus || "-",
+    phaseLabel: (phase && phase.label) || bid.currentPhase || "-",
   };
 }
 

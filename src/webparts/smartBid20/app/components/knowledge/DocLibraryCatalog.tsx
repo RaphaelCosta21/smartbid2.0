@@ -310,7 +310,7 @@ const MetadataFields: React.FC<{
             onChange({ docType: e.target.value as DocCatalogType })
           }
         >
-          <option value="">—</option>
+          <option value="">-</option>
           {docTypeOptions.map((t) => (
             <option key={t} value={t}>
               {t}
@@ -329,7 +329,7 @@ const MetadataFields: React.FC<{
               onChange({ groupId: e.target.value, subGroupId: "" })
             }
           >
-            <option value="">—</option>
+            <option value="">-</option>
             {groups.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
@@ -342,7 +342,7 @@ const MetadataFields: React.FC<{
             disabled={!effectiveGroupId}
             onChange={(e) => onChange({ subGroupId: e.target.value })}
           >
-            <option value="">—</option>
+            <option value="">-</option>
             {subGroupOptions.map((sg) => (
               <option key={sg.id} value={sg.id}>
                 {sg.name}
@@ -405,7 +405,7 @@ const GroupSuggestionBanner: React.FC<{
 }> = ({ suggestion, busy, onAccept, onUseOther }) => (
   <div className={styles.replaceNote}>
     ✨ AI suggests creating a new group <strong>{suggestion.groupName}</strong>{" "}
-    → <strong>{suggestion.subGroupName}</strong> for this document — no existing
+    → <strong>{suggestion.subGroupName}</strong> for this document - no existing
     group fit well.
     <div className={styles.bulkActionButtons}>
       <button
@@ -1529,14 +1529,14 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
                       <DocThumb item={item} className={styles.listThumb} />
                     </td>
                     <td>{item.title}</td>
-                    <td>{item.docType || "—"}</td>
-                    <td>{item.manufacturer || "—"}</td>
+                    <td>{item.docType || "-"}</td>
+                    <td>{item.manufacturer || "-"}</td>
                     <td>
                       {groupName(item)
                         ? `${groupName(item)}${subGroupName(item) ? ` / ${subGroupName(item)}` : ""}`
-                        : "—"}
+                        : "-"}
                     </td>
-                    <td>{item.revision || "—"}</td>
+                    <td>{item.revision || "-"}</td>
                     <td>{formatFileSize(item.size)}</td>
                     <td>
                       <div className={styles.cardActions}>

@@ -118,7 +118,7 @@ export const BidResultsPage: React.FC = () => {
               bid.bidResult.contractValue,
               bid.bidResult.contractCurrency || "USD",
             )
-          : "—",
+          : "-",
     },
     {
       key: "date",
@@ -126,7 +126,7 @@ export const BidResultsPage: React.FC = () => {
       render: (bid: IBid) =>
         bid.bidResult?.outcomeDate
           ? formatDate(bid.bidResult.outcomeDate)
-          : "—",
+          : "-",
     },
   ];
 

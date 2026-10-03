@@ -80,7 +80,7 @@ export function buildPrepMobSheet(ctx: IBidExcelContext): void {
       ? si.equipmentOffer || si.description || si.partNumber || "Scope Item"
       : "";
   };
-  const dash: XlValue = { value: "—", color: XL_COLORS.textMuted };
+  const dash: XlValue = { value: "-", color: XL_COLORS.textMuted };
   const toGroups = (
     secs?: IHoursSectionGroup[],
   ): { id: string; title: string; color?: string }[] =>

@@ -26,7 +26,7 @@ export const KPI_DEFINITIONS: IKPIDef[] = [
   {
     id: "otif",
     label: "OTIF",
-    description: "On Time In Full — delivered on time and complete",
+    description: "On Time In Full - delivered on time and complete",
     unit: "%",
     targetKey: "targetOTIF",
     higherIsBetter: true,

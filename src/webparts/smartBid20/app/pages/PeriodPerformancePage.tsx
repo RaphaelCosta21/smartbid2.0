@@ -392,7 +392,7 @@ export const PeriodPerformancePage: React.FC = () => {
       <div className={styles.perfSectionTitle}>{title}</div>
       <div className={styles.perfList}>
         {rows.length === 0 ? (
-          <div className={styles.perfEmpty}>—</div>
+          <div className={styles.perfEmpty}>-</div>
         ) : (
           rows.map((r) => (
             <div className={styles.perfRow} key={r.client}>
@@ -464,7 +464,7 @@ export const PeriodPerformancePage: React.FC = () => {
       key: "justificative",
       header: "Justificative",
       render: (r: BidTableRow) => (
-        <span className={styles.cellMuted}>{r.justificative || "—"}</span>
+        <span className={styles.cellMuted}>{r.justificative || "-"}</span>
       ),
     },
     { key: "division", header: "Division" },
@@ -475,7 +475,7 @@ export const PeriodPerformancePage: React.FC = () => {
       sortable: true,
       render: (r: BidTableRow) => (
         <span className={styles.cellMuted}>
-          {r.created ? formatDate(r.created) : "—"}
+          {r.created ? formatDate(r.created) : "-"}
         </span>
       ),
     },
@@ -485,7 +485,7 @@ export const PeriodPerformancePage: React.FC = () => {
   return (
     <div className={styles.page}>
       <PageHeader
-        title={`BID Analytics — ${year}`}
+        title={`BID Analytics - ${year}`}
         subtitle="Consolidated performance overview by period"
         icon={
           <svg

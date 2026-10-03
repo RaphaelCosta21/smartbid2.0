@@ -656,11 +656,11 @@ export const BidDetailPage: React.FC = () => {
         <div className={styles.bidHeaderLeft}>
           <div className={styles.bidHeaderTitle}>
             <span className={styles.bidNumber}>{bid.bidNumber}</span>
-            <span className={styles.headerSep}>—</span>
-            <span>{bid.opportunityInfo?.client || "—"}</span>
-            <span className={styles.headerSep}>—</span>
+            <span className={styles.headerSep}>-</span>
+            <span>{bid.opportunityInfo?.client || "-"}</span>
+            <span className={styles.headerSep}>-</span>
             <span className={styles.projectName}>
-              {bid.opportunityInfo?.projectName || "—"}
+              {bid.opportunityInfo?.projectName || "-"}
             </span>
           </div>
           <div className={styles.bidHeaderMeta}>

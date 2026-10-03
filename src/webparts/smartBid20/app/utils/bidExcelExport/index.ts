@@ -95,7 +95,7 @@ export async function exportBidToExcel(
   const approval = getBidApprovalState(bid);
   const approvalNotice = approval.approved
     ? undefined
-    : `NOT APPROVED — exported while the BID was in "${approval.statusLabel}" (phase: ${approval.phaseLabel}). ` +
+    : `NOT APPROVED - exported while the BID was in "${approval.statusLabel}" (phase: ${approval.phaseLabel}). ` +
       "Values are preliminary until the BID reaches Close Out · Completed.";
 
   const titleParts = [

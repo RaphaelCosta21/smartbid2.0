@@ -82,7 +82,7 @@ export class BidService {
       .join("; ");
     const summary = [opp ? opp.projectDescription : "", scope]
       .filter(Boolean)
-      .join(" — ");
+      .join(" - ");
     return {
       [F.client]: (opp ? opp.client : "") || "",
       [F.projectName]: (opp ? opp.projectName : "") || "",

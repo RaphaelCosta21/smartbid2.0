@@ -76,7 +76,7 @@ const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({
 }) => (
   <div className={styles.infoItem}>
     <div className={styles.infoLabel}>{label}</div>
-    <div className={styles.infoValue}>{value || "—"}</div>
+    <div className={styles.infoValue}>{value || "-"}</div>
   </div>
 );
 
@@ -1325,7 +1325,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       fontSize: 13,
                     }}
                   >
-                    <option value="">— Select —</option>
+                    <option value="">- Select -</option>
                     {(config?.clientList || [])
                       .filter((c) => c.isActive !== false)
                       .map((c) => (
@@ -1365,7 +1365,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       fontSize: 13,
                     }}
                   >
-                    <option value="">— Select —</option>
+                    <option value="">- Select -</option>
                     {(config?.regions || [])
                       .filter((r) => r.isActive !== false)
                       .map((r) => (
@@ -1453,7 +1453,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 value={
                   bid.opportunityInfo?.waterDepth
                     ? `${bid.opportunityInfo.waterDepth} ${bid.opportunityInfo.waterDepthUnit || "m"}`
-                    : "—"
+                    : "-"
                 }
               />
               <InfoRow
@@ -1461,7 +1461,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 value={
                   bid.opportunityInfo?.operationStartDate
                     ? formatDate(bid.opportunityInfo.operationStartDate)
-                    : "—"
+                    : "-"
                 }
               />
               <InfoRow
@@ -1469,7 +1469,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 value={
                   bid.opportunityInfo?.totalDuration
                     ? `${bid.opportunityInfo.totalDuration} ${bid.opportunityInfo.totalDurationUnit || "days"}`
-                    : "—"
+                    : "-"
                 }
               />
             </div>
@@ -1710,7 +1710,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       <span
                         style={{ fontSize: 13, color: "var(--text-secondary)" }}
                       >
-                        —
+                        -
                       </span>
                     )}
                 </div>
@@ -1743,7 +1743,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         photoUrl={bid.creator.photoUrl}
                       />
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </div>
                   <div>
@@ -1770,7 +1770,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       <span
                         style={{ fontSize: 13, color: "var(--text-secondary)" }}
                       >
-                        —
+                        -
                       </span>
                     )}
                   </div>
@@ -1800,7 +1800,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     photoUrl={bid.creator.photoUrl}
                   />
                 ) : (
-                  "—"
+                  "-"
                 )}
               </div>
               <div style={{ marginBottom: 8 }}>
@@ -1827,7 +1827,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   <span
                     style={{ fontSize: 13, color: "var(--text-secondary)" }}
                   >
-                    —
+                    -
                   </span>
                 )}
               </div>
@@ -1855,7 +1855,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   <span
                     style={{ fontSize: 13, color: "var(--text-secondary)" }}
                   >
-                    —
+                    -
                   </span>
                 )}
               </div>
@@ -1883,7 +1883,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   <span
                     style={{ fontSize: 13, color: "var(--text-secondary)" }}
                   >
-                    —
+                    -
                   </span>
                 )}
               </div>
@@ -1896,7 +1896,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       <div className={styles.flexColumn}>
         <div className={styles.progressSection}>
           <h4 className={styles.infoTitle}>
-            Phase Progress — {getPhaseLabelForBid(bid)}
+            Phase Progress - {getPhaseLabelForBid(bid)}
             {(bid.revisions || []).length > 0 && (
               <span
                 style={{
@@ -2080,7 +2080,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       title={lastDueDateChange.description}
                     >
                       Changed by {lastDueDateChange.actorName} on{" "}
-                      {formatDateTime(lastDueDateChange.timestamp)} — &ldquo;
+                      {formatDateTime(lastDueDateChange.timestamp)} - &ldquo;
                       {String(lastDueDateChange.metadata?.reason || "")}
                       &rdquo;
                     </span>
@@ -2096,7 +2096,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             />
             <InfoRow
               label="Completed"
-              value={bid.completedDate ? formatDate(bid.completedDate) : "—"}
+              value={bid.completedDate ? formatDate(bid.completedDate) : "-"}
             />
             {/* Revision completion dates */}
             {(bid.revisions || [])
@@ -2153,7 +2153,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 label="Opened By"
                 value={
                   (bid.revisions || []).find((r) => r.status === "open")
-                    ?.openedBy?.name || "—"
+                    ?.openedBy?.name || "-"
                 }
               />
               <InfoRow
@@ -2167,7 +2167,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 label="Reason"
                 value={
                   (bid.revisions || []).find((r) => r.status === "open")
-                    ?.reason || "—"
+                    ?.reason || "-"
                 }
               />
             </div>
@@ -2357,7 +2357,7 @@ const ExchangeRatesCard: React.FC<{
                       fontWeight: 600,
                     }}
                   >
-                    {er.rate > 0 ? (1 / er.rate).toFixed(4) : "—"}
+                    {er.rate > 0 ? (1 / er.rate).toFixed(4) : "-"}
                   </span>
                 </div>,
               );
@@ -2376,7 +2376,7 @@ const ExchangeRatesCard: React.FC<{
                       fontWeight: 600,
                     }}
                   >
-                    {er.rate > 0 ? (1 / er.rate).toFixed(4) : "—"}
+                    {er.rate > 0 ? (1 / er.rate).toFixed(4) : "-"}
                   </span>
                 </div>,
               );
@@ -2416,7 +2416,7 @@ const ExchangeRatesCard: React.FC<{
           fontStyle: "italic",
         }}
       >
-        Currency locked — BID is closed.
+        Currency locked - BID is closed.
       </p>
     )}
   </div>

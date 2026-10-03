@@ -109,7 +109,7 @@ export const DashboardPage: React.FC = () => {
     .filter((b) => b.approvalStatus === "pending")
     .map((b) => ({
       bidNumber: b.bidNumber,
-      requester: b.creator?.name || "—",
+      requester: b.creator?.name || "-",
       days: Math.abs(differenceInDays(new Date(b.lastModified), now)),
     }));
 
@@ -226,7 +226,7 @@ export const DashboardPage: React.FC = () => {
               <EmptyState
                 variant="glass"
                 title="No pending approvals"
-                description="All caught up — nothing awaiting approval."
+                description="All caught up - nothing awaiting approval."
               />
             )}
           </div>
@@ -268,7 +268,7 @@ export const DashboardPage: React.FC = () => {
                         onClick={() => navigate(`/bid/${bid.bidNumber}`)}
                       >
                         <td className={styles.mono}>{bid.bidNumber}</td>
-                        <td className={styles.mono}>{bid.crmNumber || "—"}</td>
+                        <td className={styles.mono}>{bid.crmNumber || "-"}</td>
                         <td>{bid.opportunityInfo?.client || ""}</td>
                         <td
                           style={{
@@ -286,9 +286,9 @@ export const DashboardPage: React.FC = () => {
                             color={getDivisionColor(bid.division)}
                           />
                         </td>
-                        <td>{bid.creator?.name || "—"}</td>
+                        <td>{bid.creator?.name || "-"}</td>
                         <td className={overdue ? styles.overdue : undefined}>
-                          {bid.dueDate ? formatDate(bid.dueDate, "MMM d") : "—"}
+                          {bid.dueDate ? formatDate(bid.dueDate, "MMM d") : "-"}
                         </td>
                         <td>
                           <StatusBadge

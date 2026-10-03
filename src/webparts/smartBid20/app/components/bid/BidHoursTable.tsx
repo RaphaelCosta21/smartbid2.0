@@ -571,7 +571,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
           Comments
         </label>
         {readOnly && !onSaveTabNotes ? (
-          <p className={styles.tabNotesText}>{tabNotes || "—"}</p>
+          <p className={styles.tabNotesText}>{tabNotes || "-"}</p>
         ) : (
           <textarea
             className={styles.tabNotesInput}
@@ -887,7 +887,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
                                       </label>
                                       {readOnly ? (
                                         <p className={styles.sectionNotesText}>
-                                          {group.notes || "—"}
+                                          {group.notes || "-"}
                                         </p>
                                       ) : (
                                         <textarea
@@ -1270,7 +1270,7 @@ const HoursRow: React.FC<HoursRowProps> = ({
             <input
               className={styles.separatorInput}
               value={item.separatorLabel || ""}
-              placeholder="(separator label – optional)"
+              placeholder="(separator label - optional)"
               onChange={(e) =>
                 updateItem(
                   sectionKey,
@@ -1518,7 +1518,7 @@ const HoursRow: React.FC<HoursRowProps> = ({
                     cursor: "pointer",
                   }}
                 >
-                  <option value="">— None —</option>
+                  <option value="">- None -</option>
                   {sectionGroups.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.title || "Untitled"}
@@ -1562,7 +1562,7 @@ const HoursRow: React.FC<HoursRowProps> = ({
         <tr className={styles.notesRow}>
           <td colSpan={colCount} className={styles.notesCell}>
             {readOnly ? (
-              <span className={styles.notesText}>{item.notes || "—"}</span>
+              <span className={styles.notesText}>{item.notes || "-"}</span>
             ) : (
               <input
                 className={styles.notesInput}

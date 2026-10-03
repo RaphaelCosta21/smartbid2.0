@@ -137,7 +137,7 @@ export const ErnSearchModal: React.FC<ErnSearchModalProps> = ({
             <div className={styles.title}>
               Select existing ERN
               {division
-                ? ` — ${division === "SURVEY" ? "Survey" : division}`
+                ? ` - ${division === "SURVEY" ? "Survey" : division}`
                 : ""}
             </div>
             <div className={styles.subtitle}>
@@ -187,7 +187,7 @@ export const ErnSearchModal: React.FC<ErnSearchModalProps> = ({
               <div key={ern.id} className={styles.row}>
                 <div className={styles.rowMain}>
                   <span className={styles.ernNumber}>{ern.title}</span>
-                  <span className={styles.rowStatus}>{ern.status || "—"}</span>
+                  <span className={styles.rowStatus}>{ern.status || "-"}</span>
                 </div>
                 <div className={styles.rowMeta}>
                   {ern.projectTitle && <span>{ern.projectTitle}</span>}

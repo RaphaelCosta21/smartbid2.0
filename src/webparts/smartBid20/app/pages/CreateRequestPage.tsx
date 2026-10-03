@@ -645,7 +645,7 @@ export const CreateRequestPage: React.FC = () => {
           {surveyPrefill && surveyPrefill.length > 0 && (
             <div className={styles.surveyBanner}>
               <span>
-                Survey package attached — {surveyPackageCount} unit(s) across{" "}
+                Survey package attached - {surveyPackageCount} unit(s) across{" "}
                 {surveyPrefill.length} equipment will be added to the Scope of
                 Supply.
               </span>
@@ -702,7 +702,7 @@ export const CreateRequestPage: React.FC = () => {
                         {filteredClients.length === 0 ? (
                           <div className={styles.peopleDropdownEmpty}>
                             {form.client.trim()
-                              ? `No match — "${form.client.trim()}" will be used as a new client`
+                              ? `No match - "${form.client.trim()}" will be used as a new client`
                               : "No clients configured"}
                           </div>
                         ) : (
@@ -1153,7 +1153,7 @@ export const CreateRequestPage: React.FC = () => {
                             <line x1="12" y1="17" x2="12.01" y2="17" />
                           </svg>
                           <span>
-                            <strong>🔴 Urgent Priority</strong> — Due date is
+                            <strong>🔴 Urgent Priority</strong> - Due date is
                             within {businessDaysUntilDue} business day
                             {businessDaysUntilDue !== 1 ? "s" : ""}. This BID
                             will be flagged as high priority.
@@ -1174,7 +1174,7 @@ export const CreateRequestPage: React.FC = () => {
                           <polyline points="12 6 12 12 16 14" />
                         </svg>
                         <span>
-                          <strong>🟡 Normal Priority</strong> — Standard
+                          <strong>🟡 Normal Priority</strong> - Standard
                           timeline ({businessDaysUntilDue} business day
                           {businessDaysUntilDue !== 1 ? "s" : ""}).
                         </span>
@@ -1194,7 +1194,7 @@ export const CreateRequestPage: React.FC = () => {
                           <polyline points="12 6 12 12 16 14" />
                         </svg>
                         <span>
-                          <strong>🟢 Low Priority</strong> — Extended timeline (
+                          <strong>🟢 Low Priority</strong> - Extended timeline (
                           {businessDaysUntilDue} business day
                           {businessDaysUntilDue !== 1 ? "s" : ""} until due
                           date).
@@ -1317,43 +1317,43 @@ export const CreateRequestPage: React.FC = () => {
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Client</span>
                   <span className={styles.reviewCellValue}>
-                    {form.client || "—"}
+                    {form.client || "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Client Contact</span>
                   <span className={styles.reviewCellValue}>
-                    {form.clientContact || "—"}
+                    {form.clientContact || "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>CRM</span>
                   <span className={styles.reviewCellValue}>
-                    {form.crmNumber || "—"}
+                    {form.crmNumber || "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Division</span>
                   <span className={styles.reviewCellValue}>
-                    {form.division || "—"}
+                    {form.division || "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Service Line</span>
                   <span className={styles.reviewCellValue}>
-                    {form.serviceLine || "—"}
+                    {form.serviceLine || "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Project Name</span>
                   <span className={styles.reviewCellValue}>
-                    {form.projectName || "—"}
+                    {form.projectName || "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCellFull}>
                   <span className={styles.reviewCellLabel}>Description</span>
                   <span className={styles.reviewCellValue}>
-                    {form.projectDescription || "—"}
+                    {form.projectDescription || "-"}
                   </span>
                 </div>
                 {form.operationStartDate && (
@@ -1403,7 +1403,7 @@ export const CreateRequestPage: React.FC = () => {
                             size="small"
                           />
                         ))
-                      : "—"}
+                      : "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>
@@ -1432,7 +1432,7 @@ export const CreateRequestPage: React.FC = () => {
                         size="small"
                       />
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -1445,7 +1445,7 @@ export const CreateRequestPage: React.FC = () => {
                     Desired Due Date
                   </span>
                   <span className={styles.reviewCellValue}>
-                    {form.desiredDueDate || "—"}
+                    {form.desiredDueDate || "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>

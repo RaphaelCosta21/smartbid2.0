@@ -185,7 +185,7 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
     ).length;
     if (itemCount > 0) {
       throw new Error(
-        `Cannot delete group — ${itemCount} item(s) are assigned to it. Remove items first.`,
+        `Cannot delete group - ${itemCount} item(s) are assigned to it. Remove items first.`,
       );
     }
     const updated: IFavoritesData = {
@@ -205,7 +205,7 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
     ).length;
     if (itemCount > 0) {
       throw new Error(
-        `Cannot delete sub-group — ${itemCount} item(s) are assigned to it. Remove items first.`,
+        `Cannot delete sub-group - ${itemCount} item(s) are assigned to it. Remove items first.`,
       );
     }
     const groups = data.groups.map((g) => {

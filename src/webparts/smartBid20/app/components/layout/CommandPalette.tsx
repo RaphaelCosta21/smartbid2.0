@@ -52,7 +52,7 @@ export const CommandPalette: React.FC = () => {
 
     const bidCommands: ICommandItem[] = bids.slice(0, 20).map((b) => ({
       id: `bid-${b.bidNumber}`,
-      label: `${b.bidNumber} — ${b.opportunityInfo.projectName}`,
+      label: `${b.bidNumber} - ${b.opportunityInfo.projectName}`,
       description: `${b.opportunityInfo.client} · ${b.currentStatus}`,
       icon: "📋",
       action: () => {

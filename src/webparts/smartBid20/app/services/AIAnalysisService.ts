@@ -233,7 +233,7 @@ export class AIAnalysisService {
   private static ensureConfigured(): void {
     if (!isAiConfigured()) {
       throw new Error(
-        "AI is not available yet — IT is still finishing the Azure setup (Function App + app registration). Please try again later or contact IT.",
+        "AI is not available yet - IT is still finishing the Azure setup (Function App + app registration). Please try again later or contact IT.",
       );
     }
   }

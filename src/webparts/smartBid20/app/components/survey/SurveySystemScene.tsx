@@ -283,7 +283,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
                     n.role === "portal"
                       ? `Go to ${n.label}`
                       : n.bidState === "out"
-                        ? `${n.label} — not considered in the BID`
+                        ? `${n.label} - not considered in the BID`
                         : n.label
                   }
                   onClick={() => onNodeSelect(n.id)}

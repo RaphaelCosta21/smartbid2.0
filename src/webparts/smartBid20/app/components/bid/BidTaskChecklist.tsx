@@ -67,7 +67,7 @@ export const BidTaskChecklist: React.FC<BidTaskChecklistProps> = ({
                         : "var(--text-primary)",
                   }}
                 >
-                  <strong>{task.taskId}</strong> — {task.name}
+                  <strong>{task.taskId}</strong> - {task.name}
                 </span>
               </div>
               <span className={styles.taskAssignee}>{task.assignedTo}</span>

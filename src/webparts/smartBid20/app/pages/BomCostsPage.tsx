@@ -158,7 +158,7 @@ function srcLabel(src: BomCostSource, costRef: string): string {
   if (src === "Financials") return costRef || "FIN";
   if (src === "manual") return "Manual";
   if (src === "QUOTATION") return "Quotation";
-  return "—";
+  return "-";
 }
 
 /**
@@ -833,7 +833,7 @@ export const BomCostsPage: React.FC = () => {
       isManual: false,
       isRolledUp: false,
       quotationItemId: q.id,
-      comments: `Quotation: ${q.supplier}${q.partNumber ? " — " + q.partNumber : ""}`,
+      comments: `Quotation: ${q.supplier}${q.partNumber ? " - " + q.partNumber : ""}`,
     });
     setShowQuotationModal(false);
     setQuotationTargetItemId("");
@@ -1366,11 +1366,11 @@ export const BomCostsPage: React.FC = () => {
             <div className={styles.statCard}>
               <span className={styles.statLabel}>Max Lead Time</span>
               <span className={styles.statValue}>
-                {maxLeadTimeItem ? `${maxLeadTimeItem.leadTimeDays} days` : "—"}
+                {maxLeadTimeItem ? `${maxLeadTimeItem.leadTimeDays} days` : "-"}
               </span>
               {maxLeadTimeItem && (
                 <span className={styles.statSub} style={{ maxWidth: 200 }}>
-                  #{maxLeadTimeItem.level}.{maxLeadTimeItem.findNumber} —{" "}
+                  #{maxLeadTimeItem.level}.{maxLeadTimeItem.findNumber} -{" "}
                   {maxLeadTimeItem.partNumber}
                 </span>
               )}
@@ -1694,7 +1694,7 @@ export const BomCostsPage: React.FC = () => {
                             }
                           />
                         ) : (
-                          item.partNumber || "—"
+                          item.partNumber || "-"
                         )}
                       </td>
 
@@ -1712,7 +1712,7 @@ export const BomCostsPage: React.FC = () => {
                             }
                           />
                         ) : (
-                          item.description || "—"
+                          item.description || "-"
                         )}
                       </td>
 
@@ -1733,7 +1733,7 @@ export const BomCostsPage: React.FC = () => {
                         ) : item.qty > 0 ? (
                           item.qty
                         ) : (
-                          "—"
+                          "-"
                         )}
                       </td>
 
@@ -1784,7 +1784,7 @@ export const BomCostsPage: React.FC = () => {
                                   )}
                               </>
                             ) : (
-                              "—"
+                              "-"
                             )}
                           </td>
 
@@ -1804,11 +1804,11 @@ export const BomCostsPage: React.FC = () => {
                                 step={0.5}
                               />
                             ) : isRolled ? (
-                              <span className={styles.rolledUpMuted}>—</span>
+                              <span className={styles.rolledUpMuted}>-</span>
                             ) : item.contingencyPercent > 0 ? (
                               item.contingencyPercent
                             ) : (
-                              "—"
+                              "-"
                             )}
                           </td>
 
@@ -1823,7 +1823,7 @@ export const BomCostsPage: React.FC = () => {
                                 {formatCurrency(item.totalCostInclCont, "USD")}
                               </span>
                             ) : (
-                              "—"
+                              "-"
                             )}
                             {ancestorHasDirectCost && (
                               <div className={styles.childOfCostedNote}>
@@ -1839,7 +1839,7 @@ export const BomCostsPage: React.FC = () => {
                                 className={styles.editInputSmall}
                                 type="number"
                                 value={item.leadTimeDays || ""}
-                                placeholder="—"
+                                placeholder="-"
                                 onChange={(e) =>
                                   updateItem(item.id, {
                                     leadTimeDays:
@@ -1853,12 +1853,12 @@ export const BomCostsPage: React.FC = () => {
                                   {item.leadTimeDays}d
                                 </span>
                               ) : (
-                                "—"
+                                "-"
                               )
                             ) : item.leadTimeDays > 0 ? (
                               `${item.leadTimeDays}d`
                             ) : (
-                              "—"
+                              "-"
                             )}
                           </td>
 
@@ -1877,7 +1877,7 @@ export const BomCostsPage: React.FC = () => {
                                 {srcLabel(item.sourceTab, item.costReference)}
                               </span>
                             ) : (
-                              "—"
+                              "-"
                             )}
                           </td>
 
@@ -1909,7 +1909,7 @@ export const BomCostsPage: React.FC = () => {
                                 />
                               </div>
                             ) : isRolled ? (
-                              "—"
+                              "-"
                             ) : item.dateReference ? (
                               <span
                                 className={`${styles.dateBadge} ${dateAgeClass(item.dateReference)}`}
@@ -1925,7 +1925,7 @@ export const BomCostsPage: React.FC = () => {
                                 {formatDateDMY(item.dateReference)}
                               </span>
                             ) : (
-                              "—"
+                              "-"
                             )}
                           </td>
 
@@ -1944,7 +1944,7 @@ export const BomCostsPage: React.FC = () => {
                                 placeholder="..."
                               />
                             ) : (
-                              item.comments || "—"
+                              item.comments || "-"
                             )}
                           </td>
                         </>
@@ -2197,15 +2197,15 @@ export const BomCostsPage: React.FC = () => {
                     {filteredQuotations.slice(0, 50).map((q) => (
                       <tr key={q.id} className={styles.quotationRow}>
                         <td className={styles.quotationPN}>
-                          {q.partNumber || "—"}
+                          {q.partNumber || "-"}
                         </td>
                         <td
                           className={styles.quotationDesc}
                           title={q.description}
                         >
-                          {q.description || "—"}
+                          {q.description || "-"}
                         </td>
-                        <td>{q.supplier || "—"}</td>
+                        <td>{q.supplier || "-"}</td>
                         <td>
                           <span
                             className={`${styles.quotationTypeBadge} ${q.type === "rental" ? styles.quotationTypeRental : styles.quotationTypeAcq}`}
@@ -2225,10 +2225,10 @@ export const BomCostsPage: React.FC = () => {
                           )}
                         </td>
                         <td style={{ textAlign: "right" }}>
-                          {q.leadTimeDays > 0 ? `${q.leadTimeDays}d` : "—"}
+                          {q.leadTimeDays > 0 ? `${q.leadTimeDays}d` : "-"}
                         </td>
                         <td>
-                          {q.quotationDate ? formatDate(q.quotationDate) : "—"}
+                          {q.quotationDate ? formatDate(q.quotationDate) : "-"}
                         </td>
                         <td>
                           <button
@@ -2276,19 +2276,19 @@ export const BomCostsPage: React.FC = () => {
               <div className={styles.viewerRow}>
                 <span className={styles.viewerLabel}>Part Number</span>
                 <span className={styles.viewerValue}>
-                  {viewingQuotation.partNumber || "—"}
+                  {viewingQuotation.partNumber || "-"}
                 </span>
               </div>
               <div className={styles.viewerRow}>
                 <span className={styles.viewerLabel}>Description</span>
                 <span className={styles.viewerValue}>
-                  {viewingQuotation.description || "—"}
+                  {viewingQuotation.description || "-"}
                 </span>
               </div>
               <div className={styles.viewerRow}>
                 <span className={styles.viewerLabel}>Supplier</span>
                 <span className={styles.viewerValue}>
-                  {viewingQuotation.supplier || "—"}
+                  {viewingQuotation.supplier || "-"}
                 </span>
               </div>
               <div className={styles.viewerRow}>
@@ -2326,7 +2326,7 @@ export const BomCostsPage: React.FC = () => {
                 <span className={styles.viewerValue}>
                   {viewingQuotation.leadTimeDays > 0
                     ? `${viewingQuotation.leadTimeDays} days`
-                    : "—"}
+                    : "-"}
                 </span>
               </div>
               <div className={styles.viewerRow}>
@@ -2334,13 +2334,13 @@ export const BomCostsPage: React.FC = () => {
                 <span className={styles.viewerValue}>
                   {viewingQuotation.quotationDate
                     ? formatDate(viewingQuotation.quotationDate)
-                    : "—"}
+                    : "-"}
                 </span>
               </div>
               <div className={styles.viewerRow}>
                 <span className={styles.viewerLabel}>Created By</span>
                 <span className={styles.viewerValue}>
-                  {viewingQuotation.createdBy || "—"}
+                  {viewingQuotation.createdBy || "-"}
                 </span>
               </div>
               {viewingQuotation.notes && (

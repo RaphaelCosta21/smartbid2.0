@@ -66,7 +66,7 @@ export function fxNotes(
       ? `Converted to USD with the rates registered on this BID: ${withRate.join(" · ")}.`
       : "",
     missing: missing.length
-      ? `No exchange rate registered on this BID for ${missing.join(", ")} — these values are left out of the USD totals. Update the rates on the Overview tab.`
+      ? `No exchange rate registered on this BID for ${missing.join(", ")} - these values are left out of the USD totals. Update the rates on the Overview tab.`
       : "",
   };
 }
@@ -155,7 +155,7 @@ export function writeCurrencyFooter(
   );
   x.gap(6);
   x.note(
-    `Total in BRL: R$ ${(totalUSD * ptax).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${fmtUSD(totalUSD)} × PTAX ${ptax > 0 ? ptax.toFixed(4) : "—"}).`,
+    `Total in BRL: R$ ${(totalUSD * ptax).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${fmtUSD(totalUSD)} × PTAX ${ptax > 0 ? ptax.toFixed(4) : "-"}).`,
     span,
     "muted",
   );

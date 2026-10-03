@@ -922,9 +922,9 @@ export const QuotationsPage: React.FC = () => {
         <div className={styles.cardPN}>{item.partNumber}</div>
         <div className={styles.cardDesc}>{item.description}</div>
         <div className={styles.cardMeta}>
-          <span>{groupMap[item.groupId] || "—"}</span>
+          <span>{groupMap[item.groupId] || "-"}</span>
           <span className={styles.sep}>›</span>
-          <span>{subGroupMap[item.subGroupId] || "—"}</span>
+          <span>{subGroupMap[item.subGroupId] || "-"}</span>
         </div>
       </div>
       <div className={styles.cardFooter}>
@@ -1157,10 +1157,10 @@ export const QuotationsPage: React.FC = () => {
                 <tbody>
                   {filtered.map((q) => (
                     <tr key={q.id}>
-                      <td>{groupMap[q.groupId] || "—"}</td>
-                      <td>{subGroupMap[q.subGroupId] || "—"}</td>
+                      <td>{groupMap[q.groupId] || "-"}</td>
+                      <td>{subGroupMap[q.subGroupId] || "-"}</td>
                       <td className={styles.bold}>{q.partNumber}</td>
-                      <td className={styles.refCell}>{q.reference || "—"}</td>
+                      <td className={styles.refCell}>{q.reference || "-"}</td>
                       <td
                         className={`${styles.descCell} ${
                           expandedCells[q.id + ":desc"]
@@ -1199,7 +1199,7 @@ export const QuotationsPage: React.FC = () => {
                         title={q.notes}
                         onClick={() => toggleCell(q.id + ":notes")}
                       >
-                        {q.notes || "—"}
+                        {q.notes || "-"}
                       </td>
                       <td>
                         <div className={styles.rowActions}>

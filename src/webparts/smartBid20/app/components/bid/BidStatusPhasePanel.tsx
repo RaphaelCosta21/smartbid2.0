@@ -966,7 +966,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
               {lastStatusEntry && (
                 <div className={styles.lastChangeInfo}>
                   Last changed by{" "}
-                  <strong>{lastStatusEntry.actor || "—"}</strong> on{" "}
+                  <strong>{lastStatusEntry.actor || "-"}</strong> on{" "}
                   {formatDateTime(lastStatusEntry.start)}
                 </div>
               )}
@@ -1114,7 +1114,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
       {/* ─── Phase Tasks ─── */}
       {currentPhaseTasks.length > 0 && (
         <GlassCard
-          title={`Phase Tasks — ${phases.find((p) => p.value === bid.currentPhase)?.label || ""}`}
+          title={`Phase Tasks - ${phases.find((p) => p.value === bid.currentPhase)?.label || ""}`}
         >
           <BidTaskChecklist
             tasks={currentPhaseTasks}
@@ -1150,7 +1150,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                         </span>
                       </div>
                       <div className={styles.recentStepMeta}>
-                        {entry.actor || "—"} · {formatDateTime(entry.start)}
+                        {entry.actor || "-"} · {formatDateTime(entry.start)}
                         {entry.durationHours !== null && (
                           <span className={styles.recentStepDuration}>
                             {" "}
@@ -1680,7 +1680,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
               </svg>
             </div>
             <h3 className={styles.confirmTitle}>
-              Terminal Status — BID Will Be Locked
+              Terminal Status - BID Will Be Locked
             </h3>
             <div className={styles.confirmChanges}>
               <div className={styles.confirmChangeRow}>

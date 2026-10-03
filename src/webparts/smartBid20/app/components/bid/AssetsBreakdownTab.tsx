@@ -185,7 +185,7 @@ const fmtCost = (n: number): string =>
 
 /** Format date reference as DD/Mon/YYYY */
 const formatDateRef = (isoDate: string): string => {
-  if (!isoDate) return "—";
+  if (!isoDate) return "-";
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return isoDate;
   const months = [
@@ -1896,21 +1896,21 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
               )}
             </span>
             <span className={styles.subCellText}>
-              {sub.equipmentOffer || sub.description || "—"}
+              {sub.equipmentOffer || sub.description || "-"}
             </span>
           </div>
           {kind === "sub" ? (
             <>
               <div className={`${styles.subCell} ${styles.subCellMono}`}>
-                {sub.partNumber || "—"}
+                {sub.partNumber || "-"}
               </div>
-              <div className={styles.subCell}>{sub.subType || "—"}</div>
+              <div className={styles.subCell}>{sub.subType || "-"}</div>
             </>
           ) : (
             <>
-              <div className={styles.subCell}>{sub.subType || "—"}</div>
+              <div className={styles.subCell}>{sub.subType || "-"}</div>
               <div className={`${styles.subCell} ${styles.subCellMono}`}>
-                {sub.partNumber || "—"}
+                {sub.partNumber || "-"}
               </div>
             </>
           )}
@@ -1963,7 +1963,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                   }}
                 >
                   {readOnly ? (
-                    <span>{sic.availabilityStatus || "—"}</span>
+                    <span>{sic.availabilityStatus || "-"}</span>
                   ) : (
                     <select
                       className={emptyIf(
@@ -2029,7 +2029,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 See splits
               </span>
             ) : readOnly ? (
-              sic.acquisitionType || "—"
+              sic.acquisitionType || "-"
             ) : sicIsNoCost ? (
               <span
                 style={{
@@ -2097,7 +2097,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                     : "var(--text-muted)",
                 }}
               >
-                —
+                -
               </span>
             ) : sicIsRental ? (
               readOnly ? (
@@ -2260,7 +2260,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                     : "var(--text-muted)",
                 }}
               >
-                —
+                -
               </span>
             ) : (
               (() => {
@@ -2292,7 +2292,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           <div className={styles.subCell}>
             {sicShowDashMeta ? (
               <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                —
+                -
               </span>
             ) : readOnly ? (
               (() => {
@@ -2326,7 +2326,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 return d ? (
                   <span style={{ fontSize: 11 }}>{d}</span>
                 ) : (
-                  <span style={{ color: "var(--text-muted)" }}>—</span>
+                  <span style={{ color: "var(--text-muted)" }}>-</span>
                 );
               })()
             ) : (
@@ -2365,7 +2365,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           <div className={styles.subCell} style={{ fontSize: 11 }}>
             {sicShowDashMeta ? (
               <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                —
+                -
               </span>
             ) : readOnly ? (
               sic.dateReference ? (
@@ -2375,7 +2375,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                   {formatDateRef(sic.dateReference)}
                 </span>
               ) : (
-                "—"
+                "-"
               )
             ) : (
               <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -2438,10 +2438,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           <div className={`${styles.subCell} ${styles.subCellCenter}`}>
             {sicShowDashMeta ? (
               <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                —
+                -
               </span>
             ) : readOnly ? (
-              sic.leadTimeDays || "—"
+              sic.leadTimeDays || "-"
             ) : (
               <input
                 className={styles.numInput}
@@ -2464,7 +2464,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           <div className={styles.subCell}>
             {sicIsNoCost ? (
               <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                —
+                -
               </span>
             ) : sicIsRental || isWorkshopAcq(sic.acquisitionType) ? (
               <span
@@ -2477,7 +2477,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 OPEX
               </span>
             ) : readOnly ? (
-              sic.costCategory || "—"
+              sic.costCategory || "-"
             ) : (
               <select
                 className={emptyIf(styles.selectCell, sic.costCategory)}
@@ -2550,7 +2550,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 title={
                   sic.quotationFileUrl
                     ? `Open quotation: ${sic.quotationReference}`
-                    : `From quotation "${sic.quotationReference}" — open Quotations to view`
+                    : `From quotation "${sic.quotationReference}" - open Quotations to view`
                 }
               >
                 🔗 {sic.quotationReference}
@@ -2563,7 +2563,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           <div className={styles.subNoteRow}>
             <span className={styles.noteLabel}>💬 Notes</span>
             {readOnly ? (
-              <span className={styles.noteText}>{sic.notes || "—"}</span>
+              <span className={styles.noteText}>{sic.notes || "-"}</span>
             ) : (
               <textarea
                 className={styles.noteInput}
@@ -2678,7 +2678,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                   )}
                   {readOnly ? (
                     <span style={{ fontSize: 11 }}>
-                      {sp.availabilityStatus || "—"}
+                      {sp.availabilityStatus || "-"}
                     </span>
                   ) : (
                     <select
@@ -2712,7 +2712,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                   {!spNoCost &&
                     (readOnly ? (
                       <span style={{ fontSize: 11 }}>
-                        {sp.acquisitionType || "—"}
+                        {sp.acquisitionType || "-"}
                       </span>
                     ) : (
                       <select
@@ -3261,10 +3261,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             assetId: a.id,
             sectionId: si.sectionId || null,
             lineNumber: si.lineNumber,
-            equipmentOffer: si.equipmentOffer || si.description || "—",
-            partNumber: si.partNumber || "—",
-            resourceType: si.resourceType || "—",
-            resourceSubType: si.resourceSubType || "—",
+            equipmentOffer: si.equipmentOffer || si.description || "-",
+            partNumber: si.partNumber || "-",
+            resourceType: si.resourceType || "-",
+            resourceSubType: si.resourceSubType || "-",
           });
         }
       }
@@ -3289,9 +3289,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             equipmentOffer: sub
               ? sub.equipmentOffer || sub.description || "Sub-item"
               : "Sub-item",
-            partNumber: sub ? sub.partNumber || "—" : "—",
-            resourceType: si.resourceType || "—",
-            resourceSubType: sub ? sub.subType || "—" : "—",
+            partNumber: sub ? sub.partNumber || "-" : "-",
+            resourceType: si.resourceType || "-",
+            resourceSubType: sub ? sub.subType || "-" : "-",
           });
         }
       });
@@ -3317,9 +3317,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             equipmentOffer: pcfSub
               ? pcfSub.equipmentOffer || pcfSub.description || "PCF item"
               : "PCF item",
-            partNumber: pcfSub ? pcfSub.partNumber || "—" : "—",
-            resourceType: si.resourceType || "—",
-            resourceSubType: pcfSub ? pcfSub.subType || "—" : "—",
+            partNumber: pcfSub ? pcfSub.partNumber || "-" : "-",
+            resourceType: si.resourceType || "-",
+            resourceSubType: pcfSub ? pcfSub.subType || "-" : "-",
           });
         }
       });
@@ -3562,7 +3562,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             {isTransit ? (
               readOnly ? (
                 <span style={{ fontSize: 11 }}>
-                  Transit Rate — Import {impDays}d · Export {expDays}d · Disc.{" "}
+                  Transit Rate - Import {impDays}d · Export {expDays}d · Disc.{" "}
                   {disc}%
                 </span>
               ) : (
@@ -3623,7 +3623,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 </div>
               )
             ) : readOnly ? (
-              <span>{sc.description || "—"}</span>
+              <span>{sc.description || "-"}</span>
             ) : (
               <input
                 className={styles.editInput}
@@ -3658,7 +3658,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           </div>
           <div className={styles.subCell}>
             {readOnly || isTransit ? (
-              <span>{sc.costReference || "—"}</span>
+              <span>{sc.costReference || "-"}</span>
             ) : (
               <input
                 className={styles.editInput}
@@ -3673,9 +3673,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           {inSplit && <div className={styles.subCell} />}
           <div className={`${styles.subCell} ${styles.subCellCenter}`}>
             {isTransit ? (
-              <span>{totalDays || "—"}</span>
+              <span>{totalDays || "-"}</span>
             ) : readOnly ? (
-              <span>{sc.leadTimeDays || "—"}</span>
+              <span>{sc.leadTimeDays || "-"}</span>
             ) : (
               <input
                 className={styles.numInput}
@@ -3691,7 +3691,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           {inSplit && <div className={styles.subCell} />}
           <div className={styles.subCell}>
             {readOnly ? (
-              <span>{sc.notes || "—"}</span>
+              <span>{sc.notes || "-"}</span>
             ) : (
               <input
                 className={styles.editInput}
@@ -3788,7 +3788,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                   </div>
                   <div className={styles.subCell}>
                     {readOnly ? (
-                      <span>{split.availabilityStatus || "—"}</span>
+                      <span>{split.availabilityStatus || "-"}</span>
                     ) : (
                       <select
                         className={emptyIf(
@@ -3818,7 +3818,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                   </div>
                   <div className={styles.subCell}>
                     {readOnly ? (
-                      <span>{split.acquisitionType || "—"}</span>
+                      <span>{split.acquisitionType || "-"}</span>
                     ) : isNoCostSplit ? (
                       <span className={styles.cellMuted}>N/A</span>
                     ) : (
@@ -3850,7 +3850,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                   </div>
                   <div className={styles.subCell}>
                     {isNoCostSplit || isWorkshopSplit ? (
-                      <span className={styles.cellMuted}>—</span>
+                      <span className={styles.cellMuted}>-</span>
                     ) : isRentalSplit ? (
                       readOnly ? (
                         <div className={styles.rateStack}>
@@ -3929,7 +3929,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                   </div>
                   <div className={`${styles.subCell} ${styles.subCellBold}`}>
                     {isWorkshopSplit && splitNode.total === 0 ? (
-                      <span className={styles.cellMuted}>—</span>
+                      <span className={styles.cellMuted}>-</span>
                     ) : (
                       <>
                         $ {fmtCost(splitNode.total)}
@@ -3943,12 +3943,12 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                   </div>
                   <div className={styles.subCell}>
                     {isNoCostSplit || isWorkshopSplit ? (
-                      <span className={styles.cellMuted}>—</span>
+                      <span className={styles.cellMuted}>-</span>
                     ) : readOnly ? (
                       <span>
                         {[split.costReference, split.supplier]
                           .filter(Boolean)
-                          .join(" | ") || "—"}
+                          .join(" | ") || "-"}
                       </span>
                     ) : (
                       <input
@@ -3987,12 +3987,12 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                   </div>
                   <div className={`${styles.subCell} ${styles.splitCellDate}`}>
                     {isNoCostSplit || isWorkshopSplit ? (
-                      <span className={styles.cellMuted}>—</span>
+                      <span className={styles.cellMuted}>-</span>
                     ) : readOnly ? (
                       <span>
                         {split.dateReference
                           ? formatDateRef(split.dateReference)
-                          : "—"}
+                          : "-"}
                       </span>
                     ) : (
                       <div className={styles.dateCellInner}>
@@ -4037,9 +4037,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                   </div>
                   <div className={`${styles.subCell} ${styles.subCellCenter}`}>
                     {isNoCostSplit || isWorkshopSplit ? (
-                      <span className={styles.cellMuted}>—</span>
+                      <span className={styles.cellMuted}>-</span>
                     ) : readOnly ? (
-                      <span>{split.leadTimeDays || "—"}</span>
+                      <span>{split.leadTimeDays || "-"}</span>
                     ) : (
                       <input
                         className={styles.numInput}
@@ -4067,12 +4067,12 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                             : styles.cellMuted
                       }
                     >
-                      {split.costCategory || "—"}
+                      {split.costCategory || "-"}
                     </span>
                   </div>
                   <div className={styles.subCell}>
                     {readOnly ? (
-                      <span>{split.notes || "—"}</span>
+                      <span>{split.notes || "-"}</span>
                     ) : (
                       <input
                         className={styles.editInput}
@@ -4844,7 +4844,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           fontSize: 11,
                         }}
                       >
-                        {scopeItemIndex[asset.scopeItemId] || "—"}
+                        {scopeItemIndex[asset.scopeItemId] || "-"}
                       </td>
                       {/* Read-only from Scope */}
                       <td className={styles.readOnlyCell}>
@@ -4939,18 +4939,18 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                             )}
                           </span>
                           <span className={styles.subCellText}>
-                            {si?.equipmentOffer || "—"}
+                            {si?.equipmentOffer || "-"}
                           </span>
                         </span>
                       </td>
                       <td className={styles.readOnlyCell}>
-                        {si?.partNumber || "—"}
+                        {si?.partNumber || "-"}
                       </td>
                       <td className={styles.readOnlyCell}>
-                        {si?.resourceType || "—"}
+                        {si?.resourceType || "-"}
                       </td>
                       <td className={styles.readOnlyCell}>
-                        {si?.resourceSubType || "—"}
+                        {si?.resourceSubType || "-"}
                       </td>
                       <td
                         className={`${styles.readOnlyCell} ${styles.cellCenter}`}
@@ -5045,7 +5045,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                     Not Offered
                                   </span>
                                 ) : (
-                                  <span>{asset.availabilityStatus || "—"}</span>
+                                  <span>{asset.availabilityStatus || "-"}</span>
                                 )
                               ) : (
                                 <select
@@ -5077,7 +5077,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 <button
                                   className={styles.splitEnableBtn}
                                   onClick={() => handleEnableSplits(asset.id)}
-                                  title="Split availability by quantity — assign different statuses to portions of the total quantity"
+                                  title="Split availability by quantity - assign different statuses to portions of the total quantity"
                                   style={{ padding: "3px 4px", lineHeight: 1 }}
                                 >
                                   <svg
@@ -5115,7 +5115,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                             );
                           }
                           if (readOnly)
-                            return <span>{asset.acquisitionType || "—"}</span>;
+                            return <span>{asset.acquisitionType || "-"}</span>;
                           const avail = (
                             asset.availabilityStatus || ""
                           ).toLowerCase();
@@ -5317,7 +5317,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                     color: "var(--text-muted)",
                                   }}
                                 >
-                                  —
+                                  -
                                 </span>
                               </td>
                               <td className={`${styles.cellRight}`}>
@@ -5349,7 +5349,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                     color: "var(--text-muted)",
                                   }}
                                 >
-                                  —
+                                  -
                                 </span>
                               </td>
                               <td className={`${styles.cellRight}`}>
@@ -5364,7 +5364,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 >
                                   {hasAnySubs
                                     ? `$ ${fmtCost(subCostsSum)}`
-                                    : "—"}
+                                    : "-"}
                                 </span>
                               </td>
                             </>
@@ -5634,7 +5634,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   color: "var(--text-muted)",
                                 }}
                               >
-                                —
+                                -
                               </span>
                             );
                           }
@@ -5676,7 +5676,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                               <span style={{ fontSize: 11 }}>{display}</span>
                             ) : (
                               <span style={{ color: "var(--text-muted)" }}>
-                                —
+                                -
                               </span>
                             );
                           }
@@ -5721,7 +5721,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   fontStyle: "italic",
                                 }}
                               >
-                                —
+                                -
                               </span>
                             );
                           }
@@ -5759,11 +5759,11 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   color: "var(--text-muted)",
                                 }}
                               >
-                                —
+                                -
                               </span>
                             );
                           if (readOnly) {
-                            if (!asset.dateReference) return "—";
+                            if (!asset.dateReference) return "-";
                             return (
                               <span
                                 className={`${styles.dateBadge} ${dateAgeClass(asset.dateReference)}`}
@@ -5852,7 +5852,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   fontStyle: "italic",
                                 }}
                               >
-                                —
+                                -
                               </span>
                             );
                           }
@@ -5898,7 +5898,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                     color: "var(--text-muted)",
                                   }}
                                 >
-                                  {maxLead > 0 ? `${maxLead}d` : "—"}
+                                  {maxLead > 0 ? `${maxLead}d` : "-"}
                                 </span>
                               );
                             }
@@ -5909,11 +5909,11 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   color: "var(--text-muted)",
                                 }}
                               >
-                                —
+                                -
                               </span>
                             );
                           }
-                          if (readOnly) return asset.leadTimeDays || "—";
+                          if (readOnly) return asset.leadTimeDays || "-";
                           return (
                             <input
                               className={styles.numInput}
@@ -5968,7 +5968,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   color: "var(--text-muted)",
                                 }}
                               >
-                                —
+                                -
                               </span>
                             );
                           if (aq === "rental" || aq === "workshop") {
@@ -5984,7 +5984,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                               </span>
                             );
                           }
-                          if (readOnly) return asset.costCategory || "—";
+                          if (readOnly) return asset.costCategory || "-";
                           return (
                             <select
                               className={emptyIf(
@@ -6072,7 +6072,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                       },
                                 );
                               }}
-                              title="Cost breakdown — where this item's total comes from"
+                              title="Cost breakdown - where this item's total comes from"
                             >
                               Σ
                             </button>
@@ -6111,7 +6111,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                               title={
                                 asset.quotationFileUrl
                                   ? `Open quotation: ${asset.quotationReference}`
-                                  : `From quotation "${asset.quotationReference}" — open Quotations to view`
+                                  : `From quotation "${asset.quotationReference}" - open Quotations to view`
                               }
                             >
                               🔗 {asset.quotationReference}
@@ -6127,7 +6127,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           <span className={styles.noteLabel}>💬 Notes</span>
                           {readOnly ? (
                             <span className={styles.noteText}>
-                              {asset.notes || "—"}
+                              {asset.notes || "-"}
                             </span>
                           ) : (
                             <textarea
@@ -6213,7 +6213,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 )}
                                 <span className={styles.drawerHint}>
                                   {activeTab === "splits"
-                                    ? `Partial quantities with different status or cost — total qty ${qty}`
+                                    ? `Partial quantities with different status or cost - total qty ${qty}`
                                     : activeTab === "items"
                                       ? "Consumables, spare parts & accessories"
                                       : "Pre-job, post-job, maintenance & transit"}
@@ -6276,8 +6276,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                       className={`${styles.rollupToggle}${rollupLocked ? ` ${styles.rollupToggleDisabled}` : ""}`}
                                       title={
                                         rollupLocked
-                                          ? "Unavailable — the main item already has its own cost. Clear it first to roll up the sub-items."
-                                          : "When enabled, the main item has no own cost — its cost is the sum (rollup) of these sub-items. Use this for Eng. Solutions / developed items."
+                                          ? "Unavailable - the main item already has its own cost. Clear it first to roll up the sub-items."
+                                          : "When enabled, the main item has no own cost - its cost is the sum (rollup) of these sub-items. Use this for Eng. Solutions / developed items."
                                       }
                                     >
                                       <input
@@ -6590,7 +6590,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 {bd.orphanFees > 0 && (
                   <div className={styles.breakdownWarn}>
                     ⚠ $ {fmtCost(bd.orphanFees)} of services &amp; fees sit at
-                    item level while splits are active — not counted.
+                    item level while splits are active - not counted.
                   </div>
                 )}
               </div>

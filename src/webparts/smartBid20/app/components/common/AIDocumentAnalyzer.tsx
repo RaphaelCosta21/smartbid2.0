@@ -75,7 +75,7 @@ const STEPS = ["Document & instructions", "AI analysis", "Review & import"];
 const INSTRUCTION_PRESETS: { label: string; text: string }[] = [
   {
     label: "Ignore a scope",
-    text: "Ignore scope ___ — do not extract anything from it.",
+    text: "Ignore scope ___ - do not extract anything from it.",
   },
   {
     label: "Only one scope",
@@ -227,7 +227,7 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
         const aka = [a.keyword, a.commonlyUsedNames].filter(Boolean).join(", ");
         const specs = [a.subtitle, a.description, a.features1]
           .filter(Boolean)
-          .join(" — ");
+          .join(" - ");
         options.push({
           name: a.title,
           partNumber: a.pn,
@@ -528,7 +528,7 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
                 <div>
                   <h4 className={styles.panelTitle}>Client document</h4>
                   <p className={styles.panelHint}>
-                    Technical specification or tender — PDF or Word.
+                    Technical specification or tender - PDF or Word.
                   </p>
                 </div>
               </div>
@@ -662,14 +662,14 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
                 onChange={(e) => setInstructions(e.target.value)}
                 maxLength={SCOPE_USER_INSTRUCTIONS_MAX_CHARS}
                 rows={7}
-                placeholder="e.g. The specification has three scopes (A, B and C). Only consider Scope A — ignore Scopes B and C entirely."
+                placeholder="e.g. The specification has three scopes (A, B and C). Only consider Scope A - ignore Scopes B and C entirely."
                 aria-label="Instructions for the AI"
               />
 
               <div className={styles.instructionsMeta}>
                 <span className={styles.tip}>
                   <Lightbulb size={12} />
-                  Short, specific instructions work best — name scopes, sections
+                  Short, specific instructions work best - name scopes, sections
                   or clauses as written in the document.
                 </span>
                 <span
@@ -767,7 +767,7 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
 
             {elapsedSec >= SLOW_ANALYSIS_SEC && (
               <p className={styles.slowNote}>
-                Taking longer than usual — large documents can take up to 4
+                Taking longer than usual - large documents can take up to 4
                 minutes.
               </p>
             )}
@@ -776,7 +776,7 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
 
         <div className={styles.footer}>
           <span className={styles.footerHint}>
-            <Info size={14} /> Keep this window open — the result appears here.
+            <Info size={14} /> Keep this window open - the result appears here.
           </span>
           <div className={styles.footerGroup}>
             <button
@@ -922,7 +922,7 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
           <p className={styles.reviewHint}>
             {resultsView === "items" ? (
               <>
-                <Pencil size={13} /> Review and edit the items below — nothing
+                <Pencil size={13} /> Review and edit the items below - nothing
                 is saved until you import.
               </>
             ) : (
@@ -930,7 +930,7 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
                 <Info size={13} />
                 {canSelectClar
                   ? "Selected clarifications are added to the BID's Clarifications when you import."
-                  : "Clarifications are not saved to templates — shown for reference only."}
+                  : "Clarifications are not saved to templates - shown for reference only."}
               </>
             )}
           </p>

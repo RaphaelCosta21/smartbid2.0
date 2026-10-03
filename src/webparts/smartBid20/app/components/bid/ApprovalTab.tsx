@@ -770,7 +770,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       const description =
         overrideApprovals.length === 0
           ? `Approval overridden (Round ${closedRound.round}) before the approval flow was started. BID set to Completed. Reason: "${reason}"`
-          : `Approval overridden (Round ${closedRound.round}) — ${overrideApproved.length} of ${overrideApprovals.length} approvers had approved` +
+          : `Approval overridden (Round ${closedRound.round}) - ${overrideApproved.length} of ${overrideApprovals.length} approvers had approved` +
             (bypassedText ? `; bypassed: ${bypassedText}` : "") +
             `. BID set to Completed. Reason: "${reason}"`;
       const logEntry = createActivityLogEntry(
@@ -865,7 +865,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
         <div className={styles.overrideSummary}>
           {overrideApprovals.length === 0 ? (
             <span>
-              The approval flow has not been started — the BID will be approved
+              The approval flow has not been started - the BID will be approved
               without approver responses.
             </span>
           ) : (
@@ -1259,7 +1259,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       {/* CAPEX Warning */}
       {bid.costSummary.assetsCapexUSD > CAPEX_THRESHOLD_USD && (
         <div className={styles.validationWarning}>
-          ⚠️ CAPEX exceeds $200k USD — Engineering Sr. Manager is automatically
+          ⚠️ CAPEX exceeds $200k USD - Engineering Sr. Manager is automatically
           required and locked.
         </div>
       )}
