@@ -202,17 +202,22 @@ export function useClarificationLibraryFilter(
     const fromConfig = (
       list: IConfigOption[] | undefined,
     ): { value: string; label: string }[] =>
-      activeConfigOptions(list).map((o) => ({ value: o.value, label: o.label }));
-    const configured: Record<LibraryFacetKey, { value: string; label: string }[]> =
-      {
-        type: FIXED_OPTIONS.type || [],
-        category: fromConfig(config?.clarificationCategories),
-        client: [],
-        division: fromConfig(config?.divisions),
-        serviceLine: [],
-        origin: FIXED_OPTIONS.origin || [],
-        approval: FIXED_OPTIONS.approval || [],
-      };
+      activeConfigOptions(list).map((o) => ({
+        value: o.value,
+        label: o.label,
+      }));
+    const configured: Record<
+      LibraryFacetKey,
+      { value: string; label: string }[]
+    > = {
+      type: FIXED_OPTIONS.type || [],
+      category: fromConfig(config?.clarificationCategories),
+      client: [],
+      division: fromConfig(config?.divisions),
+      serviceLine: [],
+      origin: FIXED_OPTIONS.origin || [],
+      approval: FIXED_OPTIONS.approval || [],
+    };
     const labelLists: Partial<Record<LibraryFacetKey, IConfigOption[]>> = {
       category: config?.clarificationCategories,
       client: config?.clientList,
@@ -274,8 +279,7 @@ export function useClarificationLibraryFilter(
     setSearch,
     filters,
     setFilter,
-    hasFilters:
-      !!search.trim() || ALL_KEYS.some((k) => filters[k].length > 0),
+    hasFilters: !!search.trim() || ALL_KEYS.some((k) => filters[k].length > 0),
     clear,
   };
 }

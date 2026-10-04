@@ -244,9 +244,7 @@ export const ClarificationsDbPage: React.FC = () => {
         <div className={styles.stack}>
           {r.item.division ? <DivisionBadge division={r.item.division} /> : "-"}
           {r.item.serviceLine && (
-            <span className={styles.muted}>
-              {r.serviceLineLabel}
-            </span>
+            <span className={styles.muted}>{r.serviceLineLabel}</span>
           )}
         </div>
       ),

@@ -252,7 +252,11 @@ export const ImportClarificationModal: React.FC<
           {isLoading ? (
             <SkeletonLoader height={84} count={4} />
           ) : error ? (
-            <EmptyState variant="glass" title="Library unavailable" description={error} />
+            <EmptyState
+              variant="glass"
+              title="Library unavailable"
+              description={error}
+            />
           ) : items.length === 0 ? (
             <EmptyState
               variant="glass"
@@ -306,7 +310,9 @@ export const ImportClarificationModal: React.FC<
                         <ClarificationOriginChip
                           sourceBidNumber={it.sourceBidNumber}
                         />
-                        {it.division && <DivisionBadge division={it.division} />}
+                        {it.division && (
+                          <DivisionBadge division={it.division} />
+                        )}
                         {r.clientLabel && (
                           <span className={styles.metaText}>
                             {r.clientLabel}
@@ -353,8 +359,8 @@ export const ImportClarificationModal: React.FC<
                   className={styles.loadMoreBtn}
                   onClick={() => setVisible((v) => v + PAGE_SIZE)}
                 >
-                  Show {Math.min(PAGE_SIZE, filtered.length - visible)} more
-                  of {filtered.length - visible}
+                  Show {Math.min(PAGE_SIZE, filtered.length - visible)} more of{" "}
+                  {filtered.length - visible}
                 </button>
               )}
             </>
@@ -366,7 +372,11 @@ export const ImportClarificationModal: React.FC<
             <strong>{selectedCount}</strong> selected
           </span>
           <div className={styles.footerActions}>
-            <button type="button" className={styles.cancelBtn} onClick={onClose}>
+            <button
+              type="button"
+              className={styles.cancelBtn}
+              onClick={onClose}
+            >
               Cancel
             </button>
             <button

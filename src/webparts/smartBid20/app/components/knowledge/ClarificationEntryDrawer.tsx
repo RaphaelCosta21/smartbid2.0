@@ -87,9 +87,7 @@ export const ClarificationEntryDrawer: React.FC<
                 category={item.category}
                 emptyLabel="No category"
               />
-              <ClarificationOriginChip
-                sourceBidNumber={item.sourceBidNumber}
-              />
+              <ClarificationOriginChip sourceBidNumber={item.sourceBidNumber} />
             </div>
             <h2 className={styles.topic}>
               {item.etTopic || `${item.baseType} #${item.id}`}
@@ -144,8 +142,7 @@ export const ClarificationEntryDrawer: React.FC<
               <div className={styles.sourceCard}>
                 <div className={styles.sourceTop}>
                   <span className={styles.sourceBid}>
-                    {(sourceBid && sourceBid.crmNumber) ||
-                      item.sourceBidNumber}
+                    {(sourceBid && sourceBid.crmNumber) || item.sourceBidNumber}
                   </span>
                   {sourceBid && sourceBid.completedDate && (
                     <span className={styles.muted}>
@@ -190,7 +187,11 @@ export const ClarificationEntryDrawer: React.FC<
 
         {canManage && (
           <div className={styles.footer}>
-            <button type="button" className={styles.primaryBtn} onClick={onEdit}>
+            <button
+              type="button"
+              className={styles.primaryBtn}
+              onClick={onEdit}
+            >
               <Pencil size={14} /> Edit
             </button>
             <button

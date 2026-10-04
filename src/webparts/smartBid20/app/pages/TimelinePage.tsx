@@ -9,12 +9,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import {
-  ChartGantt,
-  ChevronLeft,
-  ChevronRight,
-  UserRound,
-} from "lucide-react";
+import { ChartGantt, ChevronLeft, ChevronRight, UserRound } from "lucide-react";
 import { PageHeader } from "../components/common/PageHeader";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { PhaseBadge } from "../components/common/PhaseBadge";
@@ -472,7 +467,10 @@ export const TimelinePage: React.FC = () => {
                         {format(w, "MMM d")}
                       </span>
                     ))}
-                    <span className={styles.todayPill} style={{ left: todayLeft }}>
+                    <span
+                      className={styles.todayPill}
+                      style={{ left: todayLeft }}
+                    >
                       Today
                     </span>
                   </div>
@@ -507,7 +505,10 @@ export const TimelinePage: React.FC = () => {
                 </div>
                 {rows.map(renderRow)}
                 <div className={styles.todayLayer} aria-hidden="true">
-                  <span className={styles.todayLine} style={{ left: todayLeft }} />
+                  <span
+                    className={styles.todayLine}
+                    style={{ left: todayLeft }}
+                  />
                 </div>
               </div>
             </div>

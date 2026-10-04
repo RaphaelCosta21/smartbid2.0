@@ -19,7 +19,9 @@ export interface ISlidingIndicator {
  * Tracks the `aria-selected="true"` tab inside a tablist so a background pill
  * can slide under it. The container must be `position: relative`.
  */
-export function useSlidingIndicator(activeKey: string | number): ISlidingIndicator {
+export function useSlidingIndicator(
+  activeKey: string | number,
+): ISlidingIndicator {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [rect, setRect] = React.useState<IIndicatorRect | null>(null);
   const [animated, setAnimated] = React.useState(false);
@@ -29,16 +31,27 @@ export function useSlidingIndicator(activeKey: string | number): ISlidingIndicat
     if (!container) return undefined;
 
     const measure = (): void => {
-      const tab = container.querySelector<HTMLElement>('[aria-selected="true"]');
+      const tab = container.querySelector<HTMLElement>(
+        '[aria-selected="true"]',
+      );
       if (!tab) {
         setRect(null);
         return;
       }
       // Hidden containers report 0; keep the last rect until it is visible again
       if (tab.offsetWidth === 0) return;
-      const next = { x: tab.offsetLeft, y: tab.offsetTop, w: tab.offsetWidth, h: tab.offsetHeight };
+      const next = {
+        x: tab.offsetLeft,
+        y: tab.offsetTop,
+        w: tab.offsetWidth,
+        h: tab.offsetHeight,
+      };
       setRect((prev) =>
-        prev && prev.x === next.x && prev.y === next.y && prev.w === next.w && prev.h === next.h
+        prev &&
+        prev.x === next.x &&
+        prev.y === next.y &&
+        prev.w === next.w &&
+        prev.h === next.h
           ? prev
           : next,
       );

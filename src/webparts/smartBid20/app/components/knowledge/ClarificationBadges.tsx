@@ -54,10 +54,7 @@ export const ClarificationOriginChip: React.FC<{
       {sourceBidNumber}
     </span>
   ) : (
-    <span
-      className={styles.originChip}
-      title="Created manually in the library"
-    >
+    <span className={styles.originChip} title="Created manually in the library">
       <PenLine size={11} />
       Manual
     </span>

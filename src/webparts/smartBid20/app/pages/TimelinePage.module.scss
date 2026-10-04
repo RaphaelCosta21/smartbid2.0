@@ -379,7 +379,8 @@
   }
 
   &:hover .rowInfo {
-    background: linear-gradient(var(--hover-bg), var(--hover-bg)), var(--card-bg);
+    background:
+      linear-gradient(var(--hover-bg), var(--hover-bg)), var(--card-bg);
   }
 
   &:hover .bar,

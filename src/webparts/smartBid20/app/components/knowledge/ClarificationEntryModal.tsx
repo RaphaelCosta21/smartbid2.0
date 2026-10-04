@@ -92,8 +92,8 @@ export const ClarificationEntryModal: React.FC<
               {isNew ? "Add Entry" : "Edit Entry"}
             </h2>
             <p className={styles.subtitle}>
-              Clarifications & Qualifications library, reused when preparing
-              new BIDs.
+              Clarifications & Qualifications library, reused when preparing new
+              BIDs.
             </p>
           </div>
           <button
