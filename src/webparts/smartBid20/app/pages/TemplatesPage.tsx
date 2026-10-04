@@ -1,5 +1,20 @@
 import * as React from "react";
+import {
+  ArrowDownAZ,
+  ArrowDownZA,
+  LayoutGrid,
+  LayoutList,
+  RefreshCw,
+  Search,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { PageHeader } from "../components/common/PageHeader";
+import {
+  MultiSelectDropdown,
+  MultiSelectOption,
+} from "../components/insights/MultiSelectDropdown";
+import { SegmentedControl } from "../components/insights/SegmentedControl";
 import { TemplateCard } from "../components/template/TemplateCard";
 import { TemplateEditor } from "../components/template/TemplateEditor";
 import { TemplatePreview } from "../components/template/TemplatePreview";
@@ -14,6 +29,16 @@ import { makeId } from "../utils/idGenerator";
 import styles from "./TemplatesPage.module.scss";
 
 type ViewMode = "grid" | "list";
+type SortOrder = "az" | "za";
+type FacetKey = "division" | "serviceLine" | "status";
+
+const STATUS_OPTIONS = [
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+];
+
+const statusKey = (t: IBidTemplate): string =>
+  t.isActive ? "active" : "inactive";
 
 export const TemplatesPage: React.FC = () => {
   const {
@@ -28,11 +53,12 @@ export const TemplatesPage: React.FC = () => {
   const config = useConfigStore((s) => s.config);
 
   const [search, setSearch] = React.useState("");
-  const [filterDivision, setFilterDivision] = React.useState("");
-  const [filterServiceLine, setFilterServiceLine] = React.useState("");
-  const [filterStatus, setFilterStatus] = React.useState<
-    "" | "active" | "inactive"
-  >("");
+  const [filterDivisions, setFilterDivisions] = React.useState<string[]>([]);
+  const [filterServiceLines, setFilterServiceLines] = React.useState<
+    string[]
+  >([]);
+  const [filterStatuses, setFilterStatuses] = React.useState<string[]>([]);
+  const [sortOrder, setSortOrder] = React.useState<SortOrder>("az");
   const [viewMode, setViewMode] = React.useState<ViewMode>("grid");
   const [showEditor, setShowEditor] = React.useState(false);
   const [editorViewOnly, setEditorViewOnly] = React.useState(false);
@@ -72,36 +98,73 @@ export const TemplatesPage: React.FC = () => {
     return SERVICE_LINES as unknown as string[];
   }, [config]);
 
+  const matchesSearch = (t: IBidTemplate): boolean => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      t.name.toLowerCase().indexOf(q) >= 0 ||
+      t.description.toLowerCase().indexOf(q) >= 0 ||
+      t.category.toLowerCase().indexOf(q) >= 0 ||
+      t.tags.some((tag) => tag.toLowerCase().indexOf(q) >= 0)
+    );
+  };
+
+  /** Search + every filter except `skip`, so each dropdown counts against the others */
+  const passesFilters = (t: IBidTemplate, skip?: FacetKey): boolean =>
+    (skip === "division" ||
+      !filterDivisions.length ||
+      filterDivisions.indexOf(t.division) >= 0) &&
+    (skip === "serviceLine" ||
+      !filterServiceLines.length ||
+      filterServiceLines.indexOf(t.serviceLine) >= 0) &&
+    (skip === "status" ||
+      !filterStatuses.length ||
+      filterStatuses.indexOf(statusKey(t)) >= 0) &&
+    matchesSearch(t);
+
+  const facetCounts = React.useMemo(() => {
+    const counts: Record<FacetKey, Record<string, number>> = {
+      division: {},
+      serviceLine: {},
+      status: {},
+    };
+    const bump = (key: FacetKey, value: string): void => {
+      counts[key][value] = (counts[key][value] || 0) + 1;
+    };
+    templates.forEach((t) => {
+      if (passesFilters(t, "division")) bump("division", t.division);
+      if (passesFilters(t, "serviceLine")) bump("serviceLine", t.serviceLine);
+      if (passesFilters(t, "status")) bump("status", statusKey(t));
+    });
+    return counts;
+  }, [templates, search, filterDivisions, filterServiceLines, filterStatuses]);
+
+  const toFacetOptions = (
+    values: { value: string; label: string }[],
+    key: FacetKey,
+  ): MultiSelectOption[] =>
+    values.map((v) => ({ ...v, count: facetCounts[key][v.value] || 0 }));
+
   const filtered = React.useMemo(() => {
-    let result = templates;
-
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.name.toLowerCase().indexOf(q) >= 0 ||
-          t.description.toLowerCase().indexOf(q) >= 0 ||
-          t.category.toLowerCase().indexOf(q) >= 0 ||
-          t.tags.some((tag) => tag.toLowerCase().indexOf(q) >= 0),
+    const dir = sortOrder === "za" ? -1 : 1;
+    return templates
+      .filter((t) => passesFilters(t))
+      .sort(
+        (a, b) =>
+          dir *
+          a.name.localeCompare(b.name, undefined, {
+            numeric: true,
+            sensitivity: "base",
+          }),
       );
-    }
-
-    if (filterDivision) {
-      result = result.filter((t) => t.division === filterDivision);
-    }
-
-    if (filterServiceLine) {
-      result = result.filter((t) => t.serviceLine === filterServiceLine);
-    }
-
-    if (filterStatus === "active") {
-      result = result.filter((t) => t.isActive);
-    } else if (filterStatus === "inactive") {
-      result = result.filter((t) => !t.isActive);
-    }
-
-    return result;
-  }, [templates, search, filterDivision, filterServiceLine, filterStatus]);
+  }, [
+    templates,
+    search,
+    filterDivisions,
+    filterServiceLines,
+    filterStatuses,
+    sortOrder,
+  ]);
 
   const activeCount = templates.filter((t) => t.isActive).length;
   const totalScopeItems = templates.reduce(
@@ -191,13 +254,16 @@ export const TemplatesPage: React.FC = () => {
 
   const clearFilters = (): void => {
     setSearch("");
-    setFilterDivision("");
-    setFilterServiceLine("");
-    setFilterStatus("");
+    setFilterDivisions([]);
+    setFilterServiceLines([]);
+    setFilterStatuses([]);
   };
 
   const hasFilters =
-    search || filterDivision || filterServiceLine || filterStatus;
+    search !== "" ||
+    filterDivisions.length > 0 ||
+    filterServiceLines.length > 0 ||
+    filterStatuses.length > 0;
 
   // Full-screen editor mode
   if (showEditor) {
@@ -259,102 +325,128 @@ export const TemplatesPage: React.FC = () => {
             <line x1="9" y1="21" x2="9" y2="9" />
           </svg>
         }
+        actions={
+          <div className={styles.headerActions}>
+            <button
+              type="button"
+              onClick={() => loadTemplates()}
+              className={styles.headerBtn}
+              title="Reload templates from SharePoint"
+            >
+              <RefreshCw size={15} /> Refresh
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                // Traceability id for the request; no SharePoint row needed anymore
+                setAiTemplateId(makeId("tpl"));
+                setShowAIAnalyzer(true);
+              }}
+              className={styles.aiBtn}
+              title="Generate a template from a client document using AI"
+            >
+              <Sparkles size={15} /> Generate from AI
+            </button>
+            <button
+              type="button"
+              onClick={handleCreate}
+              className={styles.createBtn}
+            >
+              + New Template
+            </button>
+          </div>
+        }
       />
 
-      {/* Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.filters}>
+      <div className={styles.filterBar}>
+        <div className={styles.filterSearch}>
+          <Search size={15} className={styles.filterSearchIcon} />
           <input
             type="text"
-            placeholder="Search templates..."
+            className={styles.filterSearchInput}
+            placeholder="Search by name, description, category, tag..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className={styles.searchInput}
+            onChange={(e) => setSearch(e.currentTarget.value)}
+            aria-label="Search templates"
           />
-
-          <select
-            value={filterDivision}
-            onChange={(e) => setFilterDivision(e.target.value)}
-            className={styles.filterSelect}
-          >
-            <option value="">All Divisions</option>
-            {divisionOptions.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filterServiceLine}
-            onChange={(e) => setFilterServiceLine(e.target.value)}
-            className={styles.filterSelect}
-          >
-            <option value="">All Service Lines</option>
-            {serviceLineOptions.map((sl) => (
-              <option key={sl} value={sl}>
-                {sl}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filterStatus}
-            onChange={(e) =>
-              setFilterStatus(e.target.value as "" | "active" | "inactive")
-            }
-            className={styles.filterSelect}
-          >
-            <option value="">All Statuses</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-
-          {hasFilters && (
-            <button onClick={clearFilters} className={styles.clearBtn}>
-              ✕ Clear
+          {search && (
+            <button
+              type="button"
+              className={styles.searchClearBtn}
+              onClick={() => setSearch("")}
+              title="Clear search"
+              aria-label="Clear search"
+            >
+              <X size={14} />
             </button>
           )}
         </div>
-
-        <div className={styles.toolbarRight}>
-          <div className={styles.viewToggle}>
-            <button
-              className={`${styles.viewBtn} ${viewMode === "grid" ? styles.viewActive : ""}`}
-              onClick={() => setViewMode("grid")}
-              title="Grid view"
-            >
-              ⊞
-            </button>
-            <button
-              className={`${styles.viewBtn} ${viewMode === "list" ? styles.viewActive : ""}`}
-              onClick={() => setViewMode("list")}
-              title="List view"
-            >
-              ☰
-            </button>
-          </div>
-
-          <button onClick={() => loadTemplates()} className={styles.refreshBtn}>
-            ↻ Refresh
-          </button>
-
-          <button onClick={handleCreate} className={styles.createBtn}>
-            + New Template
-          </button>
-
+        <MultiSelectDropdown
+          label="Division"
+          options={toFacetOptions(
+            divisionOptions.map((d) => ({ value: d, label: d })),
+            "division",
+          )}
+          selected={filterDivisions}
+          onChange={setFilterDivisions}
+        />
+        <MultiSelectDropdown
+          label="Service Line"
+          options={toFacetOptions(
+            serviceLineOptions.map((sl) => ({ value: sl, label: sl })),
+            "serviceLine",
+          )}
+          selected={filterServiceLines}
+          onChange={setFilterServiceLines}
+        />
+        <MultiSelectDropdown
+          label="Status"
+          options={toFacetOptions(STATUS_OPTIONS, "status")}
+          selected={filterStatuses}
+          onChange={setFilterStatuses}
+        />
+        {hasFilters && (
           <button
-            onClick={() => {
-              // Traceability id for the request; no SharePoint row needed anymore
-              setAiTemplateId(makeId("tpl"));
-              setShowAIAnalyzer(true);
-            }}
-            className={styles.aiGenerateBtn}
-            title="Generate a template from a client document using AI"
+            type="button"
+            className={styles.clearFiltersBtn}
+            onClick={clearFilters}
           >
-            🤖 Generate from AI
+            <X size={14} /> Clear
           </button>
-        </div>
+        )}
+        <span className={styles.resultCount}>
+          <strong>{filtered.length}</strong>{" "}
+          {hasFilters ? `of ${templates.length} ` : ""}
+          {templates.length === 1 ? "template" : "templates"}
+        </span>
+        <SegmentedControl<SortOrder>
+          value={sortOrder}
+          segments={[
+            {
+              value: "az",
+              label: "A-Z",
+              icon: <ArrowDownAZ size={14} />,
+              title: "Sort by name, A to Z",
+            },
+            {
+              value: "za",
+              label: "Z-A",
+              icon: <ArrowDownZA size={14} />,
+              title: "Sort by name, Z to A",
+            },
+          ]}
+          onChange={setSortOrder}
+          ariaLabel="Sort order"
+        />
+        <SegmentedControl<ViewMode>
+          value={viewMode}
+          segments={[
+            { value: "grid", label: "Cards", icon: <LayoutGrid size={14} /> },
+            { value: "list", label: "List", icon: <LayoutList size={14} /> },
+          ]}
+          onChange={setViewMode}
+          ariaLabel="View"
+        />
       </div>
 
       {/* Loading */}

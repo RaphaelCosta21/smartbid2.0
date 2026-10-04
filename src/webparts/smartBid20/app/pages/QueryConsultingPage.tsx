@@ -1,9 +1,9 @@
 /**
  * QueryConsultingPage — Full query consultation tool.
- * Two main tabs (Peoplesoft Financials / Peoplesoft Brazil),
- * two sub-tabs each (Price Consulting / Active Registered with Manuf.),
- * Business Unit filters, column-specific search, sortable columns,
- * photo column, and pagination.
+ * A general search (PN or description) covers every view; two source tabs
+ * (Peoplesoft Financials / Peoplesoft Brazil) each hold two views
+ * (Price Consulting / Active Registered with Manuf.) with their own column filters,
+ * Business Unit filters, sortable columns, photo column, and pagination.
  * Financials › Active Registered with Manuf. comes from the CSV export;
  * every other tab comes from Queries.xlsx.
  *
@@ -15,6 +15,7 @@ import { PageHeader } from "../components/common/PageHeader";
 import { PhotoLightbox } from "../components/common/PhotoLightbox";
 import { useQueryCatalogStore } from "../stores/useQueryCatalogStore";
 import { useConfigStore } from "../stores/useConfigStore";
+import { useDebounce } from "../hooks/useDebounce";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import { convertToUSD } from "../utils/costCalculations";
 import {
@@ -43,9 +44,7 @@ interface ISearchFilter {
 interface ITabData {
   headers: string[];
   rows: Record<string, any>[];
-  filteredRows: Record<string, any>[];
-  searchText: string;
-  searchColumn: string;
+  /** Column filters: one for Price Consulting, up to 3 for Active Registered */
   searchFilters: ISearchFilter[];
   sortColumn: string;
   sortDescending: boolean;
@@ -63,9 +62,6 @@ function emptyTabData(): ITabData {
   return {
     headers: [],
     rows: [],
-    filteredRows: [],
-    searchText: "",
-    searchColumn: "",
     searchFilters: [],
     sortColumn: "",
     sortDescending: false,
@@ -178,66 +174,62 @@ function extractBUs(
   return arr;
 }
 
-/** Token-based filter: every space-separated token must appear in cell */
-function matchTokens(cell: string, searchText: string): boolean {
-  const lower = cell.toLowerCase();
-  const tokens = searchText
+/** Split a search string into lower-case tokens */
+function toTokens(searchText: string): string[] {
+  return searchText
     .toLowerCase()
     .split(" ")
     .filter((t) => t.trim().length > 0);
+}
+
+/** Token-based filter: every token must appear in cell */
+function matchTokens(cell: string, tokens: string[]): boolean {
+  const lower = cell.toLowerCase();
   for (let i = 0; i < tokens.length; i++) {
     if (lower.indexOf(tokens[i]) < 0) return false;
   }
   return true;
 }
 
-/** Apply BU filter + single search filter */
-function applyAllFilters(
-  rows: Record<string, any>[],
+/**
+ * Rows of one view that pass its BU filter, its column filters (AND) and the
+ * general search, which matches part number (col 1) or description (col 2).
+ */
+function filterViewRows(
+  tab: ITabData,
   buFilters: IBusinessUnitFilter[],
-  buColumn: string,
-  searchColumn: string,
-  searchText: string,
+  searchTokens: string[],
 ): Record<string, any>[] {
-  const selectedBUs = buFilters.filter((f) => f.selected).map((f) => f.name);
-  if (selectedBUs.length === 0) return [];
+  const buCol = tab.headers[0] || "";
+  const pnCol = tab.headers[1] || "";
+  const descCol = tab.headers[2] || "";
+  const selectedBUs = new Set<string>();
+  let allBUs = true;
+  buFilters.forEach((f) => {
+    if (f.selected) selectedBUs.add(f.name);
+    else allBUs = false;
+  });
+  if (buFilters.length > 0 && selectedBUs.size === 0) return [];
+
+  const columnFilters = tab.searchFilters
+    .filter((f) => f.column && f.value.trim() !== "")
+    .map((f) => ({ column: f.column, tokens: toTokens(f.value) }));
+  if (allBUs && columnFilters.length === 0 && searchTokens.length === 0)
+    return tab.rows;
 
   const result: Record<string, any>[] = [];
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    const buVal = String(row[buColumn] || "");
-    if (selectedBUs.indexOf(buVal) < 0) continue;
-    if (searchText) {
-      const cell = String(row[searchColumn] || "");
-      if (!matchTokens(cell, searchText)) continue;
-    }
-    result.push(row);
-  }
-  return result;
-}
-
-/** Apply BU filter + multiple search filters (AND logic) */
-function applyMultipleFilters(
-  rows: Record<string, any>[],
-  buFilters: IBusinessUnitFilter[],
-  buColumn: string,
-  searchFilters: ISearchFilter[],
-): Record<string, any>[] {
-  const selectedBUs = buFilters.filter((f) => f.selected).map((f) => f.name);
-  if (selectedBUs.length === 0) return [];
-
-  const activeFilters = searchFilters.filter((f) => f.value.trim() !== "");
-
-  const result: Record<string, any>[] = [];
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    const buVal = String(row[buColumn] || "");
-    if (selectedBUs.indexOf(buVal) < 0) continue;
-
+  for (let i = 0; i < tab.rows.length; i++) {
+    const row = tab.rows[i];
+    if (!allBUs && !selectedBUs.has(String(row[buCol] || ""))) continue;
+    if (
+      searchTokens.length > 0 &&
+      !matchTokens(`${row[pnCol] ?? ""} ${row[descCol] ?? ""}`, searchTokens)
+    )
+      continue;
     let allMatch = true;
-    for (let j = 0; j < activeFilters.length; j++) {
-      const cell = String(row[activeFilters[j].column] || "");
-      if (!matchTokens(cell, activeFilters[j].value)) {
+    for (let j = 0; j < columnFilters.length; j++) {
+      const cell = String(row[columnFilters[j].column] || "");
+      if (!matchTokens(cell, columnFilters[j].tokens)) {
         allMatch = false;
         break;
       }
@@ -247,10 +239,103 @@ function applyMultipleFilters(
   return result;
 }
 
-// ── Constants ──────────────────────────────────────────────────────────────────
-const PAGE_SIZE = 100;
+function sortRows(
+  rows: Record<string, any>[],
+  colName: string,
+  desc: boolean,
+): Record<string, any>[] {
+  if (!colName) return rows;
+  return rows.slice().sort((a, b) => {
+    const va = a[colName];
+    const vb = b[colName];
+    if (va === vb) return 0;
+    if (typeof va === "string" && typeof vb === "string") {
+      return desc ? vb.localeCompare(va) : va.localeCompare(vb);
+    }
+    const cmp = va < vb ? -1 : 1;
+    return desc ? -cmp : cmp;
+  });
+}
 
-// ── Component ──────────────────────────────────────────────────────────────────
+const PAGE_SIZE = 100;
+const MIN_SEARCH_CHARS = 2;
+const MAX_COLUMN_FILTERS = 3;
+
+const SOURCES: [TabKey, string][] = [
+  ["financials", "Peoplesoft Financials"],
+  ["brazil", "Peoplesoft Brazil"],
+];
+const VIEWS: [SubTabKey, string][] = [
+  ["priceConsulting", "Price Consulting"],
+  ["activeRegistered", "Active Registered with Manuf."],
+];
+
+const SearchIcon = (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+const CloseIcon = (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+const DatabaseIcon = (
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <ellipse cx="12" cy="5" rx="9" ry="3" />
+    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+  </svg>
+);
+const CornerDownRightIcon = (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <polyline points="15 10 20 15 15 20" />
+    <path d="M4 4v7a4 4 0 004 4h12" />
+  </svg>
+);
+const ChevronDownIcon = (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+  >
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+
 export function QueryConsultingPage(): React.ReactElement {
   const loadCatalog = useQueryCatalogStore((s) => s.loadCatalog);
   const storeData = useQueryCatalogStore((s) => s.data);
@@ -272,6 +357,20 @@ export function QueryConsultingPage(): React.ReactElement {
   const [previewPhotoUrl, setPreviewPhotoUrl] = React.useState<string | null>(
     null,
   );
+
+  // General search: part number or description across every source and view
+  const [generalSearch, setGeneralSearch] = React.useState("");
+  const debouncedSearch = useDebounce(generalSearch, 250);
+  const searchTokens = React.useMemo(
+    () =>
+      debouncedSearch.trim().length >= MIN_SEARCH_CHARS
+        ? toTokens(debouncedSearch)
+        : [],
+    [debouncedSearch],
+  );
+  const searchActive = searchTokens.length > 0;
+  const isSearching = generalSearch.trim() !== debouncedSearch.trim();
+  React.useEffect(() => setPage(0), [searchTokens]);
 
   // Tab data state
   const [tabs, setTabs] = React.useState<Record<TabKey, ISubTabData>>({
@@ -296,6 +395,15 @@ export function QueryConsultingPage(): React.ReactElement {
     Record<string, Set<string>>
   >({});
   const [colMenuOpen, setColMenuOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (!colMenuOpen) return;
+    const onDown = (e: MouseEvent): void => {
+      if (!(e.target as HTMLElement).closest("[data-qc-colmenu]"))
+        setColMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [colMenuOpen]);
   // Column width overrides (px) per column key
   const [colWidths, setColWidths] = React.useState<Record<string, number>>({});
   // Resize drag ref
@@ -390,19 +498,19 @@ export function QueryConsultingPage(): React.ReactElement {
         priceConsulting: {
           headers: rawFin.headers,
           rows: finPCRows,
-          filteredRows: finPCRows,
-          searchText: "",
-          searchColumn: rawFin.headers[1] || "",
-          searchFilters: [],
+          searchFilters: [
+            {
+              id: "filter_1",
+              column: rawFin.headers[1] || "",
+              value: "",
+            },
+          ],
           sortColumn: "",
           sortDescending: false,
         },
         activeRegistered: {
           headers: rawFinAR.headers,
           rows: rawFinAR.rows,
-          filteredRows: rawFinAR.rows,
-          searchText: "",
-          searchColumn: rawFinAR.headers[1] || "",
           searchFilters: [
             {
               id: "filter_1",
@@ -418,19 +526,19 @@ export function QueryConsultingPage(): React.ReactElement {
         priceConsulting: {
           headers: brazilPCHeaders,
           rows: brazilPCRows,
-          filteredRows: brazilPCRows,
-          searchText: "",
-          searchColumn: brazilPCHeaders[1] || "",
-          searchFilters: [],
+          searchFilters: [
+            {
+              id: "filter_1",
+              column: brazilPCHeaders[1] || "",
+              value: "",
+            },
+          ],
           sortColumn: "",
           sortDescending: false,
         },
         activeRegistered: {
           headers: rawAR.headers,
           rows: rawAR.rows,
-          filteredRows: rawAR.rows,
-          searchText: "",
-          searchColumn: rawAR.headers[1] || "",
           searchFilters: [
             {
               id: "filter_1",
@@ -461,13 +569,54 @@ export function QueryConsultingPage(): React.ReactElement {
   const currentTab = tabs[activeTab][activeSubTab];
   const currentBuFilters = buFilters[activeTab][activeSubTab];
   const totalRows = currentTab.rows.length;
-  const filteredCount = currentTab.filteredRows.length;
-  const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
-  const pageRows = currentTab.filteredRows.slice(
-    page * PAGE_SIZE,
-    (page + 1) * PAGE_SIZE,
-  );
   const isMultiFilter = activeSubTab === "activeRegistered";
+
+  const filteredRows = React.useMemo(
+    () => filterViewRows(currentTab, currentBuFilters, searchTokens),
+    [currentTab, currentBuFilters, searchTokens],
+  );
+  const sortedRows = React.useMemo(
+    () =>
+      sortRows(filteredRows, currentTab.sortColumn, currentTab.sortDescending),
+    [filteredRows, currentTab.sortColumn, currentTab.sortDescending],
+  );
+  const filteredCount = sortedRows.length;
+  const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageRows = sortedRows.slice(
+    safePage * PAGE_SIZE,
+    (safePage + 1) * PAGE_SIZE,
+  );
+
+  // Hit counts per view for the source / view tabs; other views are cached until their inputs change
+  const countCacheRef = React.useRef<
+    Record<
+      string,
+      {
+        tab: ITabData;
+        bu: IBusinessUnitFilter[];
+        tokens: string[];
+        count: number;
+      }
+    >
+  >({});
+  const getViewCount = (t: TabKey, s: SubTabKey): number => {
+    if (t === activeTab && s === activeSubTab) return filteredCount;
+    const tab = tabs[t][s];
+    const bu = buFilters[t][s];
+    const key = t + "_" + s;
+    const cached = countCacheRef.current[key];
+    if (
+      cached &&
+      cached.tab === tab &&
+      cached.bu === bu &&
+      cached.tokens === searchTokens
+    )
+      return cached.count;
+    const count = filterViewRows(tab, bu, searchTokens).length;
+    countCacheRef.current[key] = { tab, bu, tokens: searchTokens, count };
+    return count;
+  };
 
   // ── Tab switching ──────────────────────────────────────────────────────────
   const handleTabChange = (tab: TabKey): void => {
@@ -484,85 +633,34 @@ export function QueryConsultingPage(): React.ReactElement {
   };
 
   // ── Helper to update tabs state ────────────────────────────────────────────
-  const updateCurrentTab = (
-    patch: Partial<ITabData>,
-    tabKey?: TabKey,
-    subKey?: SubTabKey,
-  ): void => {
-    const tk = tabKey || activeTab;
-    const sk = subKey || activeSubTab;
+  const updateCurrentTab = (patch: Partial<ITabData>): void => {
     setTabs((prev) => ({
       ...prev,
-      [tk]: {
-        ...prev[tk],
-        [sk]: { ...prev[tk][sk], ...patch },
+      [activeTab]: {
+        ...prev[activeTab],
+        [activeSubTab]: { ...prev[activeTab][activeSubTab], ...patch },
       },
     }));
-  };
-
-  // ── Refilter helper (single search) ────────────────────────────────────────
-  const refilterSingle = (
-    tabData: ITabData,
-    buF: IBusinessUnitFilter[],
-    overrides?: { searchText?: string; searchColumn?: string },
-  ): Record<string, any>[] => {
-    const sText =
-      overrides?.searchText !== undefined
-        ? overrides.searchText
-        : tabData.searchText;
-    const sCol = overrides?.searchColumn || tabData.searchColumn;
-    return applyAllFilters(tabData.rows, buF, tabData.headers[0], sCol, sText);
-  };
-
-  // ── Refilter helper (multi-filter) ─────────────────────────────────────────
-  const refilterMulti = (
-    tabData: ITabData,
-    buF: IBusinessUnitFilter[],
-    overrideFilters?: ISearchFilter[],
-  ): Record<string, any>[] => {
-    const filters = overrideFilters || tabData.searchFilters;
-    return applyMultipleFilters(tabData.rows, buF, tabData.headers[0], filters);
-  };
-
-  // ── Search handlers ────────────────────────────────────────────────────────
-  const handleSearch = (newValue: string): void => {
-    if (isMultiFilter) return; // multi-filter uses its own handler
-    const filtered = refilterSingle(currentTab, currentBuFilters, {
-      searchText: newValue,
-    });
-    updateCurrentTab({ searchText: newValue, filteredRows: filtered });
     setPage(0);
   };
 
-  const handleSearchColumnChange = (col: string): void => {
-    const filtered = refilterSingle(currentTab, currentBuFilters, {
-      searchColumn: col,
-    });
-    updateCurrentTab({ searchColumn: col, filteredRows: filtered });
-    setPage(0);
-  };
-
-  // ── Multi-filter handlers (Active Registered sub-tabs) ───────────────────────────────
+  // ── Column filter handlers (Add / Remove only on Active Registered) ───────
   const handleAddFilter = (): void => {
-    if (currentTab.searchFilters.length >= 3) return;
+    if (currentTab.searchFilters.length >= MAX_COLUMN_FILTERS) return;
     const newFilter: ISearchFilter = {
       id: "filter_" + Date.now(),
       column: currentTab.headers[0] || "",
       value: "",
     };
-    const newFilters = currentTab.searchFilters.concat([newFilter]);
-    const filtered = refilterMulti(currentTab, currentBuFilters, newFilters);
-    updateCurrentTab({ searchFilters: newFilters, filteredRows: filtered });
-    setPage(0);
+    updateCurrentTab({
+      searchFilters: currentTab.searchFilters.concat([newFilter]),
+    });
   };
 
   const handleRemoveFilter = (filterId: string): void => {
-    const newFilters = currentTab.searchFilters.filter(
-      (f) => f.id !== filterId,
-    );
-    const filtered = refilterMulti(currentTab, currentBuFilters, newFilters);
-    updateCurrentTab({ searchFilters: newFilters, filteredRows: filtered });
-    setPage(0);
+    updateCurrentTab({
+      searchFilters: currentTab.searchFilters.filter((f) => f.id !== filterId),
+    });
   };
 
   const handleUpdateFilter = (
@@ -570,105 +668,52 @@ export function QueryConsultingPage(): React.ReactElement {
     column?: string,
     value?: string,
   ): void => {
-    const newFilters = currentTab.searchFilters.map((f) =>
-      f.id === filterId
-        ? {
-            ...f,
-            ...(column !== undefined && { column }),
-            ...(value !== undefined && { value }),
-          }
-        : f,
-    );
-    const filtered = refilterMulti(currentTab, currentBuFilters, newFilters);
-    updateCurrentTab({ searchFilters: newFilters, filteredRows: filtered });
-    setPage(0);
+    updateCurrentTab({
+      searchFilters: currentTab.searchFilters.map((f) =>
+        f.id === filterId
+          ? {
+              ...f,
+              ...(column !== undefined && { column }),
+              ...(value !== undefined && { value }),
+            }
+          : f,
+      ),
+    });
   };
 
   // ── BU filter handlers ─────────────────────────────────────────────────────
-  const toggleBuFilter = (buName: string): void => {
-    const newBuF = currentBuFilters.map((f) =>
-      f.name === buName ? { ...f, selected: !f.selected } : f,
+  const setCurrentBuFilters = (next: IBusinessUnitFilter[]): void => {
+    setBuFilters((prev) => ({
+      ...prev,
+      [activeTab]: { ...prev[activeTab], [activeSubTab]: next },
+    }));
+    setPage(0);
+  };
+
+  const toggleBuFilter = (buName: string): void =>
+    setCurrentBuFilters(
+      currentBuFilters.map((f) =>
+        f.name === buName ? { ...f, selected: !f.selected } : f,
+      ),
     );
-    setBuFilters((prev) => ({
-      ...prev,
-      [activeTab]: { ...prev[activeTab], [activeSubTab]: newBuF },
-    }));
-    const tabData = currentTab;
-    const filtered = isMultiFilter
-      ? applyMultipleFilters(
-          tabData.rows,
-          newBuF,
-          tabData.headers[0],
-          tabData.searchFilters,
-        )
-      : applyAllFilters(
-          tabData.rows,
-          newBuF,
-          tabData.headers[0],
-          tabData.searchColumn,
-          tabData.searchText,
-        );
-    updateCurrentTab({ filteredRows: filtered });
-    setPage(0);
-  };
 
-  const selectAllBuFilters = (): void => {
-    const newBuF = currentBuFilters.map((f) => ({ ...f, selected: true }));
-    setBuFilters((prev) => ({
-      ...prev,
-      [activeTab]: { ...prev[activeTab], [activeSubTab]: newBuF },
-    }));
-    const tabData = currentTab;
-    const filtered = isMultiFilter
-      ? applyMultipleFilters(
-          tabData.rows,
-          newBuF,
-          tabData.headers[0],
-          tabData.searchFilters,
-        )
-      : applyAllFilters(
-          tabData.rows,
-          newBuF,
-          tabData.headers[0],
-          tabData.searchColumn,
-          tabData.searchText,
-        );
-    updateCurrentTab({ filteredRows: filtered });
-    setPage(0);
-  };
+  const selectAllBuFilters = (): void =>
+    setCurrentBuFilters(
+      currentBuFilters.map((f) => ({ ...f, selected: true })),
+    );
 
-  const clearAllBuFilters = (): void => {
-    const newBuF = currentBuFilters.map((f) => ({ ...f, selected: false }));
-    setBuFilters((prev) => ({
-      ...prev,
-      [activeTab]: { ...prev[activeTab], [activeSubTab]: newBuF },
-    }));
-    updateCurrentTab({ filteredRows: [] });
-    setPage(0);
-  };
+  const clearAllBuFilters = (): void =>
+    setCurrentBuFilters(
+      currentBuFilters.map((f) => ({ ...f, selected: false })),
+    );
 
   // ── Sort handler ───────────────────────────────────────────────────────────
   const handleSort = (colName: string): void => {
     const isSame = colName === currentTab.sortColumn;
-    const desc = isSame ? !currentTab.sortDescending : false;
-
-    const sorted = [...currentTab.filteredRows].sort((a, b) => {
-      const va = a[colName];
-      const vb = b[colName];
-      if (va === vb) return 0;
-      if (typeof va === "string" && typeof vb === "string") {
-        return desc ? vb.localeCompare(va) : va.localeCompare(vb);
-      }
-      const cmp = va < vb ? -1 : 1;
-      return desc ? -cmp : cmp;
-    });
-
     updateCurrentTab({
       sortColumn: colName,
-      sortDescending: desc,
-      filteredRows: sorted,
+      sortDescending: isSame ? !currentTab.sortDescending : false,
     });
-    setPage(0);
   };
 
   // ── Column definitions per tab/subtab ────────────────────────────────────────
@@ -811,31 +856,18 @@ export function QueryConsultingPage(): React.ReactElement {
     return cols;
   };
 
-  // ── Search column dropdown options per tab/subtab ──────────────────────────
-  const getSearchColumnOptions = (): { key: string; label: string }[] => {
+  // ── Column filter options per tab/subtab ───────────────────────────────────
+  const getFilterColumnOptions = (): { key: string; label: string }[] => {
     const hdrs = currentTab.headers;
-    if (activeTab === "financials") {
-      // PN (col 1) and Description (col 2)
-      return [
+    if (!isMultiFilter) {
+      // Price Consulting: PN (col 1), Description (col 2), Vendor (col 17, Brazil only)
+      const opts = [
         { key: hdrs[1], label: "PART NUMBER" },
         { key: hdrs[2], label: "DESCRIPTION" },
-      ].filter((o) => o.key);
-    } else if (activeTab === "brazil") {
-      if (activeSubTab === "priceConsulting") {
-        // Item (col 1), Descript (col 2), Vendor (col 17)
-        return [
-          { key: hdrs[1], label: "PART NUMBER" },
-          { key: hdrs[2], label: "DESCRIPTION" },
-          { key: hdrs[17], label: "VENDOR" },
-        ].filter((o) => o.key);
-      }
+      ];
+      if (activeTab === "brazil") opts.push({ key: hdrs[17], label: "VENDOR" });
+      return opts.filter((o) => o.key);
     }
-    return [];
-  };
-
-  // ── Multi-filter column options (Active Registered sub-tabs) ────────────────
-  const getMultiFilterColumnOptions = (): { key: string; label: string }[] => {
-    const hdrs = currentTab.headers;
     if (activeTab === "financials") {
       return [
         { key: hdrs[0], label: "BUSINESS UNIT" },
@@ -943,8 +975,30 @@ export function QueryConsultingPage(): React.ReactElement {
     );
   }
 
-  const searchColOptions = getSearchColumnOptions();
-  const multiColOptions = getMultiFilterColumnOptions();
+  const filterColOptions = getFilterColumnOptions();
+  const sourceLabel = SOURCES.filter(([key]) => key === activeTab)[0]?.[1] || "";
+  const selectedBuCount = currentBuFilters.filter((f) => f.selected).length;
+  const buPartial =
+    currentBuFilters.length > 0 && selectedBuCount < currentBuFilters.length;
+  const hiddenCount = allColumns.filter((c) => currentHidden.has(c.key)).length;
+
+  /** Live hit counter next to a source / view tab (only while the general search is active) */
+  const renderCount = (
+    tab: TabKey,
+    views: SubTabKey[],
+  ): React.ReactElement | null => {
+    if (!searchActive) return null;
+    let count = 0;
+    views.forEach((v) => (count += getViewCount(tab, v)));
+    return (
+      <span
+        className={`${styles.countBadge}${count === 0 ? ` ${styles.countBadgeEmpty}` : ""}`}
+        title="Matches for the general search and the filters of each view"
+      >
+        {count.toLocaleString()}
+      </span>
+    );
+  };
 
   return (
     <div className={styles.page}>
@@ -968,6 +1022,7 @@ export function QueryConsultingPage(): React.ReactElement {
           <div className={styles.headerActions}>
             {ratesBadges}
             <button
+              type="button"
               className={styles.externalBtn}
               onClick={handleOpenExternal}
               title="Open in fullscreen external view"
@@ -990,57 +1045,109 @@ export function QueryConsultingPage(): React.ReactElement {
         }
       />
 
-      {/* ── Main Tabs ───────────────────────────────────────────────────── */}
-      <div className={styles.tabBar}>
-        <button
-          className={`${styles.tab} ${activeTab === "financials" ? styles.tabActive : ""}`}
-          onClick={() => handleTabChange("financials")}
+      {/* ── General search: every source and view ───────────────────────── */}
+      <div className={styles.searchBar}>
+        <span className={styles.searchIcon}>{SearchIcon}</span>
+        <input
+          type="text"
+          className={styles.searchBarInput}
+          placeholder="Search Peoplesoft Financials and Peoplesoft Brazil by part number or description..."
+          value={generalSearch}
+          onChange={(e) => setGeneralSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setGeneralSearch("");
+          }}
+          aria-label="Search every Query Consulting view by part number or description"
+        />
+        {isSearching && (
+          <span className={styles.searchingTag}>Searching...</span>
+        )}
+        {generalSearch && (
+          <button
+            type="button"
+            className={styles.searchClear}
+            onClick={() => setGeneralSearch("")}
+            title="Clear search (Esc)"
+            aria-label="Clear search"
+          >
+            {CloseIcon}
+          </button>
+        )}
+        <span
+          className={styles.searchScope}
+          title="Applies to every source and view below"
         >
-          Peoplesoft Financials
-        </button>
-        <button
-          className={`${styles.tab} ${activeTab === "brazil" ? styles.tabActive : ""}`}
-          onClick={() => handleTabChange("brazil")}
-        >
-          Peoplesoft Brazil
-        </button>
+          All views
+        </span>
       </div>
 
-      {/* ── Sub-Tabs ────────────────────────────────────────────────────── */}
-      <div className={styles.subTabBar}>
-        <button
-          className={`${styles.subTab} ${activeSubTab === "priceConsulting" ? styles.subTabActive : ""}`}
-          onClick={() => handleSubTabChange("priceConsulting")}
-        >
-          Price Consulting
-        </button>
-        <button
-          className={`${styles.subTab} ${activeSubTab === "activeRegistered" ? styles.subTabActive : ""}`}
-          onClick={() => handleSubTabChange("activeRegistered")}
-        >
-          Active Registered with Manuf.
-        </button>
+      {/* ── Level 1: data source ────────────────────────────────────────── */}
+      <div className={styles.sourceTabs} role="tablist" aria-label="Data source">
+        {SOURCES.map(([key, label]) => (
+          <button
+            type="button"
+            role="tab"
+            key={key}
+            aria-selected={activeTab === key}
+            className={`${styles.sourceTab}${activeTab === key ? ` ${styles.sourceTabActive}` : ""}`}
+            onClick={() => handleTabChange(key)}
+          >
+            <span className={styles.sourceTabIcon}>{DatabaseIcon}</span>
+            {label}
+            {renderCount(key, ["priceConsulting", "activeRegistered"])}
+          </button>
+        ))}
       </div>
 
-      {/* ── Filter Toolbar ──────────────────────────────────────────────── */}
-      <div className={styles.filterToolbar}>
-        <div className={styles.searchArea}>
-          {isMultiFilter ? (
-            /* Multiple search filters for Active Registered sub-tabs */
-            <div className={styles.multiFilterWrap}>
-              <span className={styles.filterLabel}>
-                Search Filters (Multiple)
-              </span>
-              {currentTab.searchFilters.map((filter) => (
-                <div key={filter.id} className={styles.multiFilterRow}>
+      {/* ── Level 2: views of the selected source, inside its panel ─────── */}
+      <div className={styles.sourcePanel} role="tabpanel">
+        <div className={styles.viewRow}>
+          <span className={styles.viewLabel}>
+            {CornerDownRightIcon}
+            {sourceLabel} views
+          </span>
+          <div
+            className={styles.viewTabs}
+            role="tablist"
+            aria-label={`${sourceLabel} views`}
+          >
+            {VIEWS.map(([key, label]) => (
+              <button
+                type="button"
+                role="tab"
+                key={key}
+                aria-selected={activeSubTab === key}
+                className={`${styles.viewTab}${activeSubTab === key ? ` ${styles.viewTabActive}` : ""}`}
+                onClick={() => handleSubTabChange(key)}
+              >
+                {label}
+                {renderCount(activeTab, [key])}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Toolbar: this view's column filters + BU / column options ── */}
+        <div className={styles.filterToolbar}>
+          <div className={styles.filterGroup}>
+            <span className={styles.filterLabel}>Filter this view</span>
+            {currentTab.searchFilters.map((filter) => {
+              const colLabel = (
+                filterColOptions.filter((o) => o.key === filter.column)[0] || {
+                  label: "",
+                }
+              ).label;
+              return (
+                <div key={filter.id} className={styles.filterRow}>
                   <select
                     className={styles.colSelect}
                     value={filter.column}
                     onChange={(e) =>
                       handleUpdateFilter(filter.id, e.target.value)
                     }
+                    aria-label="Filter column"
                   >
-                    {multiColOptions.map((opt) => (
+                    {filterColOptions.map((opt) => (
                       <option key={opt.key} value={opt.key}>
                         {opt.label}
                       </option>
@@ -1048,145 +1155,162 @@ export function QueryConsultingPage(): React.ReactElement {
                   </select>
                   <input
                     type="text"
-                    className={styles.searchInput}
-                    placeholder={`Search by ${filter.column}...`}
+                    className={styles.filterInput}
+                    placeholder={
+                      colLabel
+                        ? `Filter by ${colLabel.toLowerCase()}...`
+                        : "Filter value..."
+                    }
                     value={filter.value}
                     onChange={(e) =>
                       handleUpdateFilter(filter.id, undefined, e.target.value)
                     }
+                    aria-label="Filter value"
                   />
-                  <button
-                    className={styles.removeFilterBtn}
-                    onClick={() => handleRemoveFilter(filter.id)}
-                    disabled={currentTab.searchFilters.length <= 1}
-                    title="Remove filter"
-                  >
-                    ✕
-                  </button>
+                  {isMultiFilter && (
+                    <button
+                      type="button"
+                      className={styles.removeFilterBtn}
+                      onClick={() => handleRemoveFilter(filter.id)}
+                      disabled={currentTab.searchFilters.length <= 1}
+                      title="Remove filter"
+                      aria-label="Remove filter"
+                    >
+                      {CloseIcon}
+                    </button>
+                  )}
                 </div>
-              ))}
-              {currentTab.searchFilters.length < 3 && (
+              );
+            })}
+            {isMultiFilter &&
+              currentTab.searchFilters.length < MAX_COLUMN_FILTERS && (
                 <button
+                  type="button"
                   className={styles.addFilterBtn}
                   onClick={handleAddFilter}
                 >
                   + Add Filter
                 </button>
               )}
-            </div>
-          ) : (
-            /* Single search for other tabs */
-            <div className={styles.singleFilterRow}>
-              <span className={styles.filterLabel}>Search By</span>
-              <select
-                className={styles.colSelect}
-                value={currentTab.searchColumn}
-                onChange={(e) => handleSearchColumnChange(e.target.value)}
-              >
-                {searchColOptions.map((opt) => (
-                  <option key={opt.key} value={opt.key}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="text"
-                className={styles.searchInput}
-                placeholder={`Search by ${currentTab.searchColumn}...`}
-                value={currentTab.searchText}
-                onChange={(e) => handleSearch(e.target.value)}
-              />
-            </div>
-          )}
-        </div>
-
-        <button
-          className={`${styles.buFilterToggle} ${buFilterOpen ? styles.buFilterToggleOpen : ""}`}
-          onClick={() => setBuFilterOpen(!buFilterOpen)}
-        >
-          Business Unit Filters
-          <span className={styles.chevron}>{buFilterOpen ? "▲" : "▼"}</span>
-        </button>
-      </div>
-
-      {/* ── BU Filter Panel ─────────────────────────────────────────────── */}
-      {buFilterOpen && (
-        <div className={styles.buFilterPanel}>
-          <div className={styles.buFilterHeader}>
-            <span className={styles.buFilterTitle}>
-              Filter by Business Unit
-            </span>
-            <div className={styles.buFilterActions}>
-              <button
-                className={styles.buFilterActionBtn}
-                onClick={selectAllBuFilters}
-              >
-                Select All
-              </button>
-              <button
-                className={styles.buFilterActionBtn}
-                onClick={clearAllBuFilters}
-              >
-                Clear All
-              </button>
-            </div>
           </div>
-          <div className={styles.buFilterList}>
-            {currentBuFilters.length === 0 ? (
-              <span className={styles.noFilters}>
-                No Business Units available
+
+          <div className={styles.toolbarActions}>
+            <button
+              type="button"
+              className={`${styles.toolbarBtn}${buFilterOpen ? ` ${styles.toolbarBtnOpen}` : ""}`}
+              onClick={() => setBuFilterOpen(!buFilterOpen)}
+              aria-expanded={buFilterOpen}
+            >
+              Business Units
+              {buPartial && (
+                <span className={styles.countBadge}>
+                  {selectedBuCount}/{currentBuFilters.length}
+                </span>
+              )}
+              <span
+                className={`${styles.chevron}${buFilterOpen ? ` ${styles.chevronOpen}` : ""}`}
+              >
+                {ChevronDownIcon}
               </span>
-            ) : (
-              currentBuFilters.map((f) => (
-                <label key={f.name} className={styles.buCheckbox}>
-                  <input
-                    type="checkbox"
-                    checked={f.selected}
-                    onChange={() => toggleBuFilter(f.name)}
-                  />
-                  <span>{f.name}</span>
-                </label>
-              ))
-            )}
+            </button>
+            <div className={styles.columnToggleWrap} data-qc-colmenu="">
+              <button
+                type="button"
+                className={`${styles.toolbarBtn}${colMenuOpen ? ` ${styles.toolbarBtnOpen}` : ""}`}
+                onClick={() => setColMenuOpen(!colMenuOpen)}
+                aria-expanded={colMenuOpen}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                Columns
+                {hiddenCount > 0 && (
+                  <span className={styles.countBadge}>
+                    {allColumns.length - hiddenCount}/{allColumns.length}
+                  </span>
+                )}
+                <span
+                  className={`${styles.chevron}${colMenuOpen ? ` ${styles.chevronOpen}` : ""}`}
+                >
+                  {ChevronDownIcon}
+                </span>
+              </button>
+              {colMenuOpen && (
+                <div className={styles.columnMenu}>
+                  {allColumns.map((col) => (
+                    <label key={col.key} className={styles.columnMenuItem}>
+                      <input
+                        type="checkbox"
+                        checked={!currentHidden.has(col.key)}
+                        onChange={() => toggleColumnVisibility(col.key)}
+                      />
+                      <span>{col.header}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      )}
 
-      {/* ── Column Visibility Toggle ─────────────────────────────────── */}
-      <div className={styles.columnToggleWrap}>
-        <button
-          className={`${styles.columnToggleBtn} ${colMenuOpen ? styles.columnToggleBtnOpen : ""}`}
-          onClick={() => setColMenuOpen(!colMenuOpen)}
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-          Columns
-          <span className={styles.chevron}>{colMenuOpen ? "▲" : "▼"}</span>
-        </button>
-        {colMenuOpen && (
-          <div className={styles.columnMenu}>
-            {allColumns.map((col) => (
-              <label key={col.key} className={styles.columnMenuItem}>
-                <input
-                  type="checkbox"
-                  checked={!currentHidden.has(col.key)}
-                  onChange={() => toggleColumnVisibility(col.key)}
-                />
-                <span>{col.header}</span>
-              </label>
-            ))}
+        {/* ── BU Filter Panel ───────────────────────────────────────────── */}
+        {buFilterOpen && (
+          <div className={styles.buFilterPanel}>
+            <div className={styles.buFilterHeader}>
+              <span className={styles.buFilterTitle}>
+                Filter by Business Unit
+                <span className={styles.buFilterCount}>
+                  {selectedBuCount} of {currentBuFilters.length} selected
+                </span>
+              </span>
+              <div className={styles.buFilterActions}>
+                <button
+                  type="button"
+                  className={styles.buFilterActionBtn}
+                  onClick={selectAllBuFilters}
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  className={styles.buFilterActionBtn}
+                  onClick={clearAllBuFilters}
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+            <div className={styles.buFilterList}>
+              {currentBuFilters.length === 0 ? (
+                <span className={styles.noFilters}>
+                  No Business Units available
+                </span>
+              ) : (
+                currentBuFilters.map((f) => (
+                  <label
+                    key={f.name}
+                    className={`${styles.buCheckbox}${f.selected ? ` ${styles.buCheckboxOn}` : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={f.selected}
+                      onChange={() => toggleBuFilter(f.name)}
+                    />
+                    <span>{f.name}</span>
+                  </label>
+                ))
+              )}
+            </div>
           </div>
         )}
-      </div>
 
       {/* ── Data Table ──────────────────────────────────────────────────── */}
       <div className={styles.tableWrap}>
@@ -1239,7 +1363,7 @@ export function QueryConsultingPage(): React.ReactElement {
                 const pn = String(row[pnColumnKey] || "").trim();
                 const photoUrl = pn ? getPhotoUrl(pn) : "";
                 return (
-                  <tr key={page * PAGE_SIZE + idx}>
+                  <tr key={safePage * PAGE_SIZE + idx}>
                     <td className={styles.photoCell}>
                       {photoUrl && (
                         <PhotoThumbnail
@@ -1263,47 +1387,52 @@ export function QueryConsultingPage(): React.ReactElement {
       {/* ── Pagination ──────────────────────────────────────────────────── */}
       <div className={styles.paginationBar}>
         <span className={styles.resultCount}>
-          Showing {Math.min(page * PAGE_SIZE + 1, filteredCount)}-
-          {Math.min((page + 1) * PAGE_SIZE, filteredCount)} of{" "}
+          Showing {Math.min(safePage * PAGE_SIZE + 1, filteredCount)}-
+          {Math.min((safePage + 1) * PAGE_SIZE, filteredCount)} of{" "}
           {filteredCount.toLocaleString()} items
         </span>
         <div className={styles.paginationControls}>
           <button
+            type="button"
             className={styles.pageBtn}
-            disabled={page === 0}
+            disabled={safePage === 0}
             onClick={() => setPage(0)}
             title="First page"
           >
             ««
           </button>
           <button
+            type="button"
             className={styles.pageBtn}
-            disabled={page === 0}
-            onClick={() => setPage(page - 1)}
+            disabled={safePage === 0}
+            onClick={() => setPage(safePage - 1)}
             title="Previous page"
           >
             «
           </button>
           <span className={styles.pageInfo}>
-            Page {page + 1} of {totalPages}
+            Page {safePage + 1} of {totalPages}
           </span>
           <button
+            type="button"
             className={styles.pageBtn}
-            disabled={page >= totalPages - 1}
-            onClick={() => setPage(page + 1)}
+            disabled={safePage >= totalPages - 1}
+            onClick={() => setPage(safePage + 1)}
             title="Next page"
           >
             »
           </button>
           <button
+            type="button"
             className={styles.pageBtn}
-            disabled={page >= totalPages - 1}
+            disabled={safePage >= totalPages - 1}
             onClick={() => setPage(totalPages - 1)}
             title="Last page"
           >
             »»
           </button>
         </div>
+      </div>
       </div>
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}

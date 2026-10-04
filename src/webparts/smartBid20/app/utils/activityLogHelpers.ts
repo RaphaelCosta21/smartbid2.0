@@ -64,9 +64,14 @@ const ACTIVITY_META: Record<string, IActivityMeta> = {
     colorVar: "var(--warning)",
   },
   APPROVAL_RESPONSE: {
-    label: "Approval response",
+    label: "Approval granted",
     category: "approvals",
     colorVar: "var(--success)",
+  },
+  APPROVAL_REJECTED: {
+    label: "Approval rejected",
+    category: "approvals",
+    colorVar: "var(--danger)",
   },
   APPROVAL_OVERRIDE: {
     label: "Approval override",

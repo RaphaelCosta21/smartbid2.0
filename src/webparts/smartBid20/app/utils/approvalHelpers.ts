@@ -7,6 +7,7 @@
  * Prefers the persisted snapshot (round.sectorDurations) when present.
  */
 import {
+  IActivityLogEntry,
   IBid,
   IBidApproval,
   IApprovalRound,
@@ -19,6 +20,7 @@ import {
   sectorFromLabel,
   SECTORS,
 } from "../config/sectors.config";
+import { buildHistoryTransition } from "./phaseHelpers";
 
 const MS_PER_HOUR = 3600000;
 const MS_PER_DAY = 86400000;
@@ -203,4 +205,130 @@ export function computeApprovalCycleTime(bid: IBid): number | null {
   });
   if (!isFinite(minReq) || !isFinite(maxComp)) return null;
   return Math.round(((maxComp - minReq) / MS_PER_DAY) * 10) / 10;
+}
+
+export const APPROVAL_FLOW_ACTOR = "Approval flow";
+
+function completionEntry(round: number, timestamp: string): IActivityLogEntry {
+  return {
+    id: `log-apr-r${round}-completed`,
+    type: "STATUS_CHANGED",
+    timestamp,
+    actor: "",
+    actorName: APPROVAL_FLOW_ACTOR,
+    description: `Status changed from "Pending Approval" to "Completed" - BID fully approved (Round ${round})`,
+    metadata: {
+      fromStatus: "Pending Approval",
+      toStatus: "Completed",
+      round,
+      note: `BID fully approved by all approvers (Round ${round})`,
+    },
+  };
+}
+
+/**
+ * Activity entries for approval decisions and approval-driven completion that the
+ * BID log still lacks (the Teams flow writes them straight into the BID JSON).
+ * Ids are deterministic, so re-running never duplicates entries.
+ */
+export function getMissingApprovalActivityEntries(
+  bid: IBid,
+): IActivityLogEntry[] {
+  const seen: Record<string, boolean> = {};
+  (bid.activityLog || []).forEach((e) => {
+    seen[e.id] = true;
+  });
+  const out: IActivityLogEntry[] = [];
+  const add = (entry: IActivityLogEntry): void => {
+    if (seen[entry.id]) return;
+    seen[entry.id] = true;
+    out.push(entry);
+  };
+
+  const rounds = bid.approvalRounds || [];
+  const addDecision = (a: IBidApproval, fallbackRound: number): void => {
+    if (a.status !== "approved" && a.status !== "rejected") return;
+    if (!a.respondedDate) return;
+    const round = a.round || fallbackRound;
+    const approved = a.status === "approved";
+    const name = a.stakeholder?.name || a.stakeholder?.email || "Approver";
+    add({
+      id: `log-apr-r${round}-${a.id}-${a.status}`,
+      type: approved ? "APPROVAL_RESPONSE" : "APPROVAL_REJECTED",
+      timestamp: a.respondedDate,
+      actor: a.stakeholder?.email || "",
+      actorName: name,
+      description: `${name} ${approved ? "approved" : "rejected"} the BID as ${a.stakeholderRole} (Round ${round})`,
+      metadata: {
+        round,
+        sector: a.sector || "",
+        stakeholderRole: a.stakeholderRole,
+        decision: a.status,
+        comments: a.comments || "",
+        approvedVia: a.approvedVia || "",
+      },
+    });
+  };
+  rounds.forEach((r) =>
+    (r.approvals || []).forEach((a) => addDecision(a, r.round)),
+  );
+  (bid.approvals || []).forEach((a) => addDecision(a, rounds.length || 1));
+
+  // Overridden rounds are already logged as APPROVAL_OVERRIDE.
+  rounds.forEach((r) => {
+    if (r.status !== "approved" || r.override) return;
+    const when = r.completedDate || bid.completedDate;
+    if (when) add(completionEntry(r.round, when));
+  });
+
+  // Legacy BIDs approved before rounds history existed.
+  const approvals = bid.approvals || [];
+  if (
+    rounds.length === 0 &&
+    approvals.length > 0 &&
+    bid.approvalStatus === "approved" &&
+    bid.currentStatus === "Completed" &&
+    bid.completedDate &&
+    approvals.every((a) => a.status === "approved")
+  ) {
+    add(completionEntry(approvals[0].round || 1, bid.completedDate));
+  }
+  return out;
+}
+
+/**
+ * Phase/status history update for a BID the approval flow set to Completed
+ * (the flow only writes currentStatus), or null when the history is in sync.
+ */
+export function getMissingApprovalHistoryPatch(
+  bid: IBid,
+): Pick<IBid, "phaseHistory" | "statusHistory"> | null {
+  const rounds = bid.approvalRounds || [];
+  const latest = rounds.length > 0 ? rounds[rounds.length - 1] : null;
+  if (!latest || latest.status !== "approved") return null;
+  if (bid.currentStatus !== "Completed") return null;
+  const statusHistory = bid.statusHistory || [];
+  const phaseHistory = bid.phaseHistory || [];
+  if (statusHistory.length === 0) return null;
+  const lastStatus = statusHistory[statusHistory.length - 1];
+  const lastPhase =
+    phaseHistory.length > 0 ? phaseHistory[phaseHistory.length - 1] : null;
+  if (lastStatus.status === "Completed") return null;
+  const at =
+    latest.completedDate || bid.completedDate || new Date().toISOString();
+  const actor = latest.override
+    ? latest.override.overriddenBy.name
+    : APPROVAL_FLOW_ACTOR;
+  return buildHistoryTransition(
+    {
+      currentPhase: lastPhase ? lastPhase.phase : lastStatus.phase,
+      currentStatus: lastStatus.status,
+      phaseHistory,
+      statusHistory,
+    },
+    "Close Out" as IBid["currentPhase"],
+    "Completed",
+    actor,
+    at,
+  );
 }

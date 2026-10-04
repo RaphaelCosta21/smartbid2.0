@@ -28,108 +28,111 @@
   text-align: center;
 }
 
-/* ─── Toolbar ─── */
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
-  margin: 16px 0 20px;
-}
-
-.searchWrapper {
+/* ─── Glass filter bar (same look as Favorites / Unassigned Requests) ─── */
+.filterBar {
+  // Above later glass siblings so dropdown panels aren't covered
   position: relative;
-  flex: 1 1 260px;
-  min-width: 220px;
+  z-index: 20;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 20px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-card);
 }
 
-.searchIcon {
+.filterSearch {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+.filterSearchIcon {
   position: absolute;
   left: 12px;
-  color: var(--text-secondary);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
   pointer-events: none;
 }
 
-.searchInput {
+.filterSearchInput {
   width: 100%;
-  padding: 9px 34px 9px 38px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--card-bg);
+  box-sizing: border-box;
+  padding: 8px 32px 8px 36px;
+  border-radius: 9px;
+  border: 1px solid var(--glass-border);
+  background: var(--input-bg);
   color: var(--text-primary);
   font-size: 13px;
-  outline: none;
+  transition: border-color 200ms ease;
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
 
   &:focus {
+    outline: none;
     border-color: var(--primary-accent);
   }
 }
 
-.clearBtn {
+.searchClearBtn {
   position: absolute;
   right: 8px;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-}
-
-.filterGroup {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
   align-items: center;
-}
-
-.filterSelect {
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--card-bg);
-  color: var(--text-primary);
-  font-size: 13px;
-  cursor: pointer;
-  outline: none;
-}
-
-.clearFiltersBtn {
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  justify-content: center;
+  padding: 3px;
+  border: none;
+  border-radius: 6px;
   background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
+  color: var(--text-muted);
   cursor: pointer;
 
   &:hover {
     color: var(--text-primary);
+    background: var(--hover-bg);
   }
 }
 
-.viewToggle {
-  display: flex;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.viewBtn {
-  padding: 8px 10px;
-  border: none;
-  background: var(--card-bg);
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
+.clearFiltersBtn {
+  display: inline-flex;
   align-items: center;
+  gap: 4px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
 }
 
-.viewBtnActive {
-  background: var(--primary-accent);
-  color: #fff;
+.resultCount {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+
+  strong {
+    color: var(--text-primary);
+    font-weight: 700;
+  }
 }
 
 .addBtn {
@@ -585,32 +588,50 @@
   padding: 40px 0;
 }
 
-/* ─── AI extraction ─── */
+/* ─── AI extraction (same accent-outline button as Scope of Supply "Generate from AI") ─── */
 .aiExtractBtn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   align-self: flex-start;
-  padding: 8px 14px;
+  height: 32px;
+  padding: 0 14px;
   border-radius: 8px;
-  border: 1px solid var(--primary-accent);
-  background: var(--card-bg-elevated);
+  border: 1px solid color-mix(in srgb, var(--primary-accent) 45%, transparent);
+  background: var(--card-bg);
   color: var(--primary-accent);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 200ms;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease;
   white-space: nowrap;
 
+  svg {
+    flex-shrink: 0;
+    color: currentColor;
+  }
+
   &:hover:not(:disabled) {
-    background: var(--primary-accent);
-    color: #fff;
+    border-color: var(--primary-accent);
+    background: color-mix(in srgb, var(--primary-accent) 12%, var(--card-bg));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
   }
 
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
+}
+
+.aiSpin {
+  animation: spin 0.8s linear infinite;
 }
 
 /* ─── Bulk selection & bulk AI bar (list view) ─── */

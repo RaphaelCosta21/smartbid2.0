@@ -11,6 +11,7 @@ import {
   Undo2,
 } from "lucide-react";
 import {
+  IActivityLogEntry,
   IBid,
   IApprovalRound,
   IApprovalOverride,
@@ -26,10 +27,13 @@ import { ApprovalOverrideBanner } from "../approval/ApprovalOverrideBanner";
 import { ApprovalService } from "../../services/ApprovalService";
 import { useUIStore } from "../../stores/useUIStore";
 import {
+  APPROVAL_FLOW_ACTOR,
   computeRoundSectorDurations,
   computeApprovalCycleTime,
   getActiveApprovalOverride,
+  getMissingApprovalActivityEntries,
 } from "../../utils/approvalHelpers";
+import { buildHistoryTransition } from "../../utils/phaseHelpers";
 import { isTerminalStatus } from "../../utils/statusHelpers";
 import { createActivityLogEntry } from "../../utils/activityLogHelpers";
 import { formatDate } from "../../utils/formatters";
@@ -40,11 +44,6 @@ interface ApprovalTabProps {
   teamMembers: ITeamMember[];
   currentUser: IPersonRef;
   canEdit: boolean;
-  onSave: (
-    approvals: IBidApproval[],
-    approvalStatus: ApprovalStatus,
-    approvalRounds: IApprovalRound[],
-  ) => void;
   onPatchBid: (patch: Partial<IBid>) => void;
 }
 
@@ -246,7 +245,6 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   teamMembers,
   currentUser,
   canEdit,
-  onSave,
   onPatchBid,
 }) => {
   const isGateOpen =
@@ -329,12 +327,26 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
         ...bid,
         approvalRounds: updatedRounds,
       });
+      const missingLogs = getMissingApprovalActivityEntries({
+        ...bid,
+        approvalRounds: updatedRounds,
+        currentStatus: "Completed",
+        completedDate: nowIso,
+      });
       onPatchBid({
         currentStatus: "Completed",
         currentPhase: "Close Out" as any,
         completedDate: nowIso,
+        ...buildHistoryTransition(
+          bid,
+          "Close Out" as any,
+          "Completed",
+          APPROVAL_FLOW_ACTOR,
+          nowIso,
+        ),
         approvalRounds: updatedRounds,
         kpis: { ...bid.kpis, approvalCycleTime: cycle },
+        activityLog: [...(bid.activityLog || []), ...missingLogs],
       });
     }
   }, [bid.approvalStatus, bid.approvals, bid.currentStatus]);
@@ -592,16 +604,51 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     try {
       const now = new Date().toISOString();
       const roundNumber = currentRoundNumber;
+      const logs: IActivityLogEntry[] = [];
 
       // If BID is not in Close Out / Pending Approval, transition it first
+      const transition: Partial<IBid> = {};
       if (
         bid.currentPhase !== "Close Out" ||
         bid.currentStatus !== "Pending Approval"
       ) {
-        onPatchBid({
-          currentPhase: "Close Out" as any,
-          currentStatus: "Pending Approval",
-        });
+        transition.currentPhase = "Close Out" as any;
+        transition.currentStatus = "Pending Approval";
+        Object.assign(
+          transition,
+          buildHistoryTransition(
+            bid,
+            "Close Out" as any,
+            "Pending Approval",
+            currentUser.name,
+            now,
+          ),
+        );
+        if (bid.currentPhase !== "Close Out") {
+          logs.push(
+            createActivityLogEntry(
+              "PHASE_CHANGED",
+              `Phase changed from "${bid.currentPhase}" to "Close Out"`,
+              currentUser.email,
+              currentUser.name,
+              { fromPhase: bid.currentPhase, toPhase: "Close Out" },
+            ),
+          );
+        }
+        if (bid.currentStatus !== "Pending Approval") {
+          logs.push(
+            createActivityLogEntry(
+              "STATUS_CHANGED",
+              `Status changed from "${bid.currentStatus}" to "Pending Approval"`,
+              currentUser.email,
+              currentUser.name,
+              {
+                fromStatus: bid.currentStatus,
+                toStatus: "Pending Approval",
+              },
+            ),
+          );
+        }
       }
 
       // Build IBidApproval[] from selections
@@ -663,8 +710,38 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       // Append to rounds history (preserve all previous rounds)
       const updatedRounds = [...existingRounds, newRound];
 
+      const approverList = approvals
+        .map((a) => `${a.stakeholder.name} (${a.stakeholderRole})`)
+        .join(", ");
+      const waivedList = activeWaivers.map((w) => w.sectorLabel).join(", ");
+      logs.push(
+        createActivityLogEntry(
+          "APPROVAL_REQUESTED",
+          `Approval round ${roundNumber} started with ${approvals.length} approver${approvals.length === 1 ? "" : "s"}: ${approverList}` +
+            (waivedList ? `. Not required: ${waivedList}` : ""),
+          currentUser.email,
+          currentUser.name,
+          {
+            round: roundNumber,
+            approvers: approvals.map((a) => ({
+              name: a.stakeholder.name,
+              email: a.stakeholder.email,
+              sector: a.stakeholderRole,
+            })),
+            waivedSectors: activeWaivers.map((w) => w.sector),
+          },
+        ),
+      );
+
       // Save to BID JSON
-      onSave(approvals, "pending", updatedRounds);
+      onPatchBid({
+        ...transition,
+        approvals,
+        approvalStatus: "pending",
+        approvalRounds: updatedRounds,
+        approvalDraftSelections: {},
+        activityLog: [...(bid.activityLog || []), ...logs],
+      });
       setShowConfirm(false);
     } catch (err) {
       console.error("Failed to start approval:", err);
@@ -799,6 +876,18 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
           reason,
         },
       );
+      const statusLog = createActivityLogEntry(
+        "STATUS_CHANGED",
+        `Status changed from "${bid.currentStatus}" to "Completed" - approval overridden (Round ${closedRound.round})`,
+        actor.email,
+        actor.name,
+        {
+          fromStatus: bid.currentStatus,
+          toStatus: "Completed",
+          round: closedRound.round,
+          note: `Approval overridden (Round ${closedRound.round})`,
+        },
+      );
 
       onPatchBid({
         approvals: overrideApprovals,
@@ -808,8 +897,15 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
         currentStatus: "Completed",
         currentPhase: "Close Out" as any,
         completedDate: nowIso,
+        ...buildHistoryTransition(
+          bid,
+          "Close Out" as any,
+          "Completed",
+          actor.name,
+          nowIso,
+        ),
         kpis: { ...bid.kpis, approvalCycleTime: cycle },
-        activityLog: [...(bid.activityLog || []), logEntry],
+        activityLog: [...(bid.activityLog || []), logEntry, statusLog],
       });
       closeOverrideDialog();
       addToast({

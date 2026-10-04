@@ -4,126 +4,84 @@
   gap: 24px;
 }
 
-/* ─── Toolbar ─── */
-.toolbar {
+/* ─── PageHeader actions (dark hero in both themes) ─── */
+.headerActions {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
   flex-wrap: wrap;
-}
-
-.filters {
-  display: flex;
-  gap: 10px;
   align-items: center;
-  flex-wrap: wrap;
-  flex: 1;
-}
-
-.searchInput {
-  padding: 9px 14px;
-  border-radius: 10px;
-  border: 1px solid var(--border-subtle);
-  background: var(--card-bg);
-  color: var(--text-primary);
-  font-size: 13px;
-  min-width: 200px;
-  outline: none;
-  transition: border-color 200ms ease;
-
-  &:focus {
-    border-color: var(--primary-accent);
-  }
-}
-
-.filterSelect {
-  padding: 9px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border-subtle);
-  background: var(--card-bg);
-  color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-  cursor: pointer;
-  appearance: auto;
-
-  &:focus {
-    border-color: var(--primary-accent);
-  }
-}
-
-.clearBtn {
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 200ms;
-
-  &:hover {
-    border-color: #ef4444;
-    color: #ef4444;
-  }
-}
-
-.toolbarRight {
-  display: flex;
   gap: 8px;
+}
+
+.headerBtn {
+  display: inline-flex;
   align-items: center;
-}
-
-.viewToggle {
-  display: flex;
-  border: 1px solid var(--border-subtle);
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
   border-radius: 8px;
-  overflow: hidden;
-}
-
-.viewBtn {
-  padding: 7px 12px;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 150ms;
-
-  &:hover {
-    background: var(--card-bg-elevated);
-  }
-}
-
-.viewActive {
-  background: var(--primary-accent);
-  color: #fff;
-
-  &:hover {
-    background: var(--primary-accent);
-  }
-}
-
-.refreshBtn {
-  padding: 9px 16px;
-  border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text-secondary);
+  border: 1px solid var(--header-border);
+  background: var(--header-input-bg);
+  color: var(--header-text-secondary);
   font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
-  transition: all 200ms;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease;
+
+  &:hover {
+    color: var(--header-text-primary);
+    border-color: var(--primary-accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Same accent-outline button as Scope of Supply "Generate from AI" */
+.aiBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--primary-accent) 45%, transparent);
+  background: var(--card-bg);
+  color: var(--primary-accent);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease;
+
+  svg {
+    flex-shrink: 0;
+    color: currentColor;
+  }
 
   &:hover {
     border-color: var(--primary-accent);
-    color: var(--primary-accent);
+    background: color-mix(in srgb, var(--primary-accent) 12%, var(--card-bg));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
   }
 }
 
 .createBtn {
-  padding: 9px 20px;
-  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 18px;
+  border-radius: 8px;
   border: none;
   background: var(--primary-accent);
   color: #fff;
@@ -135,6 +93,112 @@
 
   &:hover {
     opacity: 0.9;
+  }
+}
+
+/* ─── Glass filter bar (same look as Favorites / document libraries) ─── */
+.filterBar {
+  // Above later glass siblings so dropdown panels aren't covered
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-card);
+}
+
+.filterSearch {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+.filterSearchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.filterSearchInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 32px 8px 36px;
+  border-radius: 9px;
+  border: 1px solid var(--glass-border);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: border-color 200ms ease;
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-accent);
+  }
+}
+
+.searchClearBtn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--hover-bg);
+  }
+}
+
+.clearFiltersBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+}
+
+.resultCount {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+
+  strong {
+    color: var(--text-primary);
+    font-weight: 700;
   }
 }
 
@@ -368,21 +432,3 @@
   }
 }
 
-/* ─── AI Generate Button ─── */
-.aiGenerateBtn {
-  padding: 9px 18px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--primary-accent) 45%, transparent);
-  background: color-mix(in srgb, var(--primary-accent) 10%, transparent);
-  color: var(--primary-accent);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 200ms;
-
-  &:hover {
-    border-color: var(--primary-accent);
-    background: color-mix(in srgb, var(--primary-accent) 18%, transparent);
-  }
-}

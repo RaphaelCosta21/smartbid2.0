@@ -154,6 +154,25 @@
   white-space: nowrap;
 }
 
+.optCount {
+  margin-left: auto;
+  flex-shrink: 0;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-accent) 14%, transparent);
+  color: var(--primary-accent);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.optCountZero {
+  background: var(--hover-bg);
+  color: var(--text-muted);
+}
+
 .empty {
   padding: 16px;
   text-align: center;

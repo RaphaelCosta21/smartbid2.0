@@ -5,6 +5,8 @@ export interface MultiSelectOption {
   value: string;
   label: string;
   color?: string;
+  /** Optional item count shown as a pill at the end of the option */
+  count?: number;
 }
 
 interface MultiSelectDropdownProps {
@@ -103,6 +105,13 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                   />
                 )}
                 <span className={styles.optLabel}>{o.label}</span>
+                {o.count !== undefined && (
+                  <span
+                    className={`${styles.optCount} ${o.count === 0 ? styles.optCountZero : ""}`}
+                  >
+                    {o.count}
+                  </span>
+                )}
               </label>
             ))}
             {options.length === 0 && (

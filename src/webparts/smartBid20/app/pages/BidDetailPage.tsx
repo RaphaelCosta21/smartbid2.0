@@ -38,6 +38,10 @@ import {
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { usePastBidPublisher } from "../hooks/usePastBidPublisher";
 import { useApprovalSync } from "../hooks/useApprovalSync";
+import {
+  getMissingApprovalActivityEntries,
+  getMissingApprovalHistoryPatch,
+} from "../utils/approvalHelpers";
 import { useTechnicalProposalPublisher } from "../hooks/useTechnicalProposalPublisher";
 import { getTechnicalProposalAttachment } from "../utils/technicalProposalHelpers";
 import { useUIStore } from "../stores/useUIStore";
@@ -469,6 +473,35 @@ export const BidDetailPage: React.FC = () => {
 
   const bid = bids.find((b) => b.bidNumber === id);
   useApprovalSync(id, bid?.approvalStatus === "pending");
+
+  // The Teams approval flow writes decisions and completion straight into the BID
+  // JSON; editors persist the matching activity/history entries (each tried once).
+  const reconciledKeys = React.useRef<Record<string, boolean>>({});
+  React.useEffect(() => {
+    if (!bid || !canEditBid) return;
+    // A child effect may have saved in this same commit; build on the store copy.
+    const latest =
+      useBidStore.getState().bids.find((b) => b.bidNumber === bid.bidNumber) ||
+      bid;
+    const patch: Partial<IBid> = {};
+    const missing = getMissingApprovalActivityEntries(latest).filter(
+      (e) => !reconciledKeys.current[e.id],
+    );
+    if (missing.length > 0) {
+      missing.forEach((e) => {
+        reconciledKeys.current[e.id] = true;
+      });
+      patch.activityLog = [...(latest.activityLog || []), ...missing];
+    }
+    const history = getMissingApprovalHistoryPatch(latest);
+    const historyKey = `history-${(latest.statusHistory || []).length}`;
+    if (history && !reconciledKeys.current[historyKey]) {
+      reconciledKeys.current[historyKey] = true;
+      Object.assign(patch, history);
+    }
+    if (Object.keys(patch).length === 0) return;
+    savePatch(patch).catch(() => undefined);
+  }, [bid, canEditBid, savePatch]);
 
   if (!bid) {
     return (
@@ -1712,7 +1745,10 @@ export const BidDetailPage: React.FC = () => {
             />
           )}
           {activeTab === "timeline" && (
-            <BidTimeline bid={bid} currentPhaseIndex={currentPhaseIndex} />
+            <BidTimeline
+              bid={{ ...bid, ...getMissingApprovalHistoryPatch(bid) }}
+              currentPhaseIndex={currentPhaseIndex}
+            />
           )}
           {activeTab === "approval" && (
             <ApprovalTab
@@ -1725,14 +1761,6 @@ export const BidDetailPage: React.FC = () => {
                 photoUrl: currentUser.photoUrl,
               }}
               canEdit={canEditBid}
-              onSave={(approvals, approvalStatus, approvalRounds) =>
-                savePatch({
-                  approvals,
-                  approvalStatus,
-                  approvalRounds,
-                  approvalDraftSelections: {},
-                })
-              }
               onPatchBid={savePatch}
             />
           )}
@@ -1784,7 +1812,12 @@ export const BidDetailPage: React.FC = () => {
             />
           )}
           {activeTab === "activity" && (
-            <BidActivityLog entries={bid.activityLog || []} />
+            <BidActivityLog
+              entries={[
+                ...(bid.activityLog || []),
+                ...getMissingApprovalActivityEntries(bid),
+              ]}
+            />
           )}
           {activeTab === "revisions" && (
             <RevisionsTab

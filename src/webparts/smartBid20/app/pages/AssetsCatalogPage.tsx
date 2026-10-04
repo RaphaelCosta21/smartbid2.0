@@ -1,12 +1,27 @@
 import * as React from "react";
+import {
+  ArrowDownAZ,
+  ArrowDownZA,
+  LayoutGrid,
+  LayoutList,
+  Search,
+  X,
+} from "lucide-react";
 import { PageHeader } from "../components/common/PageHeader";
 import { EmptyState } from "../components/common/EmptyState";
+import {
+  MultiSelectDropdown,
+  MultiSelectOption,
+} from "../components/insights/MultiSelectDropdown";
+import { SegmentedControl } from "../components/insights/SegmentedControl";
 import { AssetCatalogService } from "../services/AssetCatalogService";
 import { IAssetCatalogItem } from "../models/IAssetCatalog";
 import { useDebounce } from "../hooks/useDebounce";
 import styles from "./AssetsCatalogPage.module.scss";
 
 type ViewMode = "grid" | "list";
+type SortOrder = "az" | "za";
+type FacetKey = "category" | "status";
 
 const dash = (val: string): string => (val ? val : "-");
 
@@ -31,8 +46,9 @@ export const AssetsCatalogPage: React.FC = () => {
   const [items, setItems] = React.useState<IAssetCatalogItem[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
-  const [selectedKeyword, setSelectedKeyword] = React.useState("all");
-  const [statusFilter, setStatusFilter] = React.useState("all");
+  const [filterCategories, setFilterCategories] = React.useState<string[]>([]);
+  const [filterStatuses, setFilterStatuses] = React.useState<string[]>([]);
+  const [sortOrder, setSortOrder] = React.useState<SortOrder>("az");
   const [viewMode, setViewMode] = React.useState<ViewMode>("grid");
   const [selectedAsset, setSelectedAsset] =
     React.useState<IAssetCatalogItem | null>(null);
@@ -77,50 +93,88 @@ export const AssetsCatalogPage: React.FC = () => {
     return sorted;
   }, [items]);
 
-  // Filtered items
+  const matchesSearch = (item: IAssetCatalogItem): boolean => {
+    if (!debouncedSearch) return true;
+    const lower = debouncedSearch.toLowerCase();
+    return !!(
+      (item.title && item.title.toLowerCase().indexOf(lower) >= 0) ||
+      (item.pn && item.pn.toLowerCase().indexOf(lower) >= 0) ||
+      (item.description &&
+        item.description.toLowerCase().indexOf(lower) >= 0) ||
+      (item.commonlyUsedNames &&
+        item.commonlyUsedNames.toLowerCase().indexOf(lower) >= 0) ||
+      (item.keyword && item.keyword.toLowerCase().indexOf(lower) >= 0) ||
+      (item.subtitle && item.subtitle.toLowerCase().indexOf(lower) >= 0)
+    );
+  };
+
+  /** Search + every filter except `skip`, so each dropdown counts against the others */
+  const passesFilters = (item: IAssetCatalogItem, skip?: FacetKey): boolean =>
+    (skip === "category" ||
+      !filterCategories.length ||
+      filterCategories.indexOf(item.keyword) >= 0) &&
+    (skip === "status" ||
+      !filterStatuses.length ||
+      filterStatuses.indexOf(item.status) >= 0) &&
+    matchesSearch(item);
+
+  const facetCounts = React.useMemo(() => {
+    const counts: Record<FacetKey, Record<string, number>> = {
+      category: {},
+      status: {},
+    };
+    const bump = (key: FacetKey, value: string): void => {
+      counts[key][value] = (counts[key][value] || 0) + 1;
+    };
+    items.forEach((item) => {
+      if (item.keyword && passesFilters(item, "category"))
+        bump("category", item.keyword);
+      if (item.status && passesFilters(item, "status"))
+        bump("status", item.status);
+    });
+    return counts;
+  }, [items, filterCategories, filterStatuses, debouncedSearch]);
+
+  const toFacetOptions = (
+    values: string[],
+    key: FacetKey,
+  ): MultiSelectOption[] =>
+    values.map((v) => ({
+      value: v,
+      label: v,
+      count: facetCounts[key][v] || 0,
+    }));
+
   const filteredItems = React.useMemo(() => {
-    let result = items;
-
-    if (selectedKeyword !== "all") {
-      result = result.filter((item) => item.keyword === selectedKeyword);
-    }
-
-    if (statusFilter !== "all") {
-      result = result.filter((item) => item.status === statusFilter);
-    }
-
-    if (debouncedSearch) {
-      const lower = debouncedSearch.toLowerCase();
-      result = result.filter(
-        (item) =>
-          (item.title && item.title.toLowerCase().indexOf(lower) >= 0) ||
-          (item.pn && item.pn.toLowerCase().indexOf(lower) >= 0) ||
-          (item.description &&
-            item.description.toLowerCase().indexOf(lower) >= 0) ||
-          (item.commonlyUsedNames &&
-            item.commonlyUsedNames.toLowerCase().indexOf(lower) >= 0) ||
-          (item.keyword && item.keyword.toLowerCase().indexOf(lower) >= 0) ||
-          (item.subtitle && item.subtitle.toLowerCase().indexOf(lower) >= 0),
+    const dir = sortOrder === "za" ? -1 : 1;
+    return items
+      .filter((item) => passesFilters(item))
+      .sort(
+        (a, b) =>
+          dir *
+          (a.title || a.pn || "").localeCompare(b.title || b.pn || "", undefined, {
+            numeric: true,
+            sensitivity: "base",
+          }),
       );
-    }
-
-    return result;
-  }, [items, selectedKeyword, statusFilter, debouncedSearch]);
+  }, [items, filterCategories, filterStatuses, debouncedSearch, sortOrder]);
 
   const clearFilters = (): void => {
     setSearchTerm("");
-    setSelectedKeyword("all");
-    setStatusFilter("all");
+    setFilterCategories([]);
+    setFilterStatuses([]);
   };
 
   const hasActiveFilters =
-    searchTerm !== "" || selectedKeyword !== "all" || statusFilter !== "all";
+    searchTerm !== "" ||
+    filterCategories.length > 0 ||
+    filterStatuses.length > 0;
 
   return (
     <div className={styles.page}>
       <PageHeader
         title="Assets Catalog"
-        subtitle={`${filteredItems.length} of ${items.length} assets`}
+        subtitle={`${items.length} ${items.length === 1 ? "asset" : "assets"}`}
         icon={
           <svg
             width="28"
@@ -137,155 +191,84 @@ export const AssetsCatalogPage: React.FC = () => {
         }
       />
 
-      {/* Toolbar: Search + Filters + View Toggle */}
-      <div className={styles.toolbar}>
-        <div className={styles.searchWrapper}>
-          <svg
-            className={styles.searchIcon}
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+      <div className={styles.filterBar}>
+        <div className={styles.filterSearch}>
+          <Search size={15} className={styles.filterSearchIcon} />
           <input
             type="text"
+            className={styles.filterSearchInput}
             placeholder="Search by title, PN, description, keyword..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className={styles.searchInput}
+            onChange={(e) => setSearchTerm(e.currentTarget.value)}
+            aria-label="Search assets"
           />
           {searchTerm && (
             <button
-              className={styles.clearBtn}
+              type="button"
+              className={styles.searchClearBtn}
               onClick={() => setSearchTerm("")}
               title="Clear search"
+              aria-label="Clear search"
             >
-              ✕
+              <X size={14} />
             </button>
           )}
         </div>
-
-        <div className={styles.filterGroup}>
-          <select
-            value={selectedKeyword}
-            onChange={(e) => setSelectedKeyword(e.target.value)}
-            className={styles.filterSelect}
-          >
-            <option value="all">All Categories</option>
-            {keywords.map((kw) => (
-              <option key={kw} value={kw}>
-                {kw}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className={styles.filterSelect}
-          >
-            <option value="all">All Statuses</option>
-            {statuses.map((st) => (
-              <option key={st} value={st}>
-                {st}
-              </option>
-            ))}
-          </select>
-
-          {hasActiveFilters && (
-            <button className={styles.clearFiltersBtn} onClick={clearFilters}>
-              Clear Filters
-            </button>
-          )}
-        </div>
-
-        <div className={styles.viewToggle}>
+        <MultiSelectDropdown
+          label="Category"
+          options={toFacetOptions(keywords, "category")}
+          selected={filterCategories}
+          onChange={setFilterCategories}
+        />
+        <MultiSelectDropdown
+          label="Status"
+          options={toFacetOptions(statuses, "status")}
+          selected={filterStatuses}
+          onChange={setFilterStatuses}
+        />
+        {hasActiveFilters && (
           <button
-            className={`${styles.viewBtn} ${viewMode === "grid" ? styles.viewBtnActive : ""}`}
-            onClick={() => setViewMode("grid")}
-            title="Grid view"
+            type="button"
+            className={styles.clearFiltersBtn}
+            onClick={clearFilters}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-            </svg>
+            <X size={14} /> Clear
           </button>
-          <button
-            className={`${styles.viewBtn} ${viewMode === "list" ? styles.viewBtnActive : ""}`}
-            onClick={() => setViewMode("list")}
-            title="List view"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <line x1="8" y1="6" x2="21" y2="6" />
-              <line x1="8" y1="12" x2="21" y2="12" />
-              <line x1="8" y1="18" x2="21" y2="18" />
-              <line x1="3" y1="6" x2="3.01" y2="6" />
-              <line x1="3" y1="12" x2="3.01" y2="12" />
-              <line x1="3" y1="18" x2="3.01" y2="18" />
-            </svg>
-          </button>
-        </div>
+        )}
+        <span className={styles.resultCount}>
+          <strong>{filteredItems.length}</strong>{" "}
+          {hasActiveFilters ? `of ${items.length} ` : ""}
+          {items.length === 1 ? "asset" : "assets"}
+        </span>
+        <SegmentedControl<SortOrder>
+          value={sortOrder}
+          segments={[
+            {
+              value: "az",
+              label: "A-Z",
+              icon: <ArrowDownAZ size={14} />,
+              title: "Sort by title, A to Z",
+            },
+            {
+              value: "za",
+              label: "Z-A",
+              icon: <ArrowDownZA size={14} />,
+              title: "Sort by title, Z to A",
+            },
+          ]}
+          onChange={setSortOrder}
+          ariaLabel="Sort order"
+        />
+        <SegmentedControl<ViewMode>
+          value={viewMode}
+          segments={[
+            { value: "grid", label: "Cards", icon: <LayoutGrid size={14} /> },
+            { value: "list", label: "List", icon: <LayoutList size={14} /> },
+          ]}
+          onChange={setViewMode}
+          ariaLabel="View"
+        />
       </div>
-
-      {/* Active filter pills */}
-      {hasActiveFilters && (
-        <div className={styles.filterPills}>
-          {selectedKeyword !== "all" && (
-            <span className={styles.pill}>
-              Category: {selectedKeyword}
-              <button
-                className={styles.pillClose}
-                onClick={() => setSelectedKeyword("all")}
-              >
-                ✕
-              </button>
-            </span>
-          )}
-          {statusFilter !== "all" && (
-            <span className={styles.pill}>
-              Status: {statusFilter}
-              <button
-                className={styles.pillClose}
-                onClick={() => setStatusFilter("all")}
-              >
-                ✕
-              </button>
-            </span>
-          )}
-          {debouncedSearch && (
-            <span className={styles.pill}>
-              Search: &quot;{debouncedSearch}&quot;
-              <button
-                className={styles.pillClose}
-                onClick={() => setSearchTerm("")}
-              >
-                ✕
-              </button>
-            </span>
-          )}
-        </div>
-      )}
 
       {/* Loading state */}
       {isLoading && (

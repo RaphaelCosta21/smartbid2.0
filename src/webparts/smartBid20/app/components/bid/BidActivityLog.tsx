@@ -22,6 +22,7 @@ import {
   Send,
   ShieldAlert,
   ShieldCheck,
+  ShieldX,
   Sparkles,
   UserCheck,
   Users,
@@ -63,6 +64,7 @@ const ACTIVITY_ICONS: Record<string, LucideIcon> = {
   PHASE_CHANGED: GitBranch,
   APPROVAL_REQUESTED: Send,
   APPROVAL_RESPONSE: ShieldCheck,
+  APPROVAL_REJECTED: ShieldX,
   APPROVAL_OVERRIDE: FastForward,
   APPROVAL_SECTOR_WAIVED: Ban,
   APPROVAL_SECTOR_REINSTATED: RotateCcw,
@@ -122,15 +124,31 @@ function renderDetail(entry: IActivityLogEntry): React.ReactNode {
     case "STATUS_CHANGED": {
       const from = metaString(entry, "fromStatus");
       const to = metaString(entry, "toStatus");
+      const note = metaString(entry, "note");
       if (from && to) {
         return (
-          <Transition
-            from={<StatusBadge status={from} />}
-            to={<StatusBadge status={to} />}
-          />
+          <>
+            <Transition
+              from={<StatusBadge status={from} />}
+              to={<StatusBadge status={to} />}
+            />
+            {note && <p className={styles.description}>{note}</p>}
+          </>
         );
       }
       break;
+    }
+    case "APPROVAL_RESPONSE":
+    case "APPROVAL_REJECTED": {
+      const comments = metaString(entry, "comments");
+      return (
+        <>
+          <p className={styles.description}>{entry.description}</p>
+          {comments && (
+            <blockquote className={styles.quote}>{comments}</blockquote>
+          )}
+        </>
+      );
     }
     case "PHASE_CHANGE": {
       const prevPhase = metaString(entry, "previousPhase");

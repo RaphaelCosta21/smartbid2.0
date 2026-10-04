@@ -33,6 +33,81 @@ export class DocLibraryCatalogService {
     return SHAREPOINT_CONFIG.siteUrl.replace(/\/sites\/.*$/, "");
   }
 
+  private static _driveIdPromise: Promise<string> | null = null;
+
+  /** GET against the SharePoint v2.0 (OneDrive) API; same-origin cookies authenticate it. */
+  private static async _vroomGet(url: string): Promise<any> {
+    const res = await fetch(url, {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+    return res.json();
+  }
+
+  /** Drive id of the catalog library, resolved once per session. */
+  private static _getDriveId(): Promise<string> {
+    if (!DocLibraryCatalogService._driveIdPromise) {
+      const libPath =
+        SHAREPOINT_CONFIG.docLibrary.serverRelativeUrl.toLowerCase();
+      DocLibraryCatalogService._driveIdPromise =
+        DocLibraryCatalogService._vroomGet(
+          `${SHAREPOINT_CONFIG.siteUrl}/_api/v2.0/drives?$select=id,webUrl`,
+        )
+          .then((data) => {
+            const drives: { id: string; webUrl: string }[] = data.value || [];
+            const match = drives.find(
+              (d) =>
+                decodeURIComponent(
+                  (d.webUrl || "").replace(/^https?:\/\/[^/]+/, ""),
+                ).toLowerCase() === libPath,
+            );
+            if (!match) throw new Error("Catalog library drive not found");
+            return match.id;
+          })
+          .catch((err) => {
+            DocLibraryCatalogService._driveIdPromise = null;
+            throw err;
+          });
+    }
+    return DocLibraryCatalogService._driveIdPromise;
+  }
+
+  /**
+   * Thumbnail URLs (keyed by lower-cased file name) for every file in a folder,
+   * from the OneDrive thumbnails API. Replaces getpreview.ashx, which no longer
+   * renders previews for most files.
+   */
+  public static async getThumbnailUrls(
+    folderServerRelativeUrl: string,
+  ): Promise<Record<string, string>> {
+    const driveId = await DocLibraryCatalogService._getDriveId();
+    const libPath = SHAREPOINT_CONFIG.docLibrary.serverRelativeUrl;
+    const relPath = folderServerRelativeUrl
+      .substring(libPath.length)
+      .replace(/^\/+|\/+$/g, "");
+    const base = `${SHAREPOINT_CONFIG.siteUrl}/_api/v2.0/drives/${driveId}`;
+    let url: string | undefined = `${base}/${
+      relPath
+        ? `root:/${relPath.split("/").map(encodeURIComponent).join("/")}:`
+        : "root"
+    }/children?$expand=thumbnails&$top=500`;
+
+    const result: Record<string, string> = {};
+    while (url) {
+      const data = await DocLibraryCatalogService._vroomGet(url);
+      (data.value || []).forEach((entry: any) => {
+        const set = entry.thumbnails && entry.thumbnails[0];
+        const thumb = set && (set.large || set.medium || set.small);
+        if (entry.name && thumb && thumb.url) {
+          result[String(entry.name).toLowerCase()] = thumb.url;
+        }
+      });
+      url = data["@odata.nextLink"];
+    }
+    return result;
+  }
+
   /** Build the SharePoint native first-page preview URL for a file */
   public static buildPreviewUrl(fileAbsoluteUrl: string): string {
     return `${SHAREPOINT_CONFIG.siteUrl}/_layouts/15/getpreview.ashx?path=${encodeURIComponent(

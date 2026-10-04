@@ -1,6 +1,7 @@
 /**
  * EquipmentImportModal — Multi-source equipment browser for importing PN + Description
- * into Scope of Supply rows. Navigable tabs: Favorites, BOM Costs, Quotations, Query Consulting.
+ * into Scope of Supply rows. Tabs: All Sources (global search), Favorites, Assets Catalog,
+ * BOM Costs, Quotations, Query Consulting.
  */
 import * as React from "react";
 import styles from "./EquipmentImportModal.module.scss";
@@ -13,10 +14,15 @@ import { BomCostAnalysisService } from "../../services/BomCostAnalysisService";
 import { IAssetCatalogItem } from "../../models/IAssetCatalog";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import { PhotoLightbox } from "../common/PhotoLightbox";
+import { EmptyState } from "../common/EmptyState";
+import { SkeletonLoader } from "../common/SkeletonLoader";
+import { useDebounce } from "../../hooks/useDebounce";
+import { formatDate } from "../../utils/formatters";
 import {
   IBomCostAnalysis,
   IFavoriteEquipment,
   IFavoriteGroup,
+  IQueryCatalogData,
   IQuotationItem,
 } from "../../models";
 
@@ -51,7 +57,10 @@ export interface EquipmentImportModalProps {
 
 /* ────────── tab definition ────────── */
 
-type TabId = "favorites" | "bom" | "quotations" | "query" | "assets";
+type TabId = "all" | "favorites" | "bom" | "quotations" | "query" | "assets";
+type SourceTabId = Exclude<TabId, "all">;
+type QueryTabKey = "financials" | "brazil";
+type QuerySubTabKey = "priceConsulting" | "activeRegistered";
 
 interface TabDef {
   id: TabId;
@@ -168,13 +177,346 @@ const PackageIcon = (
   </svg>
 );
 
+const LayersIcon = (
+  <svg
+    viewBox="0 0 24 24"
+    width="15"
+    height="15"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+    <polyline points="2 17 12 22 22 17" />
+    <polyline points="2 12 12 17 22 12" />
+  </svg>
+);
+const ChevronRightIcon = (
+  <svg
+    viewBox="0 0 24 24"
+    width="12"
+    height="12"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+  >
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+const DatabaseIcon = (
+  <svg
+    viewBox="0 0 24 24"
+    width="14"
+    height="14"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <ellipse cx="12" cy="5" rx="9" ry="3" />
+    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+  </svg>
+);
+const CornerDownRightIcon = (
+  <svg
+    viewBox="0 0 24 24"
+    width="14"
+    height="14"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <polyline points="15 10 20 15 15 20" />
+    <path d="M4 4v7a4 4 0 004 4h12" />
+  </svg>
+);
+
+const QUERY_SOURCES: [QueryTabKey, string][] = [
+  ["financials", "Peoplesoft Financials"],
+  ["brazil", "Peoplesoft Brazil"],
+];
+const QUERY_VIEWS: [QuerySubTabKey, string][] = [
+  ["priceConsulting", "Price Consulting"],
+  ["activeRegistered", "Active Registered with Manuf."],
+];
+const QUERY_COUNT_TITLE = "Matches by part number or description";
+
 const TABS: TabDef[] = [
+  { id: "all", label: "All Sources", icon: LayersIcon },
   { id: "favorites", label: "Favorites", icon: StarIcon },
   { id: "assets", label: "Assets Catalog", icon: PackageIcon },
   { id: "bom", label: "BOM Costs", icon: CubeIcon },
   { id: "quotations", label: "Quotations", icon: FileTextIcon },
   { id: "query", label: "Query Consulting", icon: SearchIcon },
 ];
+
+const TAB_BY_ID: Record<string, TabDef> = {};
+TABS.forEach((t) => (TAB_BY_ID[t.id] = t));
+
+/* ────────── search helpers ────────── */
+
+const MIN_GLOBAL_CHARS = 2;
+const GLOBAL_ROWS_PER_SECTION = 5;
+const GLOBAL_COUNT_CAP = 1000;
+const QUOTATIONS_LIMIT = 50;
+const ASSETS_LIMIT = 80;
+
+const EMPTY_SEARCHES: Record<TabId, string> = {
+  all: "",
+  favorites: "",
+  assets: "",
+  bom: "",
+  quotations: "",
+  query: "",
+};
+
+const SEARCH_PLACEHOLDERS: Record<TabId, string> = {
+  all: "Search all sources by part number or description...",
+  favorites: "Filter Favorites by part number or description...",
+  assets: "Filter Assets Catalog by part number or description...",
+  bom: "Filter BOM Costs by part number or description...",
+  quotations:
+    "Filter Quotations by part number, description, supplier or date...",
+  query: "Search Peoplesoft Financials and Peoplesoft Brazil...",
+};
+
+function toWords(term: string): string[] {
+  return term.toLowerCase().trim().split(/\s+/).filter(Boolean);
+}
+
+/** Every word must appear somewhere in the joined fields (PN, description, ...) */
+function matchesWords(words: string[], fields: string[]): boolean {
+  if (words.length === 0) return true;
+  const hay = fields.join(" ").toLowerCase();
+  for (let i = 0; i < words.length; i++) {
+    if (hay.indexOf(words[i]) < 0) return false;
+  }
+  return true;
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function highlight(text: string, words: string[]): React.ReactNode {
+  if (!text || words.length === 0) return text;
+  const re = new RegExp(`(${words.map(escapeRegExp).join("|")})`, "ig");
+  // split() with a capture group puts the matches at odd indexes
+  return text.split(re).map((part, i) =>
+    i % 2 === 1 ? (
+      <mark key={i} className={styles.hl}>
+        {part}
+      </mark>
+    ) : (
+      part
+    ),
+  );
+}
+
+function quoteTime(q: IQuotationItem): number {
+  return Date.parse(q.quotationDate || q.createdDate || "") || 0;
+}
+
+function formatCount(count: number, capped: boolean, max: number): string {
+  return capped || count > max ? `${max}+` : String(count);
+}
+
+/* ────────── global search ────────── */
+
+interface IGlobalHit {
+  pn: string;
+  desc: string;
+  meta?: string;
+}
+
+interface IGlobalSection {
+  id: string;
+  tab: SourceTabId;
+  queryTab?: QueryTabKey;
+  querySubTab?: QuerySubTabKey;
+  label: string;
+  path?: string;
+  count: number;
+  capped: boolean;
+  loading: boolean;
+  rows: IGlobalHit[];
+}
+
+interface IGlobalSearchInput {
+  words: string[];
+  favorites: IFavoriteEquipment[];
+  favGroupNames: Record<string, string>;
+  assets: IAssetCatalogItem[];
+  bom: IBomCostAnalysis[];
+  quotations: IQuotationItem[];
+  catalog: IQueryCatalogData | null;
+  loading: Record<SourceTabId, boolean>;
+}
+
+type SectionBase = Pick<
+  IGlobalSection,
+  "id" | "tab" | "queryTab" | "querySubTab" | "label" | "path"
+>;
+
+/** Counts matches (stops at GLOBAL_COUNT_CAP) and keeps the first few rows */
+function scanSource<T>(
+  base: SectionBase,
+  items: T[],
+  words: string[],
+  getPn: (item: T) => string,
+  getDesc: (item: T) => string,
+  loading: boolean,
+  getMeta?: (item: T) => string,
+): IGlobalSection {
+  const rows: IGlobalHit[] = [];
+  let count = 0;
+  let capped = false;
+  for (let i = 0; i < items.length; i++) {
+    const pn = (getPn(items[i]) || "").trim();
+    const desc = (getDesc(items[i]) || "").trim();
+    if (!matchesWords(words, [pn, desc])) continue;
+    if (count >= GLOBAL_COUNT_CAP) {
+      capped = true;
+      break;
+    }
+    count++;
+    if (rows.length < GLOBAL_ROWS_PER_SECTION) {
+      rows.push({ pn, desc, meta: getMeta ? getMeta(items[i]) : undefined });
+    }
+  }
+  return { ...base, count, capped, loading, rows };
+}
+
+function searchAllSources(input: IGlobalSearchInput): IGlobalSection[] {
+  const { words, catalog, loading } = input;
+  const sections: IGlobalSection[] = [];
+
+  sections.push(
+    scanSource(
+      { id: "favorites", tab: "favorites", label: "Favorites" },
+      input.favorites.filter((e) => !e.parentId),
+      words,
+      (e) => e.partNumber,
+      (e) => e.description,
+      loading.favorites,
+      (e) => input.favGroupNames[e.groupId] || "",
+    ),
+  );
+  sections.push(
+    scanSource(
+      { id: "assets", tab: "assets", label: "Assets Catalog" },
+      input.assets,
+      words,
+      (a) => a.pn || "",
+      (a) => a.title || a.description || "",
+      loading.assets,
+      (a) => a.keyword || "",
+    ),
+  );
+  sections.push(
+    scanSource(
+      { id: "bom", tab: "bom", label: "BOM Costs" },
+      input.bom,
+      words,
+      (a) => a.mainPartNumber,
+      (a) => a.mainDescription,
+      loading.bom,
+    ),
+  );
+  sections.push(
+    scanSource(
+      { id: "quotations", tab: "quotations", label: "Quotations" },
+      input.quotations,
+      words,
+      (q) => q.partNumber,
+      (q) => q.description,
+      loading.quotations,
+      (q) =>
+        [q.supplier, q.quotationDate ? formatDate(q.quotationDate) : ""]
+          .filter(Boolean)
+          .join(" · "),
+    ),
+  );
+
+  return sections.concat(searchQueryViews(words, catalog, loading.query));
+}
+
+/** Query Consulting: one section per view (source > sub-tab) */
+function searchQueryViews(
+  words: string[],
+  catalog: IQueryCatalogData | null,
+  loading: boolean,
+): IGlobalSection[] {
+  const sections: IGlobalSection[] = [];
+  const queryViews: {
+    id: string;
+    queryTab: QueryTabKey;
+    querySubTab: QuerySubTabKey;
+    path: string;
+    headers: string[];
+    rows: Record<string, any>[];
+  }[] = [
+    {
+      id: "query-fin-price",
+      queryTab: "financials",
+      querySubTab: "priceConsulting",
+      path: "Peoplesoft Financials > Price Consulting",
+      headers: catalog?.rawFinancials?.headers || [],
+      rows: catalog?.rawFinancials?.rows || [],
+    },
+    {
+      id: "query-fin-ar",
+      queryTab: "financials",
+      querySubTab: "activeRegistered",
+      path: "Peoplesoft Financials > Active Registered",
+      headers: catalog?.rawFinancialsActiveRegistered?.headers || [],
+      rows: catalog?.rawFinancialsActiveRegistered?.rows || [],
+    },
+    {
+      id: "query-br-price",
+      queryTab: "brazil",
+      querySubTab: "priceConsulting",
+      path: "Peoplesoft Brazil > Price Consulting",
+      headers: catalog?.rawBrazilBumbl?.headers || [],
+      rows: (catalog?.rawBrazilBumbl?.rows || []).concat(
+        catalog?.rawBrazilBumbr?.rows || [],
+      ),
+    },
+    {
+      id: "query-br-ar",
+      queryTab: "brazil",
+      querySubTab: "activeRegistered",
+      path: "Peoplesoft Brazil > Active Registered",
+      headers: catalog?.rawActiveRegistered?.headers || [],
+      rows: catalog?.rawActiveRegistered?.rows || [],
+    },
+  ];
+  queryViews.forEach((v) => {
+    const buKey = v.headers[0] || "";
+    const pnKey = v.headers[1] || "";
+    const descKey = v.headers[2] || "";
+    sections.push(
+      scanSource(
+        {
+          id: v.id,
+          tab: "query",
+          queryTab: v.queryTab,
+          querySubTab: v.querySubTab,
+          label: "Query Consulting",
+          path: v.path,
+        },
+        pnKey ? v.rows : [],
+        words,
+        (r) => String(r[pnKey] ?? ""),
+        (r) => String(r[descKey] ?? ""),
+        loading,
+        (r) => (buKey ? String(r[buKey] ?? "") : ""),
+      ),
+    );
+  });
+
+  return sections;
+}
 
 /* ────────── main component ────────── */
 
@@ -184,8 +526,18 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   multiSelect = false,
   onSelectMany,
 }) => {
-  const [activeTab, setActiveTab] = React.useState<TabId>("favorites");
-  const [search, setSearch] = React.useState("");
+  const [activeTab, setActiveTab] = React.useState<TabId>("all");
+  // Each tab keeps its own filter text; only All Sources searches everything
+  const [searches, setSearches] =
+    React.useState<Record<TabId, string>>(EMPTY_SEARCHES);
+  const search = searches[activeTab];
+  const setSearchFor = (tab: TabId, value: string): void =>
+    setSearches((prev) => ({ ...prev, [tab]: value }));
+  const setSearch = (value: string): void => setSearchFor(activeTab, value);
+  const debouncedGlobal = useDebounce(searches.all, 250);
+  const debouncedQuery = useDebounce(searches.query, 250);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const overlayPressRef = React.useRef(false);
   const [selectedItem, setSelectedItem] = React.useState<{
     pn: string;
     desc: string;
@@ -317,12 +669,9 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   }, [assetItems]);
 
   // ── Query Consulting tab state ──
-  type QueryTabKey = "financials" | "brazil";
-  type QuerySubTabKey = "priceConsulting" | "activeRegistered";
   const [queryTab, setQueryTab] = React.useState<QueryTabKey>("financials");
   const [querySubTab, setQuerySubTab] =
     React.useState<QuerySubTabKey>("priceConsulting");
-  const [querySearchCol, setQuerySearchCol] = React.useState<string>("");
   const [queryPage, setQueryPage] = React.useState(0);
   const [queryFilters, setQueryFilters] = React.useState<
     { id: string; column: string; value: string }[]
@@ -334,26 +683,41 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     setFavActiveSubGroup(null);
   }, [favActiveGroup]);
 
-  // Clear selection and search when changing tabs
-  React.useEffect(() => {
-    setSearch("");
-    setSelectedItem(null);
+  /** Picks survive tab changes; per-tab browsing state resets */
+  const switchTab = (
+    tab: TabId,
+    query?: { queryTab?: QueryTabKey; querySubTab?: QuerySubTabKey },
+  ): void => {
+    setActiveTab(tab);
     setFavActiveGroup(null);
     setFavActiveSubGroup(null);
     setExpandedFavItems(new Set());
     setIncludeSubItems(new Set());
     setAssetCategory(null);
-    setQueryTab("financials");
-    setQuerySubTab("priceConsulting");
-    setQuerySearchCol("");
+    setQueryTab(query?.queryTab || "financials");
+    setQuerySubTab(query?.querySubTab || "priceConsulting");
     setQueryPage(0);
     setQueryFilters([{ id: "f1", column: "", value: "" }]);
-  }, [activeTab]);
+    if (searchInputRef.current) searchInputRef.current.focus();
+  };
 
-  // ── Keyboard: Escape to close ──
+  // ── Keyboard: Escape clears the active tab's search first, then closes ──
+  const searchRef = React.useRef(search);
+  searchRef.current = search;
+  const activeTabRef = React.useRef(activeTab);
+  activeTabRef.current = activeTab;
+  // PhotoLightbox handles its own Escape
+  const lightboxOpenRef = React.useRef(false);
+  lightboxOpenRef.current = !!previewPhotoUrl;
   React.useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape" || lightboxOpenRef.current) return;
+      if (searchRef.current) {
+        setSearchFor(activeTabRef.current, "");
+        if (searchInputRef.current) searchInputRef.current.focus();
+        return;
+      }
+      onClose();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
@@ -362,12 +726,113 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   /* ──────── Helpers ──────── */
 
   const lowerSearch = search.toLowerCase().trim();
-  const searchWords = lowerSearch.split(/\s+/).filter(Boolean);
+  const searchWords = toWords(search);
 
-  const matchesSearch = (text: string): boolean => {
-    if (!lowerSearch) return true;
-    const lower = text.toLowerCase();
-    return searchWords.every((w) => lower.indexOf(w) >= 0);
+  const matchesSearch = (...fields: string[]): boolean =>
+    matchesWords(searchWords, fields);
+
+  /* ──────── All Sources search (only runs on that tab) ──────── */
+
+  const globalWords = React.useMemo(
+    () => toWords(debouncedGlobal),
+    [debouncedGlobal],
+  );
+  const globalActive =
+    activeTab === "all" &&
+    debouncedGlobal.trim().length >= MIN_GLOBAL_CHARS;
+  const isDebouncing = searches.all.trim() !== debouncedGlobal.trim();
+
+  const sortedQuotations = React.useMemo(
+    () => (quotations || []).slice().sort((a, b) => quoteTime(b) - quoteTime(a)),
+    [quotations],
+  );
+
+  const favGroupNames = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    groups.forEach((g) => (map[g.id] = g.name));
+    return map;
+  }, [groups]);
+
+  const globalSections = React.useMemo<IGlobalSection[] | null>(() => {
+    if (!globalActive) return null;
+    return searchAllSources({
+      words: globalWords,
+      favorites: favAllEquipment,
+      favGroupNames,
+      assets: assetItems,
+      bom: bomAnalyses,
+      quotations: sortedQuotations,
+      catalog: catalogData,
+      loading: {
+        favorites: favIsLoading,
+        assets: assetsLoading,
+        bom: bomLoading,
+        quotations: quotationsLoading,
+        query: catalogLoading,
+      },
+    });
+  }, [
+    globalActive,
+    globalWords,
+    favData,
+    favGroupNames,
+    assetItems,
+    bomAnalyses,
+    sortedQuotations,
+    catalogData,
+    favIsLoading,
+    assetsLoading,
+    bomLoading,
+    quotationsLoading,
+    catalogLoading,
+  ]);
+
+  // Query Consulting's own search drives the counters on its source / view tabs
+  const queryWords = React.useMemo(
+    () => toWords(debouncedQuery),
+    [debouncedQuery],
+  );
+  const querySections = React.useMemo<IGlobalSection[] | null>(() => {
+    if (
+      activeTab !== "query" ||
+      debouncedQuery.trim().length < MIN_GLOBAL_CHARS
+    )
+      return null;
+    return searchQueryViews(queryWords, catalogData, catalogLoading);
+  }, [activeTab, debouncedQuery, queryWords, catalogData, catalogLoading]);
+
+  /** Aggregated hit count of the matching sections (undefined when there is no search) */
+  const countIn = (
+    sections: IGlobalSection[] | null,
+    match: (s: IGlobalSection) => boolean,
+  ): { count: number; capped: boolean; loading: boolean } | undefined => {
+    if (!sections) return undefined;
+    let count = 0;
+    let capped = false;
+    let loading = false;
+    sections.forEach((s) => {
+      if (!match(s)) return;
+      count += s.count;
+      capped = capped || s.capped;
+      loading = loading || s.loading;
+    });
+    return { count, capped, loading };
+  };
+
+  const renderCountBadge = (
+    c: { count: number; capped: boolean; loading: boolean } | undefined,
+    max: number = 99,
+    title?: string,
+  ): JSX.Element | null => {
+    if (!c || (c.loading && c.count === 0)) return null;
+    return (
+      <span
+        className={`${styles.countBadge}${c.count === 0 ? ` ${styles.countBadgeEmpty}` : ""}`}
+        title={title}
+      >
+        {formatCount(c.count, c.capped, max)}
+      </span>
+    );
   };
 
   const pickKey = (pn: string, desc: string): string => `${pn}||${desc}`;
@@ -442,21 +907,52 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
           onClick={(e) => e.stopPropagation()}
           onChange={() => togglePick(pn, desc, subs)}
           title="Select"
+          aria-label={`Select ${pn || desc}`}
         />
       ) : (
         <button
+          type="button"
           className={styles.selectBtn}
           onClick={(e) => {
             e.stopPropagation();
             if (onSelect) onSelect(pn, desc, subs);
           }}
-          title="Select"
+          title="Import this item"
+          aria-label={`Import ${pn || desc}`}
         >
           {CheckIcon}
         </button>
       )}
     </div>
   );
+
+  const renderLoading = (label: string): JSX.Element => (
+    <div className={styles.loadingState} aria-busy="true">
+      <span className={styles.loadingLabel}>{label}</span>
+      <SkeletonLoader count={6} height={34} borderRadius={8} />
+    </div>
+  );
+
+  const renderEmpty = (
+    title: string,
+    description?: string,
+    icon: JSX.Element = SearchIcon,
+  ): JSX.Element => (
+    <EmptyState
+      title={title}
+      description={description}
+      icon={<span className={styles.emptyIcon}>{icon}</span>}
+      className={styles.emptyState}
+    />
+  );
+
+  const renderListHint = (shown: number, total: number): JSX.Element | null =>
+    total > shown ? (
+      <div className={styles.listHint}>
+        Showing {shown} of {total.toLocaleString()} items - refine your search
+        to narrow the list.
+      </div>
+    ) : null;
 
   /** Get child equipment items for a parent favorite */
   const getChildEquipment = (parentId: string): IFavoriteEquipment[] => {
@@ -494,13 +990,18 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   /* ──────── Tab: Favorites ──────── */
 
   const renderFavorites = (): JSX.Element => {
-    if (favIsLoading)
-      return <div className={styles.loadingState}>Loading favorites...</div>;
+    if (favIsLoading) return renderLoading("Loading favorites...");
     if (!favData || groups.length === 0)
-      return <div className={styles.emptyState}>No favorite groups found.</div>;
+      return renderEmpty(
+        "No favorite groups found",
+        "Favorite groups are managed in System Configuration.",
+        StarIcon,
+      );
 
     const activeGroupObj = groups.find((g) => g.id === favActiveGroup);
     const subGroups = activeGroupObj?.subGroups || [];
+    // Typing without a group selected searches every group
+    const searchingAllGroups = !favActiveGroup && !!lowerSearch;
 
     // Get parent-only equipment (no parentId)
     let equipment: IFavoriteEquipment[] = [];
@@ -509,12 +1010,14 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
         favActiveGroup,
         favActiveSubGroup || undefined,
       ).filter((e) => !e.parentId);
+    } else if (searchingAllGroups) {
+      equipment = favAllEquipment.filter((e) => !e.parentId);
     }
 
     // Filter by search
     if (lowerSearch) {
-      equipment = equipment.filter(
-        (e) => matchesSearch(e.partNumber) || matchesSearch(e.description),
+      equipment = equipment.filter((e) =>
+        matchesSearch(e.partNumber, e.description),
       );
     }
 
@@ -526,18 +1029,19 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
           <div className={styles.favGroupList}>
             {groups.map((g) => {
               const count = getGroupItemCount(g.id);
+              const isActive = favActiveGroup === g.id;
               return (
-                <div
+                <button
+                  type="button"
                   key={g.id}
-                  className={`${styles.favGroupItem}${favActiveGroup === g.id ? ` ${styles.favGroupActive}` : ""}`}
-                  onClick={() =>
-                    setFavActiveGroup(favActiveGroup === g.id ? null : g.id)
-                  }
+                  className={`${styles.favGroupItem}${isActive ? ` ${styles.favGroupActive}` : ""}`}
+                  onClick={() => setFavActiveGroup(isActive ? null : g.id)}
+                  aria-pressed={isActive}
                 >
                   <span className={styles.favGroupIcon}>{FolderIcon}</span>
                   <span className={styles.favGroupName}>{g.name}</span>
                   <span className={styles.favCount}>{count}</span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -545,16 +1049,24 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
 
         {/* Main content */}
         <div className={styles.favContent}>
-          {!favActiveGroup ? (
-            <div className={styles.emptyState}>
-              Select a group to browse equipment.
-            </div>
+          {!favActiveGroup && !searchingAllGroups ? (
+            renderEmpty(
+              "Select a group",
+              "Pick a group on the left to browse its equipment, or type above to search all groups.",
+              FolderIcon,
+            )
           ) : (
             <>
+              {searchingAllGroups && (
+                <div className={styles.listHint}>
+                  Searching all groups. Select a group to narrow the results.
+                </div>
+              )}
               {/* Sub-group chips */}
               {subGroups.length > 0 && (
                 <div className={styles.subGroupChips}>
                   <button
+                    type="button"
                     className={`${styles.chip}${!favActiveSubGroup ? ` ${styles.chipActive}` : ""}`}
                     onClick={() => setFavActiveSubGroup(null)}
                   >
@@ -564,6 +1076,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                     const sgCount = getSubGroupItemCount(sg.id);
                     return (
                       <button
+                        type="button"
                         key={sg.id}
                         className={`${styles.chip}${favActiveSubGroup === sg.id ? ` ${styles.chipActive}` : ""}`}
                         onClick={() => setFavActiveSubGroup(sg.id)}
@@ -578,11 +1091,14 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
 
               {/* Equipment list */}
               {equipment.length === 0 ? (
-                <div className={styles.emptyState}>
-                  {lowerSearch
-                    ? "No matches found."
-                    : "No equipment in this group."}
-                </div>
+                lowerSearch ? (
+                  renderEmpty(
+                    "No matches found",
+                    "Try another part number or description.",
+                  )
+                ) : (
+                  renderEmpty("No equipment in this group", undefined, StarIcon)
+                )
               ) : (
                 <div className={styles.resultTable}>
                   <div className={styles.resultHeader}>
@@ -628,6 +1144,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                           <div className={styles.colExpand}>
                             {hasChildren && (
                               <button
+                                type="button"
                                 className={`${styles.expandBtn}${isExpanded ? ` ${styles.expandBtnOpen}` : ""}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -638,6 +1155,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                                     ? "Collapse sub-items"
                                     : "Show sub-items"
                                 }
+                                aria-expanded={isExpanded}
                               >
                                 <svg
                                   viewBox="0 0 24 24"
@@ -660,7 +1178,6 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                                   className={styles.favThumb}
                                   src={photoUrl}
                                   alt=""
-                                  style={{ cursor: "zoom-in" }}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setPreviewPhotoUrl(photoUrl);
@@ -679,6 +1196,12 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                           </div>
                           <div className={styles.colDesc}>
                             {eq.description || "-"}
+                            {searchingAllGroups &&
+                              favGroupNames[eq.groupId] && (
+                                <span className={styles.metaChip}>
+                                  {favGroupNames[eq.groupId]}
+                                </span>
+                              )}
                             {hasChildren && (
                               <span className={styles.childBadge}>
                                 {children.length} sub-item
@@ -764,31 +1287,27 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   /* ──────── Tab: BOM Costs ──────── */
 
   const renderBomCosts = (): JSX.Element => {
-    if (bomLoading)
-      return <div className={styles.loadingState}>Loading BOM analyses...</div>;
+    if (bomLoading) return renderLoading("Loading BOM analyses...");
 
     if (bomAnalyses.length === 0)
-      return (
-        <div className={styles.emptyState}>No saved BOM analyses found.</div>
+      return renderEmpty(
+        "No saved BOM analyses",
+        "Analyses saved from BOM Costs will show up here.",
+        CubeIcon,
       );
 
     // Filter by search
     let filtered = bomAnalyses;
     if (lowerSearch) {
-      filtered = bomAnalyses.filter(
-        (a) =>
-          a.mainPartNumber.toLowerCase().indexOf(lowerSearch) >= 0 ||
-          a.mainDescription.toLowerCase().indexOf(lowerSearch) >= 0,
+      filtered = bomAnalyses.filter((a) =>
+        matchesSearch(a.mainPartNumber, a.mainDescription),
       );
     }
 
     if (filtered.length === 0)
-      return (
-        <div className={styles.tabBody}>
-          <div className={styles.emptyState}>
-            No BOM analyses match your search.
-          </div>
-        </div>
+      return renderEmpty(
+        "No BOM analyses match your search",
+        "Try another part number or description.",
       );
 
     return (
@@ -831,29 +1350,27 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   /* ──────── Tab: Quotations ──────── */
 
   const renderQuotations = (): JSX.Element => {
-    if (quotationsLoading)
-      return <div className={styles.loadingState}>Loading quotations...</div>;
+    if (quotationsLoading) return renderLoading("Loading quotations...");
 
-    let filtered: IQuotationItem[] = quotations || [];
+    let filtered: IQuotationItem[] = sortedQuotations;
     if (lowerSearch) {
-      filtered = filtered.filter(
-        (q) =>
-          matchesSearch(q.partNumber) ||
-          matchesSearch(q.description) ||
-          matchesSearch(q.supplier || ""),
+      filtered = filtered.filter((q) =>
+        matchesSearch(
+          q.partNumber,
+          q.description,
+          q.supplier || "",
+          q.quotationDate ? formatDate(q.quotationDate) : "",
+        ),
       );
     }
 
     if (filtered.length === 0)
-      return (
-        <div className={styles.tabBody}>
-          <div className={styles.emptyState}>
-            {lowerSearch
-              ? "No quotations match your search."
-              : "No quotations available."}
-          </div>
-        </div>
-      );
+      return lowerSearch
+        ? renderEmpty(
+            "No quotations match your search",
+            "Search by part number, description, supplier or date.",
+          )
+        : renderEmpty("No quotations available", undefined, FileTextIcon);
 
     return (
       <div className={styles.tabBody}>
@@ -862,9 +1379,12 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
             <div className={styles.colPn}>Part Number</div>
             <div className={styles.colDesc}>Description</div>
             <div className={styles.colSupplier}>Supplier</div>
+            <div className={styles.colDate} title="Quotation date">
+              Date
+            </div>
             <div className={styles.colAction}></div>
           </div>
-          {filtered.slice(0, 50).map((q) => {
+          {filtered.slice(0, QUOTATIONS_LIMIT).map((q) => {
             const isSelected = isRowSelected(q.partNumber, q.description);
             return (
               <div
@@ -879,12 +1399,18 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                   {q.partNumber || "-"}
                 </div>
                 <div className={styles.colDesc}>{q.description || "-"}</div>
-                <div className={styles.colSupplier}>{q.supplier || "-"}</div>
+                <div className={styles.colSupplier} title={q.supplier || ""}>
+                  {q.supplier || "-"}
+                </div>
+                <div className={styles.colDate}>
+                  {formatDate(q.quotationDate)}
+                </div>
                 {renderSelectCell(q.partNumber, q.description)}
               </div>
             );
           })}
         </div>
+        {renderListHint(QUOTATIONS_LIMIT, filtered.length)}
       </div>
     );
   };
@@ -898,8 +1424,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   };
 
   const renderQueryConsulting = (): JSX.Element => {
-    if (catalogLoading)
-      return <div className={styles.loadingState}>Loading catalog...</div>;
+    if (catalogLoading) return renderLoading("Loading Query catalog...");
 
     // Raw data sources
     const rawFin = catalogData?.rawFinancials;
@@ -938,83 +1463,65 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     const pnColKey = activeHeaders[1] || "";
     const descColKey = activeHeaders[2] || "";
 
-    // Search column options for single-filter mode
-    const searchColOptions: { key: string; label: string }[] = [];
-    if (queryTab === "financials") {
-      if (activeHeaders[1])
-        searchColOptions.push({ key: activeHeaders[1], label: "PART NUMBER" });
-      if (activeHeaders[2])
-        searchColOptions.push({ key: activeHeaders[2], label: "DESCRIPTION" });
-    } else if (querySubTab === "priceConsulting") {
-      if (activeHeaders[1])
-        searchColOptions.push({ key: activeHeaders[1], label: "PART NUMBER" });
-      if (activeHeaders[2])
-        searchColOptions.push({ key: activeHeaders[2], label: "DESCRIPTION" });
-      if (activeHeaders[17])
-        searchColOptions.push({ key: activeHeaders[17], label: "VENDOR" });
-    }
-
-    // Multi-filter column options (Active Registered sub-tabs)
-    const multiColOptions: { key: string; label: string }[] = [];
+    // Column filter options: Price Consulting has one filter, Active Registered up to 3
+    const filterColOptions: { key: string; label: string }[] = [];
     if (isFinancialsAR) {
       // BUSINESS UNIT, PART NUMBER, DESCRIPTION, MFG NAME, MFG REF
       activeHeaders.slice(0, 5).forEach((h) => {
-        if (h) multiColOptions.push({ key: h, label: h });
+        if (h) filterColOptions.push({ key: h, label: h });
       });
     } else if (isMultiFilter) {
       if (activeHeaders[0])
-        multiColOptions.push({ key: activeHeaders[0], label: "BUSINESS UNIT" });
+        filterColOptions.push({ key: activeHeaders[0], label: "BUSINESS UNIT" });
       if (activeHeaders[1])
-        multiColOptions.push({ key: activeHeaders[1], label: "PART NUMBER" });
+        filterColOptions.push({ key: activeHeaders[1], label: "PART NUMBER" });
       if (activeHeaders[2])
-        multiColOptions.push({ key: activeHeaders[2], label: "DESCRIPTION" });
+        filterColOptions.push({ key: activeHeaders[2], label: "DESCRIPTION" });
       if (activeHeaders[13])
-        multiColOptions.push({ key: activeHeaders[13], label: "MFG NAME" });
+        filterColOptions.push({ key: activeHeaders[13], label: "MFG NAME" });
       if (activeHeaders[14])
-        multiColOptions.push({ key: activeHeaders[14], label: "MFG REF." });
+        filterColOptions.push({ key: activeHeaders[14], label: "MFG REF." });
       if (activeHeaders[17])
-        multiColOptions.push({ key: activeHeaders[17], label: "VENDOR" });
+        filterColOptions.push({ key: activeHeaders[17], label: "VENDOR" });
+    } else {
+      if (activeHeaders[1])
+        filterColOptions.push({ key: activeHeaders[1], label: "PART NUMBER" });
+      if (activeHeaders[2])
+        filterColOptions.push({ key: activeHeaders[2], label: "DESCRIPTION" });
+      if (queryTab === "brazil" && activeHeaders[17])
+        filterColOptions.push({ key: activeHeaders[17], label: "VENDOR" });
     }
 
-    // Initialize search column if not set
-    const effectiveSearchCol =
-      querySearchCol ||
-      (searchColOptions.length > 0 ? searchColOptions[0].key : pnColKey);
     // Filters reset on tab switch before the new headers exist — empty column = first option
-    const defaultMultiCol = multiColOptions[0]?.key || "";
+    const defaultFilterCol = filterColOptions[0]?.key || "";
 
-    // Filter rows
+    // Filter rows: main search (PN or description) AND the column filters
+    const activeFilters = queryFilters.filter((f) => f.value.trim() !== "");
+    const useMainSearch = lowerSearch.length >= MIN_GLOBAL_CHARS;
     let filtered = activeRows;
-    if (isMultiFilter) {
-      // Multi-filter: all active filters must match (AND logic)
-      const activeFilters = queryFilters.filter((f) => f.value.trim() !== "");
-      if (activeFilters.length > 0) {
-        filtered = activeRows.filter((row) => {
-          for (let j = 0; j < activeFilters.length; j++) {
-            const cell = String(
-              row[activeFilters[j].column || defaultMultiCol] || "",
-            ).toLowerCase();
-            const tokens = activeFilters[j].value
-              .toLowerCase()
-              .split(" ")
-              .filter((t) => t.trim());
-            for (let t = 0; t < tokens.length; t++) {
-              if (cell.indexOf(tokens[t]) < 0) return false;
-            }
+    if (activeFilters.length > 0 || useMainSearch) {
+      filtered = activeRows.filter((row) => {
+        if (
+          useMainSearch &&
+          !matchesWords(searchWords, [
+            `${row[pnColKey] ?? ""} ${row[descColKey] ?? ""}`,
+          ])
+        )
+          return false;
+        for (let j = 0; j < activeFilters.length; j++) {
+          const cell = String(
+            row[activeFilters[j].column || defaultFilterCol] || "",
+          ).toLowerCase();
+          const tokens = activeFilters[j].value
+            .toLowerCase()
+            .split(" ")
+            .filter((t) => t.trim());
+          for (let t = 0; t < tokens.length; t++) {
+            if (cell.indexOf(tokens[t]) < 0) return false;
           }
-          return true;
-        });
-      }
-    } else {
-      // Single filter using the modal's main search input
-      if (lowerSearch.length >= 2) {
-        filtered = activeRows.filter((row) => {
-          const cell = String(row[effectiveSearchCol] || "").toLowerCase();
-          return searchWords.every((w) => cell.indexOf(w) >= 0);
-        });
-      } else if (lowerSearch.length > 0) {
-        filtered = [];
-      }
+        }
+        return true;
+      });
     }
 
     const totalFiltered = filtered.length;
@@ -1074,7 +1581,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
       if (queryFilters.length >= 3) return;
       const newF = {
         id: "f" + Date.now(),
-        column: multiColOptions[0]?.key || "",
+        column: defaultFilterCol,
         value: "",
       };
       setQueryFilters([...queryFilters, newF]);
@@ -1103,128 +1610,136 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
       setQueryPage(0);
     };
 
+    const selectQueryTab = (tab: QueryTabKey): void => {
+      setQueryTab(tab);
+      setQuerySubTab("priceConsulting");
+      setQueryPage(0);
+      setQueryFilters([{ id: "f1", column: "", value: "" }]);
+    };
+    const selectQuerySubTab = (sub: QuerySubTabKey): void => {
+      setQuerySubTab(sub);
+      setQueryPage(0);
+      setQueryFilters([{ id: "f1", column: "", value: "" }]);
+    };
+    const sourceLabel =
+      QUERY_SOURCES.filter(([key]) => key === queryTab)[0]?.[1] || "";
+
     return (
       <div className={styles.queryLayout}>
-        {/* Main tabs: Financials / Brazil */}
-        <div className={styles.querySubTabs}>
-          <button
-            className={`${styles.querySubTab}${queryTab === "financials" ? ` ${styles.querySubTabActive}` : ""}`}
-            onClick={() => {
-              setQueryTab("financials");
-              setQuerySubTab("priceConsulting");
-              setQueryPage(0);
-              setQueryFilters([{ id: "f1", column: "", value: "" }]);
-            }}
-          >
-            Peoplesoft Financials
-          </button>
-          <button
-            className={`${styles.querySubTab}${queryTab === "brazil" ? ` ${styles.querySubTabActive}` : ""}`}
-            onClick={() => {
-              setQueryTab("brazil");
-              setQuerySubTab("priceConsulting");
-              setQueryPage(0);
-              setQueryFilters([{ id: "f1", column: "", value: "" }]);
-            }}
-          >
-            Peoplesoft Brazil
-          </button>
+        {/* Level 1: data source */}
+        <div
+          className={styles.querySourceTabs}
+          role="tablist"
+          aria-label="Data source"
+        >
+          {QUERY_SOURCES.map(([key, label]) => (
+            <button
+              type="button"
+              role="tab"
+              key={key}
+              className={`${styles.querySourceTab}${queryTab === key ? ` ${styles.querySourceTabActive}` : ""}`}
+              onClick={() => selectQueryTab(key)}
+              aria-selected={queryTab === key}
+            >
+              <span className={styles.tabIcon}>{DatabaseIcon}</span>
+              {label}
+              {renderCountBadge(
+                countIn(querySections, (s) => s.queryTab === key),
+                99,
+                QUERY_COUNT_TITLE,
+              )}
+            </button>
+          ))}
         </div>
 
-        {/* Sub-tabs: Price Consulting / Active Registered */}
-        <div className={styles.querySubTabs}>
-          <button
-            className={`${styles.querySubTab}${querySubTab === "priceConsulting" ? ` ${styles.querySubTabActive}` : ""}`}
-            onClick={() => {
-              setQuerySubTab("priceConsulting");
-              setQueryPage(0);
-              setQueryFilters([{ id: "f1", column: "", value: "" }]);
-            }}
-          >
-            Price Consulting
-          </button>
-          <button
-            className={`${styles.querySubTab}${querySubTab === "activeRegistered" ? ` ${styles.querySubTabActive}` : ""}`}
-            onClick={() => {
-              setQuerySubTab("activeRegistered");
-              setQueryPage(0);
-              setQueryFilters([
-                { id: "f1", column: multiColOptions[0]?.key || "", value: "" },
-              ]);
-            }}
-          >
-            Active Registered with Manuf.
-          </button>
-        </div>
+        {/* Level 2: views of the selected source, inside its panel */}
+        <div className={styles.queryPanel} role="tabpanel">
+          <div className={styles.queryViewRow}>
+            <span className={styles.queryViewLabel}>
+              {CornerDownRightIcon}
+              {sourceLabel} views
+            </span>
+            <div
+              className={styles.querySubTabs}
+              role="tablist"
+              aria-label={`${sourceLabel} views`}
+            >
+              {QUERY_VIEWS.map(([key, label]) => (
+                <button
+                  type="button"
+                  role="tab"
+                  key={key}
+                  className={`${styles.querySubTab}${querySubTab === key ? ` ${styles.querySubTabActive}` : ""}`}
+                  onClick={() => selectQuerySubTab(key)}
+                  aria-selected={querySubTab === key}
+                >
+                  {label}
+                  {renderCountBadge(
+                    countIn(
+                      querySections,
+                      (s) => s.queryTab === queryTab && s.querySubTab === key,
+                    ),
+                    99,
+                    QUERY_COUNT_TITLE,
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
 
-        {/* Filter area */}
+        {/* Column filters: one for Price Consulting, up to 3 for Active Registered */}
         <div className={styles.queryFilterBar}>
-          {isMultiFilter ? (
-            /* Multiple search filters */
-            <div className={styles.queryMultiFilterWrap}>
-              {queryFilters.map((filter) => (
-                <div key={filter.id} className={styles.queryMultiFilterRow}>
-                  <select
-                    className={styles.querySelect}
-                    value={filter.column || defaultMultiCol}
-                    onChange={(e) =>
-                      handleUpdateFilter(filter.id, e.target.value)
-                    }
-                  >
-                    {multiColOptions.map((opt) => (
-                      <option key={opt.key} value={opt.key}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="text"
-                    className={styles.queryInput}
-                    placeholder={`Search...`}
-                    value={filter.value}
-                    onChange={(e) =>
-                      handleUpdateFilter(filter.id, undefined, e.target.value)
-                    }
-                  />
+          <div className={styles.queryMultiFilterWrap}>
+            {queryFilters.map((filter) => (
+              <div key={filter.id} className={styles.queryMultiFilterRow}>
+                <select
+                  className={styles.querySelect}
+                  value={filter.column || defaultFilterCol}
+                  onChange={(e) =>
+                    handleUpdateFilter(filter.id, e.target.value)
+                  }
+                  aria-label="Filter column"
+                >
+                  {filterColOptions.map((opt) => (
+                    <option key={opt.key} value={opt.key}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  className={styles.queryInput}
+                  placeholder="Filter value..."
+                  value={filter.value}
+                  onChange={(e) =>
+                    handleUpdateFilter(filter.id, undefined, e.target.value)
+                  }
+                  aria-label="Filter value"
+                />
+                {isMultiFilter && (
                   <button
+                    type="button"
                     className={styles.queryRemoveBtn}
                     onClick={() => handleRemoveFilter(filter.id)}
                     disabled={queryFilters.length <= 1}
                     title="Remove filter"
+                    aria-label="Remove filter"
                   >
-                    ✕
+                    {CloseIcon}
                   </button>
-                </div>
-              ))}
-              {queryFilters.length < 3 && (
-                <button
-                  className={styles.queryAddFilterBtn}
-                  onClick={handleAddFilter}
-                >
-                  + Add Filter
-                </button>
-              )}
-            </div>
-          ) : (
-            /* Single search with column select */
-            <div className={styles.querySingleFilterRow}>
-              <span className={styles.queryFilterLabel}>Search by:</span>
-              <select
-                className={styles.querySelect}
-                value={effectiveSearchCol}
-                onChange={(e) => {
-                  setQuerySearchCol(e.target.value);
-                  setQueryPage(0);
-                }}
+                )}
+              </div>
+            ))}
+            {isMultiFilter && queryFilters.length < 3 && (
+              <button
+                type="button"
+                className={styles.queryAddFilterBtn}
+                onClick={handleAddFilter}
               >
-                {searchColOptions.map((opt) => (
-                  <option key={opt.key} value={opt.key}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+                + Add Filter
+              </button>
+            )}
+          </div>
           <span className={styles.queryResultCount}>
             {totalFiltered.toLocaleString()} result
             {totalFiltered !== 1 ? "s" : ""}
@@ -1232,14 +1747,11 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
         </div>
 
         {/* Data table */}
-        {!isMultiFilter && !lowerSearch ? (
-          <div className={styles.emptyState}>
-            Type in the search bar above to query data.
-          </div>
-        ) : !isMultiFilter && lowerSearch.length < 2 ? (
-          <div className={styles.emptyState}>Type at least 2 characters.</div>
-        ) : totalFiltered === 0 ? (
-          <div className={styles.emptyState}>No results found.</div>
+        {totalFiltered === 0 ? (
+          renderEmpty(
+            "No results found",
+            "Try another term, or switch the data source or view above.",
+          )
         ) : (
           <div className={styles.queryTableWrap}>
             <div className={styles.queryTable}>
@@ -1275,7 +1787,6 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                           className={styles.queryThumb}
                           src={photoUrl}
                           alt=""
-                          style={{ cursor: "zoom-in" }}
                           onClick={(e) => {
                             e.stopPropagation();
                             setPreviewPhotoUrl(photoUrl);
@@ -1313,16 +1824,20 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
         {totalFiltered > QUERY_PAGE_SIZE && (
           <div className={styles.queryPagination}>
             <button
+              type="button"
               className={styles.queryPageBtn}
               disabled={safePage === 0}
               onClick={() => setQueryPage(0)}
+              aria-label="First page"
             >
               ««
             </button>
             <button
+              type="button"
               className={styles.queryPageBtn}
               disabled={safePage === 0}
               onClick={() => setQueryPage(safePage - 1)}
+              aria-label="Previous page"
             >
               «
             </button>
@@ -1330,21 +1845,26 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
               Page {safePage + 1} of {totalPages}
             </span>
             <button
+              type="button"
               className={styles.queryPageBtn}
               disabled={safePage >= totalPages - 1}
               onClick={() => setQueryPage(safePage + 1)}
+              aria-label="Next page"
             >
               »
             </button>
             <button
+              type="button"
               className={styles.queryPageBtn}
               disabled={safePage >= totalPages - 1}
               onClick={() => setQueryPage(totalPages - 1)}
+              aria-label="Last page"
             >
               »»
             </button>
           </div>
         )}
+        </div>
       </div>
     );
   };
@@ -1352,12 +1872,9 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   /* ──────── Tab: Assets Catalog ──────── */
 
   const renderAssetsCatalog = (): JSX.Element => {
-    if (assetsLoading)
-      return (
-        <div className={styles.loadingState}>Loading assets catalog...</div>
-      );
+    if (assetsLoading) return renderLoading("Loading assets catalog...");
     if (assetItems.length === 0)
-      return <div className={styles.emptyState}>No assets found.</div>;
+      return renderEmpty("No assets found", undefined, PackageIcon);
 
     // Filter items by selected category and search
     let filtered = assetItems;
@@ -1365,11 +1882,8 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
       filtered = filtered.filter((item) => item.keyword === assetCategory);
     }
     if (lowerSearch) {
-      filtered = filtered.filter(
-        (item) =>
-          matchesSearch(item.pn || "") ||
-          matchesSearch(item.description || "") ||
-          matchesSearch(item.title || ""),
+      filtered = filtered.filter((item) =>
+        matchesSearch(item.pn || "", item.title || item.description || ""),
       );
     }
 
@@ -1379,26 +1893,30 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
         <div className={styles.favSidebar}>
           <div className={styles.favSidebarTitle}>Categories</div>
           <div className={styles.favGroupList}>
-            <div
+            <button
+              type="button"
               className={`${styles.favGroupItem}${!assetCategory ? ` ${styles.favGroupActive}` : ""}`}
               onClick={() => setAssetCategory(null)}
+              aria-pressed={!assetCategory}
             >
               <span className={styles.favGroupIcon}>{FolderIcon}</span>
               <span className={styles.favGroupName}>All</span>
               <span className={styles.favCount}>{assetItems.length}</span>
-            </div>
+            </button>
             {assetCategories.map((cat) => {
               const count = assetItems.filter((i) => i.keyword === cat).length;
               return (
-                <div
+                <button
+                  type="button"
                   key={cat}
                   className={`${styles.favGroupItem}${assetCategory === cat ? ` ${styles.favGroupActive}` : ""}`}
                   onClick={() => setAssetCategory(cat)}
+                  aria-pressed={assetCategory === cat}
                 >
                   <span className={styles.favGroupIcon}>{FolderIcon}</span>
                   <span className={styles.favGroupName}>{cat}</span>
                   <span className={styles.favCount}>{count}</span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -1407,11 +1925,14 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
         {/* Main content */}
         <div className={styles.favContent}>
           {filtered.length === 0 ? (
-            <div className={styles.emptyState}>
-              {lowerSearch
-                ? "No matches found."
-                : "No assets in this category."}
-            </div>
+            lowerSearch ? (
+              renderEmpty(
+                "No matches found",
+                "Try another part number or description.",
+              )
+            ) : (
+              renderEmpty("No assets in this category", undefined, PackageIcon)
+            )
           ) : (
             <div className={styles.resultTable}>
               <div className={styles.resultHeader}>
@@ -1421,7 +1942,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                 <div className={styles.colDatasheet}>Datasheet</div>
                 <div className={styles.colAction}></div>
               </div>
-              {filtered.slice(0, 80).map((item) => {
+              {filtered.slice(0, ASSETS_LIMIT).map((item) => {
                 const isSelected = isRowSelected(
                   item.pn || "",
                   item.title || item.description || "",
@@ -1449,7 +1970,6 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                           className={styles.favThumb}
                           src={item.imageUrl}
                           alt=""
-                          style={{ cursor: "zoom-in" }}
                           onClick={(e) => {
                             e.stopPropagation();
                             setPreviewPhotoUrl(item.imageUrl);
@@ -1467,7 +1987,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                     <div className={styles.colDesc}>
                       {item.title || item.description || "-"}
                       {item.keyword && (
-                        <span className={styles.childBadge}>
+                        <span className={styles.metaChip}>
                           {item.keyword}
                         </span>
                       )}
@@ -1509,7 +2029,128 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
               })}
             </div>
           )}
+          {renderListHint(ASSETS_LIMIT, filtered.length)}
         </div>
+      </div>
+    );
+  };
+
+  /* ──────── Tab: All Sources ──────── */
+
+  const renderAllSources = (): JSX.Element => {
+    if (!globalSections) {
+      return search.trim().length > 0 &&
+        search.trim().length < MIN_GLOBAL_CHARS
+        ? renderEmpty("Keep typing", "Type at least 2 characters.")
+        : renderEmpty(
+            "Search every source at once",
+            "Type a part number or description. Results update as you type and show which tab each match comes from.",
+            LayersIcon,
+          );
+    }
+
+    const withHits = globalSections.filter((s) => s.count > 0);
+    const stillLoading = globalSections.filter(
+      (s) => s.loading && s.count === 0,
+    );
+    // Query views share one label, so list them by path
+    const sectionName = (s: IGlobalSection): string => s.path || s.label;
+    const noHitNames: string[] = [];
+    globalSections.forEach((s) => {
+      if (!s.loading && s.count === 0) noHitNames.push(sectionName(s));
+    });
+    const total = countIn(globalSections, () => true);
+
+    return (
+      <div className={styles.allLayout} aria-live="polite">
+        <div className={styles.allSummary}>
+          <span>
+            {total && total.count > 0 ? (
+              <>
+                <strong>
+                  {formatCount(total.count, total.capped, GLOBAL_COUNT_CAP)}
+                </strong>{" "}
+                match{total.count !== 1 ? "es" : ""} in{" "}
+                <strong>{withHits.length}</strong> source
+                {withHits.length !== 1 ? "s" : ""}
+              </>
+            ) : (
+              "No matches yet"
+            )}
+          </span>
+          {isDebouncing && (
+            <span className={styles.searchingTag}>Searching...</span>
+          )}
+        </div>
+
+        {withHits.length === 0 &&
+          stillLoading.length === 0 &&
+          renderEmpty(
+            "No matches found",
+            "Try another part number or description.",
+          )}
+
+        {withHits.map((sec) => (
+          <section key={sec.id} className={styles.allSection}>
+            <header className={styles.allSectionHeader}>
+              <span className={styles.allSectionIcon}>
+                {TAB_BY_ID[sec.tab].icon}
+              </span>
+              <span className={styles.allSectionTitle}>{sec.label}</span>
+              {sec.path && (
+                <span className={styles.allSectionPath}>{sec.path}</span>
+              )}
+              {renderCountBadge(sec, GLOBAL_COUNT_CAP)}
+              <button
+                type="button"
+                className={styles.viewAllBtn}
+                onClick={() => {
+                  switchTab(sec.tab, {
+                    queryTab: sec.queryTab,
+                    querySubTab: sec.querySubTab,
+                  });
+                  setSearchFor(sec.tab, searches.all);
+                }}
+                title={`Open ${sectionName(sec)} filtered by this search`}
+              >
+                {sec.count > sec.rows.length ? "View all" : "Open tab"}
+                {ChevronRightIcon}
+              </button>
+            </header>
+            <div className={styles.resultTable}>
+              {sec.rows.map((r, i) => (
+                <div
+                  key={`${sec.id}-${i}`}
+                  className={`${styles.resultRow}${isRowSelected(r.pn, r.desc) ? ` ${styles.resultRowSelected}` : ""}`}
+                  onClick={() => handleItemClick(r.pn, r.desc)}
+                  onDoubleClick={() => handleItemDoubleClick(r.pn, r.desc)}
+                >
+                  <div className={`${styles.colPn} ${styles.mono}`}>
+                    {r.pn ? highlight(r.pn, globalWords) : "-"}
+                  </div>
+                  <div className={styles.colDesc}>
+                    {r.desc ? highlight(r.desc, globalWords) : "-"}
+                    {r.meta && (
+                      <span className={styles.metaChip}>{r.meta}</span>
+                    )}
+                  </div>
+                  {renderSelectCell(r.pn, r.desc)}
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+
+        {stillLoading.length > 0 && (
+          <div className={styles.allFootnote}>
+            Still loading: {stillLoading.map(sectionName).join(", ")}
+          </div>
+        )}
+        {withHits.length > 0 && noHitNames.length > 0 && (
+          <div className={styles.allFootnote}>
+            No matches in: {noHitNames.join(", ")}
+          </div>
+        )}
       </div>
     );
   };
@@ -1518,6 +2159,8 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
 
   const renderTabContent = (): JSX.Element => {
     switch (activeTab) {
+      case "all":
+        return renderAllSources();
       case "favorites":
         return renderFavorites();
       case "assets":
@@ -1537,70 +2180,121 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
 
   return (
     <>
-      <div className={styles.overlay} onClick={onClose}>
-        <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={styles.overlay}
+        onMouseDown={(e) => {
+          overlayPressRef.current = e.target === e.currentTarget;
+        }}
+        onClick={(e) => {
+          // Only a press that starts and ends on the backdrop closes (not a drag out of an input)
+          if (overlayPressRef.current && e.target === e.currentTarget)
+            onClose();
+        }}
+      >
+        <div
+          className={styles.modal}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="equipment-import-title"
+        >
           {/* Header */}
           <div className={styles.header}>
-            <div className={styles.headerTitle}>
-              <svg
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                <line x1="12" y1="22.08" x2="12" y2="12" />
-              </svg>
-              <span>
-                {multiSelect ? "Add Items from Catalog" : "Import Equipment"}
-              </span>
+            <div className={styles.headerMain}>
+              <span className={styles.headerIcon}>{CubeIcon}</span>
+              <div className={styles.headerText}>
+                <div className={styles.titleRow}>
+                  <h2 id="equipment-import-title" className={styles.title}>
+                    {multiSelect ? "Add Items from Catalog" : "Import Equipment"}
+                  </h2>
+                  {multiSelect && (
+                    <span className={styles.headerBadge}>Multi-select</span>
+                  )}
+                </div>
+                <p className={styles.subtitle}>
+                  Find equipment by part number or description across
+                  Favorites, Assets Catalog, BOM Costs, Quotations and Query
+                  Consulting.
+                </p>
+              </div>
             </div>
-            <button className={styles.closeBtn} onClick={onClose} title="Close">
+            <button
+              type="button"
+              className={styles.closeBtn}
+              onClick={onClose}
+              title="Close"
+              aria-label="Close"
+            >
               {CloseIcon}
             </button>
           </div>
 
           {/* Tab bar */}
-          <div className={styles.tabBar}>
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                className={`${styles.tab}${activeTab === tab.id ? ` ${styles.tabActive}` : ""}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <span className={styles.tabIcon}>{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            ))}
+          <div className={styles.tabBar} role="tablist">
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  key={tab.id}
+                  className={`${styles.tab}${isActive ? ` ${styles.tabActive}` : ""}`}
+                  onClick={() => switchTab(tab.id)}
+                >
+                  <span className={styles.tabIcon}>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  {renderCountBadge(
+                    countIn(
+                      globalSections,
+                      (s) => tab.id === "all" || s.tab === tab.id,
+                    ),
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* Search bar */}
-          <div className={styles.searchBar}>
-            <span className={styles.searchIcon}>{SearchIcon}</span>
-            <input
-              className={styles.searchInput}
-              type="text"
-              placeholder={
-                activeTab === "favorites"
-                  ? "Filter by PN or description…"
-                  : "Search by PN or description…"
-              }
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              autoFocus
-            />
-            {search && (
-              <button
-                className={styles.searchClear}
-                onClick={() => setSearch("")}
-                title="Clear"
+          <div className={styles.searchRow}>
+            <div className={styles.searchBar}>
+              <span className={styles.searchIcon}>{SearchIcon}</span>
+              <input
+                ref={searchInputRef}
+                className={styles.searchInput}
+                type="text"
+                placeholder={SEARCH_PLACEHOLDERS[activeTab]}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label={SEARCH_PLACEHOLDERS[activeTab].replace("...", "")}
+                autoFocus
+              />
+              {search && (
+                <button
+                  type="button"
+                  className={styles.searchClear}
+                  onClick={() => {
+                    setSearch("");
+                    if (searchInputRef.current) searchInputRef.current.focus();
+                  }}
+                  title="Clear search (Esc)"
+                  aria-label="Clear search"
+                >
+                  {CloseIcon}
+                </button>
+              )}
+              <span
+                className={`${styles.searchScope}${activeTab === "all" ? ` ${styles.searchScopeAll}` : ""}`}
+                title={
+                  activeTab === "all"
+                    ? "Searches every tab at once"
+                    : "Filters only this tab"
+                }
               >
-                {CloseIcon}
-              </button>
-            )}
+                {activeTab === "all"
+                  ? "All sources"
+                  : `${TAB_BY_ID[activeTab].label} only`}
+              </span>
+            </div>
           </div>
 
           {/* Tab content */}
@@ -1615,6 +2309,13 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                   {selectedMany.length} item
                   {selectedMany.length > 1 ? "s" : ""}
                 </span>
+                <button
+                  type="button"
+                  className={styles.clearSelectionBtn}
+                  onClick={() => setSelectedMany([])}
+                >
+                  Clear
+                </button>
               </div>
             )}
             {!multiSelect && selectedItem && (
@@ -1623,7 +2324,6 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                 <span className={`${styles.selectedPn} ${styles.mono}`}>
                   {selectedItem.pn || "-"}
                 </span>
-                <span className={styles.selectedSep}>-</span>
                 <span className={styles.selectedDesc}>
                   {selectedItem.desc || "-"}
                 </span>
@@ -1635,11 +2335,23 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                 )}
               </div>
             )}
+            {(multiSelect ? selectedMany.length === 0 : !selectedItem) && (
+              <div className={styles.footerHint}>
+                {multiSelect
+                  ? "Tick items in any tab, then confirm to add them all at once."
+                  : "Click a row to select it, or double-click to import right away."}
+              </div>
+            )}
             <div className={styles.footerBtns}>
-              <button className={styles.cancelBtn} onClick={onClose}>
+              <button
+                type="button"
+                className={styles.cancelBtn}
+                onClick={onClose}
+              >
                 Cancel
               </button>
               <button
+                type="button"
                 className={styles.confirmBtn}
                 disabled={
                   multiSelect ? selectedMany.length === 0 : !selectedItem

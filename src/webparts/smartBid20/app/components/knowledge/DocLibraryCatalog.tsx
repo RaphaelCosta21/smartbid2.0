@@ -1,6 +1,21 @@
 import * as React from "react";
+import {
+  ArrowDownAZ,
+  ArrowDownZA,
+  LayoutGrid,
+  LayoutList,
+  LoaderCircle,
+  Search,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { PageHeader } from "../common/PageHeader";
 import { EmptyState } from "../common/EmptyState";
+import {
+  MultiSelectDropdown,
+  MultiSelectOption,
+} from "../insights/MultiSelectDropdown";
+import { SegmentedControl } from "../insights/SegmentedControl";
 import { DocLibraryCatalogService } from "../../services/DocLibraryCatalogService";
 import { AIAnalysisService } from "../../services/AIAnalysisService";
 import { SystemConfigService } from "../../services/SystemConfigService";
@@ -69,6 +84,8 @@ export interface DocLibraryCatalogProps {
 }
 
 type ViewMode = "grid" | "list";
+type SortOrder = "az" | "za";
+type FacetKey = "type" | "group" | "manufacturer";
 
 /** Name used for the catch-all Group/Sub-Group when nothing configured fits */
 const OTHER_GROUP_NAME = "Other";
@@ -245,13 +262,18 @@ const stripExt = (name: string): string => {
   return i > 0 ? name.substring(0, i) : name;
 };
 
-/** Thumbnail with graceful fallback to a file-type placeholder */
-const DocThumb: React.FC<{ item: IDocLibraryItem; className: string }> = ({
-  item,
-  className,
-}) => {
-  const [failed, setFailed] = React.useState(false);
-  if (failed || !item.previewUrl) {
+/** Thumbnail (OneDrive API, then getpreview.ashx) with fallback to a file-type placeholder */
+const DocThumb: React.FC<{
+  item: IDocLibraryItem;
+  thumbnailUrl?: string;
+  className: string;
+}> = ({ item, thumbnailUrl, className }) => {
+  const sources = [thumbnailUrl, item.previewUrl].filter(
+    (s): s is string => !!s,
+  );
+  const [attempt, setAttempt] = React.useState(0);
+  React.useEffect(() => setAttempt(0), [thumbnailUrl]);
+  if (attempt >= sources.length) {
     return (
       <div className={styles.cardThumbPlaceholder}>
         <svg
@@ -271,10 +293,11 @@ const DocThumb: React.FC<{ item: IDocLibraryItem; className: string }> = ({
   }
   return (
     <img
-      src={item.previewUrl}
+      src={sources[attempt]}
       alt={item.title}
       className={className}
-      onError={() => setFailed(true)}
+      loading="lazy"
+      onError={() => setAttempt((a) => a + 1)}
     />
   );
 };
@@ -467,11 +490,15 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
   }, [config]);
 
   const [items, setItems] = React.useState<IDocLibraryItem[]>([]);
+  const [thumbs, setThumbs] = React.useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
-  const [filterType, setFilterType] = React.useState("all");
-  const [filterGroup, setFilterGroup] = React.useState("all");
-  const [filterManufacturer, setFilterManufacturer] = React.useState("all");
+  const [filterTypes, setFilterTypes] = React.useState<string[]>([]);
+  const [filterGroups, setFilterGroups] = React.useState<string[]>([]);
+  const [filterManufacturers, setFilterManufacturers] = React.useState<
+    string[]
+  >([]);
+  const [sortOrder, setSortOrder] = React.useState<SortOrder>("az");
   const [viewMode, setViewMode] = React.useState<ViewMode>("grid");
   const debouncedSearch = useDebounce(searchTerm, 300);
 
@@ -516,6 +543,9 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
   const loadItems = React.useCallback(() => {
     setIsLoading(true);
     setError("");
+    DocLibraryCatalogService.getThumbnailUrls(folderServerRelativeUrl)
+      .then(setThumbs)
+      .catch((err) => console.warn("Document thumbnails unavailable:", err));
     DocLibraryCatalogService.ensureColumns()
       .catch(() => {
         /* column provisioning is best-effort */
@@ -536,10 +566,8 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
     loadItems();
   }, [loadItems]);
 
-  const categories = React.useMemo(
-    () => groups.slice().sort((a, b) => a.name.localeCompare(b.name)),
-    [groups],
-  );
+  const thumbFor = (item: IDocLibraryItem): string | undefined =>
+    thumbs[item.fileName.toLowerCase()];
 
   const groupName = (item: IDocLibraryItem): string =>
     groups.find((g) => g.id === item.groupId)?.name || "";
@@ -548,60 +576,127 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
       .find((g) => g.id === item.groupId)
       ?.subGroups.find((sg) => sg.id === item.subGroupId)?.name || "";
 
-  const manufacturers = React.useMemo(() => {
+  const matchesSearch = (i: IDocLibraryItem): boolean => {
+    if (!debouncedSearch) return true;
+    const q = debouncedSearch.toLowerCase();
+    return (
+      i.title.toLowerCase().indexOf(q) >= 0 ||
+      i.fileName.toLowerCase().indexOf(q) >= 0 ||
+      groupName(i).toLowerCase().indexOf(q) >= 0 ||
+      subGroupName(i).toLowerCase().indexOf(q) >= 0 ||
+      i.manufacturer.toLowerCase().indexOf(q) >= 0 ||
+      i.model.toLowerCase().indexOf(q) >= 0 ||
+      i.keywords.toLowerCase().indexOf(q) >= 0 ||
+      i.description.toLowerCase().indexOf(q) >= 0
+    );
+  };
+
+  /** Search + every filter except `skip`, so each dropdown counts against the others */
+  const passesFilters = (i: IDocLibraryItem, skip?: FacetKey): boolean =>
+    (skip === "type" ||
+      !filterTypes.length ||
+      filterTypes.indexOf(i.docType) >= 0) &&
+    (skip === "group" ||
+      !filterGroups.length ||
+      filterGroups.indexOf(i.groupId) >= 0) &&
+    (skip === "manufacturer" ||
+      !filterManufacturers.length ||
+      filterManufacturers.indexOf(i.manufacturer) >= 0) &&
+    matchesSearch(i);
+
+  const facetCounts = React.useMemo(() => {
+    const counts: Record<FacetKey, Record<string, number>> = {
+      type: {},
+      group: {},
+      manufacturer: {},
+    };
+    const bump = (key: FacetKey, value: string): void => {
+      counts[key][value] = (counts[key][value] || 0) + 1;
+    };
+    items.forEach((i) => {
+      if (passesFilters(i, "type")) bump("type", i.docType);
+      if (passesFilters(i, "group")) bump("group", i.groupId);
+      if (i.manufacturer && passesFilters(i, "manufacturer"))
+        bump("manufacturer", i.manufacturer);
+    });
+    return counts;
+  }, [
+    items,
+    filterTypes,
+    filterGroups,
+    filterManufacturers,
+    debouncedSearch,
+    groups,
+  ]);
+
+  const groupOptions = React.useMemo<MultiSelectOption[]>(
+    () =>
+      groups
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((g) => ({
+          value: g.id,
+          label: g.name,
+          count: facetCounts.group[g.id] || 0,
+        })),
+    [groups, facetCounts],
+  );
+  const typeOptions = React.useMemo<MultiSelectOption[]>(
+    () =>
+      docTypeOptions.map((t) => ({
+        value: t,
+        label: t,
+        count: facetCounts.type[t] || 0,
+      })),
+    [docTypeOptions, facetCounts],
+  );
+  const manufacturerOptions = React.useMemo<MultiSelectOption[]>(() => {
     const set: Record<string, boolean> = {};
     items.forEach((i) => {
       if (i.manufacturer) set[i.manufacturer] = true;
     });
-    return Object.keys(set).sort();
-  }, [items]);
+    return Object.keys(set)
+      .sort((a, b) => a.localeCompare(b))
+      .map((m) => ({
+        value: m,
+        label: m,
+        count: facetCounts.manufacturer[m] || 0,
+      }));
+  }, [items, facetCounts]);
 
   const filteredItems = React.useMemo(() => {
-    let result = items;
-    if (filterType !== "all") {
-      result = result.filter((i) => i.docType === filterType);
-    }
-    if (filterGroup !== "all") {
-      result = result.filter((i) => i.groupId === filterGroup);
-    }
-    if (filterManufacturer !== "all") {
-      result = result.filter((i) => i.manufacturer === filterManufacturer);
-    }
-    if (debouncedSearch) {
-      const q = debouncedSearch.toLowerCase();
-      result = result.filter(
-        (i) =>
-          i.title.toLowerCase().indexOf(q) >= 0 ||
-          i.fileName.toLowerCase().indexOf(q) >= 0 ||
-          groupName(i).toLowerCase().indexOf(q) >= 0 ||
-          subGroupName(i).toLowerCase().indexOf(q) >= 0 ||
-          i.manufacturer.toLowerCase().indexOf(q) >= 0 ||
-          i.model.toLowerCase().indexOf(q) >= 0 ||
-          i.keywords.toLowerCase().indexOf(q) >= 0 ||
-          i.description.toLowerCase().indexOf(q) >= 0,
+    const dir = sortOrder === "za" ? -1 : 1;
+    return items
+      .filter((i) => passesFilters(i))
+      .sort(
+        (a, b) =>
+          dir *
+          (a.title || a.fileName).localeCompare(b.title || b.fileName, undefined, {
+            numeric: true,
+            sensitivity: "base",
+          }),
       );
-    }
-    return result;
   }, [
     items,
-    filterType,
-    filterGroup,
-    filterManufacturer,
+    filterTypes,
+    filterGroups,
+    filterManufacturers,
     debouncedSearch,
+    sortOrder,
     groups,
   ]);
 
   const hasFilters =
     searchTerm !== "" ||
-    filterType !== "all" ||
-    filterGroup !== "all" ||
-    filterManufacturer !== "all";
+    filterTypes.length > 0 ||
+    filterGroups.length > 0 ||
+    filterManufacturers.length > 0;
 
   const clearFilters = (): void => {
     setSearchTerm("");
-    setFilterType("all");
-    setFilterGroup("all");
-    setFilterManufacturer("all");
+    setFilterTypes([]);
+    setFilterGroups([]);
+    setFilterManufacturers([]);
   };
 
   // ─── Handlers ───
@@ -1220,7 +1315,7 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
       )}
       <PageHeader
         title={title}
-        subtitle={`${filteredItems.length} of ${items.length} documents`}
+        subtitle={`${items.length} ${items.length === 1 ? "document" : "documents"}`}
         icon={icon}
         actions={
           canManage ? (
@@ -1231,126 +1326,99 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
         }
       />
 
-      {/* Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.searchWrapper}>
-          <svg
-            className={styles.searchIcon}
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+      <div className={styles.filterBar}>
+        <div className={styles.filterSearch}>
+          <Search size={15} className={styles.filterSearchIcon} />
           <input
-            className={styles.searchInput}
+            type="text"
+            className={styles.filterSearchInput}
             placeholder={labels.searchPlaceholder}
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.currentTarget.value)}
+            aria-label="Search documents"
           />
           {searchTerm && (
             <button
-              className={styles.clearBtn}
+              type="button"
+              className={styles.searchClearBtn}
               onClick={() => setSearchTerm("")}
-              title="Clear"
+              title="Clear search"
+              aria-label="Clear search"
             >
-              ✕
+              <X size={14} />
             </button>
           )}
         </div>
-
-        <div className={styles.filterGroup}>
-          {docTypeOptions.length > 1 && (
-            <select
-              className={styles.filterSelect}
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-            >
-              <option value="all">All Types</option>
-              {docTypeOptions.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          )}
-          <select
-            className={styles.filterSelect}
-            value={filterGroup}
-            onChange={(e) => setFilterGroup(e.target.value)}
-          >
-            <option value="all">All Groups</option>
-            {categories.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-          <select
-            className={styles.filterSelect}
-            value={filterManufacturer}
-            onChange={(e) => setFilterManufacturer(e.target.value)}
-          >
-            <option value="all">{labels.allManufacturers}</option>
-            {manufacturers.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-          {hasFilters && (
-            <button className={styles.clearFiltersBtn} onClick={clearFilters}>
-              Clear
-            </button>
-          )}
-        </div>
-
-        <div className={styles.viewToggle}>
+        {docTypeOptions.length > 1 && (
+          <MultiSelectDropdown
+            label="Type"
+            options={typeOptions}
+            selected={filterTypes}
+            onChange={setFilterTypes}
+          />
+        )}
+        <MultiSelectDropdown
+          label={labels.groupShort}
+          options={groupOptions}
+          selected={filterGroups}
+          onChange={setFilterGroups}
+        />
+        <MultiSelectDropdown
+          label={labels.manufacturerColumn}
+          options={manufacturerOptions}
+          selected={filterManufacturers}
+          onChange={setFilterManufacturers}
+        />
+        {hasFilters && (
           <button
-            className={`${styles.viewBtn} ${viewMode === "grid" ? styles.viewBtnActive : ""}`}
-            onClick={() => setViewMode("grid")}
-            title="Grid view"
+            type="button"
+            className={styles.clearFiltersBtn}
+            onClick={clearFilters}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
-            </svg>
+            <X size={14} /> Clear
           </button>
-          <button
-            className={`${styles.viewBtn} ${viewMode === "list" ? styles.viewBtnActive : ""}`}
-            onClick={() => setViewMode("list")}
-            title="List view"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <line x1="8" y1="6" x2="21" y2="6" />
-              <line x1="8" y1="12" x2="21" y2="12" />
-              <line x1="8" y1="18" x2="21" y2="18" />
-              <line x1="3" y1="6" x2="3.01" y2="6" />
-              <line x1="3" y1="12" x2="3.01" y2="12" />
-              <line x1="3" y1="18" x2="3.01" y2="18" />
-            </svg>
-          </button>
-        </div>
+        )}
+        <span className={styles.resultCount}>
+          <strong>{filteredItems.length}</strong>{" "}
+          {hasFilters ? `of ${items.length} ` : ""}
+          {items.length === 1 ? "document" : "documents"}
+        </span>
+        <SegmentedControl<SortOrder>
+          value={sortOrder}
+          segments={[
+            {
+              value: "az",
+              label: "A-Z",
+              icon: <ArrowDownAZ size={14} />,
+              title: "Sort by title, A to Z",
+            },
+            {
+              value: "za",
+              label: "Z-A",
+              icon: <ArrowDownZA size={14} />,
+              title: "Sort by title, Z to A",
+            },
+          ]}
+          onChange={setSortOrder}
+          ariaLabel="Sort order"
+        />
+        <SegmentedControl<ViewMode>
+          value={viewMode}
+          segments={[
+            {
+              value: "grid",
+              label: "Cards",
+              icon: <LayoutGrid size={14} />,
+            },
+            {
+              value: "list",
+              label: "List",
+              icon: <LayoutList size={14} />,
+            },
+          ]}
+          onChange={setViewMode}
+          ariaLabel="View"
+        />
       </div>
 
       {error && (
@@ -1383,7 +1451,11 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
           {filteredItems.map((item) => (
             <div key={item.id} className={styles.docCard}>
               <div className={styles.cardThumbWrapper}>
-                <DocThumb item={item} className={styles.cardThumb} />
+                <DocThumb
+                  item={item}
+                  thumbnailUrl={thumbFor(item)}
+                  className={styles.cardThumb}
+                />
                 {item.docType && (
                   <span className={styles.docTypeBadge}>{item.docType}</span>
                 )}
@@ -1478,7 +1550,7 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
                   onClick={openBulkAi}
                   disabled={selectedIds.size === 0}
                 >
-                  Run AI on {selectedIds.size} selected
+                  <Sparkles size={15} /> Run AI on {selectedIds.size} selected
                 </button>
                 <button
                   className={styles.btnSecondary}
@@ -1526,7 +1598,11 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
                       </td>
                     )}
                     <td>
-                      <DocThumb item={item} className={styles.listThumb} />
+                      <DocThumb
+                        item={item}
+                        thumbnailUrl={thumbFor(item)}
+                        className={styles.listThumb}
+                      />
                     </td>
                     <td>{item.title}</td>
                     <td>{item.docType || "-"}</td>
@@ -1610,7 +1686,12 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
                       : "Choose a file first"
                   }
                 >
-                  {uploadAiExtracting ? "Extracting…" : "✨ Extract with AI"}
+                  {uploadAiExtracting ? (
+                    <LoaderCircle size={15} className={styles.aiSpin} />
+                  ) : (
+                    <Sparkles size={15} />
+                  )}
+                  {uploadAiExtracting ? "Extracting…" : "Extract with AI"}
                 </button>
               </div>
               {uploadFile &&
@@ -1740,7 +1821,12 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
                 disabled={editAiExtracting}
                 title="Re-read this document with AI and fill the fields below"
               >
-                {editAiExtracting ? "Extracting…" : "✨ Extract with AI"}
+                {editAiExtracting ? (
+                  <LoaderCircle size={15} className={styles.aiSpin} />
+                ) : (
+                  <Sparkles size={15} />
+                )}
+                {editAiExtracting ? "Extracting…" : "Extract with AI"}
               </button>
               {editAiError && (
                 <div className={styles.dupWarning}>{editAiError}</div>
