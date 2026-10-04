@@ -76,6 +76,7 @@ export {
   type IQualificationTable,
   type IQualificationItem,
   type IClarificationItem,
+  type IClarificationLibrarySync,
 } from "./IBid";
 export {
   type IConfigOption,

@@ -7,15 +7,12 @@ import {
   IPhaseHistoryEntry,
   IStatusHistoryEntry,
   IBidRevision,
-  IClarificationItem,
   BidPhase,
 } from "../../models";
-import { IClarificationDbItem } from "../../models/IClarificationDb";
 import { BID_STATUSES, BID_PHASES } from "../../config/status.config";
 import { ROUTES } from "../../config/routes.config";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
-import { ClarificationDbService } from "../../services/ClarificationDbService";
 import { StatusBadge } from "../common/StatusBadge";
 import { GlassCard } from "../common/GlassCard";
 import { BidTaskChecklist } from "./BidTaskChecklist";
@@ -344,44 +341,6 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
 
       if (isTerminal) {
         patch.completedDate = now;
-
-        // Push the BID's Clarifications to the Clarifications Database
-        // (only rows with content that have not been exported yet)
-        const clars = bid.clarifications || [];
-        const toExport = clars.filter(
-          (c) =>
-            !c.exportedToDatabase &&
-            ((c.clarification || "").trim() !== "" ||
-              (c.description || "").trim() !== ""),
-        );
-        if (toExport.length > 0) {
-          const clientName = bid.opportunityInfo
-            ? bid.opportunityInfo.client || ""
-            : "";
-          const dbItems: IClarificationDbItem[] = toExport.map((c) => ({
-            id: 0,
-            baseType: c.baseType || "Clarification",
-            clientDocRef: c.item || "",
-            etTopic: c.description || "",
-            clarification: c.clarification || "",
-            clientReply: c.clientResponse || "",
-            approved: false,
-            date: c.responseDate || "",
-            keyword: "",
-            client: clientName,
-          }));
-          ClarificationDbService.addMany(dbItems).catch((err) =>
-            console.error("Failed to export clarifications to database:", err),
-          );
-          const exportedIds: Record<string, boolean> = {};
-          toExport.forEach((c) => {
-            exportedIds[c.id] = true;
-          });
-          patch.clarifications = clars.map(
-            (c): IClarificationItem =>
-              exportedIds[c.id] ? { ...c, exportedToDatabase: true } : c,
-          );
-        }
       }
 
       // If leaving Rework with a terminal status, close the active revision

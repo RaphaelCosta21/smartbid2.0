@@ -1,0 +1,71 @@
+/* Clarif. & Qualif. badges — shared by the library page, its drawer and the BID tab modals */
+
+.empty {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.typeBadge {
+  --type-color: var(--secondary-accent);
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--type-color);
+  background: color-mix(in srgb, var(--type-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--type-color) 28%, transparent);
+}
+
+.typeClarification {
+  --type-color: var(--secondary-accent);
+}
+
+.typeQualification {
+  --type-color: var(--tertiary-accent);
+}
+
+.categoryChip {
+  --chip-color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--border-subtle);
+}
+
+.categoryTinted {
+  color: var(--chip-color);
+  background: color-mix(in srgb, var(--chip-color) 10%, transparent);
+  border-color: color-mix(in srgb, var(--chip-color) 30%, transparent);
+}
+
+.originChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+}
+
+.originBid {
+  font-family: "Cascadia Code", "Consolas", monospace;
+  color: var(--text-secondary);
+  border-style: solid;
+  background: var(--card-bg-elevated);
+}

@@ -32,6 +32,7 @@ export const XL_COLORS = {
   infoText: "FF155E75",
   danger: "FFB91C1C",
   link: "FF2563EB",
+  purple: "FF7C3AED",
 };
 
 export const XL_TAB_COLORS = {

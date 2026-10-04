@@ -1,5 +1,6 @@
 import { IBid, Division } from "../models";
 import { isPastDue, parseDate } from "./formatters";
+import { DUE_DATE_CHANGED } from "./revisionHelpers";
 
 export function isActiveBid(bid: IBid): boolean {
   const terminalStatuses = [
@@ -20,22 +21,40 @@ export function isUnassignedBid(bid: IBid): boolean {
   );
 }
 
+function getLastDueDateChange(bid: IBid): Date | null {
+  let last: Date | null = null;
+  for (const entry of bid.activityLog || []) {
+    if (entry.type !== DUE_DATE_CHANGED) continue;
+    const at = parseDate(entry.timestamp);
+    if (at && (!last || at.getTime() > last.getTime())) last = at;
+  }
+  return last;
+}
+
 /**
- * When the BID first reached a terminal status. The due/overdue count stops
- * there and stays frozen even after a revision reopens the BID. Null = never closed.
+ * When the BID first reached a terminal status under its current due date. The
+ * due/overdue count stops there and stays frozen even after a revision reopens
+ * the BID. A due date changed after a closing is a new deadline, so only a later
+ * closing freezes it. Null = not closed since the current due date was set.
  */
 export function getDueFreezeDate(bid: IBid): Date | null {
-  const firstRevision = (bid.revisions || [])[0];
-  if (!firstRevision) return parseDate(bid.completedDate);
-  // Revisions only open from a terminal status: the entry in effect then is the closing one.
-  const opened = parseDate(firstRevision.openedDate);
-  if (!opened) return parseDate(bid.completedDate);
-  let closedAt = opened;
-  for (const entry of bid.statusHistory || []) {
-    const start = parseDate(entry.start);
-    if (start && start.getTime() < opened.getTime()) closedAt = start;
+  const dueSetAt = getLastDueDateChange(bid);
+  const appliesToDue = (closedAt: Date | null): boolean =>
+    !!closedAt && (!dueSetAt || closedAt.getTime() >= dueSetAt.getTime());
+
+  for (const revision of bid.revisions || []) {
+    const opened = parseDate(revision.openedDate);
+    if (!opened) continue;
+    // Revisions only open from a terminal status: the entry in effect then is the closing one.
+    let closedAt = opened;
+    for (const entry of bid.statusHistory || []) {
+      const start = parseDate(entry.start);
+      if (start && start.getTime() < opened.getTime()) closedAt = start;
+    }
+    if (appliesToDue(closedAt)) return closedAt;
   }
-  return closedAt;
+  const completed = parseDate(bid.completedDate);
+  return appliesToDue(completed) ? completed : null;
 }
 
 export function isOverdueBid(bid: IBid): boolean {

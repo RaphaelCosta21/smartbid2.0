@@ -22,6 +22,16 @@ export interface IClarificationDbItem {
   date: string;
   keyword: string;
   client: string;
+  /** Value from systemConfig.clarificationCategories */
+  category: string;
+  /** Division value (systemConfig.divisions) */
+  division: string;
+  /** Service line value (systemConfig.serviceLines) */
+  serviceLine: string;
+  /** BID this row was synced from (empty = created manually in the library) */
+  sourceBidNumber: string;
+  /** Id of the clarification / qualification row inside the source BID */
+  sourceItemId: string;
 
   // ─── Read-only system fields ───
   created?: string;

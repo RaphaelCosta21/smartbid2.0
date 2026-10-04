@@ -155,6 +155,11 @@ export const SHAREPOINT_CONFIG = {
     date: "Data",
     keyword: "Keyword",
     client: "Client",
+    category: "Category",
+    division: "Division",
+    serviceLine: "ServiceLine",
+    sourceBidNumber: "SourceBidNumber",
+    sourceItemId: "SourceItemId",
   },
 
   folders: {

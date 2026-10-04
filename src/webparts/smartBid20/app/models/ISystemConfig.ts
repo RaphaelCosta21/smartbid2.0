@@ -81,6 +81,8 @@ export interface ISystemConfig {
   resourceTypes: IResourceTypeConfig[];
   /** Scope categories used to classify completed BIDs on the Past Bids page */
   scopeCategories?: IConfigOption[];
+  /** Categories used to classify Clarifications & Qualifications (library + BID) */
+  clarificationCategories?: IConfigOption[];
   currencySettings: ICurrencySettings;
   notifications: Record<string, string[]>;
   accessLevels: Record<UserRole, IAccessLevelDef>;

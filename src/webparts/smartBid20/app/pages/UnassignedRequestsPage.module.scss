@@ -11,6 +11,7 @@
 /* ---- View toggle (PageHeader actions — dark hero in both themes) - */
 
 .viewToggle {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -21,7 +22,29 @@
   backdrop-filter: blur(12px);
 }
 
+.viewIndicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  box-sizing: border-box;
+  border-radius: 8px;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--primary-accent) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary-accent) 55%, transparent);
+  box-shadow: var(--shadow-glow);
+}
+
+// Slight overshoot for an elastic, Apple-like settle
+.viewIndicatorAnimated {
+  transition:
+    transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    width 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 .viewBtn {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -34,7 +57,9 @@
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 200ms ease;
+  transition:
+    color 200ms ease,
+    background 200ms ease;
 
   &:hover:not(.viewBtnActive) {
     color: var(--header-text-primary);
@@ -49,12 +74,17 @@
 
 .viewBtnActive {
   color: var(--header-text-primary);
-  background: color-mix(in srgb, var(--primary-accent) 22%, transparent);
-  border-color: color-mix(in srgb, var(--primary-accent) 55%, transparent);
-  box-shadow: var(--shadow-glow);
 
   svg {
     color: var(--primary-accent);
+    transition: color 200ms ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewBtn,
+  .viewIndicatorAnimated {
+    transition: none;
   }
 }
 

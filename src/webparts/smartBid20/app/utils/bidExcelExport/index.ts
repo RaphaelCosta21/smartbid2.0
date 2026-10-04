@@ -1,4 +1,3 @@
-import type * as ExcelJSTypes from "exceljs";
 import { BidExcelSheetKey, IBid, IBidExcelExportOptions } from "../../models";
 import { getCurrentRevisionLetter } from "../../components/bid/RevisionsTab";
 import { buildCostSummaryView } from "../costSummaryView";
@@ -8,6 +7,13 @@ import {
   IBidExcelContext,
   getBidApprovalState,
 } from "./context";
+import {
+  LOGO_ASPECT,
+  XLSX_MIME,
+  loadExcelJS,
+  loadLogoDataUrl,
+  sanitizeFilePart,
+} from "./runtime";
 import { buildAssetsSheet } from "./sheets/assetsSheet";
 import { buildCertificationsSheet } from "./sheets/certificationsSheet";
 import { buildCostSummarySheet } from "./sheets/costSummarySheet";
@@ -17,10 +23,6 @@ import { buildLogisticsSheet } from "./sheets/logisticsSheet";
 import { buildPrepMobSheet } from "./sheets/prepMobSheet";
 import { buildScopeSheet } from "./sheets/scopeSheet";
 import { buildSuppliersSheet } from "./sheets/suppliersSheet";
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const logoUrl: string = require("../../../assets/OII-white.png");
-const LOGO_ASPECT = 2358 / 690;
 
 const BUILDERS: Record<BidExcelSheetKey, (ctx: IBidExcelContext) => void> = {
   info: buildInfoSheet,
@@ -34,43 +36,9 @@ const BUILDERS: Record<BidExcelSheetKey, (ctx: IBidExcelContext) => void> = {
   suppliers: buildSuppliersSheet,
 };
 
-const XLSX_MIME =
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-
-async function loadExcelJS(): Promise<typeof ExcelJSTypes> {
-  // The package's "browser" field resolves this to the prebuilt dist bundle (own chunk, lazy)
-  const mod = await import(/* webpackChunkName: 'exceljs' */ "exceljs");
-  const m = mod as unknown as {
-    Workbook?: unknown;
-    default?: typeof ExcelJSTypes;
-  };
-  return (m.Workbook ? mod : m.default) as typeof ExcelJSTypes;
-}
-
-async function loadLogoDataUrl(): Promise<string | null> {
-  try {
-    const res = await fetch(logoUrl);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return await new Promise<string | null>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    // The logo is decorative — export without it
-    return null;
-  }
-}
-
 export function getBidExcelFilename(bid: IBid): string {
   const opp = bid.opportunityInfo;
-  const sanitize = (val: string): string =>
-    val
-      .replace(/[\\/:*?"<>|\r\n\t]+/g, "-")
-      .replace(/\s+/g, " ")
-      .trim();
+  const sanitize = sanitizeFilePart;
 
   const projectName = sanitize((opp && opp.projectName) || "");
   const client = sanitize((opp && opp.client) || "");

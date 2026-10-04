@@ -428,6 +428,8 @@ export interface IQualificationTable {
   id: string;
   title: string;
   items: IQualificationItem[];
+  /** Value from systemConfig.clarificationCategories, applied to every row */
+  category?: string;
 }
 
 export interface IQualificationItem {
@@ -447,12 +449,24 @@ export interface IClarificationItem {
   isAutoImported: boolean;
   /** Classification of this row: a Clarification or a Qualification */
   baseType?: "Clarification" | "Qualification";
-  /** True once this row has been pushed to the Clarifications Database (anti-duplication) */
+  /** Legacy push / library import flag: rows with it set are never synced to the library */
   exportedToDatabase?: boolean;
   /** Date when the clarification was created/added */
   createdDate?: string;
   /** Date when the client response was provided */
   responseDate?: string;
+  /** Value from systemConfig.clarificationCategories */
+  category?: string;
+  /** Library (Clarifications Database) item this row was imported from */
+  libraryRefId?: number;
+}
+
+/** Result of the last push of the BID's clarifications/qualifications to the library */
+export interface IClarificationLibrarySync {
+  syncedAt: string;
+  created: number;
+  updated: number;
+  failed: number;
 }
 
 export interface IHoursItem {
@@ -953,6 +967,7 @@ export interface IBid {
   kpis: IBidKPIs;
   qualificationTables: IQualificationTable[];
   clarifications: IClarificationItem[];
+  clarificationLibrarySync?: IClarificationLibrarySync;
   /** Past Bids / AI Search projection — set once the BID is Completed and published. */
   knowledgeProfile?: IBidKnowledgeProfile;
   technicalProposal?: IBidTechnicalProposal;

@@ -4,183 +4,666 @@
   gap: 24px;
 }
 
-.ganttContainer {
+@mixin overdue-hatch {
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--danger) 32%, var(--card-bg)) 0 4px,
+    color-mix(in srgb, var(--danger) 10%, var(--card-bg)) 4px 8px
+  );
+}
+
+// ── Card ──────────────────────────────────────────────
+// Not a GlassCard: the sticky info pane needs an opaque surface.
+.ganttCard {
+  --col-project: 300px;
+  --col-status: 168px;
+  --col-due: 132px;
+  --info-width: calc(var(--col-project) + var(--col-status) + var(--col-due));
+  --timeline-min: 640px;
+  --bar-height: 24px;
+  --grid-line: color-mix(in srgb, var(--border) 65%, transparent);
+
   background: var(--card-bg);
-  border-radius: 16px;
   border: 1px solid var(--border-subtle);
-  overflow-x: auto;
-  overflow-y: visible;
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 
-.ganttHeader {
+@media (max-width: 1280px) {
+  .ganttCard {
+    --col-project: 240px;
+    --col-status: 150px;
+    --col-due: 116px;
+  }
+}
+
+.healthOnTrack {
+  --bar-color: var(--primary-accent);
+}
+
+.healthDueSoon {
+  --bar-color: var(--warning);
+}
+
+.healthOverdue {
+  --bar-color: var(--danger);
+}
+
+.healthNone {
+  --bar-color: var(--text-muted);
+}
+
+// ── Toolbar ───────────────────────────────────────────
+.toolbar {
   display: flex;
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--card-bg);
-  position: sticky;
-  top: 0;
-  z-index: 5;
-}
-
-.ganttLabelCol {
-  width: 320px;
-  min-width: 320px;
-  flex-shrink: 0;
-  padding: 12px 20px;
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--text-secondary);
-  border-right: 1px solid var(--border-subtle);
-}
-
-.ganttBarCol {
-  flex: 1;
-  min-width: 600px;
-  position: relative;
-  height: 48px;
-}
-
-.dateMarker {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.dateMarkerLabel {
-  font-size: 10px;
-  font-weight: 500;
+.healthSummary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.healthChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bar-color) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bar-color) 24%, transparent);
+  cursor: default;
+}
+
+.healthDot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--bar-color);
+}
+
+.healthCount {
+  min-width: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bar-color) 16%, transparent);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.anatomyLegend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  font-size: 11px;
   color: var(--text-muted);
-  padding: 6px 0 4px;
+}
+
+.anatomyItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   white-space: nowrap;
 }
 
-.dateMarkerMonth .dateMarkerLabel {
-  font-weight: 700;
-  color: var(--text-secondary);
+.swatch {
+  width: 18px;
+  height: 10px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border-radius: 3px;
+}
+
+.swatchElapsed {
+  background: color-mix(in srgb, var(--text-muted) 55%, var(--card-bg));
+}
+
+.swatchRemaining {
+  background: color-mix(in srgb, var(--text-muted) 14%, var(--card-bg));
+  border: 1px solid color-mix(in srgb, var(--text-muted) 45%, transparent);
+}
+
+.swatchOverdue {
+  @include overdue-hatch;
+  border: 1px dashed color-mix(in srgb, var(--danger) 70%, transparent);
+}
+
+.swatchDue {
+  width: 8px;
+  height: 8px;
+  margin: 0 2px;
+  flex-shrink: 0;
+  border-radius: 1px;
+  background: var(--text-muted);
+  transform: rotate(45deg);
+}
+
+// Beats SegmentedControl's own glass background, which vanishes on --card-bg.
+.toolbar .zoomControl {
+  background: var(--card-bg-elevated);
+}
+
+.loading {
+  padding: 20px;
+}
+
+// ── Grid ──────────────────────────────────────────────
+.ganttScroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.ganttInner {
+  min-width: calc(var(--info-width) + var(--timeline-min));
+}
+
+.headRow {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.headInfo,
+.rowInfo {
+  position: sticky;
+  left: 0;
+  flex: 0 0 var(--info-width);
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: var(--col-project) var(--col-status) minmax(0, 1fr);
+  background: var(--card-bg);
+  border-right: 1px solid var(--border-subtle);
+}
+
+.headInfo {
+  z-index: 1;
+  align-items: end;
+}
+
+.headLabel {
+  padding: 0 12px 10px;
   font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+
+  &:first-child {
+    padding-left: 20px;
+  }
+
+  &:last-child {
+    padding-left: 16px;
+  }
 }
 
-.dateMarkerLine {
-  width: 1px;
-  flex: 1;
-  background: var(--border-subtle);
+.headTimeline {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: var(--timeline-min);
+  height: 58px;
 }
 
-.dateMarkerMonth .dateMarkerLine {
-  background: var(--border);
+.monthTier {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.todayMarker {
+.monthCell {
   position: absolute;
   top: 0;
   bottom: 0;
+  box-sizing: border-box;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  z-index: 3;
+  padding: 0 10px;
+  border-left: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &:first-child {
+    border-left: none;
+  }
 }
 
-.todayLabel {
-  font-size: 9px;
+.weekTier {
+  position: absolute;
+  top: 28px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.weekCell {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-left: 1px solid var(--grid-line);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+
+  &:first-child {
+    border-left: none;
+  }
+}
+
+.weekCellCurrent {
+  color: var(--text-primary);
   font-weight: 700;
-  color: #ef4444;
-  padding: 4px 0 2px;
+}
+
+// Straddles the header's bottom edge so it never covers a week label.
+.todayPill {
+  position: absolute;
+  top: 100%;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  white-space: nowrap;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, var(--card-bg));
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.ganttBody {
+  position: relative;
+}
+
+.bodyGrid,
+.todayLayer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--info-width);
+  right: 0;
+  pointer-events: none;
+}
+
+.todayLayer {
+  z-index: 1;
+}
+
+.weekLine,
+.monthLine,
+.weekendBand,
+.todayLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.weekLine {
+  width: 1px;
+  background: var(--grid-line);
+}
+
+.monthLine {
+  width: 1px;
+  background: var(--border);
+}
+
+.weekendBand {
+  background: color-mix(in srgb, var(--text-muted) 7%, transparent);
 }
 
 .todayLine {
   width: 2px;
-  flex: 1;
-  background: #ef4444;
-  border-radius: 1px;
+  background: color-mix(in srgb, var(--danger) 70%, transparent);
+  transform: translateX(-50%);
 }
 
-.todayLineRow {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(239, 68, 68, 0.2);
-  z-index: 1;
-}
-
-.emptyState {
-  padding: 48px;
-  text-align: center;
-  color: var(--text-secondary);
-}
-
-.ganttRow {
+// ── Rows ──────────────────────────────────────────────
+.row {
+  position: relative;
   display: flex;
-  align-items: center;
-  border-bottom: 1px solid var(--border-subtle);
-  min-height: 64px;
-  transition: background 150ms;
+  min-height: 76px;
+  transition: background-color 150ms ease;
+
+  & + & {
+    border-top: 1px solid var(--border-subtle);
+  }
 
   &:hover {
-    background: var(--hover-bg);
+    background-color: var(--hover-bg);
+  }
+
+  &:hover .rowInfo {
+    background: linear-gradient(var(--hover-bg), var(--hover-bg)), var(--card-bg);
+  }
+
+  &:hover .bar,
+  &:hover .overdueTail {
+    opacity: 0.9;
   }
 }
 
-.ganttRowLabel {
-  width: 320px;
-  min-width: 320px;
-  flex-shrink: 0;
-  padding: 10px 20px;
+.rowInfo {
+  z-index: 2;
+  align-items: center;
+}
+
+.projectCell {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  border-right: 1px solid var(--border-subtle);
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 12px 12px 20px;
 }
 
-.ganttRowTop {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.projectName,
+.clientName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.35;
 }
 
-.ganttBidNumber {
+.projectName {
+  font-size: 13.5px;
   font-weight: 600;
-  font-size: 13px;
   color: var(--text-primary);
 }
 
-.ganttRowBottom {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
+.projectNameEmpty {
+  font-style: italic;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+// Clickable area limited to the name text, not the whole cell.
+.projectLink {
+  align-self: flex-start;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: color 150ms ease;
+
+  &:hover {
+    color: var(--primary-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+}
+
+.clientName {
+  font-size: 12px;
   color: var(--text-secondary);
-  flex-wrap: wrap;
 }
 
-.ganttBarArea {
-  flex: 1;
-  min-width: 600px;
-  position: relative;
-  height: 36px;
-  padding: 0 12px;
-}
-
-.ganttBar {
-  position: absolute;
-  top: 8px;
-  height: 22px;
-  border-radius: 6px;
+.metaLine {
   display: flex;
   align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.bidNumber {
+  flex-shrink: 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+
+.metaSep {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.engineer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.engineerName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.unassigned {
+  font-style: italic;
+}
+
+.statusCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.dueCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 16px;
+}
+
+.dueDate {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+// ── Bars ──────────────────────────────────────────────
+.rowTimeline {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: var(--timeline-min);
+  overflow: hidden;
+}
+
+.bar,
+.overdueTail {
+  position: absolute;
+  top: 50%;
+  height: var(--bar-height);
+  box-sizing: border-box;
+  transform: translateY(-50%);
+  transition: opacity 250ms ease;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--bar-color) 60%, transparent);
+  background: color-mix(in srgb, var(--bar-color) 14%, var(--card-bg));
+}
+
+.barElapsed {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: color-mix(in srgb, var(--bar-color) 42%, var(--card-bg));
+}
+
+.barLabel {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
   padding: 0 8px;
   font-size: 11px;
   font-weight: 600;
-  overflow: hidden;
+  color: var(--text-primary);
   white-space: nowrap;
-  text-overflow: ellipsis;
-  transition: opacity 150ms;
 
-  &:hover {
-    opacity: 0.85;
+  svg {
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+}
+
+.barLabelText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overdueTail {
+  @include overdue-hatch;
+  border: 1px dashed color-mix(in srgb, var(--danger) 70%, transparent);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+}
+
+.clipStart {
+  border-left: none;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.clipEnd {
+  border-right: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.joinTail {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.dueMarker {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border-radius: 2px;
+  background: var(--bar-color);
+  border: 2px solid var(--card-bg);
+  transform: translate(-50%, -50%) rotate(45deg);
+  pointer-events: none;
+}
+
+.outsideLabel,
+.edgeChip,
+.noDue {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.outsideLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.edgeChip {
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--card-bg-elevated);
+  border: 1px dashed color-mix(in srgb, var(--bar-color) 55%, transparent);
+}
+
+.edgeChipAfter {
+  left: auto;
+  right: 8px;
+}
+
+.noDue {
+  left: 16px;
+  font-size: 11.5px;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row,
+  .projectLink,
+  .bar,
+  .overdueTail {
+    transition: none;
   }
 }

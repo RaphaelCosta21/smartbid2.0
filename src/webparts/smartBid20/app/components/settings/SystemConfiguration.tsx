@@ -81,6 +81,12 @@ const NAV_GROUPS: INavGroup[] = [
         icon: "🧭",
         configKey: "scopeCategories",
       },
+      {
+        key: "clarificationCategories",
+        label: "Clarif. Categories",
+        icon: "💬",
+        configKey: "clarificationCategories",
+      },
     ],
   },
   {

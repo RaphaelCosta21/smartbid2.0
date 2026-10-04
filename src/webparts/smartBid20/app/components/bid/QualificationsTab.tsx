@@ -1,5 +1,5 @@
 import * as React from "react";
-import { BookOpen, Sparkles } from "lucide-react";
+import { BookOpen, Download, Sparkles } from "lucide-react";
 import {
   IBid,
   IClarificationItem,
@@ -18,7 +18,10 @@ import { makeId } from "../../utils/idGenerator";
 import { AIAnalysisService } from "../../services/AIAnalysisService";
 import { buildAiContext, buildRequirementsText } from "../../utils/aiContext";
 import { mapSuggestedClarification } from "../../utils/aiClarificationMapper";
+import { activeConfigOptions } from "../../utils/clarificationHelpers";
 import { useUIStore } from "../../stores/useUIStore";
+import { useConfigStore } from "../../stores/useConfigStore";
+import { ClarificationCategoryChip } from "../knowledge/ClarificationBadges";
 import styles from "../../pages/BidDetailPage.module.scss";
 
 export interface QualificationsTabProps {
@@ -47,6 +50,45 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
     IAISuggestedClarification[]
   >([]);
   const addToast = useUIStore((s) => s.addToast);
+  const categoryList = useConfigStore(
+    (s) => s.config?.clarificationCategories,
+  );
+  const categoryOptions = React.useMemo(
+    () => activeConfigOptions(categoryList),
+    [categoryList],
+  );
+
+  /** Category select; keeps a value that is no longer configured selectable. */
+  const renderCategorySelect = (
+    value: string | undefined,
+    onChange: (v: string) => void,
+    width: number | string = "100%",
+  ): React.ReactElement => (
+    <select
+      value={value || ""}
+      onChange={(e) => onChange(e.target.value)}
+      title="Category (System Configuration - Clarif. Categories)"
+      style={{
+        width,
+        padding: "4px 6px",
+        border: "1px solid var(--border)",
+        borderRadius: 4,
+        background: "var(--card-bg-elevated)",
+        color: "var(--text-primary)",
+        fontSize: 12,
+      }}
+    >
+      <option value="">No category</option>
+      {categoryOptions.map((o) => (
+        <option key={o.id} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+      {value && !categoryOptions.some((o) => o.value === value) && (
+        <option value={value}>{value}</option>
+      )}
+    </select>
+  );
 
   // Edit lock hooks — separate locks for Qualifications and Clarifications
   const qualLock = useEditControl(bid.bidNumber, "qualifications");
@@ -295,6 +337,14 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
     );
   };
 
+  const updateTableCategory = (tableId: string, category: string): void => {
+    saveQualTables(
+      localTables.map((t) =>
+        t.id === tableId ? { ...t, category: category || undefined } : t,
+      ),
+    );
+  };
+
   const deleteTable = (tableId: string): void => {
     saveQualTables(localTables.filter((t) => t.id !== tableId));
   };
@@ -409,6 +459,21 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                 >
                   {table.title}
                 </h4>
+              )}
+              {canEditQual ? (
+                <span style={{ marginRight: 8 }}>
+                  {renderCategorySelect(
+                    table.category,
+                    (v) => updateTableCategory(table.id, v),
+                    180,
+                  )}
+                </span>
+              ) : (
+                table.category && (
+                  <span style={{ marginLeft: "auto", marginRight: 8 }}>
+                    <ClarificationCategoryChip category={table.category} />
+                  </span>
+                )
               )}
               {canEditQual && (
                 <button
@@ -634,22 +699,10 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
           <div style={{ display: "flex", gap: 8 }}>
             {canEditClar && (
               <button
+                type="button"
+                className={`${styles.clarActionBtn} ${styles.clarAiBtn}`}
                 onClick={handleSuggestClarifications}
                 disabled={aiLoading}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: 8,
-                  border: "1px solid var(--primary-accent)",
-                  background: "var(--card-bg-elevated)",
-                  color: "var(--primary-accent)",
-                  cursor: aiLoading ? "not-allowed" : "pointer",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  transition: "all 0.15s ease",
-                }}
               >
                 <Sparkles size={14} />
                 {aiLoading ? "Suggesting…" : "Suggest with AI"}
@@ -657,45 +710,22 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
             )}
             {canEditClar && (
               <button
+                type="button"
+                className={styles.clarActionBtn}
                 onClick={() => setImportModalOpen(true)}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: 8,
-                  border: "1px solid var(--border)",
-                  background: "var(--card-bg-elevated)",
-                  color: "var(--text-primary)",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  transition: "all 0.15s ease",
-                }}
               >
                 <BookOpen size={14} />
-                Import from Database
+                Import from Library
               </button>
             )}
             {localClarifications.length > 0 && (
               <button
+                type="button"
+                className={styles.clarActionBtn}
                 onClick={() => setExportModalOpen(true)}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: 8,
-                  border: "1px solid var(--border)",
-                  background: "var(--card-bg-elevated)",
-                  color: "var(--text-primary)",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  transition: "all 0.15s ease",
-                }}
               >
-                📥 Export Excel
+                <Download size={14} />
+                Export Excel
               </button>
             )}
           </div>
@@ -709,7 +739,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                 width: "100%",
                 borderCollapse: "collapse",
                 fontSize: 13,
-                minWidth: 900,
+                minWidth: 1040,
               }}
             >
               <thead>
@@ -735,6 +765,17 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                     }}
                   >
                     Type
+                  </th>
+                  <th
+                    style={{
+                      padding: "8px 10px",
+                      textAlign: "left",
+                      borderBottom: "1px solid var(--border)",
+                      color: "var(--text-secondary)",
+                      width: 140,
+                    }}
+                  >
+                    Category
                   </th>
                   <th
                     style={{
@@ -864,6 +905,22 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                         <span style={{ fontSize: 11 }}>
                           {c.baseType || "Clarification"}
                         </span>
+                      )}
+                    </td>
+                    <td
+                      style={{
+                        padding: "6px 10px",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      {canEditClar ? (
+                        renderCategorySelect(c.category, (v) =>
+                          updateClarification(c.id, "category", v),
+                        )
+                      ) : (
+                        <ClarificationCategoryChip
+                          category={c.category || ""}
+                        />
                       )}
                     </td>
                     <td
@@ -1027,19 +1084,32 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                       }}
                     >
                       <span
+                        title={
+                          c.libraryRefId
+                            ? "Imported from the Clarif. & Qualif. library"
+                            : undefined
+                        }
                         style={{
                           fontSize: 11,
                           padding: "2px 6px",
                           borderRadius: 4,
                           background: c.isAutoImported
                             ? "rgba(234, 179, 8, 0.15)"
-                            : "rgba(59, 130, 246, 0.15)",
+                            : c.libraryRefId
+                              ? "color-mix(in srgb, var(--tertiary-accent) 15%, transparent)"
+                              : "rgba(59, 130, 246, 0.15)",
                           color: c.isAutoImported
                             ? "var(--warning-color, #EAB308)"
-                            : "var(--primary-accent)",
+                            : c.libraryRefId
+                              ? "var(--tertiary-accent)"
+                              : "var(--primary-accent)",
                         }}
                       >
-                        {c.isAutoImported ? "Auto" : "Manual"}
+                        {c.isAutoImported
+                          ? "Auto"
+                          : c.libraryRefId
+                            ? "Library"
+                            : "Manual"}
                       </span>
                     </td>
                     {canEditClar && (
@@ -1099,6 +1169,8 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
       {/* Import from Database Modal */}
       {importModalOpen && (
         <ImportClarificationModal
+          bid={bid}
+          existing={localClarifications}
           onClose={() => setImportModalOpen(false)}
           onImport={handleImportFromDb}
         />

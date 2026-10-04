@@ -1,5 +1,6 @@
 import * as React from "react";
 import styles from "./SegmentedControl.module.scss";
+import { useSlidingIndicator } from "../../hooks/useSlidingIndicator";
 
 export interface SegmentOption<T extends string | number> {
   value: T;
@@ -29,12 +30,21 @@ export function SegmentedControl<T extends string | number>({
   ariaLabel,
   className,
 }: SegmentedControlProps<T>): JSX.Element {
+  const indicator = useSlidingIndicator(value);
   return (
     <div
+      ref={indicator.containerRef}
       className={`${styles.group} ${size === "sm" ? styles.sm : ""} ${className || ""}`}
       role="tablist"
       aria-label={ariaLabel}
     >
+      {indicator.style && (
+        <span
+          aria-hidden="true"
+          className={`${styles.indicator} ${indicator.animated ? styles.indicatorAnimated : ""}`}
+          style={indicator.style}
+        />
+      )}
       {segments.map((seg) => {
         const active = seg.value === value;
         return (

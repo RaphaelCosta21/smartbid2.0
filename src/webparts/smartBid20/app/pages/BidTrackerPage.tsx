@@ -26,6 +26,7 @@ import { BidPriority, Division, IBid, IQuickNote } from "../models";
 import { BidService } from "../services/BidService";
 import { useErnStore } from "../stores/useErnStore";
 import { useDebounce } from "../hooks/useDebounce";
+import { useSlidingIndicator } from "../hooks/useSlidingIndicator";
 import { formatDate, isPastDue } from "../utils/formatters";
 import styles from "./BidTrackerPage.module.scss";
 
@@ -88,6 +89,7 @@ export const BidTrackerPage: React.FC = () => {
   } = useStatusColors();
   const viewMode = useBidStore((s) => s.viewMode);
   const setViewMode = useBidStore((s) => s.setViewMode);
+  const viewIndicator = useSlidingIndicator(viewMode);
   const filters = useBidStore((s) => s.filters);
   const setFilters = useBidStore((s) => s.setFilters);
   const resetFilters = useBidStore((s) => s.resetFilters);
@@ -527,7 +529,19 @@ export const BidTrackerPage: React.FC = () => {
           </svg>
         }
         actions={
-          <div className={styles.viewToggle} role="tablist" aria-label="View">
+          <div
+            ref={viewIndicator.containerRef}
+            className={styles.viewToggle}
+            role="tablist"
+            aria-label="View"
+          >
+            {viewIndicator.style && (
+              <span
+                aria-hidden="true"
+                className={`${styles.viewIndicator} ${viewIndicator.animated ? styles.viewIndicatorAnimated : ""}`}
+                style={viewIndicator.style}
+              />
+            )}
             {VIEW_OPTIONS.map((opt) => {
               const active = viewMode === opt.mode;
               return (

@@ -1,226 +1,381 @@
 import * as React from "react";
-import { IClarificationItem } from "../../models";
+import { BookOpen, Check, Search, X } from "lucide-react";
+import { IBid, IClarificationItem } from "../../models";
 import { IClarificationDbItem } from "../../models/IClarificationDb";
 import { ClarificationDbService } from "../../services/ClarificationDbService";
+import { useClarificationLibraryFilter } from "../../hooks/useClarificationLibraryFilter";
 import { makeId } from "../../utils/idGenerator";
-import { useDebounce } from "../../hooks/useDebounce";
+import { DivisionBadge } from "../common/DivisionBadge";
+import { EmptyState } from "../common/EmptyState";
+import { SkeletonLoader } from "../common/SkeletonLoader";
+import { MultiSelectDropdown } from "../insights/MultiSelectDropdown";
+import {
+  ClarificationCategoryChip,
+  ClarificationOriginChip,
+  ClarificationTypeBadge,
+} from "../knowledge/ClarificationBadges";
 import styles from "./ImportClarificationModal.module.scss";
 
 export interface ImportClarificationModalProps {
+  bid: IBid;
+  /** Rows already on the BID, to flag library entries imported before */
+  existing: IClarificationItem[];
   onClose: () => void;
   onImport: (items: IClarificationItem[]) => void;
 }
 
-/** Map a database row to a BID clarification item (already-in-DB, so flagged) */
+const PAGE_SIZE = 60;
+const LONG_TEXT = 240;
+
+/** Reply and document reference belong to the source BID, so they are not copied. */
 const toClarificationItem = (db: IClarificationDbItem): IClarificationItem => ({
   id: makeId("q"),
   scopeItemId: null,
-  item: db.clientDocRef,
+  item: "",
   description: db.etTopic,
   clarification: db.clarification,
-  clientResponse: db.clientReply,
+  clientResponse: "",
   isAutoImported: false,
   baseType: db.baseType,
-  createdDate: db.created || new Date().toISOString(),
-  responseDate: db.date || undefined,
-  exportedToDatabase: true,
+  createdDate: new Date().toISOString(),
+  category: db.category || undefined,
+  libraryRefId: db.id,
 });
 
 export const ImportClarificationModal: React.FC<
   ImportClarificationModalProps
-> = ({ onClose, onImport }) => {
+> = ({ bid, existing, onClose, onImport }) => {
   const [items, setItems] = React.useState<IClarificationDbItem[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [selected, setSelected] = React.useState<Record<number, boolean>>({});
+  const [expanded, setExpanded] = React.useState<Record<number, boolean>>({});
+  const [visible, setVisible] = React.useState(PAGE_SIZE);
 
-  const [searchTerm, setSearchTerm] = React.useState("");
-  const [filterType, setFilterType] = React.useState("all");
-  const [filterClient, setFilterClient] = React.useState("all");
-  const debouncedSearch = useDebounce(searchTerm, 300);
+  const {
+    filtered,
+    options,
+    search,
+    setSearch,
+    filters,
+    setFilter,
+    hasFilters,
+    clear,
+  } = useClarificationLibraryFilter(items);
 
   React.useEffect(() => {
-    setIsLoading(true);
     ClarificationDbService.getAll()
       .then((data) => {
         setItems(data);
+        // Start on the BID's division only when the library already has entries for it
+        if (bid.division && data.some((d) => d.division === bid.division)) {
+          setFilter("division")([bid.division]);
+        }
         setIsLoading(false);
       })
       .catch((err) => {
         console.error("Failed to load clarifications database:", err);
-        setError("Could not load the Clarifications Database.");
+        setError("Could not load the Clarif. & Qualif. library.");
         setIsLoading(false);
       });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const clients = React.useMemo(() => {
-    const set: Record<string, boolean> = {};
-    items.forEach((i) => {
-      if (i.client) set[i.client] = true;
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  React.useEffect(() => {
+    setVisible(PAGE_SIZE);
+  }, [filtered]);
+
+  const alreadyIn = React.useMemo(() => {
+    const map: Record<number, boolean> = {};
+    existing.forEach((c) => {
+      if (c.libraryRefId) map[c.libraryRefId] = true;
     });
-    return Object.keys(set).sort();
-  }, [items]);
+    return map;
+  }, [existing]);
 
-  const filtered = React.useMemo(() => {
-    let result = items;
-    if (filterType !== "all") {
-      result = result.filter((i) => i.baseType === filterType);
-    }
-    if (filterClient !== "all") {
-      result = result.filter((i) => i.client === filterClient);
-    }
-    if (debouncedSearch) {
-      const q = debouncedSearch.toLowerCase();
-      result = result.filter(
-        (i) =>
-          i.clientDocRef.toLowerCase().indexOf(q) >= 0 ||
-          i.etTopic.toLowerCase().indexOf(q) >= 0 ||
-          i.clarification.toLowerCase().indexOf(q) >= 0 ||
-          i.clientReply.toLowerCase().indexOf(q) >= 0 ||
-          i.keyword.toLowerCase().indexOf(q) >= 0 ||
-          i.client.toLowerCase().indexOf(q) >= 0,
-      );
-    }
-    return result;
-  }, [items, filterType, filterClient, debouncedSearch]);
-
+  const selectable = filtered.filter((r) => !alreadyIn[r.item.id]);
   const selectedCount = Object.keys(selected).filter(
     (k) => selected[Number(k)],
   ).length;
+  const allSelected =
+    selectable.length > 0 && selectable.every((r) => selected[r.item.id]);
 
-  const toggle = (id: number): void =>
+  const toggle = (id: number): void => {
+    if (alreadyIn[id]) return;
     setSelected((s) => ({ ...s, [id]: !s[id] }));
+  };
+
+  const toggleAll = (): void => {
+    setSelected((s) => {
+      const next = { ...s };
+      selectable.forEach((r) => {
+        next[r.item.id] = !allSelected;
+      });
+      return next;
+    });
+  };
 
   const handleImport = (): void => {
-    const chosen = items.filter((i) => selected[i.id]).map(toClarificationItem);
+    const chosen = items
+      .filter((i) => selected[i.id] && !alreadyIn[i.id])
+      .map(toClarificationItem);
     if (chosen.length > 0) onImport(chosen);
     onClose();
   };
 
+  const shown = filtered.slice(0, visible);
+
   return (
-    <div className={styles.overlay}>
-      <div className={styles.modal}>
+    <div className={styles.overlay} onClick={onClose} role="presentation">
+      <div
+        className={styles.modal}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-clar-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={styles.header}>
-          <h3 className={styles.title}>Import from Clarifications Database</h3>
-          <button className={styles.close} onClick={onClose}>
-            ✕
+          <div className={styles.headerMain}>
+            <span className={styles.iconTile}>
+              <BookOpen size={18} />
+            </span>
+            <div>
+              <h2 id="import-clar-title" className={styles.title}>
+                Import from Clarif. & Qualif. library
+              </h2>
+              <p className={styles.subtitle}>
+                Reuse clarifications and qualifications raised in other BIDs.
+                Type, topic, text and category are copied. Client replies and
+                document references stay in the library.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className={styles.closeBtn}
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <X size={18} />
           </button>
         </div>
 
-        <div className={styles.toolbar}>
-          <div className={styles.searchWrapper}>
+        <div className={styles.filterBar}>
+          <div className={styles.filterSearch}>
+            <Search size={15} className={styles.filterSearchIcon} />
             <input
-              className={styles.searchInput}
-              placeholder="Search clarifications, topics, replies..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              type="text"
+              className={styles.filterSearchInput}
+              placeholder="Search text, topic, keyword, BID…"
+              value={search}
+              onChange={(e) => setSearch(e.currentTarget.value)}
+              aria-label="Search the library"
+              autoFocus
             />
+            {search && (
+              <button
+                type="button"
+                className={styles.searchClearBtn}
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
-          <select
-            className={styles.filterSelect}
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-          >
-            <option value="all">All Types</option>
-            <option value="Clarification">Clarification</option>
-            <option value="Qualification">Qualification</option>
-          </select>
-          <select
-            className={styles.filterSelect}
-            value={filterClient}
-            onChange={(e) => setFilterClient(e.target.value)}
-          >
-            <option value="all">All Clients</option>
-            {clients.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          <MultiSelectDropdown
+            label="Type"
+            options={options.type}
+            selected={filters.type}
+            onChange={setFilter("type")}
+          />
+          <MultiSelectDropdown
+            label="Category"
+            options={options.category}
+            selected={filters.category}
+            onChange={setFilter("category")}
+          />
+          <MultiSelectDropdown
+            label="Client"
+            options={options.client}
+            selected={filters.client}
+            onChange={setFilter("client")}
+          />
+          <MultiSelectDropdown
+            label="Division"
+            options={options.division}
+            selected={filters.division}
+            onChange={setFilter("division")}
+          />
+          <MultiSelectDropdown
+            label="Service Line"
+            options={options.serviceLine}
+            selected={filters.serviceLine}
+            onChange={setFilter("serviceLine")}
+          />
+          {hasFilters && (
+            <button
+              type="button"
+              className={styles.clearFiltersBtn}
+              onClick={clear}
+            >
+              <X size={14} /> Clear
+            </button>
+          )}
         </div>
 
-        <div className={styles.body}>
+        <div className={styles.listHead}>
+          <label className={styles.selectAll}>
+            <input
+              type="checkbox"
+              checked={allSelected}
+              disabled={selectable.length === 0}
+              onChange={toggleAll}
+            />
+            Select all matching ({selectable.length})
+          </label>
+          <span className={styles.resultCount}>
+            <strong>{filtered.length}</strong>{" "}
+            {hasFilters ? `of ${items.length} ` : ""}
+            {items.length === 1 ? "entry" : "entries"}
+          </span>
+        </div>
+
+        <div className={styles.list}>
           {isLoading ? (
-            <div className={styles.loading}>
-              <div className={styles.spinner} />
-            </div>
+            <SkeletonLoader height={84} count={4} />
           ) : error ? (
-            <div className={styles.empty}>{error}</div>
+            <EmptyState variant="glass" title="Library unavailable" description={error} />
+          ) : items.length === 0 ? (
+            <EmptyState
+              variant="glass"
+              title="The library is empty"
+              description="Entries are added when a BID is completed or from the Clarif. & Qualif. page."
+            />
           ) : filtered.length === 0 ? (
-            <div className={styles.empty}>No entries match your filters.</div>
+            <EmptyState
+              variant="glass"
+              title="No entries match these filters"
+              description="Try fewer filters or another search term."
+              actionLabel="Clear filters"
+              onAction={clear}
+            />
           ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th className={styles.checkboxCell} />
-                  <th>Type</th>
-                  <th>Client Doc Ref</th>
-                  <th>Description</th>
-                  <th>Clarification</th>
-                  <th>Client Reply</th>
-                  <th>Client</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((it) => (
-                  <tr
+            <>
+              {shown.map((r) => {
+                const it = r.item;
+                const imported = !!alreadyIn[it.id];
+                const isSelected = !!selected[it.id];
+                const isLong = it.clarification.length > LONG_TEXT;
+                const isExpanded = !!expanded[it.id];
+                return (
+                  <div
                     key={it.id}
-                    className={styles.row}
+                    className={`${styles.row} ${isSelected ? styles.rowSelected : ""} ${imported ? styles.rowDisabled : ""}`}
                     onClick={() => toggle(it.id)}
+                    role="checkbox"
+                    aria-checked={isSelected}
+                    aria-disabled={imported}
+                    tabIndex={imported ? -1 : 0}
+                    onKeyDown={(e) => {
+                      if (e.key === " " || e.key === "Enter") {
+                        e.preventDefault();
+                        toggle(it.id);
+                      }
+                    }}
                   >
-                    <td className={styles.checkboxCell}>
-                      <input
-                        type="checkbox"
-                        checked={!!selected[it.id]}
-                        onChange={() => toggle(it.id)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </td>
-                    <td>
-                      <span
-                        className={`${styles.badge} ${
-                          it.baseType === "Qualification"
-                            ? styles.typeQualification
-                            : styles.typeClarification
-                        }`}
+                    <span
+                      className={`${styles.check} ${isSelected ? styles.checkOn : ""}`}
+                      aria-hidden="true"
+                    >
+                      {(isSelected || imported) && <Check size={12} />}
+                    </span>
+                    <div className={styles.rowBody}>
+                      <div className={styles.rowMeta}>
+                        <ClarificationTypeBadge type={it.baseType} />
+                        {it.category && (
+                          <ClarificationCategoryChip category={it.category} />
+                        )}
+                        <ClarificationOriginChip
+                          sourceBidNumber={it.sourceBidNumber}
+                        />
+                        {it.division && <DivisionBadge division={it.division} />}
+                        {r.clientLabel && (
+                          <span className={styles.metaText}>
+                            {r.clientLabel}
+                          </span>
+                        )}
+                        {imported && (
+                          <span className={styles.importedPill}>
+                            Already in this BID
+                          </span>
+                        )}
+                      </div>
+                      {it.etTopic && (
+                        <div className={styles.topic}>{it.etTopic}</div>
+                      )}
+                      <p
+                        className={`${styles.text} ${isLong && !isExpanded ? styles.clamp : ""}`}
                       >
-                        {it.baseType}
-                      </span>
-                    </td>
-                    <td>{it.clientDocRef || "-"}</td>
-                    <td>
-                      <div className={styles.cellText}>{it.etTopic || "-"}</div>
-                    </td>
-                    <td>
-                      <div className={styles.cellText}>
                         {it.clarification || "-"}
-                      </div>
-                    </td>
-                    <td>
-                      <div className={styles.cellText}>
-                        {it.clientReply || "-"}
-                      </div>
-                    </td>
-                    <td>{it.client || "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </p>
+                      {isLong && (
+                        <button
+                          type="button"
+                          className={styles.moreBtn}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpanded((x) => ({ ...x, [it.id]: !x[it.id] }));
+                          }}
+                        >
+                          {isExpanded ? "Show less" : "Show more"}
+                        </button>
+                      )}
+                      {it.clientReply && (
+                        <p className={styles.reply}>
+                          <span>Client reply:</span> {it.clientReply}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {filtered.length > visible && (
+                <button
+                  type="button"
+                  className={styles.loadMoreBtn}
+                  onClick={() => setVisible((v) => v + PAGE_SIZE)}
+                >
+                  Show {Math.min(PAGE_SIZE, filtered.length - visible)} more
+                  of {filtered.length - visible}
+                </button>
+              )}
+            </>
           )}
         </div>
 
         <div className={styles.footer}>
-          <span className={styles.count}>{selectedCount} selected</span>
+          <span className={styles.footerInfo}>
+            <strong>{selectedCount}</strong> selected
+          </span>
           <div className={styles.footerActions}>
-            <button className={styles.btnSecondary} onClick={onClose}>
+            <button type="button" className={styles.cancelBtn} onClick={onClose}>
               Cancel
             </button>
             <button
-              className={styles.btnPrimary}
+              type="button"
+              className={styles.primaryBtn}
               onClick={handleImport}
               disabled={selectedCount === 0}
             >
-              Import {selectedCount > 0 ? `(${selectedCount})` : ""}
+              Import{selectedCount > 0 ? ` ${selectedCount}` : ""}
             </button>
           </div>
         </div>

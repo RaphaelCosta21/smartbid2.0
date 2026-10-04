@@ -39,6 +39,10 @@ import { useCurrentUser } from "../hooks/useCurrentUser";
 import { usePastBidPublisher } from "../hooks/usePastBidPublisher";
 import { useApprovalSync } from "../hooks/useApprovalSync";
 import {
+  needsClarificationLibrarySync,
+  useClarificationLibrarySync,
+} from "../hooks/useClarificationLibrarySync";
+import {
   getMissingApprovalActivityEntries,
   getMissingApprovalHistoryPatch,
 } from "../utils/approvalHelpers";
@@ -226,6 +230,7 @@ export const BidDetailPage: React.FC = () => {
   const addToast = useUIStore((s) => s.addToast);
   const publishPastBid = usePastBidPublisher();
   const publishTechnicalProposal = useTechnicalProposalPublisher();
+  const syncClarificationLibrary = useClarificationLibrarySync();
 
   // Collapse sidebar when entering BidDetail, restore on leave
   React.useEffect(() => {
@@ -502,6 +507,16 @@ export const BidDetailPage: React.FC = () => {
     if (Object.keys(patch).length === 0) return;
     savePatch(patch).catch(() => undefined);
   }, [bid, canEditBid, savePatch]);
+
+  // Covers every path to Completed (approval auto-complete/override, revision close, Teams flow).
+  const syncAttemptRef = React.useRef("");
+  React.useEffect(() => {
+    if (!bid || !canEditBid || !needsClarificationLibrarySync(bid)) return;
+    const key = `${bid.bidNumber}|${bid.completedDate}`;
+    if (syncAttemptRef.current === key) return;
+    syncAttemptRef.current = key;
+    syncClarificationLibrary(bid).catch(() => undefined);
+  }, [bid, canEditBid, syncClarificationLibrary]);
 
   if (!bid) {
     return (

@@ -26,6 +26,7 @@ import { BidPriority, IPersonRef, IBid } from "../models";
 import { ITeamMember } from "../models/ITeamMember";
 import { PRIORITY_COLORS } from "../utils/constants";
 import { useStatusColors } from "../hooks/useStatusColors";
+import { useSlidingIndicator } from "../hooks/useSlidingIndicator";
 import { ErnCreateModal } from "../components/bid/ErnCreateModal";
 import { isIntegratedBid } from "../utils/ernHelpers";
 import { formatDate } from "../utils/formatters";
@@ -92,6 +93,7 @@ export const UnassignedRequestsPage: React.FC = () => {
   // Team members from MembersManagement
   const [teamMembers, setTeamMembers] = React.useState<ITeamMember[]>([]);
   const [viewMode, setViewMode] = React.useState<ViewMode>("list");
+  const viewIndicator = useSlidingIndicator(viewMode);
   const [search, setSearch] = React.useState("");
   const [priorityFilter, setPriorityFilter] = React.useState<string[]>([]);
   const [divisionFilter, setDivisionFilter] = React.useState<string[]>([]);
@@ -1468,7 +1470,19 @@ export const UnassignedRequestsPage: React.FC = () => {
           </svg>
         }
         actions={
-          <div className={styles.viewToggle} role="tablist" aria-label="View">
+          <div
+            ref={viewIndicator.containerRef}
+            className={styles.viewToggle}
+            role="tablist"
+            aria-label="View"
+          >
+            {viewIndicator.style && (
+              <span
+                aria-hidden="true"
+                className={`${styles.viewIndicator} ${viewIndicator.animated ? styles.viewIndicatorAnimated : ""}`}
+                style={viewIndicator.style}
+              />
+            )}
             {VIEW_OPTIONS.map((opt) => {
               const active = viewMode === opt.mode;
               return (
