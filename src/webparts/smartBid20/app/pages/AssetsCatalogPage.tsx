@@ -152,10 +152,14 @@ export const AssetsCatalogPage: React.FC = () => {
       .sort(
         (a, b) =>
           dir *
-          (a.title || a.pn || "").localeCompare(b.title || b.pn || "", undefined, {
-            numeric: true,
-            sensitivity: "base",
-          }),
+          (a.title || a.pn || "").localeCompare(
+            b.title || b.pn || "",
+            undefined,
+            {
+              numeric: true,
+              sensitivity: "base",
+            },
+          ),
       );
   }, [items, filterCategories, filterStatuses, debouncedSearch, sortOrder]);
 

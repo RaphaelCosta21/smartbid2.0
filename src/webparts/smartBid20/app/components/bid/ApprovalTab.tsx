@@ -677,15 +677,13 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       });
 
       // Build sector groups for SP list
-      const sectorGroups: IApprovalSectorGroup[] = activeSectors.map(
-        (cfg) => ({
-          sector: cfg.sector,
-          sectorLabel: cfg.label,
-          approvers: sectorSelections[cfg.sector] || [],
-          isAutoLocked: (lockedApprovers[cfg.sector] || []).length > 0,
-          isPreSelected: cfg.preSelectFn(bid).length > 0,
-        }),
-      );
+      const sectorGroups: IApprovalSectorGroup[] = activeSectors.map((cfg) => ({
+        sector: cfg.sector,
+        sectorLabel: cfg.label,
+        approvers: sectorSelections[cfg.sector] || [],
+        isAutoLocked: (lockedApprovers[cfg.sector] || []).length > 0,
+        isPreSelected: cfg.preSelectFn(bid).length > 0,
+      }));
 
       // Write to smartbid-approvals SP list
       await ApprovalService.startApprovalRound(
@@ -1032,11 +1030,14 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
           Mark {waiverTarget.label} as not required?
         </div>
         <div className={styles.confirmText}>
-          The <strong>{waiverTarget.label}</strong> team will not be included
-          in the approval flow for this BID. The justification is saved on the
+          The <strong>{waiverTarget.label}</strong> team will not be included in
+          the approval flow for this BID. The justification is saved on the
           Approvals tab and in the activity log.
         </div>
-        <label className={styles.overrideLabel} htmlFor="approval-waiver-reason">
+        <label
+          className={styles.overrideLabel}
+          htmlFor="approval-waiver-reason"
+        >
           Justification <span className={styles.requiredMark}>*</span>
         </label>
         <textarea

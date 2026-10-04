@@ -738,12 +738,12 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     [debouncedGlobal],
   );
   const globalActive =
-    activeTab === "all" &&
-    debouncedGlobal.trim().length >= MIN_GLOBAL_CHARS;
+    activeTab === "all" && debouncedGlobal.trim().length >= MIN_GLOBAL_CHARS;
   const isDebouncing = searches.all.trim() !== debouncedGlobal.trim();
 
   const sortedQuotations = React.useMemo(
-    () => (quotations || []).slice().sort((a, b) => quoteTime(b) - quoteTime(a)),
+    () =>
+      (quotations || []).slice().sort((a, b) => quoteTime(b) - quoteTime(a)),
     [quotations],
   );
 
@@ -1472,7 +1472,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
       });
     } else if (isMultiFilter) {
       if (activeHeaders[0])
-        filterColOptions.push({ key: activeHeaders[0], label: "BUSINESS UNIT" });
+        filterColOptions.push({
+          key: activeHeaders[0],
+          label: "BUSINESS UNIT",
+        });
       if (activeHeaders[1])
         filterColOptions.push({ key: activeHeaders[1], label: "PART NUMBER" });
       if (activeHeaders[2])
@@ -1687,183 +1690,185 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
             </div>
           </div>
 
-        {/* Column filters: one for Price Consulting, up to 3 for Active Registered */}
-        <div className={styles.queryFilterBar}>
-          <div className={styles.queryMultiFilterWrap}>
-            {queryFilters.map((filter) => (
-              <div key={filter.id} className={styles.queryMultiFilterRow}>
-                <select
-                  className={styles.querySelect}
-                  value={filter.column || defaultFilterCol}
-                  onChange={(e) =>
-                    handleUpdateFilter(filter.id, e.target.value)
-                  }
-                  aria-label="Filter column"
-                >
-                  {filterColOptions.map((opt) => (
-                    <option key={opt.key} value={opt.key}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  className={styles.queryInput}
-                  placeholder="Filter value..."
-                  value={filter.value}
-                  onChange={(e) =>
-                    handleUpdateFilter(filter.id, undefined, e.target.value)
-                  }
-                  aria-label="Filter value"
-                />
-                {isMultiFilter && (
-                  <button
-                    type="button"
-                    className={styles.queryRemoveBtn}
-                    onClick={() => handleRemoveFilter(filter.id)}
-                    disabled={queryFilters.length <= 1}
-                    title="Remove filter"
-                    aria-label="Remove filter"
+          {/* Column filters: one for Price Consulting, up to 3 for Active Registered */}
+          <div className={styles.queryFilterBar}>
+            <div className={styles.queryMultiFilterWrap}>
+              {queryFilters.map((filter) => (
+                <div key={filter.id} className={styles.queryMultiFilterRow}>
+                  <select
+                    className={styles.querySelect}
+                    value={filter.column || defaultFilterCol}
+                    onChange={(e) =>
+                      handleUpdateFilter(filter.id, e.target.value)
+                    }
+                    aria-label="Filter column"
                   >
-                    {CloseIcon}
-                  </button>
-                )}
+                    {filterColOptions.map((opt) => (
+                      <option key={opt.key} value={opt.key}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    className={styles.queryInput}
+                    placeholder="Filter value..."
+                    value={filter.value}
+                    onChange={(e) =>
+                      handleUpdateFilter(filter.id, undefined, e.target.value)
+                    }
+                    aria-label="Filter value"
+                  />
+                  {isMultiFilter && (
+                    <button
+                      type="button"
+                      className={styles.queryRemoveBtn}
+                      onClick={() => handleRemoveFilter(filter.id)}
+                      disabled={queryFilters.length <= 1}
+                      title="Remove filter"
+                      aria-label="Remove filter"
+                    >
+                      {CloseIcon}
+                    </button>
+                  )}
+                </div>
+              ))}
+              {isMultiFilter && queryFilters.length < 3 && (
+                <button
+                  type="button"
+                  className={styles.queryAddFilterBtn}
+                  onClick={handleAddFilter}
+                >
+                  + Add Filter
+                </button>
+              )}
+            </div>
+            <span className={styles.queryResultCount}>
+              {totalFiltered.toLocaleString()} result
+              {totalFiltered !== 1 ? "s" : ""}
+            </span>
+          </div>
+
+          {/* Data table */}
+          {totalFiltered === 0 ? (
+            renderEmpty(
+              "No results found",
+              "Try another term, or switch the data source or view above.",
+            )
+          ) : (
+            <div className={styles.queryTableWrap}>
+              <div className={styles.queryTable}>
+                <div className={styles.queryTableHeader}>
+                  <div className={styles.queryColPhoto}></div>
+                  {columnDefs.map((col) => (
+                    <div
+                      key={col.key}
+                      className={
+                        col.idx === 2
+                          ? styles.queryColDesc
+                          : styles.queryColCell
+                      }
+                    >
+                      {col.header}
+                    </div>
+                  ))}
+                  <div className={styles.colAction}></div>
+                </div>
+                {pageRows.map((row, i) => {
+                  const pn = String(row[pnColKey] || "").trim();
+                  const desc = String(row[descColKey] || "").trim();
+                  const photoUrl = pn ? getPhotoUrl(pn) : "";
+                  const isSelected = isRowSelected(pn, desc);
+                  return (
+                    <div
+                      key={`q-${pageStart + i}`}
+                      className={`${styles.queryTableRow}${isSelected ? ` ${styles.resultRowSelected}` : ""}`}
+                      onClick={() => handleItemClick(pn, desc)}
+                      onDoubleClick={() => handleItemDoubleClick(pn, desc)}
+                    >
+                      <div className={styles.queryColPhoto}>
+                        {photoUrl && (
+                          <img
+                            className={styles.queryThumb}
+                            src={photoUrl}
+                            alt=""
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewPhotoUrl(photoUrl);
+                            }}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display =
+                                "none";
+                            }}
+                          />
+                        )}
+                      </div>
+                      {columnDefs.map((col) => (
+                        <div
+                          key={col.key}
+                          className={
+                            col.idx === 2
+                              ? styles.queryColDesc
+                              : col.idx === 1
+                                ? `${styles.queryColCell} ${styles.mono}`
+                                : styles.queryColCell
+                          }
+                        >
+                          {String(row[col.key] ?? "")}
+                        </div>
+                      ))}
+                      {renderSelectCell(pn, desc)}
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-            {isMultiFilter && queryFilters.length < 3 && (
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalFiltered > QUERY_PAGE_SIZE && (
+            <div className={styles.queryPagination}>
               <button
                 type="button"
-                className={styles.queryAddFilterBtn}
-                onClick={handleAddFilter}
+                className={styles.queryPageBtn}
+                disabled={safePage === 0}
+                onClick={() => setQueryPage(0)}
+                aria-label="First page"
               >
-                + Add Filter
+                ««
               </button>
-            )}
-          </div>
-          <span className={styles.queryResultCount}>
-            {totalFiltered.toLocaleString()} result
-            {totalFiltered !== 1 ? "s" : ""}
-          </span>
-        </div>
-
-        {/* Data table */}
-        {totalFiltered === 0 ? (
-          renderEmpty(
-            "No results found",
-            "Try another term, or switch the data source or view above.",
-          )
-        ) : (
-          <div className={styles.queryTableWrap}>
-            <div className={styles.queryTable}>
-              <div className={styles.queryTableHeader}>
-                <div className={styles.queryColPhoto}></div>
-                {columnDefs.map((col) => (
-                  <div
-                    key={col.key}
-                    className={
-                      col.idx === 2 ? styles.queryColDesc : styles.queryColCell
-                    }
-                  >
-                    {col.header}
-                  </div>
-                ))}
-                <div className={styles.colAction}></div>
-              </div>
-              {pageRows.map((row, i) => {
-                const pn = String(row[pnColKey] || "").trim();
-                const desc = String(row[descColKey] || "").trim();
-                const photoUrl = pn ? getPhotoUrl(pn) : "";
-                const isSelected = isRowSelected(pn, desc);
-                return (
-                  <div
-                    key={`q-${pageStart + i}`}
-                    className={`${styles.queryTableRow}${isSelected ? ` ${styles.resultRowSelected}` : ""}`}
-                    onClick={() => handleItemClick(pn, desc)}
-                    onDoubleClick={() => handleItemDoubleClick(pn, desc)}
-                  >
-                    <div className={styles.queryColPhoto}>
-                      {photoUrl && (
-                        <img
-                          className={styles.queryThumb}
-                          src={photoUrl}
-                          alt=""
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPreviewPhotoUrl(photoUrl);
-                          }}
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
-                          }}
-                        />
-                      )}
-                    </div>
-                    {columnDefs.map((col) => (
-                      <div
-                        key={col.key}
-                        className={
-                          col.idx === 2
-                            ? styles.queryColDesc
-                            : col.idx === 1
-                              ? `${styles.queryColCell} ${styles.mono}`
-                              : styles.queryColCell
-                        }
-                      >
-                        {String(row[col.key] ?? "")}
-                      </div>
-                    ))}
-                    {renderSelectCell(pn, desc)}
-                  </div>
-                );
-              })}
+              <button
+                type="button"
+                className={styles.queryPageBtn}
+                disabled={safePage === 0}
+                onClick={() => setQueryPage(safePage - 1)}
+                aria-label="Previous page"
+              >
+                «
+              </button>
+              <span className={styles.queryPageInfo}>
+                Page {safePage + 1} of {totalPages}
+              </span>
+              <button
+                type="button"
+                className={styles.queryPageBtn}
+                disabled={safePage >= totalPages - 1}
+                onClick={() => setQueryPage(safePage + 1)}
+                aria-label="Next page"
+              >
+                »
+              </button>
+              <button
+                type="button"
+                className={styles.queryPageBtn}
+                disabled={safePage >= totalPages - 1}
+                onClick={() => setQueryPage(totalPages - 1)}
+                aria-label="Last page"
+              >
+                »»
+              </button>
             </div>
-          </div>
-        )}
-
-        {/* Pagination */}
-        {totalFiltered > QUERY_PAGE_SIZE && (
-          <div className={styles.queryPagination}>
-            <button
-              type="button"
-              className={styles.queryPageBtn}
-              disabled={safePage === 0}
-              onClick={() => setQueryPage(0)}
-              aria-label="First page"
-            >
-              ««
-            </button>
-            <button
-              type="button"
-              className={styles.queryPageBtn}
-              disabled={safePage === 0}
-              onClick={() => setQueryPage(safePage - 1)}
-              aria-label="Previous page"
-            >
-              «
-            </button>
-            <span className={styles.queryPageInfo}>
-              Page {safePage + 1} of {totalPages}
-            </span>
-            <button
-              type="button"
-              className={styles.queryPageBtn}
-              disabled={safePage >= totalPages - 1}
-              onClick={() => setQueryPage(safePage + 1)}
-              aria-label="Next page"
-            >
-              »
-            </button>
-            <button
-              type="button"
-              className={styles.queryPageBtn}
-              disabled={safePage >= totalPages - 1}
-              onClick={() => setQueryPage(totalPages - 1)}
-              aria-label="Last page"
-            >
-              »»
-            </button>
-          </div>
-        )}
+          )}
         </div>
       </div>
     );
@@ -1987,9 +1992,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                     <div className={styles.colDesc}>
                       {item.title || item.description || "-"}
                       {item.keyword && (
-                        <span className={styles.metaChip}>
-                          {item.keyword}
-                        </span>
+                        <span className={styles.metaChip}>{item.keyword}</span>
                       )}
                     </div>
                     <div className={styles.colDatasheet}>
@@ -2039,8 +2042,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
 
   const renderAllSources = (): JSX.Element => {
     if (!globalSections) {
-      return search.trim().length > 0 &&
-        search.trim().length < MIN_GLOBAL_CHARS
+      return search.trim().length > 0 && search.trim().length < MIN_GLOBAL_CHARS
         ? renderEmpty("Keep typing", "Type at least 2 characters.")
         : renderEmpty(
             "Search every source at once",
@@ -2204,16 +2206,17 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
               <div className={styles.headerText}>
                 <div className={styles.titleRow}>
                   <h2 id="equipment-import-title" className={styles.title}>
-                    {multiSelect ? "Add Items from Catalog" : "Import Equipment"}
+                    {multiSelect
+                      ? "Add Items from Catalog"
+                      : "Import Equipment"}
                   </h2>
                   {multiSelect && (
                     <span className={styles.headerBadge}>Multi-select</span>
                   )}
                 </div>
                 <p className={styles.subtitle}>
-                  Find equipment by part number or description across
-                  Favorites, Assets Catalog, BOM Costs, Quotations and Query
-                  Consulting.
+                  Find equipment by part number or description across Favorites,
+                  Assets Catalog, BOM Costs, Quotations and Query Consulting.
                 </p>
               </div>
             </div>

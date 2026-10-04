@@ -671,10 +671,14 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
       .sort(
         (a, b) =>
           dir *
-          (a.title || a.fileName).localeCompare(b.title || b.fileName, undefined, {
-            numeric: true,
-            sensitivity: "base",
-          }),
+          (a.title || a.fileName).localeCompare(
+            b.title || b.fileName,
+            undefined,
+            {
+              numeric: true,
+              sensitivity: "base",
+            },
+          ),
       );
   }, [
     items,

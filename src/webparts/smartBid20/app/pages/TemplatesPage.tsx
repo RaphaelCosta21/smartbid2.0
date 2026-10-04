@@ -54,9 +54,9 @@ export const TemplatesPage: React.FC = () => {
 
   const [search, setSearch] = React.useState("");
   const [filterDivisions, setFilterDivisions] = React.useState<string[]>([]);
-  const [filterServiceLines, setFilterServiceLines] = React.useState<
-    string[]
-  >([]);
+  const [filterServiceLines, setFilterServiceLines] = React.useState<string[]>(
+    [],
+  );
   const [filterStatuses, setFilterStatuses] = React.useState<string[]>([]);
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("az");
   const [viewMode, setViewMode] = React.useState<ViewMode>("grid");

@@ -976,7 +976,8 @@ export function QueryConsultingPage(): React.ReactElement {
   }
 
   const filterColOptions = getFilterColumnOptions();
-  const sourceLabel = SOURCES.filter(([key]) => key === activeTab)[0]?.[1] || "";
+  const sourceLabel =
+    SOURCES.filter(([key]) => key === activeTab)[0]?.[1] || "";
   const selectedBuCount = currentBuFilters.filter((f) => f.selected).length;
   const buPartial =
     currentBuFilters.length > 0 && selectedBuCount < currentBuFilters.length;
@@ -1082,7 +1083,11 @@ export function QueryConsultingPage(): React.ReactElement {
       </div>
 
       {/* ── Level 1: data source ────────────────────────────────────────── */}
-      <div className={styles.sourceTabs} role="tablist" aria-label="Data source">
+      <div
+        className={styles.sourceTabs}
+        role="tablist"
+        aria-label="Data source"
+      >
         {SOURCES.map(([key, label]) => (
           <button
             type="button"
@@ -1312,127 +1317,127 @@ export function QueryConsultingPage(): React.ReactElement {
           </div>
         )}
 
-      {/* ── Data Table ──────────────────────────────────────────────────── */}
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th className={styles.photoColHeader} style={{ width: 50 }}>
-                Photo
-              </th>
-              {columns.map((col) => {
-                const wOverride = colWidths[col.key];
-                const thStyle: React.CSSProperties = wOverride
-                  ? { width: wOverride + "px" }
-                  : { width: col.width };
-                return (
-                  <th
-                    key={col.key}
-                    className={styles.sortableHeader}
-                    style={thStyle}
-                    onClick={() => handleSort(col.key)}
-                  >
-                    {col.header}
-                    {currentTab.sortColumn === col.key && (
-                      <span className={styles.sortArrow}>
-                        {currentTab.sortDescending ? " ▼" : " ▲"}
-                      </span>
-                    )}
-                    <span
-                      className={styles.resizeHandle}
-                      onMouseDown={(e) => handleResizeStart(col.key, e)}
-                    />
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {pageRows.length === 0 ? (
+        {/* ── Data Table ──────────────────────────────────────────────────── */}
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
               <tr>
-                <td
-                  colSpan={columns.length + 1}
-                  className={styles.emptyMessage}
-                >
-                  No results found. Try different search criteria or adjust
-                  filters.
-                </td>
-              </tr>
-            ) : (
-              pageRows.map((row, idx) => {
-                const pn = String(row[pnColumnKey] || "").trim();
-                const photoUrl = pn ? getPhotoUrl(pn) : "";
-                return (
-                  <tr key={safePage * PAGE_SIZE + idx}>
-                    <td className={styles.photoCell}>
-                      {photoUrl && (
-                        <PhotoThumbnail
-                          url={photoUrl}
-                          pn={pn}
-                          onClick={() => setPreviewPhotoUrl(photoUrl)}
-                        />
+                <th className={styles.photoColHeader} style={{ width: 50 }}>
+                  Photo
+                </th>
+                {columns.map((col) => {
+                  const wOverride = colWidths[col.key];
+                  const thStyle: React.CSSProperties = wOverride
+                    ? { width: wOverride + "px" }
+                    : { width: col.width };
+                  return (
+                    <th
+                      key={col.key}
+                      className={styles.sortableHeader}
+                      style={thStyle}
+                      onClick={() => handleSort(col.key)}
+                    >
+                      {col.header}
+                      {currentTab.sortColumn === col.key && (
+                        <span className={styles.sortArrow}>
+                          {currentTab.sortDescending ? " ▼" : " ▲"}
+                        </span>
                       )}
-                    </td>
-                    {columns.map((col) => (
-                      <td key={col.key}>{col.render(row)}</td>
-                    ))}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* ── Pagination ──────────────────────────────────────────────────── */}
-      <div className={styles.paginationBar}>
-        <span className={styles.resultCount}>
-          Showing {Math.min(safePage * PAGE_SIZE + 1, filteredCount)}-
-          {Math.min((safePage + 1) * PAGE_SIZE, filteredCount)} of{" "}
-          {filteredCount.toLocaleString()} items
-        </span>
-        <div className={styles.paginationControls}>
-          <button
-            type="button"
-            className={styles.pageBtn}
-            disabled={safePage === 0}
-            onClick={() => setPage(0)}
-            title="First page"
-          >
-            ««
-          </button>
-          <button
-            type="button"
-            className={styles.pageBtn}
-            disabled={safePage === 0}
-            onClick={() => setPage(safePage - 1)}
-            title="Previous page"
-          >
-            «
-          </button>
-          <span className={styles.pageInfo}>
-            Page {safePage + 1} of {totalPages}
-          </span>
-          <button
-            type="button"
-            className={styles.pageBtn}
-            disabled={safePage >= totalPages - 1}
-            onClick={() => setPage(safePage + 1)}
-            title="Next page"
-          >
-            »
-          </button>
-          <button
-            type="button"
-            className={styles.pageBtn}
-            disabled={safePage >= totalPages - 1}
-            onClick={() => setPage(totalPages - 1)}
-            title="Last page"
-          >
-            »»
-          </button>
+                      <span
+                        className={styles.resizeHandle}
+                        onMouseDown={(e) => handleResizeStart(col.key, e)}
+                      />
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {pageRows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={columns.length + 1}
+                    className={styles.emptyMessage}
+                  >
+                    No results found. Try different search criteria or adjust
+                    filters.
+                  </td>
+                </tr>
+              ) : (
+                pageRows.map((row, idx) => {
+                  const pn = String(row[pnColumnKey] || "").trim();
+                  const photoUrl = pn ? getPhotoUrl(pn) : "";
+                  return (
+                    <tr key={safePage * PAGE_SIZE + idx}>
+                      <td className={styles.photoCell}>
+                        {photoUrl && (
+                          <PhotoThumbnail
+                            url={photoUrl}
+                            pn={pn}
+                            onClick={() => setPreviewPhotoUrl(photoUrl)}
+                          />
+                        )}
+                      </td>
+                      {columns.map((col) => (
+                        <td key={col.key}>{col.render(row)}</td>
+                      ))}
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-      </div>
+
+        {/* ── Pagination ──────────────────────────────────────────────────── */}
+        <div className={styles.paginationBar}>
+          <span className={styles.resultCount}>
+            Showing {Math.min(safePage * PAGE_SIZE + 1, filteredCount)}-
+            {Math.min((safePage + 1) * PAGE_SIZE, filteredCount)} of{" "}
+            {filteredCount.toLocaleString()} items
+          </span>
+          <div className={styles.paginationControls}>
+            <button
+              type="button"
+              className={styles.pageBtn}
+              disabled={safePage === 0}
+              onClick={() => setPage(0)}
+              title="First page"
+            >
+              ««
+            </button>
+            <button
+              type="button"
+              className={styles.pageBtn}
+              disabled={safePage === 0}
+              onClick={() => setPage(safePage - 1)}
+              title="Previous page"
+            >
+              «
+            </button>
+            <span className={styles.pageInfo}>
+              Page {safePage + 1} of {totalPages}
+            </span>
+            <button
+              type="button"
+              className={styles.pageBtn}
+              disabled={safePage >= totalPages - 1}
+              onClick={() => setPage(safePage + 1)}
+              title="Next page"
+            >
+              »
+            </button>
+            <button
+              type="button"
+              className={styles.pageBtn}
+              disabled={safePage >= totalPages - 1}
+              onClick={() => setPage(totalPages - 1)}
+              title="Last page"
+            >
+              »»
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
