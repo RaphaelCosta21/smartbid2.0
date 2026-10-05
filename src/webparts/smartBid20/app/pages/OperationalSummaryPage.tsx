@@ -44,8 +44,15 @@ export const OperationalSummaryPage: React.FC = () => {
   const config = useConfigStore((s) => s.config);
   const chart = useChartTheme();
   const { getPhaseColor } = useStatusColors();
-  const { filters, patch, setPreset, reset, applyFilters, hasActive } =
-    useAnalyticsFilters();
+  const {
+    filters,
+    patch,
+    setPreset,
+    reset,
+    applyFilters,
+    getFacetCounts,
+    hasActive,
+  } = useAnalyticsFilters();
   const [busy, setBusy] = React.useState(false);
 
   const chartEls = React.useRef<{ [k: string]: HTMLDivElement | null }>({});
@@ -102,6 +109,11 @@ export const OperationalSummaryPage: React.FC = () => {
   const filtered = React.useMemo(
     () => applyFilters(bids, "createdDate"),
     [bids, applyFilters],
+  );
+
+  const facetCounts = React.useMemo(
+    () => getFacetCounts(bids, "createdDate"),
+    [bids, getFacetCounts],
   );
 
   const isTerminal = React.useCallback(
@@ -263,6 +275,7 @@ export const OperationalSummaryPage: React.FC = () => {
         divisions={divisions}
         serviceLines={serviceLines}
         bidTypes={bidTypeOptions}
+        facetCounts={facetCounts}
         rightSlot={
           <ExportBar
             onExcel={handleExcel}

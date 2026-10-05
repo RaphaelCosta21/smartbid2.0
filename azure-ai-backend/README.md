@@ -27,19 +27,19 @@ AI Search Indexer ── App B ──►  SharePoint  (reads smartBidDocs: Datas
 
 ## Contents
 
-| Path                                                           | What it is                                                                           |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `ai-search/01-datasource.json`                                 | SharePoint data source — scoped to the two folders only                              |
-| `ai-search/ai-search-updated/smartbid-docs-index.json`         | Vector index + vectorizer + semantic config + `sectionPath` (current)                |
-| `ai-search/ai-search-updated/smartbid-docs-skillset.json`      | Custom chunking skill + Azure OpenAI embedding + index projections (current)         |
-| `ai-search/ai-search-updated/smartbid-docs-indexer.json`       | Ties it together; `PT6H` schedule (current)                                          |
-| `ai-search/02-index.json` `03-skillset.json` `04-indexer.json` | **Superseded** by `ai-search-updated/` — kept only as reference                      |
-| `function-app/function_app.py`                                 | The four HTTP routes (Python v2 model)                                               |
-| `function-app/document_structure.py`                           | Section-aware Markdown chunking used by `POST /skills/chunk` (standard library only) |
-| `function-app/requirements.txt`                                | Python dependencies                                                                  |
-| `function-app/host.json`                                       | Functions host config (10-min timeout)                                               |
-| `function-app/local.settings.json.example`                     | App settings template                                                                |
-| `CHATBOT-BACKEND-PLAN.md`                                      | Original chatbot backlog — `/chat` and the retrieval fixes are now implemented       |
+| Path                                                           | What it is                                                                                   |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `ai-search/01-datasource.json`                                 | SharePoint data source — Datasheets, Manuals and Catalogs, Past Bids, Clarifications Library |
+| `ai-search/ai-search-updated/smartbid-docs-index.json`         | Vector index + vectorizer + semantic config + `sectionPath` (current)                        |
+| `ai-search/ai-search-updated/smartbid-docs-skillset.json`      | Custom chunking skill + Azure OpenAI embedding + index projections (current)                 |
+| `ai-search/ai-search-updated/smartbid-docs-indexer.json`       | Ties it together; `PT6H` schedule (current)                                                  |
+| `ai-search/02-index.json` `03-skillset.json` `04-indexer.json` | **Superseded** by `ai-search-updated/` — kept only as reference                              |
+| `function-app/function_app.py`                                 | The four HTTP routes (Python v2 model)                                                       |
+| `function-app/document_structure.py`                           | Section-aware Markdown chunking used by `POST /skills/chunk` (standard library only)         |
+| `function-app/requirements.txt`                                | Python dependencies                                                                          |
+| `function-app/host.json`                                       | Functions host config (10-min timeout)                                                       |
+| `function-app/local.settings.json.example`                     | App settings template                                                                        |
+| `CHATBOT-BACKEND-PLAN.md`                                      | Original chatbot backlog — `/chat` and the retrieval fixes are now implemented               |
 
 ---
 
@@ -95,7 +95,10 @@ App B needs **admin consent** for the Graph application permissions.
 
 **Fill the placeholders** (`<...>`) in the JSON files:
 
-- `01-datasource.json` → `<APP_B_CLIENT_ID>`, `<APP_B_CLIENT_SECRET>`, `<TENANT_ID>` (App B = `opgbbes-prd-search-aadapp`; or use a federated credential — see below)
+- `01-datasource.json` → `"connectionString": "<unchanged>"` keeps the credential already stored on the
+  service, so the file can be `PUT` as-is. Only when creating the data source from scratch, replace it with
+  `SharePointOnlineEndpoint=https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering;ApplicationId=ea67ea1a-55a8-43a9-bd58-bd854d6c3d0e;ApplicationSecret=<APP_B_CLIENT_SECRET>;TenantId=97525e9a-595d-472c-8248-0dc58f852d61;`
+  (App B = `opgbbes-prd-search-aadapp`; or use a federated credential — see below)
 - `ai-search-updated/*.json` → already filled for `cog-opgbbes-openai-prd` / `text-embedding-3-small` (1536 dims), for the search service `srch-opgbbes-prd` and for the Function App `fa-opgb-bes-prd-fa`
 
 **Chunking is done by our own custom skill**, not by the built-in `SplitSkill`. The
@@ -105,12 +108,33 @@ skill cannot run against this data source. `smartbid-docs-skillset.json` therefo
 drops the header/footer that repeats on every page, and emits one chunk per section plus a
 per-document outline chunk. Before deploying the skillset:
 
-1. Enable the **system-assigned managed identity** on `srch-opgbbes-prd` and note its client id.
-2. If the Function App's API app registration (`opgbbes-prd-fa-aadapp`) has
-   **Assignment required = Yes**, assign that managed identity to the enterprise application.
-3. If EasyAuth uses an **allowed client applications** list, add the same client id.
+1. **Search identity** — `srch-opgbbes-prd` → Settings → **Identity** → System assigned → **Status On**
+   (confirmed On, Object (principal) ID `262d2518-0b86-4315-ae37-a7f825b581ed`). Its **Application ID** is
+   shown in Entra ID → Enterprise applications (Application type = Managed Identities).
+2. **Only if** Enterprise applications → `opgbbes-prd-fa-aadapp` → Properties → **Assignment required? = Yes**:
+   the search identity must be assigned too. Create an app role for applications — App registrations →
+   `opgbbes-prd-fa-aadapp` → **App roles** → Create app role: Display name `SmartBid Indexer`, Allowed
+   member types **Applications**, Value `SmartBid.Indexer`, enabled. (Access to SmartBid is restricted on
+   the SharePoint client app registration, so this is normally not needed.)
+3. **Only with step 2** — assign it to the search identity. The portal cannot assign a managed identity,
+   so use Cloud Shell (PowerShell) as an Entra admin:
+   ```powershell
+   Connect-MgGraph -Scopes "AppRoleAssignment.ReadWrite.All","Application.Read.All"
+   $mi   = Get-MgServicePrincipal -Filter "displayName eq 'srch-opgbbes-prd'"
+   $api  = Get-MgServicePrincipal -Filter "displayName eq 'opgbbes-prd-fa-aadapp'"
+   $role = $api.AppRoles | Where-Object { $_.Value -eq "SmartBid.Indexer" }
+   New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $mi.Id -PrincipalId $mi.Id -ResourceId $api.Id -AppRoleId $role.Id
+   ```
+   It then shows under Enterprise applications → `opgbbes-prd-fa-aadapp` → **Users and groups**.
+4. **EasyAuth** — `fa-opgb-bes-prd-fa` (provider `opgbbes-prd-fa-aadapp`, client ID
+   `5b292f7a-b8a5-4346-b809-568481fe514c`) → Settings → **Authentication** → Microsoft provider → **Edit**:
+   under **Additional checks**, a *specific client applications* list needs the search **Application ID**
+   and a *specific identities* list needs its **Object (principal) ID**. The audience needs no change:
+   the skill requests the same `api://opgbbes-prd-fa-aadapp.oceaneering.com` the web part uses.
 
 The skill's `authResourceId` is already set to `api://opgbbes-prd-fa-aadapp.oceaneering.com`.
+After the first run, Indexers → `smartbid-docs-indexer` → Execution history: `AADSTS501051`
+(not assigned) points to steps 2–3, `403` to step 4, `401` to the audience.
 
 **Deploy order** (REST, `api-version=2026-05-01-preview`, `Content-Type: application/json`, `api-key: <search-admin-key>`):
 
@@ -120,24 +144,52 @@ The skill's `authResourceId` is already set to `api://opgbbes-prd-fa-aadapp.ocea
 4. `POST /indexers` ← `ai-search-updated/smartbid-docs-indexer.json`
 5. `POST /indexers/smartbid-docs-indexer/reset` then `POST /indexers/smartbid-docs-indexer/run`
 
-> **Updating an existing index:** Azure AI Search lets you add fields but not change
-> `searchable` on an existing one, and this definition flips `docRevision` to searchable and
-> adds `sectionPath`. So a `PUT` over the previous index fails — delete and recreate it. The
-> index holds only data derived from SharePoint, so nothing is lost; the library is fully
-> rebuilt by the indexer run. The `reset` is mandatory whenever the chunking strategy changes,
-> otherwise only modified files are reprocessed.
+> **Live service vs this repo (checked 2026-10-04).** `srch-opgbbes-prd` still runs the previous
+> pipeline: the built-in `SplitSkill` (6000/1000 chars) instead of `/skills/chunk`, no `sectionPath`
+> field, `.md` not in `indexedFileNameExtensions`, and only `Datasheets` + `Manuals and Catalogs` in
+> the data source. So Past Bids and the Clarifications Library are not indexed yet, and any Function
+> App build that selects or filters `sectionPath` gets no retrieval until the index below is updated.
+> The Function App repo (`npd-br-opg-macae-smartbid-function-app`) only has `/scope/generate` and
+> `/quotation/extract`, which do not select `sectionPath`, so they keep working on the new index.
+> Bring the service to this repo in one go, in this order:
+>
+> 1. Prerequisites of the custom skill (above): search service managed identity + EasyAuth checks.
+> 2. Delete `smartbid-docs-index`, then `POST /indexes` ← `smartbid-docs-index.json`. A `PUT` would also
+>    work (adding `sectionPath` is additive), but recreating drops the old page-based chunks, whose keys
+>    differ from the new section chunks.
+> 3. Deploy the Function App: replace `function_app.py` and add `document_structure.py` next to it at
+>    the root of the Function App repo (it is imported by name). `requirements.txt` and `host.json`
+>    are unchanged.
+> 4. `PUT /skillsets/smartbid-docs-skillset`, `PUT /datasources/smartbid-docs-datasource`
+>    (`<unchanged>` keeps the secret) and `PUT /indexers/smartbid-docs-indexer`.
+> 5. `reset` + `run` the indexer. Run it off-hours: retrieval returns fewer results until it finishes.
 
-**Scope:** the `Datasheets`, `Manuals and Catalogs` and `Past Bids` folders of `smartBidDocs`
+> **Updating an existing index:** Azure AI Search lets you add fields but not change
+> `searchable` on an existing one. The live index already has `docRevision` searchable, so the only
+> difference is the new `sectionPath` field (plus its scoring weight and semantic keyword entry).
+> The index holds only data derived from SharePoint, so deleting and recreating it loses nothing;
+> the library is fully rebuilt by the indexer run. The `reset` is mandatory whenever the chunking
+> strategy changes, otherwise only modified files are reprocessed.
+
+**Scope:** the `Datasheets`, `Manuals and Catalogs`, `Past Bids` and `Clarifications Library` folders of `smartBidDocs`
 are indexed (via `includeFolder`). `photos`, `Queries`, `Quotations` are excluded.
 Renaming those folders breaks incremental indexing and requires updating the query.
-`Manuals and Catalogs` has spaces — if the service rejects the literal path, URL-encode it
-(`Manuals%20and%20Catalogs`).
+The live data source uses full `https://` folder URLs with literal spaces (`Manuals and Catalogs`)
+and they work — keep that format.
 
 > **Past Bids:** SmartBid writes one Markdown file per completed BID to `smartBidDocs/Past Bids`
 > (`DocType = Past Bid`, `Manufacturer` = client, `DocModel` = BID number). The indexer must
 > accept `.md` and the `/skills/chunk` deployment must include the Markdown mode of
 > `document_structure.build_chunks` (ATX headings, no boilerplate stripping) — deploy both
 > before SmartBid starts publishing, or reset the Past Bids documents afterwards.
+
+> **Clarifications Library:** SmartBid rewrites `Clarifications.md` and `Qualifications.md` in
+> `smartBidDocs/Clarifications Library` (`DocType = Clarification Library`) from the
+> Clarifications Database list. `/skills/chunk` emits one chunk per entry for that docType
+> (no outline chunk), and only the dedicated library passes of `/scope/generate`,
+> `/clarifications/suggest` and `/chat` (`clarificationLibrary: true`) read it; the datasheet pass of
+> `/scope/generate` and the general `/chat` pass exclude it. Once the service runs this repo's
+> skillset, adding later folders needs no reset — the other folders keep their chunks.
 > The same deployment adds `POST /clarifications/suggest`, a separate Past Bids pass in
 > `/scope/generate`, and the optional `pastBidsLedger` / `pastBidRefs` fields of `/chat`
 > (see `SmartBid-AI-Backend-API-Contract.md` §5, §7, §7a). All limits are app settings
@@ -213,9 +265,9 @@ contract is
 
 ### Per-user authorization
 
-EasyAuth is the gate: Entra ID only issues a token for this API to users assigned to the
-Function App's app registration (see §6), and EasyAuth rejects anything else before the request
-reaches the code. The Function itself **logs the caller UPN on every call** from the
+EasyAuth is the gate: Entra ID only issues a token for this API to the approved group — the
+SharePoint client app registration is assignment-restricted — and EasyAuth rejects anything else
+before the request reaches the code. The Function itself **logs the caller UPN on every call** from the
 `X-MS-CLIENT-PRINCIPAL` header, for per-user visibility — it does not re-check an app role
 today. There is deliberately no UPN allowlist: access is granted only in Entra ID, so it stays
 auditable and follows the user's lifecycle.

@@ -12,6 +12,7 @@
 import {
   IBid,
   IBidKnowledgeProfile,
+  IClarificationItem,
   IHoursItem,
   IPersonRef,
   IScopeItem,
@@ -19,6 +20,7 @@ import {
   ISubItemCost,
 } from "../models";
 import { IDocLibraryMetadata } from "../models/IDocLibraryItem";
+import { isClarificationLibraryEligible } from "./clarificationHelpers";
 import {
   buildCostSummary,
   getAssetCostBreakdown,
@@ -40,13 +42,13 @@ type ProfileFields = Pick<
 
 /* ───────────────────────────── primitives ───────────────────────────── */
 
-function clean(value: unknown): string {
+export function clean(value: unknown): string {
   if (value === null || value === undefined) return "";
   return String(value).replace(/\s+/g, " ").trim();
 }
 
 /** Rich-text fields (notes, overview) may hold HTML from the editor. */
-function richText(value: string | null | undefined): string {
+export function richText(value: string | null | undefined): string {
   if (!value) return "";
   let text = String(value);
   if (/<[a-z][\s\S]*>/i.test(text)) {
@@ -67,12 +69,12 @@ function richText(value: string | null | undefined): string {
 }
 
 /** The chunker ignores headings that end with punctuation. */
-function heading(level: number, text: string): string {
+export function heading(level: number, text: string): string {
   const title = clean(text).replace(/[.,;:?!]+$/, "") || "Untitled";
   return `${"#".repeat(level)} ${title}`;
 }
 
-function day(iso: string | null | undefined): string {
+export function day(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = formatDate(iso, "yyyy-MM-dd");
   return d === "-" ? "" : d;
@@ -99,7 +101,7 @@ function names(list: IPersonRef[] | null | undefined): string {
 }
 
 /** "- lead | Label: value | …" — empty values are dropped. */
-function record(lead: string, fields: Array<[string, unknown]>): string {
+export function record(lead: string, fields: Array<[string, unknown]>): string {
   const parts = fields
     .map(([label, v]) => {
       const t = clean(v);
@@ -754,11 +756,26 @@ function hours(bid: IBid): string[] {
   return out;
 }
 
-function clarifications(bid: IBid, num: number): string[] {
+/** Already in the Clarif. & Qualif. library, which is the single indexed copy of its text. */
+function inLibrary(c: IClarificationItem, eligible: boolean): boolean {
+  return (
+    !!c.libraryRefId ||
+    !!c.exportedToDatabase ||
+    (eligible && !!clean(c.clarification))
+  );
+}
+
+function clarifications(
+  bid: IBid,
+  num: number,
+  libraryRefs: boolean,
+): string[] {
   const scopeById: Record<string, IScopeItem> = {};
   (bid.scopeItems || []).forEach((i) => (scopeById[i.id] = i));
+  const eligible = libraryRefs && isClarificationLibraryEligible(bid);
   const rows = (bid.clarifications || [])
     .filter((c) => clean(c.clarification) || clean(c.description))
+    .filter((c) => !libraryRefs || !inLibrary(c, eligible))
     .map((c) =>
       record(
         `${c.baseType || "Clarification"} on item ${clean(c.item) || "-"}: ${clean(c.description)}`,
@@ -777,7 +794,11 @@ function clarifications(bid: IBid, num: number): string[] {
   return rows.length ? [heading(2, `${num} Clarifications`)].concat(rows) : [];
 }
 
-function qualifications(bid: IBid, num: number): string[] {
+function qualifications(
+  bid: IBid,
+  num: number,
+  libraryRefs: boolean,
+): string[] {
   const blocks: string[] = [];
   let n = 0;
   const general = (bid.opportunityInfo?.qualifications || []).filter((q) =>
@@ -794,7 +815,12 @@ function qualifications(bid: IBid, num: number): string[] {
       ),
     );
   }
-  (bid.qualificationTables || []).forEach((t) => {
+  // Every non-empty table item of an eligible BID is synced to the library.
+  const tables =
+    libraryRefs && isClarificationLibraryEligible(bid)
+      ? []
+      : bid.qualificationTables || [];
+  tables.forEach((t) => {
     const rows = (t.items || [])
       .filter((q) => clean(q.description) || clean(q.comments))
       .map((q) =>
@@ -813,6 +839,51 @@ function qualifications(bid: IBid, num: number): string[] {
   return blocks.length
     ? [heading(2, `${num} Qualifications`)].concat(blocks)
     : [];
+}
+
+/**
+ * Topics only, so the library entries are not indexed twice. Written with "Clarif." /
+ * "Qualif." so the backend's clarification-section filter keeps reading full sections only.
+ */
+function libraryReference(bid: IBid, num: number): string[] {
+  const eligible = isClarificationLibraryEligible(bid);
+  const rows: string[] = [];
+  (bid.clarifications || [])
+    .filter((c) => clean(c.clarification) || clean(c.description))
+    .filter((c) => inLibrary(c, eligible))
+    .forEach((c) => {
+      const kind = c.baseType === "Qualification" ? "Qualif." : "Clarif.";
+      const topic = clean(c.description) || "no topic";
+      rows.push(
+        c.libraryRefId
+          ? record(
+              `${kind} reused from library entry ${c.libraryRefId}: ${topic}`,
+              [],
+            )
+          : record(`${kind} on item ${clean(c.item) || "-"}: ${topic}`, []),
+      );
+    });
+  if (eligible) {
+    (bid.qualificationTables || []).forEach((t) => {
+      const count = (t.items || []).filter(
+        (q) => clean(q.description) || clean(q.comments),
+      ).length;
+      if (count) {
+        rows.push(
+          record(
+            `Qualif. table ${clean(t.title) || "untitled"}: ${count} item(s)`,
+            [],
+          ),
+        );
+      }
+    });
+  }
+  if (!rows.length) return [];
+  return [
+    heading(2, `${num} Clarif. & Qualif. reference`),
+    `Full text, client reply and acceptance are in the SmartBid Clarif. & Qualif. library: items raised in this BID have Source BID ${bid.bidNumber}, reused items keep their library entry number.`,
+    lines(rows),
+  ];
 }
 
 function revisionsAndApproval(bid: IBid, num: number): string[] {
@@ -889,7 +960,7 @@ function outcome(bid: IBid, num: number): string[] {
 export function buildPastBidDocument(
   bid: IBid,
   profile: ProfileFields | null,
-  opts: { includePricing?: boolean } = {},
+  opts: { includePricing?: boolean; fullClarifications?: boolean } = {},
 ): string {
   const opp = bid.opportunityInfo || ({} as IBid["opportunityInfo"]);
   const client = clean(opp.client) || "Unknown client";
@@ -926,8 +997,10 @@ export function buildPastBidDocument(
   push((k) => description(bid, k));
   push((k) => scopeOfSupply(bid, k));
   if (opts.includePricing !== false) push((k) => pricing(bid, k));
-  push((k) => clarifications(bid, k));
-  push((k) => qualifications(bid, k));
+  const libraryRefs = !opts.fullClarifications;
+  push((k) => clarifications(bid, k, libraryRefs));
+  push((k) => qualifications(bid, k, libraryRefs));
+  if (libraryRefs) push((k) => libraryReference(bid, k));
   push((k) => revisionsAndApproval(bid, k));
   push((k) => outcome(bid, k));
 
@@ -939,10 +1012,10 @@ export function buildPastBidDocument(
 
 /** Compact text (no pricing) sent to the AI to suggest scope categories, tags and summary. */
 export function buildPastBidAiDigest(bid: IBid): string {
-  return buildPastBidDocument(bid, null, { includePricing: false }).substring(
-    0,
-    AI_DIGEST_MAX_CHARS,
-  );
+  return buildPastBidDocument(bid, null, {
+    includePricing: false,
+    fullClarifications: true,
+  }).substring(0, AI_DIGEST_MAX_CHARS);
 }
 
 export function buildPastBidMetadata(

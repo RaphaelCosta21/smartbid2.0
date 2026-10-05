@@ -61,8 +61,15 @@ export const FollowUpPage: React.FC = () => {
   }, [currentUser]);
 
   // Top-level filters (division / service line / date / search) via shared bar
-  const { filters, patch, setPreset, reset, applyFilters, hasActive } =
-    useAnalyticsFilters();
+  const {
+    filters,
+    patch,
+    setPreset,
+    reset,
+    applyFilters,
+    getFacetCounts,
+    hasActive,
+  } = useAnalyticsFilters();
 
   // Table-level filters
   const [outcomeFilter, setOutcomeFilter] = React.useState<string>("all");
@@ -186,6 +193,11 @@ export const FollowUpPage: React.FC = () => {
   const kpiFilteredBids = React.useMemo(
     () => applyFilters(completedBids, "createdDate"),
     [completedBids, applyFilters],
+  );
+
+  const facetCounts = React.useMemo(
+    () => getFacetCounts(completedBids, "createdDate"),
+    [completedBids, getFacetCounts],
   );
 
   const filtered = React.useMemo(() => {
@@ -569,6 +581,7 @@ export const FollowUpPage: React.FC = () => {
           value: s.value,
           label: s.label || s.value,
         }))}
+        facetCounts={facetCounts}
       />
 
       {/* KPI Cards */}

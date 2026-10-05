@@ -15,6 +15,8 @@ interface MultiSelectDropdownProps {
   selected: string[];
   onChange: (values: string[]) => void;
   icon?: React.ReactNode;
+  /** Shows a filter box above the options (long lists). */
+  searchable?: boolean;
 }
 
 /**
@@ -26,12 +28,17 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   selected,
   onChange,
   icon,
+  searchable,
 }) => {
   const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
   const ref = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (!open) return undefined;
+    if (!open) {
+      setQuery("");
+      return undefined;
+    }
     const onDoc = (e: MouseEvent): void => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
@@ -48,6 +55,11 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
       onChange(selected.concat(v));
     }
   };
+
+  const q = query.trim().toLowerCase();
+  const visible = q
+    ? options.filter((o) => o.label.toLowerCase().indexOf(q) >= 0)
+    : options;
 
   return (
     <div className={styles.wrap} ref={ref}>
@@ -90,8 +102,20 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
               </button>
             )}
           </div>
+          {searchable && (
+            <div className={styles.searchRow}>
+              <input
+                className={styles.searchInput}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={`Search ${label.toLowerCase()}...`}
+                aria-label={`Search ${label}`}
+                autoFocus
+              />
+            </div>
+          )}
           <div className={styles.options}>
-            {options.map((o) => (
+            {visible.map((o) => (
               <label className={styles.option} key={o.value}>
                 <input
                   type="checkbox"
@@ -114,8 +138,10 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                 )}
               </label>
             ))}
-            {options.length === 0 && (
-              <div className={styles.empty}>No options</div>
+            {visible.length === 0 && (
+              <div className={styles.empty}>
+                {options.length === 0 ? "No options" : "No matches"}
+              </div>
             )}
           </div>
         </div>

@@ -10,7 +10,6 @@ import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import { AIAnalysisService } from "./AIAnalysisService";
 import { BidService } from "./BidService";
 import { DocLibraryCatalogService } from "./DocLibraryCatalogService";
-import { SPService } from "./SPService";
 import {
   buildPastBidAiDigest,
   buildPastBidDocument,
@@ -36,7 +35,6 @@ export interface IPastBidPublishOptions {
 
 export class PastBidKnowledgeService {
   private static _columnsChecked = false;
-  private static _folder: Promise<void> | undefined;
   private static _pending: Record<string, Promise<unknown>> = {};
 
   public static get folderServerRelativeUrl(): string {
@@ -171,7 +169,7 @@ export class PastBidKnowledgeService {
 
     try {
       await PastBidKnowledgeService._ensureColumns();
-      await PastBidKnowledgeService._ensureFolder();
+      await DocLibraryCatalogService.ensureFolder(folder);
       const text = buildPastBidDocument(bid, fields);
       const file = new File([text], fileName, { type: "text/markdown" });
       await DocLibraryCatalogService.uploadFile(
@@ -197,33 +195,6 @@ export class PastBidKnowledgeService {
       knowledgeProfile: profile,
     });
     return profile;
-  }
-
-  private static _ensureFolder(): Promise<void> {
-    if (!PastBidKnowledgeService._folder) {
-      const pending = PastBidKnowledgeService._createFolderIfMissing();
-      PastBidKnowledgeService._folder = pending;
-      // A failed attempt (e.g. no permission) is retried on the next publish.
-      pending.catch(() => {
-        if (PastBidKnowledgeService._folder === pending) {
-          PastBidKnowledgeService._folder = undefined;
-        }
-      });
-    }
-    return PastBidKnowledgeService._folder;
-  }
-
-  private static async _createFolderIfMissing(): Promise<void> {
-    const url = PastBidKnowledgeService.folderServerRelativeUrl;
-    const web = SPService.sp.web as any;
-    const exists: boolean = await web
-      .getFolderByServerRelativePath(url)
-      .select("Exists")()
-      .then(
-        (info: { Exists?: boolean }) => !!info.Exists,
-        () => false,
-      );
-    if (!exists) await web.folders.addUsingPath(url);
   }
 
   private static async _ensureColumns(): Promise<void> {

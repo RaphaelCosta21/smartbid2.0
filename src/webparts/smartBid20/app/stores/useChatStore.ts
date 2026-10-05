@@ -9,6 +9,7 @@ import { AIAnalysisService } from "../services/AIAnalysisService";
 import { AI_CONFIG } from "../config/ai.config";
 import { IChatMessage } from "../models/IAiChat";
 import { makeId } from "../utils/idGenerator";
+import { asksAboutClarifications } from "../utils/clarificationChatIntent";
 import { buildPastBidChatContext } from "../utils/pastBidLedger";
 import { useBidStore } from "./useBidStore";
 
@@ -53,9 +54,12 @@ export const useChatStore = create<ChatState>((set, get) => {
     set({ isSending: true, error: "", lastActivityAt: Date.now() });
 
     try {
+      const previousQuestions = history
+        .filter((m) => m.role === "user")
+        .map((m) => m.text);
       const pastBids = buildPastBidChatContext(
         pendingQuestion,
-        history.filter((m) => m.role === "user").map((m) => m.text),
+        previousQuestions,
         useBidStore.getState().bids,
       );
       const answer = await AIAnalysisService.chat(
@@ -63,6 +67,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         history,
         activeController.signal,
         pastBids,
+        asksAboutClarifications(pendingQuestion, previousQuestions),
       );
       if (discardInFlight) return;
       set({

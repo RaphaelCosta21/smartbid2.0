@@ -14,6 +14,75 @@
   flex-wrap: wrap;
 }
 
+// ── Filtros (mesmo padrão do Past Bids) ───────────────────────────────────────────
+// Dropdown popovers must paint above the cards below.
+.filterBar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-card);
+}
+
+.searchWrapper {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 220px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 14px 8px 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: border-color 200ms ease;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-accent);
+  }
+}
+
+.clearBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+}
+
 .search {
   flex: 1;
   min-width: 220px;
@@ -74,6 +143,76 @@
 
 .fieldFull {
   grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.aiBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--tertiary-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--tertiary-accent) 10%, transparent);
+  color: var(--tertiary-accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--tertiary-accent) 18%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.basisHint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.typePicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.typeChip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 150ms ease;
+
+  &:hover {
+    border-color: var(--primary-accent);
+    color: var(--text-primary);
+  }
+}
+
+.typeChipOn {
+  border-color: var(--primary-accent);
+  background: color-mix(in srgb, var(--primary-accent) 14%, transparent);
+  color: var(--primary-accent);
+  font-weight: 600;
 }
 
 .label {
@@ -155,6 +294,9 @@
 .btnPrimary,
 .btnGhost,
 .btnDanger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 8px 18px;
   border-radius: 8px;
   font-size: 13px;
@@ -186,6 +328,11 @@
   &:hover:not(:disabled) {
     background: var(--hover-bg);
     color: var(--text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 }
 
@@ -228,12 +375,18 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow-card);
+  cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover {
     border-color: var(--primary-accent);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
     transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
   }
 }
 
@@ -375,6 +528,81 @@
   color: var(--text-secondary);
   font-size: 11px;
   font-weight: 600;
+}
+
+.chipAccent {
+  color: var(--primary-accent);
+  border-color: color-mix(in srgb, var(--primary-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--primary-accent) 8%, transparent);
+}
+
+// ── Painéis de revisão (Sync / Enrich) ────────────────────────────────────────────
+.reviewList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 460px;
+  overflow-y: auto;
+}
+
+.reviewRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--card-bg-elevated);
+}
+
+.reviewInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.reviewTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.enrichRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--card-bg-elevated);
+}
+
+.enrichBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 24px;
+}
+
+.enrichText {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.errorText {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+@media (max-width: 900px) {
+  .reviewRow {
+    grid-template-columns: 1fr;
+  }
 }
 
 .badgeActive,

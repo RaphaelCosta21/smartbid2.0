@@ -1,11 +1,18 @@
 {
   "name": "smartbid-docs-datasource",
+  "description": "smartBidDocs folders read by SmartBid AI: Datasheets (incl. Technical Proposals), Manuals and Catalogs, Past Bids, Clarifications Library. Connection: App B opgbbes-prd-search-aadapp (ApplicationId ea67ea1a-55a8-43a9-bd58-bd854d6c3d0e, TenantId 97525e9a-595d-472c-8248-0dc58f852d61); the secret stays on the service (<unchanged>).",
   "type": "sharepoint",
+  "subtype": null,
+  "indexerPermissionOptions": [],
   "credentials": {
-    "connectionString": "SharePointOnlineEndpoint=https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering;ApplicationId=<APP_B_CLIENT_ID>;ApplicationSecret=<APP_B_CLIENT_SECRET>;TenantId=<TENANT_ID>"
+    "connectionString": "<unchanged>"
   },
   "container": {
     "name": "useQuery",
-    "query": "includeFolder=oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Datasheets;includeFolder=oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Manuals and Catalogs;includeFolder=oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Past Bids;additionalColumns=DocType,DocCategory,Manufacturer,DocModel,DocKeywords,DocDescription,DocRevision"
-  }
+    "query": "includeFolder=https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Datasheets;includeFolder=https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Manuals and Catalogs;includeFolder=https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Past Bids;includeFolder=https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Clarifications Library;additionalColumns=DocType,DocCategory,Manufacturer,DocModel,DocKeywords,DocDescription,DocRevision"
+  },
+  "dataChangeDetectionPolicy": null,
+  "dataDeletionDetectionPolicy": null,
+  "encryptionKey": null,
+  "identity": null
 }

@@ -63,8 +63,15 @@ export const PerformanceTrendsPage: React.FC = () => {
   const { bids } = useBids();
   const chart = useChartTheme();
   const config = useConfigStore((s) => s.config);
-  const { filters, patch, setPreset, reset, applyFilters, hasActive } =
-    useAnalyticsFilters();
+  const {
+    filters,
+    patch,
+    setPreset,
+    reset,
+    applyFilters,
+    getFacetCounts,
+    hasActive,
+  } = useAnalyticsFilters();
 
   const [gran, setGran] = React.useState<Granularity>("month");
   const [otdMode, setOtdMode] = React.useState<"count" | "percent">("count");
@@ -87,6 +94,11 @@ export const PerformanceTrendsPage: React.FC = () => {
   const filtered = React.useMemo(
     () => applyFilters(bids, "createdDate"),
     [bids, applyFilters],
+  );
+
+  const facetCounts = React.useMemo(
+    () => getFacetCounts(bids, "createdDate"),
+    [bids, getFacetCounts],
   );
 
   const vol = React.useMemo(
@@ -179,6 +191,7 @@ export const PerformanceTrendsPage: React.FC = () => {
         hasActive={hasActive}
         divisions={divisions}
         serviceLines={serviceLines}
+        facetCounts={facetCounts}
         rightSlot={
           <SegmentedControl<Granularity>
             value={gran}

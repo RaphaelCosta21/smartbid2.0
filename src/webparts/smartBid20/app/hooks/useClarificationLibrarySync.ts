@@ -1,28 +1,28 @@
 /**
  * useClarificationLibrarySync — Pushes a completed BID's clarifications and
- * qualification tables to the Clarif. & Qualif. library (upsert per row) and
- * records the result on the BID.
+ * qualification tables to the Clarif. & Qualif. library (upsert per row),
+ * republishes the library knowledge files and records the result on the BID.
  */
 import * as React from "react";
 import { IBid, IClarificationLibrarySync } from "../models";
 import { BidService } from "../services/BidService";
 import { ClarificationDbService } from "../services/ClarificationDbService";
+import { ClarificationKnowledgeService } from "../services/ClarificationKnowledgeService";
 import { useBidStore } from "../stores/useBidStore";
+import { useConfigStore } from "../stores/useConfigStore";
 import { useUIStore } from "../stores/useUIStore";
-import { buildLibraryRowsFromBid } from "../utils/clarificationHelpers";
-
-/** BIDs completed before this date are never synced automatically (no backfill). */
-export const CLARIFICATION_LIBRARY_SYNC_SINCE = "2026-10-04";
+import {
+  buildLibraryRowsFromBid,
+  isClarificationLibraryEligible,
+} from "../utils/clarificationHelpers";
 
 const inFlight: Record<string, Promise<void>> = {};
 
 /** True when a Completed BID has no sync newer than its completion. */
 export function needsClarificationLibrarySync(bid: IBid): boolean {
-  if (bid.currentStatus !== "Completed") return false;
-  const completed = bid.completedDate || "";
-  if (!completed || completed < CLARIFICATION_LIBRARY_SYNC_SINCE) return false;
+  if (!isClarificationLibraryEligible(bid)) return false;
   const last = bid.clarificationLibrarySync;
-  return !last || last.syncedAt < completed;
+  return !last || last.syncedAt < (bid.completedDate || "");
 }
 
 export function useClarificationLibrarySync(): (bid: IBid) => Promise<void> {
@@ -46,6 +46,25 @@ export function useClarificationLibrarySync(): (bid: IBid) => Promise<void> {
               message: `${res.failed} item(s) from BID ${bid.bidNumber} could not be saved to the library. They will be retried the next time the BID is opened.`,
             });
             return;
+          }
+          if (res.created + res.updated > 0) {
+            try {
+              await ClarificationKnowledgeService.publish(
+                useConfigStore.getState().config,
+              );
+            } catch (err) {
+              // No record, so the next visit by an editor re-syncs and republishes
+              console.error(
+                `Failed to publish the Clarif. & Qualif. knowledge files for BID ${bid.bidNumber}:`,
+                err,
+              );
+              addToast({
+                type: "warning",
+                title: "AI knowledge files not updated",
+                message: `The clarification(s) / qualification(s) of BID ${bid.bidNumber} were saved to the library, but the files read by the AI could not be updated. This will be retried the next time the BID is opened.`,
+              });
+              return;
+            }
           }
           const record: IClarificationLibrarySync = {
             syncedAt: new Date().toISOString(),

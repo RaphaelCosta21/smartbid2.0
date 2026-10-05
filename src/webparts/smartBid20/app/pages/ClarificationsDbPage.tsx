@@ -1,6 +1,14 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageSquare, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import {
+  MessageSquare,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { PageHeader } from "../components/common/PageHeader";
 import { DataTable } from "../components/common/DataTable";
 import { DivisionBadge } from "../components/common/DivisionBadge";
@@ -16,12 +24,14 @@ import {
 import { ClarificationEntryDrawer } from "../components/knowledge/ClarificationEntryDrawer";
 import { ClarificationEntryModal } from "../components/knowledge/ClarificationEntryModal";
 import { ClarificationDbService } from "../services/ClarificationDbService";
+import { ClarificationKnowledgeService } from "../services/ClarificationKnowledgeService";
 import { IClarificationDbItem } from "../models/IClarificationDb";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import {
   ILibraryRow,
   useClarificationLibraryFilter,
 } from "../hooks/useClarificationLibraryFilter";
+import { useConfigStore } from "../stores/useConfigStore";
 import { useUIStore } from "../stores/useUIStore";
 import { canAccessKnowledge } from "../utils/accessControl";
 import { formatDate } from "../utils/formatters";
@@ -62,6 +72,47 @@ export const ClarificationsDbPage: React.FC = () => {
   const [deleteItem, setDeleteItem] =
     React.useState<IClarificationDbItem | null>(null);
   const [saving, setSaving] = React.useState(false);
+  const [publishing, setPublishing] = React.useState(false);
+
+  /** Rewrites the AI knowledge files; the list change itself is already saved. */
+  const publishKnowledge = React.useCallback(
+    (manual: boolean): Promise<void> => {
+      if (manual) setPublishing(true);
+      return ClarificationKnowledgeService.publish(
+        useConfigStore.getState().config,
+      )
+        .then((res) => {
+          if (res.oversized.length > 0) {
+            addToast({
+              type: "warning",
+              title: "AI knowledge files are getting large",
+              message: `${res.oversized.join(", ")} is close to the AI Search size limit and should be split.`,
+            });
+          } else if (manual) {
+            addToast({
+              type: "success",
+              title: "AI knowledge files updated",
+              message: `${res.clarifications} clarification(s) and ${res.qualifications} qualification(s) published. The AI reads them after the next indexer run.`,
+            });
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to publish the AI knowledge files:", err);
+          addToast({
+            type: "error",
+            title: "AI knowledge files not updated",
+            message: manual
+              ? (err instanceof Error ? err.message : String(err)) ||
+                "SharePoint rejected the upload."
+              : 'The entry was saved, but the files read by the AI were not updated. Use "Rebuild AI files" to retry.',
+          });
+        })
+        .then(() => {
+          if (manual) setPublishing(false);
+        });
+    },
+    [addToast],
+  );
 
   const load = React.useCallback(() => {
     setIsLoading(true);
@@ -132,6 +183,7 @@ export const ClarificationsDbPage: React.FC = () => {
         title: item.id > 0 ? "Entry updated" : "Entry added",
       });
       load();
+      publishKnowledge(false).catch(() => undefined);
     }).catch((err) => {
       console.error("Save failed:", err);
       setSaving(false);
@@ -152,6 +204,7 @@ export const ClarificationsDbPage: React.FC = () => {
         if (selectedId === target.id) setSelectedId(null);
         addToast({ type: "success", title: "Entry deleted" });
         load();
+        publishKnowledge(false).catch(() => undefined);
       })
       .catch((err) => {
         console.error("Delete failed:", err);
@@ -321,13 +374,30 @@ export const ClarificationsDbPage: React.FC = () => {
         icon={<MessageSquare size={28} />}
         actions={
           canManage ? (
-            <button
-              type="button"
-              className={styles.createBtn}
-              onClick={() => setEditItem(emptyItem())}
-            >
-              <Plus size={15} /> Add Entry
-            </button>
+            <div className={styles.headerActions}>
+              <button
+                type="button"
+                className={styles.ghostBtn}
+                onClick={() => {
+                  publishKnowledge(true).catch(() => undefined);
+                }}
+                disabled={publishing}
+                title="Rewrite the Clarifications and Qualifications files read by the AI (AI Search)"
+              >
+                <RefreshCw
+                  size={15}
+                  className={publishing ? styles.spin : undefined}
+                />
+                {publishing ? "Rebuilding..." : "Rebuild AI files"}
+              </button>
+              <button
+                type="button"
+                className={styles.createBtn}
+                onClick={() => setEditItem(emptyItem())}
+              >
+                <Plus size={15} /> Add Entry
+              </button>
+            </div>
           ) : undefined
         }
       />

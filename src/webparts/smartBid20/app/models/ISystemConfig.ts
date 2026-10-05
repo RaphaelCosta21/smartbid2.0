@@ -83,6 +83,8 @@ export interface ISystemConfig {
   scopeCategories?: IConfigOption[];
   /** Categories used to classify Clarifications & Qualifications (library + BID) */
   clarificationCategories?: IConfigOption[];
+  /** Supplier service types (Suppliers page filters + AI profile). */
+  supplierServiceTypes?: IConfigOption[];
   currencySettings: ICurrencySettings;
   notifications: Record<string, string[]>;
   accessLevels: Record<UserRole, IAccessLevelDef>;

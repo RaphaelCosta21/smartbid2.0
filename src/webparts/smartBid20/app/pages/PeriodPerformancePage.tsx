@@ -69,12 +69,19 @@ export const PeriodPerformancePage: React.FC = () => {
   const chart = useChartTheme();
   const year = new Date().getFullYear();
 
-  const { filters, patch, setPreset, reset, applyFilters, hasActive } =
-    useAnalyticsFilters({
-      preset: "custom",
-      from: `${year}-01-01`,
-      to: `${year}-12-31`,
-    });
+  const {
+    filters,
+    patch,
+    setPreset,
+    reset,
+    applyFilters,
+    getFacetCounts,
+    hasActive,
+  } = useAnalyticsFilters({
+    preset: "custom",
+    from: `${year}-01-01`,
+    to: `${year}-12-31`,
+  });
 
   const [sortClient, setSortClient] = React.useState<"total" | "az">("total");
   const [winOrder, setWinOrder] = React.useState<"desc" | "asc" | "az">("desc");
@@ -191,6 +198,11 @@ export const PeriodPerformancePage: React.FC = () => {
   const filtered = React.useMemo(
     () => applyFilters(bids, "createdDate"),
     [bids, applyFilters],
+  );
+
+  const facetCounts = React.useMemo(
+    () => getFacetCounts(bids, "createdDate"),
+    [bids, getFacetCounts],
   );
 
   /* ---- aggregations ---- */
@@ -512,6 +524,7 @@ export const PeriodPerformancePage: React.FC = () => {
         divisions={divisions}
         serviceLines={serviceLines}
         bidTypes={bidTypeOptions}
+        facetCounts={facetCounts}
         rightSlot={
           <ExportBar
             onExcel={handleExcel}

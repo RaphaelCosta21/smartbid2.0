@@ -11,6 +11,7 @@ export type AIUseCase =
   | "quotation"
   | "document-metadata"
   | "past-bid-profile"
+  | "supplier-profile"
   | "chat"
   | "clarification";
 
@@ -28,6 +29,18 @@ export interface IAIGroupOption {
   name: string;
   /** Sub-group names configured under this group. */
   subGroups: string[];
+}
+
+/** A registered supplier, so the model reuses its name instead of creating a duplicate. */
+export interface IAISupplierOption {
+  name: string;
+  aliases: string[];
+}
+
+/** A configured supplier service type (System Configuration). */
+export interface IAIServiceTypeOption {
+  label: string;
+  category: string;
 }
 
 /**
@@ -66,6 +79,10 @@ export interface IAIAnalysisContext {
   resourceTypeOptions?: IAIResourceTypeOption[];
   /** Configured Group/SubGroup taxonomy (guides quotation categorization). */
   groupOptions?: IAIGroupOption[];
+  /** Registered suppliers (quotation extraction reuses their names). */
+  supplierOptions?: IAISupplierOption[];
+  /** Active supplier service types (supplier profile). */
+  serviceTypeOptions?: IAIServiceTypeOption[];
   /** Assets Catalog records (guides equipmentOffer + partNumber). */
   assetCatalogOptions?: IAIAssetCatalogOption[];
   /** Allowed "docType" values for the current document catalog. */
@@ -184,8 +201,14 @@ export interface IExtractedQuotationLine {
   partNumber: string;
   /** Item description. */
   description: string;
-  /** Supplier / vendor name. */
+  /** Supplier / vendor name (the registered name when the model matched one). */
   supplier: string;
+  /** Issuing company name exactly as written on the document. */
+  supplierNameAsWritten?: string;
+  /** True when `supplier` is a registered supplier name. */
+  supplierMatched?: boolean;
+  /** What the document itself says about the issuing company (first line only). */
+  supplierAbout?: string;
   /** Supplier's quotation number/reference (same for every line of a document). */
   reference?: string;
   /** Unit cost or day rate in the original currency. */
@@ -258,6 +281,22 @@ export interface IDocumentMetadataExtractionResult {
   sourceDocument: string;
   /** ISO timestamp of when the extraction was performed. */
   extractedAt: string;
+}
+
+/** Where the model took a supplier profile from. */
+export type SupplierProfileBasis =
+  | "quotations"
+  | "document"
+  | "general-knowledge"
+  | "mixed"
+  | "none";
+
+/** AI-suggested supplier profile. `serviceTypes` holds config option ids. */
+export interface ISupplierProfileSuggestion {
+  description: string;
+  keywords: string[];
+  serviceTypes: string[];
+  basis: SupplierProfileBasis;
 }
 
 /** AI-suggested classification of a completed BID (Past Bids). */

@@ -118,6 +118,26 @@
   padding: 6px;
 }
 
+.searchRow {
+  padding: 8px 10px 2px;
+}
+
+.searchInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  outline: none;
+
+  &:focus {
+    border-color: var(--primary-accent);
+  }
+}
+
 .option {
   display: flex;
   align-items: center;

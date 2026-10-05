@@ -79,8 +79,15 @@ export const BottleneckAnalysisPage: React.FC = () => {
   const chart = useChartTheme();
   const config = useConfigStore((s) => s.config);
   const { getPhaseColor, getStatusColor } = useStatusColors();
-  const { filters, patch, setPreset, reset, applyFilters, hasActive } =
-    useAnalyticsFilters();
+  const {
+    filters,
+    patch,
+    setPreset,
+    reset,
+    applyFilters,
+    getFacetCounts,
+    hasActive,
+  } = useAnalyticsFilters();
 
   const [scope, setScope] = React.useState<Scope>("all");
   const [dimension, setDimension] = React.useState<Dimension>("phase");
@@ -126,6 +133,11 @@ export const BottleneckAnalysisPage: React.FC = () => {
   const filtered = React.useMemo(
     () => applyFilters(bids, "createdDate"),
     [bids, applyFilters],
+  );
+
+  const facetCounts = React.useMemo(
+    () => getFacetCounts(bids, "createdDate"),
+    [bids, getFacetCounts],
   );
 
   const scoped = React.useMemo(() => {
@@ -262,6 +274,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
         hasActive={hasActive}
         divisions={divisions}
         bidTypes={bidTypeOptions}
+        facetCounts={facetCounts}
         rightSlot={
           <SegmentedControl<Scope>
             value={scope}

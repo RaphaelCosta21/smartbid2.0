@@ -26,9 +26,11 @@ import { useFavoritesStore } from "../stores/useFavoritesStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useQueryCatalogStore } from "../stores/useQueryCatalogStore";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useSlidingIndicator } from "../hooks/useSlidingIndicator";
 import { IBid, IFavoriteBid, IFavoriteEquipment } from "../models";
 import { makeId } from "../utils/idGenerator";
 import { formatDate } from "../utils/formatters";
+import { countFacets, withCounts } from "../utils/facetHelpers";
 import {
   IPastBidRow,
   matchesAnyOf,
@@ -71,6 +73,14 @@ const BID_FILTERS: {
   { key: "outcomes", label: "Outcome", pick: (r) => [r.outcome] },
   { key: "years", label: "Year", pick: (r) => [r.year], descending: true },
 ];
+
+const BID_FACET_VALUES = {} as Record<
+  BidFilterKey,
+  (r: IPastBidRow) => string[]
+>;
+BID_FILTERS.forEach((f) => {
+  BID_FACET_VALUES[f.key] = f.pick;
+});
 
 const EMPTY_BID_FILTERS: Record<BidFilterKey, string[]> = {
   categories: [],
@@ -202,30 +212,42 @@ export const FavoritesPage: React.FC = () => {
       .sort((a, b) => b.addedDate.localeCompare(a.addedDate));
   }, [favoriteBidList, favBids]);
 
+  // `skip` lets a dropdown count against the other filters
+  const passesBidFilters = React.useCallback(
+    (r: IPastBidRow, skip?: BidFilterKey): boolean =>
+      BID_FILTERS.every(
+        (f) => f.key === skip || matchesAnyOf(bidFilters[f.key], f.pick(r)),
+      ) &&
+      (!bidSearch.trim() || matchesPastBidSearch(r.searchText, bidSearch)),
+    [bidFilters, bidSearch],
+  );
+
   const bidFilterOptions = React.useMemo(() => {
+    const counts = countFacets(favRows, BID_FACET_VALUES, passesBidFilters);
     const out = {} as Record<BidFilterKey, MultiSelectOption[]>;
     BID_FILTERS.forEach((f) => {
       const values: string[] = [];
       favRows.forEach((r) => f.pick(r).forEach((v) => v && values.push(v)));
-      out[f.key] = toFilterOptions(values, f.descending);
+      out[f.key] = withCounts(
+        toFilterOptions(values, f.descending),
+        counts[f.key],
+      );
     });
     return out;
-  }, [favRows]);
+  }, [favRows, passesBidFilters]);
 
   const filteredFavRows = React.useMemo(
-    () =>
-      favRows.filter(
-        (r) =>
-          BID_FILTERS.every((f) =>
-            matchesAnyOf(bidFilters[f.key], f.pick(r)),
-          ) &&
-          (!bidSearch.trim() || matchesPastBidSearch(r.searchText, bidSearch)),
-      ),
-    [favRows, bidFilters, bidSearch],
+    () => favRows.filter((r) => passesBidFilters(r)),
+    [favRows, passesBidFilters],
   );
 
   const hasBidFilters =
     !!bidSearch.trim() || BID_FILTERS.some((f) => bidFilters[f.key].length > 0);
+
+  // Toggle only mounts on the BID tab with rows; key change re-measures on mount
+  const bidViewIndicator = useSlidingIndicator(
+    `${activeTab === "bids" && favRows.length > 0}:${bidViewMode}`,
+  );
 
   const clearBidFilters = (): void => {
     setBidSearch("");
@@ -871,10 +893,18 @@ export const FavoritesPage: React.FC = () => {
                   {favRows.length === 1 ? "BID" : "BIDs"}
                 </span>
                 <div
+                  ref={bidViewIndicator.containerRef}
                   className={styles.segmented}
                   role="tablist"
                   aria-label="View"
                 >
+                  {bidViewIndicator.style && (
+                    <span
+                      aria-hidden="true"
+                      className={`${styles.segmentIndicator} ${bidViewIndicator.animated ? styles.segmentIndicatorAnimated : ""}`}
+                      style={bidViewIndicator.style}
+                    />
+                  )}
                   {BID_VIEW_OPTIONS.map((opt) => {
                     const active = bidViewMode === opt.mode;
                     return (

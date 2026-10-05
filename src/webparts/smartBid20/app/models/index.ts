@@ -169,6 +169,10 @@ export {
   type IAIAnalysisError,
   type IAIAnalysisContext,
   type IAIGroupOption,
+  type IAISupplierOption,
+  type IAIServiceTypeOption,
+  type ISupplierProfileSuggestion,
+  type SupplierProfileBasis,
   type AIUseCase,
   type IAISuggestedClarification,
   type IExtractedQuotationLine,
@@ -220,6 +224,7 @@ export {
   type ISupplier,
   type ISupplierContact,
   type ISupplierInput,
+  type ISupplierProfile,
 } from "./ISupplier";
 export {
   type SurveySceneAnchor,

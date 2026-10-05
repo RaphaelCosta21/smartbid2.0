@@ -1,16 +1,21 @@
 import * as React from "react";
+import { useLocation } from "react-router-dom";
 import { PageHeader } from "../components/common/PageHeader";
 import { EmptyState } from "../components/common/EmptyState";
 import { useDebounce } from "../hooks/useDebounce";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useRegisterQuotationSuppliers } from "../hooks/useRegisterQuotationSuppliers";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useQuotationStore } from "../stores/useQuotationStore";
+import { useSupplierStore } from "../stores/useSupplierStore";
 import { useUIStore } from "../stores/useUIStore";
 import { QuotationService } from "../services/QuotationService";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { convertToUSD } from "../utils/costCalculations";
+import { canonicalSupplierName } from "../utils/supplierMatching";
 import { AddQuotationModal } from "../components/bid/AddQuotationModal";
 import { CollapsibleSidebar } from "../components/common/CollapsibleSidebar";
+import { SupplierCombobox } from "../components/common/SupplierCombobox";
 import {
   IQuotationItem,
   QuotationType,
@@ -216,9 +221,13 @@ export const QuotationsPage: React.FC = () => {
     toggleFavorite,
   } = useQuotationStore();
   const addToast = useUIStore((s) => s.addToast);
+  const registerSuppliers = useRegisterQuotationSuppliers();
+  const location = useLocation();
 
   // ─── Local state ───
-  const [search, setSearch] = React.useState("");
+  const [search, setSearch] = React.useState(
+    () => (location.state as { search?: string } | null)?.search || "",
+  );
   const debouncedSearch = useDebounce(search, 300);
   const [selectedGroup, setSelectedGroup] = React.useState<string | null>(null);
   const [selectedSubGroup, setSelectedSubGroup] = React.useState<string | null>(
@@ -521,6 +530,7 @@ export const QuotationsPage: React.FC = () => {
         }
 
         const now = new Date().toISOString();
+        const registered = useSupplierStore.getState().suppliers;
 
         if (isEdit && editingItem) {
           // Single item edit
@@ -532,7 +542,7 @@ export const QuotationsPage: React.FC = () => {
             subGroupId: line.subGroupId,
             partNumber: line.partNumber.trim(),
             description: line.description.trim(),
-            supplier: line.supplier.trim(),
+            supplier: canonicalSupplierName(line.supplier, registered),
             reference: line.reference.trim(),
             leadTimeDays: line.leadTimeDays,
             quotationDate: line.quotationDate,
@@ -547,6 +557,7 @@ export const QuotationsPage: React.FC = () => {
           };
           await updateItem(updated);
           addToast({ type: "success", title: "Quotation updated" });
+          registerSuppliers([{ name: updated.supplier }]);
         } else {
           // Create new items
           const newItems: IQuotationItem[] = lines.map((line) => {
@@ -559,7 +570,7 @@ export const QuotationsPage: React.FC = () => {
               description: line.description.trim(),
               reference: line.reference.trim(),
               quantity: 1,
-              supplier: line.supplier.trim(),
+              supplier: canonicalSupplierName(line.supplier, registered),
               leadTimeDays: line.leadTimeDays,
               quotationDate: line.quotationDate,
               type: line.type,
@@ -581,6 +592,7 @@ export const QuotationsPage: React.FC = () => {
             type: "success",
             title: `${newItems.length} quotation item${newItems.length > 1 ? "s" : ""} added`,
           });
+          registerSuppliers(newItems.map((item) => ({ name: item.supplier })));
         }
         onClose();
       } catch {
@@ -715,12 +727,9 @@ export const QuotationsPage: React.FC = () => {
                     {/* Row 3: Supplier + Lead Time + Date */}
                     <div className={styles.formField}>
                       <label>Supplier *</label>
-                      <input
-                        type="text"
+                      <SupplierCombobox
                         value={line.supplier}
-                        onChange={(e) =>
-                          updateLine(line._key, "supplier", e.target.value)
-                        }
+                        onChange={(v) => updateLine(line._key, "supplier", v)}
                         placeholder="Vendor name..."
                       />
                     </div>

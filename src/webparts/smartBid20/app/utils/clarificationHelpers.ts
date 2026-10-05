@@ -9,6 +9,16 @@ import { IConfigOption, ISystemConfig } from "../models/ISystemConfig";
 /** Values the legacy list stored in its mandatory Title column when there was no reference. */
 const REF_PLACEHOLDERS = ["N/A", "NA", "-", "--", "---", "TBD", "TBC", "NONE"];
 
+/** BIDs completed before this date are never synced to the library automatically (no backfill). */
+export const CLARIFICATION_LIBRARY_SYNC_SINCE = "2026-10-04";
+
+/** Completed on or after the cutoff, so its clarifications and qualifications belong in the library. */
+export function isClarificationLibraryEligible(bid: IBid): boolean {
+  if (bid.currentStatus !== "Completed") return false;
+  const completed = bid.completedDate || "";
+  return !!completed && completed >= CLARIFICATION_LIBRARY_SYNC_SINCE;
+}
+
 export function cleanClientDocRef(ref?: string | null): string {
   const v = (ref || "").trim();
   return REF_PLACEHOLDERS.indexOf(v.toUpperCase()) >= 0 ? "" : v;

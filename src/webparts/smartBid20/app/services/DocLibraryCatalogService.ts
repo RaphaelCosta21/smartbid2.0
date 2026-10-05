@@ -22,11 +22,42 @@ const DOC_TYPE_CHOICES: DocCatalogType[] = [
   "Catalog",
   "Technical Proposal",
   "Past Bid",
+  "Clarification Library",
 ];
 
 export class DocLibraryCatalogService {
+  private static _folders: Record<string, Promise<void>> = {};
+
   private static get _list() {
     return SPService.sp.web.lists.getByTitle(LIB);
+  }
+
+  /** Create a library folder when missing; memoized per URL, a failed attempt is retried next call. */
+  public static ensureFolder(serverRelativeUrl: string): Promise<void> {
+    const folders = DocLibraryCatalogService._folders;
+    if (!folders[serverRelativeUrl]) {
+      const pending =
+        DocLibraryCatalogService._createFolderIfMissing(serverRelativeUrl);
+      folders[serverRelativeUrl] = pending;
+      pending.catch(() => {
+        if (folders[serverRelativeUrl] === pending) {
+          delete folders[serverRelativeUrl];
+        }
+      });
+    }
+    return folders[serverRelativeUrl];
+  }
+
+  private static async _createFolderIfMissing(url: string): Promise<void> {
+    const web = SPService.sp.web as any;
+    const exists: boolean = await web
+      .getFolderByServerRelativePath(url)
+      .select("Exists")()
+      .then(
+        (info: { Exists?: boolean }) => !!info.Exists,
+        () => false,
+      );
+    if (!exists) await web.folders.addUsingPath(url);
   }
 
   private static _origin(): string {

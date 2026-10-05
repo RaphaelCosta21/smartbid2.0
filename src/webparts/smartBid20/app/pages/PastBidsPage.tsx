@@ -27,6 +27,7 @@ import {
 } from "../services/PastBidKnowledgeService";
 import { canAccessKnowledge } from "../utils/accessControl";
 import { formatDate } from "../utils/formatters";
+import { countFacets, withCounts } from "../utils/facetHelpers";
 import {
   IPastBidRow,
   matchesAnyOf,
@@ -61,6 +62,20 @@ const EMPTY_FILTERS: IPastBidFilters = {
   kbStatuses: [],
 };
 
+const FACET_VALUES: Record<
+  keyof IPastBidFilters,
+  (r: IPastBidRow) => string[]
+> = {
+  categories: (r) => r.categories,
+  tags: (r) => r.tags,
+  divisions: (r) => [r.division],
+  serviceLines: (r) => [r.serviceLine],
+  clients: (r) => [r.client],
+  outcomes: (r) => [r.outcome],
+  years: (r) => [r.year],
+  kbStatuses: (r) => [r.kbStatus],
+};
+
 const MAX_TABLE_TAGS = 3;
 
 export const PastBidsPage: React.FC = () => {
@@ -92,21 +107,25 @@ export const PastBidsPage: React.FC = () => {
     [completed],
   );
 
+  // `skip` lets a dropdown count against the other filters
+  const passesFilters = React.useCallback(
+    (r: IPastBidRow, skip?: keyof IPastBidFilters): boolean =>
+      (Object.keys(FACET_VALUES) as (keyof IPastBidFilters)[]).every(
+        (key) =>
+          key === skip || matchesAnyOf(filters[key], FACET_VALUES[key](r)),
+      ) &&
+      (!search.trim() || matchesPastBidSearch(r.searchText, search)),
+    [filters, search],
+  );
+
   const filtered = React.useMemo(
-    () =>
-      rows.filter(
-        (r) =>
-          matchesAnyOf(filters.categories, r.categories) &&
-          matchesAnyOf(filters.tags, r.tags) &&
-          matchesAnyOf(filters.divisions, [r.division]) &&
-          matchesAnyOf(filters.serviceLines, [r.serviceLine]) &&
-          matchesAnyOf(filters.clients, [r.client]) &&
-          matchesAnyOf(filters.outcomes, [r.outcome]) &&
-          matchesAnyOf(filters.years, [r.year]) &&
-          matchesAnyOf(filters.kbStatuses, [r.kbStatus]) &&
-          (!search.trim() || matchesPastBidSearch(r.searchText, search)),
-      ),
-    [rows, filters, search],
+    () => rows.filter((r) => passesFilters(r)),
+    [rows, passesFilters],
+  );
+
+  const facetCounts = React.useMemo(
+    () => countFacets(rows, FACET_VALUES, passesFilters),
+    [rows, passesFilters],
   );
 
   const options = React.useMemo(() => {
@@ -311,49 +330,49 @@ export const PastBidsPage: React.FC = () => {
         </div>
         <MultiSelectDropdown
           label="Scope"
-          options={options.categories}
+          options={withCounts(options.categories, facetCounts.categories)}
           selected={filters.categories}
           onChange={setFilter("categories")}
         />
         <MultiSelectDropdown
           label="Tags"
-          options={options.tags}
+          options={withCounts(options.tags, facetCounts.tags)}
           selected={filters.tags}
           onChange={setFilter("tags")}
         />
         <MultiSelectDropdown
           label="Division"
-          options={options.divisions}
+          options={withCounts(options.divisions, facetCounts.divisions)}
           selected={filters.divisions}
           onChange={setFilter("divisions")}
         />
         <MultiSelectDropdown
           label="Service Line"
-          options={options.serviceLines}
+          options={withCounts(options.serviceLines, facetCounts.serviceLines)}
           selected={filters.serviceLines}
           onChange={setFilter("serviceLines")}
         />
         <MultiSelectDropdown
           label="Client"
-          options={options.clients}
+          options={withCounts(options.clients, facetCounts.clients)}
           selected={filters.clients}
           onChange={setFilter("clients")}
         />
         <MultiSelectDropdown
           label="Outcome"
-          options={options.outcomes}
+          options={withCounts(options.outcomes, facetCounts.outcomes)}
           selected={filters.outcomes}
           onChange={setFilter("outcomes")}
         />
         <MultiSelectDropdown
           label="Year"
-          options={options.years}
+          options={withCounts(options.years, facetCounts.years)}
           selected={filters.years}
           onChange={setFilter("years")}
         />
         <MultiSelectDropdown
           label="Knowledge Base"
-          options={options.kbStatuses}
+          options={withCounts(options.kbStatuses, facetCounts.kbStatuses)}
           selected={filters.kbStatuses}
           onChange={setFilter("kbStatuses")}
         />

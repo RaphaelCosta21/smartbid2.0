@@ -58,6 +58,8 @@ export const SHAREPOINT_CONFIG = {
       technicalProposals: "Datasheets/Technical Proposals",
       // Generated from completed BIDs; needs its own includeFolder in the AI Search datasource.
       pastBids: "Past Bids",
+      // Generated from the Clarifications Database list; needs its own includeFolder too.
+      clarificationLibrary: "Clarifications Library",
     },
   },
 

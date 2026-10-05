@@ -27,10 +27,20 @@
 
 /* ─── Filters ─── */
 .filterBar {
+  // Above later glass siblings so dropdown panels aren't covered
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-card);
 }
 
 .searchWrapper {

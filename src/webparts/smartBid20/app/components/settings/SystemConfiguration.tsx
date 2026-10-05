@@ -25,6 +25,7 @@ import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
 import { APP_CONFIG } from "../../config/app.config";
+import { buildDefaultSupplierServiceTypes } from "../../config/suppliers.config";
 import { EntraTokenTest } from "../common/EntraTokenTest";
 import { CollapsibleSidebar } from "../common/CollapsibleSidebar";
 
@@ -127,6 +128,17 @@ const NAV_GROUPS: INavGroup[] = [
         label: "Resource Types",
         icon: "🏷️",
         configKey: "resourceTypes",
+      },
+    ],
+  },
+  {
+    group: "Suppliers",
+    items: [
+      {
+        key: "supplierServiceTypes",
+        label: "Service Types",
+        icon: "🏭",
+        configKey: "supplierServiceTypes",
       },
     ],
   },
@@ -481,6 +493,17 @@ const SystemConfiguration: React.FC = () => {
     setDirty(true);
   };
 
+  // The list starts from the built-in seed until an admin saves it to the JSON.
+  React.useEffect(() => {
+    if (activeTab !== "supplierServiceTypes" || !config) return;
+    if (config.supplierServiceTypes) return;
+    setConfig({
+      ...config,
+      supplierServiceTypes: buildDefaultSupplierServiceTypes(),
+    });
+    if (canEdit) setDirty(true);
+  }, [activeTab, config, canEdit]);
+
   /* ---- generic list CRUD ---------------------------------------- */
 
   const handleOptionToggle = (
@@ -751,6 +774,13 @@ const SystemConfiguration: React.FC = () => {
               )}
               <div className={styles.optionInfo}>
                 <span className={styles.optionLabel}>{opt.label}</span>
+                {configKey === "supplierServiceTypes" && opt.category && (
+                  <span
+                    style={{ fontSize: 11, color: "var(--text-muted)" }}
+                  >
+                    {opt.category as string}
+                  </span>
+                )}
                 {!opt.isActive && (
                   <span className={styles.inactiveTag}>Inactive</span>
                 )}
@@ -3370,6 +3400,33 @@ const SystemConfiguration: React.FC = () => {
                         </option>
                       ))}
                   </select>
+                </div>
+              )}
+              {panelConfigKey === "supplierServiceTypes" && config && (
+                <div className={styles.fieldGroup}>
+                  <label>Category</label>
+                  <input
+                    list="smartbid-service-type-categories"
+                    value={panelForm.category}
+                    placeholder="e.g. Manufacturing"
+                    onChange={(e) =>
+                      setPanelForm({
+                        ...panelForm,
+                        category: e.currentTarget.value,
+                      })
+                    }
+                  />
+                  <datalist id="smartbid-service-type-categories">
+                    {Array.from(
+                      new Set(
+                        (config.supplierServiceTypes || [])
+                          .map((o) => o.category || "")
+                          .filter(Boolean),
+                      ),
+                    ).map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
                 </div>
               )}
               {(panelConfigKey === "serviceLines" ||

@@ -1,6 +1,6 @@
 {
   "name": "smartbid-docs-indexer",
-  "description": "Crawls smartBidDocs (Datasheets incl. the Technical Proposals subfolder, Manuals and Catalogs, and Past Bids) into smartbid-docs-index.",
+  "description": "Crawls smartBidDocs (Datasheets incl. the Technical Proposals subfolder, Manuals and Catalogs, Past Bids, and Clarifications Library) into smartbid-docs-index.",
   "dataSourceName": "smartbid-docs-datasource",
   "skillsetName": "smartbid-docs-skillset",
   "targetIndexName": "smartbid-docs-index",

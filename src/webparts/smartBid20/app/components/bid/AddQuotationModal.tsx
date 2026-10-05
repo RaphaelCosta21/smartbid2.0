@@ -24,6 +24,10 @@ import {
   IQuotationLineDraft,
   mapExtractedQuotationLines,
 } from "../../utils/aiQuotationMapper";
+import { useSupplierStore } from "../../stores/useSupplierStore";
+import { useRegisterQuotationSuppliers } from "../../hooks/useRegisterQuotationSuppliers";
+import { canonicalSupplierName } from "../../utils/supplierMatching";
+import { SupplierCombobox } from "../common/SupplierCombobox";
 import styles from "./AddQuotationModal.module.scss";
 
 function genId(): string {
@@ -78,6 +82,8 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
   const currentUser = useCurrentUser();
   const { addItems } = useQuotationStore();
   const addToast = useUIStore((s) => s.addToast);
+  const loadSuppliers = useSupplierStore((s) => s.loadSuppliers);
+  const registerSuppliers = useRegisterQuotationSuppliers();
 
   const groups: IFavoriteGroup[] = config?.favoriteGroups || [];
   const exchangeRates: IExchangeRate[] =
@@ -94,6 +100,7 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
   const [saving, setSaving] = React.useState(false);
   const [extracting, setExtracting] = React.useState(false);
   const aiUsedRef = React.useRef(false);
+  const supplierAboutRef = React.useRef("");
   const [lines, setLines] = React.useState<ILineItem[]>([
     blankLineItem(defaultPartNumber, defaultDescription),
   ]);
@@ -145,16 +152,28 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
     if (!file || extracting) return;
     setExtracting(true);
     try {
+      await loadSuppliers();
+      const suppliers = useSupplierStore.getState().suppliers;
       const result = await AIAnalysisService.extractQuotation(file, {
         groupOptions: groups.map((g) => ({
           name: g.name,
           subGroups: (g.subGroups || []).map((sg) => sg.name),
         })),
+        supplierOptions: suppliers.map((s) => ({
+          name: s.name,
+          aliases: s.aliases,
+        })),
       });
-      const drafts = mapExtractedQuotationLines(result.items || [], groups);
+      const drafts = mapExtractedQuotationLines(
+        result.items || [],
+        groups,
+        suppliers,
+      );
       if (drafts.length > 0) {
         setLines(drafts.map(draftToLine));
         aiUsedRef.current = true;
+        const withAbout = (result.items || []).find((i) => !!i.supplierAbout);
+        supplierAboutRef.current = withAbout ? withAbout.supplierAbout || "" : "";
         const uncategorized = drafts.filter((d) => !d.groupId).length;
         addToast({
           type: "success",
@@ -242,6 +261,7 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
       }
 
       const now = new Date().toISOString();
+      const registered = useSupplierStore.getState().suppliers;
       const newItems: IQuotationItem[] = lines.map((line) => {
         const { costUSD, rate } = getConversion(line.cost, line.currency);
         return {
@@ -252,7 +272,7 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
           description: line.description.trim(),
           reference: line.reference.trim(),
           quantity: 1,
-          supplier: line.supplier.trim(),
+          supplier: canonicalSupplierName(line.supplier, registered),
           leadTimeDays: line.leadTimeDays,
           quotationDate: line.quotationDate,
           type: line.type,
@@ -275,6 +295,13 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
         type: "success",
         title: `${newItems.length} quotation item${newItems.length > 1 ? "s" : ""} added`,
       });
+      registerSuppliers(
+        newItems.map((item, i) => ({
+          name: item.supplier,
+          sourceName: lines[i].supplierSourceName,
+          about: supplierAboutRef.current,
+        })),
+      );
 
       if (aiUsedRef.current) {
         const logEntry: IActivityLogEntry = {
@@ -459,12 +486,9 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
                   {/* Supplier + Lead Time + Date */}
                   <div className={styles.formField}>
                     <label>Supplier *</label>
-                    <input
-                      type="text"
+                    <SupplierCombobox
                       value={line.supplier}
-                      onChange={(e) =>
-                        updateLine(line._key, "supplier", e.target.value)
-                      }
+                      onChange={(v) => updateLine(line._key, "supplier", v)}
                       placeholder="Vendor name..."
                     />
                   </div>

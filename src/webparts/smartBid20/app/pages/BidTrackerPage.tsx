@@ -1,7 +1,12 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { LayoutList, Search, SquareKanban, Table2, X } from "lucide-react";
-import { useBidStore, ViewMode } from "../stores/useBidStore";
+import {
+  BID_FACET_VALUES,
+  bidMatchesFilters,
+  useBidStore,
+  ViewMode,
+} from "../stores/useBidStore";
 import { useBids } from "../hooks/useBids";
 import { useStatusColors } from "../hooks/useStatusColors";
 import {
@@ -28,6 +33,7 @@ import { useErnStore } from "../stores/useErnStore";
 import { useDebounce } from "../hooks/useDebounce";
 import { useSlidingIndicator } from "../hooks/useSlidingIndicator";
 import { formatDate, isPastDue } from "../utils/formatters";
+import { countFacets, withCounts } from "../utils/facetHelpers";
 import styles from "./BidTrackerPage.module.scss";
 
 const VIEW_OPTIONS: { mode: ViewMode; label: string; icon: React.ReactNode }[] =
@@ -121,6 +127,14 @@ export const BidTrackerPage: React.FC = () => {
 
   // Unfiltered active BIDs feed the filter options so choices don't vanish while filtering
   const allActiveBids = React.useMemo(() => bids.filter(isTrackedBid), [bids]);
+
+  const facetCounts = React.useMemo(
+    () =>
+      countFacets(allActiveBids, BID_FACET_VALUES, (b, skip) =>
+        bidMatchesFilters(b, filters, skip),
+      ),
+    [allActiveBids, filters],
+  );
 
   /* ── Filter options ── */
   const divisionOptions = React.useMemo<MultiSelectOption[]>(
@@ -576,43 +590,43 @@ export const BidTrackerPage: React.FC = () => {
         </div>
         <MultiSelectDropdown
           label="Division"
-          options={divisionOptions}
+          options={withCounts(divisionOptions, facetCounts.divisions)}
           selected={filters.divisions}
           onChange={handleDivisionsChange}
         />
         <MultiSelectDropdown
           label="Service Line"
-          options={serviceLineOptions}
+          options={withCounts(serviceLineOptions, facetCounts.serviceLines)}
           selected={filters.serviceLines}
           onChange={(v) => setFilters({ serviceLines: v })}
         />
         <MultiSelectDropdown
           label="Client"
-          options={clientOptions}
+          options={withCounts(clientOptions, facetCounts.clients)}
           selected={filters.clients}
           onChange={(v) => setFilters({ clients: v })}
         />
         <MultiSelectDropdown
           label="Creator"
-          options={creatorOptions}
+          options={withCounts(creatorOptions, facetCounts.creators)}
           selected={filters.creators}
           onChange={(v) => setFilters({ creators: v })}
         />
         <MultiSelectDropdown
           label="Priority"
-          options={priorityOptions}
+          options={withCounts(priorityOptions, facetCounts.priorities)}
           selected={filters.priorities}
           onChange={(v) => setFilters({ priorities: v as BidPriority[] })}
         />
         <MultiSelectDropdown
           label="Phase"
-          options={phaseOptions}
+          options={withCounts(phaseOptions, facetCounts.phases)}
           selected={filters.phases}
           onChange={(v) => setFilters({ phases: v })}
         />
         <MultiSelectDropdown
           label="Status"
-          options={statusOptions}
+          options={withCounts(statusOptions, facetCounts.statuses)}
           selected={filters.statuses}
           onChange={(v) => setFilters({ statuses: v })}
         />

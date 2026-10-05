@@ -30,6 +30,7 @@ import { useSlidingIndicator } from "../hooks/useSlidingIndicator";
 import { ErnCreateModal } from "../components/bid/ErnCreateModal";
 import { isIntegratedBid } from "../utils/ernHelpers";
 import { formatDate } from "../utils/formatters";
+import { countFacets, withCounts } from "../utils/facetHelpers";
 import { format } from "date-fns";
 import styles from "./UnassignedRequestsPage.module.scss";
 
@@ -75,6 +76,18 @@ const PRIORITIES: BidPriority[] = ["Urgent", "Normal", "Low"];
 function getCreatorKey(r: IBidRequest): string {
   return r.creator?.email || r.creator?.name || "";
 }
+
+type RequestFacetKey = "priority" | "division" | "serviceLine" | "creator";
+
+const REQUEST_FACET_VALUES: Record<
+  RequestFacetKey,
+  (r: IBidRequest) => string
+> = {
+  priority: (r) => r.priority,
+  division: (r) => r.division,
+  serviceLine: (r) => r.serviceLine,
+  creator: getCreatorKey,
+};
 
 /* ------------------------------------------------------------------ */
 /* COMPONENT                                                          */
@@ -170,41 +183,44 @@ export const UnassignedRequestsPage: React.FC = () => {
   // ---- Data already filtered from SP — use directly
   const unassignedRequests = requests;
 
-  // ---- Search + filter
-  const filteredRequests = React.useMemo(() => {
-    let list = unassignedRequests;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(
-        (r) =>
+  // ---- Search + filter (`skip` lets a dropdown count against the other filters)
+  const passesFilters = React.useCallback(
+    (r: IBidRequest, skip?: RequestFacetKey): boolean => {
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const hit =
           r.requestNumber?.toLowerCase().includes(q) ||
           r.crmNumber?.toLowerCase().includes(q) ||
           r.client?.toLowerCase().includes(q) ||
           r.projectName?.toLowerCase().includes(q) ||
-          r.requestedBy?.name?.toLowerCase().includes(q),
+          r.requestedBy?.name?.toLowerCase().includes(q);
+        if (!hit) return false;
+      }
+      const selected: Record<RequestFacetKey, string[]> = {
+        priority: priorityFilter,
+        division: divisionFilter,
+        serviceLine: serviceLineFilter,
+        creator: creatorFilter,
+      };
+      return (Object.keys(selected) as RequestFacetKey[]).every(
+        (key) =>
+          key === skip ||
+          selected[key].length === 0 ||
+          selected[key].indexOf(REQUEST_FACET_VALUES[key](r)) >= 0,
       );
-    }
-    if (priorityFilter.length > 0) {
-      list = list.filter((r) => priorityFilter.indexOf(r.priority) >= 0);
-    }
-    if (divisionFilter.length > 0) {
-      list = list.filter((r) => divisionFilter.indexOf(r.division) >= 0);
-    }
-    if (serviceLineFilter.length > 0) {
-      list = list.filter((r) => serviceLineFilter.indexOf(r.serviceLine) >= 0);
-    }
-    if (creatorFilter.length > 0) {
-      list = list.filter((r) => creatorFilter.indexOf(getCreatorKey(r)) >= 0);
-    }
-    return list;
-  }, [
-    unassignedRequests,
-    search,
-    priorityFilter,
-    divisionFilter,
-    serviceLineFilter,
-    creatorFilter,
-  ]);
+    },
+    [search, priorityFilter, divisionFilter, serviceLineFilter, creatorFilter],
+  );
+
+  const filteredRequests = React.useMemo(
+    () => unassignedRequests.filter((r) => passesFilters(r)),
+    [unassignedRequests, passesFilters],
+  );
+
+  const facetCounts = React.useMemo(
+    () => countFacets(unassignedRequests, REQUEST_FACET_VALUES, passesFilters),
+    [unassignedRequests, passesFilters],
+  );
 
   // ---- Filter options
   const divisionOptions = React.useMemo<MultiSelectOption[]>(
@@ -1566,25 +1582,25 @@ export const UnassignedRequestsPage: React.FC = () => {
         </div>
         <MultiSelectDropdown
           label="Division"
-          options={divisionOptions}
+          options={withCounts(divisionOptions, facetCounts.division)}
           selected={divisionFilter}
           onChange={handleDivisionsChange}
         />
         <MultiSelectDropdown
           label="Service Line"
-          options={serviceLineOptions}
+          options={withCounts(serviceLineOptions, facetCounts.serviceLine)}
           selected={serviceLineFilter}
           onChange={setServiceLineFilter}
         />
         <MultiSelectDropdown
           label="Creator"
-          options={creatorOptions}
+          options={withCounts(creatorOptions, facetCounts.creator)}
           selected={creatorFilter}
           onChange={setCreatorFilter}
         />
         <MultiSelectDropdown
           label="Priority"
-          options={priorityOptions}
+          options={withCounts(priorityOptions, facetCounts.priority)}
           selected={priorityFilter}
           onChange={setPriorityFilter}
         />

@@ -31,7 +31,8 @@
 /* ─── Glass filter bar (same look as Favorites / Unassigned Requests) ─── */
 .filterBar {
   // Above later glass siblings so dropdown panels aren't covered
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 20;
   display: flex;
   align-items: center;
