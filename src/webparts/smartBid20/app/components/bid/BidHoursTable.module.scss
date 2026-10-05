@@ -274,11 +274,7 @@
 
 /* ─── Section Notes & Specs Panel ─── */
 .activeSectionBtn {
-  background: color-mix(
-    in srgb,
-    var(--accent-500) 15%,
-    transparent
-  ) !important;
+  background: color-mix(in srgb, var(--accent-500) 15%, transparent) !important;
   border-color: var(--accent-color) !important;
 }
 

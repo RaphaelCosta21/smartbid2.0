@@ -623,12 +623,7 @@ export class XlSheet {
   ): void {
     const r = this.ws.getRow(this.row);
     const grand = variant === "grand";
-    this.fillRange(
-      r,
-      1,
-      span,
-      grand ? XL_COLORS.accent : XL_COLORS.accentTint,
-    );
+    this.fillRange(r, 1, span, grand ? XL_COLORS.accent : XL_COLORS.accentTint);
     const color = grand ? XL_COLORS.white : XL_COLORS.navy;
     for (let c = 1; c <= span; c++) {
       r.getCell(c).border = grand

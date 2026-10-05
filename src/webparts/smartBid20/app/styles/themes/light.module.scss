@@ -42,8 +42,7 @@
     var(--accent-700) 100%
   );
   --gradient-accent: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
-  --shadow-glow: 0 0 20px
-    color-mix(in srgb, var(--accent-600) 10%, transparent);
+  --shadow-glow: 0 0 20px color-mix(in srgb, var(--accent-600) 10%, transparent);
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
   --elevation-1: 0 1px 3px rgba(0, 0, 0, 0.06);

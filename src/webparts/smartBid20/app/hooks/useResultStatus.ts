@@ -55,13 +55,25 @@ export function useResultStatus(): ResultStatusApi {
           { value: "Loss", label: "Lost", color: t.danger },
           { value: "Client Canceled", label: "Canceled", color: t.textMuted },
           { value: "No Bid", label: "No Bid", color: t.textMuted },
-          { value: "Renegotiation", label: "Renegotiation", color: t.accentTertiary },
+          {
+            value: "Renegotiation",
+            label: "Renegotiation",
+            color: t.accentTertiary,
+          },
         ];
     const options = base.slice();
     if (!options.some((o) => o.value === PENDING_STATUS)) {
-      options.push({ value: PENDING_STATUS, label: "Pending", color: t.warning });
+      options.push({
+        value: PENDING_STATUS,
+        label: "Pending",
+        color: t.warning,
+      });
     }
-    options.push({ value: OPEN_STATUS, label: "Open", color: t.accentSecondary });
+    options.push({
+      value: OPEN_STATUS,
+      label: "Open",
+      color: t.accentSecondary,
+    });
 
     const byValue: Record<string, StatusOption> = {};
     options.forEach((o) => {

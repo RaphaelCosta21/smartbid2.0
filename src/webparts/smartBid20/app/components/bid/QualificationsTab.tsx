@@ -50,9 +50,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
     IAISuggestedClarification[]
   >([]);
   const addToast = useUIStore((s) => s.addToast);
-  const categoryList = useConfigStore(
-    (s) => s.config?.clarificationCategories,
-  );
+  const categoryList = useConfigStore((s) => s.config?.clarificationCategories);
   const categoryOptions = React.useMemo(
     () => activeConfigOptions(categoryList),
     [categoryList],

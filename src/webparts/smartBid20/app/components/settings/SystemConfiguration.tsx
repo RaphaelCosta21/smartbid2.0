@@ -2104,8 +2104,8 @@ const SystemConfiguration: React.FC = () => {
       <div className={styles.sectionHeader}>
         <h3>Theme Selector</h3>
         <p>
-          Pick the color theme for SmartBid. Every theme works in Light and
-          Dark mode, and your choice is saved to your profile.
+          Pick the color theme for SmartBid. Every theme works in Light and Dark
+          mode, and your choice is saved to your profile.
         </p>
       </div>
       {!currentUser.sector && (
@@ -2152,7 +2152,9 @@ const SystemConfiguration: React.FC = () => {
             <span className={styles.themeCardInfo}>
               <span className={styles.themeCardTitle}>
                 {t.label}
-                <span className={`${styles.themeBadge} ${styles.themeBadgeMuted}`}>
+                <span
+                  className={`${styles.themeBadge} ${styles.themeBadgeMuted}`}
+                >
                   Coming soon
                 </span>
               </span>

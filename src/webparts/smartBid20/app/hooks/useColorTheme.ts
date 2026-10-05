@@ -1,8 +1,5 @@
 import { useUIStore } from "../stores/useUIStore";
-import {
-  IColorThemeDef,
-  getColorTheme,
-} from "../config/colorThemes.config";
+import { IColorThemeDef, getColorTheme } from "../config/colorThemes.config";
 
 export function useColorTheme(): IColorThemeDef {
   const id = useUIStore((s) => s.colorTheme);

@@ -1232,11 +1232,7 @@
 }
 
 .subRowDragOver {
-  background: color-mix(
-    in srgb,
-    var(--accent-500) 8%,
-    transparent
-  ) !important;
+  background: color-mix(in srgb, var(--accent-500) 8%, transparent) !important;
   box-shadow: 0 -2px 0 0 var(--accent-color) inset;
 }
 

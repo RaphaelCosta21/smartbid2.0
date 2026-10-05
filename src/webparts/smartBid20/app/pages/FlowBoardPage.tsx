@@ -27,7 +27,11 @@ export const FlowBoardPage: React.FC = () => {
           id: s.id,
           label: s.label,
           value: s.value,
-          color: resolveSemanticColor("statuses", s.value, s.color || "#94A3B8"),
+          color: resolveSemanticColor(
+            "statuses",
+            s.value,
+            s.color || "#94A3B8",
+          ),
         }));
     }
     return getActiveStatuses()

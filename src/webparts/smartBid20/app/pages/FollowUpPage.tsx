@@ -99,9 +99,7 @@ export const FollowUpPage: React.FC = () => {
   const [formNotes, setFormNotes] = React.useState<string>("");
   const [formFollowUpDate, setFormFollowUpDate] = React.useState<string>("");
   /** null = Auto (historical win rate) */
-  const [formWinChance, setFormWinChance] = React.useState<number | null>(
-    null,
-  );
+  const [formWinChance, setFormWinChance] = React.useState<number | null>(null);
 
   // History base for win chances: every decided BID, not just the filtered ones
   const winIndex = React.useMemo(() => buildWinRateIndex(bids), [bids]);
@@ -1171,10 +1169,7 @@ export const FollowUpPage: React.FC = () => {
               {/* Win chance while the BID is undecided */}
               {isUndecided(formOutcome) &&
                 (() => {
-                  const hist = getHistoricalWinProbability(
-                    drawerBid,
-                    winIndex,
-                  );
+                  const hist = getHistoricalWinProbability(drawerBid, winIndex);
                   return (
                     <div className={styles.drawerSection}>
                       <span className={styles.drawerSectionTitle}>

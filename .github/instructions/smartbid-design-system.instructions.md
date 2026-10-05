@@ -59,12 +59,12 @@ Users pick a **color theme** in System Configuration > System > Theme Selector (
 `colorTheme` on their Members record). It is orthogonal to Light/Dark: the root carries
 `data-color-theme="<id>"` next to `.smartBidDark` / `.smartBidLight`. Only "Teal" exists today.
 
-| Token                       | Teal value | Use                                                     |
-| --------------------------- | ---------- | ------------------------------------------------------- |
-| `--accent-brand`            | `#00c9a7`  | Brand accent (same in both modes)                       |
-| `--accent-500`              | `#14b8a6`  | Accent tints for rows/badges/hover                      |
-| `--accent-600`              | `#0d9488`  | Deeper accent (light-mode primary, gradients)           |
-| `--accent-700`              | `#0f766e`  | Deepest accent (gradient end, role badges)              |
+| Token                       | Teal value | Use                                                                     |
+| --------------------------- | ---------- | ----------------------------------------------------------------------- |
+| `--accent-brand`            | `#00c9a7`  | Brand accent (same in both modes)                                       |
+| `--accent-500`              | `#14b8a6`  | Accent tints for rows/badges/hover                                      |
+| `--accent-600`              | `#0d9488`  | Deeper accent (light-mode primary, gradients)                           |
+| `--accent-700`              | `#0f766e`  | Deepest accent (gradient end, role badges)                              |
 | `--primary-accent-contrast` | `#ffffff`  | Text/icons on an accent fill (`--primary-accent`, `--gradient-primary`) |
 
 - Never write a teal hex or `rgba(0,201,167,…)`; use these tokens. Tints:

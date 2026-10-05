@@ -114,14 +114,14 @@ export const DashboardPage: React.FC = () => {
 
   // Division chart data — from config divisions
   const divisionChartData = React.useMemo(() => {
-    const workloads = DashboardService.calculateDivisionWorkloads(analyticsBids);
+    const workloads =
+      DashboardService.calculateDivisionWorkloads(analyticsBids);
     const divs = (config?.divisions || [])
       .filter((d) => d.isActive !== false)
       .sort((a, b) => (a.order || 0) - (b.order || 0));
     return divs.map((div) => ({
       division: div.value,
-      count:
-        workloads.find((w) => w.division === div.value)?.activeBids || 0,
+      count: workloads.find((w) => w.division === div.value)?.activeBids || 0,
       color: div.color || "#94a3b8",
     }));
   }, [config, analyticsBids]);

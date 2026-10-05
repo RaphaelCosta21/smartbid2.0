@@ -35,14 +35,16 @@ export interface IWinRateIndex {
 /** Minimum decided BIDs before a segment's rate is trusted. */
 const MIN_SAMPLE = 3;
 
-export const WIN_PROBABILITY_SOURCE_LABEL: Record<WinProbabilitySource, string> =
-  {
-    manual: "Manual",
-    client: "Client history",
-    serviceLine: "Service line history",
-    division: "Division history",
-    global: "Overall win rate",
-  };
+export const WIN_PROBABILITY_SOURCE_LABEL: Record<
+  WinProbabilitySource,
+  string
+> = {
+  manual: "Manual",
+  client: "Client history",
+  serviceLine: "Service line history",
+  division: "Division history",
+  global: "Overall win rate",
+};
 
 /** Quick-pick values offered in the Follow Up drawer. */
 export const WIN_PROBABILITY_LEVELS: number[] = [10, 25, 50, 75, 90];
@@ -98,7 +100,11 @@ export function getHistoricalWinProbability(
 ): IWinProbability | null {
   return (
     fromTally(index.client[clientKey(bid)], "client", MIN_SAMPLE) ||
-    fromTally(index.serviceLine[bid.serviceLine || ""], "serviceLine", MIN_SAMPLE) ||
+    fromTally(
+      index.serviceLine[bid.serviceLine || ""],
+      "serviceLine",
+      MIN_SAMPLE,
+    ) ||
     fromTally(index.division[bid.division || ""], "division", MIN_SAMPLE) ||
     fromTally(index.global, "global", 1)
   );

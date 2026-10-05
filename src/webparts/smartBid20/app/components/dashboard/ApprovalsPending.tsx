@@ -63,8 +63,11 @@ function buildRow(bid: IBid): PendingRow {
     .forEach((a) => {
       const sector = getApprovalSector(a);
       const label = sector ? getSectorLabel(sector) : a.stakeholderRole;
-      const key = (a.stakeholder?.email || a.stakeholder?.name || a.id)
-        .toLowerCase();
+      const key = (
+        a.stakeholder?.email ||
+        a.stakeholder?.name ||
+        a.id
+      ).toLowerCase();
       if (byEmail[key]) {
         if (byEmail[key].sectors.indexOf(label) < 0) {
           byEmail[key].sectors.push(label);
@@ -124,7 +127,11 @@ export const ApprovalsPending: React.FC<ApprovalsPendingProps> = ({
       : `${rows.length} BID${rows.length === 1 ? "" : "s"} · ${outstanding} approval${outstanding === 1 ? "" : "s"} outstanding${oldest !== null ? ` · oldest ${oldest}d` : ""}`;
 
   return (
-    <GlassCard title="Pending Approvals" subtitle={subtitle} className={className}>
+    <GlassCard
+      title="Pending Approvals"
+      subtitle={subtitle}
+      className={className}
+    >
       {rows.length === 0 ? (
         <EmptyState
           variant="glass"
@@ -204,11 +211,15 @@ export const ApprovalsPending: React.FC<ApprovalsPendingProps> = ({
                         title={`${p.name} - ${p.sectors.join(", ")}`}
                         style={
                           p.color
-                            ? ({ "--sector-color": p.color } as React.CSSProperties)
+                            ? ({
+                                "--sector-color": p.color,
+                              } as React.CSSProperties)
                             : undefined
                         }
                       >
-                        <span className={styles.avatar}>{initials(p.name)}</span>
+                        <span className={styles.avatar}>
+                          {initials(p.name)}
+                        </span>
                         <span className={styles.personName}>
                           {p.name.split(" ")[0]}
                         </span>

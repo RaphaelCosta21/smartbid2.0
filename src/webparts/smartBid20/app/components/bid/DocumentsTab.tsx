@@ -22,8 +22,7 @@ import styles from "../../pages/BidDetailPage.module.scss";
 
 const TP_CATEGORY = SHAREPOINT_CONFIG.technicalProposal.attachmentCategory;
 
-const isLocalUrl = (url: string): boolean =>
-  !url || url.indexOf("blob:") === 0;
+const isLocalUrl = (url: string): boolean => !url || url.indexOf("blob:") === 0;
 
 export interface DocumentsTabProps {
   bid: IBid;

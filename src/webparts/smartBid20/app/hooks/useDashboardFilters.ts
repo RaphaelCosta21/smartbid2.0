@@ -40,15 +40,17 @@ export type DashboardScopeFacetKey =
   | "clients"
   | "statuses";
 
-const SCOPE_FACETS: Record<DashboardScopeFacetKey, (b: IBid) => string | string[]> =
-  {
-    divisions: (b) => b.division || "",
-    serviceLines: (b) => b.serviceLine || "",
-    engineers: (b) =>
-      (b.engineerResponsible || []).map((p) => (p.email || "").toLowerCase()),
-    clients: (b) => b.opportunityInfo?.client || "",
-    statuses: (b) => b.currentStatus || "",
-  };
+const SCOPE_FACETS: Record<
+  DashboardScopeFacetKey,
+  (b: IBid) => string | string[]
+> = {
+  divisions: (b) => b.division || "",
+  serviceLines: (b) => b.serviceLine || "",
+  engineers: (b) =>
+    (b.engineerResponsible || []).map((p) => (p.email || "").toLowerCase()),
+  clients: (b) => b.opportunityInfo?.client || "",
+  statuses: (b) => b.currentStatus || "",
+};
 
 const DEFAULT_SCOPE: DashboardScopeFilters = {
   search: "",

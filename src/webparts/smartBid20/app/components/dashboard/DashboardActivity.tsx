@@ -1,11 +1,6 @@
 import * as React from "react";
 import { IBid } from "../../models";
-import {
-  format,
-  formatDistanceToNow,
-  isToday,
-  isYesterday,
-} from "date-fns";
+import { format, formatDistanceToNow, isToday, isYesterday } from "date-fns";
 import { GlassCard } from "../common/GlassCard";
 import { StatusBadge } from "../common/StatusBadge";
 import { EmptyState } from "../common/EmptyState";

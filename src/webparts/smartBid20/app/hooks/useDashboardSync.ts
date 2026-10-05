@@ -58,7 +58,9 @@ export function useDashboardSync(): DashboardSync {
       lastRun = Date.now();
       setSyncing(true);
       Promise.all([
-        syncBids().catch((err) => console.error("Dashboard BID sync failed", err)),
+        syncBids().catch((err) =>
+          console.error("Dashboard BID sync failed", err),
+        ),
         useErnStore.getState().loadAll(),
       ])
         .then(() => {

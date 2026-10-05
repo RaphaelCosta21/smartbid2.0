@@ -254,8 +254,7 @@
   tfoot td {
     font-weight: 700;
     border-bottom: none;
-    border-top: 2px solid
-      color-mix(in srgb, var(--accent-500) 30%, transparent);
+    border-top: 2px solid color-mix(in srgb, var(--accent-500) 30%, transparent);
   }
 }
 
@@ -880,8 +879,7 @@
 
 .gridMfgRow {
   td {
-    border-top: 2px solid
-      color-mix(in srgb, var(--accent-500) 30%, transparent);
+    border-top: 2px solid color-mix(in srgb, var(--accent-500) 30%, transparent);
     background: color-mix(in srgb, var(--accent-500) 6%, transparent);
   }
 }

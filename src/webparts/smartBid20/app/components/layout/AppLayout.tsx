@@ -17,10 +17,7 @@ import { UserService } from "../../services/UserService";
 import { canAccessKnowledge, isSuperAdmin } from "../../utils/accessControl";
 import { IUser, UserRole } from "../../models";
 import { ROUTES } from "../../config/routes.config";
-import {
-  ColorThemeId,
-  isColorThemeId,
-} from "../../config/colorThemes.config";
+import { ColorThemeId, isColorThemeId } from "../../config/colorThemes.config";
 import darkTheme from "../../styles/themes/dark.module.scss";
 import lightTheme from "../../styles/themes/light.module.scss";
 import globalStyles from "../../styles/globals.module.scss";

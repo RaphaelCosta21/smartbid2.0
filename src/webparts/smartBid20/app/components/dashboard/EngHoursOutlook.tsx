@@ -280,7 +280,9 @@ export const EngHoursOutlook: React.FC<EngHoursOutlookProps> = ({
             {mode === "operationStart" && noDate && (
               <div className={styles.note}>
                 {noDate.bidCount} of {datedCount + noDate.bidCount} BIDs (
-                {formatHours(noDate.won + noDate.awaiting + noDate.inEngineering)}
+                {formatHours(
+                  noDate.won + noDate.awaiting + noDate.inEngineering,
+                )}
                 ) have no Operation Start Date and are shown as "No date".
               </div>
             )}
