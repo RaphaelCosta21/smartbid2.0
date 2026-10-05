@@ -347,7 +347,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
                 className={styles.backBtn}
                 style={{
                   background: "var(--primary-accent)",
-                  color: "#fff",
+                  color: "var(--primary-accent-contrast)",
                   border: "none",
                 }}
                 onClick={() => setShowUpload(true)}
@@ -477,7 +477,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
                     className={styles.backBtn}
                     style={{
                       background: "var(--primary-accent)",
-                      color: "#fff",
+                      color: "var(--primary-accent-contrast)",
                       border: "none",
                     }}
                     onClick={() => void handleUpload()}

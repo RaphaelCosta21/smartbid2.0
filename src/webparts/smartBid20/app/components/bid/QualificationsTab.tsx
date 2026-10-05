@@ -658,7 +658,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
             className={styles.backBtn}
             style={{
               background: "var(--primary-accent)",
-              color: "white",
+              color: "var(--primary-accent-contrast)",
               border: "none",
               marginTop: 8,
             }}
@@ -1147,7 +1147,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
             className={styles.backBtn}
             style={{
               background: "var(--primary-accent)",
-              color: "white",
+              color: "var(--primary-accent-contrast)",
               border: "none",
               marginTop: 12,
             }}

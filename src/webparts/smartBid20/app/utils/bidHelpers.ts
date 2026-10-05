@@ -31,6 +31,24 @@ function getLastDueDateChange(bid: IBid): Date | null {
   return last;
 }
 
+/** Due date in effect at `at`: the previous value of the first due-date change after it, else the current one. */
+export function getDueDateAt(bid: IBid, at: Date): string {
+  let firstAfter: { time: number; previous: string } | null = null;
+  for (const entry of bid.activityLog || []) {
+    if (entry.type !== DUE_DATE_CHANGED) continue;
+    const changedAt = parseDate(entry.timestamp);
+    const previous = entry.metadata?.previousDueDate;
+    if (!changedAt || changedAt.getTime() <= at.getTime()) continue;
+    if (typeof previous !== "string" || !previous) continue;
+    if (!firstAfter || changedAt.getTime() < firstAfter.time) {
+      firstAfter = { time: changedAt.getTime(), previous };
+    }
+  }
+  return firstAfter
+    ? firstAfter.previous
+    : bid.desiredDueDate || bid.dueDate || "";
+}
+
 /**
  * When the BID first reached a terminal status under its current due date. The
  * due/overdue count stops there and stays frozen even after a revision reopens

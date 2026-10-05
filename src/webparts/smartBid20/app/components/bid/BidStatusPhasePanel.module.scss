@@ -140,13 +140,13 @@
 
 .phaseNavBtnPrimary {
   background: var(--primary-accent);
-  color: white;
+  color: var(--primary-accent-contrast);
   border: none;
 
   &:hover:not(:disabled) {
     background: var(--primary-accent);
     filter: brightness(1.15);
-    color: white;
+    color: var(--primary-accent-contrast);
   }
 }
 
@@ -571,7 +571,7 @@
   border-radius: 10px;
   border: none;
   background: var(--primary-accent);
-  color: white;
+  color: var(--primary-accent-contrast);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;

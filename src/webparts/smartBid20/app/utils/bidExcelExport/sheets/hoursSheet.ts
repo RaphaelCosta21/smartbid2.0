@@ -146,7 +146,7 @@ export function buildHoursSheet(ctx: IBidExcelContext): void {
       { value: s.totalHoursCostBRL, bold: true },
       { value: s.totalHoursCostUSD, bold: true },
     ],
-    { fill: XL_COLORS.teal, fontColor: XL_COLORS.white },
+    { fill: XL_COLORS.accent, fontColor: XL_COLORS.white },
   );
   x.gap(18);
 

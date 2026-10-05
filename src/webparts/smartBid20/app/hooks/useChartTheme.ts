@@ -13,6 +13,8 @@
  */
 import * as React from "react";
 import { useUIStore } from "../stores/useUIStore";
+import { IColorThemeDef } from "../config/colorThemes.config";
+import { getActiveColorTheme, useColorTheme } from "./useColorTheme";
 
 export interface ChartTheme {
   mode: "dark" | "light";
@@ -37,8 +39,7 @@ export interface ChartTheme {
   referenceFill: string;
 }
 
-const CATEGORICAL = [
-  "#00c9a7",
+const CATEGORICAL_REST = [
   "#3b82f6",
   "#8b5cf6",
   "#f59e0b",
@@ -47,11 +48,16 @@ const CATEGORICAL = [
   "#ec4899",
   "#10b981",
   "#a855f7",
-  "#14b8a6",
 ];
 
-const DARK: ChartTheme = {
-  mode: "dark",
+function buildCategorical(theme: IColorThemeDef): string[] {
+  return [theme.accents.brand]
+    .concat(CATEGORICAL_REST)
+    .concat([theme.accents.a500]);
+}
+
+const DARK_BASE = {
+  mode: "dark" as const,
   textPrimary: "#f1f5f9",
   textSecondary: "#94a3b8",
   textMuted: "#64748b",
@@ -60,19 +66,17 @@ const DARK: ChartTheme = {
   tick: "#94a3b8",
   cardBg: "#152238",
   cardBgElevated: "#1a2d4a",
-  accent: "#00c9a7",
   accentSecondary: "#3b82f6",
   accentTertiary: "#8b5cf6",
   success: "#10b981",
   warning: "#f59e0b",
   danger: "#ef4444",
   info: "#06b6d4",
-  categorical: CATEGORICAL,
   referenceFill: "rgba(148, 163, 184, 0.08)",
 };
 
-const LIGHT: ChartTheme = {
-  mode: "light",
+const LIGHT_BASE = {
+  mode: "light" as const,
   textPrimary: "#1e293b",
   textSecondary: "#475569",
   textMuted: "#94a3b8",
@@ -81,23 +85,30 @@ const LIGHT: ChartTheme = {
   tick: "#475569",
   cardBg: "#ffffff",
   cardBgElevated: "#f1f5f9",
-  accent: "#0d9488",
   accentSecondary: "#2563eb",
   accentTertiary: "#7c3aed",
   success: "#10b981",
   warning: "#f59e0b",
   danger: "#ef4444",
   info: "#06b6d4",
-  categorical: CATEGORICAL,
   referenceFill: "rgba(71, 85, 105, 0.06)",
 };
 
 export function useChartTheme(): ChartTheme {
   const theme = useUIStore((s) => s.theme);
-  return React.useMemo(() => (theme === "dark" ? DARK : LIGHT), [theme]);
+  const colorTheme = useColorTheme();
+  return React.useMemo(() => {
+    const base = theme === "dark" ? DARK_BASE : LIGHT_BASE;
+    return {
+      ...base,
+      accent: colorTheme.primaryAccent[base.mode],
+      categorical: buildCategorical(colorTheme),
+    };
+  }, [theme, colorTheme]);
 }
 
 /** Returns a color from the categorical palette by index (wraps around). */
 export function categoricalColor(index: number): string {
-  return CATEGORICAL[index % CATEGORICAL.length];
+  const palette = buildCategorical(getActiveColorTheme());
+  return palette[index % palette.length];
 }

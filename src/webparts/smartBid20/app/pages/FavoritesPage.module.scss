@@ -43,7 +43,7 @@
 
 .tabActive {
   background: var(--primary-accent) !important;
-  color: #fff !important;
+  color: var(--primary-accent-contrast) !important;
 }
 
 .tabCount {
@@ -505,7 +505,7 @@
 
 .viewActive {
   background: var(--primary-accent) !important;
-  color: #fff !important;
+  color: var(--primary-accent-contrast) !important;
   border-color: var(--primary-accent) !important;
 }
 
@@ -899,7 +899,7 @@
 
 .modeActive {
   background: var(--primary-accent) !important;
-  color: #fff !important;
+  color: var(--primary-accent-contrast) !important;
 }
 
 .formRow {
@@ -974,7 +974,7 @@
   border: none;
   border-radius: 6px;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;

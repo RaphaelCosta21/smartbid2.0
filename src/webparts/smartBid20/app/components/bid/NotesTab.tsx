@@ -196,7 +196,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
               className={styles.backBtn}
               style={{
                 background: "var(--primary-accent)",
-                color: "#fff",
+                color: "var(--primary-accent-contrast)",
                 border: "none",
               }}
               onClick={addQuickNote}
@@ -286,7 +286,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
                           className={styles.backBtn}
                           style={{
                             background: "var(--primary-accent)",
-                            color: "white",
+                            color: "var(--primary-accent-contrast)",
                             border: "none",
                           }}
                           onClick={() => handleSave(section, editValue)}
@@ -347,7 +347,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
             style={{
               marginTop: "16px",
               background: "var(--primary-accent)",
-              color: "white",
+              color: "var(--primary-accent-contrast)",
               border: "none",
             }}
             onClick={() => setShowAddForm(true)}
@@ -393,7 +393,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
                 className={styles.backBtn}
                 style={{
                   background: "var(--primary-accent)",
-                  color: "white",
+                  color: "var(--primary-accent-contrast)",
                   border: "none",
                 }}
                 onClick={handleAddNote}

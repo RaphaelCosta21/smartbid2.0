@@ -50,7 +50,7 @@
   flex-shrink: 0;
 
   svg {
-    color: white;
+    color: var(--primary-accent-contrast);
     width: 18px;
     height: 18px;
   }
@@ -80,7 +80,7 @@
   background: var(--gradient-primary);
   border: none;
   border-radius: 10px;
-  color: white;
+  color: var(--primary-accent-contrast);
   font-weight: 600;
   font-size: 13px;
   cursor: pointer;
@@ -89,7 +89,7 @@
   gap: 8px;
   justify-content: center;
   transition: all 250ms ease;
-  box-shadow: 0 0 12px rgba(0, 201, 167, 0.2);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-brand) 20%, transparent);
 
   &.createBtnCollapsed {
     padding: 10px 0;
@@ -102,7 +102,8 @@
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 0 20px rgba(0, 201, 167, 0.35);
+    box-shadow: 0 0 20px
+      color-mix(in srgb, var(--accent-brand) 35%, transparent);
   }
 }
 
@@ -175,7 +176,7 @@
 
   &:hover {
     background: var(--primary-accent);
-    color: white;
+    color: var(--primary-accent-contrast);
     opacity: 1;
   }
 }
@@ -186,7 +187,7 @@
 
 .badge {
   background: var(--primary-accent);
-  color: white;
+  color: var(--primary-accent-contrast);
   border-radius: 999px;
   padding: 1px 7px;
   font-size: 10px;
@@ -323,7 +324,7 @@
     background: var(--primary-accent);
     border-color: var(--primary-accent);
     svg {
-      color: white;
+      color: var(--primary-accent-contrast);
     }
   }
 }

@@ -13,6 +13,7 @@ import { BID_STATUSES, BID_PHASES } from "../../config/status.config";
 import { ROUTES } from "../../config/routes.config";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { resolveSemanticColor } from "../../hooks/useColorTheme";
 import { StatusBadge } from "../common/StatusBadge";
 import { GlassCard } from "../common/GlassCard";
 import { BidTaskChecklist } from "./BidTaskChecklist";
@@ -133,7 +134,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
           id: s.id,
           label: s.label,
           value: s.value,
-          color: s.color || "#94A3B8",
+          color: resolveSemanticColor("statuses", s.value, s.color || "#94A3B8"),
           order: s.order || 0,
           isTerminal: false,
           phase: null as BidPhase | null,
@@ -188,7 +189,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
           id: s.id,
           label: s.label,
           value: s.value,
-          color: s.color || "#94A3B8",
+          color: resolveSemanticColor("statuses", s.value, s.color || "#94A3B8"),
           order: s.order || 0,
           isTerminal: true,
           phase: "Close Out" as BidPhase,

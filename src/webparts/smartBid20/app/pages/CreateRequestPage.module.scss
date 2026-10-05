@@ -150,8 +150,8 @@
 .stepItem.stepActive .stepNumber {
   border-color: var(--primary-accent);
   background: var(--primary-accent);
-  color: #fff;
-  box-shadow: 0 0 0 4px rgba(0, 201, 167, 0.15);
+  color: var(--primary-accent-contrast);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-brand) 15%, transparent);
 }
 
 .stepItem.stepActive .stepTitle {
@@ -162,7 +162,7 @@
 .stepItem.stepCompleted .stepNumber {
   border-color: var(--primary-accent);
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
 }
 
 .stepItem.stepCompleted .stepTitle {
@@ -260,7 +260,8 @@
 
   &:focus {
     border-color: var(--primary-accent);
-    box-shadow: 0 0 0 3px rgba(0, 201, 167, 0.1);
+    box-shadow: 0 0 0 3px
+      color-mix(in srgb, var(--accent-brand) 10%, transparent);
   }
 }
 
@@ -688,7 +689,7 @@
   border-radius: 10px;
   border: none;
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
@@ -699,7 +700,8 @@
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(0, 201, 167, 0.3);
+    box-shadow: 0 4px 16px
+      color-mix(in srgb, var(--accent-brand) 30%, transparent);
   }
 }
 

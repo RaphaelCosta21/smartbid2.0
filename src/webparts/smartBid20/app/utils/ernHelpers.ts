@@ -1,7 +1,13 @@
 /**
  * ERN helpers — pure functions for the Engineering Request Number integration.
  */
-import { IBid, IBidErnLink, ISystemConfig, ErnDeadlineState } from "../models";
+import {
+  IBid,
+  IBidErnLink,
+  IErn,
+  ISystemConfig,
+  ErnDeadlineState,
+} from "../models";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import { getDaysUntil } from "./formatters";
 
@@ -103,24 +109,41 @@ export function resolveErnProjectNumber(
   return "";
 }
 
-/** Whether an ERN status counts as closed/finished. */
-export function isErnClosed(status: string | null | undefined): boolean {
+const ERN_CLOSED_STATUSES = [
+  "completed",
+  "closed",
+  "cancelled",
+  "canceled",
+  "released",
+];
+
+/** Whether an ERN counts as closed/finished (closed status or a Released/Finish date). */
+export function isErnClosed(
+  status: string | null | undefined,
+  finishDate?: string | null,
+): boolean {
+  if (finishDate) return true;
   if (!status) return false;
-  const s = status.toLowerCase();
-  return s === "completed" || s === "closed" || s === "cancelled";
+  return ERN_CLOSED_STATUSES.indexOf(status.trim().toLowerCase()) >= 0;
+}
+
+/** On Hold ERNs stay open but are never due soon / overdue. */
+export function isErnOnHold(status: string | null | undefined): boolean {
+  return (status || "").trim().toLowerCase() === "on hold";
 }
 
 /**
  * Classify an ERN due date into a reminder state.
- * overdue  = past due and not closed
- * due-soon = within `dueSoonDays` and not closed
+ * overdue  = past due and not closed / on hold
+ * due-soon = within `dueSoonDays` and not closed / on hold
  */
 export function getErnDeadlineState(
   dueDate: string | null | undefined,
   status?: string | null,
+  finishDate?: string | null,
 ): ErnDeadlineState {
   if (!dueDate) return "none";
-  if (isErnClosed(status)) return "ok";
+  if (isErnClosed(status, finishDate) || isErnOnHold(status)) return "ok";
   const days = getDaysUntil(dueDate);
   if (days === null) return "none";
   if (days < 0) return "overdue";
@@ -131,4 +154,48 @@ export function getErnDeadlineState(
 /** Days until (positive) or since (negative) the ERN due date. */
 export function getErnDaysLeft(dueDate: string | null | undefined): number {
   return getDaysUntil(dueDate) || 0;
+}
+
+/** One linked ERN with its live state (live list data wins over the BID snapshot). */
+export interface IErnLinkRow {
+  bid: IBid;
+  ernNumber: string;
+  division: ErnDivision;
+  status: string;
+  dueDate: string;
+  finishDate: string;
+  closed: boolean;
+  onHold: boolean;
+  deadline: ErnDeadlineState;
+}
+
+/** Linked ERNs across BIDs, deduped by ERN number. */
+export function buildErnLinkRows(
+  bids: IBid[],
+  liveByTitle: Record<string, IErn>,
+): IErnLinkRow[] {
+  const seen: Record<string, boolean> = {};
+  const rows: IErnLinkRow[] = [];
+  bids.forEach((bid) => {
+    getErnLinks(bid).forEach((l) => {
+      if (!l.ernNumber || seen[l.ernNumber]) return;
+      seen[l.ernNumber] = true;
+      const live = liveByTitle[l.ernNumber];
+      const status = (live ? live.status : l.ernStatus) || "Unknown";
+      const dueDate = (live ? live.dueDate : l.ernDueDate) || "";
+      const finishDate = (live ? live.finishDate : l.ernFinishDate) || "";
+      rows.push({
+        bid,
+        ernNumber: l.ernNumber,
+        division: l.division || null,
+        status,
+        dueDate,
+        finishDate,
+        closed: isErnClosed(status, finishDate),
+        onHold: isErnOnHold(status),
+        deadline: getErnDeadlineState(dueDate, status, finishDate),
+      });
+    });
+  });
+  return rows;
 }

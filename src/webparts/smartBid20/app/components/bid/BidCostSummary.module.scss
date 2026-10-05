@@ -27,10 +27,10 @@
 .serviceLineValue {
   font-size: 13px;
   font-weight: 700;
-  color: var(--accent-color, #14b8a6);
+  color: var(--accent-500);
   padding: 2px 10px;
   border-radius: 4px;
-  background: var(--accent-color-10, rgba(20, 184, 166, 0.12));
+  background: color-mix(in srgb, var(--accent-500) 12%, transparent);
 }
 
 .kpiRow {
@@ -303,7 +303,7 @@
 
 .capexPortion {
   height: 100%;
-  background: linear-gradient(90deg, #0d9488, #14b8a6);
+  background: linear-gradient(90deg, var(--accent-600), var(--accent-500));
   transition: width 0.3s ease;
 }
 

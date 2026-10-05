@@ -214,7 +214,7 @@
   border: none;
   border-radius: 6px;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   cursor: pointer;
   transition: opacity 200ms;
   white-space: nowrap;
@@ -706,7 +706,7 @@
   &.assignChecked {
     background: var(--primary-accent);
     border-color: var(--primary-accent);
-    color: #fff;
+    color: var(--primary-accent-contrast);
   }
 }
 
@@ -756,7 +756,7 @@
   border-radius: 8px;
   border: none;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;

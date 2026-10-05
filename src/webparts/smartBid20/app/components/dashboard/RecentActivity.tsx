@@ -10,7 +10,7 @@ interface RecentActivityProps {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  BID_STATUS_CHANGED: "#00c9a7",
+  BID_STATUS_CHANGED: "var(--accent-brand)",
   APPROVAL_REQUESTED: "#f59e0b",
   APPROVAL_RESPONSE: "#10b981",
   BID_OVERDUE: "#ef4444",

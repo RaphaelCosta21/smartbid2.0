@@ -31,7 +31,7 @@
   width: 16px;
   height: 16px;
   border-radius: 4px;
-  accent-color: var(--primary-accent, #00c9a7);
+  accent-color: var(--primary-accent);
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -43,20 +43,18 @@
   padding: 8px 16px;
   border-radius: 8px;
   border: none;
-  background: var(
-    --gradient-primary,
-    linear-gradient(135deg, #00c9a7 0%, #0d9488 100%)
-  );
+  background: var(--gradient-primary);
   color: #0a1628;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 2px 8px rgba(0, 201, 167, 0.2);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-brand) 20%, transparent);
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(0, 201, 167, 0.3);
+    box-shadow: 0 4px 16px
+      color-mix(in srgb, var(--accent-brand) 30%, transparent);
   }
 
   &:active {
@@ -102,16 +100,16 @@
   white-space: nowrap;
 
   &:hover {
-    border-color: var(--primary-accent, #00c9a7);
-    color: var(--primary-accent, #00c9a7);
-    background: rgba(0, 201, 167, 0.05);
+    border-color: var(--primary-accent);
+    color: var(--primary-accent);
+    background: color-mix(in srgb, var(--accent-brand) 5%, transparent);
   }
 }
 
 .filterActive {
-  background: rgba(0, 201, 167, 0.12);
-  border-color: var(--primary-accent, #00c9a7);
-  color: var(--primary-accent, #00c9a7);
+  background: color-mix(in srgb, var(--accent-brand) 12%, transparent);
+  border-color: var(--primary-accent);
+  color: var(--primary-accent);
   font-weight: 600;
 }
 
@@ -215,15 +213,15 @@
   }
 
   &:hover {
-    background: rgba(0, 201, 167, 0.03);
+    background: color-mix(in srgb, var(--accent-brand) 3%, transparent);
   }
 }
 
 .itemSelected {
-  background: rgba(0, 201, 167, 0.06);
+  background: color-mix(in srgb, var(--accent-brand) 6%, transparent);
 
   &:hover {
-    background: rgba(0, 201, 167, 0.08);
+    background: color-mix(in srgb, var(--accent-brand) 8%, transparent);
   }
 }
 
@@ -326,9 +324,9 @@
 }
 
 .badgeEng {
-  background: rgba(0, 201, 167, 0.08);
-  color: var(--primary-accent, #00c9a7);
-  border: 1px solid rgba(0, 201, 167, 0.2);
+  background: color-mix(in srgb, var(--accent-brand) 8%, transparent);
+  color: var(--primary-accent);
+  border: 1px solid color-mix(in srgb, var(--accent-brand) 20%, transparent);
 }
 
 /* ─── Engineering Detail ─── */
@@ -339,8 +337,8 @@
   margin-top: 4px;
   padding: 6px 8px;
   border-radius: 6px;
-  background: rgba(0, 201, 167, 0.04);
-  border: 1px solid rgba(0, 201, 167, 0.1);
+  background: color-mix(in srgb, var(--accent-brand) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-brand) 10%, transparent);
 }
 
 .engDeliverable {
@@ -348,7 +346,7 @@
   color: var(--text-secondary, #94a3b8);
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(0, 201, 167, 0.06);
+  background: color-mix(in srgb, var(--accent-brand) 6%, transparent);
   white-space: nowrap;
 }
 

@@ -7,6 +7,7 @@ import { getDueFreezeDate, isActiveBid } from "../utils/bidHelpers";
 import { useConfigStore } from "../stores/useConfigStore";
 import { getActiveStatuses, getDivisionColor } from "../utils/statusHelpers";
 import { formatDaysLeft } from "../utils/formatters";
+import { resolveSemanticColor } from "../hooks/useColorTheme";
 import styles from "./FlowBoardPage.module.scss";
 
 export const FlowBoardPage: React.FC = () => {
@@ -26,7 +27,7 @@ export const FlowBoardPage: React.FC = () => {
           id: s.id,
           label: s.label,
           value: s.value,
-          color: s.color || "#94A3B8",
+          color: resolveSemanticColor("statuses", s.value, s.color || "#94A3B8"),
         }));
     }
     return getActiveStatuses()

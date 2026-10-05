@@ -1643,11 +1643,11 @@ const ColorPickerInline: React.FC<{
                     (c || "") === (currentColor || "")
                       ? "2px solid #fff"
                       : "2px solid transparent",
-                  background: c || "var(--accent-color, #14b8a6)",
+                  background: c || "var(--accent-500)",
                   cursor: "pointer",
                   boxShadow:
                     (c || "") === (currentColor || "")
-                      ? "0 0 0 2px var(--accent-color, #14b8a6)"
+                      ? "0 0 0 2px var(--accent-500)"
                       : "none",
                 }}
                 title={c || "Default"}

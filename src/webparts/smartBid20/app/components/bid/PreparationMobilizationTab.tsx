@@ -712,11 +712,11 @@ export const PreparationMobilizationTab: React.FC<
                                 (c || "") === (gColor || "")
                                   ? "2px solid #fff"
                                   : "2px solid transparent",
-                              background: c || "var(--accent-color, #14b8a6)",
+                              background: c || "var(--accent-500)",
                               cursor: "pointer",
                               boxShadow:
                                 (c || "") === (gColor || "")
-                                  ? "0 0 0 2px var(--accent-color, #14b8a6)"
+                                  ? "0 0 0 2px var(--accent-500)"
                                   : "none",
                             }}
                             title={c || "Default"}

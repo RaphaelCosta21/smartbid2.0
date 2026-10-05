@@ -17,6 +17,10 @@ import { UserService } from "../../services/UserService";
 import { canAccessKnowledge, isSuperAdmin } from "../../utils/accessControl";
 import { IUser, UserRole } from "../../models";
 import { ROUTES } from "../../config/routes.config";
+import {
+  ColorThemeId,
+  isColorThemeId,
+} from "../../config/colorThemes.config";
 import darkTheme from "../../styles/themes/dark.module.scss";
 import lightTheme from "../../styles/themes/light.module.scss";
 import globalStyles from "../../styles/globals.module.scss";
@@ -87,6 +91,8 @@ const RequireEngineering: React.FC<{ children: React.ReactElement }> = ({
 export const AppLayout: React.FC = () => {
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
+  const colorTheme = useUIStore((s) => s.colorTheme);
+  const setColorTheme = useUIStore((s) => s.setColorTheme);
   const sidebarExpanded = useUIStore((s) => s.sidebarExpanded);
   const isGuestUser = useAuthStore((s) => s.isGuestUser);
   const setCurrentUser = useAuthStore((s) => s.setCurrentUser);
@@ -155,6 +161,9 @@ export const AppLayout: React.FC = () => {
         if (member && member.themePreference) {
           setTheme(member.themePreference);
         }
+        if (member && isColorThemeId(member.colorTheme)) {
+          setColorTheme(member.colorTheme);
+        }
       })
       .catch((err) => console.warn("Failed to resolve current user:", err));
   }, []);
@@ -166,6 +175,7 @@ export const AppLayout: React.FC = () => {
     <HashRouter>
       <AppLayoutInner
         themeClass={themeClass}
+        colorTheme={colorTheme}
         sidebarExpanded={sidebarExpanded}
         isGuestUser={isGuestUser}
         toasts={toasts}
@@ -178,11 +188,19 @@ export const AppLayout: React.FC = () => {
 /** Inner component that can use useLocation (inside HashRouter) */
 const AppLayoutInner: React.FC<{
   themeClass: string;
+  colorTheme: ColorThemeId;
   sidebarExpanded: boolean;
   isGuestUser: boolean;
   toasts: any[];
   dismissToast: (id: string) => void;
-}> = ({ themeClass, sidebarExpanded, isGuestUser, toasts, dismissToast }) => {
+}> = ({
+  themeClass,
+  colorTheme,
+  sidebarExpanded,
+  isGuestUser,
+  toasts,
+  dismissToast,
+}) => {
   const location = useLocation();
   const isExternal = location.pathname === ROUTES.queryConsultingExternal;
 
@@ -190,6 +208,7 @@ const AppLayoutInner: React.FC<{
     return (
       <div
         className={`${themeClass} ${globalStyles.smartBidRoot}`}
+        data-color-theme={colorTheme}
         style={{
           padding: "16px 24px",
           minHeight: "100vh",
@@ -210,6 +229,7 @@ const AppLayoutInner: React.FC<{
   return (
     <div
       className={`${themeClass} ${globalStyles.smartBidRoot} ${styles.appLayout}`}
+      data-color-theme={colorTheme}
     >
       <CommandPalette />
       <div

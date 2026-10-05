@@ -256,7 +256,7 @@ export const ClarificationSuggestionsModal: React.FC<
               borderRadius: 8,
               border: "none",
               background: "var(--primary-accent)",
-              color: "#fff",
+              color: "var(--primary-accent-contrast)",
               cursor:
                 loading || acceptedList.length === 0
                   ? "not-allowed"

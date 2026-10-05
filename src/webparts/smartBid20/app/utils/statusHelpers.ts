@@ -1,5 +1,6 @@
 import { BID_STATUSES } from "../config/status.config";
 import { useConfigStore } from "../stores/useConfigStore";
+import { resolveSemanticColor } from "../hooks/useColorTheme";
 import { IBidStatusDef } from "../models";
 import { PRIORITY_COLORS } from "./constants";
 
@@ -41,7 +42,11 @@ export function getStatusDef(statusValue: string): IBidStatusDef | undefined {
 }
 
 export function getStatusColor(statusValue: string): string {
-  return getStatusDef(statusValue)?.color ?? "#94A3B8";
+  return resolveSemanticColor(
+    "statuses",
+    statusValue,
+    getStatusDef(statusValue)?.color ?? "#94A3B8",
+  );
 }
 
 export function isTerminalStatus(statusValue: string): boolean {
@@ -73,7 +78,7 @@ export function getStatusesByPhase(phase: string): IBidStatusDef[] {
         id: s.id as any,
         label: s.label,
         value: s.value,
-        color: s.color || "#94A3B8",
+        color: resolveSemanticColor("statuses", s.value, s.color || "#94A3B8"),
         order: s.order || 0,
         phase: null,
         isTerminal: false,
@@ -92,7 +97,7 @@ export function getActiveStatuses(): IBidStatusDef[] {
         id: s.id as any,
         label: s.label,
         value: s.value,
-        color: s.color || "#94A3B8",
+        color: resolveSemanticColor("statuses", s.value, s.color || "#94A3B8"),
         order: s.order || 0,
         phase: null,
         isTerminal: false,
@@ -113,7 +118,11 @@ export function getTerminalStatuses(): IBidStatusDef[] {
           id: t.id as any,
           label: t.label,
           value: t.value,
-          color: t.color || "#94A3B8",
+          color: resolveSemanticColor(
+            "statuses",
+            t.value,
+            t.color || "#94A3B8",
+          ),
           order: t.order || 0,
           phase: "Close Out" as any,
           isTerminal: true,

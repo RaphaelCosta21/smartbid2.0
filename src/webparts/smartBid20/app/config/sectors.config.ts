@@ -4,6 +4,7 @@
  * grouping/coloring in analytics + reports.
  */
 import { Sector } from "../models/IUser";
+import { resolveSemanticColor } from "../hooks/useColorTheme";
 
 export interface ISectorDef {
   value: Sector;
@@ -43,7 +44,11 @@ export function getSectorLabel(value: string): string {
 }
 
 export function getSectorColor(value: string): string {
-  return (BY_VALUE[value] && BY_VALUE[value].color) || "#94a3b8";
+  return resolveSemanticColor(
+    "sectors",
+    value,
+    (BY_VALUE[value] && BY_VALUE[value].color) || "#94a3b8",
+  );
 }
 
 /** Map a stakeholderRole label (e.g. "Engineering") back to a Sector value. */

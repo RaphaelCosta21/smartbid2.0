@@ -25,7 +25,7 @@
 
   &:hover {
     border-color: var(--accent-color);
-    background: var(--accent-color-10, rgba(20, 184, 166, 0.1));
+    background: color-mix(in srgb, var(--accent-500) 10%, transparent);
   }
 }
 
@@ -38,7 +38,7 @@
   border-radius: 8px;
   border: none;
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -77,7 +77,7 @@
 
   &:hover {
     border-color: var(--accent-color);
-    background: var(--accent-color-10, rgba(20, 184, 166, 0.1));
+    background: color-mix(in srgb, var(--accent-500) 10%, transparent);
   }
 }
 
@@ -194,7 +194,7 @@
 /* ─── Section groups within hours categories ─── */
 .sectionGroupRow {
   td {
-    background: var(--accent-color-10, rgba(20, 184, 166, 0.08));
+    background: color-mix(in srgb, var(--accent-500) 8%, transparent);
     padding: 8px 10px;
     border-bottom: 2px solid var(--accent-color);
   }
@@ -274,7 +274,11 @@
 
 /* ─── Section Notes & Specs Panel ─── */
 .activeSectionBtn {
-  background: var(--accent-color-10, rgba(20, 184, 166, 0.15)) !important;
+  background: color-mix(
+    in srgb,
+    var(--accent-500) 15%,
+    transparent
+  ) !important;
   border-color: var(--accent-color) !important;
 }
 
@@ -348,7 +352,7 @@
   min-width: 18px;
   height: 18px;
   border-radius: 9px;
-  background: var(--accent-color-10, rgba(20, 184, 166, 0.15));
+  background: color-mix(in srgb, var(--accent-500) 15%, transparent);
   color: var(--accent-color);
   font-size: 10px;
   font-weight: 700;

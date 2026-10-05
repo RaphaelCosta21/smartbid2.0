@@ -5,6 +5,7 @@ import {
   BidPhase,
 } from "../models/IBidStatus";
 import { useConfigStore } from "../stores/useConfigStore";
+import { resolveSemanticColor } from "../hooks/useColorTheme";
 
 export const BID_STATUSES: IBidStatusDef[] = [
   {
@@ -274,11 +275,19 @@ export function getPhaseDef(phaseValue: string): IPhaseDef | undefined {
 }
 
 export function getStatusColor(statusValue: string): string {
-  return getStatusDef(statusValue)?.color ?? "#94A3B8";
+  return resolveSemanticColor(
+    "statuses",
+    statusValue,
+    getStatusDef(statusValue)?.color ?? "#94A3B8",
+  );
 }
 
 export function getPhaseColor(phaseValue: string): string {
-  return getPhaseDef(phaseValue)?.color ?? "#94A3B8";
+  return resolveSemanticColor(
+    "phases",
+    phaseValue,
+    getPhaseDef(phaseValue)?.color ?? "#94A3B8",
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -405,7 +414,11 @@ export function getSubStatusDef(
 }
 
 export function getSubStatusColor(subStatusValue: string): string {
-  return getSubStatusDef(subStatusValue)?.color ?? "#94A3B8";
+  return resolveSemanticColor(
+    "statuses",
+    subStatusValue,
+    getSubStatusDef(subStatusValue)?.color ?? "#94A3B8",
+  );
 }
 
 export function getSubStatusesForPhase(phase: string): ISubStatusDef[] {
@@ -422,7 +435,7 @@ export function getSubStatusesForPhase(phase: string): ISubStatusDef[] {
         id: s.id as any,
         label: s.label,
         value: s.value,
-        color: s.color || "#94A3B8",
+        color: resolveSemanticColor("statuses", s.value, s.color || "#94A3B8"),
         icon: "",
         order: s.order || 0,
         applicablePhases: (s.category || "all") as any,

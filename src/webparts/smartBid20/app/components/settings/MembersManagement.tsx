@@ -140,8 +140,8 @@ const BID_ROLE_META: IBidRoleMeta[] = [
   {
     key: "coordinator",
     label: "Coordinator",
-    color: "#0f766e",
-    bg: "rgba(15,118,110,0.12)",
+    color: "var(--accent-700)",
+    bg: "color-mix(in srgb, var(--accent-700) 12%, transparent)",
   },
   {
     key: "analyst",

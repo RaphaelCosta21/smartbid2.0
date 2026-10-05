@@ -20,12 +20,21 @@ import { SystemConfigService } from "../../services/SystemConfigService";
 import { CurrencyService } from "../../services/CurrencyService";
 import { BidService } from "../../services/BidService";
 import { QuotationService } from "../../services/QuotationService";
+import { MembersService } from "../../services/MembersService";
 // DEFAULT_SYSTEM_CONFIG removed — all data loaded from SharePoint JSON
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
+import { useUIStore, ThemeMode } from "../../stores/useUIStore";
 import { APP_CONFIG } from "../../config/app.config";
+import {
+  COLOR_THEMES,
+  UPCOMING_COLOR_THEMES,
+  ColorThemeId,
+} from "../../config/colorThemes.config";
 import { buildDefaultSupplierServiceTypes } from "../../config/suppliers.config";
+import darkTheme from "../../styles/themes/dark.module.scss";
+import lightTheme from "../../styles/themes/light.module.scss";
 import { EntraTokenTest } from "../common/EntraTokenTest";
 import { CollapsibleSidebar } from "../common/CollapsibleSidebar";
 
@@ -174,6 +183,7 @@ const NAV_GROUPS: INavGroup[] = [
     items: [
       { key: "access", label: "Access Levels", icon: "🔐" },
       { key: "notifications", label: "Notifications", icon: "🔔" },
+      { key: "themeSelector", label: "Theme Selector", icon: "🎨" },
       { key: "apiDiagnostics", label: "API Diagnostics", icon: "🧪" },
     ],
   },
@@ -380,6 +390,9 @@ const SystemConfiguration: React.FC = () => {
 
   // Subscribe to favorites data for equipment counts (Groups tab)
   const favEquipment = useFavoritesStore((s) => s.data?.equipment || []);
+  const colorTheme = useUIStore((s) => s.colorTheme);
+  const setColorTheme = useUIStore((s) => s.setColorTheme);
+  const [savingTheme, setSavingTheme] = React.useState(false);
 
   const [activeTab, setActiveTab] = React.useState<string>("kpi");
   const [navigationCollapsed, setNavigationCollapsed] = React.useState(false);
@@ -2029,6 +2042,133 @@ const SystemConfiguration: React.FC = () => {
     );
   };
 
+  /* ---- Theme Selector (per-user, saved on the Members record) ----- */
+
+  const handleSelectColorTheme = async (id: ColorThemeId): Promise<void> => {
+    if (id === colorTheme || savingTheme) return;
+    setColorTheme(id);
+    setSavingTheme(true);
+    try {
+      const saved = await MembersService.savePreferences(currentUser.email, {
+        colorTheme: id,
+      });
+      if (saved) {
+        showMsg("success", "Theme saved to your profile");
+      } else {
+        showMsg(
+          "error",
+          "Theme applied for this session only - no Members record to save it on",
+        );
+      }
+    } catch (err) {
+      console.error("Failed to save color theme:", err);
+      showMsg("error", "Theme applied, but saving failed - check console");
+    } finally {
+      setSavingTheme(false);
+    }
+  };
+
+  const renderThemePreview = (
+    id: ColorThemeId,
+    mode: ThemeMode,
+  ): React.ReactElement => (
+    <span
+      className={`${mode === "dark" ? darkTheme.smartBidDark : lightTheme.smartBidLight} ${styles.themePreview}`}
+      data-color-theme={id}
+    >
+      <span className={styles.themePreviewSidebar}>
+        <span
+          className={`${styles.themePreviewNav} ${styles.themePreviewNavActive}`}
+        />
+        <span className={styles.themePreviewNav} />
+        <span className={styles.themePreviewNav} />
+      </span>
+      <span className={styles.themePreviewBody}>
+        <span className={styles.themePreviewHero} />
+        <span className={styles.themePreviewCard}>
+          <span className={styles.themePreviewButton}>Save</span>
+          <span className={styles.themePreviewChip} />
+        </span>
+        <span className={styles.themePreviewBar}>
+          <span className={styles.themePreviewBarFill} />
+        </span>
+      </span>
+      <span className={styles.themePreviewLabel}>
+        {mode === "dark" ? "Dark" : "Light"}
+      </span>
+    </span>
+  );
+
+  const renderThemeSelector = (): React.ReactElement => (
+    <div>
+      <div className={styles.sectionHeader}>
+        <h3>Theme Selector</h3>
+        <p>
+          Pick the color theme for SmartBid. Every theme works in Light and
+          Dark mode, and your choice is saved to your profile.
+        </p>
+      </div>
+      {!currentUser.sector && (
+        <div className={styles.themeNote}>
+          You are not registered in Members Management, so your theme only
+          applies to this session.
+        </div>
+      )}
+      <div className={styles.themeGrid}>
+        {COLOR_THEMES.map((t) => {
+          const active = t.id === colorTheme;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              className={`${styles.themeCard} ${active ? styles.themeCardActive : ""}`}
+              onClick={() => void handleSelectColorTheme(t.id)}
+              disabled={savingTheme}
+              aria-pressed={active}
+            >
+              <span className={styles.themePreviews}>
+                {renderThemePreview(t.id, "light")}
+                {renderThemePreview(t.id, "dark")}
+              </span>
+              <span className={styles.themeCardInfo}>
+                <span className={styles.themeCardTitle}>
+                  {t.label}
+                  {active && <span className={styles.themeBadge}>Active</span>}
+                </span>
+                <span className={styles.themeCardDescription}>
+                  {t.description}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+        {UPCOMING_COLOR_THEMES.map((t) => (
+          <div
+            key={t.label}
+            className={`${styles.themeCard} ${styles.themeCardDisabled}`}
+            aria-disabled="true"
+          >
+            <span className={styles.themePreviewPlaceholder}>Coming soon</span>
+            <span className={styles.themeCardInfo}>
+              <span className={styles.themeCardTitle}>
+                {t.label}
+                <span className={`${styles.themeBadge} ${styles.themeBadgeMuted}`}>
+                  Coming soon
+                </span>
+              </span>
+              <span className={styles.themeCardDescription}>
+                {t.description}
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className={styles.themeHint}>
+        Light and Dark mode are switched from your profile menu (top right).
+      </p>
+    </div>
+  );
+
   /* ---- API Diagnostics (Entra ID delegated token) ---------------- */
 
   // TEMPORARY — one-off provisioning of the AI Search columns. Remove once every
@@ -2607,13 +2747,13 @@ const SystemConfiguration: React.FC = () => {
       marginLeft: 8,
       background:
         cat === "CAPEX"
-          ? "rgba(0,201,167,0.15)"
+          ? "color-mix(in srgb, var(--accent-brand) 15%, transparent)"
           : cat === "OPEX"
             ? "rgba(99,102,241,0.15)"
             : "rgba(150,150,150,0.15)",
       color:
         cat === "CAPEX"
-          ? "var(--success, #00c9a7)"
+          ? "var(--success)"
           : cat === "OPEX"
             ? "var(--primary-accent, #6366f1)"
             : "var(--text-muted)",
@@ -3117,6 +3257,7 @@ const SystemConfiguration: React.FC = () => {
   /* ================================================================ */
 
   const renderTabContent = (): React.ReactElement | null => {
+    if (activeTab === "themeSelector") return renderThemeSelector();
     if (!config) return null;
     switch (activeTab) {
       case "kpi":
@@ -3187,8 +3328,8 @@ const SystemConfiguration: React.FC = () => {
         </div>
       </div>
 
-      {/* Read-only banner */}
-      {!canEdit && (
+      {/* Read-only banner (Theme Selector is a personal setting) */}
+      {!canEdit && activeTab !== "themeSelector" && (
         <div className={styles.readOnlyBanner}>
           🔒 You have read-only access. Only the Engineering team can edit
           system configuration.

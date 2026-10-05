@@ -83,4 +83,21 @@ export class MembersService {
     data.members = data.members.filter((m) => m.id !== memberId);
     await MembersService.save(data);
   }
+
+  /** Returns false when the user has no Members record to store the preference on. */
+  public static async savePreferences(
+    email: string,
+    prefs: Partial<Pick<ITeamMember, "themePreference" | "colorTheme">>,
+  ): Promise<boolean> {
+    const key = (email || "").toLowerCase();
+    if (!key) return false;
+    const data = await MembersService.getAll();
+    const idx = data.members.findIndex(
+      (m) => (m.email || "").toLowerCase() === key,
+    );
+    if (idx < 0) return false;
+    data.members[idx] = { ...data.members[idx], ...prefs };
+    await MembersService.save(data);
+    return true;
+  }
 }

@@ -255,7 +255,7 @@ export function buildAssetsSheet(ctx: IBidExcelContext): void {
   totalVals.push({ value: assetsTotal, bold: true });
   totalVals.push({ value: assetsTotal > 0 ? 1 : 0, bold: true });
   x.rangeRow(ranges, totalVals, {
-    fill: XL_COLORS.tealTint,
+    fill: XL_COLORS.accentTint,
     fontColor: XL_COLORS.navy,
   });
   x.gap(6);

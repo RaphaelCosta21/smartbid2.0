@@ -3,6 +3,7 @@
  */
 
 import * as React from "react";
+import { IBid } from "../models";
 import { useBidStore } from "../stores/useBidStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { isPastDue } from "../utils/formatters";
@@ -21,8 +22,10 @@ export interface BidKPIs {
   totalPipelineValueUSD: number;
 }
 
-export function useKPIs(): BidKPIs {
-  const bids = useBidStore((s) => s.bids);
+/** KPIs over `source` (e.g. a filtered list) or, by default, every BID in the store. */
+export function useKPIs(source?: IBid[]): BidKPIs {
+  const storeBids = useBidStore((s) => s.bids);
+  const bids = source || storeBids;
   const config = useConfigStore((s) => s.config);
 
   return React.useMemo(() => {

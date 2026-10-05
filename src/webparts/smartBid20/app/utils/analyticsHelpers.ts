@@ -9,6 +9,7 @@ import { IBid, BidPhase, ITeamMember, IPersonRef } from "../models";
 import { getErnLinks } from "./ernHelpers";
 import { isPastDue, parseDate } from "./formatters";
 import { getDueFreezeDate } from "./bidHelpers";
+import { ApprovalDueImpact } from "./approvalHelpers";
 
 export type Granularity = "week" | "month" | "quarter";
 export type DurationStat = "avg" | "median" | "max";
@@ -339,6 +340,46 @@ export function otdTrend(bids: IBid[], gran: Granularity): OtdPoint[] {
       otdRate: total ? Math.round((on / total) * 100) : 0,
     };
   });
+}
+
+export interface ApprovalImpactPoint {
+  key: string;
+  period: string;
+  onTime: number;
+  lateDueToApproval: number;
+  lateBeforeApproval: number;
+}
+
+/** Final approved rounds per period of approval completion, split by due-date outcome. */
+export function approvalImpactTrend(
+  rows: ApprovalDueImpact[],
+  gran: Granularity,
+): ApprovalImpactPoint[] {
+  const buckets: { [k: string]: ApprovalImpactPoint } = {};
+  rows.forEach((r) => {
+    const k = periodKey(r.finishedDate, gran);
+    const p = (buckets[k] = buckets[k] || {
+      key: k,
+      period: periodLabel(k, gran),
+      onTime: 0,
+      lateDueToApproval: 0,
+      lateBeforeApproval: 0,
+    });
+    p[r.category] += 1;
+  });
+  return buildPeriodSequence(
+    rows.map((r) => r.finishedDate),
+    gran,
+  ).map(
+    (k) =>
+      buckets[k] || {
+        key: k,
+        period: periodLabel(k, gran),
+        onTime: 0,
+        lateDueToApproval: 0,
+        lateBeforeApproval: 0,
+      },
+  );
 }
 
 /* ------------------------------------------------------------------ */

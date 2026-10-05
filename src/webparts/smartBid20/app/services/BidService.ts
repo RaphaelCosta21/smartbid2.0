@@ -227,6 +227,18 @@ export class BidService {
     return BidService._patchVersions[bidNumber] || 0;
   }
 
+  public static hasAnyPendingPatch(): boolean {
+    return Object.keys(BidService._pendingPatches).length > 0;
+  }
+
+  /** Sum of all patch versions; changes whenever any BID patch starts. */
+  public static getTotalPatchVersion(): number {
+    return Object.keys(BidService._patchVersions).reduce(
+      (sum, k) => sum + BidService._patchVersions[k],
+      0,
+    );
+  }
+
   private static async _patchByBidNumber(
     bidNumber: string,
     patch: Partial<IBid>,

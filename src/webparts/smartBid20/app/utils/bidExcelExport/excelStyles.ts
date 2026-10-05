@@ -6,17 +6,25 @@ import type {
   Workbook,
   Worksheet,
 } from "exceljs";
+import { getActiveColorTheme } from "../../hooks/useColorTheme";
 
 /**
  * Excel palette — ARGB mirror of the SmartBid light-theme tokens (CSS variables can't reach
- * a workbook, so this is the single place where the export's colors live).
+ * a workbook, so this is the single place where the export's colors live). Accent colors
+ * follow the user's color theme at export time.
  */
 export const XL_COLORS = {
   navy: "FF0F1B2D",
   navySoft: "FF1A2D4A",
-  teal: "FF0D9488",
-  tealDark: "FF0F766E",
-  tealTint: "FFE6F6F4",
+  get accent(): string {
+    return getActiveColorTheme().excel.accent;
+  },
+  get accentDark(): string {
+    return getActiveColorTheme().excel.accentDark;
+  },
+  get accentTint(): string {
+    return getActiveColorTheme().excel.accentTint;
+  },
   white: "FFFFFFFF",
   text: "FF1E293B",
   textSecondary: "FF475569",
@@ -37,7 +45,9 @@ export const XL_COLORS = {
 
 export const XL_TAB_COLORS = {
   info: "FF0F1B2D",
-  costSummary: "FF0D9488",
+  get costSummary(): string {
+    return getActiveColorTheme().excel.accent;
+  },
   scope: "FF2563EB",
   assets: "FF7C3AED",
   hours: "FF0891B2",
@@ -352,7 +362,7 @@ export class XlSheet {
     this.row++;
 
     const r3 = this.ws.getRow(this.row);
-    this.fillRange(r3, 1, last, XL_COLORS.teal);
+    this.fillRange(r3, 1, last, XL_COLORS.accent);
     r3.height = 4;
     this.row++;
     this.gap(10);
@@ -429,7 +439,7 @@ export class XlSheet {
     );
   }
 
-  /** Block title with a teal underline across `span` columns. */
+  /** Block title with an accent underline across `span` columns. */
   sectionTitle(text: string, span = this.lastCol, hint?: string): void {
     const r = this.ws.getRow(this.row);
     this.setValue(r, 1, text);
@@ -452,7 +462,7 @@ export class XlSheet {
     }
     for (let c = 1; c <= span; c++) {
       r.getCell(c).border = {
-        bottom: { style: "medium", color: { argb: XL_COLORS.teal } },
+        bottom: { style: "medium", color: { argb: XL_COLORS.accent } },
       };
     }
     r.height = 22;
@@ -478,7 +488,7 @@ export class XlSheet {
         wrapText: true,
       };
       c.border = {
-        bottom: { style: "medium", color: { argb: XL_COLORS.teal } },
+        bottom: { style: "medium", color: { argb: XL_COLORS.accent } },
       };
     });
     r.height = 28;
@@ -578,7 +588,7 @@ export class XlSheet {
   ): void {
     const r = this.ws.getRow(this.row);
     const fill = tint(opts.color, 0.14) || XL_COLORS.band;
-    const edge = solid(opts.color) || XL_COLORS.teal;
+    const edge = solid(opts.color) || XL_COLORS.accent;
     this.fillRange(r, 1, span, fill);
     for (let c = 1; c <= span; c++) {
       r.getCell(c).border = {
@@ -613,12 +623,17 @@ export class XlSheet {
   ): void {
     const r = this.ws.getRow(this.row);
     const grand = variant === "grand";
-    this.fillRange(r, 1, span, grand ? XL_COLORS.teal : XL_COLORS.tealTint);
+    this.fillRange(
+      r,
+      1,
+      span,
+      grand ? XL_COLORS.accent : XL_COLORS.accentTint,
+    );
     const color = grand ? XL_COLORS.white : XL_COLORS.navy;
     for (let c = 1; c <= span; c++) {
       r.getCell(c).border = grand
         ? {}
-        : { top: thin(XL_COLORS.teal), bottom: thin(XL_COLORS.teal) };
+        : { top: thin(XL_COLORS.accent), bottom: thin(XL_COLORS.accent) };
     }
     this.setValue(r, labelCol, label);
     r.getCell(labelCol).font = this.font({ bold: true, color });
@@ -742,7 +757,7 @@ export class XlSheet {
         if (idx === 2 && !hasSub) return;
         this.fillRange(r, k.from, k.to, XL_COLORS.band);
         r.getCell(k.from).border = {
-          left: { style: "thick", color: { argb: XL_COLORS.teal } },
+          left: { style: "thick", color: { argb: XL_COLORS.accent } },
         };
         if (k.to > k.from) this.ws.mergeCells(r.number, k.from, r.number, k.to);
       });
@@ -762,7 +777,7 @@ export class XlSheet {
       r2.getCell(k.from).font = this.font({
         size: 15,
         bold: true,
-        color: XL_COLORS.tealDark,
+        color: XL_COLORS.accentDark,
       });
       r2.getCell(k.from).alignment = {
         vertical: "middle",

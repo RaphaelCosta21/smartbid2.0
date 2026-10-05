@@ -648,8 +648,7 @@ export const CertificationsBreakdownTab: React.FC<
                                           className={styles.colorSwatch}
                                           style={{
                                             background:
-                                              c ||
-                                              "var(--accent-color, #14b8a6)",
+                                              c || "var(--accent-500)",
                                             border:
                                               (c || "") === (sColor || "")
                                                 ? "2px solid #fff"

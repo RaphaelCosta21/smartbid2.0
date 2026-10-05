@@ -110,7 +110,7 @@ export async function exportClarificationsToExcel(
   ]);
   const x = new XlSheet(wb, {
     name: "Clarification Form",
-    tabColor: XL_COLORS.teal,
+    tabColor: XL_COLORS.accent,
     widths: cols.map((c) => c.width),
     footerLabel: `${id} Rev ${revision} · Clarification Form`,
     logoId: logo ? wb.addImage({ base64: logo, extension: "png" }) : undefined,

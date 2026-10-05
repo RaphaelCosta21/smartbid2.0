@@ -1,33 +1,33 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
+import { RefreshCw } from "lucide-react";
+import { format } from "date-fns";
 import { useBidStore } from "../stores/useBidStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useKPIs } from "../hooks/useKPIs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useDashboardSync } from "../hooks/useDashboardSync";
+import { useDashboardFilters } from "../hooks/useDashboardFilters";
+import { useResultStatus } from "../hooks/useResultStatus";
+import { resolveSemanticColor } from "../hooks/useColorTheme";
 import { PageHeader } from "../components/common/PageHeader";
-import { StatusBadge } from "../components/common/StatusBadge";
 import { SkeletonLoader } from "../components/common/SkeletonLoader";
-import { EmptyState } from "../components/common/EmptyState";
 import { DashboardKPIRow } from "../components/dashboard/DashboardKPIRow";
 import { DashboardActivity } from "../components/dashboard/DashboardActivity";
-import { EngHoursRanking } from "../components/dashboard/EngHoursRanking";
 import { UpcomingDeadlines } from "../components/dashboard/UpcomingDeadlines";
 import { BidsByStatusChart } from "../components/dashboard/BidsByStatusChart";
 import { BidsByDivisionChart } from "../components/dashboard/BidsByDivisionChart";
 import { ApprovalsPending } from "../components/dashboard/ApprovalsPending";
 import { ErnDashboardSection } from "../components/dashboard/ErnDashboardSection";
+import { DashboardFilterBar } from "../components/dashboard/DashboardFilterBar";
+import { DashboardPeriodBar } from "../components/dashboard/DashboardPeriodBar";
+import { EngHoursOutlook } from "../components/dashboard/EngHoursOutlook";
+import { DashboardBidTable } from "../components/dashboard/DashboardBidTable";
 import { DashboardService } from "../services/DashboardService";
-import { differenceInDays, format } from "date-fns";
-import { formatDate, isPastDue, parseDate } from "../utils/formatters";
-import {
-  isActiveBid,
-  getEngineeringHours,
-  getDueFreezeDate,
-} from "../utils/bidHelpers";
-import { getErnLinks } from "../utils/ernHelpers";
-import { getPhaseProgressByIndex } from "../utils/phaseHelpers";
-import { useStatusColors } from "../hooks/useStatusColors";
-import { getPhaseDef } from "../config/status.config";
+import { isPastDue, parseDate } from "../utils/formatters";
+import { isActiveBid, getEngineeringHours } from "../utils/bidHelpers";
+import { withCounts } from "../utils/facetHelpers";
+import { buildWinRateIndex } from "../utils/winProbability";
 import styles from "./DashboardPage.module.scss";
 
 export const DashboardPage: React.FC = () => {
@@ -35,9 +35,19 @@ export const DashboardPage: React.FC = () => {
   const bids = useBidStore((s) => s.bids);
   const config = useConfigStore((s) => s.config);
   const currentUser = useCurrentUser();
-  const kpis = useKPIs();
-  const { getPhaseColor, getStatusColor, getPriorityColor, getDivisionColor } =
-    useStatusColors();
+  const { lastSyncedAt, syncing, refreshNow } = useDashboardSync();
+  const { getResult, options: resultOptions } = useResultStatus();
+  const filters = useDashboardFilters(bids, getResult);
+  const { scopeBids, analyticsBids } = filters;
+  const kpis = useKPIs(analyticsBids);
+
+  const openBid = React.useCallback(
+    (bidNumber: string) => navigate(`/bid/${bidNumber}`),
+    [navigate],
+  );
+
+  // History base for win chances: every decided BID, not just the filtered ones
+  const winIndex = React.useMemo(() => buildWinRateIndex(bids), [bids]);
 
   const now = new Date();
   const greeting =
@@ -47,31 +57,40 @@ export const DashboardPage: React.FC = () => {
         ? "Good Afternoon"
         : "Good Evening";
 
-  // KPI Calculations
-  const activeBids = bids.filter((b) => isActiveBid(b));
-  const closedBids = bids.filter((b) => !isActiveBid(b));
+  const liveActive = React.useMemo(
+    () => scopeBids.filter((b) => isActiveBid(b)),
+    [scopeBids],
+  );
+  const activeBids = React.useMemo(
+    () => analyticsBids.filter((b) => isActiveBid(b)),
+    [analyticsBids],
+  );
 
   // Engineering hours delivered on already-closed BIDs
-  const engHoursClosed = closedBids.reduce(
-    (sum, b) => sum + getEngineeringHours(b),
-    0,
+  const engHoursClosed = React.useMemo(
+    () =>
+      analyticsBids
+        .filter((b) => !isActiveBid(b))
+        .reduce((sum, b) => sum + getEngineeringHours(b), 0),
+    [analyticsBids],
   );
 
   // On-time delivery — computed from real completion vs. due dates
-  const deliveredBids = bids.filter(
-    (b) =>
-      (b.currentStatus === "Completed" ||
-        b.currentStatus === "Returned to Commercial") &&
-      !!b.dueDate,
-  );
-  const onTimeCount = deliveredBids.filter((b) => {
-    const end = parseDate(b.completedDate || b.lastModified);
-    return end ? !isPastDue(b.dueDate, end) : false;
-  }).length;
-  const onTimePercent =
-    deliveredBids.length > 0
-      ? Math.round((onTimeCount / deliveredBids.length) * 100)
+  const onTimePercent = React.useMemo(() => {
+    const delivered = analyticsBids.filter(
+      (b) =>
+        (b.currentStatus === "Completed" ||
+          b.currentStatus === "Returned to Commercial") &&
+        !!b.dueDate,
+    );
+    const onTime = delivered.filter((b) => {
+      const end = parseDate(b.completedDate || b.lastModified);
+      return end ? !isPastDue(b.dueDate, end) : false;
+    }).length;
+    return delivered.length > 0
+      ? Math.round((onTime / delivered.length) * 100)
       : 100;
+  }, [analyticsBids]);
 
   // Status chart data — from config subStatuses
   const statusChartData = React.useMemo(() => {
@@ -83,35 +102,44 @@ export const DashboardPage: React.FC = () => {
         status: status.label,
         count: activeBids.filter((b) => b.currentStatus === status.value)
           .length,
-        color: status.color || "#94A3B8",
+        color: resolveSemanticColor(
+          "statuses",
+          status.value,
+          status.color || "#94A3B8",
+        ),
       }))
       .filter((d) => d.count > 0)
       .sort((a, b) => b.count - a.count);
   }, [config, activeBids]);
 
   // Division chart data — from config divisions
-  const divisionWorkloads = DashboardService.calculateDivisionWorkloads(bids);
   const divisionChartData = React.useMemo(() => {
+    const workloads = DashboardService.calculateDivisionWorkloads(analyticsBids);
     const divs = (config?.divisions || [])
       .filter((d) => d.isActive !== false)
       .sort((a, b) => (a.order || 0) - (b.order || 0));
     return divs.map((div) => ({
       division: div.value,
       count:
-        divisionWorkloads.find((w) => w.division === div.value)?.activeBids ||
-        0,
+        workloads.find((w) => w.division === div.value)?.activeBids || 0,
       color: div.color || "#94a3b8",
     }));
-  }, [config, divisionWorkloads]);
+  }, [config, analyticsBids]);
 
-  // Pending approvals
-  const pendingApprovals = activeBids
-    .filter((b) => b.approvalStatus === "pending")
-    .map((b) => ({
-      bidNumber: b.bidNumber,
-      requester: b.creator?.name || "-",
-      days: Math.abs(differenceInDays(new Date(b.lastModified), now)),
-    }));
+  const resultFilterOptions = React.useMemo(
+    () =>
+      withCounts(
+        resultOptions.map((o) => ({
+          value: o.value,
+          label: o.label,
+          color: o.color,
+        })),
+        filters.resultCounts,
+      ),
+    [resultOptions, filters.resultCounts],
+  );
+
+  const divisionCount = new Set(liveActive.map((b) => b.division)).size;
 
   return (
     <div className={styles.dashboard}>
@@ -149,14 +177,38 @@ export const DashboardPage: React.FC = () => {
             </h2>
             <p>
               Engineering overview · Last updated:{" "}
-              {format(now, "MMM d, yyyy HH:mm")}
+              {format(lastSyncedAt || now, "MMM d, yyyy HH:mm")}
             </p>
           </div>
 
           {/* Page Header */}
           <PageHeader
             title="Engineering Dashboard"
-            subtitle={`${activeBids.length} active BIDs across ${new Set(activeBids.map((b) => b.division)).size} divisions`}
+            subtitle={`${liveActive.length} active BIDs across ${divisionCount} divisions`}
+            actions={
+              <div className={styles.headerActions}>
+                <span className={styles.syncInfo}>
+                  {syncing
+                    ? "Syncing..."
+                    : lastSyncedAt
+                      ? `Updated ${format(lastSyncedAt, "HH:mm")} · auto every 60s`
+                      : "Auto refresh every 60s"}
+                </span>
+                <button
+                  type="button"
+                  className={styles.headerBtn}
+                  onClick={refreshNow}
+                  disabled={syncing}
+                  title="Reload BIDs and ERN status from SharePoint"
+                >
+                  <RefreshCw
+                    size={15}
+                    className={syncing ? styles.spin : undefined}
+                  />{" "}
+                  Refresh
+                </button>
+              </div>
+            }
             icon={
               <svg
                 width="28"
@@ -176,197 +228,103 @@ export const DashboardPage: React.FC = () => {
             }
           />
 
-          {/* KPI Cards — using sub-component */}
-          <DashboardKPIRow
-            activeBids={kpis.activeBids}
-            overdueBids={kpis.overdueBids}
-            engHoursClosed={engHoursClosed}
-            onTimePercent={onTimePercent}
-            avgCycleDays={Math.round(kpis.avgCycleTimeDays)}
-            winRate={Math.round(kpis.winRate)}
-            wonCount={kpis.wonBids}
-            lostCount={kpis.lostBids}
-            pipelineValueUSD={kpis.totalPipelineValueUSD}
+          {/* Scope filters: apply to the whole page */}
+          <DashboardFilterBar
+            bids={bids}
+            scope={filters.scope}
+            onPatch={filters.patchScope}
+            onReset={filters.resetScope}
+            hasScope={filters.hasScope}
+            facetCounts={filters.scopeFacetCounts}
+            shownCount={scopeBids.length}
           />
 
-          {/* Charts Row */}
-          <div className={styles.chartsRow}>
-            <BidsByStatusChart data={statusChartData} />
-            <BidsByDivisionChart data={divisionChartData} />
-          </div>
-
-          {/* ERN overview */}
-          <ErnDashboardSection bids={bids} />
-
-          {/* Engineering Hours ranking + Deadlines */}
-          <div className={styles.activityRow}>
-            <EngHoursRanking
-              bids={bids}
-              onBidClick={(bidNumber) => navigate(`/bid/${bidNumber}`)}
-            />
-            <UpcomingDeadlines
-              bids={activeBids}
-              maxItems={6}
-              onBidClick={(bid) => navigate(`/bid/${bid.bidNumber}`)}
-            />
-          </div>
-
-          {/* Activity + Approvals Row */}
-          <div className={styles.activityRow}>
-            <DashboardActivity
-              bids={bids}
-              onBidClick={(bidNumber) => navigate(`/bid/${bidNumber}`)}
-            />
-            {pendingApprovals.length > 0 ? (
-              <ApprovalsPending
-                approvals={pendingApprovals}
-                onView={(bidNumber) => navigate(`/bid/${bidNumber}`)}
-              />
-            ) : (
-              <EmptyState
-                variant="glass"
-                title="No pending approvals"
-                description="All caught up - nothing awaiting approval."
-              />
-            )}
-          </div>
-
-          {/* BID Tracker Table */}
-          <div className={styles.tableSection}>
-            <div className={styles.tableHeader}>
-              <h3>BID Tracker</h3>
+          {/* Live overview: current state, ignores the period filter */}
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <h3 className={styles.sectionTitle}>
+                Live overview
+                <span className={styles.livePill}>
+                  <span className={styles.liveDot} />
+                  Live
+                </span>
+              </h3>
+              <p className={styles.sectionSubtitle}>
+                What needs attention now. Not affected by the period filter.
+              </p>
             </div>
-            <div style={{ overflowX: "auto" }}>
-              <table className={styles.bidTable}>
-                <thead>
-                  <tr>
-                    <th>BID #</th>
-                    <th>CRM #</th>
-                    <th>Client</th>
-                    <th>Project</th>
-                    <th>Division</th>
-                    <th>Creator</th>
-                    <th>Due Date</th>
-                    <th>Priority</th>
-                    <th>Phase</th>
-                    <th>Status</th>
-                    <th>ERN</th>
-                    <th>Progress</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bids.map((bid) => {
-                    const overdue = isPastDue(
-                      bid.dueDate,
-                      getDueFreezeDate(bid),
-                    );
-                    const phaseDef = getPhaseDef(bid.currentPhase);
-                    return (
-                      <tr
-                        key={bid.bidNumber}
-                        className={styles.clickableRow}
-                        onClick={() => navigate(`/bid/${bid.bidNumber}`)}
-                      >
-                        <td className={styles.mono}>{bid.bidNumber}</td>
-                        <td className={styles.mono}>{bid.crmNumber || "-"}</td>
-                        <td>{bid.opportunityInfo?.client || ""}</td>
-                        <td
-                          style={{
-                            maxWidth: 200,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {bid.opportunityInfo?.projectName || ""}
-                        </td>
-                        <td>
-                          <StatusBadge
-                            status={bid.division}
-                            color={getDivisionColor(bid.division)}
-                          />
-                        </td>
-                        <td>{bid.creator?.name || "-"}</td>
-                        <td className={overdue ? styles.overdue : undefined}>
-                          {bid.dueDate ? formatDate(bid.dueDate, "MMM d") : "-"}
-                        </td>
-                        <td>
-                          <StatusBadge
-                            status={bid.priority}
-                            color={getPriorityColor(bid.priority)}
-                          />
-                        </td>
-                        <td>
-                          {phaseDef ? (
-                            <StatusBadge
-                              status={phaseDef.label}
-                              color={getPhaseColor(bid.currentPhase)}
-                            />
-                          ) : null}
-                        </td>
-                        <td>
-                          <StatusBadge
-                            status={bid.currentStatus}
-                            color={getStatusColor(bid.currentStatus)}
-                          />
-                        </td>
-                        <td>
-                          {(() => {
-                            const links = getErnLinks(bid);
-                            if (links.length === 0)
-                              return (
-                                <StatusBadge
-                                  status="TBD"
-                                  color="var(--warning)"
-                                />
-                              );
-                            return (
-                              <span
-                                style={{
-                                  display: "flex",
-                                  flexDirection: "column",
-                                  gap: 2,
-                                }}
-                              >
-                                {links.map((l) => (
-                                  <span
-                                    key={l.ernNumber}
-                                    className={styles.mono}
-                                  >
-                                    {l.ernNumber}
-                                    {l.division ? ` · ${l.division}` : ""}
-                                  </span>
-                                ))}
-                              </span>
-                            );
-                          })()}
-                        </td>
-                        <td>
-                          <div
-                            style={{
-                              width: 80,
-                              height: 6,
-                              background: "var(--border-subtle)",
-                              borderRadius: 3,
-                            }}
-                          >
-                            <div
-                              style={{
-                                height: "100%",
-                                width: `${getPhaseProgressByIndex(bid)}%`,
-                                background: "var(--primary-accent)",
-                                borderRadius: 3,
-                              }}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+
+            <ErnDashboardSection bids={scopeBids} view="status" />
+
+            <div className={styles.liveGrid}>
+              <UpcomingDeadlines
+                bids={liveActive}
+                maxItems={20}
+                onBidClick={(bid) => openBid(bid.bidNumber)}
+              />
+              <ApprovalsPending bids={scopeBids} onView={openBid} />
+              <DashboardActivity bids={scopeBids} onBidClick={openBid} />
             </div>
-          </div>
+          </section>
+
+          {/* Performance & demand: scope + period + follow-up result */}
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <h3 className={styles.sectionTitle}>
+                Performance & Engineering Demand
+              </h3>
+              <p className={styles.sectionSubtitle}>
+                {analyticsBids.length} BID
+                {analyticsBids.length === 1 ? "" : "s"} in the selected period
+              </p>
+            </div>
+
+            <DashboardPeriodBar
+              period={filters.period}
+              onPatch={filters.patchPeriod}
+              onPreset={filters.setPreset}
+              onReset={filters.resetPeriod}
+              hasPeriod={filters.hasPeriod}
+              resultOptions={resultFilterOptions}
+              missingDateCount={filters.missingDateCount}
+            />
+
+            <DashboardKPIRow
+              activeBids={kpis.activeBids}
+              overdueBids={kpis.overdueBids}
+              engHoursClosed={engHoursClosed}
+              onTimePercent={onTimePercent}
+              avgCycleDays={Math.round(kpis.avgCycleTimeDays)}
+              winRate={Math.round(kpis.winRate)}
+              wonCount={kpis.wonBids}
+              lostCount={kpis.lostBids}
+              pipelineValueUSD={kpis.totalPipelineValueUSD}
+            />
+
+            <div className={styles.chartsRow}>
+              <BidsByStatusChart data={statusChartData} />
+              <BidsByDivisionChart data={divisionChartData} />
+            </div>
+
+            <ErnDashboardSection bids={analyticsBids} view="breakdown" />
+
+            <div className={styles.subsectionHeader}>
+              <h4 className={styles.subsectionTitle}>
+                Engineering Hours Outlook
+              </h4>
+              <p className={styles.sectionSubtitle}>
+                Engineering effort estimated in BIDs: confirmed (Won) and what
+                may come if the pipeline is won.
+              </p>
+            </div>
+            <EngHoursOutlook
+              bids={analyticsBids}
+              winIndex={winIndex}
+              onBidClick={openBid}
+            />
+
+            <DashboardBidTable bids={analyticsBids} onBidClick={openBid} />
+          </section>
         </>
       )}
     </div>

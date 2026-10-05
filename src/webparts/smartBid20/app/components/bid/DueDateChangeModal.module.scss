@@ -154,7 +154,7 @@
 
 .btnPrimary {
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
 
   &:hover:not(:disabled) {
     filter: brightness(1.05);

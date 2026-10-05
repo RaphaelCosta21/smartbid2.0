@@ -80,17 +80,10 @@ export const Header: React.FC = () => {
   const handleThemeChange = async (newTheme: ThemeMode): Promise<void> => {
     setTheme(newTheme);
     setShowUserMenu(false);
-    // Save preference to TEAM_MEMBERS in SharePoint
     try {
-      const data = await MembersService.getAll();
-      const userEmail = currentUser.email.toLowerCase();
-      const memberIdx = data.members.findIndex(
-        (m) => m.email.toLowerCase() === userEmail,
-      );
-      if (memberIdx >= 0) {
-        (data.members[memberIdx] as any).themePreference = newTheme;
-        await MembersService.save(data);
-      }
+      await MembersService.savePreferences(currentUser.email, {
+        themePreference: newTheme,
+      });
     } catch (err) {
       console.warn("Could not save theme preference:", err);
     }

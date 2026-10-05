@@ -1,11 +1,19 @@
 /* SMART BID 2.0 — Light Mode Theme */
 .smartBidLight {
+  /* Color theme: Teal (default). Other themes override these in
+     &[data-color-theme="<id>"] blocks (see config/colorThemes.config.ts). */
+  --accent-brand: #00c9a7;
+  --accent-500: #14b8a6;
+  --accent-600: #0d9488;
+  --accent-700: #0f766e;
+  --primary-accent-contrast: #ffffff;
+
   --sidebar-bg: #1a2332;
-  --sidebar-hover: rgba(0, 201, 167, 0.12);
+  --sidebar-hover: color-mix(in srgb, var(--accent-brand) 12%, transparent);
   --main-bg: #f8fafc;
   --card-bg: #ffffff;
   --card-bg-elevated: #f1f5f9;
-  --primary-accent: #0d9488;
+  --primary-accent: var(--accent-600);
   --secondary-accent: #2563eb;
   --tertiary-accent: #7c3aed;
   --success: #10b981;
@@ -24,13 +32,18 @@
   --gradient-hero:
     radial-gradient(
       circle at 0% 0%,
-      rgba(13, 148, 136, 0.18) 0%,
+      color-mix(in srgb, var(--accent-600) 18%, transparent) 0%,
       transparent 40%
     ),
     linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  --gradient-primary: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  --gradient-primary: linear-gradient(
+    135deg,
+    var(--accent-600) 0%,
+    var(--accent-700) 100%
+  );
   --gradient-accent: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
-  --shadow-glow: 0 0 20px rgba(13, 148, 136, 0.1);
+  --shadow-glow: 0 0 20px
+    color-mix(in srgb, var(--accent-600) 10%, transparent);
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
   --elevation-1: 0 1px 3px rgba(0, 0, 0, 0.06);

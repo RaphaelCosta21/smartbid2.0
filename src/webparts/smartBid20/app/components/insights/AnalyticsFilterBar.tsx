@@ -22,6 +22,7 @@ interface AnalyticsFilterBarProps {
   facetCounts: AnalyticsFacetCounts;
   /** Right-aligned actions (export, view toggles). */
   rightSlot?: React.ReactNode;
+  showSearch?: boolean;
 }
 
 const PRESETS: SegmentOption<DatePreset>[] = [
@@ -66,6 +67,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
   bidTypes,
   facetCounts,
   rightSlot,
+  showSearch = true,
 }) => {
   const divLabel = (v: string): string =>
     divisions.find((d) => d.value === v)?.label || v;
@@ -175,23 +177,25 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
           />
         )}
 
-        <div className={styles.search}>
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search BIDs, clients, projects…"
-            value={filters.search}
-            onChange={(e) => onPatch({ search: e.target.value })}
-          />
-        </div>
+        {showSearch && (
+          <div className={styles.search}>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search BIDs, clients, projects…"
+              value={filters.search}
+              onChange={(e) => onPatch({ search: e.target.value })}
+            />
+          </div>
+        )}
 
         {rightSlot && <div className={styles.right}>{rightSlot}</div>}
       </div>

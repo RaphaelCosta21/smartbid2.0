@@ -47,7 +47,9 @@ export const ErnDetailsModal: React.FC<ErnDetailsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const deadline = ern ? getErnDeadlineState(ern.dueDate, ern.status) : "none";
+  const deadline = ern
+    ? getErnDeadlineState(ern.dueDate, ern.status, ern.finishDate)
+    : "none";
 
   return (
     <div className={styles.overlay} onMouseDown={onDismiss}>

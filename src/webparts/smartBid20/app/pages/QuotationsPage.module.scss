@@ -17,7 +17,7 @@
   border-radius: 10px;
   border: none;
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -232,7 +232,7 @@
 
   &.typeFilterBtnActive {
     background: var(--primary-accent);
-    color: #fff;
+    color: var(--primary-accent-contrast);
     font-weight: 600;
   }
 }
@@ -636,7 +636,7 @@
   border-radius: 8px;
   border: none;
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -729,7 +729,7 @@
   cursor: pointer;
 
   &:hover {
-    background: rgba(0, 201, 167, 0.08);
+    background: color-mix(in srgb, var(--accent-brand) 8%, transparent);
   }
 }
 
@@ -854,7 +854,7 @@
 
   &.typeBtnActive {
     background: var(--primary-accent);
-    color: #fff;
+    color: var(--primary-accent-contrast);
     font-weight: 600;
   }
 }

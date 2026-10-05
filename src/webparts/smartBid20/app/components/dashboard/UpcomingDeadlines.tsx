@@ -31,32 +31,57 @@ export const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
     return styles.ok;
   };
 
+  const overdueCount = upcoming.filter((b) => (b.due.days || 0) < 0).length;
+
   return (
-    <GlassCard title="Upcoming Deadlines">
+    <GlassCard
+      title="Upcoming Deadlines"
+      subtitle={
+        overdueCount > 0
+          ? `${overdueCount} overdue · nearest due first`
+          : "Active BIDs, nearest due first"
+      }
+    >
       {upcoming.length === 0 ? (
         <div className={styles.emptyState}>No upcoming deadlines.</div>
       ) : (
-        <div>
-          {upcoming.map((bid) => (
-            <div
-              key={bid.bidNumber}
-              className={styles.deadlineItem}
-              onClick={() => onBidClick?.(bid)}
-            >
-              <div className={styles.deadlineInfo}>
-                <p className={styles.deadlineBid}>{bid.bidNumber}</p>
-                <span className={styles.deadlineClient}>
-                  {bid.opportunityInfo.client} ·{" "}
-                  {formatDate(bid.dueDate, "MMM d")}
+        <div className={styles.list}>
+          {upcoming.map((bid) => {
+            const project = bid.opportunityInfo?.projectName;
+            const client = bid.opportunityInfo?.client;
+            return (
+              <div
+                key={bid.bidNumber}
+                className={styles.deadlineItem}
+                role="button"
+                tabIndex={0}
+                onClick={() => onBidClick?.(bid)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onBidClick?.(bid);
+                  }
+                }}
+                title={`Open ${bid.bidNumber}`}
+              >
+                <div className={styles.deadlineInfo}>
+                  <span className={styles.deadlineProject}>
+                    {project || client || bid.bidNumber}
+                  </span>
+                  <span className={styles.deadlineMeta}>
+                    <span className={styles.deadlineBid}>{bid.bidNumber}</span>
+                    {project && client ? ` · ${client}` : ""}
+                    {` · Due ${formatDate(bid.dueDate, "MMM d")}`}
+                  </span>
+                </div>
+                <span
+                  className={`${styles.deadlineCountdown} ${getCountdownClass(bid.due.days || 0)}`}
+                >
+                  {bid.due.text}
                 </span>
               </div>
-              <span
-                className={`${styles.deadlineCountdown} ${getCountdownClass(bid.due.days || 0)}`}
-              >
-                {bid.due.text}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </GlassCard>

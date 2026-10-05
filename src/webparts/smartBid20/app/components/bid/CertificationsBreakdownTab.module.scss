@@ -14,8 +14,8 @@
   padding: 6px 14px;
   border-radius: 8px;
   border: 1px solid var(--border-subtle);
-  background: var(--primary-accent, #0d9488);
-  color: #fff;
+  background: var(--primary-accent);
+  color: var(--primary-accent-contrast);
   font-size: 13px;
   cursor: pointer;
 }
@@ -259,7 +259,7 @@
   font-size: 11px;
 }
 .attachmentLink {
-  color: var(--accent-color, #14b8a6);
+  color: var(--accent-500);
   text-decoration: none;
   white-space: nowrap;
 }

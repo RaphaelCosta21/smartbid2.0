@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useColorTheme } from "../../hooks/useColorTheme";
 import styles from "./KPICard.module.scss";
 
 interface KPICardProps {
@@ -19,13 +20,15 @@ export const KPICard: React.FC<KPICardProps> = ({
   label,
   value,
   icon,
-  accentColor = "#00c9a7",
+  accentColor: accentColorProp,
   trend,
   subtitle,
   progress,
   variant = "solid",
   sparkline,
 }) => {
+  const colorTheme = useColorTheme();
+  const accentColor = accentColorProp || colorTheme.accents.brand;
   return (
     <div
       className={`${styles.kpiCard} ${variant === "glass" ? styles.glass : ""}`}

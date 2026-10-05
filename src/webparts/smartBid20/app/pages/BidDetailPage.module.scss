@@ -74,7 +74,7 @@
 
 .navItemActive {
   background: var(--primary-accent) !important;
-  color: white !important;
+  color: var(--primary-accent-contrast) !important;
   font-weight: 600;
 }
 
@@ -197,8 +197,9 @@
   &.current {
     background: var(--primary-accent);
     border-color: var(--primary-accent);
-    color: white;
-    box-shadow: 0 0 12px rgba(0, 201, 167, 0.3);
+    color: var(--primary-accent-contrast);
+    box-shadow: 0 0 12px
+      color-mix(in srgb, var(--accent-brand) 30%, transparent);
   }
 
   &.pending {
@@ -283,7 +284,7 @@
     border-radius: 8px;
     border: none;
     background: var(--primary-accent);
-    color: white;
+    color: var(--primary-accent-contrast);
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;

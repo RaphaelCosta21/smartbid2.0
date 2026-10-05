@@ -755,6 +755,8 @@ export interface IBidResult {
   followUpDate: string | null;
   lastUpdatedBy: string | null;
   lastUpdatedDate: string | null;
+  /** Commercial's win chance (0-100) while undecided; null/absent = use history. */
+  winProbability?: number | null;
 }
 
 export interface IActivityLogEntry {

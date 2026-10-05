@@ -53,6 +53,29 @@ Applied via `.smartBidDark` / `.smartBidLight` on the root. Use the variable, no
 | `--secondary-accent` | `#3b82f6` | `#2563eb` | Blue — secondary emphasis                 |
 | `--tertiary-accent`  | `#8b5cf6` | `#7c3aed` | Purple — tertiary/highlights              |
 
+### Color themes (accent scale)
+
+Users pick a **color theme** in System Configuration > System > Theme Selector (saved as
+`colorTheme` on their Members record). It is orthogonal to Light/Dark: the root carries
+`data-color-theme="<id>"` next to `.smartBidDark` / `.smartBidLight`. Only "Teal" exists today.
+
+| Token                       | Teal value | Use                                                     |
+| --------------------------- | ---------- | ------------------------------------------------------- |
+| `--accent-brand`            | `#00c9a7`  | Brand accent (same in both modes)                       |
+| `--accent-500`              | `#14b8a6`  | Accent tints for rows/badges/hover                      |
+| `--accent-600`              | `#0d9488`  | Deeper accent (light-mode primary, gradients)           |
+| `--accent-700`              | `#0f766e`  | Deepest accent (gradient end, role badges)              |
+| `--primary-accent-contrast` | `#ffffff`  | Text/icons on an accent fill (`--primary-accent`, `--gradient-primary`) |
+
+- Never write a teal hex or `rgba(0,201,167,…)`; use these tokens. Tints:
+  `color-mix(in srgb, var(--accent-brand) 10%, transparent)`.
+- Text on accent fills uses `var(--primary-accent-contrast)`, never `#fff`.
+- JS needing hex (alpha concat, Recharts, Excel) reads `useColorTheme()` / `getActiveColorTheme()`
+  (`hooks/useColorTheme.ts`). Semantic overrides go through `resolveSemanticColor()`.
+- **Adding a theme:** 1) add an entry to `COLOR_THEMES` in `config/colorThemes.config.ts` (and
+  extend `ColorThemeId`); 2) add a `&[data-color-theme="<id>"] { … }` block overriding the accent
+  scale (plus any other token) inside **both** `dark.module.scss` and `light.module.scss`.
+
 ### Semantic (same in both themes)
 
 | Token       | Hex       | Meaning                      |

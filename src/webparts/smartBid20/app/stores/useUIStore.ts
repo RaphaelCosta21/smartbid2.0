@@ -1,4 +1,8 @@
 import { create } from "zustand";
+import {
+  ColorThemeId,
+  DEFAULT_COLOR_THEME,
+} from "../config/colorThemes.config";
 
 export type ThemeMode = "dark" | "light";
 
@@ -11,6 +15,7 @@ export interface Toast {
 
 interface UIState {
   theme: ThemeMode;
+  colorTheme: ColorThemeId;
   sidebarExpanded: boolean;
   sidebarMobileOpen: boolean;
   commandPaletteOpen: boolean;
@@ -19,6 +24,7 @@ interface UIState {
 
   setTheme: (theme: ThemeMode) => void;
   toggleTheme: () => void;
+  setColorTheme: (colorTheme: ColorThemeId) => void;
   setSidebarExpanded: (expanded: boolean) => void;
   toggleSidebar: () => void;
   setSidebarMobileOpen: (open: boolean) => void;
@@ -30,6 +36,7 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set) => ({
   theme: "light",
+  colorTheme: DEFAULT_COLOR_THEME,
   sidebarExpanded: true,
   sidebarMobileOpen: false,
   commandPaletteOpen: false,
@@ -39,6 +46,7 @@ export const useUIStore = create<UIState>((set) => ({
   setTheme: (theme) => set({ theme }),
   toggleTheme: () =>
     set((state) => ({ theme: state.theme === "dark" ? "light" : "dark" })),
+  setColorTheme: (colorTheme) => set({ colorTheme }),
   setSidebarExpanded: (expanded) => set({ sidebarExpanded: expanded }),
   toggleSidebar: () =>
     set((state) => ({ sidebarExpanded: !state.sidebarExpanded })),

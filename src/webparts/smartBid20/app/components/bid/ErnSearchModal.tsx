@@ -66,7 +66,7 @@ export const ErnSearchModal: React.FC<ErnSearchModalProps> = ({
     const exclude = new Set(excludeTitles);
     const q = query.toLowerCase().trim();
     return erns
-      .filter((e) => !isErnClosed(e.status))
+      .filter((e) => !isErnClosed(e.status, e.finishDate))
       .filter((e) => !exclude.has(e.title))
       .filter((e) => {
         if (!q) return true;

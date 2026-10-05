@@ -31,38 +31,161 @@
   gap: 16px;
 }
 
-.activityRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+/* ─── PageHeader actions (dark hero in both themes) ─── */
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.syncInfo {
+  font-size: 12px;
+  color: var(--header-text-secondary);
+  white-space: nowrap;
+}
+
+.headerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--header-border);
+  background: var(--header-input-bg);
+  color: var(--header-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease;
+
+  &:hover:not(:disabled) {
+    color: var(--header-text-primary);
+    border-color: var(--primary-accent);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.7;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+}
+
+.spin {
+  animation: dashSpin 900ms linear infinite;
+}
+
+@keyframes dashSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ─── Sections ─── */
+.section {
+  display: flex;
+  flex-direction: column;
   gap: 16px;
+}
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 8px;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sectionSubtitle {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.livePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.liveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  animation: livePulse 2s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.liveGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.subsectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 8px;
+}
+
+.subsectionTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+@media (max-width: 1280px) {
+  .liveGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
   .chartsRow,
-  .activityRow {
+  .liveGrid {
     grid-template-columns: 1fr;
   }
 }
 
-.tableSection {
-  background: var(--card-bg);
-  border-radius: 16px;
-  border: 1px solid var(--border-subtle);
-  overflow: hidden;
-}
-
-.tableHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border-subtle);
-
-  h3 {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0;
+@media (prefers-reduced-motion: reduce) {
+  .spin,
+  .liveDot {
+    animation: none;
   }
 }
 
@@ -82,7 +205,7 @@
 
     &.active {
       background: var(--primary-accent);
-      color: white;
+      color: var(--primary-accent-contrast);
       border-color: var(--primary-accent);
     }
 
@@ -90,59 +213,6 @@
       background: var(--card-bg-elevated);
     }
   }
-}
-
-.bidTable {
-  width: 100%;
-  border-collapse: collapse;
-
-  th,
-  td {
-    padding: 10px 16px;
-    text-align: left;
-    font-size: 13px;
-  }
-
-  th {
-    background: var(--card-bg-elevated);
-    color: var(--text-secondary);
-    font-weight: 600;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    position: sticky;
-    top: 0;
-    backdrop-filter: blur(8px);
-  }
-
-  tr {
-    border-bottom: 1px solid var(--border-subtle);
-    transition: all 200ms ease;
-
-    &:hover {
-      background: var(--card-bg-elevated);
-      border-left: 3px solid var(--primary-accent);
-    }
-  }
-
-  td {
-    color: var(--text-primary);
-  }
-}
-
-.mono {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 12px;
-  color: var(--secondary-accent);
-}
-
-.clickableRow {
-  cursor: pointer;
-}
-
-.overdue {
-  color: var(--danger);
-  font-weight: 600;
 }
 
 .priorityBadge {

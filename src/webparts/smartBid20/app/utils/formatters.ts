@@ -109,6 +109,18 @@ export function formatHours(hours: number): string {
   return `${hours.toLocaleString("en-US")}h`;
 }
 
+/** Elapsed time: "45min" / "9h" below one day, "2d 5h" from one day on. */
+export function formatElapsedHours(hours: number): string {
+  if (!isFinite(hours) || hours <= 0) return "0h";
+  const minutes = Math.round(hours * 60);
+  if (minutes < 60) return `${Math.max(1, minutes)}min`;
+  const total = Math.round(hours);
+  if (total < 24) return `${total}h`;
+  const days = Math.floor(total / 24);
+  const rest = total % 24;
+  return rest ? `${days}d ${rest}h` : `${days}d`;
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} MB`;
   if (bytes >= 1_024) return `${(bytes / 1_024).toFixed(0)} KB`;

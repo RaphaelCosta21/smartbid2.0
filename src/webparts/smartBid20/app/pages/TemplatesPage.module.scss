@@ -84,7 +84,7 @@
   border-radius: 8px;
   border: none;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -406,7 +406,7 @@
   border-radius: 8px;
   border: none;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;

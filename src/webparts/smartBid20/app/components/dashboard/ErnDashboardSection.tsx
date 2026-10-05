@@ -1,6 +1,7 @@
 /**
- * ErnDashboardSection — ERN KPIs and breakdowns for the Engineering Dashboard.
- * Combines linked ERNs on BIDs with live ERN data from the store.
+ * ErnDashboardSection — ERN KPIs ("status", live) and breakdown charts
+ * ("breakdown") for the Engineering Dashboard. Live ERN list data wins over the
+ * snapshot stored on the BID; the dashboard sync keeps the ERN store fresh.
  */
 import * as React from "react";
 import {
@@ -15,11 +16,13 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { IBid } from "../../models";
+import { IBid, IErn } from "../../models";
 import { useErnStore } from "../../stores/useErnStore";
 import { useChartTheme, categoricalColor } from "../../hooks/useChartTheme";
 import { useStatusColors } from "../../hooks/useStatusColors";
-import { getErnDeadlineState, getErnLinks } from "../../utils/ernHelpers";
+import { buildErnLinkRows } from "../../utils/ernHelpers";
+import { getDaysUntil } from "../../utils/formatters";
+import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import { GlassCard } from "../common/GlassCard";
 import { KPICard } from "../common/KPICard";
 import { EmptyState } from "../common/EmptyState";
@@ -28,73 +31,62 @@ import styles from "./ErnDashboardSection.module.scss";
 
 interface ErnDashboardSectionProps {
   bids: IBid[];
+  view: "status" | "breakdown";
 }
 
 export const ErnDashboardSection: React.FC<ErnDashboardSectionProps> = ({
   bids,
+  view,
 }) => {
   const erns = useErnStore((s) => s.erns);
-  const loadAll = useErnStore((s) => s.loadAll);
   const theme = useChartTheme();
   const { getDivisionColor } = useStatusColors();
 
-  React.useEffect(() => {
-    if (erns.length === 0) loadAll().catch(console.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const ernStatusByTitle = React.useMemo(() => {
-    const map: Record<string, { status: string; dueDate: string }> = {};
+  const liveByTitle = React.useMemo(() => {
+    const map: Record<string, IErn> = {};
     erns.forEach((e) => {
-      map[e.title] = { status: e.status, dueDate: e.dueDate };
+      map[e.title] = e;
     });
     return map;
   }, [erns]);
 
-  // Flattened ERN links across all BIDs (Integrated BIDs contribute 2)
-  const links = React.useMemo(() => {
-    const out: {
-      bid: IBid;
-      ernNumber: string;
-      division: string | null;
-      status: string;
-      dueDate: string;
-      serviceLine: string;
-    }[] = [];
-    bids.forEach((b) => {
-      getErnLinks(b).forEach((l) => {
-        const live = ernStatusByTitle[l.ernNumber];
-        out.push({
-          bid: b,
-          ernNumber: l.ernNumber,
-          division: l.division,
-          status: live?.status || l.ernStatus || "Unknown",
-          dueDate: live?.dueDate || l.ernDueDate || "",
-          serviceLine: l.division || b.serviceLine || "-",
-        });
-      });
-    });
-    return out;
-  }, [bids, ernStatusByTitle]);
+  // Unique ERNs across the BIDs (Integrated BIDs contribute 2)
+  const links = React.useMemo(
+    () => buildErnLinkRows(bids, liveByTitle),
+    [bids, liveByTitle],
+  );
 
   const kpis = React.useMemo(() => {
     let open = 0;
+    let onHold = 0;
     let dueSoon = 0;
     let overdue = 0;
+    let maxLate = 0;
     links.forEach((l) => {
-      const s = l.status.toLowerCase();
-      if (s !== "completed" && s !== "closed" && s !== "cancelled") open++;
-      const state = getErnDeadlineState(l.dueDate, l.status);
-      if (state === "due-soon") dueSoon++;
-      if (state === "overdue") overdue++;
+      if (!l.closed) open++;
+      if (!l.closed && l.onHold) onHold++;
+      if (l.deadline === "due-soon") dueSoon++;
+      if (l.deadline === "overdue") {
+        overdue++;
+        maxLate = Math.max(maxLate, -(getDaysUntil(l.dueDate) || 0));
+      }
     });
-    return { total: links.length, open, dueSoon, overdue };
+    return {
+      total: links.length,
+      closed: links.length - open,
+      open,
+      onHold,
+      dueSoon,
+      overdue,
+      maxLate,
+    };
   }, [links]);
 
   const byServiceLine = React.useMemo(() => {
     const map: Record<string, number> = {};
     links.forEach((l) => {
-      map[l.serviceLine] = (map[l.serviceLine] || 0) + 1;
+      const key = l.division || l.bid.serviceLine || "-";
+      map[key] = (map[key] || 0) + 1;
     });
     return Object.keys(map)
       .map((k) => ({ name: k, count: map[k] }))
@@ -126,35 +118,45 @@ export const ErnDashboardSection: React.FC<ErnDashboardSectionProps> = ({
     }));
   }, [links]);
 
-  return (
-    <div className={styles.section}>
+  if (view === "status") {
+    return (
       <div className={styles.kpiRow}>
         <KPICard
           label="ERNs Linked"
           value={kpis.total}
-          accentColor="var(--secondary-accent)"
+          accentColor={theme.accentSecondary}
           variant="glass"
+          subtitle={`${kpis.closed} closed`}
         />
         <KPICard
           label="ERNs Open"
           value={kpis.open}
-          accentColor="var(--info)"
+          accentColor={theme.info}
           variant="glass"
+          subtitle={kpis.onHold > 0 ? `${kpis.onHold} on hold` : "In progress"}
         />
         <KPICard
           label="Due Soon"
           value={kpis.dueSoon}
-          accentColor="var(--warning)"
+          accentColor={theme.warning}
           variant="glass"
+          subtitle={`Within ${SHAREPOINT_CONFIG.ern.dueSoonDays} days`}
         />
         <KPICard
           label="Overdue"
           value={kpis.overdue}
-          accentColor="var(--danger)"
+          accentColor={theme.danger}
           variant="glass"
+          subtitle={
+            kpis.overdue > 0 ? `Oldest ${kpis.maxLate}d late` : "None late"
+          }
         />
       </div>
+    );
+  }
 
+  return (
+    <div className={styles.section}>
       {kpis.total === 0 ? (
         <GlassCard title="ERN Overview">
           <EmptyState

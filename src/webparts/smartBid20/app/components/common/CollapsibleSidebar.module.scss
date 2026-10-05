@@ -69,7 +69,7 @@
   &:hover {
     border-color: var(--primary-accent);
     background: var(--primary-accent);
-    color: white;
+    color: var(--primary-accent-contrast);
   }
 
   &:focus-visible {

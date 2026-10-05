@@ -16,11 +16,14 @@ import {
 } from "../models";
 import { Sector } from "../models/IUser";
 import {
+  getSectorColor,
   getSectorLabel,
   sectorFromLabel,
   SECTORS,
 } from "../config/sectors.config";
 import { buildHistoryTransition } from "./phaseHelpers";
+import { getDaysUntil, isPastDue, parseDate } from "./formatters";
+import { getDueDateAt } from "./bidHelpers";
 
 const MS_PER_HOUR = 3600000;
 const MS_PER_DAY = 86400000;
@@ -40,10 +43,15 @@ export function sectorClosed(approvals: IBidApproval[]): boolean {
   return approvals.length > 0 && approvals.every((a) => !!a.respondedDate);
 }
 
-/** Compute per-sector durations for one round (only sectors fully responded). */
+/**
+ * Compute per-sector durations for one round (only sectors fully responded).
+ * `fromRoundStart` measures every sector from the round start instead of its earliest request.
+ */
 export function computeRoundSectorDurations(
   round: IApprovalRound,
+  fromRoundStart: boolean = false,
 ): ISectorApprovalDuration[] {
+  const roundStart = fromRoundStart ? toTime(round.startedDate) : null;
   const bySector: { [sector: string]: IBidApproval[] } = {};
   (round.approvals || []).forEach((a) => {
     const sector = getApprovalSector(a);
@@ -63,6 +71,7 @@ export function computeRoundSectorDurations(
       if (req != null && req < minReq) minReq = req;
       if (resp != null && resp > maxResp) maxResp = resp;
     });
+    if (roundStart != null) minReq = roundStart;
     if (!isFinite(minReq) || !isFinite(maxResp) || maxResp < minReq) return;
     out.push({
       sector: sector as Sector,
@@ -174,13 +183,169 @@ export function avgApprovalDaysBySector(
     return {
       sector: s.value,
       label: s.label,
-      color: s.color,
+      color: getSectorColor(s.value),
       avgDays: Math.round(avg * 10) / 10,
       count: vals.length,
     };
   })
     .filter((r) => r.count > 0)
     .sort((a, b) => b.avgDays - a.avgDays);
+}
+
+/** Last round when it closed approved (the one that completed the BID); legacy flat approvals as fallback. */
+export function getFinalApprovedRound(bid: IBid): IApprovalRound | null {
+  const rounds = bid.approvalRounds || [];
+  if (rounds.length > 0) {
+    const last = rounds[rounds.length - 1];
+    return last.status === "approved" ? last : null;
+  }
+  const approvals = bid.approvals || [];
+  if (bid.approvalStatus !== "approved" || approvals.length === 0) return null;
+  const round = approvals.reduce((m, a) => Math.max(m, a.round || 0), 0);
+  return {
+    round,
+    startedDate: "",
+    startedBy: { name: "", email: "" },
+    status: "approved",
+    completedDate: null,
+    approvals: approvals.filter((a) => (a.round || 0) === round),
+  };
+}
+
+/** Sectors of the round where every approver approved (bypassed/rejected sectors are left out). */
+function approvedSectorDurations(
+  round: IApprovalRound,
+): ISectorApprovalDuration[] {
+  const notApproved: { [sector: string]: boolean } = {};
+  (round.approvals || []).forEach((a) => {
+    const sector = getApprovalSector(a);
+    if (sector && a.status !== "approved") notApproved[sector] = true;
+  });
+  return computeRoundSectorDurations(round, true).filter(
+    (d) => !notApproved[d.sector],
+  );
+}
+
+export interface SectorApprovalHoursStat {
+  sector: Sector;
+  label: string;
+  color: string;
+  avgHours: number;
+  count: number;
+}
+
+/** Average hours from approval start to each sector's last sign-off, final approved round only. */
+export function avgApprovalHoursBySector(
+  bids: IBid[],
+): SectorApprovalHoursStat[] {
+  const buckets: { [sector: string]: number[] } = {};
+  bids.forEach((b) => {
+    const round = getFinalApprovedRound(b);
+    if (!round) return;
+    approvedSectorDurations(round).forEach((d) => {
+      (buckets[d.sector] = buckets[d.sector] || []).push(d.durationHours);
+    });
+  });
+
+  return SECTORS.map((s) => {
+    const vals = buckets[s.value] || [];
+    const avg = vals.length ? vals.reduce((a, v) => a + v, 0) / vals.length : 0;
+    return {
+      sector: s.value,
+      label: s.label,
+      color: getSectorColor(s.value),
+      avgHours: Math.round(avg * 10) / 10,
+      count: vals.length,
+    };
+  })
+    .filter((r) => r.count > 0)
+    .sort((a, b) => b.avgHours - a.avgHours);
+}
+
+export type ApprovalDueCategory =
+  | "onTime"
+  | "lateDueToApproval"
+  | "lateBeforeApproval";
+
+export interface ApprovalDueImpact {
+  bid: IBid;
+  startedDate: Date;
+  finishedDate: Date;
+  dueDate: string;
+  category: ApprovalDueCategory;
+  daysLate: number;
+  slowestSector: ISectorApprovalDuration | null;
+}
+
+/**
+ * Where the final approved round sits against the due date in effect when it finished:
+ * started after the due day = already late; started on time but finished after it = late due to approval.
+ */
+export function getApprovalDueImpact(bid: IBid): ApprovalDueImpact | null {
+  const round = getFinalApprovedRound(bid);
+  if (!round) return null;
+  let firstReq: number | null = null;
+  let lastResp: number | null = null;
+  for (const a of round.approvals || []) {
+    const req = toTime(a.requestedDate);
+    const resp = toTime(a.respondedDate);
+    if (req != null && (firstReq == null || req < firstReq)) firstReq = req;
+    if (resp != null && (lastResp == null || resp > lastResp)) lastResp = resp;
+  }
+  const started =
+    parseDate(round.startedDate) ||
+    (firstReq != null ? new Date(firstReq) : null);
+  const finished =
+    parseDate(round.completedDate) ||
+    (lastResp != null ? new Date(lastResp) : null);
+  if (!started || !finished) return null;
+
+  const dueDate = getDueDateAt(bid, finished);
+  if (!parseDate(dueDate)) return null;
+
+  const category: ApprovalDueCategory = isPastDue(dueDate, started)
+    ? "lateBeforeApproval"
+    : isPastDue(dueDate, finished)
+      ? "lateDueToApproval"
+      : "onTime";
+  const durations = approvedSectorDurations(round);
+  const slowestSector = durations.reduce<ISectorApprovalDuration | null>(
+    (m, d) => (!m || d.durationHours > m.durationHours ? d : m),
+    null,
+  );
+  return {
+    bid,
+    startedDate: started,
+    finishedDate: finished,
+    dueDate,
+    category,
+    daysLate: Math.max(0, -(getDaysUntil(dueDate, finished) || 0)),
+    slowestSector,
+  };
+}
+
+export interface PendingApprovalDueRisk {
+  bid: IBid;
+  dueDate: string;
+  startedBeforeDue: boolean;
+}
+
+/** BID currently waiting on approvals whose due date has already passed. */
+export function getPendingApprovalDueRisk(
+  bid: IBid,
+): PendingApprovalDueRisk | null {
+  if (bid.approvalStatus !== "pending") return null;
+  const rounds = bid.approvalRounds || [];
+  const last = rounds[rounds.length - 1];
+  if (!last || last.status !== "pending") return null;
+  const dueDate = bid.desiredDueDate || bid.dueDate;
+  if (!dueDate || !isPastDue(dueDate)) return null;
+  const started = parseDate(last.startedDate);
+  return {
+    bid,
+    dueDate,
+    startedBeforeDue: !!started && !isPastDue(dueDate, started),
+  };
 }
 
 /** Override recorded on the latest approval round, if any. */

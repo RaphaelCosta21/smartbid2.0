@@ -625,7 +625,7 @@
   &:hover {
     background: var(--primary-accent);
     border-color: var(--primary-accent);
-    color: #fff;
+    color: var(--primary-accent-contrast);
   }
 
   &:focus-visible {
@@ -1233,7 +1233,7 @@
 }
 
 .confirmBtn {
-  color: #fff;
+  color: var(--primary-accent-contrast);
   background: var(--primary-accent);
 
   &:hover:not(:disabled) {

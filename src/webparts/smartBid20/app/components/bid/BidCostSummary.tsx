@@ -5,6 +5,7 @@ import {
   buildCostSummaryView,
 } from "../../utils/costSummaryView";
 import { formatCurrency, formatDate } from "../../utils/formatters";
+import { useColorTheme } from "../../hooks/useColorTheme";
 import { BidFxNote } from "./BidFxNote";
 import styles from "./BidCostSummary.module.scss";
 
@@ -18,6 +19,7 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
   className,
 }) => {
   const view = React.useMemo(() => buildCostSummaryView(bid), [bid]);
+  const colorTheme = useColorTheme();
   const { summary: s, fx, assetsByType, rows: breakdown } = view;
 
   const kpis = [
@@ -54,7 +56,7 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
 
   // Chart colors for resource types
   const TYPE_COLORS = [
-    "#0d9488",
+    colorTheme.accents.a600,
     "#3b82f6",
     "#8b5cf6",
     "#f59e0b",

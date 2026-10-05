@@ -206,7 +206,7 @@
   height: 18px;
   border-radius: 9px;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 10px;
   font-weight: 700;
   padding: 0 5px;
@@ -279,7 +279,7 @@
   border-radius: 8px;
   border: 1px solid var(--border-subtle);
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 16px;
   cursor: pointer;
   display: flex;

@@ -34,7 +34,7 @@
   border: none;
   border-radius: 50%;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -234,7 +234,7 @@
 
 .bubbleUser {
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   border-bottom-right-radius: 4px;
 }
 
@@ -521,7 +521,7 @@
   border: none;
   border-radius: 8px;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   cursor: pointer;
   transition:
     opacity 250ms ease,

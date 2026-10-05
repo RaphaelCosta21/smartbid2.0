@@ -16,28 +16,21 @@ import { GlassCard } from "../components/common/GlassCard";
 import { KPICard } from "../components/common/KPICard";
 import { EmptyState } from "../components/common/EmptyState";
 import { ChartTooltip } from "../components/charts/ChartTooltip";
+import { Sparkline } from "../components/charts/Sparkline";
 import { AnalyticsFilterBar } from "../components/insights/AnalyticsFilterBar";
-import { ExportBar } from "../components/reports/ExportBar";
+import { ApprovalDueImpactSection } from "../components/reports/ApprovalDueImpactSection";
 import { useChartTheme } from "../hooks/useChartTheme";
 import { useBids } from "../hooks/useBids";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useAnalyticsFilters } from "../hooks/useAnalyticsFilters";
 import { useStatusColors } from "../hooks/useStatusColors";
 import { PHASE_ORDER, volumeTrend } from "../utils/analyticsHelpers";
-import { avgApprovalDaysBySector } from "../utils/approvalHelpers";
-import { bidsToCSV, downloadCSV } from "../utils/exportHelpers";
-import { isPastDue } from "../utils/formatters";
+import { avgApprovalHoursBySector } from "../utils/approvalHelpers";
+import { formatElapsedHours, isPastDue } from "../utils/formatters";
 import { getDueFreezeDate } from "../utils/bidHelpers";
-import { captureElementToPng, buildReportPdf } from "../utils/pdfExport";
-import { ExportService } from "../services/ExportService";
 import styles from "./OperationalSummaryPage.module.scss";
 
-const CHART_SECTIONS: { key: string; title: string }[] = [
-  { key: "workload", title: "Division Workloads" },
-  { key: "phase", title: "Active BIDs by Phase" },
-  { key: "throughput", title: "Throughput (Completed / Month)" },
-  { key: "sector", title: "Avg Approval Time by Sector" },
-];
+const hideZero = (v: number): string | number => (v > 0 ? v : "");
 
 export const OperationalSummaryPage: React.FC = () => {
   const { bids } = useBids();
@@ -53,14 +46,6 @@ export const OperationalSummaryPage: React.FC = () => {
     getFacetCounts,
     hasActive,
   } = useAnalyticsFilters();
-  const [busy, setBusy] = React.useState(false);
-
-  const chartEls = React.useRef<{ [k: string]: HTMLDivElement | null }>({});
-  const setRef =
-    (k: string) =>
-    (el: HTMLDivElement | null): void => {
-      chartEls.current[k] = el;
-    };
 
   const terminalStatuses = React.useMemo(() => {
     const t = (
@@ -191,60 +176,22 @@ export const OperationalSummaryPage: React.FC = () => {
   );
 
   const sectorData = React.useMemo(
-    () => avgApprovalDaysBySector(filtered),
+    () => avgApprovalHoursBySector(filtered),
     [filtered],
   );
 
+  const completedPerMonth = throughput.length
+    ? Math.round((stats.completed / throughput.length) * 10) / 10
+    : 0;
+
   const axisTick = { fill: chart.tick, fontSize: 12 };
   const legendStyle = { fontSize: 12, color: chart.textSecondary };
-
-  const handleExcel = (): void => {
-    ExportService.exportToExcel(filtered, {
-      format: "xlsx",
-      includeEquipment: false,
-      includeHours: false,
-      includeCostSummary: true,
-      includeApprovalHistory: false,
-      includeComments: false,
-      includeActivityLog: false,
-      title: "Operational-Summary",
-    }).catch((e) => console.error(e));
-  };
-  const handleCsv = (): void => {
-    downloadCSV(bidsToCSV(filtered), "Operational-Summary.csv");
-  };
-  const handlePdf = async (): Promise<void> => {
-    setBusy(true);
-    try {
-      const bg = chart.mode === "dark" ? "#0f1b2d" : "#f8fafc";
-      const charts: { title: string; dataUrl: string }[] = [];
-      for (const sec of CHART_SECTIONS) {
-        const el = chartEls.current[sec.key];
-        if (el)
-          charts.push({
-            title: sec.title,
-            dataUrl: await captureElementToPng(el, bg),
-          });
-      }
-      await buildReportPdf({
-        title: "Operational Summary",
-        subtitle: `${filtered.length} BIDs`,
-        kpis: [
-          { label: "Active", value: String(stats.active) },
-          { label: "Pending Approvals", value: String(stats.pending) },
-          { label: "Overdue", value: String(stats.overdue) },
-          { label: "Completed", value: String(stats.completed) },
-          { label: "Average Cycle", value: `${stats.avgCycle}d` },
-        ],
-        charts,
-        fileName: "Operational-Summary.pdf",
-        orientation: "l",
-      });
-    } catch (e) {
-      console.error("PDF export failed:", e);
-    } finally {
-      setBusy(false);
-    }
+  const insideLabel = {
+    position: "inside" as const,
+    fill: "#ffffff",
+    fontSize: 11,
+    fontWeight: 700,
+    formatter: hideZero,
   };
 
   return (
@@ -276,14 +223,7 @@ export const OperationalSummaryPage: React.FC = () => {
         serviceLines={serviceLines}
         bidTypes={bidTypeOptions}
         facetCounts={facetCounts}
-        rightSlot={
-          <ExportBar
-            onExcel={handleExcel}
-            onCsv={handleCsv}
-            onPdf={handlePdf}
-            busy={busy}
-          />
-        }
+        showSearch={false}
       />
 
       {filtered.length === 0 ? (
@@ -321,7 +261,14 @@ export const OperationalSummaryPage: React.FC = () => {
               label="Completed"
               value={stats.completed}
               accentColor={chart.success}
-              subtitle="in selected period"
+              subtitle={`in selected period, avg ${completedPerMonth}/month`}
+              sparkline={
+                <Sparkline
+                  data={throughput.map((p) => p.completed)}
+                  color={chart.success}
+                  height={34}
+                />
+              }
             />
             <KPICard
               variant="glass"
@@ -330,17 +277,10 @@ export const OperationalSummaryPage: React.FC = () => {
               accentColor={chart.accentTertiary}
               subtitle="creation → completion"
             />
-            <KPICard
-              variant="glass"
-              label="Throughput"
-              value={stats.completed}
-              accentColor={chart.info}
-              subtitle="completed in selected period"
-            />
           </div>
 
           <div className={styles.chartsGrid2}>
-            <div ref={setRef("workload")}>
+            <div>
               <GlassCard
                 title="Division Workloads"
                 subtitle="Active BIDs, pending approvals, and overdue BIDs by division"
@@ -378,28 +318,34 @@ export const OperationalSummaryPage: React.FC = () => {
                         fill={chart.accentSecondary}
                         radius={[4, 4, 0, 0]}
                         maxBarSize={30}
-                      />
+                      >
+                        <LabelList dataKey="active" {...insideLabel} />
+                      </Bar>
                       <Bar
                         dataKey="pending"
                         name="Approvals"
                         fill={chart.warning}
                         radius={[4, 4, 0, 0]}
                         maxBarSize={30}
-                      />
+                      >
+                        <LabelList dataKey="pending" {...insideLabel} />
+                      </Bar>
                       <Bar
                         dataKey="overdue"
                         name="Overdue"
                         fill={chart.danger}
                         radius={[4, 4, 0, 0]}
                         maxBarSize={30}
-                      />
+                      >
+                        <LabelList dataKey="overdue" {...insideLabel} />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 )}
               </GlassCard>
             </div>
 
-            <div ref={setRef("phase")}>
+            <div>
               <GlassCard
                 title="Active BIDs by Phase"
                 subtitle="Distribution of active BIDs by phase"
@@ -457,7 +403,7 @@ export const OperationalSummaryPage: React.FC = () => {
             </div>
           </div>
 
-          <div ref={setRef("throughput")} className={styles.spanAll}>
+          <div className={styles.spanAll}>
             <GlassCard
               title="Throughput"
               subtitle="Completed BIDs per month"
@@ -504,16 +450,16 @@ export const OperationalSummaryPage: React.FC = () => {
             </GlassCard>
           </div>
 
-          <div ref={setRef("sector")} className={styles.spanAll}>
+          <div className={styles.spanAll}>
             <GlassCard
               title="Average Approval Time by Department"
-              subtitle="Average days by department (completed approvals only)"
+              subtitle="Time from approval start to each department's last sign-off (final approved round of completed BIDs)"
               accentColor={chart.warning}
             >
               {sectorData.length === 0 ? (
                 <EmptyState
                   title="No Completed Approvals"
-                  description="Average department approval times will appear here once approval rounds are closed."
+                  description="Average department approval times will appear here once BIDs are approved and completed."
                 />
               ) : (
                 <ResponsiveContainer
@@ -523,7 +469,7 @@ export const OperationalSummaryPage: React.FC = () => {
                   <BarChart
                     data={sectorData}
                     layout="vertical"
-                    margin={{ top: 8, right: 44, bottom: 4, left: 8 }}
+                    margin={{ top: 8, right: 64, bottom: 4, left: 8 }}
                   >
                     <CartesianGrid horizontal={false} stroke={chart.grid} />
                     <XAxis
@@ -531,7 +477,7 @@ export const OperationalSummaryPage: React.FC = () => {
                       tick={axisTick}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={(v) => `${v}d`}
+                      tickFormatter={(v: number) => formatElapsedHours(v)}
                     />
                     <YAxis
                       type="category"
@@ -544,19 +490,25 @@ export const OperationalSummaryPage: React.FC = () => {
                     <Tooltip
                       cursor={{ fill: chart.referenceFill }}
                       content={
-                        <ChartTooltip valueFormatter={(v) => `${v} dias`} />
+                        <ChartTooltip
+                          valueFormatter={(v, entry) =>
+                            `${formatElapsedHours(Number(v))} (${
+                              entry.payload?.count
+                            } BIDs)`
+                          }
+                        />
                       }
                     />
                     <Bar
-                      dataKey="avgDays"
-                      name="Average Days"
+                      dataKey="avgHours"
+                      name="Average Time"
                       radius={[0, 6, 6, 0]}
                       maxBarSize={24}
                     >
                       <LabelList
-                        dataKey="avgDays"
+                        dataKey="avgHours"
                         position="right"
-                        formatter={(v: number) => `${v}d`}
+                        formatter={(v: number) => formatElapsedHours(v)}
                         fill={chart.textSecondary}
                         fontSize={11}
                       />
@@ -569,6 +521,8 @@ export const OperationalSummaryPage: React.FC = () => {
               )}
             </GlassCard>
           </div>
+
+          <ApprovalDueImpactSection bids={filtered} />
         </>
       )}
     </div>

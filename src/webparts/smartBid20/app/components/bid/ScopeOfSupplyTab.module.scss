@@ -126,7 +126,7 @@
   &.primary {
     background: var(--primary-accent);
     border-color: var(--primary-accent);
-    color: #fff;
+    color: var(--primary-accent-contrast);
     font-weight: 600;
 
     svg {
@@ -207,7 +207,7 @@
   }
 
   &:hover td {
-    background: var(--accent-color-10, rgba(20, 184, 166, 0.05));
+    background: color-mix(in srgb, var(--accent-500) 5%, transparent);
   }
 }
 
@@ -239,7 +239,7 @@
 /* ─── Section header row ─── */
 .sectionRow {
   td {
-    background: var(--accent-color-10, rgba(20, 184, 166, 0.08));
+    background: color-mix(in srgb, var(--accent-500) 8%, transparent);
     padding: 10px;
     border-bottom: 2px solid var(--accent-color);
   }
@@ -850,7 +850,11 @@
 
 .dragOverRow {
   td {
-    background: var(--accent-color-10, rgba(20, 184, 166, 0.08)) !important;
+    background: color-mix(
+      in srgb,
+      var(--accent-500) 8%,
+      transparent
+    ) !important;
     box-shadow: 0 -2px 0 0 var(--accent-color) inset;
   }
 }
@@ -1131,7 +1135,7 @@
   }
 
   &:hover {
-    background: var(--accent-color-10, rgba(20, 184, 166, 0.04));
+    background: color-mix(in srgb, var(--accent-500) 4%, transparent);
   }
 }
 
@@ -1228,7 +1232,11 @@
 }
 
 .subRowDragOver {
-  background: var(--accent-color-10, rgba(20, 184, 166, 0.08)) !important;
+  background: color-mix(
+    in srgb,
+    var(--accent-500) 8%,
+    transparent
+  ) !important;
   box-shadow: 0 -2px 0 0 var(--accent-color) inset;
 }
 
@@ -1310,7 +1318,7 @@
   &:hover {
     border-color: var(--accent-color);
     color: var(--accent-color);
-    background: var(--accent-color-10, rgba(20, 184, 166, 0.08));
+    background: color-mix(in srgb, var(--accent-500) 8%, transparent);
   }
 }
 
@@ -1394,7 +1402,7 @@
   min-width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: var(--accent-color-10, rgba(20, 184, 166, 0.12));
+  background: color-mix(in srgb, var(--accent-500) 12%, transparent);
   color: var(--accent-color);
   font-family: monospace;
   font-size: 10px;
@@ -1404,7 +1412,7 @@
   justify-content: center;
   flex-shrink: 0;
   margin-top: 5px;
-  border: 1px solid var(--accent-color-10, rgba(20, 184, 166, 0.15));
+  border: 1px solid color-mix(in srgb, var(--accent-500) 15%, transparent);
 }
 
 .specItemInp {
@@ -1474,7 +1482,7 @@
   &:hover {
     border-color: var(--accent-color);
     color: var(--accent-color);
-    background: var(--accent-color-10, rgba(20, 184, 166, 0.08));
+    background: color-mix(in srgb, var(--accent-500) 8%, transparent);
   }
 }
 
@@ -1810,7 +1818,7 @@
   padding: 0 5px;
   border-radius: 9px;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 10px;
   font-weight: 700;
 }
@@ -1990,7 +1998,7 @@
   border-radius: 6px;
   border: none;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -2393,7 +2401,7 @@
 }
 
 .sectionAttachLink {
-  color: var(--accent-color, #14b8a6);
+  color: var(--accent-500);
   text-decoration: none;
   font-size: 11px;
   max-width: 180px;

@@ -23,7 +23,7 @@
 
   &.tabBtnActive {
     background: var(--primary-accent);
-    color: #fff;
+    color: var(--primary-accent-contrast);
     border-color: var(--primary-accent);
   }
 }

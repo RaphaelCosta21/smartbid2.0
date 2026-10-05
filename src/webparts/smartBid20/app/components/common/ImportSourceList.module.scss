@@ -21,7 +21,7 @@
   width: 32px;
   height: 32px;
   border: 3px solid var(--border, #1e3a5f);
-  border-top-color: var(--primary-accent, #00c9a7);
+  border-top-color: var(--primary-accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -71,8 +71,8 @@
   }
 
   &:focus {
-    border-color: var(--primary-accent, #00c9a7);
-    box-shadow: 0 0 0 3px rgba(0, 201, 167, 0.1);
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-brand) 10%, transparent);
   }
 }
 
@@ -149,7 +149,7 @@
 }
 
 .pillActive {
-  background: var(--primary-accent, #00c9a7);
+  background: var(--primary-accent);
   color: #0a1628;
   font-weight: 600;
 
@@ -178,7 +178,7 @@
   background-position: right 8px center;
 
   &:focus {
-    border-color: var(--primary-accent, #00c9a7);
+    border-color: var(--primary-accent);
   }
 }
 
@@ -198,7 +198,7 @@
 
 .clearFiltersBtn {
   font-size: 12px;
-  color: var(--primary-accent, #00c9a7);
+  color: var(--primary-accent);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -258,14 +258,15 @@
   flex-shrink: 0;
 
   &:hover {
-    border-color: var(--primary-accent, #00c9a7);
-    box-shadow: 0 4px 16px rgba(0, 201, 167, 0.08);
+    border-color: var(--primary-accent);
+    box-shadow: 0 4px 16px
+      color-mix(in srgb, var(--accent-brand) 8%, transparent);
     transform: translateY(-1px);
   }
 
   &:focus-visible {
     outline: none;
-    border-color: var(--primary-accent, #00c9a7);
+    border-color: var(--primary-accent);
     box-shadow: 0 0 0 3px
       color-mix(in srgb, var(--primary-accent) 20%, transparent);
   }
@@ -342,9 +343,9 @@
   border-radius: 4px;
   font-size: 10px;
   font-weight: 500;
-  background: rgba(0, 201, 167, 0.08);
-  color: var(--primary-accent, #00c9a7);
-  border: 1px solid rgba(0, 201, 167, 0.15);
+  background: color-mix(in srgb, var(--accent-brand) 8%, transparent);
+  color: var(--primary-accent);
+  border: 1px solid color-mix(in srgb, var(--accent-brand) 15%, transparent);
 }
 
 .serviceLineTag {
@@ -389,14 +390,14 @@
   align-items: center;
   padding: 6px 10px;
   border-radius: 8px;
-  background: rgba(0, 201, 167, 0.08);
-  border: 1px solid rgba(0, 201, 167, 0.15);
+  background: color-mix(in srgb, var(--accent-brand) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-brand) 15%, transparent);
 }
 
 .itemCount {
   font-size: 16px;
   font-weight: 700;
-  color: var(--primary-accent, #00c9a7);
+  color: var(--primary-accent);
   line-height: 1;
 }
 
@@ -419,7 +420,7 @@
   transition: transform 0.15s ease;
 
   .sourceCard:hover & {
-    color: var(--primary-accent, #00c9a7);
+    color: var(--primary-accent);
     transform: translateX(2px);
   }
 }

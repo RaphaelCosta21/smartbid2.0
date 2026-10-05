@@ -98,7 +98,7 @@
   .stepDot {
     border-color: var(--primary-accent);
     background: var(--primary-accent);
-    color: #fff;
+    color: var(--primary-accent-contrast);
   }
 
   & + .step::before {
@@ -550,7 +550,7 @@
 
 .primaryBtn {
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
 
   &:hover:not(:disabled) {
     filter: brightness(1.05);

@@ -25,6 +25,7 @@ import { useUIStore } from "../../stores/useUIStore";
 import { useConfigPhases } from "../../hooks/useConfigPhases";
 import { useEditControl } from "../../hooks/useEditControl";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { useColorTheme } from "../../hooks/useColorTheme";
 import { useSpfxContext } from "../../config/SpfxContext";
 import { MembersService } from "../../services/MembersService";
 import { CurrencyService } from "../../services/CurrencyService";
@@ -818,7 +819,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const saveBtnStyle: React.CSSProperties = {
     ...editBtnStyle,
     background: "var(--primary-accent)",
-    color: "#fff",
+    color: "var(--primary-accent-contrast)",
     border: "none",
   };
   const cancelBtnStyle: React.CSSProperties = { ...editBtnStyle };
@@ -1109,7 +1110,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 ? `ERN (${slot.label})`
                 : "ERN Number";
               const slotDeadline = link
-                ? getErnDeadlineState(link.ernDueDate, link.ernStatus)
+                ? getErnDeadlineState(
+                    link.ernDueDate,
+                    link.ernStatus,
+                    link.ernFinishDate,
+                  )
                 : "none";
               return (
                 <InfoRow
@@ -2507,7 +2512,7 @@ const AnalysisNotesCard: React.FC<{
           <button
             style={{
               background: "var(--primary-accent)",
-              color: "#fff",
+              color: "var(--primary-accent-contrast)",
               border: "none",
               borderRadius: 6,
               padding: "3px 10px",
@@ -2590,7 +2595,7 @@ const AnalysisNotesCard: React.FC<{
                     className={styles.backBtn}
                     style={{
                       background: "var(--primary-accent)",
-                      color: "white",
+                      color: "var(--primary-accent-contrast)",
                       border: "none",
                     }}
                     onClick={() => handleSave(section, editValue)}
@@ -2691,7 +2696,7 @@ const AnalysisNotesCard: React.FC<{
               className={styles.backBtn}
               style={{
                 background: "var(--primary-accent)",
-                color: "white",
+                color: "var(--primary-accent-contrast)",
                 border: "none",
               }}
               onClick={handleAddNote}
@@ -2731,8 +2736,9 @@ const CapexOpexVerticalChart: React.FC<{ bid: IBid }> = ({ bid }) => {
     [bid],
   );
 
+  const colorTheme = useColorTheme();
   const TYPE_COLORS = [
-    "#0d9488",
+    colorTheme.accents.a600,
     "#3b82f6",
     "#8b5cf6",
     "#f59e0b",
@@ -2975,7 +2981,8 @@ const CapexOpexVerticalChart: React.FC<{ bid: IBid }> = ({ bid }) => {
             style={{
               width: `${totalBRL > 0 ? (capexBRL / totalBRL) * 100 : 50}%`,
               height: "100%",
-              background: "linear-gradient(90deg, #0d9488, #14b8a6)",
+              background:
+                "linear-gradient(90deg, var(--accent-600), var(--accent-500))",
               transition: "width 0.3s ease",
             }}
           />

@@ -23,7 +23,7 @@
 
   &:hover {
     border-color: var(--accent-color);
-    background: var(--accent-color-10, rgba(20, 184, 166, 0.1));
+    background: color-mix(in srgb, var(--accent-500) 10%, transparent);
   }
 }
 
@@ -105,13 +105,13 @@
   border-radius: 6px;
   border: 1px solid var(--border-subtle);
   background: transparent;
-  color: var(--accent-color, #14b8a6);
+  color: var(--accent-500);
   font-size: 12px;
   cursor: pointer;
   font-weight: 600;
   &:hover {
-    border-color: var(--accent-color, #14b8a6);
-    background: rgba(20, 184, 166, 0.08);
+    border-color: var(--accent-500);
+    background: color-mix(in srgb, var(--accent-500) 8%, transparent);
   }
 }
 

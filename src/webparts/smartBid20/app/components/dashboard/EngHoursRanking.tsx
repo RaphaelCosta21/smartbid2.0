@@ -1,57 +1,58 @@
 import * as React from "react";
-import { IBid } from "../../models";
 import { GlassCard } from "../common/GlassCard";
 import { StatusBadge } from "../common/StatusBadge";
 import { EmptyState } from "../common/EmptyState";
 import { SegmentedControl, SegmentOption } from "../insights/SegmentedControl";
 import { useChartTheme } from "../../hooks/useChartTheme";
-import { useStatusColors } from "../../hooks/useStatusColors";
-import { isActiveBid, getEngineeringHours } from "../../utils/bidHelpers";
+import { useResultStatus } from "../../hooks/useResultStatus";
+import { IEngHoursItem } from "../../utils/engHoursHelpers";
 import styles from "./EngHoursRanking.module.scss";
 
-type Scope = "active" | "closed";
+type Scope = "pipeline" | "won" | "all";
 
 const SCOPE_SEGMENTS: SegmentOption<Scope>[] = [
-  { value: "active", label: "Active" },
-  { value: "closed", label: "Closed" },
+  { value: "pipeline", label: "Pipeline" },
+  { value: "won", label: "Won" },
+  { value: "all", label: "All" },
 ];
 
+const SCOPE_SUBTITLE: Record<Scope, string> = {
+  pipeline: "Open & awaiting result: demand if won",
+  won: "Confirmed engineering demand",
+  all: "Every BID in the period",
+};
+
 interface EngHoursRankingProps {
-  bids: IBid[];
+  items: IEngHoursItem[];
   maxItems?: number;
   onBidClick: (bidNumber: string) => void;
 }
 
 export const EngHoursRanking: React.FC<EngHoursRankingProps> = ({
-  bids,
+  items,
   maxItems = 8,
   onBidClick,
 }) => {
   const t = useChartTheme();
-  const { getDivisionColor } = useStatusColors();
-  const [scope, setScope] = React.useState<Scope>("active");
+  const { getColor, getLabel } = useResultStatus();
+  const [scope, setScope] = React.useState<Scope>("pipeline");
 
   const ranked = React.useMemo(
     () =>
-      bids
-        .filter((b) => (scope === "active" ? isActiveBid(b) : !isActiveBid(b)))
-        .map((b) => ({ bid: b, hours: getEngineeringHours(b) }))
-        .filter((r) => r.hours > 0)
+      items
+        .filter((r) => scope === "all" || r.bucket === scope)
+        .slice()
         .sort((a, b) => b.hours - a.hours)
         .slice(0, maxItems),
-    [bids, scope, maxItems],
+    [items, scope, maxItems],
   );
 
   const maxHours = ranked.length ? ranked[0].hours : 1;
 
   return (
     <GlassCard
-      title="Top BIDs · Engineering Hours"
-      subtitle={
-        scope === "active"
-          ? "Highest eng. effort in progress"
-          : "Highest eng. effort delivered"
-      }
+      title="Top BIDs - Engineering Hours"
+      subtitle={SCOPE_SUBTITLE[scope]}
       accentColor={t.accentSecondary}
       actions={
         <SegmentedControl<Scope>
@@ -89,24 +90,38 @@ export const EngHoursRanking: React.FC<EngHoursRankingProps> = ({
               <span className={styles.rank}>{i + 1}</span>
               <div className={styles.info}>
                 <div className={styles.topline}>
-                  <span className={styles.bidNumber}>{r.bid.bidNumber}</span>
+                  <span className={styles.project}>
+                    {r.bid.opportunityInfo?.projectName ||
+                      r.bid.opportunityInfo?.client ||
+                      r.bid.bidNumber}
+                  </span>
                   <StatusBadge
-                    status={r.bid.division}
-                    color={getDivisionColor(r.bid.division)}
+                    status={getLabel(r.result)}
+                    color={getColor(r.result)}
                   />
+                  {r.chance !== null && (
+                    <span
+                      className={styles.chance}
+                      title="Win chance (manual or historical)"
+                    >
+                      {Math.round(r.chance * 100)}% win
+                    </span>
+                  )}
                 </div>
                 <div className={styles.subline}>
-                  {r.bid.opportunityInfo?.client || "-"}
-                  {r.bid.opportunityInfo?.projectName
-                    ? ` · ${r.bid.opportunityInfo.projectName}`
+                  <span className={styles.bidNumber}>{r.bid.bidNumber}</span>
+                  {r.bid.opportunityInfo?.projectName &&
+                  r.bid.opportunityInfo?.client
+                    ? ` · ${r.bid.opportunityInfo.client}`
                     : ""}
+                  {r.bid.division ? ` · ${r.bid.division}` : ""}
                 </div>
                 <div className={styles.bar}>
                   <div
                     className={styles.barFill}
                     style={{
                       width: `${(r.hours / maxHours) * 100}%`,
-                      background: t.accentSecondary,
+                      background: getColor(r.result),
                     }}
                   />
                 </div>

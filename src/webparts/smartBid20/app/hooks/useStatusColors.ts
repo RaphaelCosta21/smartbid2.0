@@ -4,6 +4,8 @@
  */
 import * as React from "react";
 import { useConfigStore } from "../stores/useConfigStore";
+import { useUIStore } from "../stores/useUIStore";
+import { resolveSemanticColor } from "./useColorTheme";
 import { PRIORITY_COLORS } from "../utils/constants";
 import {
   getPhaseColor as staticPhaseColor,
@@ -20,6 +22,7 @@ interface StatusColorLookup {
 
 export function useStatusColors(): StatusColorLookup {
   const config = useConfigStore((s) => s.config);
+  const colorTheme = useUIStore((s) => s.colorTheme);
 
   return React.useMemo(() => {
     const phaseMap = new Map<string, string>();
@@ -47,10 +50,18 @@ export function useStatusColors(): StatusColorLookup {
 
     return {
       getPhaseColor: (phaseValue: string) =>
-        phaseMap.get(phaseValue) || staticPhaseColor(phaseValue),
+        resolveSemanticColor(
+          "phases",
+          phaseValue,
+          phaseMap.get(phaseValue) || staticPhaseColor(phaseValue),
+        ),
 
       getStatusColor: (statusValue: string) =>
-        subStatusMap.get(statusValue) || staticStatusColor(statusValue),
+        resolveSemanticColor(
+          "statuses",
+          statusValue,
+          subStatusMap.get(statusValue) || staticStatusColor(statusValue),
+        ),
 
       getPriorityColor: (priority: string) => {
         return PRIORITY_COLORS[priority] || "#94A3B8";
@@ -62,5 +73,6 @@ export function useStatusColors(): StatusColorLookup {
       getServiceLineColor: (serviceLine: string) =>
         serviceLineMap.get(serviceLine) || "#94a3b8",
     };
-  }, [config]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- colorTheme is read inside resolveSemanticColor
+  }, [config, colorTheme]);
 }

@@ -60,7 +60,7 @@
   border-radius: 8px;
   border: none;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
@@ -426,7 +426,7 @@
 }
 
 .roleTag {
-  background: rgba(0, 201, 167, 0.12);
+  background: color-mix(in srgb, var(--accent-brand) 12%, transparent);
   color: var(--primary-accent);
 }
 
@@ -557,7 +557,7 @@
 
   &.primary {
     background: var(--primary-accent);
-    color: white;
+    color: var(--primary-accent-contrast);
     border-color: var(--primary-accent);
 
     &:hover {
