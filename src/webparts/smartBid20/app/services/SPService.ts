@@ -48,4 +48,11 @@ export class SPService {
   public static get isInitialized(): boolean {
     return SPService._isInitialized;
   }
+
+  /** Readable reason from a PnPjs error (the SharePoint odata.error text when present). */
+  public static errorMessage(err: unknown): string {
+    const raw = err instanceof Error ? err.message : String(err || "");
+    const sp = /"value"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(raw);
+    return sp ? sp[1] : raw;
+  }
 }

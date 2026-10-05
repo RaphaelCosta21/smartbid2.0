@@ -9,7 +9,12 @@ import { useConfigStore } from "../stores/useConfigStore";
 import { useQuotationStore } from "../stores/useQuotationStore";
 import { useSupplierStore } from "../stores/useSupplierStore";
 import { useUIStore } from "../stores/useUIStore";
-import { QuotationService } from "../services/QuotationService";
+import {
+  QUOTATION_TEXT_MAX,
+  QuotationService,
+} from "../services/QuotationService";
+import { SPService } from "../services/SPService";
+import { validateMaxLength } from "../utils/validators";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { convertToUSD } from "../utils/costCalculations";
 import { canonicalSupplierName } from "../utils/supplierMatching";
@@ -517,6 +522,31 @@ export const QuotationsPage: React.FC = () => {
           });
           return;
         }
+        const tooLong =
+          validateMaxLength(
+            line.description.trim(),
+            QUOTATION_TEXT_MAX,
+            "Description",
+          ) ||
+          validateMaxLength(
+            line.partNumber.trim(),
+            QUOTATION_TEXT_MAX,
+            "Part Number",
+          ) ||
+          validateMaxLength(
+            line.reference.trim(),
+            QUOTATION_TEXT_MAX,
+            "Quotation REF",
+          ) ||
+          validateMaxLength(
+            line.supplier.trim(),
+            QUOTATION_TEXT_MAX,
+            "Supplier",
+          );
+        if (tooLong) {
+          addToast({ type: "error", title: tooLong });
+          return;
+        }
       }
 
       setSaving(true);
@@ -595,8 +625,13 @@ export const QuotationsPage: React.FC = () => {
           registerSuppliers(newItems.map((item) => ({ name: item.supplier })));
         }
         onClose();
-      } catch {
-        addToast({ type: "error", title: "Failed to save quotation" });
+      } catch (err) {
+        console.error("Failed to save quotation", err);
+        addToast({
+          type: "error",
+          title: "Failed to save quotation",
+          message: SPService.errorMessage(err),
+        });
       } finally {
         setSaving(false);
       }

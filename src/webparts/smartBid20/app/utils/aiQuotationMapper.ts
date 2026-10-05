@@ -125,7 +125,10 @@ export function mapExtractedQuotationLine(
     supplierSourceName: asWritten || ai.supplier || "",
     reference: ai.reference || "",
     leadTimeDays: ai.leadTimeDays || 0,
-    quotationDate: ai.quotationDate ? ai.quotationDate.slice(0, 10) : today,
+    // SharePoint rejects the row if the DateTime column gets a non-ISO value.
+    quotationDate: /^\d{4}-\d{2}-\d{2}/.test(ai.quotationDate || "")
+      ? ai.quotationDate.slice(0, 10)
+      : today,
     type: ai.type === "rental" ? "rental" : "acquisition",
     cost: ai.cost || 0,
     currency: (ai.currency || "USD").toUpperCase(),
