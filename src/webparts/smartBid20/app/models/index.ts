@@ -228,4 +228,8 @@ export {
   type ISurveySpreadCategory,
   type SurveyLinkKind,
   type SurveySceneShape,
+  type SurveyDataType,
+  type SurveyDataRole,
+  type SurveyPipelineStage,
+  type ISurveyPipelineNode,
 } from "./ISurveyCatalog";

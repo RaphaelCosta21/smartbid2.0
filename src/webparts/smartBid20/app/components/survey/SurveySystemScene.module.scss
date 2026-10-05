@@ -483,6 +483,15 @@
   cursor: pointer;
 }
 
+.traceLogical {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px dashed var(--survey-alert);
+  color: var(--survey-ice);
+  font-size: 9px;
+  font-style: italic;
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;

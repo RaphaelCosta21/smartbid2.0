@@ -658,6 +658,7 @@
     },
     {
       "id": "raid-storage",
+      "dataRole": "storage",
       "sceneShape": "rack",
       "familyId": "data-acquisition",
       "title": "RAID Video Storage",
@@ -715,6 +716,7 @@
     },
     {
       "id": "online-master-pc",
+      "dataRole": "compute",
       "sceneShape": "workstation",
       "familyId": "online-network",
       "title": "Online Master PC",
@@ -737,6 +739,7 @@
     },
     {
       "id": "online-backup-pc",
+      "dataRole": "compute",
       "sceneShape": "workstation",
       "familyId": "online-network",
       "title": "Online Backup PC",
@@ -759,6 +762,7 @@
     },
     {
       "id": "naviscan-mbes-pc",
+      "dataRole": "compute",
       "sceneShape": "workstation",
       "familyId": "online-network",
       "title": "Naviscan / MBES PC",
@@ -781,6 +785,7 @@
     },
     {
       "id": "oms-pc",
+      "dataRole": "compute",
       "sceneShape": "workstation",
       "familyId": "online-network",
       "title": "OMS PC",
@@ -803,6 +808,7 @@
     },
     {
       "id": "survey-server",
+      "dataRole": "storage",
       "sceneShape": "rack",
       "familyId": "online-network",
       "title": "Server",
@@ -825,6 +831,7 @@
     },
     {
       "id": "survey-printer",
+      "dataRole": "support",
       "sceneShape": "printer",
       "familyId": "online-network",
       "title": "Printer",
@@ -847,6 +854,7 @@
     },
     {
       "id": "network-switch",
+      "dataRole": "transport",
       "sceneShape": "switch",
       "familyId": "online-network",
       "title": "Network Switch",
@@ -869,6 +877,7 @@
     },
     {
       "id": "moxa-nport",
+      "dataRole": "transport",
       "sceneShape": "serial-box",
       "familyId": "online-network",
       "title": "MOXA NPort Serial Server",
@@ -891,6 +900,7 @@
     },
     {
       "id": "apc-ups",
+      "dataRole": "support",
       "sceneShape": "ups",
       "familyId": "online-network",
       "title": "APC UPS",
@@ -913,6 +923,8 @@
     },
     {
       "id": "internet-access",
+      "dataRole": "transport",
+      "dataTypes": ["comms"],
       "sceneShape": "network-cloud",
       "familyId": "online-network",
       "title": "Internet Access Connection",
@@ -935,6 +947,7 @@
     },
     {
       "id": "survey-online-monitors",
+      "dataRole": "display",
       "sceneShape": "monitor",
       "familyId": "online-network",
       "title": "Survey Online Monitors",
@@ -957,6 +970,7 @@
     },
     {
       "id": "online-survey-system",
+      "dataRole": "support",
       "sceneShape": "system-core",
       "familyId": "online-network",
       "title": "Online Survey System",
@@ -979,6 +993,8 @@
     },
     {
       "id": "cnav-x1-receiver",
+      "dataRole": "source",
+      "dataTypes": ["position", "time-sync"],
       "sceneShape": "receiver",
       "familyId": "positioning-acoustics",
       "title": "C-Nav X1 Receiver",
@@ -1001,6 +1017,8 @@
     },
     {
       "id": "cnav-x1-antenna",
+      "dataRole": "rf-frontend",
+      "dataTypes": ["position", "corrections"],
       "sceneShape": "gnss-dome",
       "familyId": "positioning-acoustics",
       "title": "C-Nav X1 Antenna",
@@ -1023,6 +1041,8 @@
     },
     {
       "id": "cnav-iridium-antenna",
+      "dataRole": "rf-frontend",
+      "dataTypes": ["position", "corrections"],
       "sceneShape": "whip-antenna",
       "familyId": "positioning-acoustics",
       "title": "C-Nav X1 Iridium Edge Antenna",
@@ -1045,6 +1065,8 @@
     },
     {
       "id": "usbl-topside-unit",
+      "dataRole": "source",
+      "dataTypes": ["acoustic-position"],
       "sceneShape": "receiver",
       "familyId": "positioning-acoustics",
       "title": "USBL Topside Unit",
@@ -1067,6 +1089,8 @@
     },
     {
       "id": "ranger2-subsea-head",
+      "dataRole": "source",
+      "dataTypes": ["acoustic-position"],
       "sceneShape": "sonar-head",
       "familyId": "positioning-acoustics",
       "title": "Ranger 2 USBL Subsea Head (HPT 5000)",
@@ -1089,6 +1113,8 @@
     },
     {
       "id": "c-node",
+      "dataRole": "source",
+      "dataTypes": ["acoustic-position"],
       "sceneShape": "transponder",
       "familyId": "positioning-acoustics",
       "title": "C-Node",
@@ -1111,6 +1137,8 @@
     },
     {
       "id": "hemisphere-vs1000-antenna",
+      "dataRole": "rf-frontend",
+      "dataTypes": ["heading", "position"],
       "sceneShape": "gnss-dome",
       "familyId": "surface-navigation",
       "title": "Hemisphere VS1000 Antenna",
@@ -1133,6 +1161,8 @@
     },
     {
       "id": "hemisphere-vs1000-receiver",
+      "dataRole": "source",
+      "dataTypes": ["heading", "position"],
       "sceneShape": "receiver",
       "familyId": "surface-navigation",
       "title": "Hemisphere VS1000 Receiver",
@@ -1155,6 +1185,8 @@
     },
     {
       "id": "octans-9",
+      "dataRole": "source",
+      "dataTypes": ["heading", "motion"],
       "sceneShape": "gyro",
       "familyId": "surface-navigation",
       "title": "Gyro Octans 9",
@@ -1177,6 +1209,8 @@
     },
     {
       "id": "pps-zda-splitter",
+      "dataRole": "transport",
+      "dataTypes": ["time-sync"],
       "sceneShape": "serial-box",
       "familyId": "surface-navigation",
       "title": "PPS/ZDA Splitter Box",
@@ -1199,6 +1233,8 @@
     },
     {
       "id": "vessel-gyro",
+      "dataRole": "source",
+      "dataTypes": ["heading"],
       "sceneShape": "gyro",
       "familyId": "surface-navigation",
       "title": "Gyro (Vessel Supplied)",
@@ -1221,6 +1257,8 @@
     },
     {
       "id": "vessel-mru",
+      "dataRole": "source",
+      "dataTypes": ["motion"],
       "sceneShape": "gyro",
       "familyId": "surface-navigation",
       "title": "MRU (Vessel Data)",
@@ -1243,6 +1281,8 @@
     },
     {
       "id": "vessel-dgps",
+      "dataRole": "source",
+      "dataTypes": ["position"],
       "sceneShape": "gnss-dome",
       "familyId": "surface-navigation",
       "title": "DGPS (Vessel Data)",
@@ -1265,6 +1305,8 @@
     },
     {
       "id": "hipap-apos-interface",
+      "dataRole": "source",
+      "dataTypes": ["acoustic-position"],
       "sceneShape": "receiver",
       "familyId": "surface-navigation",
       "title": "HiPAP / APOS Interface",
@@ -1287,6 +1329,8 @@
     },
     {
       "id": "barometer",
+      "dataRole": "source",
+      "dataTypes": ["depth"],
       "sceneShape": "probe",
       "familyId": "surface-navigation",
       "title": "Barometer",
@@ -1309,6 +1353,8 @@
     },
     {
       "id": "rov-gyro",
+      "dataRole": "source",
+      "dataTypes": ["heading", "motion"],
       "sceneShape": "gyro",
       "familyId": "subsea-navigation",
       "title": "Gyro (ROV)",
@@ -1331,6 +1377,8 @@
     },
     {
       "id": "altimeter",
+      "dataRole": "source",
+      "dataTypes": ["altitude"],
       "sceneShape": "probe",
       "familyId": "subsea-navigation",
       "title": "Altimeter",
@@ -1353,6 +1401,8 @@
     },
     {
       "id": "mini-svs",
+      "dataRole": "source",
+      "dataTypes": ["sound-velocity"],
       "sceneShape": "probe",
       "familyId": "subsea-navigation",
       "title": "Mini SVS",
@@ -1375,6 +1425,8 @@
     },
     {
       "id": "dq",
+      "dataRole": "source",
+      "dataTypes": ["depth"],
       "sceneShape": "probe",
       "familyId": "subsea-navigation",
       "title": "DQ (Digiquartz Depth Sensor)",
@@ -1397,6 +1449,8 @@
     },
     {
       "id": "svx2",
+      "dataRole": "source",
+      "dataTypes": ["sound-velocity"],
       "sceneShape": "probe",
       "familyId": "subsea-navigation",
       "title": "SVX2 Sound Velocity Sensor",
@@ -1419,6 +1473,8 @@
     },
     {
       "id": "r2sonic-heads",
+      "dataRole": "source",
+      "dataTypes": ["bathymetry"],
       "sceneShape": "sonar-head",
       "familyId": "hydrography-imaging",
       "title": "R2Sonic MBES Heads",
@@ -1441,6 +1497,8 @@
     },
     {
       "id": "r2sonic-sim",
+      "dataRole": "transport",
+      "dataTypes": ["bathymetry", "motion", "time-sync"],
       "sceneShape": "receiver",
       "familyId": "hydrography-imaging",
       "title": "R2Sonic SIM",
@@ -1463,6 +1521,8 @@
     },
     {
       "id": "tss440-topside",
+      "dataRole": "source",
+      "dataTypes": ["pipe-tracking"],
       "sceneShape": "receiver",
       "familyId": "inspection-pipeline",
       "title": "TSS 440 Topside Unit",
@@ -1485,6 +1545,8 @@
     },
     {
       "id": "tss440-bottle",
+      "dataRole": "transport",
+      "dataTypes": ["pipe-tracking"],
       "sceneShape": "subsea-bottle",
       "familyId": "inspection-pipeline",
       "title": "TSS 440 Bottle",
@@ -1507,6 +1569,8 @@
     },
     {
       "id": "tss440-coils",
+      "dataRole": "source",
+      "dataTypes": ["pipe-tracking"],
       "sceneShape": "coil-frame",
       "familyId": "inspection-pipeline",
       "title": "TSS 440 Coils",
@@ -1529,6 +1593,8 @@
     },
     {
       "id": "green-laser",
+      "dataRole": "source",
+      "dataTypes": ["video"],
       "sceneShape": "laser",
       "familyId": "inspection-pipeline",
       "title": "Green Laser",
@@ -1551,6 +1617,8 @@
     },
     {
       "id": "satel-radio",
+      "dataRole": "transport",
+      "dataTypes": ["comms"],
       "sceneShape": "radio",
       "familyId": "comms-telemetry",
       "title": "Satel Radio",
@@ -1573,6 +1641,8 @@
     },
     {
       "id": "satel-radio-antenna",
+      "dataRole": "rf-frontend",
+      "dataTypes": ["comms"],
       "sceneShape": "whip-antenna",
       "familyId": "comms-telemetry",
       "title": "Satel Radio Antenna",
@@ -1595,6 +1665,8 @@
     },
     {
       "id": "bullet-wifi-antenna",
+      "dataRole": "rf-frontend",
+      "dataTypes": ["comms"],
       "sceneShape": "panel-antenna",
       "familyId": "comms-telemetry",
       "title": "Bullet WiFi Antenna",
@@ -1617,6 +1689,8 @@
     },
     {
       "id": "bullet-poe",
+      "dataRole": "transport",
+      "dataTypes": ["comms"],
       "sceneShape": "serial-box",
       "familyId": "comms-telemetry",
       "title": "Bullet PoE Box",
@@ -1639,6 +1713,8 @@
     },
     {
       "id": "video-telemetry-tx",
+      "dataRole": "transport",
+      "dataTypes": ["video"],
       "sceneShape": "radio",
       "familyId": "comms-telemetry",
       "title": "Video Telemetry TX Unit",
@@ -1661,6 +1737,8 @@
     },
     {
       "id": "video-telemetry-rx",
+      "dataRole": "transport",
+      "dataTypes": ["video"],
       "sceneShape": "radio",
       "familyId": "comms-telemetry",
       "title": "Video Telemetry RX Unit",
@@ -1683,6 +1761,8 @@
     },
     {
       "id": "video-telemetry-tx-antenna",
+      "dataRole": "transport",
+      "dataTypes": ["video"],
       "sceneShape": "panel-antenna",
       "familyId": "comms-telemetry",
       "title": "Video Telemetry TX Antenna",
@@ -1705,6 +1785,8 @@
     },
     {
       "id": "video-telemetry-rx-antenna",
+      "dataRole": "rf-frontend",
+      "dataTypes": ["video"],
       "sceneShape": "panel-antenna",
       "familyId": "comms-telemetry",
       "title": "Video Telemetry RX Antenna",
@@ -1727,6 +1809,7 @@
     },
     {
       "id": "bridge-remote-helmsman",
+      "dataRole": "display",
       "sceneShape": "monitor",
       "familyId": "comms-telemetry",
       "title": "Bridge Remote Helmsman",
@@ -1749,6 +1832,7 @@
     },
     {
       "id": "rov-remote-helmsman",
+      "dataRole": "display",
       "sceneShape": "monitor",
       "familyId": "comms-telemetry",
       "title": "ROV Remote Helmsman",
@@ -1771,6 +1855,7 @@
     },
     {
       "id": "video-telemetry-system",
+      "dataRole": "support",
       "sceneShape": "system-core",
       "familyId": "comms-telemetry",
       "title": "Video Telemetry System",
@@ -1793,6 +1878,7 @@
     },
     {
       "id": "innova-topside-mux",
+      "dataRole": "transport",
       "sceneShape": "rack",
       "familyId": "rov-interface",
       "title": "INNOVA Topside MUX",
@@ -1815,6 +1901,7 @@
     },
     {
       "id": "innova-subsea-mux",
+      "dataRole": "transport",
       "sceneShape": "subsea-bottle",
       "familyId": "rov-interface",
       "title": "INNOVA Subsea MUX",
@@ -1837,6 +1924,7 @@
     },
     {
       "id": "rov-instrument-rack",
+      "dataRole": "transport",
       "sceneShape": "rack",
       "familyId": "rov-interface",
       "title": "ROV Instrument Rack (Fibre Connection)",
@@ -1859,6 +1947,7 @@
     },
     {
       "id": "rov-umbilical-fibre",
+      "dataRole": "transport",
       "sceneShape": "fibre-reel",
       "familyId": "rov-interface",
       "title": "ROV Fibre in Umbilical",
@@ -1881,6 +1970,8 @@
     },
     {
       "id": "rov-camera-feeds",
+      "dataRole": "transport",
+      "dataTypes": ["video"],
       "sceneShape": "camera",
       "familyId": "rov-interface",
       "title": "ROV Camera Feeds",
@@ -1903,6 +1994,8 @@
     },
     {
       "id": "boom-cameras",
+      "dataRole": "source",
+      "dataTypes": ["video"],
       "sceneShape": "camera",
       "familyId": "rov-interface",
       "title": "Booms Cameras",
@@ -1925,6 +2018,7 @@
     },
     {
       "id": "usbl-system",
+      "dataRole": "support",
       "sceneShape": "system-core",
       "familyId": "positioning-acoustics",
       "title": "USBL System (Complete)",
@@ -2265,6 +2359,149 @@
         { "from": "c-node#1", "to": "ranger2-subsea-head", "kind": "acoustic" },
         { "from": "c-node#2", "to": "ranger2-subsea-head", "kind": "acoustic" },
         { "from": "c-node#3", "to": "ranger2-subsea-head", "kind": "acoustic" }
+      ],
+      "pipeline": [
+        {
+          "id": "sw-tss440",
+          "title": "TSS 440 Topside Processing",
+          "stage": "software",
+          "hostEquipmentId": "tss440-topside",
+          "description": "Turns the coil readings into target position and depth of burial before they reach navigation.",
+          "consumes": ["pipe-tracking"],
+          "feeds": ["sw-navipac"],
+          "validated": false
+        },
+        {
+          "id": "sw-navipac",
+          "title": "NaviPac Online Navigation",
+          "stage": "software",
+          "hostEquipmentId": "online-master-pc",
+          "description": "Combines position, heading, motion, depth and acoustic fixes into the real-time navigation solution and logs it.",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity", "pipe-tracking", "time-sync"],
+          "feeds": ["store-server"],
+          "displays": ["bridge-remote-helmsman", "rov-remote-helmsman", "survey-online-monitors"],
+          "validated": false
+        },
+        {
+          "id": "sw-naviscan",
+          "title": "NaviScan MBES Acquisition",
+          "stage": "software",
+          "hostEquipmentId": "naviscan-mbes-pc",
+          "description": "Logs the multibeam swaths with sound velocity, motion and heading applied in real time.",
+          "consumes": ["bathymetry", "sound-velocity", "motion", "heading", "position", "time-sync"],
+          "feeds": ["store-server"],
+          "displays": ["survey-online-monitors"],
+          "validated": false
+        },
+        {
+          "id": "sw-video",
+          "title": "Video Recording & Overlay",
+          "stage": "software",
+          "hostEquipmentId": "video-recorder",
+          "description": "Records the ROV camera channels with the survey data overlay and events.",
+          "consumes": ["video"],
+          "feeds": ["store-server"],
+          "displays": ["survey-online-monitors"],
+          "validated": false
+        },
+        {
+          "id": "store-server",
+          "title": "Project Data Storage",
+          "stage": "storage",
+          "hostEquipmentId": "survey-server",
+          "description": "Server and RAID keep raw navigation logs, MBES files and video until processing and delivery.",
+          "feeds": ["proc-naviedit", "proc-navimodel", "proc-eventing", "dlv-dpr", "dlv-calib"],
+          "validated": false
+        },
+        {
+          "id": "proc-naviedit",
+          "title": "NaviEdit Navigation & Sensor QC",
+          "stage": "processing",
+          "description": "Cleans and quality-checks navigation and sensor data offline.",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity", "pipe-tracking", "bathymetry"],
+          "feeds": ["dlv-nav", "dlv-asbuilt", "dlv-dob", "proc-navimodel"],
+          "validated": false
+        },
+        {
+          "id": "proc-navimodel",
+          "title": "NaviModel Gridding & Charting",
+          "stage": "processing",
+          "description": "Builds the seabed terrain model, contours and charts from the cleaned soundings.",
+          "consumes": ["bathymetry", "sound-velocity", "motion", "heading"],
+          "feeds": ["dlv-mbes"],
+          "validated": false
+        },
+        {
+          "id": "proc-eventing",
+          "title": "Video Review & Eventing",
+          "stage": "processing",
+          "description": "Reviews the recorded video and logs inspection events and anomalies.",
+          "consumes": ["video"],
+          "feeds": ["dlv-video"],
+          "validated": false
+        },
+        {
+          "id": "dlv-dpr",
+          "title": "Daily Progress Report (DPR)",
+          "stage": "deliverable",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity", "bathymetry", "pipe-tracking", "video"],
+          "validated": false
+        },
+        {
+          "id": "dlv-nav",
+          "title": "Processed Navigation Data",
+          "stage": "deliverable",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-asbuilt",
+          "title": "As-built Position Report",
+          "stage": "deliverable",
+          "consumes": ["position", "heading", "depth", "acoustic-position"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-mbes",
+          "title": "MBES Bathymetry: DTM, XYZ & Charts",
+          "stage": "deliverable",
+          "consumes": ["bathymetry", "sound-velocity", "motion", "heading"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-dob",
+          "title": "Pipeline Depth of Burial Report",
+          "stage": "deliverable",
+          "consumes": ["pipe-tracking"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-video",
+          "title": "Inspection Video & Event Log",
+          "stage": "deliverable",
+          "consumes": ["video"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-calib",
+          "title": "Calibration Reports",
+          "stage": "deliverable",
+          "description": "USBL CASIUS, MBES patch test and gyro calibration.",
+          "consumes": ["acoustic-position", "heading", "motion", "bathymetry"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-final",
+          "title": "Final Survey Report",
+          "stage": "deliverable",
+          "validated": false
+        }
       ]
     }
   ]

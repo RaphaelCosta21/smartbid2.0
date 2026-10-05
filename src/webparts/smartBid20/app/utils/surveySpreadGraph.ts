@@ -5,8 +5,10 @@
 import {
   ISurveyCatalog,
   ISurveyEquipment,
+  ISurveyPipelineNode,
   ISurveySpread,
   SurveyLinkKind,
+  SurveyPipelineStage,
   SurveySceneAnchor,
   SurveySceneShape,
 } from "../models";
@@ -219,7 +221,19 @@ export function traceSignalPath(
 ): ISignalPath | null {
   const targets = [hubEquipmentId].concat(SIGNAL_FALLBACK_IDS);
   if (targets.indexOf(baseId(fromId)) >= 0) return null;
-  const adjacency: Record<string, { to: string; key: string }[]> = {};
+  const adjacency = buildAdjacency(links);
+  for (let t = 0; t < targets.length; t++) {
+    const target = targets[t];
+    const path = shortestPath(adjacency, fromId, (id) => baseId(id) === target);
+    if (path) return path;
+  }
+  return null;
+}
+
+type Adjacency = Record<string, { to: string; key: string }[]>;
+
+function buildAdjacency(links: ISpreadLinkRef[]): Adjacency {
+  const adjacency: Adjacency = {};
   const edge = (a: string, b: string, key: string): void => {
     (adjacency[a] || (adjacency[a] = [])).push({ to: b, key });
   };
@@ -228,18 +242,13 @@ export function traceSignalPath(
     edge(l.from, l.to, l.key);
     if (l.kind !== "video") edge(l.to, l.from, l.key);
   });
-
-  for (let t = 0; t < targets.length; t++) {
-    const path = shortestPath(adjacency, fromId, targets[t]);
-    if (path) return path;
-  }
-  return null;
+  return adjacency;
 }
 
 function shortestPath(
-  adjacency: Record<string, { to: string; key: string }[]>,
+  adjacency: Adjacency,
   fromId: string,
-  targetEquipmentId: string,
+  isTarget: (nodeId: string) => boolean,
 ): ISignalPath | null {
   const prev: Record<string, { node: string; key: string } | null> = { [fromId]: null };
   const queue = [fromId];
@@ -249,7 +258,7 @@ function shortestPath(
     (adjacency[current] || []).forEach((e) => {
       if (found || prev[e.to] !== undefined) return;
       prev[e.to] = { node: current, key: e.key };
-      if (baseId(e.to) === targetEquipmentId) found = e.to;
+      if (isTarget(e.to)) found = e.to;
       else queue.push(e.to);
     });
   }
@@ -278,6 +287,256 @@ export function directLinks(links: ISpreadLinkRef[], id: string): ISignalPath | 
     if (nodeIds.indexOf(other) < 0) nodeIds.push(other);
   });
   return linkKeys.length ? { nodeIds, linkKeys } : null;
+}
+
+export type LineageStageKey =
+  | "capture"
+  | "transport"
+  | "acquisition"
+  | "display"
+  | "storage"
+  | "processing"
+  | "deliverable"
+  | "open";
+
+export interface ILineageItem {
+  key: string;
+  label: string;
+  sublabel?: string;
+  /** Longer explanation shown as a tooltip. */
+  hint?: string;
+  /** Clickable when the item is a piece of equipment in the catalog. */
+  equipmentId?: string;
+  current?: boolean;
+  /** Not yet validated by a survey SME. */
+  inferred?: boolean;
+}
+
+export interface ILineageStage {
+  key: LineageStageKey;
+  title: string;
+  items: ILineageItem[];
+}
+
+export interface IDataLineage {
+  stages: ILineageStage[];
+  /** Physical wiring path (source → acquisition host) for the 3D trace; null when aggregated. */
+  path: ISignalPath | null;
+}
+
+const STAGE_TITLES: Record<LineageStageKey, string> = {
+  capture: "CAPTURE",
+  transport: "TRANSPORT",
+  acquisition: "SOFTWARE",
+  display: "DISPLAY",
+  storage: "STORAGE",
+  processing: "PROCESSING",
+  deliverable: "CLIENT DELIVERABLES",
+  open: "NEXT STEP",
+};
+
+const LOGICAL_STAGES: SurveyPipelineStage[] = ["software", "storage", "processing", "deliverable"];
+const STAGE_KEY: Record<SurveyPipelineStage, LineageStageKey> = {
+  software: "acquisition",
+  storage: "storage",
+  processing: "processing",
+  deliverable: "deliverable",
+};
+
+const overlaps = (a?: string[], b?: string[]): boolean =>
+  !!a && !!b && a.some((x) => b.indexOf(x) >= 0);
+
+interface IDataRoute {
+  src: ISpreadNode;
+  path: ISignalPath | null;
+  /** Software → storage → processing → deliverables reached by the source data types. */
+  chain: ISurveyPipelineNode[];
+}
+
+/**
+ * End-to-end data lineage of a spread node: sensor → wiring → software → storage → processing
+ * → client deliverables. Flow direction comes from equipment data roles/types (the diagram link
+ * directions are not consistent). Returns null when the node carries no lineage annotations.
+ */
+export function traceDataLineage(
+  nodeId: string,
+  nodes: ISpreadNode[],
+  links: ISpreadLinkRef[],
+  equipmentById: Record<string, ISurveyEquipment>,
+  pipeline: ISurveyPipelineNode[],
+): IDataLineage | null {
+  const node = nodes.find((n) => n.id === nodeId);
+  const eq = node && equipmentById[node.equipmentId];
+  if (!node || !eq || !eq.dataRole || pipeline.length === 0) return null;
+
+  const adjacency = buildAdjacency(links);
+  const spreadNodes = nodes.filter((n) => n.source !== "catalog");
+  const nodeById: Record<string, ISpreadNode> = {};
+  spreadNodes.forEach((n) => (nodeById[n.id] = n));
+  const pipeById: Record<string, ISurveyPipelineNode> = {};
+  pipeline.forEach((p) => (pipeById[p.id] = p));
+  const software = pipeline.filter((p) => p.stage === "software");
+  const present = (equipmentId?: string): boolean =>
+    !!equipmentId && spreadNodes.some((n) => n.equipmentId === equipmentId);
+  const nodeLabel = (id: string): string => (nodeById[id] ? nodeById[id].label : id);
+
+  const route = (src: ISpreadNode): IDataRoute => {
+    const types = (equipmentById[src.equipmentId] || ({} as ISurveyEquipment)).dataTypes || [];
+    const sw = software.filter((p) => overlaps(p.consumes, types));
+    const hosts = sw.map((p) => p.hostEquipmentId).filter((h) => present(h)) as string[];
+    let path: ISignalPath | null = null;
+    if (hosts.indexOf(src.equipmentId) >= 0) path = { nodeIds: [src.id], linkKeys: [] };
+    else if (hosts.length) {
+      path = shortestPath(adjacency, src.id, (id) => hosts.indexOf(baseId(id)) >= 0);
+    }
+    if (!path) path = traceSignalPath(links, src.id);
+
+    const chain: ISurveyPipelineNode[] = [];
+    const seen: Record<string, boolean> = {};
+    const queue = sw.slice();
+    sw.forEach((p) => (seen[p.id] = true));
+    while (queue.length) {
+      const p = queue.shift()!;
+      chain.push(p);
+      (p.feeds || []).forEach((id) => {
+        const next = pipeById[id];
+        if (!next || seen[id]) return;
+        if (next.consumes && !overlaps(next.consumes, types)) return;
+        seen[id] = true;
+        queue.push(next);
+      });
+    }
+    return { src, path, chain };
+  };
+
+  const hostSub = (p: ISurveyPipelineNode): string | undefined => {
+    if (!p.hostEquipmentId) return undefined;
+    const host = spreadNodes.find((n) => n.equipmentId === p.hostEquipmentId);
+    const hostEq = equipmentById[p.hostEquipmentId];
+    return host ? `on ${host.label}` : hostEq ? `on ${hostEq.title}` : "host not in the diagram";
+  };
+  const logicalItem = (p: ISurveyPipelineNode): ILineageItem => ({
+    key: p.id,
+    label: p.title,
+    sublabel: hostSub(p),
+    hint: p.description,
+    equipmentId:
+      p.hostEquipmentId && equipmentById[p.hostEquipmentId] ? p.hostEquipmentId : undefined,
+    current: !!p.hostEquipmentId && p.hostEquipmentId === eq.id,
+    inferred: !p.validated,
+  });
+  const nodeItem = (n: ISpreadNode, current?: boolean): ILineageItem => ({
+    key: n.id,
+    label: n.label,
+    equipmentId: n.equipmentId,
+    current: !!current,
+  });
+  const logicalStages = (chain: ISurveyPipelineNode[]): ILineageStage[] => {
+    const stages: ILineageStage[] = [];
+    LOGICAL_STAGES.forEach((stage) => {
+      const items = pipeline
+        .filter((p) => p.stage === stage && chain.indexOf(p) >= 0)
+        .map(logicalItem);
+      if (items.length) stages.push({ key: STAGE_KEY[stage], title: STAGE_TITLES[STAGE_KEY[stage]], items });
+    });
+    if (!stages.some((s) => s.key === "deliverable")) {
+      stages.push({
+        key: "open",
+        title: STAGE_TITLES.open,
+        items: [
+          {
+            key: "open",
+            label: "Downstream use to confirm",
+            sublabel: "Survey SME review",
+            inferred: true,
+          },
+        ],
+      });
+    }
+    return stages;
+  };
+  const stage = (key: LineageStageKey, items: ILineageItem[]): ILineageStage => ({
+    key,
+    title: STAGE_TITLES[key],
+    items,
+  });
+
+  const role = eq.dataRole;
+  if (role === "source" || role === "rf-frontend") {
+    const r = route(node);
+    const ids = r.path ? r.path.nodeIds : [node.id];
+    const last = baseId(ids[ids.length - 1]);
+    const endsOnHost =
+      ids.length > 1 && r.chain.some((p) => p.stage === "software" && p.hostEquipmentId === last);
+    const hops = ids
+      .slice(1, endsOnHost ? -1 : undefined)
+      .filter((id) => (equipmentById[baseId(id)] || ({} as ISurveyEquipment)).dataRole !== "display");
+    const stages = [stage("capture", [nodeItem(node, true)])];
+    if (hops.length) {
+      stages.push(
+        stage(
+          "transport",
+          hops.map((id) => ({ key: id, label: nodeLabel(id), equipmentId: baseId(id) })),
+        ),
+      );
+    }
+    return { stages: stages.concat(logicalStages(r.chain)), path: r.path };
+  }
+
+  const sources = spreadNodes.filter((n) => {
+    const r = (equipmentById[n.equipmentId] || ({} as ISurveyEquipment)).dataRole;
+    return r === "source" || r === "rf-frontend";
+  });
+
+  if (role === "display") {
+    const shows = software.filter((p) => (p.displays || []).indexOf(eq.id) >= 0);
+    if (shows.length === 0) return null;
+    const feeding = sources.filter((s) =>
+      overlaps(
+        (equipmentById[s.equipmentId].dataTypes || []) as string[],
+        shows.reduce((acc: string[], p) => acc.concat(p.consumes || []), []),
+      ),
+    );
+    return {
+      stages: [
+        stage("capture", feeding.map((s) => nodeItem(s))),
+        stage("acquisition", shows.map(logicalItem)),
+        stage("display", [nodeItem(node, true)]),
+      ],
+      path: null,
+    };
+  }
+
+  // Transport and support: every source wired through this node. Computers and storage: only
+  // the data handled by the software they host (other links merely end on them).
+  const throughWiring = role === "transport" || role === "support";
+  const routes = sources
+    .map(route)
+    .filter(
+      (r) =>
+        (throughWiring && !!r.path && r.path.nodeIds.indexOf(node.id) >= 0) ||
+        r.chain.some((p) => p.hostEquipmentId === eq.id),
+    );
+  if (routes.length === 0) return null;
+  let chain: ISurveyPipelineNode[] = [];
+  routes.forEach((r) => r.chain.forEach((p) => chain.indexOf(p) < 0 && chain.push(p)));
+  if (role === "compute") {
+    // A computer shows its own software and what is downstream of it, not its peers' software.
+    const reach: Record<string, boolean> = {};
+    const queue = chain.filter((p) => p.stage === "software" && p.hostEquipmentId === eq.id);
+    queue.forEach((p) => (reach[p.id] = true));
+    while (queue.length) {
+      (queue.shift()!.feeds || []).forEach((id) => {
+        if (reach[id] || !pipeById[id]) return;
+        reach[id] = true;
+        queue.push(pipeById[id]);
+      });
+    }
+    chain = chain.filter((p) => reach[p.id] && (p.stage !== "software" || p.hostEquipmentId === eq.id));
+  }
+  const stages = [stage("capture", routes.map((r) => nodeItem(r.src)))];
+  if (role === "transport") stages.push(stage("transport", [nodeItem(node, true)]));
+  return { stages: stages.concat(logicalStages(chain)), path: null };
 }
 
 const SHAPE_RULES: [RegExp, SurveySceneShape][] = [

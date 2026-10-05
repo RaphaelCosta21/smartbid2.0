@@ -58,6 +58,32 @@ export interface ISurveyFitNode {
   stack?: string[];
 }
 
+/** Kind of information an equipment produces or carries, used to follow data to client deliverables. */
+export type SurveyDataType =
+  | "position"
+  | "heading"
+  | "motion"
+  | "depth"
+  | "altitude"
+  | "sound-velocity"
+  | "bathymetry"
+  | "acoustic-position"
+  | "pipe-tracking"
+  | "video"
+  | "time-sync"
+  | "corrections"
+  | "comms";
+
+/** Part an equipment plays in the data flow (source = sensor that originates data). */
+export type SurveyDataRole =
+  | "source"
+  | "rf-frontend"
+  | "transport"
+  | "compute"
+  | "storage"
+  | "display"
+  | "support";
+
 export interface ISurveyEquipment {
   id: string;
   familyId: string;
@@ -82,6 +108,8 @@ export interface ISurveyEquipment {
   sceneShape?: SurveySceneShape | "";
   /** Optional GLB that replaces the procedural shape (https or site-relative). */
   modelUrl?: string | null;
+  dataRole?: SurveyDataRole;
+  dataTypes?: SurveyDataType[];
   imageUrl: string | null;
   datasheetUrl: string | null;
   order: number;
@@ -152,6 +180,26 @@ export interface ISurveySpreadLink {
   cable?: string;
 }
 
+export type SurveyPipelineStage = "software" | "storage" | "processing" | "deliverable";
+
+/** Logical step after the hardware (software, storage, processing, client deliverable). */
+export interface ISurveyPipelineNode {
+  id: string;
+  title: string;
+  stage: SurveyPipelineStage;
+  description?: string;
+  /** Equipment the step runs on or lives in; may be absent from the diagram. */
+  hostEquipmentId?: string;
+  /** Data types the step takes in; omitted = accepts whatever reaches it. */
+  consumes?: SurveyDataType[];
+  /** Next pipeline node ids. */
+  feeds?: string[];
+  /** Real-time displays a software step drives. */
+  displays?: string[];
+  /** Confirmed by a survey SME; false = inferred. */
+  validated?: boolean;
+}
+
 /** A full equipment spread taken from a one-line diagram, reusable as a BID scope template. */
 export interface ISurveySpread {
   id: string;
@@ -162,6 +210,7 @@ export interface ISurveySpread {
   zones: ISurveySpreadZone[];
   links: ISurveySpreadLink[];
   categories?: ISurveySpreadCategory[];
+  pipeline?: ISurveyPipelineNode[];
   order: number;
 }
 

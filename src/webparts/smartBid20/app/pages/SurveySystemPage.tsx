@@ -34,15 +34,18 @@ import {
   useSurveyBidComparison,
   useSurveyBidIntel,
 } from "../hooks/useSurveyPortal";
-import { ISurveySpreadZone, SurveyLinkKind, SurveySceneAnchor } from "../models";
+import { ISurveyEquipment, ISurveySpreadZone, SurveyLinkKind, SurveySceneAnchor } from "../models";
 import {
+  IDataLineage,
   ISpreadLinkRef,
   ISpreadNode,
+  LineageStageKey,
   catalogNodes,
   directLinks,
   expandSpreadNodes,
   resolveSceneShape,
   resolveSpreadLinks,
+  traceDataLineage,
   traceSignalPath,
 } from "../utils/surveySpreadGraph";
 import styles from "./SurveySystemPage.module.scss";
@@ -83,6 +86,9 @@ const dominantKind = (links: ISpreadLinkRef[]): SurveyLinkKind => {
 };
 
 const SEARCH_HITS_MAX = 8;
+/** Logical stages appended to the 3D signal path after the wiring hops. */
+const TRACE_LOGICAL_STAGES: LineageStageKey[] = ["acquisition", "storage", "processing", "deliverable"];
+const FINAL_DELIVERABLE_ID = "dlv-final";
 
 export const SurveySystemPage: React.FC = () => {
   const catalog = useSurveyStore((s) => s.catalog);
@@ -335,12 +341,27 @@ export const SurveySystemPage: React.FC = () => {
     };
   }, [rooms, activeZoneId, catalog, nodes, links, nodeById, bidStateOf]);
 
+  const equipmentById = React.useMemo(() => {
+    const result: Record<string, ISurveyEquipment> = {};
+    (catalog?.equipment || []).forEach((e) => (result[e.id] = e));
+    return result;
+  }, [catalog]);
+  const pipeline = React.useMemo(() => spread?.pipeline || [], [spread]);
+  const lineageOf = React.useCallback(
+    (nodeId: string | null | undefined): IDataLineage | null =>
+      nodeId ? traceDataLineage(nodeId, nodes, links, equipmentById, pipeline) : null,
+    [nodes, links, equipmentById, pipeline],
+  );
+  const nodeLineage = React.useMemo(() => lineageOf(selectedNodeId), [lineageOf, selectedNodeId]);
+
   const trace = React.useMemo(
     () =>
       selectedNodeId
-        ? traceSignalPath(links, selectedNodeId) || directLinks(links, selectedNodeId)
+        ? (nodeLineage && nodeLineage.path) ||
+          traceSignalPath(links, selectedNodeId) ||
+          directLinks(links, selectedNodeId)
         : null,
-    [links, selectedNodeId],
+    [links, selectedNodeId, nodeLineage],
   );
   const packageEquipmentIds = React.useMemo(
     () => packageLines.map((l) => l.equipmentId),
@@ -370,17 +391,25 @@ export const SurveySystemPage: React.FC = () => {
       hoverLinkKeys,
     };
   }, [selectedNodeId, hoverNodeId, packageEquipmentIds, trace, activeZoneId, nodeById, focus]);
-  const tracePath = React.useMemo<SurveyTraceStep[] | null>(
-    () =>
-      trace
-        ? trace.nodeIds.map((id, i) => ({
-            id,
-            label: nodeById[id]?.label || id,
-            cable: i > 0 ? linkByKey[trace.linkKeys[i - 1]]?.cable : undefined,
-          }))
-        : null,
-    [trace, nodeById, linkByKey],
-  );
+  const tracePath = React.useMemo<SurveyTraceStep[] | null>(() => {
+    if (!trace) return null;
+    const steps: SurveyTraceStep[] = trace.nodeIds.map((id, i) => ({
+      id,
+      label: nodeById[id]?.label || id,
+      cable: i > 0 ? linkByKey[trace.linkKeys[i - 1]]?.cable : undefined,
+    }));
+    // Only a single source has one readable route to continue past the wiring.
+    if (nodeLineage && nodeLineage.path) {
+      TRACE_LOGICAL_STAGES.forEach((key) => {
+        const stage = nodeLineage.stages.find((s) => s.key === key);
+        if (!stage) return;
+        const item =
+          stage.items.find((it) => it.key === FINAL_DELIVERABLE_ID) || stage.items[0];
+        steps.push({ id: `logical:${item.key}`, label: item.label, logical: true });
+      });
+    }
+    return steps;
+  }, [trace, nodeById, linkByKey, nodeLineage]);
   const cableInfo = React.useMemo<SurveyCableInfo | null>(() => {
     if (!hoverCableKey) return null;
     const trunk = trunkDetails[hoverCableKey];
@@ -428,6 +457,12 @@ export const SurveySystemPage: React.FC = () => {
       : null;
 
   const selected = catalog?.equipment.find((e) => e.id === selectedId);
+  const detailLineage = React.useMemo(() => {
+    if (!selected) return null;
+    if (selectedNodeId && nodeById[selectedNodeId]?.equipmentId === selected.id) return nodeLineage;
+    const node = nodes.find((n) => n.equipmentId === selected.id && n.source !== "catalog");
+    return node ? lineageOf(node.id) : null;
+  }, [selected, selectedNodeId, nodeById, nodeLineage, nodes, lineageOf]);
   const intel = useSurveyBidIntel(detailOpen ? selected : undefined);
   const adding = catalog?.equipment.find((e) => e.id === addingId);
   const closeAdd = React.useCallback(() => setAddingId(null), []);
@@ -616,6 +651,7 @@ export const SurveySystemPage: React.FC = () => {
               catalog={catalog}
               intel={intel}
               packageQty={qtyOf(selected.id)}
+              lineage={detailLineage}
               onAdd={() => setAddingId(selected.id)}
               onSelectEquipment={handleSelectLinked}
               onClose={() => setDetailOpen(false)}
