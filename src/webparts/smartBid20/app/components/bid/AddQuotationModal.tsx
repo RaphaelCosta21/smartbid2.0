@@ -173,7 +173,9 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
         setLines(drafts.map(draftToLine));
         aiUsedRef.current = true;
         const withAbout = (result.items || []).find((i) => !!i.supplierAbout);
-        supplierAboutRef.current = withAbout ? withAbout.supplierAbout || "" : "";
+        supplierAboutRef.current = withAbout
+          ? withAbout.supplierAbout || ""
+          : "";
         const uncategorized = drafts.filter((d) => !d.groupId).length;
         addToast({
           type: "success",

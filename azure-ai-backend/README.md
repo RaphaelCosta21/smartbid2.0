@@ -128,8 +128,8 @@ per-document outline chunk. Before deploying the skillset:
    It then shows under Enterprise applications → `opgbbes-prd-fa-aadapp` → **Users and groups**.
 4. **EasyAuth** — `fa-opgb-bes-prd-fa` (provider `opgbbes-prd-fa-aadapp`, client ID
    `5b292f7a-b8a5-4346-b809-568481fe514c`) → Settings → **Authentication** → Microsoft provider → **Edit**:
-   under **Additional checks**, a *specific client applications* list needs the search **Application ID**
-   and a *specific identities* list needs its **Object (principal) ID**. The audience needs no change:
+   under **Additional checks**, a _specific client applications_ list needs the search **Application ID**
+   and a _specific identities_ list needs its **Object (principal) ID**. The audience needs no change:
    the skill requests the same `api://opgbbes-prd-fa-aadapp.oceaneering.com` the web part uses.
 
 The skill's `authResourceId` is already set to `api://opgbbes-prd-fa-aadapp.oceaneering.com`.

@@ -36,7 +36,13 @@ type ColumnMap = Record<string, boolean>;
 let columnsPromise: Promise<ColumnMap> | undefined;
 
 const LOGO_PREFIX = "logo-";
-const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml", "image/gif"];
+const LOGO_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/svg+xml",
+  "image/gif",
+];
 export const LOGO_MAX_BYTES = 1024 * 1024;
 
 /** Returns an error message, or null when the file is an acceptable logo. */

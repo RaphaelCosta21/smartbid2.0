@@ -724,7 +724,8 @@ export class AIAnalysisService {
       });
     });
     // The model may put it on a row that was folded or left out above.
-    if (items.length > 0 && supplierAbout) items[0].supplierAbout = supplierAbout;
+    if (items.length > 0 && supplierAbout)
+      items[0].supplierAbout = supplierAbout;
     const warnings = Array.isArray(raw.warnings)
       ? raw.warnings.map(String)
       : [];
@@ -978,8 +979,9 @@ export class AIAnalysisService {
   ): Promise<ISupplierProfileSuggestion> {
     AIAnalysisService.ensureConfigured();
     const safeName =
-      (supplierName || "supplier").replace(/[^A-Za-z0-9]+/g, "-").slice(0, 40) ||
-      "supplier";
+      (supplierName || "supplier")
+        .replace(/[^A-Za-z0-9]+/g, "-")
+        .slice(0, 40) || "supplier";
     const file = new File([dossier], `${safeName}-profile.txt`, {
       type: "text/plain",
     });

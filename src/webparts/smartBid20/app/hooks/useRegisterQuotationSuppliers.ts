@@ -4,10 +4,7 @@
  * Never blocks or fails the quotation save itself.
  */
 import * as React from "react";
-import {
-  ISupplierEntry,
-  useSupplierStore,
-} from "../stores/useSupplierStore";
+import { ISupplierEntry, useSupplierStore } from "../stores/useSupplierStore";
 import { useUIStore } from "../stores/useUIStore";
 
 export function useRegisterQuotationSuppliers(): (

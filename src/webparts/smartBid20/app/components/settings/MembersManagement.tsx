@@ -336,8 +336,9 @@ const MembersManagement: React.FC = () => {
   }));
 
   const activeCount = allMembers.filter((m) => m.isActive).length;
-  const sectorsInUse = SECTOR_META.filter((s) => sectorCounts[s.key] > 0)
-    .length;
+  const sectorsInUse = SECTOR_META.filter(
+    (s) => sectorCounts[s.key] > 0,
+  ).length;
   const hasFilters =
     !!search.trim() || sectorFilter.length > 0 || blFilter.length > 0;
 
@@ -770,10 +771,7 @@ const MembersManagement: React.FC = () => {
         (s) => (
           <div key={s.key} className={styles.roleSection}>
             <div className={styles.roleSectionHeader}>
-              <span
-                className={styles.roleBadge}
-                style={sectorStyle(s.color)}
-              >
+              <span className={styles.roleBadge} style={sectorStyle(s.color)}>
                 {s.icon} {s.label}
               </span>
               <span className={styles.roleCount}>

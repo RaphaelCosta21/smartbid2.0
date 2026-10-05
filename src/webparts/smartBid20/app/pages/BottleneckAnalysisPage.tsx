@@ -328,9 +328,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
           </div>
 
           <GlassCard
-            title={
-              dimension === "phase" ? "Time by Phase" : "Time by Status"
-            }
+            title={dimension === "phase" ? "Time by Phase" : "Time by Status"}
             subtitle={`Duration ${
               stat === "avg"
                 ? "average"

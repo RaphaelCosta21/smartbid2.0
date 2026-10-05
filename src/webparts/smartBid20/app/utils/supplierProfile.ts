@@ -117,7 +117,8 @@ export function buildSupplierProfileText(
     lines.push(`CONTACT E-MAIL DOMAINS: ${domains.join(", ")}`);
   if (supplier.keywords.length)
     lines.push(`CURRENT KEYWORDS: ${supplier.keywords.join(", ")}`);
-  if (supplier.notes.trim()) lines.push(`INTERNAL NOTES: ${supplier.notes.trim()}`);
+  if (supplier.notes.trim())
+    lines.push(`INTERNAL NOTES: ${supplier.notes.trim()}`);
   if (documentAbout && documentAbout.trim())
     lines.push(
       `WHAT THE SUPPLIER'S QUOTATION DOCUMENT SAYS ABOUT THE COMPANY: ${documentAbout.trim()}`,
@@ -139,7 +140,9 @@ export function buildSupplierProfileText(
       );
     });
   } else {
-    lines.push("ITEMS THIS SUPPLIER QUOTED TO OCEANEERING: none registered yet.");
+    lines.push(
+      "ITEMS THIS SUPPLIER QUOTED TO OCEANEERING: none registered yet.",
+    );
   }
   return lines.join("\n");
 }

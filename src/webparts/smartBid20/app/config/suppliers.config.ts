@@ -7,17 +7,33 @@ import { IConfigOption } from "../models";
 
 const SERVICE_TYPE_SEED: Array<[string, string, string]> = [
   ["sst-precision-machining", "Precision Machining (CNC)", "Manufacturing"],
-  ["sst-heavy-fabrication", "Heavy Fabrication / Boilermaking", "Manufacturing"],
+  [
+    "sst-heavy-fabrication",
+    "Heavy Fabrication / Boilermaking",
+    "Manufacturing",
+  ],
   ["sst-welding", "Welding (TIG/MIG, Aluminum & Stainless)", "Manufacturing"],
-  ["sst-cutting-engraving", "Cutting & Engraving (Plasma, Wire EDM, Laser)", "Manufacturing"],
-  ["sst-blasting-painting", "Sandblasting & Industrial Painting", "Manufacturing"],
+  [
+    "sst-cutting-engraving",
+    "Cutting & Engraving (Plasma, Wire EDM, Laser)",
+    "Manufacturing",
+  ],
+  [
+    "sst-blasting-painting",
+    "Sandblasting & Industrial Painting",
+    "Manufacturing",
+  ],
   ["sst-aluminum-structures", "Aluminum Structures & Skids", "Manufacturing"],
   ["sst-pressure-vessels", "Pressure Vessels", "Manufacturing"],
   ["sst-manifolds-piping", "Manifolds & Piping", "Manufacturing"],
   ["sst-rov-subsea-tooling", "ROV & Subsea Tooling", "Subsea & ROV"],
   ["sst-hot-stabs", "Hot Stabs & Hydraulic Connections", "Subsea & ROV"],
   ["sst-rov-spares", "ROV Spare Parts & Components", "Subsea & ROV"],
-  ["sst-launch-recovery", "Launch & Recovery Structures (Gantries, A-Frames)", "Subsea & ROV"],
+  [
+    "sst-launch-recovery",
+    "Launch & Recovery Structures (Gantries, A-Frames)",
+    "Subsea & ROV",
+  ],
   ["sst-subsea-structures", "Subsea Structures", "Subsea & ROV"],
   ["sst-ndt", "Non-Destructive Testing (NDT)", "Quality"],
   ["sst-inspection-calibration", "Inspection & Calibration", "Quality"],

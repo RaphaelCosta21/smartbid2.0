@@ -181,7 +181,10 @@ export const SupplierDrawer: React.FC<SupplierDrawerProps> = ({
                   <div key={i} className={styles.contact}>
                     <span className={styles.contactName}>{c.name || "-"}</span>
                     {c.email && (
-                      <a className={styles.contactLink} href={`mailto:${c.email}`}>
+                      <a
+                        className={styles.contactLink}
+                        href={`mailto:${c.email}`}
+                      >
                         <Mail size={12} /> {c.email}
                       </a>
                     )}

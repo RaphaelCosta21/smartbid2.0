@@ -511,9 +511,9 @@ export const OperationalSummaryPage: React.FC = () => {
               accentColor={chart.warning}
             >
               {sectorData.length === 0 ? (
-                  <EmptyState
-                    title="No Completed Approvals"
-                    description="Average department approval times will appear here once approval rounds are closed."
+                <EmptyState
+                  title="No Completed Approvals"
+                  description="Average department approval times will appear here once approval rounds are closed."
                 />
               ) : (
                 <ResponsiveContainer

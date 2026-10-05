@@ -79,10 +79,7 @@ export function toTradeName(raw: string): string {
     const last = words[words.length - 1];
     if (isSuffix(last) || /^[-,.&]+$/.test(last)) {
       words.pop();
-    } else if (
-      words.length > 2 &&
-      isSuffix(words[words.length - 2] + last)
-    ) {
+    } else if (words.length > 2 && isSuffix(words[words.length - 2] + last)) {
       words.splice(words.length - 2, 2);
     } else {
       break;

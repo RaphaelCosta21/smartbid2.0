@@ -174,7 +174,8 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
               supplier,
               aboutById[supplier.id],
             );
-            if (hasProfile(profile)) await get().saveProfile(supplier.id, profile);
+            if (hasProfile(profile))
+              await get().saveProfile(supplier.id, profile);
           } catch (err) {
             console.warn(`Supplier profile skipped for ${supplier.name}`, err);
           }
@@ -191,10 +192,9 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     const config = useConfigStore.getState().config;
     const groups = config?.favoriteGroups || [];
     const quotations =
-      groupQuotationsBySupplier(
-        [supplier],
-        useQuotationStore.getState().items,
-      )[supplier.id] || [];
+      groupQuotationsBySupplier([supplier], useQuotationStore.getState().items)[
+        supplier.id
+      ] || [];
     const dossier = buildSupplierProfileText(
       supplier,
       quotations,

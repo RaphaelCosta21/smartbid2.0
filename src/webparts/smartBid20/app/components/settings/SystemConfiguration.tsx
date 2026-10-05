@@ -775,9 +775,7 @@ const SystemConfiguration: React.FC = () => {
               <div className={styles.optionInfo}>
                 <span className={styles.optionLabel}>{opt.label}</span>
                 {configKey === "supplierServiceTypes" && opt.category && (
-                  <span
-                    style={{ fontSize: 11, color: "var(--text-muted)" }}
-                  >
+                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
                     {opt.category as string}
                   </span>
                 )}

@@ -73,7 +73,9 @@ const formFromSupplier = (s: ISupplier): FormState => ({
   keywordsText: s.keywords.join(", "),
   serviceTypes: s.serviceTypes.slice(),
   pnsText: s.partNumbers.join("\n"),
-  contacts: s.contacts.length ? s.contacts.map((c) => ({ ...c })) : [emptyContact()],
+  contacts: s.contacts.length
+    ? s.contacts.map((c) => ({ ...c }))
+    : [emptyContact()],
   notes: s.notes,
   active: s.active,
 });
@@ -271,7 +273,9 @@ export const SuppliersRegistry: React.FC = () => {
   const setContact = (i: number, patch: Partial<ISupplierContact>): void =>
     setForm((f) => ({
       ...f,
-      contacts: f.contacts.map((c, idx) => (idx === i ? { ...c, ...patch } : c)),
+      contacts: f.contacts.map((c, idx) =>
+        idx === i ? { ...c, ...patch } : c,
+      ),
     }));
 
   const addContactRow = (): void =>
@@ -371,7 +375,8 @@ export const SuppliersRegistry: React.FC = () => {
       if (!hasSuggestion(suggestion)) {
         addToast({
           type: "info",
-          title: "Not enough information about this supplier - fields left blank",
+          title:
+            "Not enough information about this supplier - fields left blank",
         });
         return;
       }
@@ -380,10 +385,14 @@ export const SuppliersRegistry: React.FC = () => {
         !!suggestion.description &&
         (!current ||
           current === suggestion.description ||
-          window.confirm("Replace the current description with the AI suggestion?"));
+          window.confirm(
+            "Replace the current description with the AI suggestion?",
+          ));
       setForm((f) => ({
         ...f,
-        description: replaceDescription ? suggestion.description : f.description,
+        description: replaceDescription
+          ? suggestion.description
+          : f.description,
         keywordsText: mergeUnique(
           splitCommas(f.keywordsText),
           suggestion.keywords,
@@ -554,7 +563,11 @@ export const SuppliersRegistry: React.FC = () => {
     }
     enrichCancelRef.current = false;
     setEnrichRows(
-      targets.map((supplier) => ({ supplier, status: "waiting", accept: false })),
+      targets.map((supplier) => ({
+        supplier,
+        status: "waiting",
+        accept: false,
+      })),
     );
     setEnrichRunning(true);
     for (const supplier of targets) {
@@ -640,7 +653,9 @@ export const SuppliersRegistry: React.FC = () => {
     const usedTypes = serviceTypes.all.filter(
       (o) => o.isActive !== false || typeCounts[o.id],
     );
-    const supplyCounts = count(suppliers.map((s) => supplyBySupplier[s.id] || []));
+    const supplyCounts = count(
+      suppliers.map((s) => supplyBySupplier[s.id] || []),
+    );
     const keywordLabels: Record<string, string> = {};
     const keywordCounts = count(
       suppliers.map((s) =>
@@ -732,7 +747,9 @@ export const SuppliersRegistry: React.FC = () => {
   );
 
   const selected =
-    selectedId !== null ? suppliers.find((s) => s.id === selectedId) : undefined;
+    selectedId !== null
+      ? suppliers.find((s) => s.id === selectedId)
+      : undefined;
 
   const formTypeOptions = serviceTypes.active.concat(
     serviceTypes.all.filter(
@@ -1082,7 +1099,9 @@ export const SuppliersRegistry: React.FC = () => {
                 {syncRows.map((r) => (
                   <div key={r.key} className={styles.reviewRow}>
                     <div className={styles.reviewInfo}>
-                      <span className={styles.reviewTitle}>{r.variants[0]}</span>
+                      <span className={styles.reviewTitle}>
+                        {r.variants[0]}
+                      </span>
                       {r.variants.length > 1 && (
                         <span className={styles.subtle}>
                           Also written as: {r.variants.slice(1).join(" | ")}
@@ -1124,7 +1143,9 @@ export const SuppliersRegistry: React.FC = () => {
                         value={r.aliasOf === "" ? "" : String(r.aliasOf)}
                         onChange={(e) =>
                           updateSyncRow(r.key, {
-                            aliasOf: e.target.value ? Number(e.target.value) : "",
+                            aliasOf: e.target.value
+                              ? Number(e.target.value)
+                              : "",
                           })
                         }
                         aria-label="Registered supplier"
@@ -1169,10 +1190,13 @@ export const SuppliersRegistry: React.FC = () => {
           <div className={styles.cardHeader}>
             <h3 className={styles.cardTitle}>Enrich with AI</h3>
             <span className={styles.subtle}>
-              {enrichRows.filter((r) => r.status === "done" || r.status === "error")
-                .length}{" "}
-              / {enrichRows.length} suppliers reviewed. Built from SmartBid
-              data only; review before saving.
+              {
+                enrichRows.filter(
+                  (r) => r.status === "done" || r.status === "error",
+                ).length
+              }{" "}
+              / {enrichRows.length} suppliers reviewed. Built from SmartBid data
+              only; review before saving.
             </span>
           </div>
           <div className={styles.cardBody}>
@@ -1199,7 +1223,9 @@ export const SuppliersRegistry: React.FC = () => {
                           )
                         }
                       />
-                      <span className={styles.reviewTitle}>{r.supplier.name}</span>
+                      <span className={styles.reviewTitle}>
+                        {r.supplier.name}
+                      </span>
                     </label>
                     <div className={styles.enrichBody}>
                       {r.status === "waiting" && (
@@ -1214,12 +1240,16 @@ export const SuppliersRegistry: React.FC = () => {
                         </span>
                       )}
                       {r.status === "done" && sug && !usable && (
-                        <span className={styles.subtle}>{BASIS_LABELS.none}</span>
+                        <span className={styles.subtle}>
+                          {BASIS_LABELS.none}
+                        </span>
                       )}
                       {r.status === "done" && sug && usable && (
                         <>
                           {sug.description && (
-                            <p className={styles.enrichText}>{sug.description}</p>
+                            <p className={styles.enrichText}>
+                              {sug.description}
+                            </p>
                           )}
                           {(sug.serviceTypes.length > 0 ||
                             sug.keywords.length > 0) && (

@@ -151,7 +151,11 @@ export const SupplierCombobox: React.FC<SupplierComboboxProps> = ({
           role="listbox"
           style={
             pos
-              ? { top: pos.top, left: pos.left, width: Math.max(pos.width, 260) }
+              ? {
+                  top: pos.top,
+                  left: pos.left,
+                  width: Math.max(pos.width, 260),
+                }
               : undefined
           }
         >
