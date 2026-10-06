@@ -515,8 +515,11 @@ export const PreparationMobilizationTab: React.FC<
   const rtsTotal = calculateMultiCurrencyTotals(rts, fx).totalUSD;
   const mobTotal = calculateMultiCurrencyTotals(mob, fx).totalUSD;
   const consTotal = calculateMultiCurrencyTotals(cons, fx).totalUSD;
-  const allPrepItems: Array<{ totalCost: number; originalCurrency: string }> =
-    [...rts, ...mob, ...cons];
+  const allPrepItems: Array<{ totalCost: number; originalCurrency: string }> = [
+    ...rts,
+    ...mob,
+    ...cons,
+  ];
   const itemsWithoutCost = allPrepItems.filter(
     (i) => !(i.totalCost > 0),
   ).length;

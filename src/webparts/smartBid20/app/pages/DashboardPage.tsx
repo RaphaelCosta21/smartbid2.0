@@ -147,8 +147,7 @@ export const DashboardPage: React.FC = () => {
       total: 0,
     };
     activeBids.forEach((b) => {
-      const row =
-        rows[BID_PRIORITIES.indexOf(b.priority)] || unclassified;
+      const row = rows[BID_PRIORITIES.indexOf(b.priority)] || unclassified;
       row.total++;
       if (isOverdueBid(b)) row.overdue++;
       else row.onTrack++;
@@ -367,8 +366,7 @@ export const DashboardPage: React.FC = () => {
                 </h3>
                 <p className={styles.sectionSubtitle}>
                   {analyticsBids.length} BID
-                  {analyticsBids.length === 1 ? "" : "s"} in the selected
-                  period
+                  {analyticsBids.length === 1 ? "" : "s"} in the selected period
                 </p>
               </div>
 
@@ -413,8 +411,8 @@ export const DashboardPage: React.FC = () => {
                   Engineering Hours Outlook
                 </h4>
                 <p className={styles.sectionSubtitle}>
-                  Engineering effort estimated in BIDs: confirmed (Won) and
-                  what may come if the pipeline is won.
+                  Engineering effort estimated in BIDs: confirmed (Won) and what
+                  may come if the pipeline is won.
                 </p>
               </div>
               <EngHoursOutlook

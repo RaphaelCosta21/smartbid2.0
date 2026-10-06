@@ -49,7 +49,10 @@ export const BidsByUrgencyChart: React.FC<BidsByUrgencyChartProps> = ({
           No active BIDs.
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={Math.max(200, data.length * 56)}>
+        <ResponsiveContainer
+          width="100%"
+          height={Math.max(200, data.length * 56)}
+        >
           <BarChart
             data={data}
             layout="vertical"
@@ -75,7 +78,9 @@ export const BidsByUrgencyChart: React.FC<BidsByUrgencyChartProps> = ({
               cursor={{ fill: chart.referenceFill }}
               content={<ChartTooltip />}
             />
-            <Legend wrapperStyle={{ fontSize: 12, color: chart.textSecondary }} />
+            <Legend
+              wrapperStyle={{ fontSize: 12, color: chart.textSecondary }}
+            />
             <Bar
               dataKey="onTrack"
               name="On track"

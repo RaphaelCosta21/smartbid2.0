@@ -104,9 +104,7 @@ export interface ITabEditContext {
 }
 
 /** Lets a tab header render the edit controls of the surrounding EditableTabContent. */
-export const TabEditContext = React.createContext<ITabEditContext | null>(
-  null,
-);
+export const TabEditContext = React.createContext<ITabEditContext | null>(null);
 
 export const EditControls: React.FC<ITabEditContext> = ({
   editControl,

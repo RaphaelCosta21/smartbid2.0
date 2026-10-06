@@ -602,8 +602,7 @@ function buildPendingApprovalRow(bid: IBid): IPendingApprovalRow {
     statuses: approvals
       .map((a) => a.status as string)
       .sort(
-        (a, b) =>
-          (PERSON_STATUS_RANK[a] ?? 2) - (PERSON_STATUS_RANK[b] ?? 2),
+        (a, b) => (PERSON_STATUS_RANK[a] ?? 2) - (PERSON_STATUS_RANK[b] ?? 2),
       ),
     people,
     waiting: people.filter((p) => p.status === "pending"),

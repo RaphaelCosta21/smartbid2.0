@@ -1,10 +1,7 @@
 /** Unified glass header for the BID Details scope & costing tabs. */
 import * as React from "react";
 import { ChevronDown } from "lucide-react";
-import {
-  EditControls,
-  TabEditContext,
-} from "../common/EditLockBanner";
+import { EditControls, TabEditContext } from "../common/EditLockBanner";
 import { DivisionContext } from "../common/IntegratedDivisionTabs";
 import styles from "./BidTabHeader.module.scss";
 

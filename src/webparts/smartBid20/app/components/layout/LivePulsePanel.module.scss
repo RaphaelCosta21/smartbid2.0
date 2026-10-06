@@ -448,7 +448,8 @@
   height: 7px;
   border-radius: 50%;
   background: var(--primary-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-accent) 20%, transparent);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--primary-accent) 20%, transparent);
 }
 
 .updatesBanner {
@@ -794,7 +795,11 @@
     letter-spacing 250ms ease;
 
   &:hover {
-    background: color-mix(in srgb, var(--primary-accent) 8%, var(--card-bg-elevated));
+    background: color-mix(
+      in srgb,
+      var(--primary-accent) 8%,
+      var(--card-bg-elevated)
+    );
     letter-spacing: 0.2px;
   }
 

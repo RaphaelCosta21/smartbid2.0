@@ -316,7 +316,9 @@ export const OperationalSummaryPage: React.FC = () => {
             <KPICard
               variant="glass"
               label="Average Cycle"
-              value={cycle.overall.avg === null ? "-" : `${cycle.overall.avg} bd`}
+              value={
+                cycle.overall.avg === null ? "-" : `${cycle.overall.avg} bd`
+              }
               accentColor={chart.accentTertiary}
               subtitle="business days, creation to first delivery"
               target={{

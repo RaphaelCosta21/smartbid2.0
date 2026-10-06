@@ -9,7 +9,11 @@ import { useStatusColors } from "../../hooks/useStatusColors";
 import { getPhaseDef } from "../../config/status.config";
 import { getMissingApprovalHistoryPatch } from "../../utils/approvalHelpers";
 import { parseDate } from "../../utils/formatters";
-import { FocusButton, LiveFocusOverlay, useFocusMode } from "./LiveFocusOverlay";
+import {
+  FocusButton,
+  LiveFocusOverlay,
+  useFocusMode,
+} from "./LiveFocusOverlay";
 import styles from "./DashboardActivity.module.scss";
 
 type Mode = "all" | "status" | "phase";

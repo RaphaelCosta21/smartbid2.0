@@ -71,7 +71,10 @@ function buildSignature(
   return sig;
 }
 
-function diffSignature(seen: Signature | null, current: Signature): LiveUpdates {
+function diffSignature(
+  seen: Signature | null,
+  current: Signature,
+): LiveUpdates {
   const keys: Record<string, boolean> = {};
   let count = 0;
   if (!seen) return { keys, count };
@@ -198,7 +201,10 @@ export const LivePulse: React.FC = () => {
     };
     const onKey = (e: KeyboardEvent): void => {
       // Focus-mode overlays / modals handle their own Escape first
-      if (e.key === "Escape" && !document.querySelector('[aria-modal="true"]')) {
+      if (
+        e.key === "Escape" &&
+        !document.querySelector('[aria-modal="true"]')
+      ) {
         closePanel();
         pillRef.current?.focus();
       }

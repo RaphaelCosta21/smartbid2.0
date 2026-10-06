@@ -3,7 +3,11 @@ import { formatDate } from "../../utils/formatters";
 import { IUpcomingDeadline } from "../../utils/bidHelpers";
 import { GlassCard } from "../common/GlassCard";
 import { StatusBadge } from "../common/StatusBadge";
-import { FocusButton, LiveFocusOverlay, useFocusMode } from "./LiveFocusOverlay";
+import {
+  FocusButton,
+  LiveFocusOverlay,
+  useFocusMode,
+} from "./LiveFocusOverlay";
 import styles from "./UpcomingDeadlines.module.scss";
 
 interface UpcomingDeadlinesProps {

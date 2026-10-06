@@ -155,7 +155,9 @@ const Field: React.FC<{ label: string; value?: string; hint?: string }> = ({
     <span className={styles.fieldLabel}>{label}</span>
     <span className={styles.fieldValue}>
       {value || "-"}
-      {value && hint ? <span className={styles.fieldHint}> · {hint}</span> : null}
+      {value && hint ? (
+        <span className={styles.fieldHint}> · {hint}</span>
+      ) : null}
     </span>
   </div>
 );
@@ -184,9 +186,10 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
     minimizeRef.current?.focus();
   }, []);
 
-  const openErns = React.useMemo(() => ernRows.filter((r) => !r.closed), [
-    ernRows,
-  ]);
+  const openErns = React.useMemo(
+    () => ernRows.filter((r) => !r.closed),
+    [ernRows],
+  );
   const ernScoped = mine
     ? openErns.filter((r) => isErnAssignedTo(r.ern, userEmail))
     : openErns;
@@ -278,7 +281,9 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
 
   const renderApprovalList = (): React.ReactNode => {
     if (approvals.length === 0) {
-      return <div className={styles.empty}>No BID is waiting for approval.</div>;
+      return (
+        <div className={styles.empty}>No BID is waiting for approval.</div>
+      );
     }
     return approvals.slice(0, LIST_LIMIT).map((r, i) => {
       const project = r.bid.opportunityInfo?.projectName;
@@ -303,7 +308,11 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
             </span>
           </span>
           <span className={styles.pill}>
-            {r.days === null ? "Waiting" : r.days === 0 ? "Today" : `${r.days}d`}
+            {r.days === null
+              ? "Waiting"
+              : r.days === 0
+                ? "Today"
+                : `${r.days}d`}
           </span>
           <ChevronRight size={14} className={styles.rowChevron} />
         </button>
@@ -378,7 +387,9 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
         <div className={`${styles.detailHead} ${ernTone(r)}`}>
           <span className={styles.mono}>
             {r.ernNumber}
-            {r.division ? ` · ${r.division === "SURVEY" ? "Survey" : r.division}` : ""}
+            {r.division
+              ? ` · ${r.division === "SURVEY" ? "Survey" : r.division}`
+              : ""}
           </span>
           <span className={styles.pillLg}>{getErnCountdownLabel(r)}</span>
         </div>
@@ -386,7 +397,9 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
         <div className={styles.detailMeta}>
           <span className={styles.chip}>{r.status}</span>
           {bid.bidNumber}
-          {bid.opportunityInfo?.client ? ` · ${bid.opportunityInfo.client}` : ""}
+          {bid.opportunityInfo?.client
+            ? ` · ${bid.opportunityInfo.client}`
+            : ""}
         </div>
         <div className={styles.fields}>
           <Field
@@ -436,7 +449,11 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
   const renderApprovalDetail = (r: IPendingApprovalRow): React.ReactNode => {
     const project = r.bid.opportunityInfo?.projectName;
     const client = r.bid.opportunityInfo?.client;
-    const rank: Record<string, number> = { pending: 0, rejected: 1, approved: 2 };
+    const rank: Record<string, number> = {
+      pending: 0,
+      rejected: 1,
+      approved: 2,
+    };
     const people = r.people
       .slice()
       .sort((a, b) => (rank[a.status] ?? 0) - (rank[b.status] ?? 0));
@@ -518,7 +535,9 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
             </li>
           ))}
         </ul>
-        <div className={styles.detailActions}>{openBidBtn(r.bid.bidNumber)}</div>
+        <div className={styles.detailActions}>
+          {openBidBtn(r.bid.bidNumber)}
+        </div>
       </>
     );
   };
@@ -659,7 +678,11 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
                 your last check
               </div>
             )}
-            <div className={styles.tiles} data-pulse-item="" style={itemStyle(0)}>
+            <div
+              className={styles.tiles}
+              data-pulse-item=""
+              style={itemStyle(0)}
+            >
               <Tile
                 label="ERNs overdue"
                 value={ernKpis.overdue}
@@ -690,7 +713,11 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
               />
             </div>
 
-            <div className={styles.tabsRow} data-pulse-item="" style={itemStyle(1)}>
+            <div
+              className={styles.tabsRow}
+              data-pulse-item=""
+              style={itemStyle(1)}
+            >
               <SegmentedControl<Tab>
                 value={tab}
                 segments={tabs}
@@ -747,7 +774,11 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
       </div>
 
       {!onDashboard && (
-        <button type="button" className={styles.footerBtn} onClick={onOpenDashboard}>
+        <button
+          type="button"
+          className={styles.footerBtn}
+          onClick={onOpenDashboard}
+        >
           Open Engineering Dashboard <ArrowUpRight size={14} />
         </button>
       )}

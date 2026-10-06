@@ -54,7 +54,12 @@ export function resolveKpiTargets(
 export function validatePriorityRules(rules: IPriorityRules): string | null {
   const u = rules.urgentMaxBusinessDays;
   const n = rules.normalMaxBusinessDays;
-  if (!isFinite(u) || !isFinite(n) || Math.floor(u) !== u || Math.floor(n) !== n)
+  if (
+    !isFinite(u) ||
+    !isFinite(n) ||
+    Math.floor(u) !== u ||
+    Math.floor(n) !== n
+  )
     return "Limits must be whole numbers of business days.";
   if (u < 0) return "The Urgent limit cannot be negative.";
   if (n <= u) return "The Normal limit must be greater than the Urgent limit.";
@@ -294,8 +299,7 @@ export interface CycleSummary {
 
 const average = (values: number[]): number | null =>
   values.length
-    ? Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 10) /
-      10
+    ? Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 10) / 10
     : null;
 
 export function computeCycleByPriority(

@@ -85,8 +85,7 @@ export const BidFxNote: React.FC<BidFxNoteProps> = ({
           icon={<TriangleAlert size={13} />}
           title="Update the rates on the Overview tab."
         >
-          No exchange rate for {missing.join(", ")} - left out of the USD
-          totals
+          No exchange rate for {missing.join(", ")} - left out of the USD totals
         </HeaderChip>
       )}
     </div>

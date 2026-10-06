@@ -17,7 +17,11 @@ import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import { GlassCard } from "../common/GlassCard";
 import { EmptyState } from "../common/EmptyState";
 import { SegmentedControl, SegmentOption } from "../insights/SegmentedControl";
-import { FocusButton, LiveFocusOverlay, useFocusMode } from "./LiveFocusOverlay";
+import {
+  FocusButton,
+  LiveFocusOverlay,
+  useFocusMode,
+} from "./LiveFocusOverlay";
 import styles from "./ErnWatchlist.module.scss";
 
 interface ErnWatchlistProps {
@@ -72,7 +76,9 @@ export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
 
   const scoped = React.useMemo(
     () =>
-      mine ? rows.filter((r) => isErnAssignedTo(r.ern, currentUser.email)) : rows,
+      mine
+        ? rows.filter((r) => isErnAssignedTo(r.ern, currentUser.email))
+        : rows,
     [rows, mine, currentUser.email],
   );
 
@@ -93,9 +99,8 @@ export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
 
   const mineCount = React.useMemo(
     () =>
-      rows.filter(
-        (r) => !r.closed && isErnAssignedTo(r.ern, currentUser.email),
-      ).length,
+      rows.filter((r) => !r.closed && isErnAssignedTo(r.ern, currentUser.email))
+        .length,
     [rows, currentUser.email],
   );
 
@@ -196,7 +201,10 @@ export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
 
           <div className={styles.peopleCol}>
             {ern?.resource1 ? (
-              <span className={styles.person} title={`Responsible: ${ern.resource1}`}>
+              <span
+                className={styles.person}
+                title={`Responsible: ${ern.resource1}`}
+              >
                 <span className={styles.avatar}>{initials(ern.resource1)}</span>
                 <span className={styles.personName}>{ern.resource1}</span>
               </span>
@@ -220,7 +228,11 @@ export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
             <span className={styles.countdown}>{getErnCountdownLabel(r)}</span>
           </div>
 
-          <ChevronDown size={16} className={styles.chevron} aria-hidden="true" />
+          <ChevronDown
+            size={16}
+            className={styles.chevron}
+            aria-hidden="true"
+          />
         </div>
 
         <div className={styles.details} aria-hidden={!isOpen}>
@@ -330,7 +342,9 @@ const Detail: React.FC<{ label: string; value?: string; hint?: string }> = ({
     <span className={styles.detailLabel}>{label}</span>
     <span className={styles.detailValue}>
       {value || "-"}
-      {value && hint ? <span className={styles.detailHint}> · {hint}</span> : null}
+      {value && hint ? (
+        <span className={styles.detailHint}> · {hint}</span>
+      ) : null}
     </span>
   </div>
 );

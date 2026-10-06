@@ -7,7 +7,11 @@ import {
   IApprovalPerson,
   IPendingApprovalRow,
 } from "../../utils/approvalHelpers";
-import { FocusButton, LiveFocusOverlay, useFocusMode } from "./LiveFocusOverlay";
+import {
+  FocusButton,
+  LiveFocusOverlay,
+  useFocusMode,
+} from "./LiveFocusOverlay";
 import styles from "./ApprovalsPending.module.scss";
 
 interface ApprovalsPendingProps {
@@ -175,7 +179,11 @@ export const ApprovalsPending: React.FC<ApprovalsPendingProps> = ({
                 }`}
                 title={`${p.name} - ${p.sectors.join(", ")} (${p.status})`}
               >
-                {p.status === "approved" ? <Check size={12} /> : <X size={12} />}
+                {p.status === "approved" ? (
+                  <Check size={12} />
+                ) : (
+                  <X size={12} />
+                )}
                 {p.name.split(" ")[0]}
                 <span className={styles.personSector}>
                   {p.sectors.join(", ")}

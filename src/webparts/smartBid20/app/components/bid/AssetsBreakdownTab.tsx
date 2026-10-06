@@ -4309,8 +4309,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             {syncedAssets.orphans.length > 0 && (
               <HeaderChip tone="warning" icon={<Unlink size={13} />}>
                 {syncedAssets.orphans.length} asset
-                {syncedAssets.orphans.length !== 1 ? "s" : ""} no longer
-                linked to a Scope item
+                {syncedAssets.orphans.length !== 1 ? "s" : ""} no longer linked
+                to a Scope item
               </HeaderChip>
             )}
           </>
@@ -4342,67 +4342,65 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         )}
       </BidTabHeader>
 
-      {showMissingItems &&
-        !allCostsFilled &&
-        missingItemsList.length > 0 && (
-          <div className={styles.missingItemsPanel}>
-            <table className={styles.missingItemsTable}>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Type</th>
-                  <th>Equipment Offer</th>
-                  <th>OII/MFG PN</th>
-                  <th>RES. TYPE</th>
-                  <th>SUB-TYPE</th>
-                  <th></th>
+      {showMissingItems && !allCostsFilled && missingItemsList.length > 0 && (
+        <div className={styles.missingItemsPanel}>
+          <table className={styles.missingItemsTable}>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Type</th>
+                <th>Equipment Offer</th>
+                <th>OII/MFG PN</th>
+                <th>RES. TYPE</th>
+                <th>SUB-TYPE</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {missingItemsList.map((item, idx) => (
+                <tr key={idx}>
+                  <td>{item.lineNumber}</td>
+                  <td>
+                    <span
+                      className={
+                        item.type === "main"
+                          ? styles.missingTypeMain
+                          : styles.missingTypeSub
+                      }
+                    >
+                      {item.type === "main"
+                        ? "Main"
+                        : item.type === "pcf"
+                          ? "PCF"
+                          : "Sub-item"}
+                    </span>
+                  </td>
+                  <td>
+                    {(item.type === "sub" || item.type === "pcf") && (
+                      <span style={{ marginRight: 4, opacity: 0.5 }}>↳</span>
+                    )}
+                    {item.equipmentOffer}
+                  </td>
+                  <td className={styles.missingPN}>{item.partNumber}</td>
+                  <td>{item.resourceType}</td>
+                  <td>{item.resourceSubType}</td>
+                  <td>
+                    <button
+                      className={styles.goToBtn}
+                      onClick={() =>
+                        scrollToAsset(item.assetId, item.sectionId)
+                      }
+                      title="Go to item"
+                    >
+                      ↗
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {missingItemsList.map((item, idx) => (
-                  <tr key={idx}>
-                    <td>{item.lineNumber}</td>
-                    <td>
-                      <span
-                        className={
-                          item.type === "main"
-                            ? styles.missingTypeMain
-                            : styles.missingTypeSub
-                        }
-                      >
-                        {item.type === "main"
-                          ? "Main"
-                          : item.type === "pcf"
-                            ? "PCF"
-                            : "Sub-item"}
-                      </span>
-                    </td>
-                    <td>
-                      {(item.type === "sub" || item.type === "pcf") && (
-                        <span style={{ marginRight: 4, opacity: 0.5 }}>↳</span>
-                      )}
-                      {item.equipmentOffer}
-                    </td>
-                    <td className={styles.missingPN}>{item.partNumber}</td>
-                    <td>{item.resourceType}</td>
-                    <td>{item.resourceSubType}</td>
-                    <td>
-                      <button
-                        className={styles.goToBtn}
-                        onClick={() =>
-                          scrollToAsset(item.assetId, item.sectionId)
-                        }
-                        title="Go to item"
-                      >
-                        ↗
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className={styles.toolbar}>
         {sections.length > 0 && (

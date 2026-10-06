@@ -155,7 +155,9 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
           sub: formatCurrency(s.totalCostBRL, "BRL"),
         }}
         stats={headerStats}
-        footer={<BidFxNote fx={fx} currencies={view.itemCurrencies} requireBrl />}
+        footer={
+          <BidFxNote fx={fx} currencies={view.itemCurrencies} requireBrl />
+        }
       />
 
       {/* Breakdown Table */}

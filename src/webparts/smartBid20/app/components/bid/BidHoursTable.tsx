@@ -581,8 +581,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     (localSummary?.engineeringHours?.totalCostBRL || 0) +
     (localSummary?.onshoreHours?.totalCostBRL || 0) +
     (localSummary?.offshoreHours?.totalCostBRL || 0);
-  const totalCostUSD =
-    fx && fx.brlRate > 0 ? totalCostBRL / fx.brlRate : null;
+  const totalCostUSD = fx && fx.brlRate > 0 ? totalCostBRL / fx.brlRate : null;
   const personnelLines = [
     ...(localSummary?.onshoreHours?.items || []),
     ...(localSummary?.offshoreHours?.items || []),

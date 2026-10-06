@@ -61,7 +61,11 @@ export const DashboardKPIRow: React.FC<DashboardKPIRowProps> = ({
   const overdueTone = activeBids
     ? targetTone(overdueRate, targets.targetOverdueRate, false)
     : "neutral";
-  const onTimeTone = targetTone(onTime.rate, targets.targetOnTimeDelivery, true);
+  const onTimeTone = targetTone(
+    onTime.rate,
+    targets.targetOnTimeDelivery,
+    true,
+  );
   const decided = wonCount + lostCount;
   const winTone = decided
     ? targetTone(winRate, targets.targetWinRate, true)

@@ -1696,8 +1696,8 @@ const SystemConfiguration: React.FC = () => {
         <div className={styles.sectionHeader}>
           <h3>BID Urgency</h3>
           <p>
-            A new BID request is classified by counting business days (Monday
-            to Friday) from the request date to the desired due date. Changing
+            A new BID request is classified by counting business days (Monday to
+            Friday) from the request date to the desired due date. Changing
             these limits only affects new requests: existing BIDs keep their
             urgency. Each category has its own Avg Completion target in KPI
             Targets.
@@ -2507,9 +2507,9 @@ const SystemConfiguration: React.FC = () => {
         <h3>Recalculate BID cost summaries</h3>
         <p>
           Rebuilds the Cost Summary stored in each BID (used by Pipeline Value,
-          the CAPEX approval rule, BID Details report and exports) from its
-          cost breakdowns. Only BIDs whose stored values differ are saved. New
-          saves keep it up to date automatically.
+          the CAPEX approval rule, BID Details report and exports) from its cost
+          breakdowns. Only BIDs whose stored values differ are saved. New saves
+          keep it up to date automatically.
         </p>
       </div>
       <button
