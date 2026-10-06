@@ -5,6 +5,8 @@ interface SidebarSubmenuProps {
   label: string;
   icon: React.ReactNode;
   isCollapsed?: boolean;
+  /** Every page in the submenu is inaccessible. */
+  disabled?: boolean;
   children: React.ReactNode;
 }
 
@@ -12,16 +14,19 @@ export const SidebarSubmenu: React.FC<SidebarSubmenuProps> = ({
   label,
   icon,
   isCollapsed,
+  disabled,
   children,
 }) => {
   const [isOpen, setIsOpen] = React.useState(false);
+  const open = isOpen && !disabled;
 
   return (
     <div>
       <div
-        className={`${styles.navItem} ${styles.submenuToggle} ${isOpen ? styles.open : ""}`}
-        onClick={() => setIsOpen(!isOpen)}
-        title={isCollapsed ? label : undefined}
+        className={`${styles.navItem} ${styles.submenuToggle} ${open ? styles.open : ""} ${disabled ? styles.disabled : ""}`}
+        onClick={disabled ? undefined : () => setIsOpen(!isOpen)}
+        title={disabled ? `${label} - no access` : isCollapsed ? label : undefined}
+        aria-disabled={disabled || undefined}
       >
         {icon}
         {!isCollapsed && (
@@ -42,7 +47,7 @@ export const SidebarSubmenu: React.FC<SidebarSubmenuProps> = ({
         )}
       </div>
       {!isCollapsed && (
-        <div className={`${styles.submenu} ${isOpen ? styles.open : ""}`}>
+        <div className={`${styles.submenu} ${open ? styles.open : ""}`}>
           {children}
         </div>
       )}

@@ -20,6 +20,7 @@ import { TemplateEditor } from "../components/template/TemplateEditor";
 import { TemplatePreview } from "../components/template/TemplatePreview";
 import { AIAnalyzerModal } from "../components/common/AIAnalyzerModal";
 import { useTemplates } from "../hooks/useTemplates";
+import { usePageAccess } from "../hooks/usePageAccess";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useUIStore } from "../stores/useUIStore";
 import { IBidTemplate } from "../models/IBidTemplate";
@@ -51,6 +52,7 @@ export const TemplatesPage: React.FC = () => {
   } = useTemplates();
 
   const config = useConfigStore((s) => s.config);
+  const { canEdit } = usePageAccess();
 
   const [search, setSearch] = React.useState("");
   const [filterDivisions, setFilterDivisions] = React.useState<string[]>([]);
@@ -335,25 +337,29 @@ export const TemplatesPage: React.FC = () => {
             >
               <RefreshCw size={15} /> Refresh
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                // Traceability id for the request; no SharePoint row needed anymore
-                setAiTemplateId(makeId("tpl"));
-                setShowAIAnalyzer(true);
-              }}
-              className={styles.aiBtn}
-              title="Generate a template from a client document using AI"
-            >
-              <Sparkles size={15} /> Generate from AI
-            </button>
-            <button
-              type="button"
-              onClick={handleCreate}
-              className={styles.createBtn}
-            >
-              + New Template
-            </button>
+            {canEdit && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Traceability id for the request; no SharePoint row needed anymore
+                    setAiTemplateId(makeId("tpl"));
+                    setShowAIAnalyzer(true);
+                  }}
+                  className={styles.aiBtn}
+                  title="Generate a template from a client document using AI"
+                >
+                  <Sparkles size={15} /> Generate from AI
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  className={styles.createBtn}
+                >
+                  + New Template
+                </button>
+              </>
+            )}
           </div>
         }
       />
@@ -471,7 +477,7 @@ export const TemplatesPage: React.FC = () => {
               ? "Try adjusting your search or filters."
               : "Create your first Scope of Supply template to speed up BID creation for repetitive operations."}
           </p>
-          {!hasFilters && (
+          {!hasFilters && canEdit && (
             <button onClick={handleCreate} className={styles.createBtn}>
               + Create First Template
             </button>
@@ -488,8 +494,8 @@ export const TemplatesPage: React.FC = () => {
               template={tpl}
               onSelect={() => setPreviewTemplate(tpl)}
               onView={() => handleEdit(tpl)}
-              onDelete={() => handleDelete(tpl)}
-              onDuplicate={() => handleDuplicate(tpl)}
+              onDelete={canEdit ? () => handleDelete(tpl) : undefined}
+              onDuplicate={canEdit ? () => handleDuplicate(tpl) : undefined}
             />
           ))}
         </div>
@@ -547,20 +553,24 @@ export const TemplatesPage: React.FC = () => {
                         >
                           👁️
                         </button>
-                        <button
-                          className={styles.rowActionBtn}
-                          onClick={() => handleDuplicate(tpl)}
-                          title="Duplicate"
-                        >
-                          📋
-                        </button>
-                        <button
-                          className={`${styles.rowActionBtn} ${styles.rowDeleteBtn}`}
-                          onClick={() => handleDelete(tpl)}
-                          title="Delete"
-                        >
-                          🗑️
-                        </button>
+                        {canEdit && (
+                          <>
+                            <button
+                              className={styles.rowActionBtn}
+                              onClick={() => handleDuplicate(tpl)}
+                              title="Duplicate"
+                            >
+                              📋
+                            </button>
+                            <button
+                              className={`${styles.rowActionBtn} ${styles.rowDeleteBtn}`}
+                              onClick={() => handleDelete(tpl)}
+                              title="Delete"
+                            >
+                              🗑️
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

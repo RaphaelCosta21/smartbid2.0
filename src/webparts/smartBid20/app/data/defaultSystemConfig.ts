@@ -4,6 +4,10 @@
  */
 import { ISystemConfig } from "../models";
 import { getDefaultFavoriteGroups } from "../config/defaultFavoriteGroups";
+import {
+  DEFAULT_ACCESS_LEVELS,
+  DEFAULT_BID_ACCESS_LEVELS,
+} from "../config/accessControl.config";
 
 export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
   kpiTargets: {
@@ -1341,71 +1345,7 @@ export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
     BID_OVERDUE: ["commercial", "engineering"],
     DEADLINE_WARNING: ["commercial", "engineering"],
   },
-  accessLevels: {
-    commercial: {
-      workspace: "edit",
-      insights: "edit",
-      reports: "edit",
-      settings: "edit",
-      approvals: "edit",
-      templates: "edit",
-    },
-    engineering: {
-      workspace: "edit",
-      insights: "view",
-      reports: "view",
-      settings: "none",
-      approvals: "view",
-      templates: "edit",
-    },
-    project: {
-      workspace: "edit",
-      insights: "view",
-      reports: "view",
-      settings: "none",
-      approvals: "edit",
-      templates: "view",
-    },
-    operation: {
-      workspace: "edit",
-      insights: "view",
-      reports: "view",
-      settings: "none",
-      approvals: "view",
-      templates: "view",
-    },
-    dataCenter: {
-      workspace: "view",
-      insights: "view",
-      reports: "view",
-      settings: "none",
-      approvals: "view",
-      templates: "none",
-    },
-    equipmentInstallation: {
-      workspace: "view",
-      insights: "view",
-      reports: "view",
-      settings: "none",
-      approvals: "view",
-      templates: "none",
-    },
-    supplyChain: {
-      workspace: "view",
-      insights: "view",
-      reports: "view",
-      settings: "none",
-      approvals: "view",
-      templates: "none",
-    },
-    guest: {
-      workspace: "view",
-      insights: "none",
-      reports: "none",
-      settings: "none",
-      approvals: "none",
-      templates: "none",
-    },
-  },
+  accessLevels: DEFAULT_ACCESS_LEVELS,
+  bidAccessLevels: DEFAULT_BID_ACCESS_LEVELS,
   favoriteGroups: getDefaultFavoriteGroups(),
 };

@@ -1,14 +1,12 @@
 import * as React from "react";
 import { DocLibraryCatalog } from "../components/knowledge/DocLibraryCatalog";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
-import { useCurrentUser } from "../hooks/useCurrentUser";
-import { canAccessKnowledge } from "../utils/accessControl";
+import { usePageAccess } from "../hooks/usePageAccess";
 
 const FOLDER = `${SHAREPOINT_CONFIG.docLibrary.serverRelativeUrl}/${SHAREPOINT_CONFIG.docLibrary.folders.datasheets}`;
 
 export const DatasheetsPage: React.FC = () => {
-  const currentUser = useCurrentUser();
-  const canManage = canAccessKnowledge(currentUser);
+  const { canEdit: canManage } = usePageAccess();
 
   return (
     <DocLibraryCatalog

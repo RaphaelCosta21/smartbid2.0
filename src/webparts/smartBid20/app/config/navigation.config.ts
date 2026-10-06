@@ -7,7 +7,6 @@ export interface INavItem {
   badgePulsing?: boolean;
   section: string;
   children?: INavItem[];
-  requiredAccess?: string;
   /** Route to open in a new tab (external view) */
   externalRoute?: string;
 }
@@ -46,7 +45,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     icon: "BarChart3",
     route: "/dashboard",
     section: "workspace",
-    requiredAccess: "engineering",
   },
   {
     key: "unassigned",
@@ -86,7 +84,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     icon: "Radar",
     route: "/knowledge/survey/equipment",
     section: "knowledge",
-    requiredAccess: "engineering",
   },
   {
     key: "assets-catalog",
@@ -94,7 +91,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     icon: "Package",
     route: "/knowledge/assets-catalog",
     section: "knowledge",
-    requiredAccess: "engineering",
   },
   {
     key: "templates",
@@ -102,7 +98,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     icon: "LayoutTemplate",
     route: "/templates",
     section: "knowledge",
-    requiredAccess: "engineering",
   },
   {
     key: "datasheets",
@@ -110,7 +105,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     icon: "FileText",
     route: "/knowledge/datasheets",
     section: "knowledge",
-    requiredAccess: "engineering",
   },
   {
     key: "manuals-catalogs",
@@ -118,7 +112,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     icon: "FolderArchive",
     route: "/knowledge/manuals",
     section: "knowledge",
-    requiredAccess: "engineering",
   },
   {
     key: "technical-proposals",
@@ -126,7 +119,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     icon: "FileSignature",
     route: "/knowledge/technical-proposals",
     section: "knowledge",
-    requiredAccess: "engineering",
   },
   {
     key: "past-bids",
@@ -134,7 +126,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     icon: "History",
     route: "/knowledge/past-bids",
     section: "knowledge",
-    requiredAccess: "engineering",
   },
   {
     key: "clarifications-db",
@@ -142,7 +133,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     icon: "MessageSquare",
     route: "/knowledge/clarifications",
     section: "knowledge",
-    requiredAccess: "engineering",
   },
   {
     key: "links-recommendations",
@@ -150,7 +140,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     icon: "Link",
     route: "/knowledge/links",
     section: "knowledge",
-    requiredAccess: "engineering",
   },
 
   // INSIGHTS
@@ -297,7 +286,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     icon: "Settings",
     route: "/settings/config",
     section: "settings",
-    requiredAccess: "settings",
   },
   {
     key: "members",
@@ -305,7 +293,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     icon: "Users",
     route: "/settings/members",
     section: "settings",
-    requiredAccess: "settings",
   },
   {
     key: "patch-notes",

@@ -13,7 +13,7 @@ import {
 import { ROUTES } from "../../config/routes.config";
 import { useSurveyStore } from "../../stores/useSurveyStore";
 import { useBidStore } from "../../stores/useBidStore";
-import { useAuthStore } from "../../stores/useAuthStore";
+import { usePageAccess } from "../../hooks/usePageAccess";
 import { useUIStore } from "../../stores/useUIStore";
 import { SurveyCatalogService } from "../../services/SurveyCatalogService";
 import { IBid, ISurveyCatalog } from "../../models";
@@ -55,7 +55,7 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
   const setBidNumber = useSurveyStore((s) => s.setBidNumber);
   const load = useSurveyStore((s) => s.load);
   const bids = useBidStore((s) => s.bids);
-  const hasAccess = useAuthStore((s) => s.hasAccess);
+  const { canEdit: canImport } = usePageAccess();
   const addToast = useUIStore((s) => s.addToast);
   const fileRef = React.useRef<HTMLInputElement>(null);
   const bidRef = React.useRef<HTMLDivElement>(null);
@@ -64,8 +64,6 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
   const [bidOpen, setBidOpen] = React.useState(false);
   const [bidQuery, setBidQuery] = React.useState("");
 
-  // Same permission that edits Scope Templates (Engineering, Commercial, super admins).
-  const canImport = hasAccess("templates", "edit");
   const spreads = catalog?.spreads || [];
   const spread = spreads.find((s) => s.id === spreadId) || spreads[0];
   const selectedBid = bidNumber ? bids.find((b) => b.bidNumber === bidNumber) : undefined;

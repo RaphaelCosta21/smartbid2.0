@@ -7,7 +7,7 @@ import { ScopeOfSupplyTab } from "../bid/ScopeOfSupplyTab";
 import { BidHoursTable } from "../bid/BidHoursTable";
 import { EditToolbar } from "../common/EditLockBanner";
 import { useEditControl } from "../../hooks/useEditControl";
-import { useAccessLevel } from "../../hooks/useAccessLevel";
+import { usePageAccess } from "../../hooks/usePageAccess";
 import { DIVISIONS, SERVICE_LINES } from "../../utils/constants";
 import { makeId } from "../../utils/idGenerator";
 import { AttachmentService } from "../../services/AttachmentService";
@@ -31,8 +31,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 }) => {
   const currentUser = useCurrentUser();
   const config = useConfigStore((s) => s.config);
-  const { canEdit: canEditSection, isSuperAdmin } = useAccessLevel();
-  const canEditTemplates = canEditSection("templates") || isSuperAdmin;
+  const { canEdit: canEditTemplates } = usePageAccess();
 
   // Stable ID for this template (existing or new)
   const [stableId] = React.useState(() => template?.id || makeId("tpl"));

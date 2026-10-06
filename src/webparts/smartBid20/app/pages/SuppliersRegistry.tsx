@@ -15,6 +15,7 @@ import { useSupplierStore } from "../stores/useSupplierStore";
 import { useQuotationStore } from "../stores/useQuotationStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useSupplierServiceTypes } from "../hooks/useSupplierServiceTypes";
+import { usePageAccess } from "../hooks/usePageAccess";
 import { MultiSelectDropdown } from "../components/insights/MultiSelectDropdown";
 import { SupplierDrawer } from "../components/suppliers/SupplierDrawer";
 import { isAiConfigured } from "../config/ai.config";
@@ -182,6 +183,7 @@ const SupplierLogo: React.FC<{ name: string; url?: string | null }> = ({
 export const SuppliersRegistry: React.FC = () => {
   const addToast = useUIStore((s) => s.addToast);
   const navigate = useNavigate();
+  const { canEdit } = usePageAccess();
 
   const suppliers = useSupplierStore((s) => s.suppliers);
   const isLoaded = useSupplierStore((s) => s.isLoaded);
@@ -819,6 +821,7 @@ export const SuppliersRegistry: React.FC = () => {
         )}
       </div>
 
+      {canEdit && (
       <div className={styles.toolbar}>
         {editing === null && (
           <button className={styles.btnPrimary} onClick={openNew}>
@@ -842,6 +845,7 @@ export const SuppliersRegistry: React.FC = () => {
           </button>
         )}
       </div>
+      )}
 
       {editing !== null && (
         <div className={styles.card}>
@@ -1449,6 +1453,7 @@ export const SuppliersRegistry: React.FC = () => {
                   </div>
                 </div>
 
+                {canEdit && (
                 <div className={styles.supplierActions}>
                   <button
                     className={styles.iconBtn}
@@ -1470,6 +1475,7 @@ export const SuppliersRegistry: React.FC = () => {
                     {deletingId === s.id ? "…" : "Delete"}
                   </button>
                 </div>
+                )}
               </div>
             );
           })}
@@ -1483,10 +1489,14 @@ export const SuppliersRegistry: React.FC = () => {
           supplyCategories={supplyBySupplier[selected.id] || []}
           serviceTypesById={serviceTypes.byId}
           onClose={() => setSelectedId(null)}
-          onEdit={() => {
-            setSelectedId(null);
-            openEdit(selected);
-          }}
+          onEdit={
+            canEdit
+              ? () => {
+                  setSelectedId(null);
+                  openEdit(selected);
+                }
+              : undefined
+          }
           onViewQuotations={() =>
             navigate(ROUTES.quotations, { state: { search: selected.name } })
           }

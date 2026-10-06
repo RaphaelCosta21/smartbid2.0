@@ -5,7 +5,7 @@ import { DivisionBadge } from "../components/common/DivisionBadge";
 import { DataTable } from "../components/common/DataTable";
 import { useBids } from "../hooks/useBids";
 import { useConfigStore } from "../stores/useConfigStore";
-import { useAuthStore } from "../stores/useAuthStore";
+import { usePageAccess } from "../hooks/usePageAccess";
 import { useBidStore } from "../stores/useBidStore";
 import { BidService } from "../services/BidService";
 import { GlassCard } from "../components/common/GlassCard";
@@ -56,21 +56,11 @@ export const FollowUpPage: React.FC = () => {
   const { bids } = useBids();
   const config = useConfigStore((s) => s.config);
   const setBids = useBidStore((s) => s.setBids);
-  const currentUser = useAuthStore((s) => s.currentUser);
   const navigate = useNavigate();
   const chart = useChartTheme();
   const publishPastBid = usePastBidPublisher();
 
-  // Access control: only Commercial and Engineering teams can edit
-  const canEdit = React.useMemo(() => {
-    if (currentUser.isSuperAdmin) return true;
-    const team = (
-      currentUser.teamCategory ||
-      currentUser.role ||
-      ""
-    ).toLowerCase();
-    return team === "commercial" || team === "engineering";
-  }, [currentUser]);
+  const { canEdit } = usePageAccess();
 
   // Top-level filters (division / service line / date / search) via shared bar
   const {

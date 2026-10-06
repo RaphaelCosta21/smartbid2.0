@@ -510,6 +510,38 @@
   box-shadow: inset 3px 0 0 var(--primary-accent);
 }
 
+/* Row the caller can't pick (e.g. PN already in Favorites) */
+.resultRow.resultRowBlocked,
+.queryTableRow.resultRowBlocked {
+  cursor: default;
+  color: var(--text-muted);
+
+  &:hover {
+    background: transparent;
+  }
+
+  .mono {
+    color: var(--text-muted);
+  }
+
+  img {
+    opacity: 0.55;
+  }
+}
+
+.blockedMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+  cursor: help;
+}
+
 .colPn {
   width: 180px;
   flex-shrink: 0;

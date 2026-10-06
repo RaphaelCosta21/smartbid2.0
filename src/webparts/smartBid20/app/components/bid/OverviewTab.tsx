@@ -24,7 +24,6 @@ import { useConfigStore } from "../../stores/useConfigStore";
 import { useUIStore } from "../../stores/useUIStore";
 import { useConfigPhases } from "../../hooks/useConfigPhases";
 import { useEditControl } from "../../hooks/useEditControl";
-import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useColorTheme } from "../../hooks/useColorTheme";
 import { useSpfxContext } from "../../config/SpfxContext";
 import { MembersService } from "../../services/MembersService";
@@ -32,7 +31,6 @@ import { CurrencyService } from "../../services/CurrencyService";
 import { isTerminalStatus } from "../../utils/statusHelpers";
 import { PRIORITY_COLORS } from "../../utils/constants";
 import { createActivityLogEntry } from "../../utils/activityLogHelpers";
-import { canManageErn, canChangeDueDate } from "../../utils/accessControl";
 import { getActiveApprovalOverride } from "../../utils/approvalHelpers";
 import {
   buildDueDateChangePatch,
@@ -462,11 +460,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const tpState = getTechnicalProposalState(bid);
   const spfxContext = useSpfxContext();
 
-  // Only the Engineering team (or super admins) may create/select/change ERNs
-  const fullUser = useCurrentUser();
-  const canEditErn = !!canEdit && canManageErn(fullUser);
-  // Due date changes: Engineering team only, reason required, not on closed BIDs
-  const canEditDueDate = !!canEdit && !isClosed && canChangeDueDate(fullUser);
+  // ERN and due date follow the Overview tab permission; due date also needs a reason and an open BID.
+  const canEditErn = !!canEdit;
+  const canEditDueDate = !!canEdit && !isClosed;
   const [dueDateModalOpen, setDueDateModalOpen] = React.useState(false);
   const lastDueDateChange = (bid.activityLog || [])
     .filter((e) => e.type === DUE_DATE_CHANGED)
@@ -2113,7 +2109,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     {canEditDueDate && (
                       <button
                         style={editBtnStyle}
-                        title="Change the BID due date (Engineering only, reason required)"
+                        title="Change the BID due date (reason required)"
                         onClick={() => setDueDateModalOpen(true)}
                       >
                         Change

@@ -26,14 +26,13 @@ import { ClarificationEntryModal } from "../components/knowledge/ClarificationEn
 import { ClarificationDbService } from "../services/ClarificationDbService";
 import { ClarificationKnowledgeService } from "../services/ClarificationKnowledgeService";
 import { IClarificationDbItem } from "../models/IClarificationDb";
-import { useCurrentUser } from "../hooks/useCurrentUser";
+import { usePageAccess } from "../hooks/usePageAccess";
 import {
   ILibraryRow,
   useClarificationLibraryFilter,
 } from "../hooks/useClarificationLibraryFilter";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useUIStore } from "../stores/useUIStore";
-import { canAccessKnowledge } from "../utils/accessControl";
 import { formatDate } from "../utils/formatters";
 import { cleanClientDocRef } from "../utils/clarificationHelpers";
 import styles from "./ClarificationsDbPage.module.scss";
@@ -58,8 +57,7 @@ const emptyItem = (): IClarificationDbItem => ({
 
 export const ClarificationsDbPage: React.FC = () => {
   const navigate = useNavigate();
-  const currentUser = useCurrentUser();
-  const canManage = canAccessKnowledge(currentUser);
+  const { canEdit: canManage } = usePageAccess();
   const addToast = useUIStore((s) => s.addToast);
 
   const [items, setItems] = React.useState<IClarificationDbItem[]>([]);

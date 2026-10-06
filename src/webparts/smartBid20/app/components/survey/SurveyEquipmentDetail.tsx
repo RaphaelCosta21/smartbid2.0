@@ -7,7 +7,7 @@ import {
   ISurveyFitNode,
 } from "../../models";
 import { SurveyCatalogService } from "../../services/SurveyCatalogService";
-import { useAuthStore } from "../../stores/useAuthStore";
+import { usePageAccess } from "../../hooks/usePageAccess";
 import { useSurveyStore } from "../../stores/useSurveyStore";
 import { useUIStore } from "../../stores/useUIStore";
 import { SurveyEquipmentPhoto } from "./SurveyEquipmentCard";
@@ -51,8 +51,7 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
 }) => {
   const datasheet = safeUrl(equipment.datasheetUrl);
   const status = (equipment.status || "Active").toUpperCase();
-  // Same permission that imports the catalog (Engineering, Commercial, super admins).
-  const canEditPhoto = useAuthStore((s) => s.hasAccess)("templates", "edit");
+  const { canEdit: canEditPhoto } = usePageAccess();
   const setEquipmentImage = useSurveyStore((s) => s.setEquipmentImage);
   const addToast = useUIStore((s) => s.addToast);
   const photoInput = React.useRef<HTMLInputElement>(null);

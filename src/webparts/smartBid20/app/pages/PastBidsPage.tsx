@@ -16,7 +16,7 @@ import { PastBidDrawer } from "../components/knowledge/PastBidDrawer";
 import { PastBidProfileModal } from "../components/knowledge/PastBidProfileModal";
 import { BidFavoriteButton } from "../components/bid/BidFavoriteButton";
 import { useBidStore } from "../stores/useBidStore";
-import { useCurrentUser } from "../hooks/useCurrentUser";
+import { usePageAccess } from "../hooks/usePageAccess";
 import {
   usePastBidPublisher,
   usePastBidScopeCategories,
@@ -25,7 +25,6 @@ import {
   PastBidKnowledgeService,
   PastBidProfileFields,
 } from "../services/PastBidKnowledgeService";
-import { canAccessKnowledge } from "../utils/accessControl";
 import { formatDate } from "../utils/formatters";
 import { countFacets, withCounts } from "../utils/facetHelpers";
 import {
@@ -81,8 +80,7 @@ const MAX_TABLE_TAGS = 3;
 export const PastBidsPage: React.FC = () => {
   const navigate = useNavigate();
   const bids = useBidStore((s) => s.bids);
-  const currentUser = useCurrentUser();
-  const canManage = canAccessKnowledge(currentUser);
+  const { canEdit: canManage } = usePageAccess();
   const publish = usePastBidPublisher();
   const scopeCategories = usePastBidScopeCategories();
 

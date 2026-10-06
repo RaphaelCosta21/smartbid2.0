@@ -91,6 +91,23 @@
   text-overflow: ellipsis;
 }
 
+// Tabs without access for the user's team stay listed but cannot be opened.
+.navItemDisabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+
+  &:hover {
+    background: none;
+    color: var(--text-secondary);
+  }
+}
+
+.navLockIcon {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
 .overviewGrid {
   display: grid;
   grid-template-columns: 2fr 1fr;

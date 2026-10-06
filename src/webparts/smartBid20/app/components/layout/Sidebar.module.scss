@@ -239,6 +239,43 @@
   }
 }
 
+// Pages without access stay listed but cannot be opened.
+.navItem.disabled,
+.submenuItem.disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+
+  &:hover {
+    color: var(--sidebar-text-secondary);
+    background: transparent;
+  }
+}
+
+.submenuItem.disabled {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lockIcon {
+  display: inline-flex;
+  margin-left: auto;
+  color: var(--sidebar-text-muted);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.navItem .lockIcon svg,
+.submenuItem .lockIcon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.navItem.disabled:hover .lockIcon,
+.submenuItem.disabled:hover .lockIcon {
+  opacity: 1;
+}
+
 .sidebarFooter {
   margin-top: auto;
   padding: 12px;

@@ -4,6 +4,7 @@ import { PageHeader } from "../components/common/PageHeader";
 import { EmptyState } from "../components/common/EmptyState";
 import { useDebounce } from "../hooks/useDebounce";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { usePageAccess } from "../hooks/usePageAccess";
 import { useRegisterQuotationSuppliers } from "../hooks/useRegisterQuotationSuppliers";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useQuotationStore } from "../stores/useQuotationStore";
@@ -216,6 +217,7 @@ export const QuotationsPage: React.FC = () => {
   // ─── Stores & hooks ───
   const config = useConfigStore((s) => s.config);
   const currentUser = useCurrentUser();
+  const { canEdit } = usePageAccess();
   const {
     items: quotations,
     isLoading,
@@ -931,6 +933,7 @@ export const QuotationsPage: React.FC = () => {
           <button
             className={styles.iconBtn}
             onClick={() => handleToggleFavorite(item.id)}
+            disabled={!canEdit}
             title={
               item.isFavorite ? "Remove from favorites" : "Add to favorites"
             }
@@ -946,20 +949,24 @@ export const QuotationsPage: React.FC = () => {
               {ExternalLinkIcon}
             </button>
           )}
-          <button
-            className={styles.iconBtn}
-            onClick={() => setEditItem(item)}
-            title="Edit"
-          >
-            {EditIcon}
-          </button>
-          <button
-            className={`${styles.iconBtn} ${styles.dangerBtn}`}
-            onClick={() => handleDelete(item.id)}
-            title="Delete"
-          >
-            {TrashIcon}
-          </button>
+          {canEdit && (
+            <>
+              <button
+                className={styles.iconBtn}
+                onClick={() => setEditItem(item)}
+                title="Edit"
+              >
+                {EditIcon}
+              </button>
+              <button
+                className={`${styles.iconBtn} ${styles.dangerBtn}`}
+                onClick={() => handleDelete(item.id)}
+                title="Delete"
+              >
+                {TrashIcon}
+              </button>
+            </>
+          )}
         </div>
       </div>
       <div className={styles.cardBody}>
@@ -1004,12 +1011,14 @@ export const QuotationsPage: React.FC = () => {
         subtitle={`${filtered.length} quotation${filtered.length !== 1 ? "s" : ""}`}
         icon={FileTextIcon}
         actions={
-          <button
-            className={styles.addBtn}
-            onClick={() => setShowAddModal(true)}
-          >
-            {PlusIcon} Add Quotation
-          </button>
+          canEdit ? (
+            <button
+              className={styles.addBtn}
+              onClick={() => setShowAddModal(true)}
+            >
+              {PlusIcon} Add Quotation
+            </button>
+          ) : undefined
         }
       />
 
@@ -1250,6 +1259,7 @@ export const QuotationsPage: React.FC = () => {
                           <button
                             className={styles.iconBtn}
                             onClick={() => handleToggleFavorite(q.id)}
+                            disabled={!canEdit}
                             title={
                               q.isFavorite
                                 ? "Remove from favorites"
@@ -1267,20 +1277,24 @@ export const QuotationsPage: React.FC = () => {
                               {ExternalLinkIcon}
                             </button>
                           )}
-                          <button
-                            className={styles.iconBtn}
-                            onClick={() => setEditItem(q)}
-                            title="Edit"
-                          >
-                            {EditIcon}
-                          </button>
-                          <button
-                            className={`${styles.iconBtn} ${styles.dangerBtn}`}
-                            onClick={() => handleDelete(q.id)}
-                            title="Delete"
-                          >
-                            {TrashIcon}
-                          </button>
+                          {canEdit && (
+                            <>
+                              <button
+                                className={styles.iconBtn}
+                                onClick={() => setEditItem(q)}
+                                title="Edit"
+                              >
+                                {EditIcon}
+                              </button>
+                              <button
+                                className={`${styles.iconBtn} ${styles.dangerBtn}`}
+                                onClick={() => handleDelete(q.id)}
+                                title="Delete"
+                              >
+                                {TrashIcon}
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

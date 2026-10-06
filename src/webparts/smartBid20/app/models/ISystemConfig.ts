@@ -45,16 +45,32 @@ export interface ICurrencySettings {
   updateFrequency: "monthly" | "weekly" | "daily";
 }
 
-export type AccessPermission = "edit" | "view" | "none";
+export type AccessPermission = "edit" | "view" | "none" | "editNoDelete";
 
-export interface IAccessLevelDef {
-  workspace: AccessPermission;
-  insights: AccessPermission;
-  reports: AccessPermission;
-  settings: AccessPermission;
-  approvals: AccessPermission;
-  templates: AccessPermission;
-}
+export type AccessAreaKey =
+  | "workspace"
+  | "knowledge"
+  | "insights"
+  | "reports"
+  | "tools"
+  | "settings";
+
+export type BidTabGroupKey =
+  | "general"
+  | "scopeCosting"
+  | "management"
+  | "collaboration"
+  | "tools";
+
+/** Area levels per team; `pages` holds manual sub-page overrides (absent = inherit area). */
+export type IAccessLevelDef = Record<AccessAreaKey, AccessPermission> & {
+  pages?: Record<string, AccessPermission>;
+};
+
+/** BID Details group levels per team; `tabs` holds manual tab overrides (absent = inherit group). */
+export type IBidAccessLevelDef = Record<BidTabGroupKey, AccessPermission> & {
+  tabs?: Record<string, AccessPermission>;
+};
 
 export interface IResourceTypeConfig {
   id: string;
@@ -96,5 +112,6 @@ export interface ISystemConfig {
   currencySettings: ICurrencySettings;
   notifications: Record<string, string[]>;
   accessLevels: Record<UserRole, IAccessLevelDef>;
+  bidAccessLevels?: Record<UserRole, IBidAccessLevelDef>;
   favoriteGroups: IFavoriteGroup[];
 }

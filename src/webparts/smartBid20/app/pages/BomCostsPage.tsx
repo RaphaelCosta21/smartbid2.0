@@ -7,6 +7,7 @@ import { PageHeader } from "../components/common/PageHeader";
 import { useQueryCatalogStore } from "../stores/useQueryCatalogStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { usePageAccess } from "../hooks/usePageAccess";
 import {
   IBomCostAnalysis,
   IBomCostItem,
@@ -300,6 +301,7 @@ function dateAgeBucket(dateRef: string): "recent" | "warn" | "old" | "" {
 
 export const BomCostsPage: React.FC = () => {
   const currentUser = useCurrentUser();
+  const { canEdit } = usePageAccess();
   const config = useConfigStore((s) => s.config);
   const exchangeRates = config?.currencySettings?.exchangeRates || [];
 
@@ -1136,6 +1138,7 @@ export const BomCostsPage: React.FC = () => {
                 ({filteredAnalyses.length})
               </span>
             </span>
+            {canEdit && (
             <div className={styles.listActions}>
               <label className={styles.newBtn}>
                 + Import File
@@ -1150,6 +1153,7 @@ export const BomCostsPage: React.FC = () => {
                 + Manual BOM
               </button>
             </div>
+            )}
           </div>
 
           <div className={styles.listFilters}>
@@ -1194,15 +1198,17 @@ export const BomCostsPage: React.FC = () => {
               <div className={styles.emptySub}>
                 Import a CSV or XLSX Bill of Materials to get started
               </div>
-              <label className={styles.emptyUploadBtn}>
-                📎 Upload BOM File (CSV / XLSX)
-                <input
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  style={{ display: "none" }}
-                  onChange={handleFileImport}
-                />
-              </label>
+              {canEdit && (
+                <label className={styles.emptyUploadBtn}>
+                  📎 Upload BOM File (CSV / XLSX)
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    style={{ display: "none" }}
+                    onChange={handleFileImport}
+                  />
+                </label>
+              )}
             </div>
           ) : filteredAnalyses.length === 0 ? (
             <div className={styles.emptyState}>
@@ -1219,13 +1225,15 @@ export const BomCostsPage: React.FC = () => {
                   className={styles.analysisCard}
                   onClick={() => handleLoadAnalysis(a)}
                 >
-                  <button
-                    className={styles.cardDelete}
-                    onClick={(e) => handleDeleteAnalysis(e, a.id)}
-                    title="Delete"
-                  >
-                    ✕
-                  </button>
+                  {canEdit && (
+                    <button
+                      className={styles.cardDelete}
+                      onClick={(e) => handleDeleteAnalysis(e, a.id)}
+                      title="Delete"
+                    >
+                      ✕
+                    </button>
+                  )}
                   <div className={styles.cardHeader}>
                     <span className={styles.cardPN}>{a.mainPartNumber}</span>
                     <span
@@ -1308,15 +1316,17 @@ export const BomCostsPage: React.FC = () => {
               >
                 ← Back
               </button>
-              <button
-                className={styles.actionBtnSecondary}
-                onClick={() => {
-                  setPasteText("");
-                  setShowPasteModal(true);
-                }}
-              >
-                📋 Paste Items
-              </button>
+              {canEdit && (
+                <button
+                  className={styles.actionBtnSecondary}
+                  onClick={() => {
+                    setPasteText("");
+                    setShowPasteModal(true);
+                  }}
+                >
+                  📋 Paste Items
+                </button>
+              )}
               <button
                 className={styles.actionBtn}
                 onClick={handleCostLookup}
@@ -1328,13 +1338,15 @@ export const BomCostsPage: React.FC = () => {
                     ? "Searching..."
                     : "🔍 Check Costs"}
               </button>
-              <button
-                className={styles.actionBtn}
-                onClick={handleSave}
-                disabled={isSaving}
-              >
-                {isSaving ? "Saving..." : "💾 Save"}
-              </button>
+              {canEdit && (
+                <button
+                  className={styles.actionBtn}
+                  onClick={handleSave}
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Saving..." : "💾 Save"}
+                </button>
+              )}
               <button
                 className={styles.actionBtnSecondary}
                 onClick={handleExport}
@@ -1537,12 +1549,14 @@ export const BomCostsPage: React.FC = () => {
               <span className={styles.contingencyValue}>
                 {contingencyPerYear}% / year
               </span>
-              <button
-                className={styles.contingencyEditBtn}
-                onClick={() => setIsContingencyEditing(true)}
-              >
-                ✏️ Edit
-              </button>
+              {canEdit && (
+                <button
+                  className={styles.contingencyEditBtn}
+                  onClick={() => setIsContingencyEditing(true)}
+                >
+                  ✏️ Edit
+                </button>
+              )}
             </>
           )}
 
@@ -1952,14 +1966,16 @@ export const BomCostsPage: React.FC = () => {
 
                       {/* Actions column */}
                       <td className={styles.tdActions}>
-                        <button
-                          className={`${styles.rowActionBtn} ${isEditing ? styles.rowActionBtnActive : ""}`}
-                          onClick={() => toggleRowEdit(item.id)}
-                          title={isEditing ? "Done editing" : "Edit row"}
-                        >
-                          {isEditing ? "✓" : "✏️"}
-                        </button>
-                        {isEditing && hasSearchedCosts && (
+                        {canEdit && (
+                          <button
+                            className={`${styles.rowActionBtn} ${isEditing ? styles.rowActionBtnActive : ""}`}
+                            onClick={() => toggleRowEdit(item.id)}
+                            title={isEditing ? "Done editing" : "Edit row"}
+                          >
+                            {isEditing ? "✓" : "✏️"}
+                          </button>
+                        )}
+                        {canEdit && isEditing && hasSearchedCosts && (
                           <button
                             className={`${styles.rowActionBtn} ${styles.rowActionBtnQuotation}`}
                             onClick={() => handleOpenQuotationModal(item.id)}
@@ -1980,42 +1996,48 @@ export const BomCostsPage: React.FC = () => {
                               >
                                 👁
                               </button>
-                              <button
-                                className={`${styles.rowActionBtn} ${styles.rowActionBtnDanger}`}
-                                onClick={() => handleRemoveQuotation(item.id)}
-                                title="Remove Quotation"
-                              >
-                                ✕
-                              </button>
+                              {canEdit && (
+                                <button
+                                  className={`${styles.rowActionBtn} ${styles.rowActionBtnDanger}`}
+                                  onClick={() => handleRemoveQuotation(item.id)}
+                                  title="Remove Quotation"
+                                >
+                                  ✕
+                                </button>
+                              )}
                             </>
                           )}
-                        <button
-                          className={styles.rowActionBtn}
-                          onClick={() => handleAddRow(item.id, false)}
-                          title="Add sibling row below"
-                        >
-                          +
-                        </button>
-                        <button
-                          className={styles.rowActionBtn}
-                          onClick={() => handleAddRow(item.id, true)}
-                          title="Add child row"
-                        >
-                          ⤵
-                        </button>
-                        <button
-                          className={`${styles.rowActionBtn} ${styles.rowActionBtnDanger}`}
-                          onClick={() => {
-                            if (
-                              confirm("Delete this row and all its children?")
-                            ) {
-                              handleDeleteRow(item.id);
-                            }
-                          }}
-                          title="Delete row"
-                        >
-                          ✕
-                        </button>
+                        {canEdit && (
+                          <>
+                            <button
+                              className={styles.rowActionBtn}
+                              onClick={() => handleAddRow(item.id, false)}
+                              title="Add sibling row below"
+                            >
+                              +
+                            </button>
+                            <button
+                              className={styles.rowActionBtn}
+                              onClick={() => handleAddRow(item.id, true)}
+                              title="Add child row"
+                            >
+                              ⤵
+                            </button>
+                            <button
+                              className={`${styles.rowActionBtn} ${styles.rowActionBtnDanger}`}
+                              onClick={() => {
+                                if (
+                                  confirm("Delete this row and all its children?")
+                                ) {
+                                  handleDeleteRow(item.id);
+                                }
+                              }}
+                              title="Delete row"
+                            >
+                              ✕
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   );
@@ -2036,15 +2058,17 @@ export const BomCostsPage: React.FC = () => {
             scratch with a blank manual BOM
           </div>
           <div className={styles.importActions}>
-            <label className={styles.actionBtn}>
-              📎 Upload File
-              <input
-                type="file"
-                accept=".csv,.xlsx,.xls"
-                style={{ display: "none" }}
-                onChange={handleFileImport}
-              />
-            </label>
+            {canEdit && (
+              <label className={styles.actionBtn}>
+                📎 Upload File
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  style={{ display: "none" }}
+                  onChange={handleFileImport}
+                />
+              </label>
+            )}
             <button className={styles.actionBtnSecondary} onClick={handleBack}>
               ← Back to List
             </button>

@@ -1,7 +1,7 @@
 /**
  * SystemConfiguration Component — SMART BID 2.0
  * Real SharePoint data loaded from smartbid-config list.
- * Editable only by engineering sector (or superAdmin).
+ * Editable with Edit on the System Configuration page (super admins always).
  * Sidebar navigation with grouped menus.
  */
 
@@ -13,7 +13,12 @@ import {
   IKPITargets,
   IPriorityRules,
   IExchangeRate,
+  AccessAreaKey,
   AccessPermission,
+  BidTabGroupKey,
+  IAccessLevelDef,
+  IBidAccessLevelDef,
+  UserRole,
   IFavoriteGroup,
   IFavoriteSubGroup,
 } from "../../models";
@@ -24,11 +29,21 @@ import { QuotationService } from "../../services/QuotationService";
 import { MembersService } from "../../services/MembersService";
 // DEFAULT_SYSTEM_CONFIG removed — all data loaded from SharePoint JSON
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { usePageAccess } from "../../hooks/usePageAccess";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useBidStore } from "../../stores/useBidStore";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
 import { useUIStore, ThemeMode } from "../../stores/useUIStore";
 import { APP_CONFIG } from "../../config/app.config";
+import {
+  ACCESS_AREAS,
+  ACCESS_ROLES,
+  DEFAULT_ACCESS_LEVELS,
+  DEFAULT_BID_ACCESS_LEVELS,
+  normalizeAccessLevels,
+  normalizeBidAccessLevels,
+} from "../../config/accessControl.config";
+import { BID_TAB_GROUPS } from "../../config/bidTabs.config";
 import {
   COLOR_THEMES,
   UPCOMING_COLOR_THEMES,
@@ -54,6 +69,21 @@ import lightTheme from "../../styles/themes/light.module.scss";
 import { EntraTokenTest } from "../common/EntraTokenTest";
 import { CollapsibleSidebar } from "../common/CollapsibleSidebar";
 import { PriorityBadge } from "../common/PriorityBadge";
+import { ConfirmDialog } from "../common/ConfirmDialog";
+import {
+  AccessLegend,
+  AccessMatrix,
+  IAccessMatrixGroup,
+  SuperAdminsCard,
+} from "./AccessMatrix";
+import {
+  BookOpen,
+  FileChartColumn,
+  LayoutDashboard,
+  Settings,
+  TrendingUp,
+  Wrench,
+} from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* NAV STRUCTURE                                                      */
@@ -235,38 +265,38 @@ const getEditablePriorityRules = (config: ISystemConfig): IPriorityRules => ({
 /* ACCESS / NOTIFICATION CONSTANTS                                    */
 /* ------------------------------------------------------------------ */
 
-const ROLES = [
-  "commercial",
-  "engineering",
-  "project",
-  "operation",
-  "dataCenter",
-  "equipmentInstallation",
-  "supplyChain",
-  "guest",
-] as const;
+const ROLES = ACCESS_ROLES.map((r) => r.value);
 
-const ROLE_LABELS: Record<string, string> = {
-  commercial: "Commercial",
-  engineering: "Engineering",
-  project: "Project",
-  operation: "Operation",
-  dataCenter: "Data Center",
-  equipmentInstallation: "Equip. Install.",
-  supplyChain: "Supply Chain",
-  guest: "Guest",
+const ROLE_LABELS: Record<string, string> = {};
+ACCESS_ROLES.forEach((r) => {
+  ROLE_LABELS[r.value] = r.label;
+});
+
+const AREA_ICONS: Record<AccessAreaKey, React.ReactNode> = {
+  workspace: <LayoutDashboard size={14} />,
+  knowledge: <BookOpen size={14} />,
+  insights: <TrendingUp size={14} />,
+  reports: <FileChartColumn size={14} />,
+  tools: <Wrench size={14} />,
+  settings: <Settings size={14} />,
 };
 
-const ACCESS_AREAS: Array<{ key: string; label: string }> = [
-  { key: "workspace", label: "Workspace" },
-  { key: "insights", label: "Insights" },
-  { key: "reports", label: "Reports" },
-  { key: "settings", label: "Settings" },
-  { key: "approvals", label: "Approvals" },
-  { key: "templates", label: "Templates" },
-];
+const PAGE_MATRIX_GROUPS: IAccessMatrixGroup[] = ACCESS_AREAS.map((a) => ({
+  key: a.key,
+  label: a.label,
+  icon: AREA_ICONS[a.key],
+  items: a.pages,
+}));
 
-const PERM_CYCLE: AccessPermission[] = ["none", "view", "edit"];
+const BID_MATRIX_GROUPS: IAccessMatrixGroup[] = BID_TAB_GROUPS.map((g) => ({
+  key: g.key,
+  label: g.group,
+  allowEditNoDelete: g.key === "collaboration",
+  icon: <span aria-hidden="true">{g.items[0].icon}</span>,
+  items: g.items.map((t) => ({ key: t.key, label: t.label })),
+}));
+
+const cloneDeep = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
 
 const NOTIFICATION_LABELS: Record<string, string> = {
   BID_CREATED: "BID Created",
@@ -403,12 +433,9 @@ const SubStatusColorRow: React.FC<{
 
 const SystemConfiguration: React.FC = () => {
   const currentUser = useCurrentUser();
-  const canEdit =
-    currentUser.sector === "engineering" ||
-    currentUser.isSuperAdmin === true ||
-    (APP_CONFIG.superAdminEmails as readonly string[]).includes(
-      currentUser.email,
-    );
+  const { canEdit } = usePageAccess();
+  const savedConfig = useConfigStore((s) => s.config);
+  const [confirmAccessReset, setConfirmAccessReset] = React.useState(false);
 
   // Subscribe to favorites data for equipment counts (Groups tab)
   const favEquipment = useFavoritesStore((s) => s.data?.equipment || []);
@@ -2142,75 +2169,190 @@ const SystemConfiguration: React.FC = () => {
     );
   };
 
-  /* ---- Access Levels (clickable badges to cycle) ---------------- */
+  /* ---- Access Levels (pages + BID tabs matrices) ----------------- */
 
   const renderAccessLevels = (): React.ReactElement => {
     if (!config) return <></>;
 
-    const cyclePerm = (role: string, area: string): void => {
-      if (!canEdit) return;
-      const current =
-        config.accessLevels[role as keyof typeof config.accessLevels]?.[
-          area as keyof typeof config.accessLevels.commercial
-        ] || "none";
-      const nextIdx = (PERM_CYCLE.indexOf(current) + 1) % PERM_CYCLE.length;
-      const next = PERM_CYCLE[nextIdx];
-      updateConfig({
-        accessLevels: {
-          ...config.accessLevels,
-          [role]: {
-            ...config.accessLevels[role as keyof typeof config.accessLevels],
-            [area]: next,
-          },
-        },
-      });
+    const levels = normalizeAccessLevels(config.accessLevels);
+    const bidLevels = normalizeBidAccessLevels(config.bidAccessLevels);
+    const saved = savedConfig;
+
+    const withOverride = (
+      map: Record<string, AccessPermission> | undefined,
+      key: string,
+      level: AccessPermission | undefined,
+    ): Record<string, AccessPermission> | undefined => {
+      const next = { ...(map || {}) };
+      if (level) next[key] = level;
+      else delete next[key];
+      return Object.keys(next).length ? next : undefined;
     };
 
-    const roleCount = ROLES.length;
+    const patchPages = (
+      mutate: (draft: Record<UserRole, IAccessLevelDef>) => void,
+    ): void => {
+      if (!canEdit) return;
+      const draft = cloneDeep(levels);
+      mutate(draft);
+      updateConfig({ accessLevels: draft });
+    };
+
+    const patchBid = (
+      mutate: (draft: Record<UserRole, IBidAccessLevelDef>) => void,
+    ): void => {
+      if (!canEdit) return;
+      const draft = cloneDeep(bidLevels);
+      mutate(draft);
+      updateConfig({ bidAccessLevels: draft });
+    };
+
+    const setPageOverride = (
+      draft: Record<UserRole, IAccessLevelDef>,
+      role: UserRole,
+      key: string,
+      level: AccessPermission | undefined,
+    ): void => {
+      const pages = withOverride(draft[role].pages, key, level);
+      if (pages) draft[role].pages = pages;
+      else delete draft[role].pages;
+    };
+
+    const setTabOverride = (
+      draft: Record<UserRole, IBidAccessLevelDef>,
+      role: UserRole,
+      key: string,
+      level: AccessPermission | undefined,
+    ): void => {
+      const tabs = withOverride(draft[role].tabs, key, level);
+      if (tabs) draft[role].tabs = tabs;
+      else delete draft[role].tabs;
+    };
 
     return (
-      <div>
+      <div className={styles.accessSection}>
         <div className={styles.sectionHeader}>
           <h3>Access Levels</h3>
           <p>
             {canEdit
-              ? "Click on a badge to cycle between None → View → Edit."
-              : "View permissions per role. Only engineering can edit."}
+              ? "Click a permission to cycle None → View → Edit. Expand an area to fine-tune its pages: pages inherit the area unless you customize them."
+              : "Permissions per team. You have read-only access to this page."}
           </p>
         </div>
-        <div
-          className={styles.accessGrid}
-          style={{ "--role-count": roleCount } as React.CSSProperties}
-        >
-          <div className={styles.accessGridHeader}>
-            <div>Area</div>
-            {ROLES.map((r) => (
-              <div key={r}>{ROLE_LABELS[r]}</div>
-            ))}
-          </div>
-          {ACCESS_AREAS.map((area) => (
-            <div key={area.key} className={styles.accessGridRow}>
-              <div>{area.label}</div>
-              {ROLES.map((role) => {
-                const perm =
-                  config.accessLevels[role]?.[
-                    area.key as keyof typeof config.accessLevels.commercial
-                  ] || "none";
-                return (
-                  <div key={role}>
-                    <span
-                      className={`${styles.accessBadge} ${perm === "edit" ? styles.edit : perm === "view" ? styles.view : styles.none} ${!canEdit ? styles.readonly : ""}`}
-                      onClick={() => cyclePerm(role, area.key)}
-                      title={canEdit ? "Click to change" : perm}
-                    >
-                      {perm}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+
+        <div className={styles.accessTopRow}>
+          <AccessLegend />
+          {canEdit && (
+            <button
+              className={styles.actionBtn}
+              onClick={() => setConfirmAccessReset(true)}
+            >
+              Reset to defaults
+            </button>
+          )}
         </div>
+
+        <SuperAdminsCard emails={APP_CONFIG.superAdminEmails} />
+
+        <AccessMatrix
+          title="Application pages"
+          subtitle="Sidebar areas and their pages. None keeps the page listed in the sidebar, but disabled."
+          groupHeader="Area"
+          itemNoun="pages"
+          groups={PAGE_MATRIX_GROUPS}
+          roles={ACCESS_ROLES}
+          readOnly={!canEdit}
+          getGroupLevel={(role, area) => levels[role][area as AccessAreaKey]}
+          getOverride={(role, key) => levels[role].pages?.[key]}
+          getSavedGroupLevel={
+            saved
+              ? (role, area) =>
+                  saved.accessLevels?.[role]?.[area as AccessAreaKey]
+              : undefined
+          }
+          getSavedOverride={
+            saved
+              ? (role, key) => saved.accessLevels?.[role]?.pages?.[key]
+              : undefined
+          }
+          onSetGroup={(role, area, level) =>
+            patchPages((d) => {
+              d[role][area as AccessAreaKey] = level;
+            })
+          }
+          onSetItem={(role, key, level) =>
+            patchPages((d) => setPageOverride(d, role, key, level))
+          }
+          onClearGroupOverrides={(area) =>
+            patchPages((d) => {
+              const group = PAGE_MATRIX_GROUPS.find((g) => g.key === area);
+              ACCESS_ROLES.forEach((r) =>
+                (group ? group.items : []).forEach((item) =>
+                  setPageOverride(d, r.value, item.key, undefined),
+                ),
+              );
+            })
+          }
+        />
+
+        <AccessMatrix
+          title="BID Details tabs"
+          subtitle="View opens a tab read-only; None disables it. Collaboration also offers Edit*: add and edit without deleting."
+          groupHeader="Group"
+          itemNoun="tabs"
+          groups={BID_MATRIX_GROUPS}
+          roles={ACCESS_ROLES}
+          readOnly={!canEdit}
+          getGroupLevel={(role, group) =>
+            bidLevels[role][group as BidTabGroupKey]
+          }
+          getOverride={(role, key) => bidLevels[role].tabs?.[key]}
+          getSavedGroupLevel={
+            saved
+              ? (role, group) =>
+                  saved.bidAccessLevels?.[role]?.[group as BidTabGroupKey]
+              : undefined
+          }
+          getSavedOverride={
+            saved
+              ? (role, key) => saved.bidAccessLevels?.[role]?.tabs?.[key]
+              : undefined
+          }
+          onSetGroup={(role, group, level) =>
+            patchBid((d) => {
+              d[role][group as BidTabGroupKey] = level;
+            })
+          }
+          onSetItem={(role, key, level) =>
+            patchBid((d) => setTabOverride(d, role, key, level))
+          }
+          onClearGroupOverrides={(groupKey) =>
+            patchBid((d) => {
+              const group = BID_MATRIX_GROUPS.find((g) => g.key === groupKey);
+              ACCESS_ROLES.forEach((r) =>
+                (group ? group.items : []).forEach((item) =>
+                  setTabOverride(d, r.value, item.key, undefined),
+                ),
+              );
+            })
+          }
+        />
+
+        <ConfirmDialog
+          isOpen={confirmAccessReset}
+          title="Reset access levels?"
+          message="Every team goes back to the default permissions for pages and BID Details tabs, including custom page settings. Nothing is stored until you click Save Changes."
+          confirmLabel="Reset"
+          variant="warning"
+          onConfirm={() => {
+            setConfirmAccessReset(false);
+            updateConfig({
+              accessLevels: cloneDeep(DEFAULT_ACCESS_LEVELS),
+              bidAccessLevels: cloneDeep(DEFAULT_BID_ACCESS_LEVELS),
+            });
+          }}
+          onCancel={() => setConfirmAccessReset(false)}
+        />
       </div>
     );
   };
@@ -2240,7 +2382,7 @@ const SystemConfiguration: React.FC = () => {
           <p>
             {canEdit
               ? "Toggle which roles receive notifications for each event."
-              : "View notification settings. Only engineering can edit."}
+              : "View notification settings. You have read-only access to this page."}
           </p>
         </div>
         <div
@@ -3624,14 +3766,6 @@ const SystemConfiguration: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Read-only banner (Theme Selector is a personal setting) */}
-      {!canEdit && activeTab !== "themeSelector" && (
-        <div className={styles.readOnlyBanner}>
-          🔒 You have read-only access. Only the Engineering team can edit
-          system configuration.
-        </div>
-      )}
 
       {/* Message bar */}
       {message && (

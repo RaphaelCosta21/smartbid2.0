@@ -251,27 +251,9 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     bid.currentPhase === "Close Out" &&
     bid.currentStatus === "Pending Approval";
 
-  // Engineering members can start/manage approval rounds
-  const isEngineeringUser = React.useMemo(() => {
-    return teamMembers.some(
-      (m) =>
-        m.email.toLowerCase() === currentUser.email.toLowerCase() &&
-        m.sector === "engineering" &&
-        m.isActive,
-    );
-  }, [teamMembers, currentUser.email]);
-
-  // The BID's assigned analyst may also start/manage approval rounds
-  const isBidAnalyst = React.useMemo(() => {
-    return (bid.analyst || []).some(
-      (p) => p.email.toLowerCase() === currentUser.email.toLowerCase(),
-    );
-  }, [bid.analyst, currentUser.email]);
-
-  const canManageApproval = canEdit && (isEngineeringUser || isBidAnalyst);
-
-  // Override is restricted to active Engineering members (no analyst / super admin bypass)
-  const canOverride = canEdit && isEngineeringUser;
+  // Starting/managing rounds and override follow the BID Approval tab permission.
+  const canManageApproval = canEdit;
+  const canOverride = canEdit;
   const isCloseOutPhase = bid.currentPhase === "Close Out";
   const activeOverride = getActiveApprovalOverride(bid);
 
@@ -748,7 +730,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     }
   };
 
-  // ── Override Approval (Engineering only, phase must already be Close Out) ──
+  // ── Override Approval (phase must already be Close Out) ──
   const overrideApprovals = hasRunningRound ? bid.approvals || [] : [];
   const overrideApproved = overrideApprovals.filter(
     (a) => a.status === "approved",
@@ -938,7 +920,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       disabled={!isCloseOutPhase || overriding}
       title={
         isCloseOutPhase
-          ? "Force-close this approval as approved (Engineering only)"
+          ? "Force-close this approval as approved"
           : "Override is only available when the BID phase is Close Out"
       }
       onClick={() => setShowOverrideConfirm(true)}
@@ -1346,13 +1328,6 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
         </div>
       </div>
 
-      {/* Non-engineering user warning */}
-      {!isEngineeringUser && (
-        <div className={styles.validationWarning}>
-          🔒 Only Engineering team members can start and manage approval rounds.
-        </div>
-      )}
-
       {/* CAPEX Warning */}
       {bid.costSummary.assetsCapexUSD > CAPEX_THRESHOLD_USD && (
         <div className={styles.validationWarning}>
@@ -1362,7 +1337,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       )}
 
       {/* Validation Errors */}
-      {validationErrors.length > 0 && !canStart && isEngineeringUser && (
+      {validationErrors.length > 0 && !canStart && canManageApproval && (
         <div className={styles.validationWarning}>
           ⚠️ {validationErrors[0]}
           {validationErrors.length > 1 &&

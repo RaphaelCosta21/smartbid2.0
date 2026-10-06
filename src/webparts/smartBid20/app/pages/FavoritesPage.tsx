@@ -6,10 +6,9 @@ import { DataTable } from "../components/common/DataTable";
 import { DivisionBadge } from "../components/common/DivisionBadge";
 import { EmptyState } from "../components/common/EmptyState";
 import { SkeletonLoader } from "../components/common/SkeletonLoader";
-import { PartNumberAutocomplete } from "../components/common/PartNumberAutocomplete";
-import { AdvancedCatalogSearch } from "../components/common/AdvancedCatalogSearch";
 import { PhotoLightbox } from "../components/common/PhotoLightbox";
 import { CollapsibleSidebar } from "../components/common/CollapsibleSidebar";
+import { AddFavoriteEquipmentModal } from "../components/favorites/AddFavoriteEquipmentModal";
 import {
   MultiSelectDropdown,
   MultiSelectOption,
@@ -24,11 +23,10 @@ import {
 import { useBids } from "../hooks/useBids";
 import { useFavoritesStore } from "../stores/useFavoritesStore";
 import { useConfigStore } from "../stores/useConfigStore";
-import { useQueryCatalogStore } from "../stores/useQueryCatalogStore";
-import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useSlidingIndicator } from "../hooks/useSlidingIndicator";
+import { usePageAccess } from "../hooks/usePageAccess";
 import { IBid, IFavoriteBid, IFavoriteEquipment } from "../models";
-import { makeId } from "../utils/idGenerator";
+import { getPartPhotoUrl as getPhotoUrl } from "../utils/partPhoto";
 import { formatDate } from "../utils/formatters";
 import { countFacets, withCounts } from "../utils/facetHelpers";
 import {
@@ -39,7 +37,6 @@ import {
   toPastBidRow,
 } from "../utils/pastBidHelpers";
 import { ROUTES } from "../config/routes.config";
-import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import styles from "./FavoritesPage.module.scss";
 
 type TabKey = "bids" | "equipment";
@@ -109,24 +106,15 @@ function favoriteNote(r: IFavoriteBidRow): string {
   return date ? `Added by ${r.addedBy} · ${date}` : `Added by ${r.addedBy}`;
 }
 
-/** Build the photo URL for an equipment item from the photos library */
-function getPhotoUrl(partNumber: string): string {
-  if (!partNumber) return "";
-  const pn = partNumber.trim();
-  if (!pn) return "";
-  return `${SHAREPOINT_CONFIG.siteUrl}${SHAREPOINT_CONFIG.photosBaseUrl}/${pn}.jpg`;
-}
-
 export const FavoritesPage: React.FC = () => {
   const navigate = useNavigate();
   const { bids, isLoading: bidsLoading } = useBids();
-  const currentUser = useCurrentUser();
+  const { canEdit } = usePageAccess();
 
   const loadFavorites = useFavoritesStore((s) => s.loadFavorites);
   const favData = useFavoritesStore((s) => s.data);
   const isLoading = useFavoritesStore((s) => s.isLoading);
   const isLoaded = useFavoritesStore((s) => s.isLoaded);
-  const addEquipment = useFavoritesStore((s) => s.addEquipment);
   const updateEquipment = useFavoritesStore((s) => s.updateEquipment);
   const removeEquipment = useFavoritesStore((s) => s.removeEquipment);
 
@@ -449,347 +437,9 @@ export const FavoritesPage: React.FC = () => {
     }
   };
 
-  // ─── Add Equipment Modal ───
-  const AddEquipmentModal: React.FC = () => {
-    const catalogLoading = useQueryCatalogStore((s) => s.isLoading);
-    const searchCatalogByPN = useQueryCatalogStore((s) => s.searchByPN);
-    const [mode, setMode] = React.useState<"manual" | "query">("query");
-    const [pn, setPn] = React.useState("");
-    const [desc, setDesc] = React.useState("");
-    const [selectedPN, setSelectedPN] = React.useState("");
-    const [mfgId, setMfgId] = React.useState("");
-    const [mfgItmId, setMfgItmId] = React.useState("");
-    const [notes, setNotes] = React.useState("");
-
-    // If adding a sub-item, inherit parent's group/subgroup
-    const parentItem = addingParentId
-      ? equipment.find((e) => e.id === addingParentId)
-      : null;
-    const [groupId, setGroupId] = React.useState(
-      parentItem?.groupId || selectedGroup || groups[0]?.id || "",
-    );
-    const [subGroupId, setSubGroupId] = React.useState(
-      parentItem?.subGroupId || selectedSubGroup || "",
-    );
-    const [showAdvanced, setShowAdvanced] = React.useState(false);
-
-    const selectedGroupObj = groups.find((g) => g.id === groupId);
-    const needsSubGroup =
-      selectedGroupObj && selectedGroupObj.subGroups.length > 0;
-    const canSave =
-      (pn.trim() || desc.trim()) && groupId && (!needsSubGroup || subGroupId);
-
-    // Duplicate PN check
-    const duplicateInfo = React.useMemo(() => {
-      const trimmed = pn.trim().toUpperCase();
-      if (!trimmed) return null;
-      const existing = equipment.find(
-        (e) => e.partNumber.toUpperCase().trim() === trimmed,
-      );
-      if (!existing) return null;
-      const grp = groups.find((g) => g.id === existing.groupId);
-      const sub = grp
-        ? grp.subGroups.find((s) => s.id === existing.subGroupId)
-        : undefined;
-      return {
-        groupName: grp?.name || "-",
-        subGroupName: sub?.name || "",
-        isChild: !!existing.parentId,
-      };
-    }, [pn, equipment, groups]);
-
-    // Look up mfg data from catalog when PN is selected
-    const lookupMfg = (partNumber: string): void => {
-      const results = searchCatalogByPN(partNumber, 1);
-      if (
-        results.length > 0 &&
-        results[0].pn.toUpperCase() === partNumber.toUpperCase()
-      ) {
-        setMfgId(results[0].mfgId || "");
-        setMfgItmId(results[0].mfgItmId || "");
-      } else {
-        setMfgId("");
-        setMfgItmId("");
-      }
-    };
-
-    const handleSave = (): void => {
-      if (!canSave) return;
-      const item: IFavoriteEquipment = {
-        id: makeId("fav"),
-        groupId,
-        subGroupId,
-        partNumber: pn.trim(),
-        description: desc.trim(),
-        pictureUrl: getPhotoUrl(pn.trim()),
-        notes: notes.trim(),
-        dataSource: mode === "query" ? "query" : "manual",
-        mfgId: mfgId || undefined,
-        mfgItmId: mfgItmId || undefined,
-        parentId: addingParentId || undefined,
-        createdBy: currentUser?.displayName || "",
-        createdDate: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-      };
-      addEquipment(item);
-      setShowAddModal(false);
-      setAddingParentId(null);
-    };
-
-    return (
-      <div className={styles.modalOverlay}>
-        <div className={styles.modal}>
-          <div className={styles.modalHeader}>
-            <h3>
-              {parentItem
-                ? "Add Sub-Item (Spare / Accessory)"
-                : "Add Equipment to Favorites"}
-            </h3>
-            <button
-              className={styles.closeBtn}
-              onClick={() => {
-                setShowAddModal(false);
-                setAddingParentId(null);
-              }}
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className={styles.modalBody}>
-            {/* Parent item info banner */}
-            {parentItem && (
-              <div className={styles.parentBanner}>
-                🔗 Adding sub-item for: <strong>{parentItem.partNumber}</strong>{" "}
-                - {parentItem.description}
-              </div>
-            )}
-            {/* Loading indicator while catalog loads */}
-            {catalogLoading && (
-              <div className={styles.catalogLoadingBanner}>
-                <span className={styles.inlineSpinner} />
-                Loading query catalog... this may take a moment.
-              </div>
-            )}
-
-            {/* Mode toggle */}
-            <div className={styles.modeToggle}>
-              <button
-                className={`${styles.modeBtn} ${mode === "query" ? styles.modeActive : ""}`}
-                onClick={() => setMode("query")}
-              >
-                📋 From Query
-              </button>
-              <button
-                className={`${styles.modeBtn} ${mode === "manual" ? styles.modeActive : ""}`}
-                onClick={() => setMode("manual")}
-              >
-                ✏️ Manual
-              </button>
-            </div>
-
-            {/* Group / SubGroup pickers */}
-            <div className={styles.formRow}>
-              <label className={styles.formLabel}>Group *</label>
-              <select
-                className={styles.formSelect}
-                value={groupId}
-                disabled={!!parentItem}
-                onChange={(e) => {
-                  setGroupId(e.target.value);
-                  setSubGroupId("");
-                }}
-              >
-                <option value="">- Select Group -</option>
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {selectedGroupObj && selectedGroupObj.subGroups.length > 0 && (
-              <div className={styles.formRow}>
-                <label className={styles.formLabel}>Sub-Group *</label>
-                <select
-                  className={styles.formSelect}
-                  value={subGroupId}
-                  disabled={!!parentItem}
-                  onChange={(e) => setSubGroupId(e.target.value)}
-                >
-                  <option value="">- Select Sub-Group -</option>
-                  {selectedGroupObj.subGroups.map((sg) => (
-                    <option key={sg.id} value={sg.id}>
-                      {sg.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* PN / Description */}
-            {mode === "query" ? (
-              <div className={styles.formRow}>
-                <label className={styles.formLabel}>
-                  Search Part Number or Description
-                </label>
-                <PartNumberAutocomplete
-                  value={pn}
-                  searchField="both"
-                  mono
-                  placeholder="Type PN or description to search..."
-                  sourcesFilter={["query"]}
-                  onChange={(v) => {
-                    setPn(v);
-                    // Clear selection when user continues typing
-                    setSelectedPN("");
-                    setDesc("");
-                    setMfgId("");
-                    setMfgItmId("");
-                  }}
-                  onSelect={(p, d) => {
-                    setPn(p);
-                    setDesc(d);
-                    setSelectedPN(p);
-                    lookupMfg(p);
-                  }}
-                />
-                <button
-                  type="button"
-                  className={styles.advancedSearchBtn}
-                  onClick={() => setShowAdvanced(true)}
-                >
-                  🔍 Advanced Search
-                </button>
-                {desc && (
-                  <div className={styles.selectedDesc}>
-                    <strong>Description:</strong> {desc}
-                  </div>
-                )}
-                {selectedPN && (
-                  <div
-                    key={selectedPN}
-                    className={styles.equipPhotoWrap}
-                    style={{
-                      width: 96,
-                      height: 96,
-                      borderRadius: 6,
-                      marginTop: 8,
-                      cursor: "zoom-in",
-                    }}
-                    onClick={() => setPreviewPhotoUrl(getPhotoUrl(selectedPN))}
-                    title="Click to enlarge"
-                  >
-                    <img
-                      src={getPhotoUrl(selectedPN)}
-                      alt={selectedPN}
-                      className={styles.equipPhoto}
-                      onError={(e) => {
-                        const wrap = (e.target as HTMLImageElement)
-                          .parentElement;
-                        if (wrap) wrap.style.display = "none";
-                      }}
-                    />
-                  </div>
-                )}
-                {showAdvanced && (
-                  <AdvancedCatalogSearch
-                    onSelect={(p, d) => {
-                      setPn(p);
-                      setDesc(d);
-                      setSelectedPN(p);
-                      lookupMfg(p);
-                      setShowAdvanced(false);
-                    }}
-                    onClose={() => setShowAdvanced(false)}
-                  />
-                )}
-              </div>
-            ) : (
-              <>
-                <div className={styles.formRow}>
-                  <label className={styles.formLabel}>Part Number</label>
-                  <input
-                    className={styles.formInput}
-                    value={pn}
-                    onChange={(e) => setPn(e.target.value)}
-                    placeholder="Enter part number..."
-                  />
-                </div>
-                <div className={styles.formRow}>
-                  <label className={styles.formLabel}>Description</label>
-                  <input
-                    className={styles.formInput}
-                    value={desc}
-                    onChange={(e) => setDesc(e.target.value)}
-                    placeholder="Enter description..."
-                  />
-                </div>
-              </>
-            )}
-
-            <div className={styles.formRow}>
-              <label className={styles.formLabel}>Notes</label>
-              <textarea
-                className={styles.formTextarea}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Optional notes..."
-                rows={2}
-              />
-            </div>
-
-            {/* Manufacturer info (read-only, from catalog lookup) */}
-            {(mfgId || mfgItmId) && (
-              <div className={styles.mfgInfoRow}>
-                {mfgId && (
-                  <span>
-                    <strong>Mfg:</strong> {mfgId}
-                  </span>
-                )}
-                {mfgItmId && (
-                  <span>
-                    <strong>Mfg Ref:</strong> {mfgItmId}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Duplicate PN warning */}
-            {duplicateInfo && (
-              <div className={styles.duplicateWarning}>
-                ⚠️ This Part Number already exists in favorites:{" "}
-                <strong>{duplicateInfo.groupName}</strong>
-                {duplicateInfo.subGroupName
-                  ? ` › ${duplicateInfo.subGroupName}`
-                  : ""}
-                {duplicateInfo.isChild ? " (as sub-item)" : ""}
-              </div>
-            )}
-          </div>
-
-          <div className={styles.modalFooter}>
-            <button
-              className={styles.cancelBtn}
-              onClick={() => {
-                setShowAddModal(false);
-                setAddingParentId(null);
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              className={styles.saveBtn}
-              onClick={handleSave}
-              disabled={!canSave}
-            >
-              {parentItem ? "Add Sub-Item" : "Add to Favorites"}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+  const closeAddModal = (): void => {
+    setShowAddModal(false);
+    setAddingParentId(null);
   };
 
   if (isLoading) {
@@ -1031,12 +681,14 @@ export const FavoritesPage: React.FC = () => {
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
               />
-              <button
-                className={styles.toolBtn}
-                onClick={() => setShowAddModal(true)}
-              >
-                ➕ Add Item
-              </button>
+              {canEdit && (
+                <button
+                  className={styles.toolBtn}
+                  onClick={() => setShowAddModal(true)}
+                >
+                  ➕ Add Item
+                </button>
+              )}
               <div className={styles.viewToggle}>
                 <button
                   className={`${styles.viewBtn} ${viewMode === "grid" ? styles.viewActive : ""}`}
@@ -1058,12 +710,14 @@ export const FavoritesPage: React.FC = () => {
             {filteredEquipment.length === 0 ? (
               <div className={styles.emptyEquip}>
                 <p>No equipment items in this category.</p>
-                <button
-                  className={styles.toolBtn}
-                  onClick={() => setShowAddModal(true)}
-                >
-                  ➕ Add First Item
-                </button>
+                {canEdit && (
+                  <button
+                    className={styles.toolBtn}
+                    onClick={() => setShowAddModal(true)}
+                  >
+                    ➕ Add First Item
+                  </button>
+                )}
               </div>
             ) : viewMode === "grid" ? (
               <div className={styles.equipGrid}>
@@ -1167,28 +821,33 @@ export const FavoritesPage: React.FC = () => {
                                 <span className={styles.subItemDesc}>
                                   {child.description}
                                 </span>
-                                <button
-                                  className={styles.removeBtn}
-                                  onClick={() => setEditingItem(child)}
-                                  title="Edit"
-                                  style={{ marginRight: 4 }}
-                                >
-                                  ✏️
-                                </button>
-                                <button
-                                  className={styles.removeBtn}
-                                  onClick={() =>
-                                    handleRemoveEquipment(child.id)
-                                  }
-                                  title="Remove"
-                                >
-                                  🗑
-                                </button>
+                                {canEdit && (
+                                  <>
+                                    <button
+                                      className={styles.removeBtn}
+                                      onClick={() => setEditingItem(child)}
+                                      title="Edit"
+                                      style={{ marginRight: 4 }}
+                                    >
+                                      ✏️
+                                    </button>
+                                    <button
+                                      className={styles.removeBtn}
+                                      onClick={() =>
+                                        handleRemoveEquipment(child.id)
+                                      }
+                                      title="Remove"
+                                    >
+                                      🗑
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             ))}
                         </div>
                       )}
 
+                      {canEdit && (
                       <div className={styles.equipCardFooter}>
                         <button
                           className={styles.subItemBtn}
@@ -1217,6 +876,7 @@ export const FavoritesPage: React.FC = () => {
                           🗑
                         </button>
                       </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1281,31 +941,35 @@ export const FavoritesPage: React.FC = () => {
                           </span>
                         </span>
                         <span className={styles.listColAct}>
-                          <button
-                            className={styles.subItemBtn}
-                            onClick={() => {
-                              setAddingParentId(eq.id);
-                              setShowAddModal(true);
-                            }}
-                            title="Add spare / accessory"
-                            style={{ marginRight: 4 }}
-                          >
-                            🔗+
-                          </button>
-                          <button
-                            className={styles.removeBtn}
-                            onClick={() => setEditingItem(eq)}
-                            title="Edit group / sub-group"
-                            style={{ marginRight: 4 }}
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            className={styles.removeBtn}
-                            onClick={() => handleRemoveEquipment(eq.id)}
-                          >
-                            🗑
-                          </button>
+                          {canEdit && (
+                            <>
+                              <button
+                                className={styles.subItemBtn}
+                                onClick={() => {
+                                  setAddingParentId(eq.id);
+                                  setShowAddModal(true);
+                                }}
+                                title="Add spare / accessory"
+                                style={{ marginRight: 4 }}
+                              >
+                                🔗+
+                              </button>
+                              <button
+                                className={styles.removeBtn}
+                                onClick={() => setEditingItem(eq)}
+                                title="Edit group / sub-group"
+                                style={{ marginRight: 4 }}
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                className={styles.removeBtn}
+                                onClick={() => handleRemoveEquipment(eq.id)}
+                              >
+                                🗑
+                              </button>
+                            </>
+                          )}
                         </span>
                       </div>
                       {children.length > 0 && (
@@ -1376,22 +1040,26 @@ export const FavoritesPage: React.FC = () => {
                                 </span>
                               </span>
                               <span className={styles.listColAct}>
-                                <button
-                                  className={styles.removeBtn}
-                                  onClick={() => setEditingItem(child)}
-                                  title="Edit"
-                                  style={{ marginRight: 4 }}
-                                >
-                                  ✏️
-                                </button>
-                                <button
-                                  className={styles.removeBtn}
-                                  onClick={() =>
-                                    handleRemoveEquipment(child.id)
-                                  }
-                                >
-                                  🗑
-                                </button>
+                                {canEdit && (
+                                  <>
+                                    <button
+                                      className={styles.removeBtn}
+                                      onClick={() => setEditingItem(child)}
+                                      title="Edit"
+                                      style={{ marginRight: 4 }}
+                                    >
+                                      ✏️
+                                    </button>
+                                    <button
+                                      className={styles.removeBtn}
+                                      onClick={() =>
+                                        handleRemoveEquipment(child.id)
+                                      }
+                                    >
+                                      🗑
+                                    </button>
+                                  </>
+                                )}
                               </span>
                             </div>
                           );
@@ -1405,7 +1073,20 @@ export const FavoritesPage: React.FC = () => {
         </div>
       )}
 
-      {showAddModal && <AddEquipmentModal />}
+      {showAddModal && (
+        <AddFavoriteEquipmentModal
+          groups={groups}
+          equipment={equipment}
+          parentItem={
+            addingParentId
+              ? equipment.find((e) => e.id === addingParentId)
+              : null
+          }
+          initialGroupId={selectedGroup}
+          initialSubGroupId={selectedSubGroup}
+          onClose={closeAddModal}
+        />
+      )}
       {editingItem && (
         <EditEquipmentModal
           item={editingItem}

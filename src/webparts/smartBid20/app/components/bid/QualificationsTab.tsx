@@ -27,12 +27,14 @@ import styles from "../../pages/BidDetailPage.module.scss";
 export interface QualificationsTabProps {
   bid: IBid;
   canEdit?: boolean;
+  canDelete?: boolean;
   onSave?: (patch: Partial<IBid>) => void;
 }
 
 export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   bid,
   canEdit,
+  canDelete = canEdit,
   onSave,
 }) => {
   const tables = bid.qualificationTables || [];
@@ -93,6 +95,8 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   const clarLock = useEditControl(bid.bidNumber, "clarifications");
   const canEditQual = !!canEdit && qualLock.isEditing;
   const canEditClar = !!canEdit && clarLock.isEditing;
+  const canDeleteQual = canEditQual && !!canDelete;
+  const canDeleteClar = canEditClar && !!canDelete;
 
   // Auto-import clarifications from scope items with compliance === "no"
   const autoImported = React.useMemo(() => {
@@ -138,9 +142,9 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
         .map((s) => s.id),
     );
     return merged.filter(
-      (c) => !c.isAutoImported || nonCompliantIds.has(c.scopeItemId || ""),
+      (c) => !canDelete || !c.isAutoImported || nonCompliantIds.has(c.scopeItemId || ""),
     );
-  }, [clarifications, autoImported, scopeItems]);
+  }, [clarifications, autoImported, scopeItems, canDelete]);
 
   // ─── Local state to prevent input lag ───
   const [localTables, setLocalTables] =
@@ -196,6 +200,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
 
   // Persist clarifications
   const saveClarifications = (updated: IClarificationItem[]): void => {
+    if (!canEditClar) return;
     setLocalClarifications(updated);
     if (!onSave) return;
     debouncedSaveClar(updated);
@@ -245,6 +250,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   };
 
   const deleteClarification = (id: string): void => {
+    if (!canDeleteClar) return;
     saveClarifications(localClarifications.filter((c) => c.id !== id));
   };
 
@@ -317,6 +323,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
 
   // Qualification tables
   const saveQualTables = (updated: IQualificationTable[]): void => {
+    if (!canEditQual) return;
     setLocalTables(updated);
     if (!onSave) return;
     debouncedSaveQual(updated);
@@ -344,6 +351,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   };
 
   const deleteTable = (tableId: string): void => {
+    if (!canDeleteQual) return;
     saveQualTables(localTables.filter((t) => t.id !== tableId));
   };
 
@@ -389,6 +397,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   };
 
   const deleteQualItem = (tableId: string, itemId: string): void => {
+    if (!canDeleteQual) return;
     saveQualTables(
       localTables.map((t) => {
         if (t.id !== tableId) return t;
@@ -473,7 +482,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                   </span>
                 )
               )}
-              {canEditQual && (
+              {canDeleteQual && (
                 <button
                   className={styles.backBtn}
                   style={{ color: "var(--error-color, #EF4444)", fontSize: 12 }}
@@ -530,7 +539,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                   >
                     Comments
                   </th>
-                  {canEditQual && (
+                  {canDeleteQual && (
                     <th
                       style={{
                         width: 40,
@@ -614,7 +623,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                         qi.comments || "-"
                       )}
                     </td>
-                    {canEditQual && (
+                    {canDeleteQual && (
                       <td
                         style={{
                           padding: "6px 10px",
@@ -848,7 +857,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                   >
                     Source
                   </th>
-                  {canEditClar && (
+                  {canDeleteClar && (
                     <th
                       style={{
                         width: 40,
@@ -1110,7 +1119,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                             : "Manual"}
                       </span>
                     </td>
-                    {canEditClar && (
+                    {canDeleteClar && (
                       <td
                         style={{
                           padding: "6px 10px",

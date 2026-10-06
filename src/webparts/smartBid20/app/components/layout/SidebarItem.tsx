@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Lock } from "lucide-react";
 import styles from "./Sidebar.module.scss";
 
 interface SidebarItemProps {
@@ -8,6 +9,8 @@ interface SidebarItemProps {
   badge?: number;
   badgePulsing?: boolean;
   isCollapsed?: boolean;
+  /** Listed but not clickable (no access for the user's team). */
+  disabled?: boolean;
   onClick?: () => void;
   onExternalClick?: () => void;
 }
@@ -19,20 +22,32 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({
   badge,
   badgePulsing,
   isCollapsed,
+  disabled,
   onClick,
   onExternalClick,
 }) => {
+  const title = disabled
+    ? `${label} - no access`
+    : isCollapsed
+      ? label
+      : undefined;
   return (
     <div
-      className={`${styles.navItem} ${isActive ? styles.active : ""}`}
-      onClick={onClick}
-      title={isCollapsed ? label : undefined}
+      className={`${styles.navItem} ${isActive ? styles.active : ""} ${disabled ? styles.disabled : ""}`}
+      onClick={disabled ? undefined : onClick}
+      title={title}
+      aria-disabled={disabled || undefined}
     >
       {icon}
       {!isCollapsed && (
         <>
           <span className={styles.navLabel}>{label}</span>
-          {onExternalClick && (
+          {disabled && (
+            <span className={styles.lockIcon}>
+              <Lock />
+            </span>
+          )}
+          {!disabled && onExternalClick && (
             <button
               className={styles.externalBtn}
               onClick={(e) => {
@@ -55,7 +70,7 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({
               </svg>
             </button>
           )}
-          {badge !== undefined && badge > 0 && (
+          {!disabled && badge !== undefined && badge > 0 && (
             <span
               className={`${styles.badge} ${badgePulsing ? styles.pulsing : ""}`}
             >

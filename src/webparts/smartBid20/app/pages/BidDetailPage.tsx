@@ -1,7 +1,8 @@
 import * as React from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Link2 } from "lucide-react";
+import { Link2, Lock } from "lucide-react";
 import { useBidStore } from "../stores/useBidStore";
+import { useAuthStore } from "../stores/useAuthStore";
 import { ROUTES } from "../config/routes.config";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { ScopeOfSupplyTab } from "../components/bid/ScopeOfSupplyTab";
@@ -69,103 +70,38 @@ import { getErnLinks } from "../utils/ernHelpers";
 import { makeId } from "../utils/idGenerator";
 import { getBidFx, withCostSummary } from "../utils/costCalculations";
 import { useAccessLevel } from "../hooks/useAccessLevel";
+import {
+  canEditLevel,
+  canDeleteLevel,
+  getEffectiveBidTabLevel,
+  removesCollaborationContent,
+} from "../utils/accessControl";
 import { useConfigPhases } from "../hooks/useConfigPhases";
 import { EditControlService } from "../services/EditControlService";
 import { useEditControl } from "../hooks/useEditControl";
 import { EditableTabContent } from "../components/common/EditLockBanner";
 import { CollapsibleSidebar } from "../components/common/CollapsibleSidebar";
 import { mapSuggestedClarification } from "../utils/aiClarificationMapper";
+import { BID_TAB_GROUPS, BidTab } from "../config/bidTabs.config";
+import { ViewOnlyBanner } from "../components/common/RequirePageAccess";
+import { EmptyState } from "../components/common/EmptyState";
 import styles from "./BidDetailPage.module.scss";
 
-type BidTab =
-  | "overview"
-  | "scope"
-  | "assets"
-  | "preparation"
-  | "logistics"
-  | "certifications"
-  | "hours"
-  | "costs"
-  | "tasks"
-  | "timeline"
-  | "approval"
-  | "documents"
-  | "notes"
-  | "qualifications"
-  | "activity"
-  | "export"
-  | "revisions";
-
-interface INavItem {
-  key: BidTab;
-  label: string;
-  icon: string;
-  /** If true, only visible to canEditBid users */
-  restricted?: boolean;
-}
-
-interface INavGroup {
-  group: string;
-  items: INavItem[];
-}
-
-const NAV_GROUPS: INavGroup[] = [
-  {
-    group: "General",
-    items: [
-      { key: "overview", label: "Overview", icon: "📊" },
-      { key: "timeline", label: "Timeline", icon: "📅" },
-    ],
-  },
-  {
-    group: "Scope & Costing",
-    items: [
-      // Scope & Costing pages are viewable by everyone who can open the BID.
-      // Editing is limited to the Engineering team (see canEditBidTabs below).
-      { key: "scope", label: "Scope of Supply", icon: "📋" },
-      {
-        key: "hours",
-        label: "Hours & Personnel",
-        icon: "⏱️",
-      },
-      {
-        key: "assets",
-        label: "Assets Breakdown",
-        icon: "🔩",
-      },
-      {
-        key: "preparation",
-        label: "Prep & Mobilization",
-        icon: "🔧",
-      },
-      { key: "logistics", label: "Logistics", icon: "🚚" },
-      { key: "certifications", label: "Certifications", icon: "📜" },
-      { key: "costs", label: "Cost Summary", icon: "💰" },
-    ],
-  },
-  {
-    group: "Management",
-    items: [
-      { key: "tasks", label: "Status & Phases", icon: "✅" },
-      { key: "revisions", label: "Revisions", icon: "🔄" },
-      { key: "approval", label: "Approval", icon: "🔏" },
-      { key: "documents", label: "Documents", icon: "📄" },
-    ],
-  },
-  {
-    group: "Collaboration",
-    items: [
-      { key: "notes", label: "Notes & Comments", icon: "📝" },
-      { key: "qualifications", label: "Clarif. & Qualif.", icon: "🎓" },
-    ],
-  },
-  {
-    group: "Tools",
-    items: [
-      { key: "activity", label: "Activity Log", icon: "📜" },
-      { key: "export", label: "Export", icon: "📤" },
-    ],
-  },
+// Tabs with edit actions; read-only tabs (costs, timeline, activity, export) need no banner.
+const EDITABLE_TABS: BidTab[] = [
+  "overview",
+  "scope",
+  "hours",
+  "assets",
+  "preparation",
+  "logistics",
+  "certifications",
+  "tasks",
+  "revisions",
+  "approval",
+  "documents",
+  "notes",
+  "qualifications",
 ];
 
 const EMPTY_HOURS_SUMMARY: IHoursSummary = {
@@ -265,24 +201,21 @@ export const BidDetailPage: React.FC = () => {
     };
   }, [id, currentUser.email]);
 
-  // Access control via hook
-  const { canEdit: canEditSection, isSuperAdmin } = useAccessLevel();
-  const canEditBid = canEditSection("workspace") || isSuperAdmin;
-
-  // Only the Engineering team (or a super admin) may edit Scope & Costing pages.
-  // Everyone else can open these pages read-only (no Edit button is shown).
-  const isEngineeringTeam =
-    isSuperAdmin || currentUser.sector === "engineering";
-
-  // Filter nav groups based on access
-  const visibleGroups = React.useMemo(
-    () =>
-      NAV_GROUPS.map((g) => ({
-        ...g,
-        items: g.items.filter((item) => (item.restricted ? canEditBid : true)),
-      })).filter((g) => g.items.length > 0),
-    [canEditBid],
+  // Access control: every tab follows the BID Details matrix in System Configuration.
+  const { getBidTabLevel, isResolved: accessResolved } = useAccessLevel();
+  const canEditTab = (tab: BidTab): boolean => canEditLevel(getBidTabLevel(tab));
+  const canDeleteTab = (tab: BidTab): boolean => canDeleteLevel(getBidTabLevel(tab));
+  const isTabLocked = (tab: BidTab): boolean =>
+    accessResolved && getBidTabLevel(tab) === "none";
+  const firstOpenTab = BID_TAB_GROUPS.reduce<BidTab | null>(
+    (found, g) =>
+      found || (g.items.find((t) => !isTabLocked(t.key))?.key ?? null),
+    null,
   );
+
+  React.useEffect(() => {
+    if (isTabLocked(activeTab) && firstOpenTab) setActiveTab(firstOpenTab);
+  }, [activeTab, firstOpenTab, accessResolved]);
 
   // Save handler: patches BID JSON in SharePoint + optimistic store update
   // Also tracks changes when an active revision exists
@@ -292,6 +225,21 @@ export const BidDetailPage: React.FC = () => {
       const currentBids = useBidStore.getState().bids;
       const currentBid = currentBids.find((b) => b.bidNumber === id);
       if (!currentBid) return;
+
+      const user = useAuthStore.getState().currentUser;
+      const accessConfig = useConfigStore.getState().config;
+      const collaborationTabs: ("notes" | "qualifications")[] = ["notes", "qualifications"];
+      if (collaborationTabs.some((tab) =>
+        getEffectiveBidTabLevel(user, accessConfig, tab) === "editNoDelete" &&
+        removesCollaborationContent(currentBid, patch, tab),
+      )) {
+        addToast({
+          type: "warning",
+          title: "Deletion is not allowed",
+          message: "Edit* allows adding and editing, but not removing Collaboration content.",
+        });
+        return;
+      }
 
       // If there's an active revision, track changes in the revision
       let finalPatch = { ...patch };
@@ -483,8 +431,9 @@ export const BidDetailPage: React.FC = () => {
   // The Teams approval flow writes decisions and completion straight into the BID
   // JSON; editors persist the matching activity/history entries (each tried once).
   const reconciledKeys = React.useRef<Record<string, boolean>>({});
+  const canReconcileApproval = canEditTab("tasks");
   React.useEffect(() => {
-    if (!bid || !canEditBid) return;
+    if (!bid || !canReconcileApproval) return;
     // A child effect may have saved in this same commit; build on the store copy.
     const latest =
       useBidStore.getState().bids.find((b) => b.bidNumber === bid.bidNumber) ||
@@ -507,17 +456,18 @@ export const BidDetailPage: React.FC = () => {
     }
     if (Object.keys(patch).length === 0) return;
     savePatch(patch).catch(() => undefined);
-  }, [bid, canEditBid, savePatch]);
+  }, [bid, canReconcileApproval, savePatch]);
 
   // Covers every path to Completed (approval auto-complete/override, revision close, Teams flow).
   const syncAttemptRef = React.useRef("");
+  const canSyncLibrary = canEditTab("qualifications");
   React.useEffect(() => {
-    if (!bid || !canEditBid || !needsClarificationLibrarySync(bid)) return;
+    if (!bid || !canSyncLibrary || !needsClarificationLibrarySync(bid)) return;
     const key = `${bid.bidNumber}|${bid.completedDate}`;
     if (syncAttemptRef.current === key) return;
     syncAttemptRef.current = key;
     syncClarificationLibrary(bid).catch(() => undefined);
-  }, [bid, canEditBid, syncClarificationLibrary]);
+  }, [bid, canSyncLibrary, syncClarificationLibrary]);
 
   if (!bid) {
     return (
@@ -549,10 +499,10 @@ export const BidDetailPage: React.FC = () => {
     (Array.isArray(bid.engineerResponsible) &&
       bid.engineerResponsible.length === 0);
 
-  // canEditBidTabs: Scope & Costing pages are editable only by the Engineering
-  // team, and never while the BID is locked (terminal status without an active
-  // revision) or unassigned. All other users see these pages read-only.
-  const canEditBidTabs = isEngineeringTeam && !isBidLocked && !isUnassigned;
+  // Scope & Costing tabs also stay read-only while the BID is locked
+  // (terminal status without an active revision) or unassigned.
+  const canEditBidTab = (tab: BidTab): boolean =>
+    canEditTab(tab) && !isBidLocked && !isUnassigned;
 
   /**
    * Merge AI-generated scope items into the BID, tag them as AI-sourced, and
@@ -803,35 +753,47 @@ export const BidDetailPage: React.FC = () => {
           stickyTop={16}
           collapsedContent={
             <nav className={`${styles.sideNav} ${styles.sideNavCollapsed}`}>
-              {visibleGroups.map((group) =>
-                group.items.map((item) => (
-                  <button
-                    key={item.key}
-                    className={`${styles.navItem} ${activeTab === item.key ? styles.navItemActive : ""}`}
-                    onClick={() => setActiveTab(item.key)}
-                    title={item.label}
-                  >
-                    <span className={styles.navIcon}>{item.icon}</span>
-                  </button>
-                )),
+              {BID_TAB_GROUPS.map((group) =>
+                group.items.map((item) => {
+                  const locked = isTabLocked(item.key);
+                  return (
+                    <button
+                      key={item.key}
+                      className={`${styles.navItem} ${activeTab === item.key ? styles.navItemActive : ""} ${locked ? styles.navItemDisabled : ""}`}
+                      onClick={() => setActiveTab(item.key)}
+                      disabled={locked}
+                      title={locked ? `${item.label} - no access` : item.label}
+                    >
+                      <span className={styles.navIcon}>{item.icon}</span>
+                    </button>
+                  );
+                }),
               )}
             </nav>
           }
         >
           <nav className={styles.sideNav}>
-            {visibleGroups.map((group) => (
-              <div key={group.group} className={styles.navGroup}>
+            {BID_TAB_GROUPS.map((group) => (
+              <div key={group.key} className={styles.navGroup}>
                 <div className={styles.navGroupLabel}>{group.group}</div>
-                {group.items.map((item) => (
-                  <button
-                    key={item.key}
-                    className={`${styles.navItem} ${activeTab === item.key ? styles.navItemActive : ""}`}
-                    onClick={() => setActiveTab(item.key)}
-                  >
-                    <span className={styles.navIcon}>{item.icon}</span>
-                    <span className={styles.navLabel}>{item.label}</span>
-                  </button>
-                ))}
+                {group.items.map((item) => {
+                  const locked = isTabLocked(item.key);
+                  return (
+                    <button
+                      key={item.key}
+                      className={`${styles.navItem} ${activeTab === item.key ? styles.navItemActive : ""} ${locked ? styles.navItemDisabled : ""}`}
+                      onClick={() => setActiveTab(item.key)}
+                      disabled={locked}
+                      title={locked ? "No access for your team" : undefined}
+                    >
+                      <span className={styles.navIcon}>{item.icon}</span>
+                      <span className={styles.navLabel}>{item.label}</span>
+                      {locked && (
+                        <Lock size={12} className={styles.navLockIcon} />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             ))}
           </nav>
@@ -839,6 +801,19 @@ export const BidDetailPage: React.FC = () => {
 
         {/* Main Content */}
         <div className={styles.tabContent}>
+          {accessResolved && !firstOpenTab && (
+            <EmptyState
+              variant="glass"
+              title="You don't have access to this BID"
+              description="Your team's permissions do not include any BID Details tab. Ask a SmartBid administrator if you need access."
+            />
+          )}
+          {!isTabLocked(activeTab) &&
+            EDITABLE_TABS.indexOf(activeTab) >= 0 &&
+            accessResolved &&
+            getBidTabLevel(activeTab) === "view" && (
+              <ViewOnlyBanner message="You can browse this tab, but changes are disabled for your team." />
+            )}
           {isUnassigned &&
             (activeTab === "scope" ||
               activeTab === "hours" ||
@@ -870,11 +845,13 @@ export const BidDetailPage: React.FC = () => {
                 </span>
               </div>
             )}
+          {!isTabLocked(activeTab) && (
+          <>
           {activeTab === "overview" && (
             <OverviewTab
               bid={bid}
               currentPhaseIndex={currentPhaseIndex}
-              canEdit={canEditBid}
+              canEdit={canEditTab("overview")}
               onSave={saveOverview}
               currentUser={currentUser}
             />
@@ -887,7 +864,7 @@ export const BidDetailPage: React.FC = () => {
                   tabName="Scope of Supply"
                   sectionPrefix="scope"
                   div={div}
-                  canEdit={canEditBidTabs}
+                  canEdit={canEditBidTab("scope")}
                   onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
@@ -1132,7 +1109,7 @@ export const BidDetailPage: React.FC = () => {
                   tabName="Assets Breakdown"
                   sectionPrefix="assets"
                   div={div}
-                  canEdit={canEditBidTabs}
+                  canEdit={canEditBidTab("assets")}
                   onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
@@ -1203,7 +1180,7 @@ export const BidDetailPage: React.FC = () => {
                   tabName="Logistics"
                   sectionPrefix="logistics"
                   div={div}
-                  canEdit={canEditBidTabs}
+                  canEdit={canEditBidTab("logistics")}
                   onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
@@ -1254,7 +1231,7 @@ export const BidDetailPage: React.FC = () => {
                   tabName="Certifications"
                   sectionPrefix="certifications"
                   div={div}
-                  canEdit={canEditBidTabs}
+                  canEdit={canEditBidTab("certifications")}
                   onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
@@ -1312,7 +1289,7 @@ export const BidDetailPage: React.FC = () => {
                   tabName="Prep & Mobilization"
                   sectionPrefix="preparation"
                   div={div}
-                  canEdit={canEditBidTabs}
+                  canEdit={canEditBidTab("preparation")}
                   onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
@@ -1432,7 +1409,7 @@ export const BidDetailPage: React.FC = () => {
                   tabName="Hours & Personnel"
                   sectionPrefix="hours"
                   div={_div}
-                  canEdit={canEditBidTabs}
+                  canEdit={canEditBidTab("hours")}
                   onEditChange={handleEditChange}
                 >
                   {(isEditing) => {
@@ -1757,7 +1734,7 @@ export const BidDetailPage: React.FC = () => {
           {activeTab === "tasks" && (
             <BidStatusPhasePanel
               bid={bid}
-              readOnly={!canEditBid}
+              readOnly={!canEditTab("tasks")}
               onSave={savePatch}
             />
           )}
@@ -1777,14 +1754,14 @@ export const BidDetailPage: React.FC = () => {
                 role: currentUser.jobTitle || currentUser.role,
                 photoUrl: currentUser.photoUrl,
               }}
-              canEdit={canEditBid}
+              canEdit={canEditTab("approval")}
               onPatchBid={savePatch}
             />
           )}
           {activeTab === "documents" && (
             <DocumentsTab
               bid={bid}
-              canEdit={canEditBid}
+              canEdit={canEditTab("documents")}
               onSave={savePatch}
               currentUser={currentUser}
             />
@@ -1792,11 +1769,12 @@ export const BidDetailPage: React.FC = () => {
           {activeTab === "notes" && (
             <NotesTab
               bid={bid}
-              canEdit={canEditBid}
+              canEdit={canEditTab("notes")}
+              canDelete={canDeleteTab("notes")}
               onSave={saveNotes}
               currentUser={currentUser}
               onAddComment={
-                canEditBid
+                canEditTab("notes")
                   ? (text) => {
                       const newComment: IBidComment = {
                         id: `comment-${Date.now()}`,
@@ -1824,7 +1802,8 @@ export const BidDetailPage: React.FC = () => {
           {activeTab === "qualifications" && (
             <QualificationsTab
               bid={bid}
-              canEdit={canEditBid}
+              canEdit={canEditTab("qualifications")}
+              canDelete={canDeleteTab("qualifications")}
               onSave={saveQualifications}
             />
           )}
@@ -1839,7 +1818,7 @@ export const BidDetailPage: React.FC = () => {
           {activeTab === "revisions" && (
             <RevisionsTab
               bid={bid}
-              canEdit={canEditBid}
+              canEdit={canEditTab("revisions")}
               currentUser={currentUser}
               onSave={savePatch}
             />
@@ -1850,6 +1829,8 @@ export const BidDetailPage: React.FC = () => {
               currentUser={currentUser}
               onSave={savePatch}
             />
+          )}
+          </>
           )}
         </div>
         {/* end tabContent */}

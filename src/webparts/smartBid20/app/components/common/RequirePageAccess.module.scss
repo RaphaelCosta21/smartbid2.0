@@ -1,0 +1,49 @@
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.denied {
+  display: flex;
+  justify-content: center;
+  padding: 48px 16px;
+}
+
+.lockIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text-muted) 30%, transparent);
+}
+
+.viewBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--info) 10%, var(--glass-bg));
+  border: 1px solid color-mix(in srgb, var(--info) 30%, transparent);
+  backdrop-filter: blur(18px);
+
+  svg {
+    flex-shrink: 0;
+    color: var(--info);
+  }
+
+  strong {
+    color: var(--info);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+}

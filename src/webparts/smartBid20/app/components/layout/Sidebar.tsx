@@ -1,15 +1,15 @@
 import * as React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { Lock } from "lucide-react";
 import { useUIStore } from "../../stores/useUIStore";
 import {
   NAVIGATION_ITEMS,
   SECTION_LABELS,
   INavItem,
 } from "../../config/navigation.config";
-import { useAuthStore } from "../../stores/useAuthStore";
 import { useBidStore } from "../../stores/useBidStore";
 import { isUnassignedBid } from "../../utils/bidHelpers";
-import { canAccessKnowledge } from "../../utils/accessControl";
+import { useAccessLevel } from "../../hooks/useAccessLevel";
 import styles from "./Sidebar.module.scss";
 import { SidebarItem } from "./SidebarItem";
 import { SidebarSubmenu } from "./SidebarSubmenu";
@@ -581,8 +581,10 @@ export const Sidebar: React.FC = () => {
 
   const currentPath = location.pathname;
 
-  const currentUser = useAuthStore((s) => s.currentUser);
-  const canKnowledge = canAccessKnowledge(currentUser);
+  const access = useAccessLevel();
+  // Until the user/config settle, keep items neutral instead of flashing them disabled.
+  const isLocked = (key: string): boolean =>
+    access.isResolved && !access.canViewPage(key);
 
   // Derived from the store so assign/create actions update the badge immediately
   const unassignedCount = useBidStore(
@@ -592,8 +594,6 @@ export const Sidebar: React.FC = () => {
   const groupedItems = React.useMemo(() => {
     const grouped: Record<string, INavItem[]> = {};
     NAVIGATION_ITEMS.forEach((item) => {
-      // Engineering-only items (Knowledge Base section) are hidden for others
-      if (item.requiredAccess === "engineering" && !canKnowledge) return;
       const navItem = { ...item };
       // Override hardcoded badge for unassigned requests
       if (navItem.key === "unassigned") {
@@ -604,7 +604,7 @@ export const Sidebar: React.FC = () => {
       grouped[navItem.section].push(navItem);
     });
     return grouped;
-  }, [unassignedCount, canKnowledge]);
+  }, [unassignedCount]);
 
   return (
     <nav className={styles.sidebar}>
@@ -667,16 +667,29 @@ export const Sidebar: React.FC = () => {
                       label={item.label}
                       icon={<Icon name={item.icon} />}
                       isCollapsed={!sidebarExpanded}
+                      disabled={item.children.every((c) => isLocked(c.key))}
                     >
-                      {item.children.map((child) => (
-                        <div
-                          key={child.key}
-                          className={`${styles.submenuItem} ${currentPath === child.route ? styles.active : ""}`}
-                          onClick={() => navigate(child.route)}
-                        >
-                          {child.label}
-                        </div>
-                      ))}
+                      {item.children.map((child) => {
+                        const locked = isLocked(child.key);
+                        return (
+                          <div
+                            key={child.key}
+                            className={`${styles.submenuItem} ${currentPath === child.route ? styles.active : ""} ${locked ? styles.disabled : ""}`}
+                            onClick={
+                              locked ? undefined : () => navigate(child.route)
+                            }
+                            title={locked ? `${child.label} - no access` : undefined}
+                            aria-disabled={locked || undefined}
+                          >
+                            {child.label}
+                            {locked && (
+                              <span className={styles.lockIcon}>
+                                <Lock />
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </SidebarSubmenu>
                   ) : (
                     <SidebarItem
@@ -686,6 +699,7 @@ export const Sidebar: React.FC = () => {
                       badge={item.badge}
                       badgePulsing={item.badgePulsing}
                       isCollapsed={!sidebarExpanded}
+                      disabled={isLocked(item.key)}
                       onClick={() => navigate(item.route)}
                       onExternalClick={
                         item.externalRoute

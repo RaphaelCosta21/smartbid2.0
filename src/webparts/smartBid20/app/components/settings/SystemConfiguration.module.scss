@@ -54,19 +54,6 @@
   }
 }
 
-.readOnlyBanner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  border-radius: 8px;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
-  font-size: 13px;
-  font-weight: 500;
-}
-
 /* Message bar */
 .messageBar {
   padding: 10px 16px;
@@ -834,116 +821,25 @@
 }
 
 /* ================================================================ */
-/* ACCESS LEVELS GRID                                               */
+/* ACCESS LEVELS                                                    */
 /* ================================================================ */
 
-.accessGrid {
-  background: var(--card-bg);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  overflow: hidden;
-}
+.accessSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 
-.accessGridHeader {
-  display: grid;
-  grid-template-columns: 180px repeat(var(--role-count, 8), 1fr);
-  background: var(--gradient-header);
-  color: #f1f5f9;
-  font-weight: 600;
-  font-size: 11px;
-
-  > div {
-    padding: 12px 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-    text-align: center;
-
-    &:first-child {
-      justify-content: flex-start;
-      padding-left: 16px;
-    }
-
-    &:last-child {
-      border-right: none;
-    }
+  .sectionHeader {
+    margin-bottom: 0;
   }
 }
 
-.accessGridRow {
-  display: grid;
-  grid-template-columns: 180px repeat(var(--role-count, 8), 1fr);
-  border-bottom: 1px solid var(--border-subtle);
-  transition: background 150ms ease;
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &:hover {
-    background: var(--card-bg-elevated);
-  }
-
-  > div {
-    padding: 10px 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-right: 1px solid var(--border-subtle);
-
-    &:first-child {
-      justify-content: flex-start;
-      padding-left: 16px;
-      font-weight: 600;
-      color: var(--text-primary);
-      font-size: 13px;
-    }
-
-    &:last-child {
-      border-right: none;
-    }
-  }
-}
-
-.accessBadge {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  text-align: center;
-  cursor: pointer;
-  transition: all 150ms ease;
-  user-select: none;
-
-  &:hover {
-    transform: scale(1.05);
-  }
-
-  &.edit {
-    background: rgba(16, 185, 129, 0.12);
-    color: #10b981;
-  }
-
-  &.view {
-    background: rgba(59, 130, 246, 0.12);
-    color: #3b82f6;
-  }
-
-  &.none {
-    background: rgba(100, 116, 139, 0.12);
-    color: #64748b;
-  }
-
-  &.readonly {
-    cursor: default;
-    opacity: 0.7;
-
-    &:hover {
-      transform: none;
-    }
-  }
+.accessTopRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 /* ================================================================ */

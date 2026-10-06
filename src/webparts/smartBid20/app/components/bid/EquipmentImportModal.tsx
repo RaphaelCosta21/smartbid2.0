@@ -53,11 +53,27 @@ export interface EquipmentImportModalProps {
   /** Pick several records at once; Confirm then fires onSelectMany instead of onSelect */
   multiSelect?: boolean;
   onSelectMany?: (picks: IImportPick[]) => void;
+  /** Visible tabs (default: all); the tab bar is hidden when only one is left */
+  tabs?: EquipmentImportTabId[];
+  title?: string;
+  subtitle?: string;
+  /** Returns why a row can't be picked (shown as tooltip); such rows are locked */
+  getPickBlockReason?: (
+    partNumber: string,
+    description: string,
+  ) => string | undefined;
 }
 
 /* ────────── tab definition ────────── */
 
-type TabId = "all" | "favorites" | "bom" | "quotations" | "query" | "assets";
+export type EquipmentImportTabId =
+  | "all"
+  | "favorites"
+  | "bom"
+  | "quotations"
+  | "query"
+  | "assets";
+type TabId = EquipmentImportTabId;
 type SourceTabId = Exclude<TabId, "all">;
 type QueryTabKey = "financials" | "brazil";
 type QuerySubTabKey = "priceConsulting" | "activeRegistered";
@@ -146,6 +162,19 @@ const CloseIcon = (
   >
     <line x1="18" y1="6" x2="6" y2="18" />
     <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+const LockIcon = (
+  <svg
+    viewBox="0 0 24 24"
+    width="13"
+    height="13"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0110 0v4" />
   </svg>
 );
 const FolderIcon = (
@@ -525,8 +554,18 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   onClose,
   multiSelect = false,
   onSelectMany,
+  tabs,
+  title,
+  subtitle,
+  getPickBlockReason,
 }) => {
-  const [activeTab, setActiveTab] = React.useState<TabId>("all");
+  const visibleTabs =
+    tabs && tabs.length > 0
+      ? TABS.filter((t) => tabs.indexOf(t.id) >= 0)
+      : TABS;
+  const needsSource = (id: SourceTabId): boolean =>
+    visibleTabs.some((t) => t.id === "all" || t.id === id);
+  const [activeTab, setActiveTab] = React.useState<TabId>(visibleTabs[0].id);
   // Each tab keeps its own filter text; only All Sources searches everything
   const [searches, setSearches] =
     React.useState<Record<TabId, string>>(EMPTY_SEARCHES);
@@ -580,12 +619,15 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   const [bomLoading, setBomLoading] = React.useState(false);
   const [bomLoaded, setBomLoaded] = React.useState(false);
 
-  // ── Lazy-load all sources on mount ──
+  // ── Lazy-load the sources of the visible tabs on mount ──
   React.useEffect(() => {
-    if (!favIsLoaded && !favIsLoading) loadFavorites();
-    if (!catalogLoaded && !catalogLoading) loadCatalog();
-    if (!quotationsLoaded && !quotationsLoading) loadQuotations();
-    if (!assetsLoaded && !assetsLoading) {
+    if (needsSource("favorites") && !favIsLoaded && !favIsLoading)
+      loadFavorites();
+    if (needsSource("query") && !catalogLoaded && !catalogLoading)
+      loadCatalog();
+    if (needsSource("quotations") && !quotationsLoaded && !quotationsLoading)
+      loadQuotations();
+    if (needsSource("assets") && !assetsLoaded && !assetsLoading) {
       setAssetsLoading(true);
       AssetCatalogService.getAll()
         .then((data) => {
@@ -595,7 +637,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
         })
         .catch(() => setAssetsLoading(false));
     }
-    if (!bomLoaded && !bomLoading) {
+    if (needsSource("bom") && !bomLoaded && !bomLoading) {
       setBomLoading(true);
       BomCostAnalysisService.getAll()
         .then((data) => {
@@ -847,11 +889,21 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     return selectedItem?.pn === pn && selectedItem?.desc === desc;
   };
 
+  const blockReason = (pn: string, desc: string): string | undefined =>
+    getPickBlockReason ? getPickBlockReason(pn, desc) : undefined;
+
+  /** Selected / blocked modifier appended to a result row's class */
+  const rowStateClass = (pn: string, desc: string): string => {
+    if (isRowSelected(pn, desc)) return ` ${styles.resultRowSelected}`;
+    return blockReason(pn, desc) ? ` ${styles.resultRowBlocked}` : "";
+  };
+
   const togglePick = (
     pn: string,
     desc: string,
     subs?: IImportSubItem[],
   ): void => {
+    if (blockReason(pn, desc)) return;
     const key = pickKey(pn, desc);
     setSelectedMany((prev) =>
       prev.some((p) => pickKey(p.partNumber, p.description) === key)
@@ -879,6 +931,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
       togglePick(pn, desc, subs);
       return;
     }
+    if (blockReason(pn, desc)) return;
     setSelectedItem({ pn, desc, subs });
   };
 
@@ -888,7 +941,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     subs?: IImportSubItem[],
   ): void => {
     // In multi mode the two click events already toggled the row back and forth
-    if (multiSelect) return;
+    if (multiSelect || blockReason(pn, desc)) return;
     if (onSelect) onSelect(pn, desc, subs);
   };
 
@@ -897,34 +950,50 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     pn: string,
     desc: string,
     subs?: IImportSubItem[],
-  ): JSX.Element => (
-    <div className={styles.colAction}>
-      {multiSelect ? (
-        <input
-          type="checkbox"
-          className={styles.rowCheckbox}
-          checked={isRowSelected(pn, desc)}
-          onClick={(e) => e.stopPropagation()}
-          onChange={() => togglePick(pn, desc, subs)}
-          title="Select"
-          aria-label={`Select ${pn || desc}`}
-        />
-      ) : (
-        <button
-          type="button"
-          className={styles.selectBtn}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onSelect) onSelect(pn, desc, subs);
-          }}
-          title="Import this item"
-          aria-label={`Import ${pn || desc}`}
-        >
-          {CheckIcon}
-        </button>
-      )}
-    </div>
-  );
+  ): JSX.Element => {
+    const blocked = blockReason(pn, desc);
+    if (blocked) {
+      return (
+        <div className={styles.colAction}>
+          <span
+            className={styles.blockedMark}
+            title={blocked}
+            aria-label={blocked}
+          >
+            {LockIcon}
+          </span>
+        </div>
+      );
+    }
+    return (
+      <div className={styles.colAction}>
+        {multiSelect ? (
+          <input
+            type="checkbox"
+            className={styles.rowCheckbox}
+            checked={isRowSelected(pn, desc)}
+            onClick={(e) => e.stopPropagation()}
+            onChange={() => togglePick(pn, desc, subs)}
+            title="Select"
+            aria-label={`Select ${pn || desc}`}
+          />
+        ) : (
+          <button
+            type="button"
+            className={styles.selectBtn}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onSelect) onSelect(pn, desc, subs);
+            }}
+            title="Import this item"
+            aria-label={`Import ${pn || desc}`}
+          >
+            {CheckIcon}
+          </button>
+        )}
+      </div>
+    );
+  };
 
   const renderLoading = (label: string): JSX.Element => (
     <div className={styles.loadingState} aria-busy="true">
@@ -1125,7 +1194,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                     return (
                       <React.Fragment key={eq.id}>
                         <div
-                          className={`${styles.resultRow}${isSelected ? ` ${styles.resultRowSelected}` : ""}${hasChildren ? ` ${styles.resultRowHasChildren}` : ""}`}
+                          className={`${styles.resultRow}${rowStateClass(eq.partNumber, eq.description)}${hasChildren ? ` ${styles.resultRowHasChildren}` : ""}`}
                           onClick={() =>
                             handleItemClick(
                               eq.partNumber,
@@ -1319,14 +1388,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
             <div className={styles.colAction}></div>
           </div>
           {filtered.map((a) => {
-            const isSelected = isRowSelected(
-              a.mainPartNumber,
-              a.mainDescription,
-            );
             return (
               <div
                 key={a.id}
-                className={`${styles.resultRow}${isSelected ? ` ${styles.resultRowSelected}` : ""}`}
+                className={`${styles.resultRow}${rowStateClass(a.mainPartNumber, a.mainDescription)}`}
                 onClick={() =>
                   handleItemClick(a.mainPartNumber, a.mainDescription)
                 }
@@ -1385,11 +1450,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
             <div className={styles.colAction}></div>
           </div>
           {filtered.slice(0, QUOTATIONS_LIMIT).map((q) => {
-            const isSelected = isRowSelected(q.partNumber, q.description);
             return (
               <div
                 key={q.id}
-                className={`${styles.resultRow}${isSelected ? ` ${styles.resultRowSelected}` : ""}`}
+                className={`${styles.resultRow}${rowStateClass(q.partNumber, q.description)}`}
                 onClick={() => handleItemClick(q.partNumber, q.description)}
                 onDoubleClick={() =>
                   handleItemDoubleClick(q.partNumber, q.description)
@@ -1778,11 +1842,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                   const pn = String(row[pnColKey] || "").trim();
                   const desc = String(row[descColKey] || "").trim();
                   const photoUrl = pn ? getPhotoUrl(pn) : "";
-                  const isSelected = isRowSelected(pn, desc);
                   return (
                     <div
                       key={`q-${pageStart + i}`}
-                      className={`${styles.queryTableRow}${isSelected ? ` ${styles.resultRowSelected}` : ""}`}
+                      className={`${styles.queryTableRow}${rowStateClass(pn, desc)}`}
                       onClick={() => handleItemClick(pn, desc)}
                       onDoubleClick={() => handleItemDoubleClick(pn, desc)}
                     >
@@ -1948,14 +2011,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                 <div className={styles.colAction}></div>
               </div>
               {filtered.slice(0, ASSETS_LIMIT).map((item) => {
-                const isSelected = isRowSelected(
-                  item.pn || "",
-                  item.title || item.description || "",
-                );
                 return (
                   <div
                     key={item.id}
-                    className={`${styles.resultRow}${isSelected ? ` ${styles.resultRowSelected}` : ""}`}
+                    className={`${styles.resultRow}${rowStateClass(item.pn || "", item.title || item.description || "")}`}
                     onClick={() =>
                       handleItemClick(
                         item.pn || "",
@@ -2123,7 +2182,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
               {sec.rows.map((r, i) => (
                 <div
                   key={`${sec.id}-${i}`}
-                  className={`${styles.resultRow}${isRowSelected(r.pn, r.desc) ? ` ${styles.resultRowSelected}` : ""}`}
+                  className={`${styles.resultRow}${rowStateClass(r.pn, r.desc)}`}
                   onClick={() => handleItemClick(r.pn, r.desc)}
                   onDoubleClick={() => handleItemDoubleClick(r.pn, r.desc)}
                 >
@@ -2206,17 +2265,18 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
               <div className={styles.headerText}>
                 <div className={styles.titleRow}>
                   <h2 id="equipment-import-title" className={styles.title}>
-                    {multiSelect
-                      ? "Add Items from Catalog"
-                      : "Import Equipment"}
+                    {title ||
+                      (multiSelect
+                        ? "Add Items from Catalog"
+                        : "Import Equipment")}
                   </h2>
                   {multiSelect && (
                     <span className={styles.headerBadge}>Multi-select</span>
                   )}
                 </div>
                 <p className={styles.subtitle}>
-                  Find equipment by part number or description across Favorites,
-                  Assets Catalog, BOM Costs, Quotations and Query Consulting.
+                  {subtitle ||
+                    "Find equipment by part number or description across Favorites, Assets Catalog, BOM Costs, Quotations and Query Consulting."}
                 </p>
               </div>
             </div>
@@ -2232,30 +2292,32 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
           </div>
 
           {/* Tab bar */}
-          <div className={styles.tabBar} role="tablist">
-            {TABS.map((tab) => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  key={tab.id}
-                  className={`${styles.tab}${isActive ? ` ${styles.tabActive}` : ""}`}
-                  onClick={() => switchTab(tab.id)}
-                >
-                  <span className={styles.tabIcon}>{tab.icon}</span>
-                  <span>{tab.label}</span>
-                  {renderCountBadge(
-                    countIn(
-                      globalSections,
-                      (s) => tab.id === "all" || s.tab === tab.id,
-                    ),
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          {visibleTabs.length > 1 && (
+            <div className={styles.tabBar} role="tablist">
+              {visibleTabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    key={tab.id}
+                    className={`${styles.tab}${isActive ? ` ${styles.tabActive}` : ""}`}
+                    onClick={() => switchTab(tab.id)}
+                  >
+                    <span className={styles.tabIcon}>{tab.icon}</span>
+                    <span>{tab.label}</span>
+                    {renderCountBadge(
+                      countIn(
+                        globalSections,
+                        (s) => tab.id === "all" || s.tab === tab.id,
+                      ),
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Search bar */}
           <div className={styles.searchRow}>
@@ -2341,7 +2403,9 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
             {(multiSelect ? selectedMany.length === 0 : !selectedItem) && (
               <div className={styles.footerHint}>
                 {multiSelect
-                  ? "Tick items in any tab, then confirm to add them all at once."
+                  ? visibleTabs.length > 1
+                    ? "Tick items in any tab, then confirm to add them all at once."
+                    : "Tick items, then confirm to add them all at once."
                   : "Click a row to select it, or double-click to import right away."}
               </div>
             )}

@@ -16,6 +16,7 @@ import {
 } from "../components/insights/MultiSelectDropdown";
 import { useChartTheme } from "../hooks/useChartTheme";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { usePageAccess } from "../hooks/usePageAccess";
 import { useConfigStore } from "../stores/useConfigStore";
 import { MembersService } from "../services/MembersService";
 import { RequestService } from "../services/RequestService";
@@ -149,11 +150,10 @@ export const UnassignedRequestsPage: React.FC = () => {
   };
 
   // ---- Permissions ------------------------------------------------
-  const isEngineering = currentUser.sector === "engineering";
-  const isManager = isEngineering && currentUser.bidRole === "manager";
-  const isContributor = isEngineering && currentUser.bidRole === "contributor";
-  const canAssign =
-    isManager || isContributor || currentUser.isSuperAdmin === true;
+  const { canEdit } = usePageAccess();
+  const isManager = currentUser.bidRole === "manager";
+  const isContributor = currentUser.bidRole === "contributor";
+  const canAssign = canEdit && (isManager || isContributor);
 
   // ---- Load requests from SharePoint ------------------------------
   const loadRequests = React.useCallback(async () => {
@@ -342,7 +342,7 @@ export const UnassignedRequestsPage: React.FC = () => {
     setAssignTarget(req);
     setShowAssignPanel(true);
     // If contributor (not manager), auto-select and lock themselves as first
-    if (isContributor && !isManager && !currentUser.isSuperAdmin) {
+    if (isContributor && !isManager) {
       const selfMember = engineeringContributors.find(
         (m) => m.email.toLowerCase() === currentUser.email.toLowerCase(),
       );
@@ -364,7 +364,7 @@ export const UnassignedRequestsPage: React.FC = () => {
   // ---- Toggle selections
   const toggleEngineer = (memberId: string): void => {
     // If contributor (not manager), first slot is locked to self
-    if (isContributor && !isManager && !currentUser.isSuperAdmin) {
+    if (isContributor && !isManager) {
       const selfMember = engineeringContributors.find(
         (m) => m.email.toLowerCase() === currentUser.email.toLowerCase(),
       );
@@ -537,7 +537,7 @@ export const UnassignedRequestsPage: React.FC = () => {
     const selfMember = engineeringContributors.find(
       (m) => m.email.toLowerCase() === currentUser.email.toLowerCase(),
     );
-    const isSelf = isContributor && !isManager && !currentUser.isSuperAdmin;
+    const isSelf = isContributor && !isManager;
 
     return (
       <div className={styles.assignPanel} ref={assignPanelRef}>
@@ -1528,10 +1528,10 @@ export const UnassignedRequestsPage: React.FC = () => {
         </div>
       )}
 
-      {/* No access banner for non-engineering users */}
-      {!canAssign && (
+      {/* Edit access without an assigning BID role (View mode has its own banner) */}
+      {canEdit && !canAssign && (
         <div className={styles.noAccessMsg}>
-          🔒 Only Engineering team members (Manager or Contributor) can assign
+          🔒 Only members with the Manager or Contributor BID role can assign
           requests.
         </div>
       )}

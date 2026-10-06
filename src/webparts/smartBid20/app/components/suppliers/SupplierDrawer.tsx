@@ -16,7 +16,7 @@ interface SupplierDrawerProps {
   supplyCategories: string[];
   serviceTypesById: Record<string, IConfigOption>;
   onClose: () => void;
-  onEdit: () => void;
+  onEdit?: () => void;
   onViewQuotations: () => void;
 }
 
@@ -282,9 +282,11 @@ export const SupplierDrawer: React.FC<SupplierDrawerProps> = ({
         </div>
 
         <div className={styles.footer}>
-          <button type="button" className={styles.primaryBtn} onClick={onEdit}>
-            <Pencil size={14} /> Edit supplier
-          </button>
+          {onEdit && (
+            <button type="button" className={styles.primaryBtn} onClick={onEdit}>
+              <Pencil size={14} /> Edit supplier
+            </button>
+          )}
           <button
             type="button"
             className={styles.secondaryBtn}

@@ -10,6 +10,7 @@ import styles from "../../pages/BidDetailPage.module.scss";
 export interface NotesTabProps {
   bid: IBid;
   canEdit?: boolean;
+  canDelete?: boolean;
   onSave?: (patch: Partial<IBid>) => void;
   currentUser?: { displayName: string; email: string };
   onAddComment?: (text: string) => void;
@@ -18,6 +19,7 @@ export interface NotesTabProps {
 export const NotesTab: React.FC<NotesTabProps> = ({
   bid,
   canEdit,
+  canDelete = canEdit,
   onSave,
   currentUser,
   onAddComment,
@@ -39,9 +41,10 @@ export const NotesTab: React.FC<NotesTabProps> = ({
   const [newKey, setNewKey] = React.useState("");
   const [showAddForm, setShowAddForm] = React.useState(false);
   const [newQuickNote, setNewQuickNote] = React.useState("");
+  const allowDelete = !!canEdit && !!canDelete;
 
   const handleSave = (key: string, value: string): void => {
-    if (!onSave) return;
+    if (!canEdit || !onSave) return;
     const now = new Date().toISOString();
     const userName =
       currentUser?.displayName || currentUser?.email || "Unknown";
@@ -57,7 +60,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
   };
 
   const handleAddNote = (): void => {
-    if (!onSave || !newKey.trim()) return;
+    if (!canEdit || !onSave || !newKey.trim()) return;
     const now = new Date().toISOString();
     const userName =
       currentUser?.displayName || currentUser?.email || "Unknown";
@@ -75,7 +78,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
   };
 
   const handleDelete = (key: string): void => {
-    if (!onSave) return;
+    if (!allowDelete || !onSave) return;
     const updated = { ...notes };
     delete updated[key];
     const updatedMeta = { ...notesMetadata };
@@ -84,7 +87,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
   };
 
   const addQuickNote = (): void => {
-    if (!onSave || !newQuickNote.trim()) return;
+    if (!canEdit || !onSave || !newQuickNote.trim()) return;
     const qn: IQuickNote = {
       id: makeId("note"),
       text: newQuickNote.trim(),
@@ -99,7 +102,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
   };
 
   const deleteQuickNote = (noteId: string): void => {
-    if (!onSave) return;
+    if (!allowDelete || !onSave) return;
     onSave({ quickNotes: quickNotes.filter((n) => n.id !== noteId) });
   };
 
@@ -143,7 +146,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
                 >
                   {qn.text}
                 </p>
-                {canEdit && (
+                {allowDelete && (
                   <button
                     style={{
                       background: "none",
@@ -248,6 +251,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
                         >
                           Edit
                         </button>
+                        {allowDelete && (
                         <button
                           className={styles.backBtn}
                           style={{ color: "var(--error-color, #EF4444)" }}
@@ -255,6 +259,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
                         >
                           Delete
                         </button>
+                        )}
                       </div>
                     )}
                   </div>

@@ -31,6 +31,7 @@ import {
 } from "../../models";
 import { MembersService } from "../../services/MembersService";
 import { useSpfxContext } from "../../config/SpfxContext";
+import { usePageAccess } from "../../hooks/usePageAccess";
 import { PageHeader } from "../common/PageHeader";
 import { EmptyState } from "../common/EmptyState";
 import { SkeletonLoader } from "../common/SkeletonLoader";
@@ -207,6 +208,7 @@ interface IPeopleResult {
 
 const MembersManagement: React.FC = () => {
   const spfxContext = useSpfxContext();
+  const { canEdit } = usePageAccess();
 
   const [membersData, setMembersData] = React.useState<IMembersData>({
     members: [],
@@ -650,13 +652,15 @@ const MembersManagement: React.FC = () => {
           >
             <RefreshCw size={15} /> Refresh
           </button>
-          <button
-            type="button"
-            className={styles.createBtn}
-            onClick={openAddPanel}
-          >
-            <UserPlus size={15} /> Add Member
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              className={styles.createBtn}
+              onClick={openAddPanel}
+            >
+              <UserPlus size={15} /> Add Member
+            </button>
+          )}
         </div>
       }
     />
@@ -844,6 +848,7 @@ const MembersManagement: React.FC = () => {
                         )}
                       </div>
                     </div>
+                    {canEdit && (
                     <div className={styles.memberActions}>
                       <button
                         className={styles.iconBtn}
@@ -867,6 +872,7 @@ const MembersManagement: React.FC = () => {
                         ✕
                       </button>
                     </div>
+                    )}
                   </div>
                 );
               })}
@@ -881,8 +887,8 @@ const MembersManagement: React.FC = () => {
             variant="glass"
             title="No team members yet"
             description="Add the first member to start building the team."
-            actionLabel="Add Member"
-            onAction={openAddPanel}
+            actionLabel={canEdit ? "Add Member" : undefined}
+            onAction={canEdit ? openAddPanel : undefined}
           />
         ) : (
           <EmptyState

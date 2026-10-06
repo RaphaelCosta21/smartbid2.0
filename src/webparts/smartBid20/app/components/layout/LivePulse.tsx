@@ -14,7 +14,7 @@ import { useErnStore } from "../../stores/useErnStore";
 import { useUIStore } from "../../stores/useUIStore";
 import { useDashboardSync } from "../../hooks/useDashboardSync";
 import { LiveUpdates, useLiveOverview } from "../../hooks/useLiveOverview";
-import { canAccessKnowledge } from "../../utils/accessControl";
+import { useAccessLevel } from "../../hooks/useAccessLevel";
 import { IErnLinkRow } from "../../utils/ernHelpers";
 import { IPendingApprovalRow } from "../../utils/approvalHelpers";
 import { IUpcomingDeadline } from "../../utils/bidHelpers";
@@ -98,7 +98,8 @@ export const LivePulse: React.FC = () => {
   const ernLoadedAt = useErnStore((s) => s.lastLoadedAt);
   const dashboardView = useUIStore((s) => s.dashboardView);
   const setDashboardView = useUIStore((s) => s.setDashboardView);
-  const allowed = canAccessKnowledge(currentUser);
+  const { canViewPage } = useAccessLevel();
+  const allowed = canViewPage("dashboard");
 
   const [phase, setPhase] = React.useState<Phase>("closed");
   const [anchor, setAnchor] = React.useState<Anchor | null>(null);

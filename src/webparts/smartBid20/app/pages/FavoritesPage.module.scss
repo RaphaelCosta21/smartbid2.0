@@ -878,30 +878,6 @@
   border-top: 1px solid var(--border-subtle);
 }
 
-.modeToggle {
-  display: flex;
-  gap: 2px;
-  background: var(--card-bg);
-  border-radius: 8px;
-  padding: 2px;
-}
-
-.modeBtn {
-  flex: 1;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.modeActive {
-  background: var(--primary-accent) !important;
-  color: var(--primary-accent-contrast) !important;
-}
-
 .formRow {
   display: flex;
   flex-direction: column;
@@ -944,15 +920,6 @@
 .formTextarea {
   resize: vertical;
   min-height: 40px;
-}
-
-.selectedDesc {
-  font-size: 12px;
-  color: var(--text-secondary);
-  padding: 6px 8px;
-  background: var(--card-bg, rgba(255, 255, 255, 0.03));
-  border-radius: 4px;
-  margin-top: 4px;
 }
 
 .cancelBtn {
@@ -1002,27 +969,6 @@
 
   &:hover {
     background: var(--hover-bg, rgba(255, 255, 255, 0.08));
-  }
-}
-
-/* ─── Advanced Search Button ─── */
-.advancedSearchBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  border: 1px solid var(--accent, #4fc3f7);
-  background: none;
-  color: var(--accent, #4fc3f7);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &:hover {
-    background: var(--accent, #4fc3f7);
-    color: #000;
   }
 }
 
@@ -1190,67 +1136,4 @@
   background: var(--hover-bg, rgba(255, 255, 255, 0.04));
   font-size: 14px;
   opacity: 0.35;
-}
-
-/* ─── Catalog loading banner inside Add Equipment modal ─── */
-.catalogLoadingBanner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  margin-bottom: 10px;
-  border-radius: 6px;
-  background: var(--card-bg-elevated, rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
-  color: var(--text-secondary, #aaa);
-  font-size: 13px;
-}
-
-.inlineSpinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--border-color, rgba(255, 255, 255, 0.15));
-  border-top-color: var(--accent, #4fc3f7);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  flex-shrink: 0;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* ───── Add modal extras ───── */
-.parentBanner {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 14px;
-  margin-bottom: 10px;
-  border-radius: 6px;
-  background: rgba(79, 195, 247, 0.08);
-  border: 1px solid rgba(79, 195, 247, 0.25);
-  color: var(--text-primary, #e0e0e0);
-  font-size: 13px;
-}
-
-.duplicateWarning {
-  padding: 10px 14px;
-  margin-top: 8px;
-  border-radius: 6px;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  color: var(--warning-text, #fbbf24);
-  font-size: 12px;
-}
-
-.mfgInfoRow {
-  display: flex;
-  gap: 16px;
-  padding: 6px 0;
-  font-size: 12px;
-  color: var(--text-secondary, #aaa);
 }

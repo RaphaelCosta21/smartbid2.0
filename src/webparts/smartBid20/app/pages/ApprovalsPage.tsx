@@ -3,7 +3,7 @@ import { PageHeader } from "../components/common/PageHeader";
 import { GlassCard } from "../components/common/GlassCard";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { useApprovals } from "../hooks/useApprovals";
-import { useAccessLevel } from "../hooks/useAccessLevel";
+import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useStatusColors } from "../hooks/useStatusColors";
 import { formatDateTime } from "../utils/formatters";
 import { IBid } from "../models";
@@ -14,9 +14,21 @@ type ApprovalTab = "pending" | "approved" | "rejected" | "all";
 export const ApprovalsPage: React.FC = () => {
   const [tab, setTab] = React.useState<ApprovalTab>("pending");
   const approvalSummary = useApprovals();
-  const { canEdit } = useAccessLevel();
+  const currentUser = useCurrentUser();
   const { getStatusColor } = useStatusColors();
-  const canManageApprovals = canEdit("approvals");
+  // Responding depends only on being a designated approver, not on page permissions.
+  const isPendingApprover = (bid: IBid): boolean => {
+    const email = (currentUser.email || "").toLowerCase();
+    return (
+      !!email &&
+      (bid.approvals || []).some(
+        (a) =>
+          (a.stakeholder?.email || "").toLowerCase() === email &&
+          a.decision !== "approved" &&
+          a.decision !== "rejected",
+      )
+    );
+  };
 
   const allBids = [
     ...approvalSummary.pending,
@@ -137,7 +149,7 @@ export const ApprovalsPage: React.FC = () => {
                 </div>
               ))}
 
-              {canManageApprovals && bid.approvalStatus === "pending" && (
+              {isPendingApprover(bid) && bid.approvalStatus === "pending" && (
                 <div className={styles.actionButtons}>
                   <button className={styles.btnApprove}>Approve</button>
                   <button className={styles.btnReject}>Reject</button>
