@@ -32,8 +32,7 @@ export function isSuperAdminUser(user: MaybeUser): boolean {
   return !!user && (user.isSuperAdmin === true || isSuperAdmin(user.email));
 }
 
-const roleOf = (user: MaybeUser): UserRole =>
-  (user && user.role) || "guest";
+const roleOf = (user: MaybeUser): UserRole => (user && user.role) || "guest";
 
 const roleLevels = (config: MaybeConfig, role: UserRole): IAccessLevelDef =>
   (config && config.accessLevels && config.accessLevels[role]) ||
@@ -124,21 +123,31 @@ export function removesCollaborationContent(
   patch: Partial<IBid>,
   tab: "notes" | "qualifications",
 ): boolean {
-  const removesIds = <T extends { id: string }>(before: T[], after: T[]): boolean =>
+  const removesIds = <T extends { id: string }>(
+    before: T[],
+    after: T[],
+  ): boolean =>
     before.some((item) => !after.some((next) => next.id === item.id));
 
   if (tab === "notes") {
     return (
-      (patch.bidNotes !== undefined && Object.keys(bid.bidNotes || {}).some(
-        (key) => !Object.prototype.hasOwnProperty.call(patch.bidNotes || {}, key),
-      )) ||
-      (patch.quickNotes !== undefined && removesIds(bid.quickNotes || [], patch.quickNotes || [])) ||
-      (patch.comments !== undefined && removesIds(bid.comments || [], patch.comments || []))
+      (patch.bidNotes !== undefined &&
+        Object.keys(bid.bidNotes || {}).some(
+          (key) =>
+            !Object.prototype.hasOwnProperty.call(patch.bidNotes || {}, key),
+        )) ||
+      (patch.quickNotes !== undefined &&
+        removesIds(bid.quickNotes || [], patch.quickNotes || [])) ||
+      (patch.comments !== undefined &&
+        removesIds(bid.comments || [], patch.comments || []))
     );
   }
 
-  if (patch.clarifications !== undefined &&
-    removesIds(bid.clarifications || [], patch.clarifications || [])) return true;
+  if (
+    patch.clarifications !== undefined &&
+    removesIds(bid.clarifications || [], patch.clarifications || [])
+  )
+    return true;
   if (patch.qualificationTables === undefined) return false;
   const tables = patch.qualificationTables || [];
   return (bid.qualificationTables || []).some((table) => {

@@ -822,29 +822,29 @@ export const SuppliersRegistry: React.FC = () => {
       </div>
 
       {canEdit && (
-      <div className={styles.toolbar}>
-        {editing === null && (
-          <button className={styles.btnPrimary} onClick={openNew}>
-            ＋ Add supplier
-          </button>
-        )}
-        <button
-          className={styles.btnGhost}
-          onClick={() => void openSync()}
-          disabled={syncBusy || !isLoaded}
-        >
-          <RefreshCw size={14} /> Sync from quotations
-        </button>
-        {aiEnabled && (
+        <div className={styles.toolbar}>
+          {editing === null && (
+            <button className={styles.btnPrimary} onClick={openNew}>
+              ＋ Add supplier
+            </button>
+          )}
           <button
             className={styles.btnGhost}
-            onClick={() => void startEnrich()}
-            disabled={enrichRunning || enrichRows !== null || !isLoaded}
+            onClick={() => void openSync()}
+            disabled={syncBusy || !isLoaded}
           >
-            <Sparkles size={14} /> Enrich with AI
+            <RefreshCw size={14} /> Sync from quotations
           </button>
-        )}
-      </div>
+          {aiEnabled && (
+            <button
+              className={styles.btnGhost}
+              onClick={() => void startEnrich()}
+              disabled={enrichRunning || enrichRows !== null || !isLoaded}
+            >
+              <Sparkles size={14} /> Enrich with AI
+            </button>
+          )}
+        </div>
       )}
 
       {editing !== null && (
@@ -1454,27 +1454,27 @@ export const SuppliersRegistry: React.FC = () => {
                 </div>
 
                 {canEdit && (
-                <div className={styles.supplierActions}>
-                  <button
-                    className={styles.iconBtn}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openEdit(s);
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void remove(s);
-                    }}
-                    disabled={deletingId === s.id}
-                  >
-                    {deletingId === s.id ? "…" : "Delete"}
-                  </button>
-                </div>
+                  <div className={styles.supplierActions}>
+                    <button
+                      className={styles.iconBtn}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEdit(s);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void remove(s);
+                      }}
+                      disabled={deletingId === s.id}
+                    >
+                      {deletingId === s.id ? "…" : "Delete"}
+                    </button>
+                  </div>
                 )}
               </div>
             );

@@ -35,8 +35,7 @@ export const CommandPalette: React.FC = () => {
 
   const allCommands = React.useMemo<ICommandItem[]>(() => {
     const navCommands: ICommandItem[] = NAVIGATION_ITEMS.filter(
-      (n) =>
-        n.route && (n.section === "action" || access.canViewPage(n.key)),
+      (n) => n.route && (n.section === "action" || access.canViewPage(n.key)),
     ).map((n) => ({
       id: `nav-${n.key}`,
       label: n.label,

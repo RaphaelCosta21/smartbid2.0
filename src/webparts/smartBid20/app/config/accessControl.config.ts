@@ -172,7 +172,11 @@ const bidGroups = (
   const isEngineering = role === "engineering";
   const level: IBidAccessLevelDef = {
     general: workspace,
-    scopeCosting: isEngineering ? "edit" : workspace === "none" ? "none" : "view",
+    scopeCosting: isEngineering
+      ? "edit"
+      : workspace === "none"
+        ? "none"
+        : "view",
     management: workspace,
     collaboration: workspace,
     tools: workspace,
@@ -207,7 +211,10 @@ const pickOverrides = (
   const out: Record<string, AccessPermission> = {};
   Object.keys(source).forEach((k) => {
     const v = source[k];
-    if (validKeys[k] && (isPermission(v) || (v === "editNoDelete" && allowEditNoDelete(k)))) {
+    if (
+      validKeys[k] &&
+      (isPermission(v) || (v === "editNoDelete" && allowEditNoDelete(k)))
+    ) {
       out[k] = v as AccessPermission;
     }
   });
@@ -253,14 +260,13 @@ export function normalizeBidAccessLevels(
     const levels = {} as IBidAccessLevelDef;
     BID_TAB_GROUP_KEYS.forEach((g) => {
       const v = saved ? saved[g] : undefined;
-      levels[g] = isPermission(v) || (g === "collaboration" && v === "editNoDelete")
-        ? v as AccessPermission
-        : def[g];
+      levels[g] =
+        isPermission(v) || (g === "collaboration" && v === "editNoDelete")
+          ? (v as AccessPermission)
+          : def[g];
     });
     const tabs = pickOverrides(
-      saved
-        ? (saved.tabs as Record<string, unknown> | undefined)
-        : def.tabs,
+      saved ? (saved.tabs as Record<string, unknown> | undefined) : def.tabs,
       BID_TAB_GROUP,
       (key) => BID_TAB_GROUP[key] === "collaboration",
     );

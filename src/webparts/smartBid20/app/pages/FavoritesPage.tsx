@@ -848,34 +848,34 @@ export const FavoritesPage: React.FC = () => {
                       )}
 
                       {canEdit && (
-                      <div className={styles.equipCardFooter}>
-                        <button
-                          className={styles.subItemBtn}
-                          onClick={() => {
-                            setAddingParentId(eq.id);
-                            setShowAddModal(true);
-                          }}
-                          title="Add spare / accessory"
-                        >
-                          🔗+
-                        </button>
-                        <span style={{ flex: 1 }} />
-                        <button
-                          className={styles.removeBtn}
-                          onClick={() => setEditingItem(eq)}
-                          title="Edit group / sub-group"
-                          style={{ marginRight: 6 }}
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          className={styles.removeBtn}
-                          onClick={() => handleRemoveEquipment(eq.id)}
-                          title="Remove"
-                        >
-                          🗑
-                        </button>
-                      </div>
+                        <div className={styles.equipCardFooter}>
+                          <button
+                            className={styles.subItemBtn}
+                            onClick={() => {
+                              setAddingParentId(eq.id);
+                              setShowAddModal(true);
+                            }}
+                            title="Add spare / accessory"
+                          >
+                            🔗+
+                          </button>
+                          <span style={{ flex: 1 }} />
+                          <button
+                            className={styles.removeBtn}
+                            onClick={() => setEditingItem(eq)}
+                            title="Edit group / sub-group"
+                            style={{ marginRight: 6 }}
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            className={styles.removeBtn}
+                            onClick={() => handleRemoveEquipment(eq.id)}
+                            title="Remove"
+                          >
+                            🗑
+                          </button>
+                        </div>
                       )}
                     </div>
                   );

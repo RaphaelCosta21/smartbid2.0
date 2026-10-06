@@ -66,7 +66,9 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
 
   const spreads = catalog?.spreads || [];
   const spread = spreads.find((s) => s.id === spreadId) || spreads[0];
-  const selectedBid = bidNumber ? bids.find((b) => b.bidNumber === bidNumber) : undefined;
+  const selectedBid = bidNumber
+    ? bids.find((b) => b.bidNumber === bidNumber)
+    : undefined;
   const packageQty = packageLines.reduce((sum, l) => sum + l.qty, 0);
 
   const bidOptions = React.useMemo(() => {
@@ -75,13 +77,17 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
       .filter(
         (b) =>
           !q ||
-          [b.bidNumber, b.crmNumber, b.opportunityInfo?.client, b.opportunityInfo?.projectName].some(
-            (v) => (v || "").toLowerCase().indexOf(q) >= 0,
-          ),
+          [
+            b.bidNumber,
+            b.crmNumber,
+            b.opportunityInfo?.client,
+            b.opportunityInfo?.projectName,
+          ].some((v) => (v || "").toLowerCase().indexOf(q) >= 0),
       )
       .sort(
         (a, b) =>
-          surveyRank(a) - surveyRank(b) || (b.createdDate || "").localeCompare(a.createdDate || ""),
+          surveyRank(a) - surveyRank(b) ||
+          (b.createdDate || "").localeCompare(a.createdDate || ""),
       )
       .slice(0, BID_LIST_MAX);
   }, [bids, bidQuery]);
@@ -89,7 +95,8 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
   React.useEffect(() => {
     if (!bidOpen) return undefined;
     const onDown = (e: MouseEvent): void => {
-      if (bidRef.current && !bidRef.current.contains(e.target as Node)) setBidOpen(false);
+      if (bidRef.current && !bidRef.current.contains(e.target as Node))
+        setBidOpen(false);
     };
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Escape") setBidOpen(false);
@@ -124,7 +131,8 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
         addToast({
           type: "warning",
           title: "Select the catalog JSON",
-          message: "Pick survey-catalog.seed.json (optionally with the equipment photos).",
+          message:
+            "Pick survey-catalog.seed.json (optionally with the equipment photos).",
         });
       }
       return;
@@ -198,9 +206,15 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
             )}
           </div>
           {searchHits && searchFocus && filters.search.trim() && (
-            <ul className={styles.hits} role="listbox" aria-label="Matching equipment">
+            <ul
+              className={styles.hits}
+              role="listbox"
+              aria-label="Matching equipment"
+            >
               {searchHits.length === 0 ? (
-                <li className={styles.hitEmpty}>No equipment in this diagram matches.</li>
+                <li className={styles.hitEmpty}>
+                  No equipment in this diagram matches.
+                </li>
               ) : (
                 searchHits.map((h) => (
                   <li key={h.id}>
@@ -227,7 +241,9 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
             title="Compare the diagram with an existing BID"
           >
             <FileSearch size={13} />
-            <span className={styles.bidLabel}>{bidNumber || "Compare with a BID"}</span>
+            <span className={styles.bidLabel}>
+              {bidNumber || "Compare with a BID"}
+            </span>
             <ChevronDown size={11} />
           </button>
           {bidNumber && (
@@ -267,7 +283,10 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
                   >
                     <span className={styles.bidNumber}>{b.bidNumber}</span>
                     <span className={styles.bidText}>
-                      {[b.opportunityInfo?.client, b.opportunityInfo?.projectName]
+                      {[
+                        b.opportunityInfo?.client,
+                        b.opportunityInfo?.projectName,
+                      ]
                         .filter(Boolean)
                         .join(" · ") || "-"}
                     </span>
@@ -290,7 +309,10 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
         )}
 
         {view === "system" && spreads.length > 0 && (
-          <label className={styles.selectChip} title="One-line diagram (spread template)">
+          <label
+            className={styles.selectChip}
+            title="One-line diagram (spread template)"
+          >
             <span className={styles.selectLabel}>DIAGRAM</span>
             <select
               value={spread ? spread.id : ""}

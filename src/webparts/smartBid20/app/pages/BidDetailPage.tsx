@@ -203,8 +203,10 @@ export const BidDetailPage: React.FC = () => {
 
   // Access control: every tab follows the BID Details matrix in System Configuration.
   const { getBidTabLevel, isResolved: accessResolved } = useAccessLevel();
-  const canEditTab = (tab: BidTab): boolean => canEditLevel(getBidTabLevel(tab));
-  const canDeleteTab = (tab: BidTab): boolean => canDeleteLevel(getBidTabLevel(tab));
+  const canEditTab = (tab: BidTab): boolean =>
+    canEditLevel(getBidTabLevel(tab));
+  const canDeleteTab = (tab: BidTab): boolean =>
+    canDeleteLevel(getBidTabLevel(tab));
   const isTabLocked = (tab: BidTab): boolean =>
     accessResolved && getBidTabLevel(tab) === "none";
   const firstOpenTab = BID_TAB_GROUPS.reduce<BidTab | null>(
@@ -228,15 +230,23 @@ export const BidDetailPage: React.FC = () => {
 
       const user = useAuthStore.getState().currentUser;
       const accessConfig = useConfigStore.getState().config;
-      const collaborationTabs: ("notes" | "qualifications")[] = ["notes", "qualifications"];
-      if (collaborationTabs.some((tab) =>
-        getEffectiveBidTabLevel(user, accessConfig, tab) === "editNoDelete" &&
-        removesCollaborationContent(currentBid, patch, tab),
-      )) {
+      const collaborationTabs: ("notes" | "qualifications")[] = [
+        "notes",
+        "qualifications",
+      ];
+      if (
+        collaborationTabs.some(
+          (tab) =>
+            getEffectiveBidTabLevel(user, accessConfig, tab) ===
+              "editNoDelete" &&
+            removesCollaborationContent(currentBid, patch, tab),
+        )
+      ) {
         addToast({
           type: "warning",
           title: "Deletion is not allowed",
-          message: "Edit* allows adding and editing, but not removing Collaboration content.",
+          message:
+            "Edit* allows adding and editing, but not removing Collaboration content.",
         });
         return;
       }
@@ -846,991 +856,1040 @@ export const BidDetailPage: React.FC = () => {
               </div>
             )}
           {!isTabLocked(activeTab) && (
-          <>
-          {activeTab === "overview" && (
-            <OverviewTab
-              bid={bid}
-              currentPhaseIndex={currentPhaseIndex}
-              canEdit={canEditTab("overview")}
-              onSave={saveOverview}
-              currentUser={currentUser}
-            />
-          )}
-          {activeTab === "scope" && (
-            <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
-              {(div) => (
-                <DivisionEditWrap
-                  bidNumber={bid.bidNumber}
-                  tabName="Scope of Supply"
-                  sectionPrefix="scope"
-                  div={div}
-                  canEdit={canEditBidTab("scope")}
-                  onEditChange={handleEditChange}
-                >
-                  {(isEditing) => {
-                    const filtered = div
-                      ? (bid.scopeItems || []).filter(
-                          (i) => i.integratedDivision === div,
-                        )
-                      : bid.scopeItems || [];
-                    const filteredClars = div
-                      ? (bid.clarifications || []).filter((c) => {
-                          const si = (bid.scopeItems || []).find(
-                            (s) => s.id === c.scopeItemId,
-                          );
-                          return si && si.integratedDivision === div;
-                        })
-                      : bid.clarifications || [];
-                    return (
-                      <ScopeOfSupplyTab
-                        scopeItems={filtered}
-                        readOnly={!isEditing}
-                        bidNumber={bid.bidNumber}
-                        onAiImport={(aiItems, meta) =>
-                          importAiScope(aiItems, meta, div)
-                        }
-                        onSave={(items) => {
-                          if (div) {
-                            const others = (bid.scopeItems || []).filter(
-                              (i) =>
-                                i.integratedDivision &&
-                                i.integratedDivision !== div,
-                            );
-                            savePatch({
-                              scopeItems: [
-                                ...others,
-                                ...items.map((i) => ({
-                                  ...i,
-                                  integratedDivision: div as "ROV" | "SURVEY",
-                                })),
-                              ],
-                            });
-                          } else {
-                            savePatch({ scopeItems: items });
-                          }
-                        }}
-                        onImportEngHours={(engItems, resAlloc) => {
-                          const currentHours =
-                            bid.hoursSummary || EMPTY_HOURS_SUMMARY;
-                          const existingEng =
-                            currentHours.engineeringHours?.engineeringItems ||
-                            [];
-                          const existingRes =
-                            currentHours.engineeringHours
-                              ?.resourceAllocations || [];
-                          const mergedEng = [...existingEng, ...engItems];
-                          const mergedRes = resAlloc
-                            ? [
-                                ...existingRes,
-                                ...resAlloc.filter(
-                                  (r) =>
-                                    !existingRes.some(
-                                      (e) => e.resourceType === r.resourceType,
-                                    ),
-                                ),
-                              ]
-                            : existingRes;
-                          const addedHours = engItems.reduce(
-                            (s, e) => s + (e.totalHours || 0),
-                            0,
-                          );
-                          savePatch({
-                            hoursSummary: {
-                              ...currentHours,
-                              engineeringHours: {
-                                ...currentHours.engineeringHours,
-                                engineeringItems: mergedEng,
-                                resourceAllocations: mergedRes,
-                                totalHours:
-                                  (currentHours.engineeringHours?.totalHours ||
-                                    0) + addedHours,
-                              },
-                              grandTotalHours:
-                                (currentHours.grandTotalHours || 0) +
-                                addedHours,
-                            },
-                          });
-                        }}
-                        clarifications={filteredClars}
-                        tabNotes={
-                          (bid.bidNotes as Record<string, string>)?.scope || ""
-                        }
-                        onSaveTabNotes={(notes) =>
-                          savePatch({
-                            bidNotes: {
-                              ...(bid.bidNotes || {}),
-                              scope: notes,
-                            },
-                          })
-                        }
-                        currentDivision={div}
-                        onMoveSectionToDivision={
-                          div
-                            ? (sectionId, targetDiv) => {
-                                const allItems = bid.scopeItems || [];
-                                const updated = allItems.map((i) => {
-                                  if (
-                                    i.id === sectionId ||
-                                    i.sectionId === sectionId
-                                  ) {
-                                    return {
+            <>
+              {activeTab === "overview" && (
+                <OverviewTab
+                  bid={bid}
+                  currentPhaseIndex={currentPhaseIndex}
+                  canEdit={canEditTab("overview")}
+                  onSave={saveOverview}
+                  currentUser={currentUser}
+                />
+              )}
+              {activeTab === "scope" && (
+                <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
+                  {(div) => (
+                    <DivisionEditWrap
+                      bidNumber={bid.bidNumber}
+                      tabName="Scope of Supply"
+                      sectionPrefix="scope"
+                      div={div}
+                      canEdit={canEditBidTab("scope")}
+                      onEditChange={handleEditChange}
+                    >
+                      {(isEditing) => {
+                        const filtered = div
+                          ? (bid.scopeItems || []).filter(
+                              (i) => i.integratedDivision === div,
+                            )
+                          : bid.scopeItems || [];
+                        const filteredClars = div
+                          ? (bid.clarifications || []).filter((c) => {
+                              const si = (bid.scopeItems || []).find(
+                                (s) => s.id === c.scopeItemId,
+                              );
+                              return si && si.integratedDivision === div;
+                            })
+                          : bid.clarifications || [];
+                        return (
+                          <ScopeOfSupplyTab
+                            scopeItems={filtered}
+                            readOnly={!isEditing}
+                            bidNumber={bid.bidNumber}
+                            onAiImport={(aiItems, meta) =>
+                              importAiScope(aiItems, meta, div)
+                            }
+                            onSave={(items) => {
+                              if (div) {
+                                const others = (bid.scopeItems || []).filter(
+                                  (i) =>
+                                    i.integratedDivision &&
+                                    i.integratedDivision !== div,
+                                );
+                                savePatch({
+                                  scopeItems: [
+                                    ...others,
+                                    ...items.map((i) => ({
                                       ...i,
+                                      integratedDivision: div as
+                                        | "ROV"
+                                        | "SURVEY",
+                                    })),
+                                  ],
+                                });
+                              } else {
+                                savePatch({ scopeItems: items });
+                              }
+                            }}
+                            onImportEngHours={(engItems, resAlloc) => {
+                              const currentHours =
+                                bid.hoursSummary || EMPTY_HOURS_SUMMARY;
+                              const existingEng =
+                                currentHours.engineeringHours
+                                  ?.engineeringItems || [];
+                              const existingRes =
+                                currentHours.engineeringHours
+                                  ?.resourceAllocations || [];
+                              const mergedEng = [...existingEng, ...engItems];
+                              const mergedRes = resAlloc
+                                ? [
+                                    ...existingRes,
+                                    ...resAlloc.filter(
+                                      (r) =>
+                                        !existingRes.some(
+                                          (e) =>
+                                            e.resourceType === r.resourceType,
+                                        ),
+                                    ),
+                                  ]
+                                : existingRes;
+                              const addedHours = engItems.reduce(
+                                (s, e) => s + (e.totalHours || 0),
+                                0,
+                              );
+                              savePatch({
+                                hoursSummary: {
+                                  ...currentHours,
+                                  engineeringHours: {
+                                    ...currentHours.engineeringHours,
+                                    engineeringItems: mergedEng,
+                                    resourceAllocations: mergedRes,
+                                    totalHours:
+                                      (currentHours.engineeringHours
+                                        ?.totalHours || 0) + addedHours,
+                                  },
+                                  grandTotalHours:
+                                    (currentHours.grandTotalHours || 0) +
+                                    addedHours,
+                                },
+                              });
+                            }}
+                            clarifications={filteredClars}
+                            tabNotes={
+                              (bid.bidNotes as Record<string, string>)?.scope ||
+                              ""
+                            }
+                            onSaveTabNotes={(notes) =>
+                              savePatch({
+                                bidNotes: {
+                                  ...(bid.bidNotes || {}),
+                                  scope: notes,
+                                },
+                              })
+                            }
+                            currentDivision={div}
+                            onMoveSectionToDivision={
+                              div
+                                ? (sectionId, targetDiv) => {
+                                    const allItems = bid.scopeItems || [];
+                                    const updated = allItems.map((i) => {
+                                      if (
+                                        i.id === sectionId ||
+                                        i.sectionId === sectionId
+                                      ) {
+                                        return {
+                                          ...i,
+                                          integratedDivision: targetDiv as
+                                            | "ROV"
+                                            | "SURVEY",
+                                        };
+                                      }
+                                      return i;
+                                    });
+                                    savePatch({ scopeItems: updated });
+                                  }
+                                : undefined
+                            }
+                            onCopySectionToDivision={
+                              div
+                                ? (sectionId, targetDiv) => {
+                                    const allItems = bid.scopeItems || [];
+                                    const sectionHeader = allItems.find(
+                                      (i) => i.id === sectionId,
+                                    );
+                                    const sectionChildren = allItems.filter(
+                                      (i) => i.sectionId === sectionId,
+                                    );
+                                    if (!sectionHeader) return;
+                                    const newSectionId = makeId("scope");
+                                    const copiedHeader: IScopeItem = {
+                                      ...sectionHeader,
+                                      id: newSectionId,
                                       integratedDivision: targetDiv as
                                         | "ROV"
                                         | "SURVEY",
                                     };
+                                    const copiedChildren: IScopeItem[] =
+                                      sectionChildren.map((c) => ({
+                                        ...c,
+                                        id: makeId("scope"),
+                                        sectionId: newSectionId,
+                                        integratedDivision: targetDiv as
+                                          | "ROV"
+                                          | "SURVEY",
+                                      }));
+                                    savePatch({
+                                      scopeItems: [
+                                        ...allItems,
+                                        copiedHeader,
+                                        ...copiedChildren,
+                                      ],
+                                    });
                                   }
-                                  return i;
-                                });
-                                savePatch({ scopeItems: updated });
-                              }
-                            : undefined
-                        }
-                        onCopySectionToDivision={
-                          div
-                            ? (sectionId, targetDiv) => {
-                                const allItems = bid.scopeItems || [];
-                                const sectionHeader = allItems.find(
-                                  (i) => i.id === sectionId,
-                                );
-                                const sectionChildren = allItems.filter(
-                                  (i) => i.sectionId === sectionId,
-                                );
-                                if (!sectionHeader) return;
-                                const newSectionId = makeId("scope");
-                                const copiedHeader: IScopeItem = {
-                                  ...sectionHeader,
-                                  id: newSectionId,
-                                  integratedDivision: targetDiv as
-                                    | "ROV"
-                                    | "SURVEY",
-                                };
-                                const copiedChildren: IScopeItem[] =
-                                  sectionChildren.map((c) => ({
-                                    ...c,
-                                    id: makeId("scope"),
-                                    sectionId: newSectionId,
-                                    integratedDivision: targetDiv as
-                                      | "ROV"
-                                      | "SURVEY",
-                                  }));
-                                savePatch({
-                                  scopeItems: [
-                                    ...allItems,
-                                    copiedHeader,
-                                    ...copiedChildren,
-                                  ],
-                                });
-                              }
-                            : undefined
-                        }
-                        assetBreakdown={bid.assetBreakdown || []}
-                        onResetSubItemCost={(scopeItemId, subItemId, kind) => {
-                          const updatedBreakdown = (
-                            bid.assetBreakdown || []
-                          ).map((a) => {
-                            if (a.scopeItemId !== scopeItemId) return a;
-                            const resetCost = (arr: unknown[]) =>
-                              (arr || []).map((sic: any) => {
-                                if (sic.subItemId !== subItemId) return sic;
+                                : undefined
+                            }
+                            assetBreakdown={bid.assetBreakdown || []}
+                            onResetSubItemCost={(
+                              scopeItemId,
+                              subItemId,
+                              kind,
+                            ) => {
+                              const updatedBreakdown = (
+                                bid.assetBreakdown || []
+                              ).map((a) => {
+                                if (a.scopeItemId !== scopeItemId) return a;
+                                const resetCost = (arr: unknown[]) =>
+                                  (arr || []).map((sic: any) => {
+                                    if (sic.subItemId !== subItemId) return sic;
+                                    return {
+                                      ...sic,
+                                      unitCostUSD: 0,
+                                      totalCostUSD: 0,
+                                      costReference: "",
+                                      dateReference: "",
+                                      costCategory:
+                                        kind === "pcf" ? "CAPEX" : "",
+                                      supplier: "",
+                                      leadTimeDays: 0,
+                                      dailyRate: null,
+                                      rentalDays: null,
+                                      notes: "",
+                                      subCosts: [],
+                                      availabilitySplits: [],
+                                    };
+                                  });
+                                if (kind === "pcf") {
+                                  return {
+                                    ...a,
+                                    pcfCosts: resetCost(a.pcfCosts || []),
+                                  };
+                                }
                                 return {
-                                  ...sic,
-                                  unitCostUSD: 0,
-                                  totalCostUSD: 0,
-                                  costReference: "",
-                                  dateReference: "",
-                                  costCategory: kind === "pcf" ? "CAPEX" : "",
-                                  supplier: "",
-                                  leadTimeDays: 0,
-                                  dailyRate: null,
-                                  rentalDays: null,
-                                  notes: "",
-                                  subCosts: [],
-                                  availabilitySplits: [],
+                                  ...a,
+                                  subItemCosts: resetCost(a.subItemCosts || []),
                                 };
                               });
-                            if (kind === "pcf") {
-                              return {
-                                ...a,
-                                pcfCosts: resetCost(a.pcfCosts || []),
-                              };
+                              savePatch({ assetBreakdown: updatedBreakdown });
+                            }}
+                            engineeringItems={
+                              (bid.hoursSummary || EMPTY_HOURS_SUMMARY)
+                                .engineeringHours?.engineeringItems || []
                             }
-                            return {
-                              ...a,
-                              subItemCosts: resetCost(a.subItemCosts || []),
-                            };
-                          });
-                          savePatch({ assetBreakdown: updatedBreakdown });
-                        }}
-                        engineeringItems={
-                          (bid.hoursSummary || EMPTY_HOURS_SUMMARY)
-                            .engineeringHours?.engineeringItems || []
-                        }
-                        onClearEngineeringHours={(scopeItemId) => {
-                          const currentHours =
-                            bid.hoursSummary || EMPTY_HOURS_SUMMARY;
-                          const currentEng = currentHours.engineeringHours;
-                          const currentItems =
-                            currentEng?.engineeringItems || [];
-                          const removedItem = currentItems.find(
-                            (ei) => ei.scopeItemId === scopeItemId,
-                          );
-                          const removedHours = removedItem?.totalHours || 0;
-                          const updatedItems = currentItems.filter(
-                            (ei) => ei.scopeItemId !== scopeItemId,
-                          );
-                          savePatch({
-                            hoursSummary: {
-                              ...currentHours,
-                              engineeringHours: {
-                                ...currentEng,
-                                engineeringItems: updatedItems,
-                                totalHours:
-                                  (currentEng?.totalHours || 0) - removedHours,
-                              },
-                              grandTotalHours:
-                                (currentHours.grandTotalHours || 0) -
-                                removedHours,
-                            },
-                          });
-                        }}
-                      />
-                    );
-                  }}
-                </DivisionEditWrap>
-              )}
-            </IntegratedDivisionTabs>
-          )}
-          {activeTab === "assets" && (
-            <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
-              {(div) => (
-                <DivisionEditWrap
-                  bidNumber={bid.bidNumber}
-                  tabName="Assets Breakdown"
-                  sectionPrefix="assets"
-                  div={div}
-                  canEdit={canEditBidTab("assets")}
-                  onEditChange={handleEditChange}
-                >
-                  {(isEditing) => {
-                    const filteredScope = div
-                      ? (bid.scopeItems || []).filter(
-                          (i) => i.integratedDivision === div,
-                        )
-                      : bid.scopeItems || [];
-                    const scopeIds = new Set(filteredScope.map((s) => s.id));
-                    const filteredAssets = div
-                      ? (bid.assetBreakdown || []).filter((a) =>
-                          scopeIds.has(a.scopeItemId),
-                        )
-                      : bid.assetBreakdown || [];
-                    return (
-                      <AssetsBreakdownTab
-                        scopeItems={filteredScope}
-                        assetBreakdown={filteredAssets}
-                        readOnly={!isEditing}
-                        contingencyPerYearSaved={bid.assetsContingencyPerYear}
-                        contingencyAppliedSaved={bid.assetsContingencyApplied}
-                        onContingencyChange={(perYear, applied) => {
-                          savePatch({
-                            assetsContingencyPerYear: perYear,
-                            assetsContingencyApplied: applied,
-                          });
-                        }}
-                        onCreateBom={(partNumber, description) => {
-                          navigate(
-                            ROUTES.bomCosts +
-                              "?pn=" +
-                              encodeURIComponent(partNumber) +
-                              "&desc=" +
-                              encodeURIComponent(description),
-                          );
-                        }}
-                        onSave={(items) => {
-                          if (div) {
-                            const allScopeIds = new Set(
-                              (bid.scopeItems || []).map((s) => s.id),
-                            );
-                            const otherAssets = (
-                              bid.assetBreakdown || []
-                            ).filter(
-                              (a) =>
-                                !scopeIds.has(a.scopeItemId) &&
-                                allScopeIds.has(a.scopeItemId),
-                            );
-                            savePatch({
-                              assetBreakdown: [...otherAssets, ...items],
-                            });
-                          } else {
-                            savePatch({ assetBreakdown: items });
-                          }
-                        }}
-                      />
-                    );
-                  }}
-                </DivisionEditWrap>
-              )}
-            </IntegratedDivisionTabs>
-          )}
-          {activeTab === "logistics" && (
-            <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
-              {(div) => (
-                <DivisionEditWrap
-                  bidNumber={bid.bidNumber}
-                  tabName="Logistics"
-                  sectionPrefix="logistics"
-                  div={div}
-                  canEdit={canEditBidTab("logistics")}
-                  onEditChange={handleEditChange}
-                >
-                  {(isEditing) => {
-                    const filtered = div
-                      ? (bid.logisticsBreakdown || []).filter(
-                          (i) => i.integratedDivision === div,
-                        )
-                      : bid.logisticsBreakdown || [];
-                    return (
-                      <LogisticsBreakdownTab
-                        logisticsBreakdown={filtered}
-                        fx={bidFx}
-                        readOnly={!isEditing}
-                        onSave={(items) => {
-                          if (div) {
-                            const others = (
-                              bid.logisticsBreakdown || []
-                            ).filter(
-                              (i) =>
-                                i.integratedDivision &&
-                                i.integratedDivision !== div,
-                            );
-                            savePatch({
-                              logisticsBreakdown: [
-                                ...others,
-                                ...items.map((i) => ({
-                                  ...i,
-                                  integratedDivision: div as "ROV" | "SURVEY",
-                                })),
-                              ],
-                            });
-                          } else {
-                            savePatch({ logisticsBreakdown: items });
-                          }
-                        }}
-                      />
-                    );
-                  }}
-                </DivisionEditWrap>
-              )}
-            </IntegratedDivisionTabs>
-          )}
-          {activeTab === "certifications" && (
-            <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
-              {(div) => (
-                <DivisionEditWrap
-                  bidNumber={bid.bidNumber}
-                  tabName="Certifications"
-                  sectionPrefix="certifications"
-                  div={div}
-                  canEdit={canEditBidTab("certifications")}
-                  onEditChange={handleEditChange}
-                >
-                  {(isEditing) => {
-                    const filteredScope = div
-                      ? (bid.scopeItems || []).filter(
-                          (i) => i.integratedDivision === div,
-                        )
-                      : bid.scopeItems || [];
-                    const filtered = div
-                      ? (bid.certificationsBreakdown || []).filter(
-                          (i) => i.integratedDivision === div,
-                        )
-                      : bid.certificationsBreakdown || [];
-                    return (
-                      <CertificationsBreakdownTab
-                        scopeItems={filteredScope}
-                        certificationsBreakdown={filtered}
-                        fx={bidFx}
-                        readOnly={!isEditing}
-                        bidNumber={bid.bidNumber}
-                        onSave={(items) => {
-                          if (div) {
-                            const others = (
-                              bid.certificationsBreakdown || []
-                            ).filter(
-                              (i) =>
-                                i.integratedDivision &&
-                                i.integratedDivision !== div,
-                            );
-                            savePatch({
-                              certificationsBreakdown: [
-                                ...others,
-                                ...items.map((i) => ({
-                                  ...i,
-                                  integratedDivision: div as "ROV" | "SURVEY",
-                                })),
-                              ],
-                            });
-                          } else {
-                            savePatch({ certificationsBreakdown: items });
-                          }
-                        }}
-                      />
-                    );
-                  }}
-                </DivisionEditWrap>
-              )}
-            </IntegratedDivisionTabs>
-          )}
-          {activeTab === "preparation" && (
-            <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
-              {(div) => (
-                <DivisionEditWrap
-                  bidNumber={bid.bidNumber}
-                  tabName="Prep & Mobilization"
-                  sectionPrefix="preparation"
-                  div={div}
-                  canEdit={canEditBidTab("preparation")}
-                  onEditChange={handleEditChange}
-                >
-                  {(isEditing) => {
-                    const filteredScope = div
-                      ? (bid.scopeItems || []).filter(
-                          (i) => i.integratedDivision === div,
-                        )
-                      : bid.scopeItems || [];
-                    const filteredRTS = div
-                      ? (bid.rtsItems || []).filter(
-                          (i) => i.integratedDivision === div,
-                        )
-                      : bid.rtsItems || [];
-                    const filteredMob = div
-                      ? (bid.mobilizationItems || []).filter(
-                          (i) => i.integratedDivision === div,
-                        )
-                      : bid.mobilizationItems || [];
-                    const filteredCons = div
-                      ? (bid.consumableItems || []).filter(
-                          (i) => i.integratedDivision === div,
-                        )
-                      : bid.consumableItems || [];
-                    return (
-                      <PreparationMobilizationTab
-                        scopeItems={filteredScope}
-                        rtsItems={filteredRTS}
-                        mobilizationItems={filteredMob}
-                        consumableItems={filteredCons}
-                        fx={bidFx}
-                        rtsSections={bid.rtsSections || []}
-                        mobSections={bid.mobSections || []}
-                        consSections={bid.consSections || []}
-                        readOnly={!isEditing}
-                        onSaveRTS={(items) => {
-                          if (div) {
-                            const others = (bid.rtsItems || []).filter(
-                              (i) =>
-                                i.integratedDivision &&
-                                i.integratedDivision !== div,
-                            );
-                            savePatch({
-                              rtsItems: [
-                                ...others,
-                                ...items.map((i) => ({
-                                  ...i,
-                                  integratedDivision: div as "ROV" | "SURVEY",
-                                })),
-                              ],
-                            });
-                          } else {
-                            savePatch({ rtsItems: items });
-                          }
-                        }}
-                        onSaveMob={(items) => {
-                          if (div) {
-                            const others = (bid.mobilizationItems || []).filter(
-                              (i) =>
-                                i.integratedDivision &&
-                                i.integratedDivision !== div,
-                            );
-                            savePatch({
-                              mobilizationItems: [
-                                ...others,
-                                ...items.map((i) => ({
-                                  ...i,
-                                  integratedDivision: div as "ROV" | "SURVEY",
-                                })),
-                              ],
-                            });
-                          } else {
-                            savePatch({ mobilizationItems: items });
-                          }
-                        }}
-                        onSaveConsumables={(items) => {
-                          if (div) {
-                            const others = (bid.consumableItems || []).filter(
-                              (i) =>
-                                i.integratedDivision &&
-                                i.integratedDivision !== div,
-                            );
-                            savePatch({
-                              consumableItems: [
-                                ...others,
-                                ...items.map((i) => ({
-                                  ...i,
-                                  integratedDivision: div as "ROV" | "SURVEY",
-                                })),
-                              ],
-                            });
-                          } else {
-                            savePatch({ consumableItems: items });
-                          }
-                        }}
-                        onSaveRTSSections={(sections) =>
-                          savePatch({ rtsSections: sections })
-                        }
-                        onSaveMobSections={(sections) =>
-                          savePatch({ mobSections: sections })
-                        }
-                        onSaveConsSections={(sections) =>
-                          savePatch({ consSections: sections })
-                        }
-                      />
-                    );
-                  }}
-                </DivisionEditWrap>
-              )}
-            </IntegratedDivisionTabs>
-          )}
-          {activeTab === "hours" && (
-            <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
-              {(_div) => (
-                <DivisionEditWrap
-                  key={_div || "default"}
-                  bidNumber={bid.bidNumber}
-                  tabName="Hours & Personnel"
-                  sectionPrefix="hours"
-                  div={_div}
-                  canEdit={canEditBidTab("hours")}
-                  onEditChange={handleEditChange}
-                >
-                  {(isEditing) => {
-                    const fullSummary = bid.hoursSummary || EMPTY_HOURS_SUMMARY;
-                    const filteredScope = _div
-                      ? (bid.scopeItems || []).filter(
-                          (i) => i.integratedDivision === _div,
-                        )
-                      : bid.scopeItems || [];
-                    // IDs of scope items/sub-items that currently need engineering
-                    const engScopeIds = new Set(
-                      filteredScope.reduce<string[]>((acc, s) => {
-                        if (!s.isSection && s.needsEngineering) {
-                          acc.push(s.id);
-                        }
-                        if (s.subItems) {
-                          s.subItems.forEach((sub) => {
-                            if (sub.needsEngineering) acc.push(sub.id);
-                          });
-                        }
-                        return acc;
-                      }, []),
-                    );
-
-                    // Filter hours items by integratedDivision
-                    const filterItems = (
-                      items: typeof fullSummary.onshoreHours.items,
-                    ) =>
-                      _div
-                        ? items.filter((i) => i.integratedDivision === _div)
-                        : items;
-
-                    // Filter section groups by integratedDivision
-                    const filterSections = (
-                      sections: typeof fullSummary.onshoreHours.sections,
-                    ) =>
-                      _div
-                        ? (sections || []).filter(
-                            (s) =>
-                              !s.integratedDivision ||
-                              s.integratedDivision === _div,
-                          )
-                        : sections;
-
-                    // Filter engineering items by scope linkage
-                    const filterEngItems = (
-                      items: typeof fullSummary.engineeringHours.engineeringItems,
-                    ) =>
-                      _div && items
-                        ? items.filter((i) =>
-                            i.source === "manual" || !i.scopeItemId
-                              ? // Standalone items predating division tagging stay visible
-                                !i.integratedDivision ||
-                                i.integratedDivision === _div
-                              : engScopeIds.has(i.scopeItemId),
-                          )
-                        : items;
-
-                    const filteredSummary: typeof fullSummary = _div
-                      ? (() => {
-                          const engItems = filterItems(
-                            fullSummary.engineeringHours.items,
-                          );
-                          const engEngItems = filterEngItems(
-                            fullSummary.engineeringHours.engineeringItems,
-                          );
-                          const onItems = filterItems(
-                            fullSummary.onshoreHours.items,
-                          );
-                          const offItems = filterItems(
-                            fullSummary.offshoreHours.items,
-                          );
-                          const sumHours = (items: { totalHours?: number }[]) =>
-                            items.reduce((s, i) => s + (i.totalHours || 0), 0);
-                          const sumCost = (items: { costBRL?: number }[]) =>
-                            items.reduce((s, i) => s + (i.costBRL || 0), 0);
-                          const engEngTotal = (engEngItems || []).reduce(
-                            (s, i) => s + (i.totalHours || 0),
-                            0,
-                          );
-                          return {
-                            ...fullSummary,
-                            engineeringHours: {
-                              ...fullSummary.engineeringHours,
-                              items: engItems,
-                              sections: filterSections(
-                                fullSummary.engineeringHours.sections,
-                              ),
-                              engineeringItems: engEngItems,
-                              totalHours: sumHours(engItems) + engEngTotal,
-                              totalCostBRL: sumCost(engItems),
-                            },
-                            onshoreHours: {
-                              ...fullSummary.onshoreHours,
-                              items: onItems,
-                              sections: filterSections(
-                                fullSummary.onshoreHours.sections,
-                              ),
-                              totalHours: sumHours(onItems),
-                              totalCostBRL: sumCost(onItems),
-                            },
-                            offshoreHours: {
-                              ...fullSummary.offshoreHours,
-                              items: offItems,
-                              sections: filterSections(
-                                fullSummary.offshoreHours.sections,
-                              ),
-                              totalHours: sumHours(offItems),
-                              totalCostBRL: sumCost(offItems),
-                            },
-                            grandTotalHours:
-                              sumHours(engItems) +
-                              engEngTotal +
-                              sumHours(onItems) +
-                              sumHours(offItems),
-                            grandTotalCostBRL:
-                              sumCost(engItems) +
-                              sumCost(onItems) +
-                              sumCost(offItems),
-                          };
-                        })()
-                      : fullSummary;
-
-                    return (
-                      <BidHoursTable
-                        hoursSummary={filteredSummary}
-                        readOnly={!isEditing}
-                        onSave={(updated) => {
-                          if (_div) {
-                            // Read LATEST hours from store to avoid stale-closure race conditions
-                            const latestBid = useBidStore
-                              .getState()
-                              .bids.find((b) => b.bidNumber === id);
-                            const latestSummary =
-                              latestBid?.hoursSummary || EMPTY_HOURS_SUMMARY;
-
-                            // Merge: keep items from the other division, add updated items tagged with current division
-                            const mergeItems = (
-                              original: typeof latestSummary.onshoreHours.items,
-                              updatedItems: typeof latestSummary.onshoreHours.items,
-                            ) => {
-                              const others = original.filter(
-                                (i) =>
-                                  i.integratedDivision &&
-                                  i.integratedDivision !== _div,
+                            onClearEngineeringHours={(scopeItemId) => {
+                              const currentHours =
+                                bid.hoursSummary || EMPTY_HOURS_SUMMARY;
+                              const currentEng = currentHours.engineeringHours;
+                              const currentItems =
+                                currentEng?.engineeringItems || [];
+                              const removedItem = currentItems.find(
+                                (ei) => ei.scopeItemId === scopeItemId,
                               );
-                              return [
-                                ...others,
-                                ...updatedItems.map((i) => ({
-                                  ...i,
-                                  integratedDivision: _div as "ROV" | "SURVEY",
-                                })),
-                              ];
-                            };
-                            // Merge section groups: keep other division's sections, add current division's
-                            const mergeSections = (
-                              original: typeof latestSummary.onshoreHours.sections,
-                              updatedSections: typeof latestSummary.onshoreHours.sections,
-                            ) => {
-                              const origSections = original || [];
-                              const updSections = updatedSections || [];
-                              const others = origSections.filter(
+                              const removedHours = removedItem?.totalHours || 0;
+                              const updatedItems = currentItems.filter(
+                                (ei) => ei.scopeItemId !== scopeItemId,
+                              );
+                              savePatch({
+                                hoursSummary: {
+                                  ...currentHours,
+                                  engineeringHours: {
+                                    ...currentEng,
+                                    engineeringItems: updatedItems,
+                                    totalHours:
+                                      (currentEng?.totalHours || 0) -
+                                      removedHours,
+                                  },
+                                  grandTotalHours:
+                                    (currentHours.grandTotalHours || 0) -
+                                    removedHours,
+                                },
+                              });
+                            }}
+                          />
+                        );
+                      }}
+                    </DivisionEditWrap>
+                  )}
+                </IntegratedDivisionTabs>
+              )}
+              {activeTab === "assets" && (
+                <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
+                  {(div) => (
+                    <DivisionEditWrap
+                      bidNumber={bid.bidNumber}
+                      tabName="Assets Breakdown"
+                      sectionPrefix="assets"
+                      div={div}
+                      canEdit={canEditBidTab("assets")}
+                      onEditChange={handleEditChange}
+                    >
+                      {(isEditing) => {
+                        const filteredScope = div
+                          ? (bid.scopeItems || []).filter(
+                              (i) => i.integratedDivision === div,
+                            )
+                          : bid.scopeItems || [];
+                        const scopeIds = new Set(
+                          filteredScope.map((s) => s.id),
+                        );
+                        const filteredAssets = div
+                          ? (bid.assetBreakdown || []).filter((a) =>
+                              scopeIds.has(a.scopeItemId),
+                            )
+                          : bid.assetBreakdown || [];
+                        return (
+                          <AssetsBreakdownTab
+                            scopeItems={filteredScope}
+                            assetBreakdown={filteredAssets}
+                            readOnly={!isEditing}
+                            contingencyPerYearSaved={
+                              bid.assetsContingencyPerYear
+                            }
+                            contingencyAppliedSaved={
+                              bid.assetsContingencyApplied
+                            }
+                            onContingencyChange={(perYear, applied) => {
+                              savePatch({
+                                assetsContingencyPerYear: perYear,
+                                assetsContingencyApplied: applied,
+                              });
+                            }}
+                            onCreateBom={(partNumber, description) => {
+                              navigate(
+                                ROUTES.bomCosts +
+                                  "?pn=" +
+                                  encodeURIComponent(partNumber) +
+                                  "&desc=" +
+                                  encodeURIComponent(description),
+                              );
+                            }}
+                            onSave={(items) => {
+                              if (div) {
+                                const allScopeIds = new Set(
+                                  (bid.scopeItems || []).map((s) => s.id),
+                                );
+                                const otherAssets = (
+                                  bid.assetBreakdown || []
+                                ).filter(
+                                  (a) =>
+                                    !scopeIds.has(a.scopeItemId) &&
+                                    allScopeIds.has(a.scopeItemId),
+                                );
+                                savePatch({
+                                  assetBreakdown: [...otherAssets, ...items],
+                                });
+                              } else {
+                                savePatch({ assetBreakdown: items });
+                              }
+                            }}
+                          />
+                        );
+                      }}
+                    </DivisionEditWrap>
+                  )}
+                </IntegratedDivisionTabs>
+              )}
+              {activeTab === "logistics" && (
+                <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
+                  {(div) => (
+                    <DivisionEditWrap
+                      bidNumber={bid.bidNumber}
+                      tabName="Logistics"
+                      sectionPrefix="logistics"
+                      div={div}
+                      canEdit={canEditBidTab("logistics")}
+                      onEditChange={handleEditChange}
+                    >
+                      {(isEditing) => {
+                        const filtered = div
+                          ? (bid.logisticsBreakdown || []).filter(
+                              (i) => i.integratedDivision === div,
+                            )
+                          : bid.logisticsBreakdown || [];
+                        return (
+                          <LogisticsBreakdownTab
+                            logisticsBreakdown={filtered}
+                            fx={bidFx}
+                            readOnly={!isEditing}
+                            onSave={(items) => {
+                              if (div) {
+                                const others = (
+                                  bid.logisticsBreakdown || []
+                                ).filter(
+                                  (i) =>
+                                    i.integratedDivision &&
+                                    i.integratedDivision !== div,
+                                );
+                                savePatch({
+                                  logisticsBreakdown: [
+                                    ...others,
+                                    ...items.map((i) => ({
+                                      ...i,
+                                      integratedDivision: div as
+                                        | "ROV"
+                                        | "SURVEY",
+                                    })),
+                                  ],
+                                });
+                              } else {
+                                savePatch({ logisticsBreakdown: items });
+                              }
+                            }}
+                          />
+                        );
+                      }}
+                    </DivisionEditWrap>
+                  )}
+                </IntegratedDivisionTabs>
+              )}
+              {activeTab === "certifications" && (
+                <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
+                  {(div) => (
+                    <DivisionEditWrap
+                      bidNumber={bid.bidNumber}
+                      tabName="Certifications"
+                      sectionPrefix="certifications"
+                      div={div}
+                      canEdit={canEditBidTab("certifications")}
+                      onEditChange={handleEditChange}
+                    >
+                      {(isEditing) => {
+                        const filteredScope = div
+                          ? (bid.scopeItems || []).filter(
+                              (i) => i.integratedDivision === div,
+                            )
+                          : bid.scopeItems || [];
+                        const filtered = div
+                          ? (bid.certificationsBreakdown || []).filter(
+                              (i) => i.integratedDivision === div,
+                            )
+                          : bid.certificationsBreakdown || [];
+                        return (
+                          <CertificationsBreakdownTab
+                            scopeItems={filteredScope}
+                            certificationsBreakdown={filtered}
+                            fx={bidFx}
+                            readOnly={!isEditing}
+                            bidNumber={bid.bidNumber}
+                            onSave={(items) => {
+                              if (div) {
+                                const others = (
+                                  bid.certificationsBreakdown || []
+                                ).filter(
+                                  (i) =>
+                                    i.integratedDivision &&
+                                    i.integratedDivision !== div,
+                                );
+                                savePatch({
+                                  certificationsBreakdown: [
+                                    ...others,
+                                    ...items.map((i) => ({
+                                      ...i,
+                                      integratedDivision: div as
+                                        | "ROV"
+                                        | "SURVEY",
+                                    })),
+                                  ],
+                                });
+                              } else {
+                                savePatch({ certificationsBreakdown: items });
+                              }
+                            }}
+                          />
+                        );
+                      }}
+                    </DivisionEditWrap>
+                  )}
+                </IntegratedDivisionTabs>
+              )}
+              {activeTab === "preparation" && (
+                <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
+                  {(div) => (
+                    <DivisionEditWrap
+                      bidNumber={bid.bidNumber}
+                      tabName="Prep & Mobilization"
+                      sectionPrefix="preparation"
+                      div={div}
+                      canEdit={canEditBidTab("preparation")}
+                      onEditChange={handleEditChange}
+                    >
+                      {(isEditing) => {
+                        const filteredScope = div
+                          ? (bid.scopeItems || []).filter(
+                              (i) => i.integratedDivision === div,
+                            )
+                          : bid.scopeItems || [];
+                        const filteredRTS = div
+                          ? (bid.rtsItems || []).filter(
+                              (i) => i.integratedDivision === div,
+                            )
+                          : bid.rtsItems || [];
+                        const filteredMob = div
+                          ? (bid.mobilizationItems || []).filter(
+                              (i) => i.integratedDivision === div,
+                            )
+                          : bid.mobilizationItems || [];
+                        const filteredCons = div
+                          ? (bid.consumableItems || []).filter(
+                              (i) => i.integratedDivision === div,
+                            )
+                          : bid.consumableItems || [];
+                        return (
+                          <PreparationMobilizationTab
+                            scopeItems={filteredScope}
+                            rtsItems={filteredRTS}
+                            mobilizationItems={filteredMob}
+                            consumableItems={filteredCons}
+                            fx={bidFx}
+                            rtsSections={bid.rtsSections || []}
+                            mobSections={bid.mobSections || []}
+                            consSections={bid.consSections || []}
+                            readOnly={!isEditing}
+                            onSaveRTS={(items) => {
+                              if (div) {
+                                const others = (bid.rtsItems || []).filter(
+                                  (i) =>
+                                    i.integratedDivision &&
+                                    i.integratedDivision !== div,
+                                );
+                                savePatch({
+                                  rtsItems: [
+                                    ...others,
+                                    ...items.map((i) => ({
+                                      ...i,
+                                      integratedDivision: div as
+                                        | "ROV"
+                                        | "SURVEY",
+                                    })),
+                                  ],
+                                });
+                              } else {
+                                savePatch({ rtsItems: items });
+                              }
+                            }}
+                            onSaveMob={(items) => {
+                              if (div) {
+                                const others = (
+                                  bid.mobilizationItems || []
+                                ).filter(
+                                  (i) =>
+                                    i.integratedDivision &&
+                                    i.integratedDivision !== div,
+                                );
+                                savePatch({
+                                  mobilizationItems: [
+                                    ...others,
+                                    ...items.map((i) => ({
+                                      ...i,
+                                      integratedDivision: div as
+                                        | "ROV"
+                                        | "SURVEY",
+                                    })),
+                                  ],
+                                });
+                              } else {
+                                savePatch({ mobilizationItems: items });
+                              }
+                            }}
+                            onSaveConsumables={(items) => {
+                              if (div) {
+                                const others = (
+                                  bid.consumableItems || []
+                                ).filter(
+                                  (i) =>
+                                    i.integratedDivision &&
+                                    i.integratedDivision !== div,
+                                );
+                                savePatch({
+                                  consumableItems: [
+                                    ...others,
+                                    ...items.map((i) => ({
+                                      ...i,
+                                      integratedDivision: div as
+                                        | "ROV"
+                                        | "SURVEY",
+                                    })),
+                                  ],
+                                });
+                              } else {
+                                savePatch({ consumableItems: items });
+                              }
+                            }}
+                            onSaveRTSSections={(sections) =>
+                              savePatch({ rtsSections: sections })
+                            }
+                            onSaveMobSections={(sections) =>
+                              savePatch({ mobSections: sections })
+                            }
+                            onSaveConsSections={(sections) =>
+                              savePatch({ consSections: sections })
+                            }
+                          />
+                        );
+                      }}
+                    </DivisionEditWrap>
+                  )}
+                </IntegratedDivisionTabs>
+              )}
+              {activeTab === "hours" && (
+                <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
+                  {(_div) => (
+                    <DivisionEditWrap
+                      key={_div || "default"}
+                      bidNumber={bid.bidNumber}
+                      tabName="Hours & Personnel"
+                      sectionPrefix="hours"
+                      div={_div}
+                      canEdit={canEditBidTab("hours")}
+                      onEditChange={handleEditChange}
+                    >
+                      {(isEditing) => {
+                        const fullSummary =
+                          bid.hoursSummary || EMPTY_HOURS_SUMMARY;
+                        const filteredScope = _div
+                          ? (bid.scopeItems || []).filter(
+                              (i) => i.integratedDivision === _div,
+                            )
+                          : bid.scopeItems || [];
+                        // IDs of scope items/sub-items that currently need engineering
+                        const engScopeIds = new Set(
+                          filteredScope.reduce<string[]>((acc, s) => {
+                            if (!s.isSection && s.needsEngineering) {
+                              acc.push(s.id);
+                            }
+                            if (s.subItems) {
+                              s.subItems.forEach((sub) => {
+                                if (sub.needsEngineering) acc.push(sub.id);
+                              });
+                            }
+                            return acc;
+                          }, []),
+                        );
+
+                        // Filter hours items by integratedDivision
+                        const filterItems = (
+                          items: typeof fullSummary.onshoreHours.items,
+                        ) =>
+                          _div
+                            ? items.filter((i) => i.integratedDivision === _div)
+                            : items;
+
+                        // Filter section groups by integratedDivision
+                        const filterSections = (
+                          sections: typeof fullSummary.onshoreHours.sections,
+                        ) =>
+                          _div
+                            ? (sections || []).filter(
                                 (s) =>
-                                  s.integratedDivision &&
-                                  s.integratedDivision !== _div,
+                                  !s.integratedDivision ||
+                                  s.integratedDivision === _div,
+                              )
+                            : sections;
+
+                        // Filter engineering items by scope linkage
+                        const filterEngItems = (
+                          items: typeof fullSummary.engineeringHours.engineeringItems,
+                        ) =>
+                          _div && items
+                            ? items.filter((i) =>
+                                i.source === "manual" || !i.scopeItemId
+                                  ? // Standalone items predating division tagging stay visible
+                                    !i.integratedDivision ||
+                                    i.integratedDivision === _div
+                                  : engScopeIds.has(i.scopeItemId),
+                              )
+                            : items;
+
+                        const filteredSummary: typeof fullSummary = _div
+                          ? (() => {
+                              const engItems = filterItems(
+                                fullSummary.engineeringHours.items,
                               );
-                              return [
-                                ...others,
-                                ...updSections.map((s) => ({
-                                  ...s,
-                                  integratedDivision: _div as "ROV" | "SURVEY",
-                                })),
-                              ];
-                            };
-                            const mergeEngItems = (
-                              original: typeof latestSummary.engineeringHours.engineeringItems,
-                              updatedItems: typeof latestSummary.engineeringHours.engineeringItems,
-                            ) => {
-                              const origItems = original || [];
-                              const updItems = updatedItems || [];
-                              const latestScope = latestBid?.scopeItems || [];
-                              const otherScopeIds = new Set(
-                                latestScope
-                                  .filter(
+                              const engEngItems = filterEngItems(
+                                fullSummary.engineeringHours.engineeringItems,
+                              );
+                              const onItems = filterItems(
+                                fullSummary.onshoreHours.items,
+                              );
+                              const offItems = filterItems(
+                                fullSummary.offshoreHours.items,
+                              );
+                              const sumHours = (
+                                items: { totalHours?: number }[],
+                              ) =>
+                                items.reduce(
+                                  (s, i) => s + (i.totalHours || 0),
+                                  0,
+                                );
+                              const sumCost = (items: { costBRL?: number }[]) =>
+                                items.reduce((s, i) => s + (i.costBRL || 0), 0);
+                              const engEngTotal = (engEngItems || []).reduce(
+                                (s, i) => s + (i.totalHours || 0),
+                                0,
+                              );
+                              return {
+                                ...fullSummary,
+                                engineeringHours: {
+                                  ...fullSummary.engineeringHours,
+                                  items: engItems,
+                                  sections: filterSections(
+                                    fullSummary.engineeringHours.sections,
+                                  ),
+                                  engineeringItems: engEngItems,
+                                  totalHours: sumHours(engItems) + engEngTotal,
+                                  totalCostBRL: sumCost(engItems),
+                                },
+                                onshoreHours: {
+                                  ...fullSummary.onshoreHours,
+                                  items: onItems,
+                                  sections: filterSections(
+                                    fullSummary.onshoreHours.sections,
+                                  ),
+                                  totalHours: sumHours(onItems),
+                                  totalCostBRL: sumCost(onItems),
+                                },
+                                offshoreHours: {
+                                  ...fullSummary.offshoreHours,
+                                  items: offItems,
+                                  sections: filterSections(
+                                    fullSummary.offshoreHours.sections,
+                                  ),
+                                  totalHours: sumHours(offItems),
+                                  totalCostBRL: sumCost(offItems),
+                                },
+                                grandTotalHours:
+                                  sumHours(engItems) +
+                                  engEngTotal +
+                                  sumHours(onItems) +
+                                  sumHours(offItems),
+                                grandTotalCostBRL:
+                                  sumCost(engItems) +
+                                  sumCost(onItems) +
+                                  sumCost(offItems),
+                              };
+                            })()
+                          : fullSummary;
+
+                        return (
+                          <BidHoursTable
+                            hoursSummary={filteredSummary}
+                            readOnly={!isEditing}
+                            onSave={(updated) => {
+                              if (_div) {
+                                // Read LATEST hours from store to avoid stale-closure race conditions
+                                const latestBid = useBidStore
+                                  .getState()
+                                  .bids.find((b) => b.bidNumber === id);
+                                const latestSummary =
+                                  latestBid?.hoursSummary ||
+                                  EMPTY_HOURS_SUMMARY;
+
+                                // Merge: keep items from the other division, add updated items tagged with current division
+                                const mergeItems = (
+                                  original: typeof latestSummary.onshoreHours.items,
+                                  updatedItems: typeof latestSummary.onshoreHours.items,
+                                ) => {
+                                  const others = original.filter(
+                                    (i) =>
+                                      i.integratedDivision &&
+                                      i.integratedDivision !== _div,
+                                  );
+                                  return [
+                                    ...others,
+                                    ...updatedItems.map((i) => ({
+                                      ...i,
+                                      integratedDivision: _div as
+                                        | "ROV"
+                                        | "SURVEY",
+                                    })),
+                                  ];
+                                };
+                                // Merge section groups: keep other division's sections, add current division's
+                                const mergeSections = (
+                                  original: typeof latestSummary.onshoreHours.sections,
+                                  updatedSections: typeof latestSummary.onshoreHours.sections,
+                                ) => {
+                                  const origSections = original || [];
+                                  const updSections = updatedSections || [];
+                                  const others = origSections.filter(
                                     (s) =>
                                       s.integratedDivision &&
                                       s.integratedDivision !== _div,
-                                  )
-                                  .reduce<string[]>((acc, s) => {
-                                    acc.push(s.id);
-                                    if (s.subItems) {
-                                      s.subItems.forEach((sub) =>
-                                        acc.push(sub.id),
+                                  );
+                                  return [
+                                    ...others,
+                                    ...updSections.map((s) => ({
+                                      ...s,
+                                      integratedDivision: _div as
+                                        | "ROV"
+                                        | "SURVEY",
+                                    })),
+                                  ];
+                                };
+                                const mergeEngItems = (
+                                  original: typeof latestSummary.engineeringHours.engineeringItems,
+                                  updatedItems: typeof latestSummary.engineeringHours.engineeringItems,
+                                ) => {
+                                  const origItems = original || [];
+                                  const updItems = updatedItems || [];
+                                  const latestScope =
+                                    latestBid?.scopeItems || [];
+                                  const otherScopeIds = new Set(
+                                    latestScope
+                                      .filter(
+                                        (s) =>
+                                          s.integratedDivision &&
+                                          s.integratedDivision !== _div,
+                                      )
+                                      .reduce<string[]>((acc, s) => {
+                                        acc.push(s.id);
+                                        if (s.subItems) {
+                                          s.subItems.forEach((sub) =>
+                                            acc.push(sub.id),
+                                          );
+                                        }
+                                        return acc;
+                                      }, []),
+                                  );
+                                  const others = origItems.filter((i) => {
+                                    if (
+                                      i.source === "manual" ||
+                                      !i.scopeItemId
+                                    ) {
+                                      return (
+                                        !!i.integratedDivision &&
+                                        i.integratedDivision !== _div
                                       );
                                     }
-                                    return acc;
-                                  }, []),
-                              );
-                              const others = origItems.filter((i) => {
-                                if (i.source === "manual" || !i.scopeItemId) {
-                                  return (
-                                    !!i.integratedDivision &&
-                                    i.integratedDivision !== _div
+                                    return otherScopeIds.has(i.scopeItemId);
+                                  });
+                                  return [...others, ...updItems];
+                                };
+
+                                // Perform the merge
+                                const mergedOnshoreItems = mergeItems(
+                                  latestSummary.onshoreHours.items,
+                                  updated.onshoreHours.items,
+                                );
+                                const mergedOffshoreItems = mergeItems(
+                                  latestSummary.offshoreHours.items,
+                                  updated.offshoreHours.items,
+                                );
+                                const mergedEngItems = mergeItems(
+                                  latestSummary.engineeringHours.items,
+                                  updated.engineeringHours.items,
+                                );
+                                const mergedEngEngineeringItems = mergeEngItems(
+                                  latestSummary.engineeringHours
+                                    .engineeringItems,
+                                  updated.engineeringHours.engineeringItems,
+                                );
+
+                                // Recalculate totals from ALL merged items
+                                const calcTotal = (
+                                  items: typeof mergedOnshoreItems,
+                                ) =>
+                                  items.reduce(
+                                    (sum, i) => sum + (i.totalHours || 0),
+                                    0,
                                   );
-                                }
-                                return otherScopeIds.has(i.scopeItemId);
-                              });
-                              return [...others, ...updItems];
-                            };
+                                const calcCost = (
+                                  items: typeof mergedOnshoreItems,
+                                ) =>
+                                  items.reduce(
+                                    (sum, i) => sum + (i.costBRL || 0),
+                                    0,
+                                  );
+                                const engItemsTotal =
+                                  mergedEngEngineeringItems.reduce(
+                                    (sum, i) => sum + (i.totalHours || 0),
+                                    0,
+                                  );
 
-                            // Perform the merge
-                            const mergedOnshoreItems = mergeItems(
-                              latestSummary.onshoreHours.items,
-                              updated.onshoreHours.items,
-                            );
-                            const mergedOffshoreItems = mergeItems(
-                              latestSummary.offshoreHours.items,
-                              updated.offshoreHours.items,
-                            );
-                            const mergedEngItems = mergeItems(
-                              latestSummary.engineeringHours.items,
-                              updated.engineeringHours.items,
-                            );
-                            const mergedEngEngineeringItems = mergeEngItems(
-                              latestSummary.engineeringHours.engineeringItems,
-                              updated.engineeringHours.engineeringItems,
-                            );
-
-                            // Recalculate totals from ALL merged items
-                            const calcTotal = (
-                              items: typeof mergedOnshoreItems,
-                            ) =>
-                              items.reduce(
-                                (sum, i) => sum + (i.totalHours || 0),
-                                0,
-                              );
-                            const calcCost = (
-                              items: typeof mergedOnshoreItems,
-                            ) =>
-                              items.reduce(
-                                (sum, i) => sum + (i.costBRL || 0),
-                                0,
-                              );
-                            const engItemsTotal =
-                              mergedEngEngineeringItems.reduce(
-                                (sum, i) => sum + (i.totalHours || 0),
-                                0,
-                              );
-
-                            const merged: typeof latestSummary = {
-                              ...updated,
-                              engineeringHours: {
-                                ...updated.engineeringHours,
-                                items: mergedEngItems,
-                                sections: mergeSections(
-                                  latestSummary.engineeringHours.sections,
-                                  updated.engineeringHours.sections,
-                                ),
-                                engineeringItems: mergedEngEngineeringItems,
-                                totalHours:
-                                  calcTotal(mergedEngItems) + engItemsTotal,
-                                totalCostBRL: calcCost(mergedEngItems),
-                              },
-                              onshoreHours: {
-                                ...updated.onshoreHours,
-                                items: mergedOnshoreItems,
-                                sections: mergeSections(
-                                  latestSummary.onshoreHours.sections,
-                                  updated.onshoreHours.sections,
-                                ),
-                                totalHours: calcTotal(mergedOnshoreItems),
-                                totalCostBRL: calcCost(mergedOnshoreItems),
-                              },
-                              offshoreHours: {
-                                ...updated.offshoreHours,
-                                items: mergedOffshoreItems,
-                                sections: mergeSections(
-                                  latestSummary.offshoreHours.sections,
-                                  updated.offshoreHours.sections,
-                                ),
-                                totalHours: calcTotal(mergedOffshoreItems),
-                                totalCostBRL: calcCost(mergedOffshoreItems),
-                              },
-                            };
-                            // Recalculate grand totals
-                            merged.grandTotalHours =
-                              merged.engineeringHours.totalHours +
-                              merged.onshoreHours.totalHours +
-                              merged.offshoreHours.totalHours;
-                            merged.grandTotalCostBRL =
-                              merged.engineeringHours.totalCostBRL +
-                              merged.onshoreHours.totalCostBRL +
-                              merged.offshoreHours.totalCostBRL;
-                            savePatch({ hoursSummary: merged });
-                          } else {
-                            savePatch({ hoursSummary: updated });
-                          }
-                        }}
-                        integratedDivision={_div}
-                        availableDivisions={resolveDivisions(bid.serviceLine)}
-                        scopeItems={filteredScope}
-                        fx={bidFx}
-                        tabNotes={
-                          (bid.bidNotes as Record<string, string>)?.hours || ""
-                        }
-                        onSaveTabNotes={(notes) =>
-                          savePatch({
-                            bidNotes: {
-                              ...(bid.bidNotes || {}),
-                              hours: notes,
-                            },
-                          })
-                        }
-                      />
-                    );
-                  }}
-                </DivisionEditWrap>
+                                const merged: typeof latestSummary = {
+                                  ...updated,
+                                  engineeringHours: {
+                                    ...updated.engineeringHours,
+                                    items: mergedEngItems,
+                                    sections: mergeSections(
+                                      latestSummary.engineeringHours.sections,
+                                      updated.engineeringHours.sections,
+                                    ),
+                                    engineeringItems: mergedEngEngineeringItems,
+                                    totalHours:
+                                      calcTotal(mergedEngItems) + engItemsTotal,
+                                    totalCostBRL: calcCost(mergedEngItems),
+                                  },
+                                  onshoreHours: {
+                                    ...updated.onshoreHours,
+                                    items: mergedOnshoreItems,
+                                    sections: mergeSections(
+                                      latestSummary.onshoreHours.sections,
+                                      updated.onshoreHours.sections,
+                                    ),
+                                    totalHours: calcTotal(mergedOnshoreItems),
+                                    totalCostBRL: calcCost(mergedOnshoreItems),
+                                  },
+                                  offshoreHours: {
+                                    ...updated.offshoreHours,
+                                    items: mergedOffshoreItems,
+                                    sections: mergeSections(
+                                      latestSummary.offshoreHours.sections,
+                                      updated.offshoreHours.sections,
+                                    ),
+                                    totalHours: calcTotal(mergedOffshoreItems),
+                                    totalCostBRL: calcCost(mergedOffshoreItems),
+                                  },
+                                };
+                                // Recalculate grand totals
+                                merged.grandTotalHours =
+                                  merged.engineeringHours.totalHours +
+                                  merged.onshoreHours.totalHours +
+                                  merged.offshoreHours.totalHours;
+                                merged.grandTotalCostBRL =
+                                  merged.engineeringHours.totalCostBRL +
+                                  merged.onshoreHours.totalCostBRL +
+                                  merged.offshoreHours.totalCostBRL;
+                                savePatch({ hoursSummary: merged });
+                              } else {
+                                savePatch({ hoursSummary: updated });
+                              }
+                            }}
+                            integratedDivision={_div}
+                            availableDivisions={resolveDivisions(
+                              bid.serviceLine,
+                            )}
+                            scopeItems={filteredScope}
+                            fx={bidFx}
+                            tabNotes={
+                              (bid.bidNotes as Record<string, string>)?.hours ||
+                              ""
+                            }
+                            onSaveTabNotes={(notes) =>
+                              savePatch({
+                                bidNotes: {
+                                  ...(bid.bidNotes || {}),
+                                  hours: notes,
+                                },
+                              })
+                            }
+                          />
+                        );
+                      }}
+                    </DivisionEditWrap>
+                  )}
+                </IntegratedDivisionTabs>
               )}
-            </IntegratedDivisionTabs>
-          )}
-          {activeTab === "costs" && <BidCostSummary bid={bid} />}
-          {activeTab === "tasks" && (
-            <BidStatusPhasePanel
-              bid={bid}
-              readOnly={!canEditTab("tasks")}
-              onSave={savePatch}
-            />
-          )}
-          {activeTab === "timeline" && (
-            <BidTimeline
-              bid={{ ...bid, ...getMissingApprovalHistoryPatch(bid) }}
-              currentPhaseIndex={currentPhaseIndex}
-            />
-          )}
-          {activeTab === "approval" && (
-            <ApprovalTab
-              bid={bid}
-              teamMembers={teamMembers}
-              currentUser={{
-                name: currentUser.displayName,
-                email: currentUser.email,
-                role: currentUser.jobTitle || currentUser.role,
-                photoUrl: currentUser.photoUrl,
-              }}
-              canEdit={canEditTab("approval")}
-              onPatchBid={savePatch}
-            />
-          )}
-          {activeTab === "documents" && (
-            <DocumentsTab
-              bid={bid}
-              canEdit={canEditTab("documents")}
-              onSave={savePatch}
-              currentUser={currentUser}
-            />
-          )}
-          {activeTab === "notes" && (
-            <NotesTab
-              bid={bid}
-              canEdit={canEditTab("notes")}
-              canDelete={canDeleteTab("notes")}
-              onSave={saveNotes}
-              currentUser={currentUser}
-              onAddComment={
-                canEditTab("notes")
-                  ? (text) => {
-                      const newComment: IBidComment = {
-                        id: `comment-${Date.now()}`,
-                        author: {
-                          name: currentUser.displayName,
-                          email: currentUser.email,
-                        },
-                        text,
-                        timestamp: new Date().toISOString(),
-                        phase: bid.currentPhase,
-                        section: "general",
-                        isEdited: false,
-                        editedAt: null,
-                        mentions: [],
-                        attachments: [],
-                      };
-                      saveNotes({
-                        comments: [...(bid.comments || []), newComment],
-                      });
-                    }
-                  : undefined
-              }
-            />
-          )}
-          {activeTab === "qualifications" && (
-            <QualificationsTab
-              bid={bid}
-              canEdit={canEditTab("qualifications")}
-              canDelete={canDeleteTab("qualifications")}
-              onSave={saveQualifications}
-            />
-          )}
-          {activeTab === "activity" && (
-            <BidActivityLog
-              entries={[
-                ...(bid.activityLog || []),
-                ...getMissingApprovalActivityEntries(bid),
-              ]}
-            />
-          )}
-          {activeTab === "revisions" && (
-            <RevisionsTab
-              bid={bid}
-              canEdit={canEditTab("revisions")}
-              currentUser={currentUser}
-              onSave={savePatch}
-            />
-          )}
-          {activeTab === "export" && (
-            <BidExportTab
-              bid={bid}
-              currentUser={currentUser}
-              onSave={savePatch}
-            />
-          )}
-          </>
+              {activeTab === "costs" && <BidCostSummary bid={bid} />}
+              {activeTab === "tasks" && (
+                <BidStatusPhasePanel
+                  bid={bid}
+                  readOnly={!canEditTab("tasks")}
+                  onSave={savePatch}
+                />
+              )}
+              {activeTab === "timeline" && (
+                <BidTimeline
+                  bid={{ ...bid, ...getMissingApprovalHistoryPatch(bid) }}
+                  currentPhaseIndex={currentPhaseIndex}
+                />
+              )}
+              {activeTab === "approval" && (
+                <ApprovalTab
+                  bid={bid}
+                  teamMembers={teamMembers}
+                  currentUser={{
+                    name: currentUser.displayName,
+                    email: currentUser.email,
+                    role: currentUser.jobTitle || currentUser.role,
+                    photoUrl: currentUser.photoUrl,
+                  }}
+                  canEdit={canEditTab("approval")}
+                  onPatchBid={savePatch}
+                />
+              )}
+              {activeTab === "documents" && (
+                <DocumentsTab
+                  bid={bid}
+                  canEdit={canEditTab("documents")}
+                  onSave={savePatch}
+                  currentUser={currentUser}
+                />
+              )}
+              {activeTab === "notes" && (
+                <NotesTab
+                  bid={bid}
+                  canEdit={canEditTab("notes")}
+                  canDelete={canDeleteTab("notes")}
+                  onSave={saveNotes}
+                  currentUser={currentUser}
+                  onAddComment={
+                    canEditTab("notes")
+                      ? (text) => {
+                          const newComment: IBidComment = {
+                            id: `comment-${Date.now()}`,
+                            author: {
+                              name: currentUser.displayName,
+                              email: currentUser.email,
+                            },
+                            text,
+                            timestamp: new Date().toISOString(),
+                            phase: bid.currentPhase,
+                            section: "general",
+                            isEdited: false,
+                            editedAt: null,
+                            mentions: [],
+                            attachments: [],
+                          };
+                          saveNotes({
+                            comments: [...(bid.comments || []), newComment],
+                          });
+                        }
+                      : undefined
+                  }
+                />
+              )}
+              {activeTab === "qualifications" && (
+                <QualificationsTab
+                  bid={bid}
+                  canEdit={canEditTab("qualifications")}
+                  canDelete={canDeleteTab("qualifications")}
+                  onSave={saveQualifications}
+                />
+              )}
+              {activeTab === "activity" && (
+                <BidActivityLog
+                  entries={[
+                    ...(bid.activityLog || []),
+                    ...getMissingApprovalActivityEntries(bid),
+                  ]}
+                />
+              )}
+              {activeTab === "revisions" && (
+                <RevisionsTab
+                  bid={bid}
+                  canEdit={canEditTab("revisions")}
+                  currentUser={currentUser}
+                  onSave={savePatch}
+                />
+              )}
+              {activeTab === "export" && (
+                <BidExportTab
+                  bid={bid}
+                  currentUser={currentUser}
+                  onSave={savePatch}
+                />
+              )}
+            </>
           )}
         </div>
         {/* end tabContent */}

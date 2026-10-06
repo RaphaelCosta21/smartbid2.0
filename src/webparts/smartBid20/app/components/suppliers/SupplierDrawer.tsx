@@ -283,7 +283,11 @@ export const SupplierDrawer: React.FC<SupplierDrawerProps> = ({
 
         <div className={styles.footer}>
           {onEdit && (
-            <button type="button" className={styles.primaryBtn} onClick={onEdit}>
+            <button
+              type="button"
+              className={styles.primaryBtn}
+              onClick={onEdit}
+            >
               <Pencil size={14} /> Edit supplier
             </button>
           )}

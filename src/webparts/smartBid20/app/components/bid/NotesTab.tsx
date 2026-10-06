@@ -252,13 +252,13 @@ export const NotesTab: React.FC<NotesTabProps> = ({
                           Edit
                         </button>
                         {allowDelete && (
-                        <button
-                          className={styles.backBtn}
-                          style={{ color: "var(--error-color, #EF4444)" }}
-                          onClick={() => handleDelete(section)}
-                        >
-                          Delete
-                        </button>
+                          <button
+                            className={styles.backBtn}
+                            style={{ color: "var(--error-color, #EF4444)" }}
+                            onClick={() => handleDelete(section)}
+                          >
+                            Delete
+                          </button>
                         )}
                       </div>
                     )}

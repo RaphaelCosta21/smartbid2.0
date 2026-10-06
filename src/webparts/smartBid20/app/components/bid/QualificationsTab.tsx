@@ -142,7 +142,10 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
         .map((s) => s.id),
     );
     return merged.filter(
-      (c) => !canDelete || !c.isAutoImported || nonCompliantIds.has(c.scopeItemId || ""),
+      (c) =>
+        !canDelete ||
+        !c.isAutoImported ||
+        nonCompliantIds.has(c.scopeItemId || ""),
     );
   }, [clarifications, autoImported, scopeItems, canDelete]);
 

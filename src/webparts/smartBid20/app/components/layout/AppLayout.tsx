@@ -1,10 +1,5 @@
 import * as React from "react";
-import {
-  HashRouter,
-  Routes,
-  Route,
-  useLocation,
-} from "react-router-dom";
+import { HashRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useUIStore } from "../../stores/useUIStore";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useBidStore } from "../../stores/useBidStore";
@@ -74,7 +69,10 @@ import { QueryCatalogLoadingBanner } from "../common/QueryCatalogLoadingBanner";
 import { ChatAssistant } from "../common/ChatAssistant";
 import { RequirePageAccess } from "../common/RequirePageAccess";
 
-const guard = (pageKey: string, page: React.ReactElement): React.ReactElement => (
+const guard = (
+  pageKey: string,
+  page: React.ReactElement,
+): React.ReactElement => (
   <RequirePageAccess pageKey={pageKey}>{page}</RequirePageAccess>
 );
 
@@ -354,10 +352,7 @@ const AppLayoutInner: React.FC<{
             />
             <Route
               path={ROUTES.operationalSummary}
-              element={guard(
-                "operational-summary",
-                <OperationalSummaryPage />,
-              )}
+              element={guard("operational-summary", <OperationalSummaryPage />)}
             />
             <Route
               path={ROUTES.approvals}

@@ -142,9 +142,7 @@ export const AddFavoriteEquipmentModal: React.FC<
   const [manualDesc, setManualDesc] = React.useState("");
   const [addError, setAddError] = React.useState<string | null>(null);
   const [staged, setStaged] = React.useState<IStagedItem[]>([]);
-  const [openNotes, setOpenNotes] = React.useState<Record<string, boolean>>(
-    {},
-  );
+  const [openNotes, setOpenNotes] = React.useState<Record<string, boolean>>({});
   const [showAdvanced, setShowAdvanced] = React.useState(false);
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
@@ -227,8 +225,10 @@ export const AddFavoriteEquipmentModal: React.FC<
 
     const descKey = normDesc(desc);
     if (!descKey) return "Enter a part number or a description";
-    const sameDesc = (e: { partNumber: string; description: string }): boolean =>
-      !normPn(e.partNumber) && normDesc(e.description) === descKey;
+    const sameDesc = (e: {
+      partNumber: string;
+      description: string;
+    }): boolean => !normPn(e.partNumber) && normDesc(e.description) === descKey;
     const sameDest = (e: { groupId: string; subGroupId: string }): boolean =>
       e.groupId === gId && e.subGroupId === sgId;
     if (pending.some((s) => sameDest(s) && sameDesc(s)))
@@ -294,8 +294,7 @@ export const AddFavoriteEquipmentModal: React.FC<
     setAddError(null);
   };
 
-  const canAddManual =
-    destReady && (!!manualPn.trim() || !!manualDesc.trim());
+  const canAddManual = destReady && (!!manualPn.trim() || !!manualDesc.trim());
 
   const handleManualAdd = (): void => {
     if (!canAddManual) return;
@@ -359,7 +358,12 @@ export const AddFavoriteEquipmentModal: React.FC<
       const k = destKey(s.groupId, s.subGroupId);
       let sec = byKey.get(k);
       if (!sec) {
-        sec = { key: k, groupId: s.groupId, subGroupId: s.subGroupId, items: [] };
+        sec = {
+          key: k,
+          groupId: s.groupId,
+          subGroupId: s.subGroupId,
+          items: [],
+        };
         byKey.set(k, sec);
         list.push(sec);
       }
@@ -643,8 +647,8 @@ export const AddFavoriteEquipmentModal: React.FC<
                         />
                       </div>
                       <p className={styles.helper}>
-                        Pick a result to add it to the list, then keep
-                        searching to add more.
+                        Pick a result to add it to the list, then keep searching
+                        to add more.
                       </p>
                       <button
                         type="button"
@@ -653,9 +657,7 @@ export const AddFavoriteEquipmentModal: React.FC<
                       >
                         <Database size={14} />
                         Advanced Search
-                        <span className={styles.advancedTag}>
-                          Multi-select
-                        </span>
+                        <span className={styles.advancedTag}>Multi-select</span>
                       </button>
                     </>
                   ) : (
@@ -766,7 +768,10 @@ export const AddFavoriteEquipmentModal: React.FC<
                         className={`${styles.section}${isCurrent ? ` ${styles.sectionCurrent}` : ""}`}
                       >
                         <div className={styles.sectionHead}>
-                          <FolderTree size={14} className={styles.sectionIcon} />
+                          <FolderTree
+                            size={14}
+                            className={styles.sectionIcon}
+                          />
                           <span className={styles.sectionPath}>
                             {parentItem
                               ? `Sub-items of ${parentLabel}`

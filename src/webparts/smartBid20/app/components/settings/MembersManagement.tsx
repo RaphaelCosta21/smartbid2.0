@@ -849,29 +849,29 @@ const MembersManagement: React.FC = () => {
                       </div>
                     </div>
                     {canEdit && (
-                    <div className={styles.memberActions}>
-                      <button
-                        className={styles.iconBtn}
-                        title="Edit"
-                        onClick={() => openEditPanel(m)}
-                      >
-                        ✎
-                      </button>
-                      <button
-                        className={styles.iconBtn}
-                        title={m.isActive ? "Deactivate" : "Activate"}
-                        onClick={() => toggleActive(m)}
-                      >
-                        {m.isActive ? "⏸" : "▶"}
-                      </button>
-                      <button
-                        className={`${styles.iconBtn} ${styles.danger}`}
-                        title="Remove"
-                        onClick={() => handleDelete(m)}
-                      >
-                        ✕
-                      </button>
-                    </div>
+                      <div className={styles.memberActions}>
+                        <button
+                          className={styles.iconBtn}
+                          title="Edit"
+                          onClick={() => openEditPanel(m)}
+                        >
+                          ✎
+                        </button>
+                        <button
+                          className={styles.iconBtn}
+                          title={m.isActive ? "Deactivate" : "Activate"}
+                          onClick={() => toggleActive(m)}
+                        >
+                          {m.isActive ? "⏸" : "▶"}
+                        </button>
+                        <button
+                          className={`${styles.iconBtn} ${styles.danger}`}
+                          title="Remove"
+                          onClick={() => handleDelete(m)}
+                        >
+                          ✕
+                        </button>
+                      </div>
                     )}
                   </div>
                 );

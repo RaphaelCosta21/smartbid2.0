@@ -678,7 +678,9 @@ export const Sidebar: React.FC = () => {
                             onClick={
                               locked ? undefined : () => navigate(child.route)
                             }
-                            title={locked ? `${child.label} - no access` : undefined}
+                            title={
+                              locked ? `${child.label} - no access` : undefined
+                            }
                             aria-disabled={locked || undefined}
                           >
                             {child.label}

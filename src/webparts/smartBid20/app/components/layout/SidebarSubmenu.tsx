@@ -25,7 +25,9 @@ export const SidebarSubmenu: React.FC<SidebarSubmenuProps> = ({
       <div
         className={`${styles.navItem} ${styles.submenuToggle} ${open ? styles.open : ""} ${disabled ? styles.disabled : ""}`}
         onClick={disabled ? undefined : () => setIsOpen(!isOpen)}
-        title={disabled ? `${label} - no access` : isCollapsed ? label : undefined}
+        title={
+          disabled ? `${label} - no access` : isCollapsed ? label : undefined
+        }
         aria-disabled={disabled || undefined}
       >
         {icon}

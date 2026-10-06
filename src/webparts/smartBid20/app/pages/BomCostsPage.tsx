@@ -1139,20 +1139,20 @@ export const BomCostsPage: React.FC = () => {
               </span>
             </span>
             {canEdit && (
-            <div className={styles.listActions}>
-              <label className={styles.newBtn}>
-                + Import File
-                <input
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  style={{ display: "none" }}
-                  onChange={handleFileImport}
-                />
-              </label>
-              <button className={styles.newBtn} onClick={handleNewBlank}>
-                + Manual BOM
-              </button>
-            </div>
+              <div className={styles.listActions}>
+                <label className={styles.newBtn}>
+                  + Import File
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    style={{ display: "none" }}
+                    onChange={handleFileImport}
+                  />
+                </label>
+                <button className={styles.newBtn} onClick={handleNewBlank}>
+                  + Manual BOM
+                </button>
+              </div>
             )}
           </div>
 
@@ -2027,7 +2027,9 @@ export const BomCostsPage: React.FC = () => {
                               className={`${styles.rowActionBtn} ${styles.rowActionBtnDanger}`}
                               onClick={() => {
                                 if (
-                                  confirm("Delete this row and all its children?")
+                                  confirm(
+                                    "Delete this row and all its children?",
+                                  )
                                 ) {
                                   handleDeleteRow(item.id);
                                 }

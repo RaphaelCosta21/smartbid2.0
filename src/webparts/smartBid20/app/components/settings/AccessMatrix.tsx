@@ -38,7 +38,10 @@ interface AccessMatrixProps {
   roles: IAccessRoleDef[];
   readOnly: boolean;
   getGroupLevel: (role: UserRole, groupKey: string) => AccessPermission;
-  getOverride: (role: UserRole, itemKey: string) => AccessPermission | undefined;
+  getOverride: (
+    role: UserRole,
+    itemKey: string,
+  ) => AccessPermission | undefined;
   getSavedGroupLevel?: (
     role: UserRole,
     groupKey: string,
@@ -47,7 +50,11 @@ interface AccessMatrixProps {
     role: UserRole,
     itemKey: string,
   ) => AccessPermission | undefined;
-  onSetGroup: (role: UserRole, groupKey: string, level: AccessPermission) => void;
+  onSetGroup: (
+    role: UserRole,
+    groupKey: string,
+    level: AccessPermission,
+  ) => void;
   /** `undefined` clears the override so the item inherits its group again. */
   onSetItem: (
     role: UserRole,
@@ -58,7 +65,10 @@ interface AccessMatrixProps {
 }
 
 const CYCLE: AccessPermission[] = ["none", "view", "edit"];
-const nextLevel = (level: AccessPermission, allowEditNoDelete?: boolean): AccessPermission => {
+const nextLevel = (
+  level: AccessPermission,
+  allowEditNoDelete?: boolean,
+): AccessPermission => {
   const cycle: AccessPermission[] = allowEditNoDelete
     ? ["none", "view", "editNoDelete", "edit"]
     : CYCLE;
@@ -84,11 +94,11 @@ const LevelIcon: React.FC<{ level: AccessPermission }> = ({ level }) =>
 const roleColor = (role: UserRole): string =>
   role === "guest" ? "var(--text-muted)" : getSectorColor(role);
 
-const LegendPill: React.FC<{ level: AccessPermission; inherited?: boolean; custom?: boolean }> = ({
-  level,
-  inherited,
-  custom,
-}) => (
+const LegendPill: React.FC<{
+  level: AccessPermission;
+  inherited?: boolean;
+  custom?: boolean;
+}> = ({ level, inherited, custom }) => (
   <span
     className={`${styles.pill} ${styles[level === "editNoDelete" ? "edit" : level]} ${inherited ? styles.inherited : ""}`}
   >
@@ -212,8 +222,16 @@ export const AccessMatrix: React.FC<AccessMatrixProps> = ({
               aria-label={`${rowLabel}, ${r.label}: ${LEVEL_LABEL[level]}${inherited ? " (inherited)" : ""}`}
               onClick={() =>
                 item
-                  ? onSetItem(r.value, item.key, nextLevel(level, group.allowEditNoDelete))
-                  : onSetGroup(r.value, group.key, nextLevel(level, group.allowEditNoDelete))
+                  ? onSetItem(
+                      r.value,
+                      item.key,
+                      nextLevel(level, group.allowEditNoDelete),
+                    )
+                  : onSetGroup(
+                      r.value,
+                      group.key,
+                      nextLevel(level, group.allowEditNoDelete),
+                    )
               }
             >
               <LevelIcon level={level} />
@@ -265,7 +283,11 @@ export const AccessMatrix: React.FC<AccessMatrixProps> = ({
                   key={r.value}
                   scope="col"
                   className={`${styles.roleHead} ${colClass(r.value)}`}
-                  style={{ "--role-color": roleColor(r.value) } as React.CSSProperties}
+                  style={
+                    {
+                      "--role-color": roleColor(r.value),
+                    } as React.CSSProperties
+                  }
                   onMouseEnter={() => setHoverRole(r.value)}
                 >
                   <span className={styles.roleDot} />
@@ -287,7 +309,9 @@ export const AccessMatrix: React.FC<AccessMatrixProps> = ({
               );
               return (
                 <React.Fragment key={g.key}>
-                  <tr className={`${styles.groupRow} ${isOpen ? styles.open : ""}`}>
+                  <tr
+                    className={`${styles.groupRow} ${isOpen ? styles.open : ""}`}
+                  >
                     <th scope="row" className={styles.rowHead}>
                       <div className={styles.rowHeadInner}>
                         <button
