@@ -1,129 +1,130 @@
 /**
  * KPI definitions and default targets.
  */
+import { IKPITargets, IPriorityRules } from "../models/ISystemConfig";
+import { BidPriority } from "../models/IBidStatus";
+
+export type KPIGroup = "Delivery" | "Cycle Time" | "Approval" | "Commercial";
+
 export interface IKPIDef {
   id: string;
   label: string;
   description: string;
   unit: string;
-  targetKey: string;
+  targetKey: keyof IKPITargets;
   higherIsBetter: boolean;
   format: "percent" | "days" | "number";
   color: string;
+  group: KPIGroup;
 }
+
+export const KPI_GROUPS: KPIGroup[] = [
+  "Delivery",
+  "Cycle Time",
+  "Approval",
+  "Commercial",
+];
 
 export const KPI_DEFINITIONS: IKPIDef[] = [
   {
     id: "on-time-delivery",
     label: "On-Time Delivery",
-    description: "Percentage of BIDs delivered on or before due date",
+    description:
+      "Share of delivered BIDs whose first delivery (Completed) happened on or before the due date in effect at that moment.",
     unit: "%",
     targetKey: "targetOnTimeDelivery",
     higherIsBetter: true,
     format: "percent",
     color: "#10B981",
+    group: "Delivery",
   },
   {
     id: "otif",
-    label: "OTIF",
-    description: "On Time In Full - delivered on time and complete",
+    label: "OTIF (On Time In Full)",
+    description:
+      "Delivered on time, approved on the first pass (nobody rejected, no override) and no revision opened within 2 months after delivery.",
     unit: "%",
     targetKey: "targetOTIF",
     higherIsBetter: true,
     format: "percent",
     color: "#3B82F6",
-  },
-  {
-    id: "avg-completion-days",
-    label: "Avg Completion Days",
-    description: "Average days to complete a BID end-to-end",
-    unit: "days",
-    targetKey: "targetAvgCompletionDays",
-    higherIsBetter: false,
-    format: "days",
-    color: "#8B5CF6",
-  },
-  {
-    id: "first-pass-approval",
-    label: "First-Pass Approval",
-    description: "Percentage of BIDs approved without revision",
-    unit: "%",
-    targetKey: "targetFirstPassApproval",
-    higherIsBetter: true,
-    format: "percent",
-    color: "#F59E0B",
-  },
-  {
-    id: "approval-cycle",
-    label: "Approval Cycle Time",
-    description: "Average days for approval process completion",
-    unit: "days",
-    targetKey: "targetApprovalCycleDays",
-    higherIsBetter: false,
-    format: "days",
-    color: "#EC4899",
-  },
-  {
-    id: "cancellation-rate",
-    label: "Cancellation Rate",
-    description: "Percentage of BIDs cancelled",
-    unit: "%",
-    targetKey: "targetCancellationRate",
-    higherIsBetter: false,
-    format: "percent",
-    color: "#EF4444",
-  },
-  {
-    id: "template-usage",
-    label: "Template Usage",
-    description: "Percentage of BIDs using predefined templates",
-    unit: "%",
-    targetKey: "targetTemplateUsage",
-    higherIsBetter: true,
-    format: "percent",
-    color: "#06B6D4",
+    group: "Delivery",
   },
   {
     id: "overdue-rate",
     label: "Overdue Rate",
-    description: "Percentage of active BIDs past due date",
+    description:
+      "Maximum share of open items past their deadline. Applies to both ERNs (ERN Engineering Due Date) and BIDs (BID Due Date).",
     unit: "%",
     targetKey: "targetOverdueRate",
     higherIsBetter: false,
     format: "percent",
     color: "#F97316",
+    group: "Delivery",
+  },
+  {
+    id: "avg-completion-days",
+    label: "Avg Completion",
+    description:
+      "Average business days from BID creation to first delivery, with one target per urgency category.",
+    unit: "business days",
+    targetKey: "targetAvgCompletionDaysByPriority",
+    higherIsBetter: false,
+    format: "days",
+    color: "#8B5CF6",
+    group: "Cycle Time",
+  },
+  {
+    id: "approval-cycle",
+    label: "Approval Cycle",
+    description: "Average days from approval request to the last sign-off.",
+    unit: "days",
+    targetKey: "targetApprovalCycleDays",
+    higherIsBetter: false,
+    format: "days",
+    color: "#EC4899",
+    group: "Cycle Time",
+  },
+  {
+    id: "first-pass-approval",
+    label: "First-Pass Approval",
+    description:
+      "Share of BIDs whose first closed approval round was approved with no rejection, no revision request and no override.",
+    unit: "%",
+    targetKey: "targetFirstPassApproval",
+    higherIsBetter: true,
+    format: "percent",
+    color: "#F59E0B",
+    group: "Approval",
   },
   {
     id: "win-rate",
     label: "Win Rate",
-    description: "Percentage of BIDs with Won outcome",
+    description: "Won BIDs over BIDs with a Won or Loss result.",
     unit: "%",
     targetKey: "targetWinRate",
     higherIsBetter: true,
     format: "percent",
     color: "#22C55E",
-  },
-  {
-    id: "rework-rate",
-    label: "Rework Rate",
-    description: "Percentage of BIDs that required Rework/Revision",
-    unit: "%",
-    targetKey: "targetReworkRate",
-    higherIsBetter: false,
-    format: "percent",
-    color: "#F97316",
+    group: "Commercial",
   },
 ];
 
-export const DEFAULT_KPI_TARGETS = {
+export const BID_PRIORITIES: BidPriority[] = ["Urgent", "Normal", "Low"];
+
+export const DEFAULT_KPI_TARGETS: IKPITargets = {
   targetOnTimeDelivery: 85,
   targetOTIF: 80,
-  targetAvgCompletionDays: 30,
+  targetAvgCompletionDaysByPriority: { Urgent: 4, Normal: 10, Low: 20 },
   targetFirstPassApproval: 70,
   targetApprovalCycleDays: 5,
-  targetCancellationRate: 10,
-  targetTemplateUsage: 60,
   targetOverdueRate: 15,
   targetWinRate: 40,
-  targetReworkRate: 10,
 };
+
+export const DEFAULT_PRIORITY_RULES: IPriorityRules = {
+  urgentMaxBusinessDays: 4,
+  normalMaxBusinessDays: 14,
+};
+
+export const OTIF_REVISION_WINDOW_MONTHS = 2;

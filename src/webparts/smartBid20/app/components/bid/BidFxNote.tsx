@@ -1,6 +1,8 @@
 import * as React from "react";
+import { ArrowLeftRight, TriangleAlert } from "lucide-react";
 import { IBidFx, toUSDWithBidRates } from "../../utils/costCalculations";
 import { formatCurrency, formatDate } from "../../utils/formatters";
+import { HeaderChip } from "./BidTabHeader";
 import styles from "./BidFxNote.module.scss";
 
 interface BidFxNoteProps {
@@ -63,28 +65,29 @@ export const BidFxNote: React.FC<BidFxNoteProps> = ({
 
   return (
     <div className={styles.fxNote}>
-      {withRate.length > 0 && (
-        <div className={styles.fxLine}>
-          <span>Converted to USD with the rates registered on this BID:</span>
-          {withRate.map((r) => (
-            <span key={r.currency} className={styles.fxRate}>
-              1 USD = {r.rate.toFixed(4)} {r.currency}
-            </span>
-          ))}
-          {fx.capturedDate && (
-            <span className={styles.fxMuted}>
-              · registered {formatDate(fx.capturedDate)} (Overview → Exchange
-              Rates)
-            </span>
-          )}
-        </div>
+      {withRate.map((r) => (
+        <HeaderChip
+          key={r.currency}
+          icon={<ArrowLeftRight size={13} />}
+          title="Converted to USD with the rates registered on this BID (Overview > Exchange Rates)"
+        >
+          1 USD = {r.rate.toFixed(4)} {r.currency}
+        </HeaderChip>
+      ))}
+      {withRate.length > 0 && fx.capturedDate && (
+        <span className={styles.fxMuted}>
+          Rates registered {formatDate(fx.capturedDate)}
+        </span>
       )}
       {missing.length > 0 && (
-        <div className={styles.fxWarning}>
-          No exchange rate registered on this BID for {missing.join(", ")} -
-          these values are left out of the USD totals. Update the rates on the
-          Overview tab.
-        </div>
+        <HeaderChip
+          tone="warning"
+          icon={<TriangleAlert size={13} />}
+          title="Update the rates on the Overview tab."
+        >
+          No exchange rate for {missing.join(", ")} - left out of the USD
+          totals
+        </HeaderChip>
       )}
     </div>
   );

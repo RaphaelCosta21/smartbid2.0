@@ -679,6 +679,15 @@ export function buildCostSummary(bid: IBid): ICostSummary {
   };
 }
 
+/** The BID with `costSummary` rebuilt from its cost breakdowns, so the stored JSON stays in sync. */
+export function withCostSummary<T extends IBid>(bid: T): T {
+  try {
+    return { ...bid, costSummary: buildCostSummary(bid) };
+  } catch {
+    return bid;
+  }
+}
+
 /**
  * Convert an amount from a given currency to USD using exchange rates
  * from SystemConfiguration. Rates are stored as units-per-USD

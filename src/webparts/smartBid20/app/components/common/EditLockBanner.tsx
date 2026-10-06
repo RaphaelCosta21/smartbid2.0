@@ -3,7 +3,7 @@
  * Used by BidDetailPage tabs that require concurrent edit control.
  */
 import * as React from "react";
-import { Pencil, Check } from "lucide-react";
+import { Pencil, Check, Lock, Eye } from "lucide-react";
 import { EditControlState } from "../../hooks/useEditControl";
 import styles from "./EditLockBanner.module.scss";
 
@@ -14,15 +14,51 @@ export const EditLockBanner: React.FC<{
   onDismiss?: () => void;
 }> = ({ message, onDismiss }) => (
   <div className={styles.editLockBanner}>
-    <span className={styles.editLockIcon}>🔒</span>
+    <span className={styles.editLockIcon}>
+      <Lock size={16} />
+    </span>
     <span className={styles.editLockText}>{message}</span>
     {onDismiss && (
-      <button className={styles.editLockDismiss} onClick={onDismiss}>
+      <button
+        className={styles.editLockDismiss}
+        onClick={onDismiss}
+        aria-label="Dismiss"
+      >
         ✕
       </button>
     )}
   </div>
 );
+
+/* ─── Edit / Finish Editing button ─── */
+
+const EditActionButton: React.FC<{ editControl: EditControlState }> = ({
+  editControl,
+}) =>
+  !editControl.isEditing ? (
+    <button
+      type="button"
+      className={styles.editBtn}
+      disabled={editControl.loading}
+      onClick={() => editControl.startEditing()}
+    >
+      {editControl.loading ? (
+        "Checking..."
+      ) : (
+        <>
+          <Pencil size={14} /> Edit
+        </>
+      )}
+    </button>
+  ) : (
+    <button
+      type="button"
+      className={styles.finishEditBtn}
+      onClick={() => editControl.stopEditing()}
+    >
+      <Check size={14} /> Finish Editing
+    </button>
+  );
 
 /* ─── Edit Toolbar (Edit / Finish Editing buttons + lock banner) ─── */
 
@@ -54,30 +90,48 @@ export const EditToolbar: React.FC<{
             label || "Read-only"
           )}
         </span>
-        {!editControl.isEditing ? (
-          <button
-            className={styles.editBtn}
-            disabled={editControl.loading}
-            onClick={() => editControl.startEditing()}
-          >
-            {editControl.loading ? (
-              "Checking..."
-            ) : (
-              <>
-                <Pencil size={14} style={{ verticalAlign: "-2px" }} /> Edit
-              </>
-            )}
-          </button>
-        ) : (
-          <button
-            className={styles.finishEditBtn}
-            onClick={() => editControl.stopEditing()}
-          >
-            <Check size={14} style={{ verticalAlign: "-2px" }} /> Finish Editing
-          </button>
-        )}
+        <EditActionButton editControl={editControl} />
       </div>
     </>
+  );
+};
+
+/* ─── Compact edit status + button (rendered inside a tab header) ─── */
+
+export interface ITabEditContext {
+  editControl: EditControlState;
+  canEdit: boolean;
+}
+
+/** Lets a tab header render the edit controls of the surrounding EditableTabContent. */
+export const TabEditContext = React.createContext<ITabEditContext | null>(
+  null,
+);
+
+export const EditControls: React.FC<ITabEditContext> = ({
+  editControl,
+  canEdit,
+}) => {
+  if (!canEdit) {
+    return (
+      <span className={`${styles.statusPill} ${styles.statusMuted}`}>
+        <Eye size={12} /> View only
+      </span>
+    );
+  }
+  return (
+    <div className={styles.editControls}>
+      {editControl.isEditing ? (
+        <span className={`${styles.statusPill} ${styles.statusEditing}`}>
+          <span className={styles.editPulseDot} /> Editing
+        </span>
+      ) : (
+        <span className={`${styles.statusPill} ${styles.statusMuted}`}>
+          <Lock size={12} /> Read-only
+        </span>
+      )}
+      <EditActionButton editControl={editControl} />
+    </div>
   );
 };
 
@@ -88,13 +142,38 @@ export const EditableTabContent: React.FC<{
   canEdit: boolean;
   label?: string;
   onEditChange?: (editing: boolean) => void;
+  /** The tab renders the controls itself (via TabEditContext) instead of the toolbar */
+  controlsInHeader?: boolean;
   children: (isEditing: boolean) => React.ReactNode;
-}> = ({ editControl, canEdit, label, onEditChange, children }) => {
+}> = ({
+  editControl,
+  canEdit,
+  label,
+  onEditChange,
+  controlsInHeader,
+  children,
+}) => {
   const isEditing = canEdit && editControl.isEditing;
 
   React.useEffect(() => {
     if (onEditChange) onEditChange(isEditing);
   }, [isEditing]);
+
+  if (controlsInHeader) {
+    return (
+      <TabEditContext.Provider value={{ editControl, canEdit }}>
+        <div>
+          {canEdit && editControl.errorMessage && (
+            <EditLockBanner
+              message={editControl.errorMessage}
+              onDismiss={editControl.dismissError}
+            />
+          )}
+          {children(isEditing)}
+        </div>
+      </TabEditContext.Provider>
+    );
+  }
 
   return (
     <div>

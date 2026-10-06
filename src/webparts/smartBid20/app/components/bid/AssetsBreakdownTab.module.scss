@@ -4,64 +4,6 @@
   gap: 16px;
   min-width: 0;
 }
-.summaryRow {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.summaryCard {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 12px 18px;
-  border-radius: 10px;
-  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
-  border: 1px solid var(--border-subtle);
-  min-width: 130px;
-}
-.summaryCardTotal {
-  border-color: var(--accent-500);
-  background: color-mix(in srgb, var(--accent-500) 8%, transparent);
-}
-.summaryCardSecondary {
-  flex: 1;
-  .summaryValue {
-    font-size: 17px;
-  }
-}
-.summaryCardTertiary {
-  flex: 1;
-  padding: 8px 14px;
-  min-width: 100px;
-  background: var(--glass-bg-subtle, rgba(255, 255, 255, 0.03));
-  border-style: dashed;
-  .summaryLabel {
-    font-size: 10px;
-  }
-  .summaryValue {
-    font-size: 14px;
-    font-weight: 600;
-  }
-}
-.summaryLabel {
-  font-size: 11px;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.summaryValue {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-.orphanBanner {
-  padding: 10px 16px;
-  border-radius: 8px;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid #f59e0b;
-  color: #f59e0b;
-  font-size: 13px;
-}
 .toolbar {
   display: flex;
   gap: 8px;
@@ -426,56 +368,7 @@
   }
 }
 
-/* ─── Cost Completeness Banner ─── */
-.costBannerPending {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  border-radius: 8px;
-  background: rgba(245, 158, 11, 0.08);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  color: #f59e0b;
-  font-size: 13px;
-  font-weight: 500;
-}
-.costBannerComplete {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  border-radius: 8px;
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  color: #10b981;
-  font-size: 13px;
-  font-weight: 500;
-}
-.costBannerIcon {
-  font-size: 16px;
-}
-.costBannerText {
-  flex: 1;
-}
-.costBannerSub {
-  color: var(--text-secondary);
-  font-weight: 400;
-}
-
-.costBannerToggle {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-  padding: 2px 8px;
-  border-radius: 4px;
-  transition: all 200ms ease;
-
-  &:hover {
-    background: rgba(245, 158, 11, 0.15);
-  }
-}
-
+/* ─── Missing-cost details (opened from the header chip) ─── */
 .missingItemsPanel {
   border: 1px solid rgba(245, 158, 11, 0.25);
   border-top: none;

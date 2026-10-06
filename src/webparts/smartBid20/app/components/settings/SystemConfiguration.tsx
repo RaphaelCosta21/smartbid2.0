@@ -11,6 +11,7 @@ import {
   ISystemConfig,
   IConfigOption,
   IKPITargets,
+  IPriorityRules,
   IExchangeRate,
   AccessPermission,
   IFavoriteGroup,
@@ -24,6 +25,7 @@ import { MembersService } from "../../services/MembersService";
 // DEFAULT_SYSTEM_CONFIG removed — all data loaded from SharePoint JSON
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useConfigStore } from "../../stores/useConfigStore";
+import { useBidStore } from "../../stores/useBidStore";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
 import { useUIStore, ThemeMode } from "../../stores/useUIStore";
 import { APP_CONFIG } from "../../config/app.config";
@@ -33,10 +35,25 @@ import {
   ColorThemeId,
 } from "../../config/colorThemes.config";
 import { buildDefaultSupplierServiceTypes } from "../../config/suppliers.config";
+import {
+  BID_PRIORITIES,
+  DEFAULT_PRIORITY_RULES,
+  IKPIDef,
+  KPI_DEFINITIONS,
+  KPI_GROUPS,
+} from "../../config/kpi.config";
+import { BidPriority } from "../../models/IBidStatus";
+import {
+  getPriorityRangeLabels,
+  resolveKpiTargets,
+  resolvePriorityRules,
+  validatePriorityRules,
+} from "../../utils/kpiHelpers";
 import darkTheme from "../../styles/themes/dark.module.scss";
 import lightTheme from "../../styles/themes/light.module.scss";
 import { EntraTokenTest } from "../common/EntraTokenTest";
 import { CollapsibleSidebar } from "../common/CollapsibleSidebar";
+import { PriorityBadge } from "../common/PriorityBadge";
 
 /* ------------------------------------------------------------------ */
 /* NAV STRUCTURE                                                      */
@@ -57,7 +74,10 @@ interface INavGroup {
 const NAV_GROUPS: INavGroup[] = [
   {
     group: "Performance",
-    items: [{ key: "kpi", label: "KPI Targets", icon: "📊" }],
+    items: [
+      { key: "kpi", label: "KPI Targets", icon: "📊" },
+      { key: "priorityRules", label: "BID Urgency", icon: "🚦" },
+    ],
   },
   {
     group: "BID Structure",
@@ -197,17 +217,19 @@ const ALL_NAV_ITEMS: INavItem[] = ([] as INavItem[]).concat(
 /* KPI HELPERS                                                        */
 /* ------------------------------------------------------------------ */
 
-const KPI_META: Record<keyof IKPITargets, { label: string; unit: string }> = {
-  targetOnTimeDelivery: { label: "On-Time Delivery", unit: "%" },
-  targetOTIF: { label: "OTIF (On-Time In-Full)", unit: "%" },
-  targetAvgCompletionDays: { label: "Avg Completion", unit: "days" },
-  targetFirstPassApproval: { label: "First-Pass Approval", unit: "%" },
-  targetApprovalCycleDays: { label: "Approval Cycle", unit: "days" },
-  targetCancellationRate: { label: "Cancellation Rate", unit: "%" },
-  targetTemplateUsage: { label: "Template Usage", unit: "%" },
-  targetOverdueRate: { label: "Overdue Rate", unit: "%" },
-  targetWinRate: { label: "Win Rate", unit: "%" },
-};
+type ScalarKpiKey = Exclude<
+  keyof IKPITargets,
+  "targetAvgCompletionDaysByPriority"
+>;
+
+const clampTarget = (value: number, def: IKPIDef): number =>
+  Math.max(0, def.format === "percent" ? Math.min(100, value) : value);
+
+/** Editable rules as typed (may be invalid), unlike resolvePriorityRules. */
+const getEditablePriorityRules = (config: ISystemConfig): IPriorityRules => ({
+  ...DEFAULT_PRIORITY_RULES,
+  ...(config.priorityRules || {}),
+});
 
 /* ------------------------------------------------------------------ */
 /* ACCESS / NOTIFICATION CONSTANTS                                    */
@@ -731,15 +753,53 @@ const SystemConfiguration: React.FC = () => {
 
   /* ---- KPI changes ---------------------------------------------- */
 
-  const handleKPIChange = (
-    kpiKey: keyof IKPITargets,
+  const handleKPIChange = (def: IKPIDef, valueStr: string): void => {
+    if (!config || !canEdit) return;
+    const num = Number(valueStr);
+    if (isNaN(num)) return;
+    updateConfig({
+      kpiTargets: {
+        ...resolveKpiTargets(config),
+        [def.targetKey as ScalarKpiKey]: clampTarget(num, def),
+      },
+    });
+  };
+
+  const handleAvgCompletionChange = (
+    def: IKPIDef,
+    priority: BidPriority,
     valueStr: string,
   ): void => {
     if (!config || !canEdit) return;
     const num = Number(valueStr);
     if (isNaN(num)) return;
-    updateConfig({ kpiTargets: { ...config.kpiTargets, [kpiKey]: num } });
+    const current = resolveKpiTargets(config);
+    updateConfig({
+      kpiTargets: {
+        ...current,
+        targetAvgCompletionDaysByPriority: {
+          ...current.targetAvgCompletionDaysByPriority,
+          [priority]: clampTarget(num, def),
+        },
+      },
+    });
   };
+
+  const handlePriorityRuleChange = (
+    field: keyof IPriorityRules,
+    valueStr: string,
+  ): void => {
+    if (!config || !canEdit) return;
+    const num = Number(valueStr);
+    if (isNaN(num)) return;
+    updateConfig({
+      priorityRules: { ...getEditablePriorityRules(config), [field]: num },
+    });
+  };
+
+  const priorityRulesError = config?.priorityRules
+    ? validatePriorityRules(getEditablePriorityRules(config))
+    : null;
 
   /* ================================================================ */
   /* RENDER HELPERS                                                   */
@@ -1489,34 +1549,210 @@ const SystemConfiguration: React.FC = () => {
 
   /* ---- KPI targets ---------------------------------------------- */
 
+  const renderKpiCardHead = (def: IKPIDef): React.ReactElement => (
+    <>
+      <div className={styles.kpiCardHead}>
+        <span className={styles.kpiLabel}>{def.label}</span>
+        <span
+          className={`${styles.kpiDirection} ${def.higherIsBetter ? styles.kpiHigher : styles.kpiLower}`}
+        >
+          {def.higherIsBetter ? "Higher is better" : "Lower is better"}
+        </span>
+      </div>
+      <p className={styles.kpiDescription}>{def.description}</p>
+    </>
+  );
+
   const renderKPITargets = (): React.ReactElement => {
     if (!config) return <></>;
+    const targets = resolveKpiTargets(config);
+    const ranges = getPriorityRangeLabels(resolvePriorityRules(config));
     return (
       <div>
         <div className={styles.sectionHeader}>
           <h3>KPI Targets</h3>
           <p>
-            Define target thresholds for key performance indicators displayed on
-            dashboards.
+            Targets saved in the SmartBid configuration list and compared with
+            the actual values on the Engineering Dashboard and Operational
+            Summary.
           </p>
         </div>
-        <div className={styles.kpiGrid}>
-          {(Object.keys(KPI_META) as Array<keyof IKPITargets>).map((k) => (
-            <div key={k} className={styles.kpiCard}>
-              <div className={styles.kpiLabel}>{KPI_META[k].label}</div>
-              <div className={styles.kpiInputRow}>
-                <input
-                  type="number"
-                  className={styles.kpiInput}
-                  value={config.kpiTargets[k]}
-                  onChange={(e) => handleKPIChange(k, e.currentTarget.value)}
-                  readOnly={!canEdit}
-                />
-                <span className={styles.kpiUnit}>{KPI_META[k].unit}</span>
+        {KPI_GROUPS.map((group) => {
+          const defs = KPI_DEFINITIONS.filter((d) => d.group === group);
+          if (defs.length === 0) return null;
+          return (
+            <div key={group} className={styles.groupedSection}>
+              <div className={styles.groupLabel}>{group}</div>
+              <div className={styles.kpiGrid}>
+                {defs.map((def) => {
+                  const operator = def.higherIsBetter ? "≥" : "≤";
+                  if (def.targetKey === "targetAvgCompletionDaysByPriority") {
+                    return (
+                      <div
+                        key={def.id}
+                        className={`${styles.kpiCard} ${styles.kpiCardWide}`}
+                      >
+                        {renderKpiCardHead(def)}
+                        <div className={styles.priorityTargets}>
+                          {BID_PRIORITIES.map((p) => (
+                            <div key={p} className={styles.priorityTarget}>
+                              <div className={styles.priorityTargetHead}>
+                                <PriorityBadge priority={p} />
+                                <span className={styles.priorityRange}>
+                                  {ranges[p]} bd lead time
+                                </span>
+                              </div>
+                              <div className={styles.kpiInputRow}>
+                                <span className={styles.kpiOperator}>
+                                  {operator}
+                                </span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={0.5}
+                                  className={styles.kpiInput}
+                                  value={
+                                    targets.targetAvgCompletionDaysByPriority[p]
+                                  }
+                                  onChange={(e) =>
+                                    handleAvgCompletionChange(
+                                      def,
+                                      p,
+                                      e.currentTarget.value,
+                                    )
+                                  }
+                                  readOnly={!canEdit}
+                                />
+                                <span className={styles.kpiUnit}>
+                                  {def.unit}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  const key = def.targetKey as ScalarKpiKey;
+                  return (
+                    <div key={def.id} className={styles.kpiCard}>
+                      {renderKpiCardHead(def)}
+                      <div className={styles.kpiInputRow}>
+                        <span className={styles.kpiOperator}>{operator}</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={def.format === "percent" ? 100 : undefined}
+                          step={def.format === "percent" ? 1 : 0.5}
+                          className={styles.kpiInput}
+                          value={targets[key]}
+                          onChange={(e) =>
+                            handleKPIChange(def, e.currentTarget.value)
+                          }
+                          readOnly={!canEdit}
+                        />
+                        <span className={styles.kpiUnit}>{def.unit}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  /* ---- BID urgency (priority) rules ------------------------------ */
+
+  const renderPriorityRules = (): React.ReactElement => {
+    if (!config) return <></>;
+    const rules = getEditablePriorityRules(config);
+    const error = validatePriorityRules(rules);
+    const ranges = getPriorityRangeLabels(rules);
+    const limits: Array<{
+      priority: BidPriority;
+      field?: keyof IPriorityRules;
+      hint: string;
+    }> = [
+      {
+        priority: "Urgent",
+        field: "urgentMaxBusinessDays",
+        hint: "Due date within this many business days",
+      },
+      {
+        priority: "Normal",
+        field: "normalMaxBusinessDays",
+        hint: "Due date within this many business days",
+      },
+      {
+        priority: "Low",
+        hint: `Due date more than ${rules.normalMaxBusinessDays} business days away`,
+      },
+    ];
+    return (
+      <div>
+        <div className={styles.sectionHeader}>
+          <h3>BID Urgency</h3>
+          <p>
+            A new BID request is classified by counting business days (Monday
+            to Friday) from the request date to the desired due date. Changing
+            these limits only affects new requests: existing BIDs keep their
+            urgency. Each category has its own Avg Completion target in KPI
+            Targets.
+          </p>
+        </div>
+        <div className={styles.urgencyGrid}>
+          {limits.map((l) => (
+            <div key={l.priority} className={styles.kpiCard}>
+              <div className={styles.kpiCardHead}>
+                <PriorityBadge priority={l.priority} />
+                <span className={styles.priorityRange}>
+                  {ranges[l.priority]} business days
+                </span>
+              </div>
+              <p className={styles.kpiDescription}>{l.hint}</p>
+              {l.field ? (
+                <div className={styles.kpiInputRow}>
+                  <span className={styles.kpiOperator}>≤</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    step={1}
+                    className={styles.kpiInput}
+                    value={rules[l.field]}
+                    onChange={(e) =>
+                      handlePriorityRuleChange(
+                        l.field as keyof IPriorityRules,
+                        e.currentTarget.value,
+                      )
+                    }
+                    readOnly={!canEdit}
+                  />
+                  <span className={styles.kpiUnit}>business days</span>
+                </div>
+              ) : (
+                <div className={styles.kpiInputRow}>
+                  <span className={styles.kpiOperator}>&gt;</span>
+                  <span className={styles.kpiReadOnlyValue}>
+                    {rules.normalMaxBusinessDays}
+                  </span>
+                  <span className={styles.kpiUnit}>business days</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
+        {error && (
+          <div
+            className={`${styles.messageBar} ${styles.error}`}
+            style={{ marginTop: 12 }}
+          >
+            {error}
+          </div>
+        )}
       </div>
     );
   };
@@ -2196,6 +2432,33 @@ const SystemConfiguration: React.FC = () => {
     }
   };
 
+  const [recalculating, setRecalculating] = React.useState(false);
+  const [recalcProgress, setRecalcProgress] = React.useState("");
+  const [recalcResult, setRecalcResult] = React.useState("");
+
+  const handleRecalculateCosts = async (): Promise<void> => {
+    setRecalculating(true);
+    setRecalcResult("");
+    setRecalcProgress("");
+    try {
+      const r = await BidService.recalculateCostSummaries((done, total) =>
+        setRecalcProgress(`${done}/${total}`),
+      );
+      useBidStore.getState().setBids(await BidService.getAll());
+      setRecalcResult(
+        `OK - ${r.checked} BIDs checked, ${r.updated} updated${
+          r.failed ? `, ${r.failed} failed (see console)` : ""
+        }.`,
+      );
+    } catch (err) {
+      setRecalcResult(
+        `Failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   const renderApiDiagnostics = (): React.ReactElement => (
     <div>
       <div className={styles.sectionHeader}>
@@ -2237,6 +2500,36 @@ const SystemConfiguration: React.FC = () => {
           style={{ marginTop: 12 }}
         >
           {provisionResult}
+        </div>
+      )}
+
+      <div className={styles.sectionHeader} style={{ marginTop: 24 }}>
+        <h3>Recalculate BID cost summaries</h3>
+        <p>
+          Rebuilds the Cost Summary stored in each BID (used by Pipeline Value,
+          the CAPEX approval rule, BID Details report and exports) from its
+          cost breakdowns. Only BIDs whose stored values differ are saved. New
+          saves keep it up to date automatically.
+        </p>
+      </div>
+      <button
+        type="button"
+        className={`${styles.actionBtn} ${styles.primary}`}
+        onClick={() => void handleRecalculateCosts()}
+        disabled={recalculating || !canEdit}
+      >
+        {recalculating
+          ? `Recalculating${recalcProgress ? ` ${recalcProgress}` : ""}...`
+          : "Recalculate cost summaries"}
+      </button>
+      {recalcResult && (
+        <div
+          className={`${styles.messageBar} ${
+            recalcResult.indexOf("OK") === 0 ? styles.success : styles.error
+          }`}
+          style={{ marginTop: 12 }}
+        >
+          {recalcResult}
         </div>
       )}
     </div>
@@ -3264,6 +3557,8 @@ const SystemConfiguration: React.FC = () => {
     switch (activeTab) {
       case "kpi":
         return renderKPITargets();
+      case "priorityRules":
+        return renderPriorityRules();
       case "divisionsAndServiceLines":
         return renderDivisionsAndServiceLines();
       case "jobFunctions":
@@ -3417,7 +3712,12 @@ const SystemConfiguration: React.FC = () => {
                 <button
                   className={`${styles.actionBtn} ${styles.primary}`}
                   onClick={() => config && saveConfig(config)}
-                  disabled={saving}
+                  disabled={saving || !!priorityRulesError}
+                  title={
+                    priorityRulesError
+                      ? `BID Urgency: ${priorityRulesError}`
+                      : undefined
+                  }
                 >
                   {saving ? "Saving..." : "Save Changes"}
                 </button>

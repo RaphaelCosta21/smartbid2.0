@@ -1,0 +1,212 @@
+/* ── Header trigger: same footprint as the bell / settings icon buttons ── */
+.trigger {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: var(--header-text-secondary);
+  cursor: pointer;
+  transition:
+    background 200ms ease,
+    color 200ms ease,
+    opacity 180ms ease;
+
+  &:hover {
+    background: var(--header-input-bg);
+    color: var(--header-text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+}
+
+.triggerHidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.icon {
+  display: inline-flex;
+}
+
+.iconPing {
+  animation: iconPing 700ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes iconPing {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.18) rotate(-6deg);
+  }
+  65% {
+    transform: scale(0.96) rotate(2deg);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Health dot: ok / ERNs due soon / ERNs overdue */
+.health {
+  --health: var(--success);
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--health);
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1.5px solid var(--health);
+    animation: pulseRing 2.6s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
+  }
+}
+
+.healthOk {
+  --health: var(--success);
+}
+
+.healthWarning {
+  --health: var(--warning);
+}
+
+.healthDanger {
+  --health: var(--danger);
+
+  &::after {
+    animation-duration: 1.6s;
+  }
+}
+
+@keyframes pulseRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  75%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+/* Updates since the last check, placed like the notification badge */
+.badge {
+  position: absolute;
+  top: 4px;
+  right: 3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-accent);
+  color: var(--primary-accent-contrast);
+  font-size: 9px;
+  font-weight: 800;
+  animation: badgePop 460ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes badgePop {
+  from {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ── Floating panel: the surface morphs out of the trigger (clip-path) ── */
+.panel {
+  position: fixed;
+  z-index: var(--z-panel);
+  width: 440px;
+  max-width: calc(100vw - 16px);
+  // clip-path would cut a box-shadow, so the shadow lives on this wrapper
+  filter: drop-shadow(
+    0 18px 36px color-mix(in srgb, var(--overlay-bg) 55%, transparent)
+  );
+}
+
+.surface {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--panel-top, 64px) - 16px);
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  overflow: hidden;
+  clip-path: inset(
+    0 0 calc(100% - var(--pill-h)) calc(100% - var(--pill-w))
+      round 10px
+  );
+  transition: clip-path 560ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.panelOpen .surface {
+  clip-path: inset(0 0 0 0 round 18px);
+}
+
+.panelClosing .surface {
+  transition: clip-path 400ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  > * {
+    opacity: 0;
+    transition: opacity 140ms ease;
+  }
+}
+
+/* Sections cascade in while the surface opens */
+.panelOpen [data-pulse-item] {
+  animation: pulseItemIn 440ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 50ms + 120ms);
+}
+
+@keyframes pulseItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .health::after,
+  .iconPing,
+  .badge,
+  .panelOpen [data-pulse-item] {
+    animation: none;
+  }
+
+  .surface,
+  .panelClosing .surface {
+    clip-path: none;
+    transition: opacity 150ms ease;
+  }
+
+  .panel:not(.panelOpen) .surface {
+    opacity: 0;
+  }
+}

@@ -24,10 +24,9 @@ import { ChartTooltip } from "../charts/ChartTooltip";
 import { useChartTheme } from "../../hooks/useChartTheme";
 import {
   ApprovalDueCategory,
-  ApprovalDueImpact,
   PendingApprovalDueRisk,
-  getApprovalDueImpact,
   getPendingApprovalDueRisk,
+  summarizeApprovalDueImpact,
 } from "../../utils/approvalHelpers";
 import { approvalImpactTrend } from "../../utils/analyticsHelpers";
 import {
@@ -58,14 +57,8 @@ export const ApprovalDueImpactSection: React.FC<
   const chart = useChartTheme();
   const navigate = useNavigate();
 
-  const impacts = React.useMemo(() => {
-    const out: ApprovalDueImpact[] = [];
-    bids.forEach((b) => {
-      const impact = getApprovalDueImpact(b);
-      if (impact) out.push(impact);
-    });
-    return out;
-  }, [bids]);
+  const summary = React.useMemo(() => summarizeApprovalDueImpact(bids), [bids]);
+  const impacts = summary.impacts;
 
   const pendingRisk = React.useMemo(() => {
     const out: PendingApprovalDueRisk[] = [];
@@ -95,14 +88,9 @@ export const ApprovalDueImpactSection: React.FC<
   ];
 
   const counts = React.useMemo(() => {
-    const c: { [k in ApprovalDueCategory]: number } = {
-      onTime: 0,
-      lateDueToApproval: 0,
-      lateBeforeApproval: 0,
-    };
+    const c = summary.counts;
     let lateDays = 0;
-    impacts.forEach((i) => {
-      c[i.category] += 1;
+    summary.impacts.forEach((i) => {
       if (i.category === "lateDueToApproval") lateDays += i.daysLate;
     });
     const startedBeforeDue = c.onTime + c.lateDueToApproval;
@@ -116,7 +104,7 @@ export const ApprovalDueImpactSection: React.FC<
         ? Math.round((lateDays / c.lateDueToApproval) * 10) / 10
         : 0,
     };
-  }, [impacts]);
+  }, [summary]);
 
   const donutData = categories
     .map((c) => ({ ...c, count: counts[c.key] }))

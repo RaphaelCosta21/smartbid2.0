@@ -444,6 +444,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
               templateId={stableId}
               tabNotes={scopeNotes}
               onSaveTabNotes={setScopeNotes}
+              embedded
             />
           </div>
 
@@ -502,6 +503,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
               readOnly={!isHoursEditing}
               onSave={setHoursSummary}
               scopeItems={scopeItems}
+              embedded
             />
           </div>
 

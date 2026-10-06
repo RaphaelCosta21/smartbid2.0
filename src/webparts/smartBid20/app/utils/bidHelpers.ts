@@ -1,5 +1,5 @@
 import { IBid, Division } from "../models";
-import { isPastDue, parseDate } from "./formatters";
+import { formatDaysLeft, isPastDue, parseDate } from "./formatters";
 import { DUE_DATE_CHANGED } from "./revisionHelpers";
 
 export function isActiveBid(bid: IBid): boolean {
@@ -78,6 +78,25 @@ export function getDueFreezeDate(bid: IBid): Date | null {
 export function isOverdueBid(bid: IBid): boolean {
   if (!isActiveBid(bid)) return false;
   return isPastDue(bid.dueDate, getDueFreezeDate(bid));
+}
+
+export interface IUpcomingDeadline {
+  bid: IBid;
+  /** Days until due (negative = overdue) */
+  days: number;
+  text: string;
+}
+
+/** Active BIDs with a due date, most overdue / nearest first. */
+export function buildUpcomingDeadlines(bids: IBid[]): IUpcomingDeadline[] {
+  const rows: IUpcomingDeadline[] = [];
+  bids.forEach((bid) => {
+    if (!isActiveBid(bid)) return;
+    const due = formatDaysLeft(bid.dueDate, getDueFreezeDate(bid));
+    if (due.days === null) return;
+    rows.push({ bid, days: due.days, text: due.text });
+  });
+  return rows.sort((a, b) => a.days - b.days);
 }
 
 export function getBidsByDivision(bids: IBid[], division: Division): IBid[] {

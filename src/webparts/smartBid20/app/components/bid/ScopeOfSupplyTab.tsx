@@ -48,6 +48,13 @@ import { EquipmentImportModal, IImportPick } from "./EquipmentImportModal";
 import { ImportSourceModal } from "../common/ImportSourceModal";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { AttachmentService } from "../../services/AttachmentService";
+import { formatNumber } from "../../utils/formatters";
+import {
+  BidTabHeader,
+  IHeaderStat,
+  IShareSegment,
+  ShareBar,
+} from "./BidTabHeader";
 import styles from "./ScopeOfSupplyTab.module.scss";
 
 interface ScopeOfSupplyTabProps {
@@ -92,6 +99,8 @@ interface ScopeOfSupplyTabProps {
   engineeringItems?: IEngineeringHoursItem[];
   /** Callback to remove engineering hours for a scope item */
   onClearEngineeringHours?: (scopeItemId: string) => void;
+  /** Rendered outside BID Details (template editor, AI preview): header shows metrics only */
+  embedded?: boolean;
 }
 
 /** Duration of the drawer/section collapse exit animation — keep in sync with the CSS keyframes */
@@ -181,6 +190,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   onResetSubItemCost,
   engineeringItems,
   onClearEngineeringHours,
+  embedded,
 }) => {
   // Helper: append fieldEmpty class when value is empty/falsy
   const emptyIf = (base: string, value: unknown): string =>
@@ -522,6 +532,35 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     });
     return counts;
   }, [dataItems]);
+
+  const headerStats = React.useMemo(() => {
+    let needCert = 0;
+    let needEng = 0;
+    let untyped = 0;
+    dataItems.forEach((i) => {
+      if (i.needsCertification) needCert++;
+      if (i.needsEngineering) needEng++;
+      (i.subItems || []).forEach((s) => {
+        if (s.needsEngineering) needEng++;
+      });
+      if (!i.resourceType) untyped++;
+    });
+    const stats: IHeaderStat[] = [
+      { label: "Need certification", value: formatNumber(needCert) },
+      {
+        label: "Need engineering",
+        value: formatNumber(needEng),
+        sub: "items and sub-items",
+      },
+    ];
+    const byResourceType: IShareSegment[] = Object.keys(resourceTypeCounts)
+      .map((rt) => ({ label: rt, value: resourceTypeCounts[rt] }))
+      .sort((a, b) => b.value - a.value);
+    if (untyped > 0) {
+      byResourceType.push({ label: "No type", value: untyped, neutral: true });
+    }
+    return { stats, byResourceType };
+  }, [dataItems, resourceTypeCounts]);
 
   // Resource type sub-tab filter (e.g. "All" / "ROV Asset" / "Tooling")
   const [resourceTypeFilter, setResourceTypeFilter] =
@@ -1496,6 +1535,26 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
         onChange={handleFileSelected}
       />
 
+      <BidTabHeader
+        title="Scope of Supply"
+        subtitle="Items and sections offered to the client"
+        icon={<ClipboardList size={18} />}
+        compact={embedded}
+        hero={{
+          label: "Scope items",
+          value: formatNumber(dataItems.length),
+          sub: `in ${sections.length} section${sections.length !== 1 ? "s" : ""}`,
+        }}
+        stats={headerStats.stats}
+      >
+        <ShareBar
+          title="By resource type"
+          segments={headerStats.byResourceType}
+          format={formatNumber}
+          emptyLabel="No items yet"
+        />
+      </BidTabHeader>
+
       {/* Tab-level notes */}
       <div className={styles.tabNotesContainer}>
         <label className={styles.tabNotesLabel}>
@@ -1514,24 +1573,6 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
             onChange={(e) => handleTabNotesChange(e.target.value)}
           />
         )}
-      </div>
-
-      {/* Summary Cards */}
-      <div className={styles.summaryRow}>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Total Items</span>
-          <span className={styles.summaryValue}>{dataItems.length}</span>
-        </div>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Sections</span>
-          <span className={styles.summaryValue}>{sections.length}</span>
-        </div>
-        {Object.entries(resourceTypeCounts).map(([type, count]) => (
-          <div key={type} className={styles.summaryCard}>
-            <span className={styles.summaryLabel}>{type}</span>
-            <span className={styles.summaryValue}>{count}</span>
-          </div>
-        ))}
       </div>
 
       {/* Toolbar */}

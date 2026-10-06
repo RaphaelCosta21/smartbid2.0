@@ -10,6 +10,7 @@ import { useConfigStore } from "../stores/useConfigStore";
 import { useSurveyStore } from "../stores/useSurveyStore";
 import { buildScopeItemsFromPackage } from "../utils/surveyPackage";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useKpiTargets } from "../hooks/useKpiTargets";
 import { useSpfxContext } from "../config/SpfxContext";
 import { sanitizeText } from "../utils/validators";
 import {
@@ -89,6 +90,7 @@ export const CreateRequestPage: React.FC = () => {
   const currentUser = useCurrentUser();
   const spfxContext = useSpfxContext();
   const config = useConfigStore((s) => s.config);
+  const { priorityRules } = useKpiTargets();
   const addRequest = useRequestStore((s) => s.setRequests);
   const requests = useRequestStore((s) => s.requests);
   const surveyPrefill = useSurveyStore((s) => s.requestPrefill);
@@ -119,7 +121,7 @@ export const CreateRequestPage: React.FC = () => {
 
   // Computed priority from due date
   const computedPriority: BidPriority = form.desiredDueDate
-    ? calculatePriority(form.desiredDueDate)
+    ? calculatePriority(form.desiredDueDate, priorityRules)
     : "Normal";
 
   // Business days until due date

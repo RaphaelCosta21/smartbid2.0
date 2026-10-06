@@ -167,6 +167,10 @@ export interface IErnLinkRow {
   closed: boolean;
   onHold: boolean;
   deadline: ErnDeadlineState;
+  /** Days until (positive) or since (negative) the due date; null without a date */
+  daysLeft: number | null;
+  /** Live ERN list record, undefined when the ERN is not (yet) loaded */
+  ern?: IErn;
 }
 
 /** Linked ERNs across BIDs, deduped by ERN number. */
@@ -194,8 +198,64 @@ export function buildErnLinkRows(
         closed: isErnClosed(status, finishDate),
         onHold: isErnOnHold(status),
         deadline: getErnDeadlineState(dueDate, status, finishDate),
+        daysLeft: getDaysUntil(dueDate),
+        ern: live,
       });
     });
   });
   return rows;
+}
+
+/** Whether the user is the ERN's responsible, checker or lead. */
+export function isErnAssignedTo(
+  ern: IErn | undefined,
+  email: string | undefined,
+): boolean {
+  const me = (email || "").trim().toLowerCase();
+  if (!ern || !me) return false;
+  return [ern.resource1Email, ern.checkerEmail, ern.leadEmail].some(
+    (e) => (e || "").trim().toLowerCase() === me,
+  );
+}
+
+const DEADLINE_RANK: Record<string, number> = {
+  overdue: 0,
+  "due-soon": 1,
+  ok: 2,
+  none: 3,
+};
+
+/** Most urgent first: overdue (latest first), due soon, by date; on hold / undated last. */
+export function compareErnUrgency(a: IErnLinkRow, b: IErnLinkRow): number {
+  const rank = (r: IErnLinkRow): number =>
+    r.closed ? 5 : r.onHold ? 4 : DEADLINE_RANK[r.deadline];
+  const diff = rank(a) - rank(b);
+  if (diff !== 0) return diff;
+  const da = a.daysLeft === null ? Infinity : a.daysLeft;
+  const db = b.daysLeft === null ? Infinity : b.daysLeft;
+  return da - db;
+}
+
+/** Live watchlist buckets (all of them exclude closed ERNs). */
+export type ErnWatchFilter = "overdue" | "due-soon" | "open" | "on-hold";
+
+export function matchesErnWatchFilter(
+  r: IErnLinkRow,
+  filter: ErnWatchFilter,
+): boolean {
+  if (r.closed) return false;
+  if (filter === "open") return true;
+  if (filter === "on-hold") return r.onHold;
+  return r.deadline === filter;
+}
+
+/** Short countdown for an ERN row, e.g. "3d late", "Due today", "in 4d". */
+export function getErnCountdownLabel(r: IErnLinkRow): string {
+  if (r.closed) return "Released";
+  if (r.onHold) return "On hold";
+  if (r.daysLeft === null) return "No due date";
+  if (r.daysLeft < 0) return `${-r.daysLeft}d late`;
+  if (r.daysLeft === 0) return "Due today";
+  if (r.daysLeft === 1) return "Tomorrow";
+  return `in ${r.daysLeft}d`;
 }

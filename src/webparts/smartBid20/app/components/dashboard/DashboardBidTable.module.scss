@@ -228,6 +228,16 @@
   gap: 2px;
 }
 
+.engHours {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
 .progressTrack {
   width: 80px;
   height: 6px;

@@ -1,4 +1,6 @@
 import { BidPriority } from "../models/IBidStatus";
+import { IPriorityRules } from "../models/ISystemConfig";
+import { DEFAULT_PRIORITY_RULES } from "../config/kpi.config";
 import { parseDate } from "./formatters";
 
 /**
@@ -21,12 +23,13 @@ export function countBusinessDays(startDate: Date, endDate: Date): number {
 }
 
 /**
- * Calculate priority based on business days between today and desired due date.
- * - Up to 4 business days: Urgent
- * - Up to 14 business days: Normal
- * - More than 14 business days: Low
+ * Calculate priority from the business days between today and the desired due date,
+ * using the limits configured in System Configuration > BID Urgency.
  */
-export function calculatePriority(desiredDueDate: string): BidPriority {
+export function calculatePriority(
+  desiredDueDate: string,
+  rules: IPriorityRules = DEFAULT_PRIORITY_RULES,
+): BidPriority {
   const dueDate = parseDate(desiredDueDate);
   if (!dueDate) return "Normal";
   const today = new Date();
@@ -35,8 +38,8 @@ export function calculatePriority(desiredDueDate: string): BidPriority {
 
   const bizDays = countBusinessDays(today, dueDate);
 
-  if (bizDays <= 4) return "Urgent";
-  if (bizDays <= 14) return "Normal";
+  if (bizDays <= rules.urgentMaxBusinessDays) return "Urgent";
+  if (bizDays <= rules.normalMaxBusinessDays) return "Normal";
   return "Low";
 }
 

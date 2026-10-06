@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Search, Check, TriangleAlert } from "lucide-react";
+import { Search, Check, TriangleAlert, Boxes, Unlink } from "lucide-react";
 import {
   IScopeItem,
   IAssetBreakdownItem,
@@ -30,6 +30,8 @@ import {
   IContingencyOpts,
   ICostNode,
 } from "../../utils/costCalculations";
+import { formatCurrency } from "../../utils/formatters";
+import { BidTabHeader, HeaderChip, ShareBar } from "./BidTabHeader";
 import styles from "./AssetsBreakdownTab.module.scss";
 
 interface AssetsBreakdownTabProps {
@@ -3229,6 +3231,14 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
 
   const { totalMissing, totalItems } = costCompleteness;
   const allCostsFilled = totalMissing === 0 && totalItems > 0;
+  const missingCostDetail = [
+    { n: costCompleteness.itemsMissing, label: "main" },
+    { n: costCompleteness.subItemsMissing, label: "sub-item" },
+    { n: costCompleteness.pcfItemsMissing, label: "PCF" },
+  ]
+    .filter((p) => p.n > 0)
+    .map((p) => `${p.n} ${p.label}`)
+    .join(", ");
 
   // ─── Missing items detail list ───
   const [showMissingItems, setShowMissingItems] = React.useState(false);
@@ -4251,187 +4261,148 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
 
   return (
     <div className={styles.container}>
-      {/* Summary */}
-      <div className={styles.summaryRow}>
-        {/* Dynamic resource type cards */}
-        {Object.keys(totals.byResourceType).length > 1 && (
+      <BidTabHeader
+        title="Assets Breakdown"
+        subtitle="Equipment costs linked to Scope items"
+        icon={<Boxes size={18} />}
+        hero={{
+          label: "Total cost (USD)",
+          value: formatCurrency(totals.total),
+          sub: `${localAssets.length} item${localAssets.length !== 1 ? "s" : ""}`,
+        }}
+        stats={[
+          { label: "Sub-costs", value: formatCurrency(totals.subCostsTotal) },
+          {
+            label: "Sub-items",
+            value: formatCurrency(totals.subItemCostsTotal),
+          },
+          { label: "PCF", value: formatCurrency(totals.pcfCostsTotal) },
+        ]}
+        footer={
           <>
-            {Object.keys(totals.byResourceType).map((rt) => (
-              <div key={rt} className={styles.summaryCard}>
-                <span className={styles.summaryLabel}>{rt}</span>
-                <span className={styles.summaryValue}>
-                  $ {fmtCost(totals.byResourceType[rt])}
-                </span>
-              </div>
-            ))}
+            {totalItems > 0 && (
+              <HeaderChip
+                tone={allCostsFilled ? "success" : "warning"}
+                icon={
+                  allCostsFilled ? (
+                    <Check size={13} />
+                  ) : (
+                    <TriangleAlert size={13} />
+                  )
+                }
+                progress={(totalItems - totalMissing) / totalItems}
+                onClick={
+                  allCostsFilled
+                    ? undefined
+                    : () => setShowMissingItems((v) => !v)
+                }
+                expanded={allCostsFilled ? undefined : showMissingItems}
+                title={
+                  allCostsFilled ? undefined : "Show the items missing cost"
+                }
+              >
+                {allCostsFilled
+                  ? `All ${totalItems} items costed`
+                  : `${totalMissing} of ${totalItems} items missing cost${missingCostDetail ? ` (${missingCostDetail})` : ""}`}
+              </HeaderChip>
+            )}
+            {syncedAssets.orphans.length > 0 && (
+              <HeaderChip tone="warning" icon={<Unlink size={13} />}>
+                {syncedAssets.orphans.length} asset
+                {syncedAssets.orphans.length !== 1 ? "s" : ""} no longer
+                linked to a Scope item
+              </HeaderChip>
+            )}
           </>
+        }
+      >
+        <ShareBar
+          title="CAPEX vs OPEX"
+          segments={[
+            { label: "CAPEX", value: totals.capex },
+            { label: "OPEX", value: totals.opex },
+            {
+              label: "Uncategorized",
+              value: totals.uncategorized,
+              neutral: true,
+            },
+          ]}
+          format={formatCurrency}
+          emptyLabel="No costs yet"
+        />
+        {Object.keys(totals.byResourceType).length > 1 && (
+          <ShareBar
+            title="By resource type"
+            segments={Object.keys(totals.byResourceType)
+              .map((rt) => ({ label: rt, value: totals.byResourceType[rt] }))
+              .sort((a, b) => b.value - a.value)}
+            format={formatCurrency}
+            emptyLabel="No costs yet"
+          />
         )}
-        <div className={`${styles.summaryCard} ${styles.summaryCardTotal}`}>
-          <span className={styles.summaryLabel}>Total</span>
-          <span className={styles.summaryValue}>$ {fmtCost(totals.total)}</span>
-        </div>
-      </div>
-      <div className={styles.summaryRow}>
-        <div className={`${styles.summaryCard} ${styles.summaryCardSecondary}`}>
-          <span className={styles.summaryLabel}>CAPEX</span>
-          <span className={styles.summaryValue}>$ {fmtCost(totals.capex)}</span>
-        </div>
-        <div className={`${styles.summaryCard} ${styles.summaryCardSecondary}`}>
-          <span className={styles.summaryLabel}>OPEX</span>
-          <span className={styles.summaryValue}>$ {fmtCost(totals.opex)}</span>
-        </div>
-      </div>
-      <div className={styles.summaryRow}>
-        <div className={`${styles.summaryCard} ${styles.summaryCardTertiary}`}>
-          <span className={styles.summaryLabel}>Sub-Costs</span>
-          <span className={styles.summaryValue}>
-            $ {fmtCost(totals.subCostsTotal)}
-          </span>
-        </div>
-        <div className={`${styles.summaryCard} ${styles.summaryCardTertiary}`}>
-          <span className={styles.summaryLabel}>Sub-Items</span>
-          <span className={styles.summaryValue}>
-            $ {fmtCost(totals.subItemCostsTotal)}
-          </span>
-        </div>
-        <div className={`${styles.summaryCard} ${styles.summaryCardTertiary}`}>
-          <span className={styles.summaryLabel}>PCF</span>
-          <span className={styles.summaryValue}>
-            $ {fmtCost(totals.pcfCostsTotal)}
-          </span>
-        </div>
-        <div className={`${styles.summaryCard} ${styles.summaryCardTertiary}`}>
-          <span className={styles.summaryLabel}>Items</span>
-          <span className={styles.summaryValue}>{localAssets.length}</span>
-        </div>
-      </div>
+      </BidTabHeader>
 
-      {/* Cost Completeness Banner */}
-      {totalItems > 0 && (
-        <>
-          <div
-            className={
-              allCostsFilled
-                ? styles.costBannerComplete
-                : styles.costBannerPending
-            }
-            onClick={
-              !allCostsFilled ? () => setShowMissingItems((v) => !v) : undefined
-            }
-            style={!allCostsFilled ? { cursor: "pointer" } : undefined}
-          >
-            <span className={styles.costBannerIcon}>
-              {allCostsFilled ? (
-                <Check size={16} />
-              ) : (
-                <TriangleAlert size={16} />
-              )}
-            </span>
-            <span className={styles.costBannerText}>
-              {allCostsFilled
-                ? `All ${totalItems} items have costs mapped`
-                : `${totalMissing} of ${totalItems} item${totalItems !== 1 ? "s" : ""} still missing cost`}
-              {costCompleteness.itemsMissing > 0 && (
-                <span className={styles.costBannerSub}>
-                  {" "}
-                  · {costCompleteness.itemsMissing} main item
-                  {costCompleteness.itemsMissing !== 1 ? "s" : ""}
-                </span>
-              )}
-              {costCompleteness.subItemsMissing > 0 && (
-                <span className={styles.costBannerSub}>
-                  {" "}
-                  · {costCompleteness.subItemsMissing} sub-item
-                  {costCompleteness.subItemsMissing !== 1 ? "s" : ""}
-                </span>
-              )}
-              {costCompleteness.pcfItemsMissing > 0 && (
-                <span className={styles.costBannerSub}>
-                  {" "}
-                  · {costCompleteness.pcfItemsMissing} PCF item
-                  {costCompleteness.pcfItemsMissing !== 1 ? "s" : ""}
-                </span>
-              )}
-            </span>
-            {!allCostsFilled && (
-              <span className={styles.costBannerToggle}>
-                {showMissingItems ? "▲ Hide" : "▼ Details"}
-              </span>
-            )}
+      {showMissingItems &&
+        !allCostsFilled &&
+        missingItemsList.length > 0 && (
+          <div className={styles.missingItemsPanel}>
+            <table className={styles.missingItemsTable}>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Type</th>
+                  <th>Equipment Offer</th>
+                  <th>OII/MFG PN</th>
+                  <th>RES. TYPE</th>
+                  <th>SUB-TYPE</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {missingItemsList.map((item, idx) => (
+                  <tr key={idx}>
+                    <td>{item.lineNumber}</td>
+                    <td>
+                      <span
+                        className={
+                          item.type === "main"
+                            ? styles.missingTypeMain
+                            : styles.missingTypeSub
+                        }
+                      >
+                        {item.type === "main"
+                          ? "Main"
+                          : item.type === "pcf"
+                            ? "PCF"
+                            : "Sub-item"}
+                      </span>
+                    </td>
+                    <td>
+                      {(item.type === "sub" || item.type === "pcf") && (
+                        <span style={{ marginRight: 4, opacity: 0.5 }}>↳</span>
+                      )}
+                      {item.equipmentOffer}
+                    </td>
+                    <td className={styles.missingPN}>{item.partNumber}</td>
+                    <td>{item.resourceType}</td>
+                    <td>{item.resourceSubType}</td>
+                    <td>
+                      <button
+                        className={styles.goToBtn}
+                        onClick={() =>
+                          scrollToAsset(item.assetId, item.sectionId)
+                        }
+                        title="Go to item"
+                      >
+                        ↗
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          {showMissingItems &&
-            !allCostsFilled &&
-            missingItemsList.length > 0 && (
-              <div className={styles.missingItemsPanel}>
-                <table className={styles.missingItemsTable}>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Type</th>
-                      <th>Equipment Offer</th>
-                      <th>OII/MFG PN</th>
-                      <th>RES. TYPE</th>
-                      <th>SUB-TYPE</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {missingItemsList.map((item, idx) => (
-                      <tr key={idx}>
-                        <td>{item.lineNumber}</td>
-                        <td>
-                          <span
-                            className={
-                              item.type === "main"
-                                ? styles.missingTypeMain
-                                : styles.missingTypeSub
-                            }
-                          >
-                            {item.type === "main"
-                              ? "Main"
-                              : item.type === "pcf"
-                                ? "PCF"
-                                : "Sub-item"}
-                          </span>
-                        </td>
-                        <td>
-                          {(item.type === "sub" || item.type === "pcf") && (
-                            <span style={{ marginRight: 4, opacity: 0.5 }}>
-                              ↳
-                            </span>
-                          )}
-                          {item.equipmentOffer}
-                        </td>
-                        <td className={styles.missingPN}>{item.partNumber}</td>
-                        <td>{item.resourceType}</td>
-                        <td>{item.resourceSubType}</td>
-                        <td>
-                          <button
-                            className={styles.goToBtn}
-                            onClick={() =>
-                              scrollToAsset(item.assetId, item.sectionId)
-                            }
-                            title="Go to item"
-                          >
-                            ↗
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-        </>
-      )}
-
-      {/* Orphan warning */}
-      {syncedAssets.orphans.length > 0 && (
-        <div className={styles.orphanBanner}>
-          ⚠ {syncedAssets.orphans.length} asset(s) no longer linked to a Scope
-          item.
-        </div>
-      )}
+        )}
 
       <div className={styles.toolbar}>
         {sections.length > 0 && (

@@ -492,6 +492,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const allPeople: { email: string }[] = React.useMemo(() => {
     const list: { email: string }[] = [];
     if (bid.creator?.email) list.push(bid.creator);
+    if (bid.commercialRequester?.email) list.push(bid.commercialRequester);
     (bid.engineerResponsible || []).forEach((p) => {
       if (p.email) list.push(p);
     });
@@ -1760,6 +1761,28 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         marginBottom: 4,
                       }}
                     >
+                      Commercial Requester
+                    </div>
+                    {bid.commercialRequester ? (
+                      <PersonChip
+                        name={bid.commercialRequester.name}
+                        email={bid.commercialRequester.email}
+                        role={bid.commercialRequester.role}
+                        photoUrl={bid.commercialRequester.photoUrl}
+                      />
+                    ) : (
+                      "-"
+                    )}
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: "var(--text-secondary)",
+                        marginBottom: 4,
+                      }}
+                    >
                       Project Manager
                     </div>
                     {(bid.projectManager || []).length > 0 ? (
@@ -1803,6 +1826,28 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     email={bid.creator.email}
                     role={bid.creator.role}
                     photoUrl={bid.creator.photoUrl}
+                  />
+                ) : (
+                  "-"
+                )}
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--text-secondary)",
+                    marginBottom: 4,
+                  }}
+                >
+                  Commercial Requester
+                </div>
+                {bid.commercialRequester ? (
+                  <PersonChip
+                    name={bid.commercialRequester.name}
+                    email={bid.commercialRequester.email}
+                    role={bid.commercialRequester.role}
+                    photoUrl={bid.commercialRequester.photoUrl}
                   />
                 ) : (
                   "-"

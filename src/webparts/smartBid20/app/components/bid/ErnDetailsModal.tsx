@@ -91,8 +91,15 @@ export const ErnDetailsModal: React.FC<ErnDetailsModalProps> = ({
                   </span>
                 </Row>
                 <Row label="Deliverable Type" value={ern.deliverableType} />
+                <Row label="Service Line" value={ern.serviceLine} />
                 <Row label="Due Date" value={formatDate(ern.dueDate)} />
                 <Row label="Released Date" value={formatDate(ern.finishDate)} />
+                <Row label="Responsible" value={ern.resource1} />
+                <Row
+                  label="Checker"
+                  value={withDate(ern.checker, ern.checkerDueDate, "due ")}
+                />
+                <Row label="Lead" value={withDate(ern.lead, ern.leadDate)} />
                 <Row label="Project Number" value={ern.projectNumber} />
                 <Row label="Project Title" value={ern.projectTitle} />
               </div>
@@ -126,3 +133,8 @@ const Row: React.FC<{
     <span className={styles.rowValue}>{children || value || "-"}</span>
   </div>
 );
+
+function withDate(name: string, date: string, prefix = ""): string {
+  if (!name) return "";
+  return date ? `${name} (${prefix}${formatDate(date, "MMM d")})` : name;
+}

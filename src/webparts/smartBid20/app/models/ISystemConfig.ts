@@ -1,5 +1,6 @@
 import { UserRole } from "./IUser";
 import { IFavoriteGroup } from "./IFavoriteItem";
+import { BidPriority } from "./IBidStatus";
 
 export interface IConfigOption {
   id: string;
@@ -17,13 +18,19 @@ export interface IConfigOption {
 export interface IKPITargets {
   targetOnTimeDelivery: number;
   targetOTIF: number;
-  targetAvgCompletionDays: number;
+  /** Business days from creation to first delivery, per BID urgency. */
+  targetAvgCompletionDaysByPriority: Record<BidPriority, number>;
   targetFirstPassApproval: number;
   targetApprovalCycleDays: number;
-  targetCancellationRate: number;
-  targetTemplateUsage: number;
+  /** Applies to both ERN overdue and BID due-date overdue. */
   targetOverdueRate: number;
   targetWinRate: number;
+}
+
+/** Business-day lead time (request date to desired due date) that classifies a new BID. */
+export interface IPriorityRules {
+  urgentMaxBusinessDays: number;
+  normalMaxBusinessDays: number;
 }
 
 export interface IExchangeRate {
@@ -59,6 +66,7 @@ export interface IResourceTypeConfig {
 
 export interface ISystemConfig {
   kpiTargets: IKPITargets;
+  priorityRules?: IPriorityRules;
   regions: IConfigOption[];
   bidTypes: IConfigOption[];
   divisions: IConfigOption[];

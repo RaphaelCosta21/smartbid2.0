@@ -19,7 +19,18 @@ export interface BidKPIs {
   avgCycleTimeDays: number;
   overdueBids: number;
   overdueRate: number;
+  /** Cost of open BIDs + completed BIDs still awaiting the client result. */
   totalPipelineValueUSD: number;
+}
+
+const UNDECIDED_RESULTS = ["Pending", "Renegotiation"];
+
+function isAwaitingResult(bid: IBid): boolean {
+  const outcome = bid.bidResult?.outcome;
+  return (
+    bid.currentStatus === "Completed" &&
+    (!outcome || UNDECIDED_RESULTS.indexOf(outcome) >= 0)
+  );
 }
 
 /** KPIs over `source` (e.g. a filtered list) or, by default, every BID in the store. */
@@ -80,7 +91,7 @@ export function useKPIs(source?: IBid[]): BidKPIs {
       : 0;
 
     const totalPipelineValueUSD = bids
-      .filter((b) => !isTerminal(b.currentStatus))
+      .filter((b) => !isTerminal(b.currentStatus) || isAwaitingResult(b))
       .reduce((sum, b) => sum + (b.costSummary?.totalCostUSD || 0), 0);
 
     return {

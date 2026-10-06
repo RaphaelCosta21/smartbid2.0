@@ -6,6 +6,7 @@ import { useUIStore, ThemeMode } from "../../stores/useUIStore";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useSpfxContext } from "../../config/SpfxContext";
 import { MembersService } from "../../services/MembersService";
+import { LivePulse } from "./LivePulse";
 import styles from "./Header.module.scss";
 
 export const Header: React.FC = () => {
@@ -114,6 +115,7 @@ export const Header: React.FC = () => {
       </div>
 
       <div className={styles.headerActions}>
+        <LivePulse />
         <button
           className={styles.iconBtn}
           onClick={() => navigate("/notifications")}

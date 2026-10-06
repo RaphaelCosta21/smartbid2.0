@@ -1,5 +1,11 @@
 import * as React from "react";
-import { StickyNote } from "lucide-react";
+import {
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Clock,
+  Import,
+  StickyNote,
+} from "lucide-react";
 import {
   IHoursSummary,
   IHoursItem,
@@ -10,9 +16,12 @@ import {
 } from "../../models";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { formatHours, formatCurrency } from "../../utils/formatters";
+import { IBidFx } from "../../utils/costCalculations";
 import { makeId } from "../../utils/idGenerator";
 import { EngineeringHoursSection } from "./EngineeringHoursSection";
 import { ImportSourceModal } from "../common/ImportSourceModal";
+import { BidFxNote } from "./BidFxNote";
+import { BidTabHeader, ShareBar } from "./BidTabHeader";
 import styles from "./BidHoursTable.module.scss";
 
 interface BidHoursTableProps {
@@ -29,6 +38,10 @@ interface BidHoursTableProps {
   tabNotes?: string;
   /** Callback to save tab-level notes */
   onSaveTabNotes?: (notes: string) => void;
+  /** BID exchange rates (USD cost in the header) */
+  fx?: IBidFx;
+  /** Rendered outside BID Details (template editor): header shows metrics only */
+  embedded?: boolean;
 }
 
 const blankHoursItem = (
@@ -53,6 +66,21 @@ const blankHoursItem = (
 
 type SectionKey = "engineeringHours" | "onshoreHours" | "offshoreHours";
 
+const HOURS_COLUMNS: {
+  label: string;
+  width: string;
+  align?: "center" | "right";
+}[] = [
+  { label: "Function", width: "22%" },
+  { label: "Phase", width: "16%" },
+  { label: "Hrs/Day", width: "8%", align: "center" },
+  { label: "People", width: "8%", align: "center" },
+  { label: "Work Days", width: "8%", align: "center" },
+  { label: "Util %", width: "8%", align: "center" },
+  { label: "Total Hrs", width: "9%", align: "right" },
+  { label: "Cost (BRL)", width: "11%", align: "right" },
+];
+
 export const BidHoursTable: React.FC<BidHoursTableProps> = ({
   hoursSummary,
   readOnly = false,
@@ -62,6 +90,8 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
   scopeItems = [],
   tabNotes = "",
   onSaveTabNotes,
+  fx,
+  embedded,
 }) => {
   // ─── Local state + debounced save (prevents character loss while typing) ───
   const [localSummary, setLocalSummary] =
@@ -544,13 +574,69 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
   // ─── Import from BID/Template modal state ───
   const [showImportModal, setShowImportModal] = React.useState(false);
 
+  const engHours = localSummary?.engineeringHours?.totalHours || 0;
+  const onshoreHours = localSummary?.onshoreHours?.totalHours || 0;
+  const offshoreHours = localSummary?.offshoreHours?.totalHours || 0;
+  const totalCostBRL =
+    (localSummary?.engineeringHours?.totalCostBRL || 0) +
+    (localSummary?.onshoreHours?.totalCostBRL || 0) +
+    (localSummary?.offshoreHours?.totalCostBRL || 0);
+  const totalCostUSD =
+    fx && fx.brlRate > 0 ? totalCostBRL / fx.brlRate : null;
+  const personnelLines = [
+    ...(localSummary?.onshoreHours?.items || []),
+    ...(localSummary?.offshoreHours?.items || []),
+  ].filter((i) => !i.isSeparator).length;
+  const editCols = !readOnly && !!onSave;
+
   return (
     <div className={styles.container}>
+      <BidTabHeader
+        title="Hours & Personnel"
+        subtitle="Engineering, onshore and offshore hours"
+        icon={<Clock size={18} />}
+        compact={embedded}
+        hero={{
+          label: "Total hours",
+          value: formatHours(engHours + onshoreHours + offshoreHours),
+          sub: `${personnelLines} personnel line${personnelLines !== 1 ? "s" : ""}`,
+        }}
+        stats={[
+          { label: "Cost (BRL)", value: formatCurrency(totalCostBRL, "BRL") },
+          {
+            label: "Cost (USD)",
+            value: totalCostUSD !== null ? formatCurrency(totalCostUSD) : "-",
+            sub: totalCostUSD !== null ? "at the BID PTAX" : undefined,
+          },
+        ]}
+        footer={
+          fx && !embedded ? (
+            <BidFxNote fx={fx} currencies={[]} requireBrl />
+          ) : undefined
+        }
+      >
+        <ShareBar
+          title="By discipline"
+          segments={[
+            { label: "Engineering", value: engHours },
+            { label: "Onshore", value: onshoreHours },
+            { label: "Offshore", value: offshoreHours },
+          ]}
+          format={formatHours}
+          emptyLabel="No hours yet"
+        />
+      </BidTabHeader>
+
       {/* Top toolbar: collapse + import */}
       <div className={styles.collapseToolbar}>
         {allGroupIds.length > 0 && (
           <button className={styles.collapseBtn} onClick={toggleAllSections}>
-            {allSectionsCollapsed ? "▶ Expand All" : "▼ Collapse All"}
+            {allSectionsCollapsed ? (
+              <ChevronsUpDown size={15} />
+            ) : (
+              <ChevronsDownUp size={15} />
+            )}
+            {allSectionsCollapsed ? "Expand all" : "Collapse all"}
           </button>
         )}
         {!readOnly && onSave && (
@@ -559,7 +645,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
             onClick={() => setShowImportModal(true)}
             title="Import hours from a completed BID or template"
           >
-            📥 Import BID / Template
+            <Import size={15} /> Import BID / Template
           </button>
         )}
       </div>
@@ -634,23 +720,33 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
               {section.items.length === 0 && sectionGroups.length === 0 ? (
                 <div className={styles.empty}>No items</div>
               ) : (
-                <table className={styles.table}>
+                <table className={`${styles.table} ${styles.hoursGrid}`}>
+                  {/* Same fixed widths in Onshore and Offshore so both tables line up */}
+                  <colgroup>
+                    {editCols && <col style={{ width: 28 }} />}
+                    {HOURS_COLUMNS.map((c) => (
+                      <col key={c.label} style={{ width: c.width }} />
+                    ))}
+                    <col style={{ width: editCols ? 170 : 48 }} />
+                  </colgroup>
                   <thead>
                     <tr>
-                      {!readOnly && onSave && <th style={{ width: 28 }} />}
-                      {[
-                        "Function",
-                        "Phase",
-                        "Hrs/Day",
-                        "People",
-                        "Work Days",
-                        "Util %",
-                        "Total Hrs",
-                        "Cost (BRL)",
-                      ].map((h) => (
-                        <th key={h}>{h}</th>
+                      {editCols && <th />}
+                      {HOURS_COLUMNS.map((c) => (
+                        <th
+                          key={c.label}
+                          className={
+                            c.align === "center"
+                              ? styles.cellCenter
+                              : c.align === "right"
+                                ? styles.cellRight
+                                : undefined
+                          }
+                        >
+                          {c.label}
+                        </th>
                       ))}
-                      {!readOnly && onSave && <th />}
+                      <th aria-label="Actions" />
                     </tr>
                   </thead>
                   <tbody>
@@ -691,7 +787,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
                             }
                           >
                             <td
-                              colSpan={!readOnly && onSave ? 10 : 8}
+                              colSpan={editCols ? 10 : 9}
                               style={
                                 gColor
                                   ? {
@@ -874,7 +970,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
                           {expandedNotes.has(group.id) && (
                             <tr>
                               <td
-                                colSpan={!readOnly && onSave ? 10 : 8}
+                                colSpan={editCols ? 10 : 9}
                                 className={styles.sectionNotesCell}
                               >
                                 <div className={styles.sectionNotesPanel}>
@@ -1026,7 +1122,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
                   <tfoot>
                     <tr>
                       <td
-                        colSpan={!readOnly && onSave ? 7 : 6}
+                        colSpan={editCols ? 7 : 6}
                         className={styles.cellRight}
                       >
                         Subtotal:
@@ -1037,7 +1133,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
                       <td className={styles.cellRight}>
                         {formatCurrency(section.totalCostBRL, "BRL")}
                       </td>
-                      {!readOnly && onSave && <td />}
+                      <td />
                     </tr>
                   </tfoot>
                 </table>
@@ -1220,7 +1316,8 @@ const HoursRow: React.FC<HoursRowProps> = ({
   moveToSection,
 }) => {
   const [showNotes, setShowNotes] = React.useState(false);
-  const colCount = (!readOnly && onSave ? 10 : 8) + 1; // +1 for the notes icon col
+  const editCols = !readOnly && !!onSave;
+  const colCount = editCols ? 10 : 9;
 
   // ─── Separator row ───
   if (item.isSeparator) {
@@ -1286,16 +1383,16 @@ const HoursRow: React.FC<HoursRowProps> = ({
             </span>
           )}
         </td>
-        {!readOnly && onSave && (
-          <td>
+        <td>
+          {editCols && (
             <button
               className={styles.deleteBtn}
               onClick={() => deleteRow(sectionKey, item.id)}
             >
               ✕
             </button>
-          </td>
-        )}
+          )}
+        </td>
       </tr>
     );
   }
@@ -1493,7 +1590,7 @@ const HoursRow: React.FC<HoursRowProps> = ({
             />
           )}
         </td>
-        {!readOnly && onSave && (
+        {editCols ? (
           <td>
             <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
               {sectionGroups.length > 0 && (
@@ -1543,17 +1640,18 @@ const HoursRow: React.FC<HoursRowProps> = ({
               </button>
             </div>
           </td>
-        )}
-        {readOnly && item.notes && (
-          <td>
-            <button
-              className={`${styles.addBtn}${showNotes ? ` ${styles.activeSectionBtn}` : ` ${styles.hasNotesBtn}`}`}
-              style={{ padding: "2px 5px", fontSize: 11 }}
-              onClick={() => setShowNotes(!showNotes)}
-              title="Row notes"
-            >
-              💬
-            </button>
+        ) : (
+          <td className={styles.cellCenter}>
+            {readOnly && item.notes && (
+              <button
+                className={`${styles.addBtn}${showNotes ? ` ${styles.activeSectionBtn}` : ` ${styles.hasNotesBtn}`}`}
+                style={{ padding: "2px 5px", fontSize: 11 }}
+                onClick={() => setShowNotes(!showNotes)}
+                title="Row notes"
+              >
+                💬
+              </button>
+            )}
           </td>
         )}
       </tr>

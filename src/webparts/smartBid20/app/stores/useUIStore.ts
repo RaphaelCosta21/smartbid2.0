@@ -6,6 +6,9 @@ import {
 
 export type ThemeMode = "dark" | "light";
 
+/** Engineering Dashboard tabs */
+export type DashboardView = "live" | "engineering";
+
 export interface Toast {
   id: string;
   title: string;
@@ -21,6 +24,7 @@ interface UIState {
   commandPaletteOpen: boolean;
   activeRoute: string;
   toasts: Toast[];
+  dashboardView: DashboardView;
 
   setTheme: (theme: ThemeMode) => void;
   toggleTheme: () => void;
@@ -32,6 +36,7 @@ interface UIState {
   setActiveRoute: (route: string) => void;
   addToast: (toast: Omit<Toast, "id">) => void;
   dismissToast: (id: string) => void;
+  setDashboardView: (view: DashboardView) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -42,6 +47,7 @@ export const useUIStore = create<UIState>((set) => ({
   commandPaletteOpen: false,
   activeRoute: "/",
   toasts: [],
+  dashboardView: "live",
 
   setTheme: (theme) => set({ theme }),
   toggleTheme: () =>
@@ -67,4 +73,5 @@ export const useUIStore = create<UIState>((set) => ({
     set((state) => ({
       toasts: state.toasts.filter((t) => t.id !== id),
     })),
+  setDashboardView: (dashboardView) => set({ dashboardView }),
 }));

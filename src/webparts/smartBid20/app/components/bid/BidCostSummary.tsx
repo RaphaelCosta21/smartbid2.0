@@ -1,12 +1,14 @@
 import * as React from "react";
+import { Wallet } from "lucide-react";
 import { IBid } from "../../models";
 import {
   ICostSegment,
   buildCostSummaryView,
 } from "../../utils/costSummaryView";
-import { formatCurrency, formatDate } from "../../utils/formatters";
+import { formatCurrency } from "../../utils/formatters";
 import { useColorTheme } from "../../hooks/useColorTheme";
 import { BidFxNote } from "./BidFxNote";
+import { BidTabHeader, HeaderChip, IHeaderStat } from "./BidTabHeader";
 import styles from "./BidCostSummary.module.scss";
 
 interface BidCostSummaryProps {
@@ -22,25 +24,32 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
   const colorTheme = useColorTheme();
   const { summary: s, fx, assetsByType, rows: breakdown } = view;
 
-  const kpis = [
+  const topRows = breakdown.filter((r) => !r.indent);
+  const largest = topRows.reduce<(typeof topRows)[number] | null>(
+    (best, r) => (r.usd > 0 && (!best || r.usd > best.usd) ? r : best),
+    null,
+  );
+  const capexOpexUSD = view.capex.usd + view.opex.usd;
+  const headerStats: IHeaderStat[] = [
     {
-      label: "Total Cost USD",
-      value: formatCurrency(s.totalCostUSD),
-      accent: true,
+      label: "Largest category",
+      value: largest ? largest.label : "-",
+      sub:
+        largest && s.totalCostUSD > 0
+          ? `${Math.round((largest.usd / s.totalCostUSD) * 100)}% of total`
+          : undefined,
     },
     {
-      label: "Total Cost BRL",
-      value: formatCurrency(s.totalCostBRL, "BRL"),
-      accent: true,
+      label: "CAPEX share",
+      value:
+        capexOpexUSD > 0
+          ? `${Math.round((view.capex.usd / capexOpexUSD) * 100)}%`
+          : "-",
+      sub:
+        capexOpexUSD > 0
+          ? `OPEX ${Math.round((view.opex.usd / capexOpexUSD) * 100)}%`
+          : undefined,
     },
-    {
-      label: "PTAX Used (USD→BRL)",
-      value: s.ptaxUsed > 0 ? s.ptaxUsed.toFixed(4) : "-",
-      sub: fx.capturedDate
-        ? `Registered ${formatDate(fx.capturedDate)}`
-        : undefined,
-    },
-    { label: "Currency", value: s.currency },
   ];
 
   // Simple horizontal bar percentages
@@ -82,28 +91,28 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
   const segmentColor = (seg: ICostSegment): string =>
     seg.isServices ? "#64748b" : getTypeColor(seg.label);
 
-  // Render stacked bar
+  // Render stacked bar (amounts in USD)
   const renderStackedBar = (
     segments: ICostSegment[],
-    totalBRL: number,
+    totalUSD: number,
   ): React.ReactNode => {
-    if (totalBRL <= 0) return null;
+    if (totalUSD <= 0) return null;
     return (
       <div className={styles.stackedBarContainer}>
         <div className={styles.stackedBar}>
           {segments.map((seg) => {
-            const pct = (seg.brl / totalBRL) * 100;
+            const pct = (seg.usd / totalUSD) * 100;
             if (pct < 0.5) return null;
             return (
               <div
                 key={seg.label}
                 className={styles.stackedSegment}
                 style={{ width: `${pct}%`, background: segmentColor(seg) }}
-                title={`${seg.label}: ${formatCurrency(seg.brl, "BRL")} (${pct.toFixed(1)}%)`}
+                title={`${seg.label}: ${formatCurrency(seg.usd)} (${pct.toFixed(1)}%) · ${formatCurrency(seg.brl, "BRL")}`}
               >
                 {pct > 10 && (
                   <span className={styles.segmentLabel}>
-                    {formatCurrency(seg.brl, "BRL")}
+                    {formatCurrency(seg.usd)}
                   </span>
                 )}
               </div>
@@ -118,6 +127,9 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
                 style={{ background: segmentColor(seg) }}
               />
               {seg.label}
+              <span className={styles.legendValue}>
+                {formatCurrency(seg.usd)}
+              </span>
             </span>
           ))}
         </div>
@@ -127,28 +139,24 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
 
   return (
     <div className={`${styles.wrapper} ${className || ""}`}>
-      {/* Service Line Badge */}
-      <div className={styles.serviceLineBadge}>
-        <span className={styles.serviceLineLabel}>Service Line</span>
-        <span className={styles.serviceLineValue}>
-          {(bid.serviceLine || "N/A").toUpperCase()}
-        </span>
-      </div>
-
-      {/* KPI Cards */}
-      <div className={styles.kpiRow}>
-        {kpis.map((k) => (
-          <div
-            key={k.label}
-            className={`${styles.kpiCard} ${k.accent ? styles.kpiAccent : ""}`}
-          >
-            <div className={styles.kpiLabel}>{k.label}</div>
-            <div className={styles.kpiValue}>{k.value}</div>
-            {k.sub && <div className={styles.kpiLabel}>{k.sub}</div>}
-          </div>
-        ))}
-      </div>
-      <BidFxNote fx={fx} currencies={view.itemCurrencies} requireBrl />
+      <BidTabHeader
+        title="Cost Summary"
+        subtitle="Consolidated BID cost across all tabs"
+        icon={<Wallet size={18} />}
+        meta={
+          <>
+            <HeaderChip>Service line: {bid.serviceLine || "N/A"}</HeaderChip>
+            <HeaderChip>Currency: {s.currency}</HeaderChip>
+          </>
+        }
+        hero={{
+          label: "Total cost (USD)",
+          value: formatCurrency(s.totalCostUSD),
+          sub: formatCurrency(s.totalCostBRL, "BRL"),
+        }}
+        stats={headerStats}
+        footer={<BidFxNote fx={fx} currencies={view.itemCurrencies} requireBrl />}
+      />
 
       {/* Breakdown Table */}
       <div className={styles.breakdownSection}>
@@ -246,7 +254,7 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
                 {formatCurrency(capexBRL, "BRL")}
               </span>
             </div>
-            {renderStackedBar(view.capex.segments, capexBRL)}
+            {renderStackedBar(view.capex.segments, capexUSD)}
           </div>
 
           {/* OPEX Card */}
@@ -260,7 +268,7 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
                 {formatCurrency(opexBRL, "BRL")}
               </span>
             </div>
-            {renderStackedBar(view.opex.segments, opexBRL)}
+            {renderStackedBar(view.opex.segments, opexUSD)}
           </div>
         </div>
 
@@ -269,15 +277,15 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
           <div className={styles.capexOpexBarLabels}>
             <span>
               CAPEX:{" "}
-              {s.totalCostBRL > 0
-                ? ((capexBRL / (capexBRL + opexBRL)) * 100).toFixed(1)
+              {capexOpexUSD > 0
+                ? ((capexUSD / capexOpexUSD) * 100).toFixed(1)
                 : 0}
               %
             </span>
             <span>
               OPEX:{" "}
-              {s.totalCostBRL > 0
-                ? ((opexBRL / (capexBRL + opexBRL)) * 100).toFixed(1)
+              {capexOpexUSD > 0
+                ? ((opexUSD / capexOpexUSD) * 100).toFixed(1)
                 : 0}
               %
             </span>
@@ -286,13 +294,13 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
             <div
               className={styles.capexPortion}
               style={{
-                width: `${capexBRL + opexBRL > 0 ? (capexBRL / (capexBRL + opexBRL)) * 100 : 50}%`,
+                width: `${capexOpexUSD > 0 ? (capexUSD / capexOpexUSD) * 100 : 50}%`,
               }}
             />
             <div
               className={styles.opexPortion}
               style={{
-                width: `${capexBRL + opexBRL > 0 ? (opexBRL / (capexBRL + opexBRL)) * 100 : 50}%`,
+                width: `${capexOpexUSD > 0 ? (opexUSD / capexOpexUSD) * 100 : 50}%`,
               }}
             />
           </div>

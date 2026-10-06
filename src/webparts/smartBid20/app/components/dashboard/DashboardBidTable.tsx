@@ -9,7 +9,12 @@ import { useErnStore } from "../../stores/useErnStore";
 import { useStatusColors } from "../../hooks/useStatusColors";
 import { getPhaseDef } from "../../config/status.config";
 import { formatDate, getDaysUntil, isPastDue } from "../../utils/formatters";
-import { getDueFreezeDate, isActiveBid } from "../../utils/bidHelpers";
+import {
+  getDueFreezeDate,
+  getEngineeringHours,
+  isActiveBid,
+} from "../../utils/bidHelpers";
+import { formatHours } from "../../utils/engHoursHelpers";
 import { buildErnLinkRows, getErnLinks } from "../../utils/ernHelpers";
 import { getPhaseProgressByIndex } from "../../utils/phaseHelpers";
 import { countFacets, withCounts } from "../../utils/facetHelpers";
@@ -31,7 +36,8 @@ type FilterKey =
   | "priority"
   | "phase"
   | "status"
-  | "ern";
+  | "ern"
+  | "engHours";
 
 type SortKey =
   | "bidNumber"
@@ -45,6 +51,7 @@ type SortKey =
   | "phase"
   | "status"
   | "ern"
+  | "engHours"
   | "progress";
 
 interface Column {
@@ -66,6 +73,7 @@ const COLUMNS: Column[] = [
   { key: "phase", label: "Phase", filter: "phase" },
   { key: "status", label: "Status", filter: "status", searchable: true },
   { key: "ern", label: "ERN", filter: "ern" },
+  { key: "engHours", label: "Eng. Hours", filter: "engHours" },
   { key: "progress", label: "Progress" },
 ];
 
@@ -84,6 +92,11 @@ const ERN_OPTIONS: MultiSelectOption[] = [
   { value: "overdue", label: "ERN overdue" },
 ];
 
+const ENG_HOURS_OPTIONS: MultiSelectOption[] = [
+  { value: "with", label: "With Eng. Hours" },
+  { value: "without", label: "No Eng. Hours" },
+];
+
 const EMPTY_FILTERS: Record<FilterKey, string[]> = {
   client: [],
   division: [],
@@ -93,6 +106,7 @@ const EMPTY_FILTERS: Record<FilterKey, string[]> = {
   phase: [],
   status: [],
   ern: [],
+  engHours: [],
 };
 
 const PRIORITY_RANK: Record<string, number> = {
@@ -168,6 +182,7 @@ export const DashboardBidTable: React.FC<DashboardBidTableProps> = ({
       phase: (b) => b.currentPhase || "",
       status: (b) => b.currentStatus || "",
       ern: (b) => ernStates[b.bidNumber] || ["tbd"],
+      engHours: (b) => (getEngineeringHours(b) > 0 ? "with" : "without"),
     }),
     [ernStates],
   );
@@ -254,6 +269,7 @@ export const DashboardBidTable: React.FC<DashboardBidTableProps> = ({
         color: getStatusColor(v),
       })),
       ern: ERN_OPTIONS,
+      engHours: ENG_HOURS_OPTIONS,
     };
     return out;
   }, [bids, getDivisionColor, getPriorityColor, getPhaseColor, getStatusColor]);
@@ -287,6 +303,8 @@ export const DashboardBidTable: React.FC<DashboardBidTableProps> = ({
           return b.currentStatus || "";
         case "ern":
           return getErnLinks(b)[0]?.ernNumber || "~";
+        case "engHours":
+          return getEngineeringHours(b);
         case "progress":
           return getPhaseProgressByIndex(b);
         default:
@@ -432,6 +450,7 @@ export const DashboardBidTable: React.FC<DashboardBidTableProps> = ({
                 const overdue = isPastDue(bid.dueDate, getDueFreezeDate(bid));
                 const phaseDef = getPhaseDef(bid.currentPhase);
                 const links = getErnLinks(bid);
+                const engHours = getEngineeringHours(bid);
                 return (
                   <tr
                     key={bid.bidNumber}
@@ -486,6 +505,15 @@ export const DashboardBidTable: React.FC<DashboardBidTableProps> = ({
                             </span>
                           ))}
                         </span>
+                      )}
+                    </td>
+                    <td>
+                      {engHours > 0 ? (
+                        <span className={styles.engHours}>
+                          {formatHours(engHours)}
+                        </span>
+                      ) : (
+                        <span className={styles.muted}>-</span>
                       )}
                     </td>
                     <td>

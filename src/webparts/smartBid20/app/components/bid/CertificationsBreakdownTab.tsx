@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Paperclip } from "lucide-react";
+import { BadgeCheck, Paperclip, TriangleAlert } from "lucide-react";
 import { IScopeItem, ICertificationItem } from "../../models";
 import { makeId } from "../../utils/idGenerator";
 import { getCurrencies } from "../../utils/currencyHelpers";
@@ -7,9 +7,10 @@ import {
   IBidFx,
   calculateMultiCurrencyTotals,
 } from "../../utils/costCalculations";
-import { formatCurrency } from "../../utils/formatters";
+import { formatCurrency, formatNumber } from "../../utils/formatters";
 import { AttachmentService } from "../../services/AttachmentService";
 import { BidFxNote, UsdAmountCell } from "./BidFxNote";
+import { BidTabHeader, HeaderChip } from "./BidTabHeader";
 import styles from "./CertificationsBreakdownTab.module.scss";
 
 interface CertificationsBreakdownTabProps {
@@ -281,6 +282,8 @@ export const CertificationsBreakdownTab: React.FC<
   const dataItems = items.filter((i) => !i.isSection);
   const unsectionedItems = dataItems.filter((i) => !i.sectionId);
   const totals = calculateMultiCurrencyTotals(dataItems, fx);
+  const linkedCount = dataItems.filter((i) => !!i.scopeItemId).length;
+  const withoutCostCount = dataItems.filter((i) => !(i.totalCost > 0)).length;
 
   // ─── Row renderer ───
   const renderRow = (item: ICertificationItem): React.ReactNode => (
@@ -470,21 +473,40 @@ export const CertificationsBreakdownTab: React.FC<
 
   return (
     <div className={styles.container}>
-      <div className={styles.summaryRow}>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Certifications</span>
-          <span className={styles.summaryValue}>{dataItems.length}</span>
-        </div>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Total Cost (USD)</span>
-          <span className={styles.summaryValue}>
-            {formatCurrency(totals.totalUSD)}
-          </span>
-        </div>
-      </div>
-      <BidFxNote
-        fx={fx}
-        currencies={dataItems.map((i) => i.originalCurrency)}
+      <BidTabHeader
+        title="Certifications"
+        subtitle="Certification costs for Scope items"
+        icon={<BadgeCheck size={18} />}
+        hero={{
+          label: "Total cost (USD)",
+          value: formatCurrency(totals.totalUSD),
+          sub: `${dataItems.length} certification${dataItems.length !== 1 ? "s" : ""} in ${sections.length} section${sections.length !== 1 ? "s" : ""}`,
+        }}
+        stats={[
+          {
+            label: "From Scope",
+            value: formatNumber(linkedCount),
+            sub: "flagged Needs Certification",
+          },
+          {
+            label: "Manual",
+            value: formatNumber(dataItems.length - linkedCount),
+          },
+        ]}
+        footer={
+          <>
+            <BidFxNote
+              fx={fx}
+              currencies={dataItems.map((i) => i.originalCurrency)}
+            />
+            {withoutCostCount > 0 && (
+              <HeaderChip tone="warning" icon={<TriangleAlert size={13} />}>
+                {withoutCostCount} certification
+                {withoutCostCount !== 1 ? "s" : ""} without cost
+              </HeaderChip>
+            )}
+          </>
+        }
       />
 
       {!readOnly && (

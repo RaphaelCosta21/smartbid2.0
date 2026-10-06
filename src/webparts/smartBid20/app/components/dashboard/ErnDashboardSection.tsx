@@ -1,7 +1,7 @@
 /**
- * ErnDashboardSection — ERN KPIs ("status", live) and breakdown charts
- * ("breakdown") for the Engineering Dashboard. Live ERN list data wins over the
- * snapshot stored on the BID; the dashboard sync keeps the ERN store fresh.
+ * ErnDashboardSection — ERN KPIs + watchlist ("status", live) and breakdown
+ * charts ("breakdown") for the Engineering Dashboard. Live ERN list data wins
+ * over the snapshot stored on the BID; the dashboard sync keeps the ERN store fresh.
  */
 import * as React from "react";
 import {
@@ -20,27 +20,40 @@ import { IBid, IErn } from "../../models";
 import { useErnStore } from "../../stores/useErnStore";
 import { useChartTheme, categoricalColor } from "../../hooks/useChartTheme";
 import { useStatusColors } from "../../hooks/useStatusColors";
-import { buildErnLinkRows } from "../../utils/ernHelpers";
-import { getDaysUntil } from "../../utils/formatters";
+import { useKpiTargets } from "../../hooks/useKpiTargets";
+import { LiveOverview } from "../../hooks/useLiveOverview";
+import { buildErnLinkRows, ErnWatchFilter } from "../../utils/ernHelpers";
+import { targetTone } from "../../utils/kpiHelpers";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import { GlassCard } from "../common/GlassCard";
 import { KPICard } from "../common/KPICard";
 import { EmptyState } from "../common/EmptyState";
 import { ChartTooltip } from "../charts/ChartTooltip";
+import { ErnWatchlist } from "./ErnWatchlist";
 import styles from "./ErnDashboardSection.module.scss";
 
 interface ErnDashboardSectionProps {
-  bids: IBid[];
   view: "status" | "breakdown";
+  /** breakdown: BIDs of the selected period */
+  bids?: IBid[];
+  /** status: live ERN rows and KPIs from useLiveOverview */
+  live?: Pick<LiveOverview, "ernRows" | "ernKpis">;
+  onBidClick?: (bidNumber: string) => void;
 }
 
+const NO_BIDS: IBid[] = [];
+
 export const ErnDashboardSection: React.FC<ErnDashboardSectionProps> = ({
-  bids,
   view,
+  bids = NO_BIDS,
+  live,
+  onBidClick,
 }) => {
   const erns = useErnStore((s) => s.erns);
   const theme = useChartTheme();
   const { getDivisionColor } = useStatusColors();
+  const { targets } = useKpiTargets();
+  const [filter, setFilter] = React.useState<ErnWatchFilter>("open");
 
   const liveByTitle = React.useMemo(() => {
     const map: Record<string, IErn> = {};
@@ -52,35 +65,9 @@ export const ErnDashboardSection: React.FC<ErnDashboardSectionProps> = ({
 
   // Unique ERNs across the BIDs (Integrated BIDs contribute 2)
   const links = React.useMemo(
-    () => buildErnLinkRows(bids, liveByTitle),
-    [bids, liveByTitle],
+    () => (view === "breakdown" ? buildErnLinkRows(bids, liveByTitle) : []),
+    [view, bids, liveByTitle],
   );
-
-  const kpis = React.useMemo(() => {
-    let open = 0;
-    let onHold = 0;
-    let dueSoon = 0;
-    let overdue = 0;
-    let maxLate = 0;
-    links.forEach((l) => {
-      if (!l.closed) open++;
-      if (!l.closed && l.onHold) onHold++;
-      if (l.deadline === "due-soon") dueSoon++;
-      if (l.deadline === "overdue") {
-        overdue++;
-        maxLate = Math.max(maxLate, -(getDaysUntil(l.dueDate) || 0));
-      }
-    });
-    return {
-      total: links.length,
-      closed: links.length - open,
-      open,
-      onHold,
-      dueSoon,
-      overdue,
-      maxLate,
-    };
-  }, [links]);
 
   const byServiceLine = React.useMemo(() => {
     const map: Record<string, number> = {};
@@ -119,45 +106,68 @@ export const ErnDashboardSection: React.FC<ErnDashboardSectionProps> = ({
   }, [links]);
 
   if (view === "status") {
+    if (!live) return null;
+    const kpis = live.ernKpis;
+    const toggle = (f: ErnWatchFilter): void =>
+      setFilter((cur) => (cur === f ? "open" : f));
     return (
-      <div className={styles.kpiRow}>
-        <KPICard
-          label="ERNs Linked"
-          value={kpis.total}
-          accentColor={theme.accentSecondary}
-          variant="glass"
-          subtitle={`${kpis.closed} closed`}
+      <>
+        <div className={styles.kpiRow}>
+          <KPICard
+            label="ERNs Open"
+            value={kpis.open}
+            accentColor={theme.info}
+            variant="glass"
+            subtitle={
+              kpis.onHold > 0 ? `${kpis.onHold} on hold` : "In progress"
+            }
+            onClick={() => setFilter("open")}
+            selected={filter === "open"}
+          />
+          <KPICard
+            label="Due Soon"
+            value={kpis.dueSoon}
+            accentColor={theme.warning}
+            variant="glass"
+            subtitle={`Within ${SHAREPOINT_CONFIG.ern.dueSoonDays} days`}
+            onClick={() => toggle("due-soon")}
+            selected={filter === "due-soon"}
+          />
+          <KPICard
+            label="Overdue"
+            value={kpis.overdue}
+            accentColor={theme.danger}
+            variant="glass"
+            subtitle={
+              kpis.overdue > 0
+                ? `${kpis.overdueRate}% of open ERNs, oldest ${kpis.maxLate}d late`
+                : "None late"
+            }
+            target={{
+              label: `Overdue target ≤ ${targets.targetOverdueRate}%`,
+              tone: targetTone(
+                kpis.overdueRate,
+                targets.targetOverdueRate,
+                false,
+              ),
+            }}
+            onClick={() => toggle("overdue")}
+            selected={filter === "overdue"}
+          />
+        </div>
+        <ErnWatchlist
+          rows={live.ernRows}
+          filter={filter}
+          onFilterChange={setFilter}
+          onBidClick={(n) => onBidClick?.(n)}
         />
-        <KPICard
-          label="ERNs Open"
-          value={kpis.open}
-          accentColor={theme.info}
-          variant="glass"
-          subtitle={kpis.onHold > 0 ? `${kpis.onHold} on hold` : "In progress"}
-        />
-        <KPICard
-          label="Due Soon"
-          value={kpis.dueSoon}
-          accentColor={theme.warning}
-          variant="glass"
-          subtitle={`Within ${SHAREPOINT_CONFIG.ern.dueSoonDays} days`}
-        />
-        <KPICard
-          label="Overdue"
-          value={kpis.overdue}
-          accentColor={theme.danger}
-          variant="glass"
-          subtitle={
-            kpis.overdue > 0 ? `Oldest ${kpis.maxLate}d late` : "None late"
-          }
-        />
-      </div>
+      </>
     );
   }
 
   return (
     <div className={styles.section}>
-      {kpis.total === 0 ? (
+      {links.length === 0 ? (
         <GlassCard title="ERN Overview">
           <EmptyState
             variant="glass"

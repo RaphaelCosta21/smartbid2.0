@@ -4,73 +4,6 @@
   gap: 20px;
 }
 
-/* ─── Service Line Badge ─── */
-.serviceLineBadge {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
-  border: 1px solid var(--border-subtle);
-  width: fit-content;
-}
-
-.serviceLineLabel {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.serviceLineValue {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--accent-500);
-  padding: 2px 10px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--accent-500) 12%, transparent);
-}
-
-.kpiRow {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.kpiCard {
-  padding: 14px 20px;
-  border-radius: 10px;
-  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
-  border: 1px solid var(--border-subtle);
-  min-width: 160px;
-  flex: 1;
-}
-
-.kpiAccent {
-  background: linear-gradient(
-    135deg,
-    rgba(59, 130, 246, 0.12),
-    rgba(139, 92, 246, 0.12)
-  );
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.kpiLabel {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-}
-
-.kpiValue {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
 .breakdownSection {
   background: var(--card-bg);
   border-radius: 12px;
@@ -260,7 +193,7 @@
 .stackedLegend {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 6px 14px;
   margin-top: 8px;
 }
 
@@ -270,6 +203,13 @@
   gap: 4px;
   font-size: 11px;
   color: var(--text-secondary);
+}
+
+.legendValue {
+  margin-left: 2px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .legendDot {

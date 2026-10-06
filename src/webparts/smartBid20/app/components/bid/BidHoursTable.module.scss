@@ -14,18 +14,23 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  height: 32px;
+  padding: 0 14px;
   border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border);
+  background: var(--card-bg);
   color: var(--text-primary);
+  font-family: inherit;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease;
 
   &:hover {
-    border-color: var(--accent-color);
-    background: color-mix(in srgb, var(--accent-500) 10%, transparent);
+    border-color: color-mix(in srgb, var(--primary-accent) 45%, var(--border));
+    background: color-mix(in srgb, var(--primary-accent) 8%, var(--card-bg));
   }
 }
 
@@ -123,6 +128,21 @@
 
   tfoot tr {
     font-weight: 600;
+  }
+}
+
+/* Onshore / Offshore share a fixed column layout (see HOURS_COLUMNS) */
+.hoursGrid {
+  table-layout: fixed;
+
+  td {
+    overflow-wrap: anywhere;
+  }
+
+  .numInput {
+    width: 100%;
+    max-width: 80px;
+    box-sizing: border-box;
   }
 }
 

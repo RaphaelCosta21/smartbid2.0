@@ -7,6 +7,7 @@
  * Prefers the persisted snapshot (round.sectorDurations) when present.
  */
 import {
+  ApprovalStatus,
   IActivityLogEntry,
   IBid,
   IBidApproval,
@@ -330,6 +331,24 @@ export interface PendingApprovalDueRisk {
   startedBeforeDue: boolean;
 }
 
+export interface ApprovalDueSummary {
+  impacts: ApprovalDueImpact[];
+  counts: { [k in ApprovalDueCategory]: number };
+}
+
+/** Final approved rounds of `bids` against their due date, with per-category counts. */
+export function summarizeApprovalDueImpact(bids: IBid[]): ApprovalDueSummary {
+  const impacts: ApprovalDueImpact[] = [];
+  const counts = { onTime: 0, lateDueToApproval: 0, lateBeforeApproval: 0 };
+  bids.forEach((b) => {
+    const impact = getApprovalDueImpact(b);
+    if (!impact) return;
+    impacts.push(impact);
+    counts[impact.category] += 1;
+  });
+  return { impacts, counts };
+}
+
 /** BID currently waiting on approvals whose due date has already passed. */
 export function getPendingApprovalDueRisk(
   bid: IBid,
@@ -496,4 +515,105 @@ export function getMissingApprovalHistoryPatch(
     actor,
     at,
   );
+}
+
+/** One approver of a pending round; a person answering for several sectors is listed once. */
+export interface IApprovalPerson {
+  name: string;
+  email: string;
+  sectors: string[];
+  color: string;
+  /** pending if any of their approvals is pending, else rejected, else approved */
+  status: ApprovalStatus;
+}
+
+/** A BID waiting for approval, as shown in the Live overview. */
+export interface IPendingApprovalRow {
+  bid: IBid;
+  round: number;
+  startedDate: Date | null;
+  /** Days since the round started; null without any request date */
+  days: number | null;
+  total: number;
+  approved: number;
+  /** Approval statuses ordered approved, rejected, pending (progress segments) */
+  statuses: string[];
+  people: IApprovalPerson[];
+  waiting: IApprovalPerson[];
+}
+
+const PERSON_STATUS_RANK: Record<string, number> = {
+  approved: 0,
+  rejected: 1,
+  pending: 2,
+};
+
+function buildPendingApprovalRow(bid: IBid): IPendingApprovalRow {
+  const approvals = bid.approvals || [];
+  const rounds = bid.approvalRounds || [];
+  const last = rounds.length > 0 ? rounds[rounds.length - 1] : undefined;
+  let started = parseDate(last?.startedDate);
+  if (!started) {
+    approvals.forEach((a) => {
+      const d = parseDate(a.requestedDate);
+      if (d && (!started || d.getTime() < started.getTime())) started = d;
+    });
+  }
+  const days = started ? Math.max(0, -(getDaysUntil(started) || 0)) : null;
+
+  const byKey: Record<string, IApprovalPerson> = {};
+  const people: IApprovalPerson[] = [];
+  approvals.forEach((a) => {
+    const sector = getApprovalSector(a);
+    const label = sector ? getSectorLabel(sector) : a.stakeholderRole;
+    const key = (
+      a.stakeholder?.email ||
+      a.stakeholder?.name ||
+      a.id
+    ).toLowerCase();
+    const existing = byKey[key];
+    if (existing) {
+      if (existing.sectors.indexOf(label) < 0) existing.sectors.push(label);
+      if (
+        (PERSON_STATUS_RANK[a.status] ?? 2) >
+        (PERSON_STATUS_RANK[existing.status] ?? 2)
+      ) {
+        existing.status = a.status;
+      }
+      return;
+    }
+    byKey[key] = {
+      name: a.stakeholder?.name || a.stakeholder?.email || "Unknown",
+      email: a.stakeholder?.email || "",
+      sectors: [label],
+      color: sector ? getSectorColor(sector) : "",
+      status: a.status,
+    };
+    people.push(byKey[key]);
+  });
+
+  return {
+    bid,
+    round: rounds.length || approvals[0]?.round || 1,
+    startedDate: started,
+    days,
+    total: approvals.length,
+    approved: approvals.filter((a) => a.status === "approved").length,
+    statuses: approvals
+      .map((a) => a.status as string)
+      .sort(
+        (a, b) =>
+          (PERSON_STATUS_RANK[a] ?? 2) - (PERSON_STATUS_RANK[b] ?? 2),
+      ),
+    people,
+    waiting: people.filter((p) => p.status === "pending"),
+  };
+}
+
+/** BIDs waiting for approval, longest waiting first. */
+export function buildPendingApprovalRows(bids: IBid[]): IPendingApprovalRow[] {
+  return bids
+    .filter((b) => b.approvalStatus === "pending")
+    .map(buildPendingApprovalRow)
+    .sort((a, b) => (b.days ?? -1) - (a.days ?? -1));
 }

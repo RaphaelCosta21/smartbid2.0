@@ -32,7 +32,8 @@ import { useChartTheme } from "../hooks/useChartTheme";
 import { useBids } from "../hooks/useBids";
 import { useAnalyticsFilters } from "../hooks/useAnalyticsFilters";
 import { useConfigStore } from "../stores/useConfigStore";
-import { DEFAULT_KPI_TARGETS } from "../config/kpi.config";
+import { useKpiTargets } from "../hooks/useKpiTargets";
+import { BID_PRIORITIES } from "../config/kpi.config";
 import {
   Granularity,
   volumeTrend,
@@ -63,6 +64,7 @@ export const PerformanceTrendsPage: React.FC = () => {
   const { bids } = useBids();
   const chart = useChartTheme();
   const config = useConfigStore((s) => s.config);
+  const { targets } = useKpiTargets();
   const {
     filters,
     patch,
@@ -235,7 +237,9 @@ export const PerformanceTrendsPage: React.FC = () => {
               value={`${stats.avgCompletion}d`}
               variant="glass"
               accentColor={chart.accentTertiary}
-              subtitle={`target ${DEFAULT_KPI_TARGETS.targetAvgCompletionDays}d`}
+              subtitle={`targets ${BID_PRIORITIES.map(
+                (p) => `${p} ${targets.targetAvgCompletionDaysByPriority[p]}`,
+              ).join(" · ")} business days`}
               sparkline={
                 <Sparkline
                   data={compSpark}
@@ -253,7 +257,7 @@ export const PerformanceTrendsPage: React.FC = () => {
                 value: `${Math.abs(winDelta.value)}`,
                 direction: winDelta.direction,
               }}
-              subtitle={`target ${DEFAULT_KPI_TARGETS.targetWinRate}%`}
+              subtitle={`target ${targets.targetWinRate}%`}
               sparkline={
                 <Sparkline data={winSpark} color={chart.success} height={34} />
               }
@@ -267,7 +271,7 @@ export const PerformanceTrendsPage: React.FC = () => {
                 value: `${Math.abs(otdDelta.value)}`,
                 direction: otdDelta.direction,
               }}
-              subtitle={`target ${DEFAULT_KPI_TARGETS.targetOnTimeDelivery}%`}
+              subtitle={`target ${targets.targetOnTimeDelivery}%`}
               sparkline={
                 <Sparkline data={otdSpark} color={chart.info} height={34} />
               }
@@ -370,17 +374,6 @@ export const PerformanceTrendsPage: React.FC = () => {
                       <ChartTooltip valueFormatter={(v) => `${v} dias`} />
                     }
                   />
-                  <ReferenceLine
-                    y={DEFAULT_KPI_TARGETS.targetAvgCompletionDays}
-                    stroke={chart.warning}
-                    strokeDasharray="5 4"
-                    label={{
-                      value: `Meta ${DEFAULT_KPI_TARGETS.targetAvgCompletionDays}d`,
-                      position: "insideTopRight",
-                      fill: chart.textMuted,
-                      fontSize: 11,
-                    }}
-                  />
                   <Line
                     type="monotone"
                     dataKey="avgDays"
@@ -436,11 +429,11 @@ export const PerformanceTrendsPage: React.FC = () => {
                     content={<ChartTooltip valueFormatter={(v) => `${v}%`} />}
                   />
                   <ReferenceLine
-                    y={DEFAULT_KPI_TARGETS.targetWinRate}
+                    y={targets.targetWinRate}
                     stroke={chart.warning}
                     strokeDasharray="5 4"
                     label={{
-                      value: `Meta ${DEFAULT_KPI_TARGETS.targetWinRate}%`,
+                      value: `Meta ${targets.targetWinRate}%`,
                       position: "insideTopRight",
                       fill: chart.textMuted,
                       fontSize: 11,

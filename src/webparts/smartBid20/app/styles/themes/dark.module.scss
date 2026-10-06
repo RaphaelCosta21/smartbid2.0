@@ -27,6 +27,13 @@
   --border-subtle: #162d50;
   --glass-bg: rgba(21, 34, 56, 0.7);
   --glass-border: rgba(255, 255, 255, 0.08);
+  /* Liquid-glass panels: soft accent light in the corner + top specular edge */
+  --glass-sheen: radial-gradient(
+    circle at 0% 0%,
+    color-mix(in srgb, var(--accent-brand) 8%, transparent) 0%,
+    transparent 45%
+  );
+  --glass-highlight: rgba(255, 255, 255, 0.06);
   --gradient-header: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   /* Page hero banners — lifted above --main-bg so they don't blend in */
   --gradient-hero:

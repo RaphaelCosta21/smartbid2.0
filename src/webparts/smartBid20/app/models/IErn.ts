@@ -24,6 +24,19 @@ export interface IErn {
   description: string;
   /** Deliverable Type (field_20, multi-select) joined with ", " */
   deliverableType: string;
+  /** Service Line (ServiceLine) */
+  serviceLine: string;
+  /** Responsible engineer (Resource1 / EmailResource1) */
+  resource1: string;
+  resource1Email: string;
+  /** Checker (Resource3 / EmailChecker) and Checker Due Date (ISO) */
+  checker: string;
+  checkerEmail: string;
+  checkerDueDate: string;
+  /** Lead (Lead / LeadEmail) and Lead Date (ISO) */
+  lead: string;
+  leadEmail: string;
+  leadDate: string;
 }
 
 /** Payload written to SharePoint when creating a new ERN. */

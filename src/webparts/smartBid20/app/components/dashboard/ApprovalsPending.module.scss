@@ -194,6 +194,60 @@
   font-weight: 600;
 }
 
+/* Focus mode */
+.focusGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 14px;
+  align-items: start;
+  // Room for the hover lift of the first row
+  padding-top: 4px;
+}
+
+.expandedItem {
+  padding: 16px 18px;
+  gap: 10px;
+
+  .project {
+    font-size: 14.5px;
+  }
+
+  .segment {
+    height: 8px;
+  }
+}
+
+.responded {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.respondedOk {
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  color: var(--success);
+}
+
+.respondedNo {
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
+}
+
+@media (max-width: 700px) {
+  .focusGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .approvalItem {
     transition: none;

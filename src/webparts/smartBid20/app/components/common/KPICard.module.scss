@@ -1,9 +1,14 @@
+// Compact <-> expanded, a bit slower than hover
+$resize-motion: 450ms cubic-bezier(0.4, 0, 0.2, 1);
+
 .kpiCard {
   background: var(--card-bg);
   border-radius: 16px;
   padding: 20px 24px;
   border: 1px solid var(--border-subtle);
-  transition: all 250ms ease;
+  transition:
+    all 250ms ease,
+    padding $resize-motion;
   position: relative;
   overflow: hidden;
 
@@ -20,6 +25,68 @@
   backdrop-filter: blur(16px);
 }
 
+.compact {
+  padding: 14px 16px 14px 18px;
+
+  .header {
+    margin-bottom: 6px;
+  }
+
+  .label {
+    font-size: 11px;
+  }
+
+  .value {
+    font-size: 24px;
+  }
+
+  .meter,
+  .targetLine {
+    margin-top: 10px;
+  }
+}
+
+.details {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition:
+    grid-template-rows $resize-motion,
+    opacity $resize-motion;
+}
+
+.detailsCollapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+.detailsInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+
+.clickable {
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+}
+
+.selected {
+  border-color: color-mix(in srgb, var(--kpi-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--kpi-accent) 7%, var(--glass-bg));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--kpi-accent) 30%, transparent),
+    var(--shadow-card);
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--kpi-accent) 70%, transparent);
+  }
+}
+
 .accentBar {
   position: absolute;
   left: 0;
@@ -34,6 +101,7 @@
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 12px;
+  transition: margin $resize-motion;
 }
 
 .label {
@@ -42,6 +110,7 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  transition: font-size $resize-motion;
 }
 
 .iconBox {
@@ -70,6 +139,7 @@
   color: var(--text-primary);
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  transition: font-size $resize-motion;
 }
 
 .trend {
@@ -96,12 +166,109 @@
   margin-top: 6px;
 }
 
+.toneSuccess {
+  --tone-color: var(--success);
+}
+.toneWarning {
+  --tone-color: var(--warning);
+}
+.toneDanger {
+  --tone-color: var(--danger);
+}
+.toneNeutral {
+  --tone-color: var(--text-muted);
+}
+
+.targetText {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tone-color, var(--text-muted));
+  white-space: nowrap;
+}
+
+.targetLine {
+  display: flex;
+  margin-top: 8px;
+  transition: margin $resize-motion;
+}
+
+.targetDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--tone-color);
+}
+
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.breakdownRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: 8px;
+  font-size: 12px;
+}
+
+.breakdownLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.breakdownDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.breakdownValue {
+  font-weight: 700;
+  color: var(--tone-color, var(--text-primary));
+  font-variant-numeric: tabular-nums;
+}
+
+.breakdownHint {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .sparkline {
   margin: 12px -8px -6px;
 }
 
-.progressBar {
+.meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-top: 12px;
+  transition: margin $resize-motion;
+}
+
+.meterTrack {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.progressBar {
   height: 4px;
   background: var(--border-subtle);
   border-radius: 2px;
@@ -111,5 +278,28 @@
     height: 100%;
     border-radius: 2px;
     transition: width 600ms ease;
+  }
+}
+
+.targetMarker {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--text-secondary);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpiCard,
+  .header,
+  .label,
+  .value,
+  .meter,
+  .targetLine,
+  .details {
+    transition: none;
   }
 }

@@ -994,6 +994,7 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
                 scopeItems={previewItems}
                 onSave={(items) => setPreviewItems(items)}
                 readOnly={false}
+                embedded
               />
             </DeferQueryCatalogContext.Provider>
           </div>

@@ -12,47 +12,24 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  height: 32px;
+  padding: 0 14px;
   border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border);
+  background: var(--card-bg);
   color: var(--text-primary);
+  font-family: inherit;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease;
 
   &:hover {
-    border-color: var(--accent-color);
-    background: color-mix(in srgb, var(--accent-500) 10%, transparent);
+    border-color: color-mix(in srgb, var(--primary-accent) 45%, var(--border));
+    background: color-mix(in srgb, var(--primary-accent) 8%, var(--card-bg));
   }
-}
-
-.kpiRow {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.kpiCard {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 12px 18px;
-  border-radius: 10px;
-  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
-  border: 1px solid var(--border-subtle);
-  min-width: 140px;
-  flex: 1;
-}
-.kpiLabel {
-  font-size: 11px;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.kpiValue {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
 }
 
 .section {

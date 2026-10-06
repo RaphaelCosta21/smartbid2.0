@@ -1,7 +1,7 @@
 /**
- * useDashboardFilters — two-layer filters for the Engineering Dashboard.
- * Scope (search + facets) applies to the whole page; Period (date field + range)
- * and follow-up Result apply only to the analytics section.
+ * useDashboardFilters — filters for the Engineering Dashboard.
+ * Scope (search + facets) applies to the Live view only; Period (date field + range)
+ * and follow-up Result apply to the Engineering (analytics) view only.
  */
 import * as React from "react";
 import { format } from "date-fns";
@@ -105,14 +105,14 @@ export interface UseDashboardFilters {
   resetPeriod: () => void;
   hasScope: boolean;
   hasPeriod: boolean;
-  /** BIDs passing the scope filters (Live section). */
+  /** BIDs passing the scope filters (Live view). */
   scopeBids: IBid[];
-  /** Scope + period + result (analytics section). */
+  /** Period + result (Engineering view). */
   analyticsBids: IBid[];
   scopeFacetCounts: Record<DashboardScopeFacetKey, Record<string, number>>;
-  /** Result counts over scope + period (ignores the result selection). */
+  /** Result counts over the period (ignores the result selection). */
   resultCounts: Record<string, number>;
-  /** Scope BIDs dropped by an active range because they lack the date. */
+  /** BIDs dropped by an active range because they lack the date. */
   missingDateCount: number;
 }
 
@@ -177,9 +177,9 @@ export function useDashboardFilters(
   const rangeActive = !!period.from || !!period.to;
 
   const { periodBids, missingDateCount } = React.useMemo(() => {
-    if (!rangeActive) return { periodBids: scopeBids, missingDateCount: 0 };
+    if (!rangeActive) return { periodBids: bids, missingDateCount: 0 };
     let missing = 0;
-    const out = scopeBids.filter((b) => {
+    const out = bids.filter((b) => {
       const dv = getBidDateValue(b, period.dateField);
       if (!dv) {
         missing++;
@@ -190,7 +190,7 @@ export function useDashboardFilters(
       return true;
     });
     return { periodBids: out, missingDateCount: missing };
-  }, [scopeBids, rangeActive, period.dateField, period.from, period.to]);
+  }, [bids, rangeActive, period.dateField, period.from, period.to]);
 
   const resultCounts = React.useMemo(() => {
     const counts: Record<string, number> = {};

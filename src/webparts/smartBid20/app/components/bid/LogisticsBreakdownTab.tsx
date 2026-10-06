@@ -1,13 +1,22 @@
 import * as React from "react";
+import { TriangleAlert, Truck } from "lucide-react";
 import { ILogisticsItem } from "../../models";
 import { makeId } from "../../utils/idGenerator";
 import { getCurrencies } from "../../utils/currencyHelpers";
 import {
   IBidFx,
   calculateMultiCurrencyTotals,
+  toUSDWithBidRates,
 } from "../../utils/costCalculations";
 import { formatCurrency } from "../../utils/formatters";
 import { BidFxNote, UsdAmountCell } from "./BidFxNote";
+import {
+  BidTabHeader,
+  HeaderChip,
+  IHeaderStat,
+  IShareSegment,
+  ShareBar,
+} from "./BidTabHeader";
 import styles from "./BreakdownTab.module.scss";
 
 interface LogisticsBreakdownTabProps {
@@ -109,21 +118,75 @@ export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
 
   const totals = calculateMultiCurrencyTotals(items, fx);
 
+  const header = React.useMemo(() => {
+    const byCurrency: Record<string, number> = {};
+    const currencies: string[] = [];
+    let top: { label: string; usd: number } | null = null;
+    let withoutCost = 0;
+    items.forEach((i) => {
+      const cur = (i.originalCurrency || "USD").toUpperCase();
+      if (currencies.indexOf(cur) < 0) currencies.push(cur);
+      if (!(i.totalCost > 0)) withoutCost++;
+      const usd = toUSDWithBidRates(i.totalCost || 0, cur, fx);
+      if (usd === null) return;
+      byCurrency[cur] = (byCurrency[cur] || 0) + usd;
+      if (usd > 0 && (top === null || usd > top.usd)) {
+        top = {
+          label: i.item || i.description || `Item #${i.lineNumber}`,
+          usd,
+        };
+      }
+    });
+    const largest = top as { label: string; usd: number } | null;
+    const stats: IHeaderStat[] = [
+      { label: "Currencies", value: currencies.join(", ") || "-" },
+      {
+        label: "Largest item",
+        value: largest ? formatCurrency(largest.usd) : "-",
+        sub: largest ? largest.label : undefined,
+      },
+    ];
+    const currencySegments: IShareSegment[] = Object.keys(byCurrency)
+      .map((c) => ({ label: c, value: byCurrency[c] }))
+      .sort((a, b) => b.value - a.value);
+    return { stats, currencySegments, withoutCost };
+  }, [items, fx]);
+
   return (
     <div className={styles.container}>
-      <div className={styles.summaryRow}>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Items</span>
-          <span className={styles.summaryValue}>{items.length}</span>
-        </div>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Total Cost (USD)</span>
-          <span className={styles.summaryValue}>
-            {formatCurrency(totals.totalUSD)}
-          </span>
-        </div>
-      </div>
-      <BidFxNote fx={fx} currencies={items.map((i) => i.originalCurrency)} />
+      <BidTabHeader
+        title="Logistics"
+        subtitle="Freight and transport costs"
+        icon={<Truck size={18} />}
+        hero={{
+          label: "Total cost (USD)",
+          value: formatCurrency(totals.totalUSD),
+          sub: `${items.length} item${items.length !== 1 ? "s" : ""}`,
+        }}
+        stats={header.stats}
+        footer={
+          <>
+            <BidFxNote
+              fx={fx}
+              currencies={items.map((i) => i.originalCurrency)}
+            />
+            {header.withoutCost > 0 && (
+              <HeaderChip tone="warning" icon={<TriangleAlert size={13} />}>
+                {header.withoutCost} item{header.withoutCost !== 1 ? "s" : ""}{" "}
+                without cost
+              </HeaderChip>
+            )}
+          </>
+        }
+      >
+        {header.currencySegments.length > 1 && (
+          <ShareBar
+            title="By original currency (USD)"
+            segments={header.currencySegments}
+            format={formatCurrency}
+          />
+        )}
+      </BidTabHeader>
 
       {!readOnly && (
         <div className={styles.toolbar}>

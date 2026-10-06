@@ -67,7 +67,7 @@ import { getDueFreezeDate } from "../utils/bidHelpers";
 import { isTerminalStatus } from "../utils/statusHelpers";
 import { getErnLinks } from "../utils/ernHelpers";
 import { makeId } from "../utils/idGenerator";
-import { getBidFx } from "../utils/costCalculations";
+import { getBidFx, withCostSummary } from "../utils/costCalculations";
 import { useAccessLevel } from "../hooks/useAccessLevel";
 import { useConfigPhases } from "../hooks/useConfigPhases";
 import { EditControlService } from "../services/EditControlService";
@@ -207,6 +207,7 @@ const DivisionEditWrap: React.FC<{
       canEdit={canEdit}
       label={div ? `${tabName} (${div})` : tabName}
       onEditChange={onEditChange}
+      controlsInHeader
     >
       {children}
     </EditableTabContent>
@@ -311,11 +312,11 @@ export const BidDetailPage: React.FC = () => {
         }
       }
 
-      const merged = {
+      const merged = withCostSummary({
         ...currentBid,
         ...finalPatch,
         lastModified: new Date().toISOString(),
-      };
+      });
       useBidStore
         .getState()
         .setBids(currentBids.map((b) => (b.bidNumber === id ? merged : b)));
@@ -1733,6 +1734,7 @@ export const BidDetailPage: React.FC = () => {
                         integratedDivision={_div}
                         availableDivisions={resolveDivisions(bid.serviceLine)}
                         scopeItems={filteredScope}
+                        fx={bidFx}
                         tabNotes={
                           (bid.bidNotes as Record<string, string>)?.hours || ""
                         }

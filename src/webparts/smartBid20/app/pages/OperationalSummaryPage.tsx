@@ -24,10 +24,24 @@ import { useBids } from "../hooks/useBids";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useAnalyticsFilters } from "../hooks/useAnalyticsFilters";
 import { useStatusColors } from "../hooks/useStatusColors";
+import { useKpiTargets } from "../hooks/useKpiTargets";
 import { PHASE_ORDER, volumeTrend } from "../utils/analyticsHelpers";
-import { avgApprovalHoursBySector } from "../utils/approvalHelpers";
+import {
+  avgApprovalHoursBySector,
+  summarizeApprovalDueImpact,
+} from "../utils/approvalHelpers";
 import { formatElapsedHours, isPastDue } from "../utils/formatters";
 import { getDueFreezeDate } from "../utils/bidHelpers";
+import {
+  buildCycleBreakdown,
+  computeCycleByPriority,
+  computeFirstPassApproval,
+  computeOtif,
+  cycleTargetTone,
+  formatTarget,
+  targetTone,
+} from "../utils/kpiHelpers";
+import { OTIF_REVISION_WINDOW_MONTHS } from "../config/kpi.config";
 import styles from "./OperationalSummaryPage.module.scss";
 
 const hideZero = (v: number): string | number => (v > 0 ? v : "");
@@ -36,7 +50,8 @@ export const OperationalSummaryPage: React.FC = () => {
   const { bids } = useBids();
   const config = useConfigStore((s) => s.config);
   const chart = useChartTheme();
-  const { getPhaseColor } = useStatusColors();
+  const { getPhaseColor, getPriorityColor } = useStatusColors();
+  const { targets } = useKpiTargets();
   const {
     filters,
     patch,
@@ -116,26 +131,30 @@ export const OperationalSummaryPage: React.FC = () => {
       (b) =>
         b.currentStatus === "Completed" && b.completedDate && b.createdDate,
     );
-    const avgCycle = completed.length
-      ? Math.round(
-          completed.reduce(
-            (s, b) =>
-              s +
-              (new Date(b.completedDate as string).getTime() -
-                new Date(b.createdDate).getTime()) /
-                86400000,
-            0,
-          ) / completed.length,
-        )
-      : 0;
     return {
       active: active.length,
       pending: pending.length,
       overdue: overdue.length,
+      overdueRate: active.length
+        ? Math.round((overdue.length / active.length) * 100)
+        : null,
       completed: completed.length,
-      avgCycle,
     };
   }, [filtered, isTerminal]);
+
+  const cycle = React.useMemo(
+    () => computeCycleByPriority(filtered, targets),
+    [filtered, targets],
+  );
+  const firstPass = React.useMemo(
+    () => computeFirstPassApproval(filtered),
+    [filtered],
+  );
+  const otif = React.useMemo(() => computeOtif(filtered), [filtered]);
+  const approvalDue = React.useMemo(
+    () => summarizeApprovalDueImpact(filtered).counts,
+    [filtered],
+  );
 
   const divWorkloads = React.useMemo(() => {
     return divisions
@@ -254,7 +273,31 @@ export const OperationalSummaryPage: React.FC = () => {
               label="Overdue"
               value={stats.overdue}
               accentColor={chart.danger}
-              subtitle="overdue active BIDs"
+              subtitle={
+                stats.overdueRate === null
+                  ? "no active BIDs"
+                  : `${stats.overdueRate}% of active BIDs past due`
+              }
+              target={{
+                label: `Overdue target ≤ ${targets.targetOverdueRate}%`,
+                tone: targetTone(
+                  stats.overdueRate,
+                  targets.targetOverdueRate,
+                  false,
+                ),
+              }}
+              breakdown={[
+                {
+                  label: "Late due to approval",
+                  value: String(approvalDue.lateDueToApproval),
+                  color: chart.danger,
+                },
+                {
+                  label: "Late before approval",
+                  value: String(approvalDue.lateBeforeApproval),
+                  color: chart.warning,
+                },
+              ]}
             />
             <KPICard
               variant="glass"
@@ -273,9 +316,52 @@ export const OperationalSummaryPage: React.FC = () => {
             <KPICard
               variant="glass"
               label="Average Cycle"
-              value={`${stats.avgCycle}d`}
+              value={cycle.overall.avg === null ? "-" : `${cycle.overall.avg} bd`}
               accentColor={chart.accentTertiary}
-              subtitle="creation → completion"
+              subtitle="business days, creation to first delivery"
+              target={{
+                label: `${cycle.onTarget} of ${cycle.measured} urgencies on target`,
+                tone: cycleTargetTone(cycle),
+              }}
+              breakdown={buildCycleBreakdown(cycle, getPriorityColor)}
+            />
+            <KPICard
+              variant="glass"
+              label="First-Pass Approval"
+              value={firstPass.rate === null ? "-" : `${firstPass.rate}%`}
+              accentColor={chart.accentSecondary}
+              subtitle={
+                firstPass.total
+                  ? `${firstPass.hits} of ${firstPass.total} approved with no rejection or override`
+                  : "no closed approval round"
+              }
+              target={{
+                label: formatTarget(targets.targetFirstPassApproval, "%", true),
+                tone: targetTone(
+                  firstPass.rate,
+                  targets.targetFirstPassApproval,
+                  true,
+                ),
+              }}
+            />
+            <KPICard
+              variant="glass"
+              label="OTIF"
+              value={otif.rate === null ? "-" : `${otif.rate}%`}
+              accentColor={chart.info}
+              subtitle={
+                otif.total
+                  ? `${otif.hits} of ${otif.total} delivered BIDs${
+                      otif.provisional
+                        ? `, ${otif.provisional} still in the ${OTIF_REVISION_WINDOW_MONTHS}-month revision window`
+                        : ""
+                    }`
+                  : "no delivered BIDs"
+              }
+              target={{
+                label: formatTarget(targets.targetOTIF, "%", true),
+                tone: targetTone(otif.rate, targets.targetOTIF, true),
+              }}
             />
           </div>
 

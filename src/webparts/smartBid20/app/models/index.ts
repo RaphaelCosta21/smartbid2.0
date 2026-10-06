@@ -81,6 +81,7 @@ export {
 export {
   type IConfigOption,
   type IKPITargets,
+  type IPriorityRules,
   type ISystemConfig,
   type IResourceTypeConfig,
   type IAccessLevelDef,

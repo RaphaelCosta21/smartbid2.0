@@ -1,5 +1,11 @@
 import * as React from "react";
 import {
+  ChevronsDownUp,
+  ChevronsUpDown,
+  TriangleAlert,
+  Wrench,
+} from "lucide-react";
+import {
   IScopeItem,
   IRTSItem,
   IMobilizationItem,
@@ -15,6 +21,7 @@ import {
 } from "../../utils/costCalculations";
 import { formatCurrency } from "../../utils/formatters";
 import { BidFxNote, UsdAmountCell } from "./BidFxNote";
+import { BidTabHeader, HeaderChip, ShareBar } from "./BidTabHeader";
 import styles from "./PreparationMobilizationTab.module.scss";
 
 interface PreparationMobilizationTabProps {
@@ -508,6 +515,11 @@ export const PreparationMobilizationTab: React.FC<
   const rtsTotal = calculateMultiCurrencyTotals(rts, fx).totalUSD;
   const mobTotal = calculateMultiCurrencyTotals(mob, fx).totalUSD;
   const consTotal = calculateMultiCurrencyTotals(cons, fx).totalUSD;
+  const allPrepItems: Array<{ totalCost: number; originalCurrency: string }> =
+    [...rts, ...mob, ...cons];
+  const itemsWithoutCost = allPrepItems.filter(
+    (i) => !(i.totalCost > 0),
+  ).length;
 
   // ─── Shared section group header renderer ───
   const renderSectionHeader = (
@@ -1301,38 +1313,65 @@ export const PreparationMobilizationTab: React.FC<
 
   return (
     <div className={styles.container}>
+      <BidTabHeader
+        title="Prep & Mobilization"
+        subtitle="RTS, mobilization and consumables costs"
+        icon={<Wrench size={18} />}
+        hero={{
+          label: "Grand total (USD)",
+          value: formatCurrency(rtsTotal + mobTotal + consTotal),
+          sub: `${allPrepItems.length} item${allPrepItems.length !== 1 ? "s" : ""}`,
+        }}
+        footer={
+          <>
+            <BidFxNote
+              fx={fx}
+              currencies={allPrepItems.map((i) => i.originalCurrency)}
+            />
+            {itemsWithoutCost > 0 && (
+              <HeaderChip tone="warning" icon={<TriangleAlert size={13} />}>
+                {itemsWithoutCost} item{itemsWithoutCost !== 1 ? "s" : ""}{" "}
+                without cost
+              </HeaderChip>
+            )}
+          </>
+        }
+      >
+        <ShareBar
+          title="By category"
+          segments={[
+            {
+              label: "RTS",
+              value: rtsTotal,
+              detail: `${rts.length} item${rts.length !== 1 ? "s" : ""}`,
+            },
+            {
+              label: "Mobilization",
+              value: mobTotal,
+              detail: `${mob.length} item${mob.length !== 1 ? "s" : ""}`,
+            },
+            {
+              label: "Consumables",
+              value: consTotal,
+              detail: `${cons.length} item${cons.length !== 1 ? "s" : ""}`,
+            },
+          ]}
+          format={formatCurrency}
+          emptyLabel="No costs yet"
+        />
+      </BidTabHeader>
+
       {/* Collapse All / Expand All */}
       <div className={styles.collapseToolbar}>
         <button className={styles.collapseBtn} onClick={toggleAllSections}>
-          {allCollapsed ? "▶ Expand All" : "▼ Collapse All"}
+          {allCollapsed ? (
+            <ChevronsUpDown size={15} />
+          ) : (
+            <ChevronsDownUp size={15} />
+          )}
+          {allCollapsed ? "Expand all" : "Collapse all"}
         </button>
       </div>
-
-      {/* KPI Cards */}
-      <div className={styles.kpiRow}>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>RTS Total (USD)</span>
-          <span className={styles.kpiValue}>{formatCurrency(rtsTotal)}</span>
-        </div>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>Mobilization Total (USD)</span>
-          <span className={styles.kpiValue}>{formatCurrency(mobTotal)}</span>
-        </div>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>Consumables Total (USD)</span>
-          <span className={styles.kpiValue}>{formatCurrency(consTotal)}</span>
-        </div>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>Grand Total (USD)</span>
-          <span className={styles.kpiValue}>
-            {formatCurrency(rtsTotal + mobTotal + consTotal)}
-          </span>
-        </div>
-      </div>
-      <BidFxNote
-        fx={fx}
-        currencies={[...rts, ...mob, ...cons].map((i) => i.originalCurrency)}
-      />
 
       {/* ─── RTS Section ─── */}
       <div className={styles.section}>

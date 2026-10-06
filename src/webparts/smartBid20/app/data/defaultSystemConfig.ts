@@ -9,14 +9,13 @@ export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
   kpiTargets: {
     targetOnTimeDelivery: 90,
     targetOTIF: 85,
-    targetAvgCompletionDays: 21,
+    targetAvgCompletionDaysByPriority: { Urgent: 4, Normal: 10, Low: 20 },
     targetFirstPassApproval: 80,
     targetApprovalCycleDays: 3,
-    targetCancellationRate: 10,
-    targetTemplateUsage: 50,
     targetOverdueRate: 5,
     targetWinRate: 40,
   },
+  priorityRules: { urgentMaxBusinessDays: 4, normalMaxBusinessDays: 14 },
   regions: [
     { id: "reg-1", label: "Brazil", value: "Brazil", isActive: true, order: 1 },
     { id: "reg-2", label: "Mexico", value: "Mexico", isActive: true, order: 2 },

@@ -29,27 +29,16 @@ interface IntegratedDivisionTabsProps {
   children: (activeDivision: IntegratedDivision | null) => React.ReactNode;
 }
 
-const tabBarStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 0,
-  marginBottom: 16,
-  borderBottom: "2px solid var(--border-subtle)",
-};
+export interface IDivisionContext {
+  divisions: IntegratedDivision[];
+  active: IntegratedDivision | null;
+  setActive: (division: IntegratedDivision) => void;
+}
 
-const tabStyle = (isActive: boolean): React.CSSProperties => ({
-  padding: "8px 20px",
-  fontSize: 13,
-  fontWeight: isActive ? 700 : 500,
-  cursor: "pointer",
-  border: "none",
-  background: "transparent",
-  color: isActive ? "var(--primary-accent)" : "var(--text-secondary)",
-  borderBottom: isActive
-    ? "2px solid var(--primary-accent)"
-    : "2px solid transparent",
-  marginBottom: -2,
-  transition: "color 0.15s, border-color 0.15s",
-});
+/** Division switcher state, rendered by the tab header (BidTabHeader). */
+export const DivisionContext = React.createContext<IDivisionContext | null>(
+  null,
+);
 
 /** Resolve which division tabs to show for a given serviceLine */
 export function resolveDivisions(serviceLine: string): IntegratedDivision[] {
@@ -81,26 +70,12 @@ export const IntegratedDivisionTabs: React.FC<IntegratedDivisionTabsProps> = ({
     return <>{children(null)}</>;
   }
 
-  // Single tab → pass division directly, no tab bar needed
-  if (tabs.length === 1) {
-    return <>{children(tabs[0])}</>;
-  }
-
-  // Multiple tabs (Integrated)
+  const active = tabs.length === 1 ? tabs[0] : activeDivision;
   return (
-    <div>
-      <div style={tabBarStyle}>
-        {tabs.map((div) => (
-          <button
-            key={div}
-            style={tabStyle(activeDivision === div)}
-            onClick={() => setActiveDivision(div)}
-          >
-            {div}
-          </button>
-        ))}
-      </div>
-      {children(activeDivision)}
-    </div>
+    <DivisionContext.Provider
+      value={{ divisions: tabs, active, setActive: setActiveDivision }}
+    >
+      {children(active)}
+    </DivisionContext.Provider>
   );
 };
