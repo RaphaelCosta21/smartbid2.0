@@ -19,6 +19,8 @@ import { IUser, UserRole } from "../../models";
 import { ROUTES } from "../../config/routes.config";
 import darkTheme from "../../styles/themes/dark.module.scss";
 import lightTheme from "../../styles/themes/light.module.scss";
+import oceaneeringDark from "../../styles/themes/oceaneering-dark.module.scss";
+import oceaneeringLight from "../../styles/themes/oceaneering-light.module.scss";
 import globalStyles from "../../styles/globals.module.scss";
 import "../../styles/sharepoint-overrides.module.scss";
 import styles from "./AppLayout.module.scss";
@@ -86,6 +88,8 @@ const RequireEngineering: React.FC<{ children: React.ReactElement }> = ({
 export const AppLayout: React.FC = () => {
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
+  const palette = useUIStore((s) => s.palette);
+  const setPalette = useUIStore((s) => s.setPalette);
   const sidebarExpanded = useUIStore((s) => s.sidebarExpanded);
   const isGuestUser = useAuthStore((s) => s.isGuestUser);
   const setCurrentUser = useAuthStore((s) => s.setCurrentUser);
@@ -137,12 +141,21 @@ export const AppLayout: React.FC = () => {
         if (member && member.themePreference) {
           setTheme(member.themePreference);
         }
+        if (member && member.palettePreference) {
+          setPalette(member.palettePreference);
+        }
       })
       .catch((err) => console.warn("Failed to resolve current user:", err));
   }, []);
 
   const themeClass =
-    theme === "dark" ? darkTheme.smartBidDark : lightTheme.smartBidLight;
+    palette === "oceaneering"
+      ? theme === "dark"
+        ? oceaneeringDark.smartBidOceaneeringDark
+        : oceaneeringLight.smartBidOceaneeringLight
+      : theme === "dark"
+        ? darkTheme.smartBidDark
+        : lightTheme.smartBidLight;
 
   return (
     <HashRouter>

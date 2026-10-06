@@ -40,7 +40,6 @@ import {
   ISpreadLinkRef,
   ISpreadNode,
   LineageStageKey,
-  catalogNodes,
   directLinks,
   expandSpreadNodes,
   resolveSceneShape,
@@ -143,13 +142,8 @@ export const SurveySystemPage: React.FC = () => {
     () => (spread && catalog ? expandSpreadNodes(spread, catalog) : []),
     [spread, catalog],
   );
-  const nodes = React.useMemo(
-    () =>
-      spread && catalog
-        ? spreadNodes.concat(catalogNodes(spread, catalog, spreadNodes))
-        : spreadNodes,
-    [spread, catalog, spreadNodes],
-  );
+  // One-line diagram shows only equipment wired into the spread; catalog-only items are hidden.
+  const nodes = spreadNodes;
   const links = React.useMemo(
     () => (spread ? resolveSpreadLinks(spread, spreadNodes) : []),
     [spread, spreadNodes],

@@ -11,6 +11,8 @@ import { useAuthStore } from "../../stores/useAuthStore";
 import { useSurveyStore } from "../../stores/useSurveyStore";
 import { useUIStore } from "../../stores/useUIStore";
 import { SurveyEquipmentPhoto } from "./SurveyEquipmentCard";
+import { SurveyEquipment3DThumb } from "./SurveyEquipment3DThumb";
+import { SceneShape } from "./survey3d/sceneTypes";
 import { SURVEY_FIT_ICONS } from "./surveyAssets";
 import { IDataLineage, ILineageItem, ILineageStage } from "../../utils/surveySpreadGraph";
 import styles from "./SurveyEquipmentDetail.module.scss";
@@ -88,9 +90,14 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
     }
   };
 
+  const shape = (equipment.sceneShape || "") as SceneShape | "";
   const photo = (
     <>
-      <SurveyEquipmentPhoto equipment={equipment} size={140} />
+      {shape ? (
+        <SurveyEquipment3DThumb shape={shape as SceneShape} size={140} />
+      ) : (
+        <SurveyEquipmentPhoto equipment={equipment} size={140} />
+      )}
       <span className={styles.photoLabel}>
         {(equipment.manufacturer || "PHOTO").toUpperCase()}
       </span>

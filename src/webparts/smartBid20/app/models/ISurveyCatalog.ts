@@ -1,5 +1,5 @@
 /**
- * Survey Knowledge & BID Portal — catalog of survey families, equipment and
+ * Survey Knowledge & BID Portal - catalog of survey families, equipment and
  * systems (smartbid-survey-catalog list). Rich fields live in the row JSON.
  */
 

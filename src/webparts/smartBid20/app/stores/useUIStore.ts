@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 export type ThemeMode = "dark" | "light";
+export type ThemePalette = "default" | "oceaneering";
 
 export interface Toast {
   id: string;
@@ -11,6 +12,7 @@ export interface Toast {
 
 interface UIState {
   theme: ThemeMode;
+  palette: ThemePalette;
   sidebarExpanded: boolean;
   sidebarMobileOpen: boolean;
   commandPaletteOpen: boolean;
@@ -19,6 +21,7 @@ interface UIState {
 
   setTheme: (theme: ThemeMode) => void;
   toggleTheme: () => void;
+  setPalette: (palette: ThemePalette) => void;
   setSidebarExpanded: (expanded: boolean) => void;
   toggleSidebar: () => void;
   setSidebarMobileOpen: (open: boolean) => void;
@@ -30,6 +33,7 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set) => ({
   theme: "light",
+  palette: "default",
   sidebarExpanded: true,
   sidebarMobileOpen: false,
   commandPaletteOpen: false,
@@ -39,6 +43,7 @@ export const useUIStore = create<UIState>((set) => ({
   setTheme: (theme) => set({ theme }),
   toggleTheme: () =>
     set((state) => ({ theme: state.theme === "dark" ? "light" : "dark" })),
+  setPalette: (palette) => set({ palette }),
   setSidebarExpanded: (expanded) => set({ sidebarExpanded: expanded }),
   toggleSidebar: () =>
     set((state) => ({ sidebarExpanded: !state.sidebarExpanded })),

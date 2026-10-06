@@ -50,6 +50,20 @@ const CATEGORICAL = [
   "#14b8a6",
 ];
 
+/** Oceaneering (OII) brand categorical palette. */
+const CATEGORICAL_OII = [
+  "#0097a9",
+  "#ffc72c",
+  "#009b77",
+  "#dc4405",
+  "#5b7f95",
+  "#c8102e",
+  "#7a99ac",
+  "#00c2d1",
+  "#f0a500",
+  "#4d7d93",
+];
+
 const DARK: ChartTheme = {
   mode: "dark",
   textPrimary: "#f1f5f9",
@@ -92,9 +106,57 @@ const LIGHT: ChartTheme = {
   referenceFill: "rgba(71, 85, 105, 0.06)",
 };
 
+const OII_DARK: ChartTheme = {
+  mode: "dark",
+  textPrimary: "#eaf2f8",
+  textSecondary: "#9fb4c4",
+  textMuted: "#6b8296",
+  grid: "rgba(122, 153, 172, 0.14)",
+  axis: "rgba(122, 153, 172, 0.28)",
+  tick: "#9fb4c4",
+  cardBg: "#002e49",
+  cardBgElevated: "#003b5c",
+  accent: "#0097a9",
+  accentSecondary: "#5b7f95",
+  accentTertiary: "#ffc72c",
+  success: "#009b77",
+  warning: "#dc4405",
+  danger: "#c8102e",
+  info: "#7a99ac",
+  categorical: CATEGORICAL_OII,
+  referenceFill: "rgba(122, 153, 172, 0.1)",
+};
+
+const OII_LIGHT: ChartTheme = {
+  mode: "light",
+  textPrimary: "#00263e",
+  textSecondary: "#335269",
+  textMuted: "#7a99ac",
+  grid: "rgba(0, 59, 92, 0.1)",
+  axis: "rgba(0, 59, 92, 0.2)",
+  tick: "#335269",
+  cardBg: "#ffffff",
+  cardBgElevated: "#f2f7fa",
+  accent: "#007f8f",
+  accentSecondary: "#5b7f95",
+  accentTertiary: "#b57e00",
+  success: "#009b77",
+  warning: "#dc4405",
+  danger: "#c8102e",
+  info: "#5b7f95",
+  categorical: CATEGORICAL_OII,
+  referenceFill: "rgba(0, 59, 92, 0.06)",
+};
+
 export function useChartTheme(): ChartTheme {
   const theme = useUIStore((s) => s.theme);
-  return React.useMemo(() => (theme === "dark" ? DARK : LIGHT), [theme]);
+  const palette = useUIStore((s) => s.palette);
+  return React.useMemo(() => {
+    if (palette === "oceaneering") {
+      return theme === "dark" ? OII_DARK : OII_LIGHT;
+    }
+    return theme === "dark" ? DARK : LIGHT;
+  }, [theme, palette]);
 }
 
 /** Returns a color from the categorical palette by index (wraps around). */

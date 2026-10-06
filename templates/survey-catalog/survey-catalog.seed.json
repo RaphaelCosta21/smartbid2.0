@@ -408,7 +408,7 @@
       "familyId": "hydrography-imaging",
       "title": "Multibeam Echosounder",
       "technology": "BATHYMETRY",
-      "aliases": ["MBES"],
+      "aliases": ["MBES", "R2 Sonic 2022", "R2 Sonic 2024"],
       "summary": "Swath bathymetry of the seabed.",
       "whatIsIt": "A swath sonar that measures many depths across the track at once.",
       "whatDoesItDo": "Produces high-density seabed terrain models and as-built surveys.",
@@ -663,7 +663,7 @@
       "familyId": "data-acquisition",
       "title": "RAID Video Storage",
       "technology": "DATA STORAGE",
-      "aliases": ["RAID"],
+      "aliases": ["RAID", "NAS"],
       "summary": "Redundant storage for survey data.",
       "whatIsIt": "Redundant disk storage for video and survey data offshore.",
       "whatDoesItDo": "Protects project data until it is delivered onshore.",
@@ -813,7 +813,7 @@
       "familyId": "online-network",
       "title": "Server",
       "technology": "DATA STORAGE",
-      "aliases": ["Survey Server"],
+      "aliases": ["Survey Server", "NAS", "RAID", "RAID Video Storage"],
       "summary": "Central project data server.",
       "whatIsIt": "Rack server on the survey network, paired with the RAID.",
       "whatDoesItDo": "Stores and shares project data between the online and processing workstations.",
@@ -1119,7 +1119,7 @@
       "familyId": "positioning-acoustics",
       "title": "C-Node",
       "technology": "ACOUSTIC TRANSPONDER",
-      "aliases": ["cNode"],
+      "aliases": ["cNode", "Transponder", "Compatt", "C-Node"],
       "summary": "Acoustic transponder nodes.",
       "whatIsIt": "Acoustic transponders used as positioning references; the full spread uses three.",
       "whatDoesItDo": "Answer acoustic interrogations so ROV and structures can be positioned.",
@@ -1263,7 +1263,7 @@
       "familyId": "surface-navigation",
       "title": "MRU (Vessel Data)",
       "technology": "VESSEL DATA",
-      "aliases": ["MRU"],
+      "aliases": ["MRU", "Octans 9", "Octans", "ixblue Octans"],
       "summary": "Vessel motion reference feed.",
       "whatIsIt": "Motion reference unit output taken from the vessel systems on the bridge.",
       "whatDoesItDo": "Provides vessel roll, pitch and heave to the survey network.",
@@ -1311,7 +1311,7 @@
       "familyId": "surface-navigation",
       "title": "HiPAP / APOS Interface",
       "technology": "VESSEL DATA",
-      "aliases": ["HiPAP", "APOS"],
+      "aliases": ["HiPAP", "APOS", "Vessel Acoustic Positioning", "Transducer"],
       "summary": "Vessel acoustic positioning feed.",
       "whatIsIt": "Interface to the vessel's HiPAP acoustic positioning system (APOS).",
       "whatDoesItDo": "Brings vessel acoustic positions into the survey network for QC and redundancy.",
@@ -1335,7 +1335,7 @@
       "familyId": "surface-navigation",
       "title": "Barometer",
       "technology": "ATMOSPHERIC PRESSURE",
-      "aliases": [],
+      "aliases": ["Vaisala", "Vaisala PTB330"],
       "summary": "Atmospheric pressure reference.",
       "whatIsIt": "Topside barometer on the ROV control network.",
       "whatDoesItDo": "Provides atmospheric pressure to correct ROV depth from pressure sensors.",
@@ -1407,7 +1407,7 @@
       "familyId": "subsea-navigation",
       "title": "Mini SVS",
       "technology": "SOUND VELOCITY",
-      "aliases": ["miniSVS"],
+      "aliases": ["miniSVS", "Valeport SVS"],
       "summary": "Sound velocity at the transducer.",
       "whatIsIt": "Compact sound velocity sensor fitted on the ROV.",
       "whatDoesItDo": "Feeds real-time sound velocity to the multibeam for beam steering.",
@@ -1431,7 +1431,7 @@
       "familyId": "subsea-navigation",
       "title": "DQ (Digiquartz Depth Sensor)",
       "technology": "DEPTH MEASUREMENT",
-      "aliases": ["DQ", "Digiquartz"],
+      "aliases": ["DQ", "Digiquartz", "DQZ"],
       "summary": "Precision depth from pressure.",
       "whatIsIt": "Digiquartz precision pressure sensor fitted on the ROV.",
       "whatDoesItDo": "Gives precise ROV depth, corrected with the topside barometer.",
@@ -1455,7 +1455,7 @@
       "familyId": "subsea-navigation",
       "title": "SVX2 Sound Velocity Sensor",
       "technology": "SOUND VELOCITY",
-      "aliases": ["SVX2", "SVX 2"],
+      "aliases": ["SVX2", "SVX 2", "Valeport SVX2"],
       "summary": "Sound velocity on the ROV.",
       "whatIsIt": "SVX2 sound velocity sensor fitted on the ROV, wired separately from the DQ.",
       "whatDoesItDo": "Measures sound velocity for the acoustic and multibeam corrections.",
@@ -2359,6 +2359,276 @@
         { "from": "c-node#1", "to": "ranger2-subsea-head", "kind": "acoustic" },
         { "from": "c-node#2", "to": "ranger2-subsea-head", "kind": "acoustic" },
         { "from": "c-node#3", "to": "ranger2-subsea-head", "kind": "acoustic" }
+      ],
+      "pipeline": [
+        {
+          "id": "sw-tss440",
+          "title": "TSS 440 Topside Processing",
+          "stage": "software",
+          "hostEquipmentId": "tss440-topside",
+          "description": "Turns the coil readings into target position and depth of burial before they reach navigation.",
+          "consumes": ["pipe-tracking"],
+          "feeds": ["sw-navipac"],
+          "validated": false
+        },
+        {
+          "id": "sw-navipac",
+          "title": "NaviPac Online Navigation",
+          "stage": "software",
+          "hostEquipmentId": "online-master-pc",
+          "description": "Combines position, heading, motion, depth and acoustic fixes into the real-time navigation solution and logs it.",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity", "pipe-tracking", "time-sync"],
+          "feeds": ["store-server"],
+          "displays": ["bridge-remote-helmsman", "rov-remote-helmsman", "survey-online-monitors"],
+          "validated": false
+        },
+        {
+          "id": "sw-naviscan",
+          "title": "NaviScan MBES Acquisition",
+          "stage": "software",
+          "hostEquipmentId": "naviscan-mbes-pc",
+          "description": "Logs the multibeam swaths with sound velocity, motion and heading applied in real time.",
+          "consumes": ["bathymetry", "sound-velocity", "motion", "heading", "position", "time-sync"],
+          "feeds": ["store-server"],
+          "displays": ["survey-online-monitors"],
+          "validated": false
+        },
+        {
+          "id": "sw-video",
+          "title": "Video Recording & Overlay",
+          "stage": "software",
+          "hostEquipmentId": "video-recorder",
+          "description": "Records the ROV camera channels with the survey data overlay and events.",
+          "consumes": ["video"],
+          "feeds": ["store-server"],
+          "displays": ["survey-online-monitors"],
+          "validated": false
+        },
+        {
+          "id": "store-server",
+          "title": "Project Data Storage",
+          "stage": "storage",
+          "hostEquipmentId": "survey-server",
+          "description": "Server and RAID keep raw navigation logs, MBES files and video until processing and delivery.",
+          "feeds": ["proc-naviedit", "proc-navimodel", "proc-eventing", "dlv-dpr", "dlv-calib"],
+          "validated": false
+        },
+        {
+          "id": "proc-naviedit",
+          "title": "NaviEdit Navigation & Sensor QC",
+          "stage": "processing",
+          "description": "Cleans and quality-checks navigation and sensor data offline.",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity", "pipe-tracking", "bathymetry"],
+          "feeds": ["dlv-nav", "dlv-asbuilt", "dlv-dob", "proc-navimodel"],
+          "validated": false
+        },
+        {
+          "id": "proc-navimodel",
+          "title": "NaviModel Gridding & Charting",
+          "stage": "processing",
+          "description": "Builds the seabed terrain model, contours and charts from the cleaned soundings.",
+          "consumes": ["bathymetry", "sound-velocity", "motion", "heading"],
+          "feeds": ["dlv-mbes"],
+          "validated": false
+        },
+        {
+          "id": "proc-eventing",
+          "title": "Video Review & Eventing",
+          "stage": "processing",
+          "description": "Reviews the recorded video and logs inspection events and anomalies.",
+          "consumes": ["video"],
+          "feeds": ["dlv-video"],
+          "validated": false
+        },
+        {
+          "id": "dlv-dpr",
+          "title": "Daily Progress Report (DPR)",
+          "stage": "deliverable",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity", "bathymetry", "pipe-tracking", "video"],
+          "validated": false
+        },
+        {
+          "id": "dlv-nav",
+          "title": "Processed Navigation Data",
+          "stage": "deliverable",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-asbuilt",
+          "title": "As-built Position Report",
+          "stage": "deliverable",
+          "consumes": ["position", "heading", "depth", "acoustic-position"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-mbes",
+          "title": "MBES Bathymetry: DTM, XYZ & Charts",
+          "stage": "deliverable",
+          "consumes": ["bathymetry", "sound-velocity", "motion", "heading"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-dob",
+          "title": "Pipeline Depth of Burial Report",
+          "stage": "deliverable",
+          "consumes": ["pipe-tracking"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-video",
+          "title": "Inspection Video & Event Log",
+          "stage": "deliverable",
+          "consumes": ["video"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-calib",
+          "title": "Calibration Reports",
+          "stage": "deliverable",
+          "description": "USBL CASIUS, MBES patch test and gyro calibration.",
+          "consumes": ["acoustic-position", "heading", "motion", "bathymetry"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-final",
+          "title": "Final Survey Report",
+          "stage": "deliverable",
+          "validated": false
+        }
+      ]
+    },
+    {
+      "id": "one-line-survey-spread",
+      "title": "One Line Survey Spread",
+      "drawingNo": "803038034",
+      "revision": "A",
+      "description": "Basic Spread",
+      "order": 2,
+      "categories": [
+        { "id": "topside", "title": "Topside" },
+        { "id": "subsea-rov", "title": "Subsea / ROV" },
+        { "id": "infrastructure", "title": "Infrastructure" }
+      ],
+      "zones": [
+        {
+          "id": "mast-area",
+          "title": "Mast Area",
+          "sceneAnchor": "mast",
+          "description": "Up on the mast, the C-Nav X1 and Iridium Edge antennas bring satellite positioning and corrections, the Hemisphere AFT/FWD pair gives GNSS heading, and the Satel, Wi-Fi and video telemetry antennas link the vessel to the outside world.",
+          "lines": [
+            { "equipmentId": "cnav-x1-antenna", "qty": 1, "category": "topside" },
+            { "equipmentId": "cnav-iridium-antenna", "qty": 1, "category": "topside" },
+            { "equipmentId": "hemisphere-vs1000-antenna", "qty": 1, "qtyLabel": "AFT + FWD", "category": "topside" }
+          ]
+        },
+        {
+          "id": "survey-online",
+          "title": "Survey Online",
+          "sceneAnchor": "survey-online",
+          "description": "The survey online room is the brain of the spread: GNSS receivers, MOXA #1 and Network Switch #1 gather every sensor, the online PCs compute positions, and the INNOVA topside MUX brings the ROV data in from the umbilical.",
+          "lines": [
+            { "equipmentId": "cnav-x1-receiver", "qty": 1, "category": "topside" },
+            { "equipmentId": "octans-9", "qty": 1, "category": "topside" },
+            { "equipmentId": "moxa-nport", "qty": 1, "qtyLabel": "#1", "instances": [1], "category": "topside" },
+            { "equipmentId": "network-switch", "qty": 1, "qtyLabel": "#1", "instances": [1], "category": "topside" },
+            { "equipmentId": "pps-zda-splitter", "qty": 1, "category": "topside" },
+            { "equipmentId": "hemisphere-vs1000-receiver", "qty": 1, "category": "topside" },
+            { "equipmentId": "online-master-pc", "qty": 1, "category": "topside" },
+            { "equipmentId": "online-backup-pc", "qty": 1, "category": "topside" },
+            { "equipmentId": "apc-ups", "qty": 2, "category": "topside" },
+            { "equipmentId": "survey-server", "qty": 1, "category": "topside" },
+            { "equipmentId": "survey-online-monitors", "qty": 4, "category": "infrastructure" },
+            { "equipmentId": "oms-pc", "qty": 1, "category": "topside" },
+            { "equipmentId": "survey-printer", "qty": 1, "category": "topside" }
+          ]
+        },
+        {
+          "id": "bridge",
+          "title": "Bridge",
+          "sceneAnchor": "bridge",
+          "description": "On the bridge the vessel supplies its own Gyro, MRU, DGPS and HiPAP/APOS data through MOXA #2 and Network Switch #2, and the Bridge Remote Helmsman shows the survey picture to the officers.",
+          "lines": [
+            { "equipmentId": "moxa-nport", "qty": 1, "qtyLabel": "#2", "instances": [2], "category": "topside" },
+            { "equipmentId": "network-switch", "qty": 1, "qtyLabel": "#2", "instances": [2], "category": "topside" },
+            { "equipmentId": "bridge-remote-helmsman", "qty": 1, "category": "topside" },
+            { "equipmentId": "vessel-gyro", "qty": 1, "vesselSupplied": true, "category": "topside" },
+            { "equipmentId": "vessel-mru", "qty": 1, "vesselSupplied": true, "category": "topside" },
+            { "equipmentId": "vessel-dgps", "qty": 1, "vesselSupplied": true, "category": "topside" },
+            { "equipmentId": "hipap-apos-interface", "qty": 1, "vesselSupplied": true, "category": "topside" }
+          ]
+        },
+        {
+          "id": "rov-control-room",
+          "title": "ROV Control Room",
+          "sceneAnchor": "rov-control",
+          "description": "In the ROV control room, Network Switch #3 and MOXA #3 feed the ROV Remote Helmsman and the barometer, while the instrument rack patches the survey data into the ROV fibre in the umbilical.",
+          "lines": [
+            { "equipmentId": "network-switch", "qty": 1, "qtyLabel": "#3", "instances": [3], "category": "topside" },
+            { "equipmentId": "moxa-nport", "qty": 1, "qtyLabel": "#3", "instances": [3], "category": "topside" },
+            { "equipmentId": "rov-remote-helmsman", "qty": 1, "category": "topside" },
+            { "equipmentId": "barometer", "qty": 1, "category": "subsea-rov" },
+            { "equipmentId": "rov-instrument-rack", "qty": 1, "category": "subsea-rov" },
+            { "equipmentId": "rov-umbilical-fibre", "qty": 1, "category": "infrastructure" }
+          ]
+        },
+        {
+          "id": "rov",
+          "title": "ROV",
+          "sceneAnchor": "rov",
+          "description": "On the ROV, the INNOVA subsea MUX collects the gyro, altimeter, DQ, SVX2, Mini SVS, green laser, both R2Sonic heads and the TSS 440, while the three booms cameras feed the ROV video and the C-Node beacons answer the USBL.",
+          "lines": [
+            { "equipmentId": "rov-gyro", "qty": 1, "category": "subsea-rov" },
+            { "equipmentId": "dq", "qty": 1, "category": "subsea-rov" },
+            { "equipmentId": "svx2", "qty": 1, "category": "subsea-rov" },
+            { "equipmentId": "mini-svs", "qty": 1, "category": "subsea-rov" },
+            { "equipmentId": "c-node", "qty": 3, "qtyLabel": "Beacons", "category": "subsea-rov" }
+          ]
+        }
+      ],
+      "links": [
+        { "from": "cnav-x1-antenna", "to": "cnav-x1-receiver", "kind": "rf" },
+        { "from": "cnav-iridium-antenna", "to": "cnav-x1-receiver", "kind": "rf" },
+        { "from": "hemisphere-vs1000-antenna", "to": "hemisphere-vs1000-receiver", "kind": "rf", "cable": "AFT / FWD" },
+        { "from": "cnav-x1-receiver", "to": "moxa-nport#1", "kind": "data" },
+        { "from": "hemisphere-vs1000-receiver", "to": "moxa-nport#1", "kind": "data" },
+        { "from": "octans-9", "to": "moxa-nport#1", "kind": "data", "cable": "SD069" },
+        { "from": "moxa-nport#1", "to": "network-switch#1", "kind": "data" },
+        { "from": "cnav-x1-receiver", "to": "pps-zda-splitter", "kind": "timing", "cable": "SD006" },
+        { "from": "pps-zda-splitter", "to": "online-master-pc", "kind": "timing" },
+        { "from": "pps-zda-splitter", "to": "online-backup-pc", "kind": "timing", "cable": "SD244" },
+        { "from": "online-master-pc", "to": "network-switch#1", "kind": "data" },
+        { "from": "online-backup-pc", "to": "network-switch#1", "kind": "data", "cable": "SD016" },
+        { "from": "survey-server", "to": "network-switch#1", "kind": "data", "cable": "SD031" },
+        { "from": "survey-printer", "to": "network-switch#1", "kind": "data", "cable": "SD030" },
+        { "from": "oms-pc", "to": "network-switch#1", "kind": "data", "cable": "SD153" },
+        { "from": "online-master-pc", "to": "survey-online-monitors", "kind": "video" },
+        { "from": "network-switch#1", "to": "network-switch#2", "kind": "data", "cable": "SD033" },
+        { "from": "network-switch#2", "to": "moxa-nport#2", "kind": "data", "cable": "SD049" },
+        { "from": "vessel-gyro", "to": "moxa-nport#2", "kind": "data", "cable": "SD051" },
+        { "from": "vessel-mru", "to": "moxa-nport#2", "kind": "data", "cable": "SD052" },
+        { "from": "vessel-dgps", "to": "moxa-nport#2", "kind": "data", "cable": "SD053" },
+        { "from": "hipap-apos-interface", "to": "moxa-nport#2", "kind": "data", "cable": "SD054" },
+        { "from": "network-switch#2", "to": "bridge-remote-helmsman", "kind": "data", "cable": "SD050" },
+        { "from": "network-switch#1", "to": "network-switch#3", "kind": "data", "cable": "SD047" },
+        { "from": "network-switch#3", "to": "moxa-nport#3", "kind": "data", "cable": "SD235" },
+        { "from": "network-switch#3", "to": "rov-remote-helmsman", "kind": "data", "cable": "SD236" },
+        { "from": "moxa-nport#3", "to": "barometer", "kind": "data", "cable": "SD057" },
+        { "from": "moxa-nport#3", "to": "rov-instrument-rack", "kind": "data", "cable": "SD058 / SD059" },
+        { "from": "rov-instrument-rack", "to": "rov-umbilical-fibre", "kind": "fibre" },
+        { "from": "rov-umbilical-fibre", "to": "rov-gyro", "kind": "subsea" },
+        { "from": "rov-umbilical-fibre", "to": "dq", "kind": "subsea" },
+        { "from": "rov-umbilical-fibre", "to": "svx2", "kind": "subsea" },
+        { "from": "rov-umbilical-fibre", "to": "mini-svs", "kind": "subsea" },
+        { "from": "c-node#1", "to": "hipap-apos-interface", "kind": "acoustic" },
+        { "from": "c-node#2", "to": "hipap-apos-interface", "kind": "acoustic" },
+        { "from": "c-node#3", "to": "hipap-apos-interface", "kind": "acoustic" }
       ],
       "pipeline": [
         {
