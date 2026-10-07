@@ -17,7 +17,12 @@ import { matchesPastBidSearch, normalizeText } from "../utils/pastBidHelpers";
 import { LIBRARY_NOT_SET } from "./useClarificationLibraryFilter";
 
 export type QualificationFacetKey =
-  "table" | "category" | "client" | "division" | "serviceLine" | "origin";
+  | "table"
+  | "category"
+  | "client"
+  | "division"
+  | "serviceLine"
+  | "origin";
 
 export type QualificationFilters = Record<QualificationFacetKey, string[]>;
 

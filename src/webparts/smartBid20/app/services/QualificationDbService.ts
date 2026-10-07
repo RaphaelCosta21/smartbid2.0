@@ -191,7 +191,10 @@ export class QualificationDbService {
         await QualificationDbService.update(row.id, row);
         result.updated++;
       } catch (err) {
-        console.error(`QualificationDbService.saveTable: update ${row.id}`, err);
+        console.error(
+          `QualificationDbService.saveTable: update ${row.id}`,
+          err,
+        );
         result.failed++;
       }
     }

@@ -35,7 +35,10 @@ interface QualificationEntryDrawerProps {
 
 const isCompleted = (bid: IBid): boolean => bid.currentStatus === "Completed";
 
-const byCompletedDesc = (a: IQualificationUsage, b: IQualificationUsage): number =>
+const byCompletedDesc = (
+  a: IQualificationUsage,
+  b: IQualificationUsage,
+): number =>
   (b.bid.completedDate || "").localeCompare(a.bid.completedDate || "");
 
 const UsageList: React.FC<{
@@ -276,9 +279,7 @@ export const QualificationEntryDrawer: React.FC<
 
           <section className={shell.section}>
             <div className={styles.sectionHead}>
-              <span className={shell.sectionTitle}>
-                Used in completed BIDs
-              </span>
+              <span className={shell.sectionTitle}>Used in completed BIDs</span>
               <span className={styles.countBadge}>{itemCompleted.length}</span>
             </div>
             {itemCompleted.length > 0 ? (

@@ -191,7 +191,9 @@ export function buildQualificationLibraryRowsFromBid(
 const MANUAL_TABLE_PREFIX = "manual:";
 
 /** Table a library row belongs to: stored key, else its source BID table, else its title. */
-export function qualificationLibraryTableKey(item: IQualificationDbItem): string {
+export function qualificationLibraryTableKey(
+  item: IQualificationDbItem,
+): string {
   if (item.tableKey) return item.tableKey;
   return item.sourceBidNumber
     ? `bid:${item.sourceBidNumber}:${item.sourceTableId || qualificationTableKey(item.tableTitle)}`
@@ -218,7 +220,9 @@ export function qualificationLibraryTableRows(
 
 /** Item number for a row appended to these library rows. */
 export function nextLibraryItemOrder(rows: IQualificationDbItem[]): number {
-  return rows.reduce((max, r) => Math.max(max, r.itemOrder || 0), rows.length) + 1;
+  return (
+    rows.reduce((max, r) => Math.max(max, r.itemOrder || 0), rows.length) + 1
+  );
 }
 
 /** Key of the manual library table with this title; empty when none. */

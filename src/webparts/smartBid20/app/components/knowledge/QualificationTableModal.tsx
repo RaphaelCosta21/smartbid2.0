@@ -57,7 +57,10 @@ interface ITableMeta {
   serviceLine: string;
 }
 
-const newRow = (category = "", qualification = ""): IQualificationTableDraftRow => ({
+const newRow = (
+  category = "",
+  qualification = "",
+): IQualificationTableDraftRow => ({
   uid: makeId("qr"),
   category,
   qualification,
@@ -166,9 +169,7 @@ export const QualificationTableModal: React.FC<
   const [confirmDiscard, setConfirmDiscard] = React.useState(false);
   const newKey = React.useRef(newManualQualificationTableKey()).current;
   const focusUid = React.useRef("");
-  const textRefs = React.useRef<Record<string, HTMLTextAreaElement | null>>(
-    {},
-  );
+  const textRefs = React.useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   const isEdit = !!editKey;
   const isBidTable = isEdit && !isManualQualificationTableKey(editKey);
@@ -368,11 +369,7 @@ export const QualificationTableModal: React.FC<
 
   return (
     <>
-      <div
-        className={shell.overlay}
-        onClick={requestClose}
-        role="presentation"
-      >
+      <div className={shell.overlay} onClick={requestClose} role="presentation">
         <div
           className={styles.modal}
           role="dialog"
@@ -409,9 +406,8 @@ export const QualificationTableModal: React.FC<
                 <span>
                   Table synced from BID <strong>{bidNumber}</strong>. Title,
                   Client, Division and Service Line follow the BID, and rows
-                  synced from it are overwritten if the BID is completed
-                  again. Rows added here are saved as manual entries of this
-                  table.
+                  synced from it are overwritten if the BID is completed again.
+                  Rows added here are saved as manual entries of this table.
                 </span>
               </div>
             )}

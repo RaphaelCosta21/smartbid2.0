@@ -164,12 +164,14 @@ export const ImportQualificationModal: React.FC<
           groupKeyOf(a).localeCompare(groupKeyOf(b)) ||
           (a.itemOrder || 0) - (b.itemOrder || 0),
       )
-      .map((i): IQualificationDraft => ({
-        tableTitle: i.tableTitle || DEFAULT_QUALIFICATION_TABLE,
-        category: i.category,
-        qualification: i.qualification,
-        libraryRefId: i.id,
-      }));
+      .map(
+        (i): IQualificationDraft => ({
+          tableTitle: i.tableTitle || DEFAULT_QUALIFICATION_TABLE,
+          category: i.category,
+          qualification: i.qualification,
+          libraryRefId: i.id,
+        }),
+      );
     if (chosen.length > 0) onImport(chosen);
     onClose();
   };
