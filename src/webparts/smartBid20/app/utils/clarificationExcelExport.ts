@@ -6,7 +6,11 @@ import { IBid, IClarificationItem } from "../models";
 import { ISystemConfig } from "../models/ISystemConfig";
 import { getCurrentRevisionLetter } from "../components/bid/RevisionsTab";
 import { downloadBlob } from "./exportHelpers";
-import { cleanClientDocRef, configOptionLabel } from "./clarificationHelpers";
+import {
+  allCategoryOptions,
+  cleanClientDocRef,
+  configOptionLabel,
+} from "./clarificationHelpers";
 import {
   NUM,
   XL_COLORS,
@@ -149,7 +153,7 @@ export async function exportClarificationsToExcel(
   };
 
   const categoryLabel = (v?: string): string =>
-    configOptionLabel(config?.clarificationCategories, v || "");
+    configOptionLabel(allCategoryOptions(config), v || "");
   items.forEach((c, i) => {
     const isQual = c.baseType === "Qualification";
     const r = x.dataRow(

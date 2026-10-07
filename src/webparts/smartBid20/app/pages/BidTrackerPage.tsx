@@ -1,5 +1,4 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import { LayoutList, Search, SquareKanban, Table2, X } from "lucide-react";
 import {
   BID_FACET_VALUES,
@@ -8,6 +7,7 @@ import {
   ViewMode,
 } from "../stores/useBidStore";
 import { useBids } from "../hooks/useBids";
+import { useOpenBid } from "../hooks/useOpenBid";
 import { useStatusColors } from "../hooks/useStatusColors";
 import {
   getDueFreezeDate,
@@ -23,6 +23,7 @@ import { PageHeader } from "../components/common/PageHeader";
 import { DataTable } from "../components/common/DataTable";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { BidCard } from "../components/bid/BidCard";
+import { ConfidentialLock } from "../components/bid/ConfidentialLock";
 import {
   MultiSelectDropdown,
   MultiSelectOption,
@@ -83,7 +84,7 @@ function getAvatarColor(name: string): string {
 }
 
 export const BidTrackerPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { openBid } = useOpenBid();
   const { bids, filteredBids } = useBids();
   const config = useConfigStore((s) => s.config);
   const {
@@ -295,7 +296,7 @@ export const BidTrackerPage: React.FC = () => {
   }, [config, activeBids, filters.divisions, getDivisionColor]);
 
   const handleBidClick = (bid: IBid): void => {
-    navigate(`/bid/${bid.bidNumber}`);
+    openBid(bid.bidNumber);
   };
 
   const handleNotesChange = React.useCallback(
@@ -318,7 +319,10 @@ export const BidTrackerPage: React.FC = () => {
       sortable: true,
       width: 130,
       render: (bid: IBid) => (
-        <span className={styles.mono}>{bid.bidNumber}</span>
+        <span className={styles.mono}>
+          {bid.bidNumber}
+          <ConfidentialLock bid={bid} />
+        </span>
       ),
     },
     {
@@ -739,6 +743,7 @@ export const BidTrackerPage: React.FC = () => {
                 }}
               >
                 {bid.bidNumber}
+                <ConfidentialLock bid={bid} />
               </span>
               <span style={{ width: 100 }}>
                 {bid.opportunityInfo?.client || ""}

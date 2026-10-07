@@ -3,6 +3,7 @@ import { CloudUpload, ExternalLink, Pencil, RefreshCw, X } from "lucide-react";
 import { IBid } from "../../models";
 import { DivisionBadge } from "../common/DivisionBadge";
 import { BidFavoriteButton } from "../bid/BidFavoriteButton";
+import { ConfidentialLock } from "../bid/ConfidentialLock";
 import { formatDate } from "../../utils/formatters";
 import {
   findRelatedBids,
@@ -91,7 +92,10 @@ export const PastBidDrawer: React.FC<PastBidDrawerProps> = ({
       >
         <div className={styles.header}>
           <div className={styles.headerInfo}>
-            <span className={styles.bidNumber}>{bid.bidNumber}</span>
+            <span className={styles.bidNumber}>
+              {bid.bidNumber}
+              <ConfidentialLock bid={bid} />
+            </span>
             <span className={styles.client}>{opp?.client || "-"}</span>
             {opp?.projectName && (
               <span className={styles.project}>{opp.projectName}</span>
@@ -215,6 +219,7 @@ export const PastBidDrawer: React.FC<PastBidDrawerProps> = ({
                     <div className={styles.relatedTop}>
                       <span className={styles.relatedBid}>
                         {r.bid.bidNumber}
+                        <ConfidentialLock bid={r.bid} />
                       </span>
                       <span className={styles.relatedYear}>
                         {getPastBidYear(r.bid)}

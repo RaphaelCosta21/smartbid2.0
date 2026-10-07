@@ -6,6 +6,7 @@ import { useUIStore } from "../../stores/useUIStore";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { exportClarificationsToExcel } from "../../utils/clarificationExcelExport";
 import {
+  allCategoryOptions,
   cleanClientDocRef,
   configOptionLabel,
 } from "../../utils/clarificationHelpers";
@@ -72,7 +73,7 @@ export const ExportClarificationModal: React.FC<
             c.description,
             c.clarification,
             c.clientResponse,
-            configOptionLabel(config?.clarificationCategories, c.category || ""),
+            configOptionLabel(allCategoryOptions(config), c.category || ""),
           ]
             .filter(Boolean)
             .join(" \u2022 "),

@@ -891,6 +891,17 @@ export interface IBidTechnicalProposal {
   aiStatus?: "ok" | "failed" | "skipped";
 }
 
+/** Extra per-BID gate on top of the access matrix: only these people can open BID Details. */
+export interface IBidConfidentiality {
+  enabled: boolean;
+  /** Current BID Responsible and Analyst always keep access, even if missing here. */
+  allowedPeople: IPersonRef[];
+  enabledBy: IPersonRef;
+  enabledDate: string;
+  updatedBy?: IPersonRef | null;
+  updatedDate?: string | null;
+}
+
 export interface IBid {
   bidNumber: string;
   crmNumber: string;
@@ -977,6 +988,7 @@ export interface IBid {
   /** Past Bids / AI Search projection — set once the BID is Completed and published. */
   knowledgeProfile?: IBidKnowledgeProfile;
   technicalProposal?: IBidTechnicalProposal;
+  confidentiality?: IBidConfidentiality;
   /* ── ERN (Engineering Request Number) — one ERN per BID ── */
   /** ERN Number, e.g. "ERN-42" (null = TBD, not yet created) */
   ernNumber?: string | null;

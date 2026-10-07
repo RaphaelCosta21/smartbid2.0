@@ -2,6 +2,7 @@ import * as React from "react";
 import { CalendarClock, ChevronDown, StickyNote } from "lucide-react";
 import { IBid, IQuickNote } from "../../models";
 import { StatusBadge } from "../common/StatusBadge";
+import { ConfidentialLock } from "./ConfidentialLock";
 import { getPhaseDef } from "../../config/status.config";
 import { getPhaseProgressByIndex } from "../../utils/phaseHelpers";
 import { getErnLinks } from "../../utils/ernHelpers";
@@ -83,7 +84,10 @@ export const BidCard: React.FC<BidCardProps> = ({
       onClick={() => onClick(bid)}
     >
       <div className={styles.cardHeader}>
-        <span className={styles.bidNumber}>{bid.bidNumber}</span>
+        <span className={styles.bidNumber}>
+          {bid.bidNumber}
+          <ConfidentialLock bid={bid} />
+        </span>
         {bid.crmNumber && (
           <span className={styles.crmNumber}>CRM {bid.crmNumber}</span>
         )}

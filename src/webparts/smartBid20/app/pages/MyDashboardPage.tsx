@@ -1,9 +1,10 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../components/common/PageHeader";
 import { GlassCard } from "../components/common/GlassCard";
 import { StatusBadge } from "../components/common/StatusBadge";
+import { ConfidentialLock } from "../components/bid/ConfidentialLock";
 import { useBids } from "../hooks/useBids";
+import { useOpenBid } from "../hooks/useOpenBid";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import {
   getDueFreezeDate,
@@ -15,7 +16,7 @@ import { formatDaysLeft } from "../utils/formatters";
 import styles from "./MyDashboardPage.module.scss";
 
 export const MyDashboardPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { openBid } = useOpenBid();
   const { bids } = useBids();
   const currentUser = useCurrentUser();
   const userEmail = currentUser?.email || "rcosta@oceaneering.com";
@@ -83,13 +84,16 @@ export const MyDashboardPage: React.FC = () => {
               return (
                 <div
                   key={bid.bidNumber}
-                  onClick={() => navigate(`/bid/${bid.bidNumber}`)}
+                  onClick={() => openBid(bid.bidNumber)}
                   className={styles.bidRow}
                   style={{
                     borderLeft: `3px solid ${DIVISION_COLORS[bid.division] || "#94a3b8"}`,
                   }}
                 >
-                  <span className={styles.bidRowNumber}>{bid.bidNumber}</span>
+                  <span className={styles.bidRowNumber}>
+                    {bid.bidNumber}
+                    <ConfidentialLock bid={bid} />
+                  </span>
                   <span className={styles.bidRowInfo}>
                     {bid.opportunityInfo.client} -{" "}
                     {bid.opportunityInfo.projectName}

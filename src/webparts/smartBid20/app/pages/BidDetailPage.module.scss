@@ -321,6 +321,24 @@
   }
 }
 
+.confidentialDenied {
+  display: flex;
+  justify-content: center;
+  padding: 48px 16px;
+}
+
+.confidentialIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+}
+
 .backBtn {
   display: inline-flex;
   align-items: center;

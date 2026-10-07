@@ -55,8 +55,8 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
   // Simple horizontal bar percentages
   const maxUSD = Math.max(...breakdown.map((b) => b.usd), 1);
 
-  // Expand/collapse sub-categories (open by default)
-  const [subCatsExpanded, setSubCatsExpanded] = React.useState(true);
+  const [subCatsExpanded, setSubCatsExpanded] = React.useState(false);
+  const [showBRL, setShowBRL] = React.useState(false);
 
   const capexBRL = view.capex.brl;
   const opexBRL = view.opex.brl;
@@ -175,13 +175,21 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
           >
             {subCatsExpanded ? "▾ Hide details" : "▸ Show details"}
           </button>
+          <button
+            className={styles.toggleSubCats}
+            onClick={() => setShowBRL(!showBRL)}
+            aria-pressed={showBRL}
+            title={showBRL ? "Hide BRL column" : "Show BRL column"}
+          >
+            {showBRL ? "Hide BRL" : "Show BRL"}
+          </button>
         </h4>
         <table className={styles.breakdownTable}>
           <thead>
             <tr>
               <th style={{ textAlign: "left" }}>Category</th>
               <th style={{ textAlign: "right" }}>USD</th>
-              <th style={{ textAlign: "right" }}>BRL</th>
+              {showBRL && <th style={{ textAlign: "right" }}>BRL</th>}
               <th style={{ textAlign: "right" }}>% of Total</th>
               <th style={{ width: "30%" }} />
             </tr>
@@ -207,9 +215,11 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
                   <td className={styles.cellRight}>
                     {formatCurrency(row.usd)}
                   </td>
-                  <td className={styles.cellRight}>
-                    {formatCurrency(row.brl, "BRL")}
-                  </td>
+                  {showBRL && (
+                    <td className={styles.cellRight}>
+                      {formatCurrency(row.brl, "BRL")}
+                    </td>
+                  )}
                   <td className={styles.cellRight}>{pct.toFixed(1)}%</td>
                   <td>
                     <div className={styles.barWrapper}>
@@ -231,9 +241,11 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
               <td className={styles.cellRight}>
                 {formatCurrency(s.totalCostUSD)}
               </td>
-              <td className={styles.cellRight}>
-                {formatCurrency(s.totalCostBRL, "BRL")}
-              </td>
+              {showBRL && (
+                <td className={styles.cellRight}>
+                  {formatCurrency(s.totalCostBRL, "BRL")}
+                </td>
+              )}
               <td className={styles.cellRight}>100%</td>
               <td />
             </tr>

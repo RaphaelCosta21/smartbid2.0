@@ -350,6 +350,18 @@
   color: #f59e0b;
 }
 
+.noAccessTag {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+}
+
 /* ── Tracking Mode ── */
 .trackingGrid {
   display: grid;

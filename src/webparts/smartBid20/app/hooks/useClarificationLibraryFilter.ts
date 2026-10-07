@@ -11,6 +11,7 @@ import { useBidStore } from "../stores/useBidStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import {
   activeConfigOptions,
+  allCategoryOptions,
   configOptionLabel,
 } from "../utils/clarificationHelpers";
 import { matchesPastBidSearch, normalizeText } from "../utils/pastBidHelpers";
@@ -117,7 +118,7 @@ export function useClarificationLibraryFilter(
         ? bidsByNumber[it.sourceBidNumber]
         : undefined;
       const categoryLabel = configOptionLabel(
-        config?.clarificationCategories,
+        allCategoryOptions(config),
         it.category,
       );
       const clientLabel = configOptionLabel(config?.clientList, it.client);
@@ -211,7 +212,7 @@ export function useClarificationLibraryFilter(
       { value: string; label: string }[]
     > = {
       type: FIXED_OPTIONS.type || [],
-      category: fromConfig(config?.clarificationCategories),
+      category: fromConfig(allCategoryOptions(config)),
       client: [],
       division: fromConfig(config?.divisions),
       serviceLine: [],
@@ -219,7 +220,7 @@ export function useClarificationLibraryFilter(
       approval: FIXED_OPTIONS.approval || [],
     };
     const labelLists: Partial<Record<LibraryFacetKey, IConfigOption[]>> = {
-      category: config?.clarificationCategories,
+      category: allCategoryOptions(config),
       client: config?.clientList,
       division: config?.divisions,
       serviceLine: config?.serviceLines,

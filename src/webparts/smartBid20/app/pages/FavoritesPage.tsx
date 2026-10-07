@@ -14,6 +14,7 @@ import {
   MultiSelectOption,
 } from "../components/insights/MultiSelectDropdown";
 import { BidFavoriteButton } from "../components/bid/BidFavoriteButton";
+import { ConfidentialLock } from "../components/bid/ConfidentialLock";
 import { PastBidCard } from "../components/knowledge/PastBidCard";
 import {
   PastBidChips,
@@ -25,6 +26,7 @@ import { useFavoritesStore } from "../stores/useFavoritesStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useSlidingIndicator } from "../hooks/useSlidingIndicator";
 import { usePageAccess } from "../hooks/usePageAccess";
+import { useOpenBid } from "../hooks/useOpenBid";
 import { IBid, IFavoriteBid, IFavoriteEquipment } from "../models";
 import { getPartPhotoUrl as getPhotoUrl } from "../utils/partPhoto";
 import { formatDate } from "../utils/formatters";
@@ -287,8 +289,9 @@ export const FavoritesPage: React.FC = () => {
     return map;
   }, [filteredEquipment]);
 
+  const { openBid: openBidByNumber } = useOpenBid();
   const openBid = (bid: IBid): void => {
-    navigate(`/bid/${encodeURIComponent(bid.bidNumber)}`);
+    openBidByNumber(bid.bidNumber);
   };
 
   const bidColumns = [
@@ -303,7 +306,10 @@ export const FavoritesPage: React.FC = () => {
       header: "BID",
       sortable: true,
       render: (r: IFavoriteBidRow) => (
-        <span className={styles.bidMono}>{r.bidNumber}</span>
+        <span className={styles.bidMono}>
+          {r.bidNumber}
+          <ConfidentialLock bid={r.bid} />
+        </span>
       ),
     },
     {

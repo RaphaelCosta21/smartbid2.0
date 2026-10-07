@@ -1,5 +1,4 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import {
   BarChart,
   Bar,
@@ -21,6 +20,7 @@ import { KPICard } from "../components/common/KPICard";
 import { EmptyState } from "../components/common/EmptyState";
 import { DivisionBadge } from "../components/common/DivisionBadge";
 import { PhaseBadge } from "../components/common/PhaseBadge";
+import { ConfidentialLock } from "../components/bid/ConfidentialLock";
 import { ProgressBar } from "../components/common/ProgressBar";
 import { ChartTooltip } from "../components/charts/ChartTooltip";
 import { HeatmapGrid } from "../components/charts/HeatmapGrid";
@@ -32,6 +32,7 @@ import {
 } from "../components/insights/SegmentedControl";
 import { useChartTheme } from "../hooks/useChartTheme";
 import { useBids } from "../hooks/useBids";
+import { useOpenBid } from "../hooks/useOpenBid";
 import { useAnalyticsFilters } from "../hooks/useAnalyticsFilters";
 import { useStatusColors } from "../hooks/useStatusColors";
 import { useConfigStore } from "../stores/useConfigStore";
@@ -74,7 +75,7 @@ const STAT_SEGMENTS: SegmentOption<DurationStat>[] = [
 const MS_DAY = 86400000;
 
 export const BottleneckAnalysisPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { openBid } = useOpenBid();
   const { bids } = useBids();
   const chart = useChartTheme();
   const config = useConfigStore((s) => s.config);
@@ -571,12 +572,10 @@ export const BottleneckAnalysisPage: React.FC = () => {
                   className={styles.slowRow}
                   role="button"
                   tabIndex={0}
-                  onClick={() =>
-                    navigate(`/bid/${encodeURIComponent(row.bid.bidNumber)}`)
-                  }
+                  onClick={() => openBid(row.bid.bidNumber)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ")
-                      navigate(`/bid/${encodeURIComponent(row.bid.bidNumber)}`);
+                      openBid(row.bid.bidNumber);
                   }}
                 >
                   <span className={styles.slowRank}>{i + 1}</span>
@@ -584,6 +583,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
                     <div className={styles.slowTop}>
                       <span className={styles.slowBid}>
                         {row.bid.bidNumber}
+                        <ConfidentialLock bid={row.bid} />
                       </span>
                       <DivisionBadge division={row.bid.division} />
                       <PhaseBadge phase={row.bid.currentPhase} />

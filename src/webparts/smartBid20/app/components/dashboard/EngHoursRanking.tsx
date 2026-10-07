@@ -2,6 +2,7 @@ import * as React from "react";
 import { GlassCard } from "../common/GlassCard";
 import { StatusBadge } from "../common/StatusBadge";
 import { EmptyState } from "../common/EmptyState";
+import { ConfidentialLock } from "../bid/ConfidentialLock";
 import { SegmentedControl, SegmentOption } from "../insights/SegmentedControl";
 import { useChartTheme } from "../../hooks/useChartTheme";
 import { useResultStatus } from "../../hooks/useResultStatus";
@@ -109,7 +110,10 @@ export const EngHoursRanking: React.FC<EngHoursRankingProps> = ({
                   )}
                 </div>
                 <div className={styles.subline}>
-                  <span className={styles.bidNumber}>{r.bid.bidNumber}</span>
+                  <span className={styles.bidNumber}>
+                    {r.bid.bidNumber}
+                    <ConfidentialLock bid={r.bid} />
+                  </span>
                   {r.bid.opportunityInfo?.projectName &&
                   r.bid.opportunityInfo?.client
                     ? ` · ${r.bid.opportunityInfo.client}`

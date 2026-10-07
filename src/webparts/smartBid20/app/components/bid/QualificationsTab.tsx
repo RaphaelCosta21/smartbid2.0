@@ -6,6 +6,7 @@ import {
   IQualificationTable,
   IQualificationItem,
   IAISuggestedClarification,
+  IConfigOption,
 } from "../../models";
 import { GlassCard } from "../common/GlassCard";
 import { EditToolbar } from "../common/EditLockBanner";
@@ -52,14 +53,19 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
     IAISuggestedClarification[]
   >([]);
   const addToast = useUIStore((s) => s.addToast);
-  const categoryList = useConfigStore((s) => s.config?.clarificationCategories);
-  const categoryOptions = React.useMemo(
-    () => activeConfigOptions(categoryList),
-    [categoryList],
+  const config = useConfigStore((s) => s.config);
+  const clarCategoryOptions = React.useMemo(
+    () => activeConfigOptions(config?.clarificationCategories),
+    [config?.clarificationCategories],
+  );
+  const qualCategoryOptions = React.useMemo(
+    () => activeConfigOptions(config?.qualificationCategories),
+    [config?.qualificationCategories],
   );
 
   /** Category select; keeps a value that is no longer configured selectable. */
   const renderCategorySelect = (
+    categoryOptions: IConfigOption[],
     value: string | undefined,
     onChange: (v: string) => void,
     width: number | string = "100%",
@@ -67,7 +73,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
     <select
       value={value || ""}
       onChange={(e) => onChange(e.target.value)}
-      title="Category (System Configuration - Clarif. Categories)"
+      title="Category (System Configuration - Clarif. & Qualif. Categories)"
       style={{
         width,
         padding: "4px 6px",
@@ -473,6 +479,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
               {canEditQual ? (
                 <span style={{ marginRight: 8 }}>
                   {renderCategorySelect(
+                    qualCategoryOptions,
                     table.category,
                     (v) => updateTableCategory(table.id, v),
                     180,
@@ -924,8 +931,12 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                       }}
                     >
                       {canEditClar ? (
-                        renderCategorySelect(c.category, (v) =>
-                          updateClarification(c.id, "category", v),
+                        renderCategorySelect(
+                          c.baseType === "Qualification"
+                            ? qualCategoryOptions
+                            : clarCategoryOptions,
+                          c.category,
+                          (v) => updateClarification(c.id, "category", v),
                         )
                       ) : (
                         <ClarificationCategoryChip

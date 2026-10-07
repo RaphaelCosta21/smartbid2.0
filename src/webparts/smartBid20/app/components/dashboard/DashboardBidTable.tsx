@@ -20,6 +20,7 @@ import { getPhaseProgressByIndex } from "../../utils/phaseHelpers";
 import { countFacets, withCounts } from "../../utils/facetHelpers";
 import { StatusBadge } from "../common/StatusBadge";
 import { ColumnFilter } from "../common/ColumnFilter";
+import { ConfidentialLock } from "../bid/ConfidentialLock";
 import { MultiSelectOption } from "../insights/MultiSelectDropdown";
 import styles from "./DashboardBidTable.module.scss";
 
@@ -457,7 +458,10 @@ export const DashboardBidTable: React.FC<DashboardBidTableProps> = ({
                     className={styles.clickableRow}
                     onClick={() => onBidClick(bid.bidNumber)}
                   >
-                    <td className={styles.mono}>{bid.bidNumber}</td>
+                    <td className={styles.mono}>
+                      {bid.bidNumber}
+                      <ConfidentialLock bid={bid} />
+                    </td>
                     <td className={styles.mono}>{bid.crmNumber || "-"}</td>
                     <td>{bid.opportunityInfo?.client || "-"}</td>
                     <td className={styles.projectCell}>

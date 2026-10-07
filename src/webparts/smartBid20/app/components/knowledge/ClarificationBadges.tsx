@@ -2,7 +2,10 @@ import * as React from "react";
 import { FileStack, PenLine } from "lucide-react";
 import { ClarificationBaseType } from "../../models/IClarificationDb";
 import { useConfigStore } from "../../stores/useConfigStore";
-import { configOptionLabel } from "../../utils/clarificationHelpers";
+import {
+  allCategoryOptions,
+  configOptionLabel,
+} from "../../utils/clarificationHelpers";
 import styles from "./ClarificationBadges.module.scss";
 
 export const ClarificationTypeBadge: React.FC<{
@@ -18,14 +21,15 @@ export const ClarificationTypeBadge: React.FC<{
   );
 };
 
-/** Category value from systemConfig.clarificationCategories, tinted with its configured color. */
+/** Category value from systemConfig clarification/qualification categories, tinted with its configured color. */
 export const ClarificationCategoryChip: React.FC<{
   category: string;
   emptyLabel?: string;
 }> = ({ category, emptyLabel = "-" }) => {
-  const list = useConfigStore((s) => s.config?.clarificationCategories);
+  const config = useConfigStore((s) => s.config);
   if (!category) return <span className={styles.empty}>{emptyLabel}</span>;
-  const opt = (list || []).find(
+  const list = allCategoryOptions(config);
+  const opt = list.find(
     (o) => o.value === category || o.label === category,
   );
   const style = opt?.color

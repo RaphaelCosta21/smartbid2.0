@@ -4,6 +4,7 @@ import { format, formatDistanceToNow, isToday, isYesterday } from "date-fns";
 import { GlassCard } from "../common/GlassCard";
 import { StatusBadge } from "../common/StatusBadge";
 import { EmptyState } from "../common/EmptyState";
+import { ConfidentialLock } from "../bid/ConfidentialLock";
 import { SegmentedControl, SegmentOption } from "../insights/SegmentedControl";
 import { useStatusColors } from "../../hooks/useStatusColors";
 import { getPhaseDef } from "../../config/status.config";
@@ -210,6 +211,7 @@ export const DashboardActivity: React.FC<DashboardActivityProps> = ({
                       <div className={styles.meta}>
                         <span className={styles.bidNumber}>
                           {r.bid.bidNumber}
+                          <ConfidentialLock bid={r.bid} />
                         </span>
                         {project && client ? ` · ${client}` : ""}
                         {r.actor ? ` · by ${actorName(r.actor)}` : ""}

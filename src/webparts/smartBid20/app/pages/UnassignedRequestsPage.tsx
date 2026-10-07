@@ -310,12 +310,9 @@ export const UnassignedRequestsPage: React.FC = () => {
     setCreatorFilter([]);
   };
 
-  // ---- Engineering contributors & analysts
+  // ---- BID Responsible candidates (whole Engineering team) & analysts
   const engineeringContributors = React.useMemo(() => {
-    return teamMembers.filter(
-      (m) =>
-        m.sector === "engineering" && m.bidRole === "contributor" && m.isActive,
-    );
+    return teamMembers.filter((m) => m.sector === "engineering" && m.isActive);
   }, [teamMembers]);
 
   const engineeringAnalysts = React.useMemo(() => {
@@ -389,7 +386,7 @@ export const UnassignedRequestsPage: React.FC = () => {
   const handleAssign = async (): Promise<void> => {
     if (!assignTarget) return;
     if (selectedEngineers.length === 0) {
-      showMsg("error", "Select at least one Engineer Responsible.");
+      showMsg("error", "Select at least one BID Responsible.");
       return;
     }
 
@@ -558,10 +555,12 @@ export const UnassignedRequestsPage: React.FC = () => {
           Assign Team
         </div>
 
-        {/* Engineer Responsible (Contributors) */}
+        {/* BID Responsible */}
         <div className={styles.assignFieldGroup}>
-          <div className={styles.assignFieldLabel}>
-            🛠️ Engineer Responsible (Contributors)
+          <div className={styles.assignFieldLabel}>🛠️ BID Responsible</div>
+          <div className={styles.assignFieldHint}>
+            Person responsible for leading the BID in Engineering, preparing
+            the requirements and presenting them.
           </div>
 
           {/* Selected chips */}
@@ -573,7 +572,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                 const isLocked = isSelf && selfMember && id === selfMember.id;
                 return (
                   <span key={id} className={styles.assignChip}>
-                    Contributor {idx + 1}: {m.name}
+                    BID Responsible {idx + 1}: {m.name}
                     {isLocked && <span className={styles.selfBadge}>YOU</span>}
                     {!isLocked && (
                       <button
@@ -641,7 +640,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                   color: "var(--text-tertiary)",
                 }}
               >
-                No engineering contributors found.
+                No Engineering team members found.
               </div>
             )}
           </div>

@@ -3,6 +3,7 @@ import { formatDate } from "../../utils/formatters";
 import { IUpcomingDeadline } from "../../utils/bidHelpers";
 import { GlassCard } from "../common/GlassCard";
 import { StatusBadge } from "../common/StatusBadge";
+import { ConfidentialLock } from "../bid/ConfidentialLock";
 import {
   FocusButton,
   LiveFocusOverlay,
@@ -84,7 +85,10 @@ export const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
             {project || client || bid.bidNumber}
           </span>
           <span className={styles.deadlineMeta}>
-            <span className={styles.deadlineBid}>{bid.bidNumber}</span>
+            <span className={styles.deadlineBid}>
+              {bid.bidNumber}
+              <ConfidentialLock bid={bid} />
+            </span>
             {project && client ? ` · ${client}` : ""}
             {` · Due ${formatDate(bid.dueDate, "MMM d")}`}
           </span>

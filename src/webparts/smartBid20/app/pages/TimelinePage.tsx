@@ -1,5 +1,4 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import {
   addDays,
   addMonths,
@@ -16,11 +15,13 @@ import { PhaseBadge } from "../components/common/PhaseBadge";
 import { CountdownTimer } from "../components/common/CountdownTimer";
 import { EmptyState } from "../components/common/EmptyState";
 import { SkeletonLoader } from "../components/common/SkeletonLoader";
+import { ConfidentialLock } from "../components/bid/ConfidentialLock";
 import {
   SegmentedControl,
   SegmentOption,
 } from "../components/insights/SegmentedControl";
 import { useBids } from "../hooks/useBids";
+import { useOpenBid } from "../hooks/useOpenBid";
 import { IBid } from "../models";
 import { formatDate, formatDaysLeft, parseDate } from "../utils/formatters";
 import { getDueFreezeDate, isActiveBid } from "../utils/bidHelpers";
@@ -163,7 +164,7 @@ function layoutBar(
 }
 
 export const TimelinePage: React.FC = () => {
-  const navigate = useNavigate();
+  const { openBid } = useOpenBid();
   const { filteredBids, isLoading } = useBids();
   const [zoom, setZoom] = React.useState<ZoomWeeks>(8);
 
@@ -316,7 +317,7 @@ export const TimelinePage: React.FC = () => {
     )
       .map((e) => e?.name)
       .filter(Boolean);
-    const open = (): void => navigate(`/bid/${bid.bidNumber}`);
+    const open = (): void => openBid(bid.bidNumber);
 
     return (
       <div
@@ -338,6 +339,7 @@ export const TimelinePage: React.FC = () => {
             </span>
             <span className={styles.metaLine}>
               <span className={styles.bidNumber}>{bid.bidNumber}</span>
+              <ConfidentialLock bid={bid} />
               <span className={styles.metaSep} aria-hidden="true">
                 ·
               </span>

@@ -1,5 +1,4 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import {
   MessageSquare,
   Pencil,
@@ -27,6 +26,7 @@ import { ClarificationDbService } from "../services/ClarificationDbService";
 import { ClarificationKnowledgeService } from "../services/ClarificationKnowledgeService";
 import { IClarificationDbItem } from "../models/IClarificationDb";
 import { usePageAccess } from "../hooks/usePageAccess";
+import { useOpenBid } from "../hooks/useOpenBid";
 import {
   ILibraryRow,
   useClarificationLibraryFilter,
@@ -56,7 +56,6 @@ const emptyItem = (): IClarificationDbItem => ({
 });
 
 export const ClarificationsDbPage: React.FC = () => {
-  const navigate = useNavigate();
   const { canEdit: canManage } = usePageAccess();
   const addToast = useUIStore((s) => s.addToast);
 
@@ -157,10 +156,7 @@ export const ClarificationsDbPage: React.FC = () => {
     };
   }, [items]);
 
-  const openBid = React.useCallback(
-    (bidNumber: string) => navigate(`/bid/${encodeURIComponent(bidNumber)}`),
-    [navigate],
-  );
+  const { openBid } = useOpenBid();
 
   const selectedRow =
     selectedId !== null

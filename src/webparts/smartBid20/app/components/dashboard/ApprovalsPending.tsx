@@ -3,6 +3,7 @@ import { Check, X } from "lucide-react";
 import { format } from "date-fns";
 import { GlassCard } from "../common/GlassCard";
 import { EmptyState } from "../common/EmptyState";
+import { ConfidentialLock } from "../bid/ConfidentialLock";
 import {
   IApprovalPerson,
   IPendingApprovalRow,
@@ -105,7 +106,10 @@ export const ApprovalsPending: React.FC<ApprovalsPendingProps> = ({
           </span>
         </div>
         <div className={styles.meta}>
-          <span className={styles.bidNumber}>{r.bid.bidNumber}</span>
+          <span className={styles.bidNumber}>
+            {r.bid.bidNumber}
+            <ConfidentialLock bid={r.bid} />
+          </span>
           {project && client ? ` · ${client}` : ""}
           {` · Round ${r.round}`}
           {expanded && r.startedDate

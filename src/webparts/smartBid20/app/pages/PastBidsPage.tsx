@@ -1,5 +1,4 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import { History, Search, X } from "lucide-react";
 import { PageHeader } from "../components/common/PageHeader";
 import { DataTable } from "../components/common/DataTable";
@@ -15,8 +14,10 @@ import {
 import { PastBidDrawer } from "../components/knowledge/PastBidDrawer";
 import { PastBidProfileModal } from "../components/knowledge/PastBidProfileModal";
 import { BidFavoriteButton } from "../components/bid/BidFavoriteButton";
+import { ConfidentialLock } from "../components/bid/ConfidentialLock";
 import { useBidStore } from "../stores/useBidStore";
 import { usePageAccess } from "../hooks/usePageAccess";
+import { useOpenBid } from "../hooks/useOpenBid";
 import {
   usePastBidPublisher,
   usePastBidScopeCategories,
@@ -78,7 +79,6 @@ const FACET_VALUES: Record<
 const MAX_TABLE_TAGS = 3;
 
 export const PastBidsPage: React.FC = () => {
-  const navigate = useNavigate();
   const bids = useBidStore((s) => s.bids);
   const { canEdit: canManage } = usePageAccess();
   const publish = usePastBidPublisher();
@@ -174,10 +174,7 @@ export const PastBidsPage: React.FC = () => {
     ? completed.find((b) => b.bidNumber === editingNumber)
     : undefined;
 
-  const openBid = React.useCallback(
-    (bidNumber: string) => navigate(`/bid/${encodeURIComponent(bidNumber)}`),
-    [navigate],
-  );
+  const { openBid } = useOpenBid();
 
   const handlePublish = async (bid: IBid): Promise<void> => {
     setBusyNumber(bid.bidNumber);
@@ -220,6 +217,7 @@ export const PastBidsPage: React.FC = () => {
           title="Open BID Details"
         >
           {r.bidNumber}
+          <ConfidentialLock bid={r.bid} />
         </button>
       ),
     },

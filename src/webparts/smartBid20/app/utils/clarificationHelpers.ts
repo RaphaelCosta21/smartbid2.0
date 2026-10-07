@@ -34,6 +34,25 @@ export function activeConfigOptions(list?: IConfigOption[]): IConfigOption[] {
     );
 }
 
+/** Category list configured for the given entry type (Clarification or Qualification). */
+export function categoryListFor(
+  config: ISystemConfig | null | undefined,
+  baseType?: string,
+): IConfigOption[] | undefined {
+  return baseType === "Qualification"
+    ? config?.qualificationCategories
+    : config?.clarificationCategories;
+}
+
+/** Clarification + Qualification categories, for label lookups across both types. */
+export function allCategoryOptions(
+  config: ISystemConfig | null | undefined,
+): IConfigOption[] {
+  return (config?.clarificationCategories || []).concat(
+    config?.qualificationCategories || [],
+  );
+}
+
 export function configOptionLabel(
   list: IConfigOption[] | undefined,
   value: string,

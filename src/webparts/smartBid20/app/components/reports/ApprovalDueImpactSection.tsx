@@ -1,5 +1,4 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import {
   BarChart,
   Bar,
@@ -22,6 +21,8 @@ import { EmptyState } from "../common/EmptyState";
 import { DataTable } from "../common/DataTable";
 import { ChartTooltip } from "../charts/ChartTooltip";
 import { useChartTheme } from "../../hooks/useChartTheme";
+import { useOpenBid } from "../../hooks/useOpenBid";
+import { ConfidentialLock } from "../bid/ConfidentialLock";
 import {
   ApprovalDueCategory,
   PendingApprovalDueRisk,
@@ -55,7 +56,7 @@ export const ApprovalDueImpactSection: React.FC<
   ApprovalDueImpactSectionProps
 > = ({ bids }) => {
   const chart = useChartTheme();
-  const navigate = useNavigate();
+  const { openBid } = useOpenBid();
 
   const summary = React.useMemo(() => summarizeApprovalDueImpact(bids), [bids]);
   const impacts = summary.impacts;
@@ -145,7 +146,10 @@ export const ApprovalDueImpactSection: React.FC<
       key: "bidNumber",
       header: "BID",
       render: (r: LateRow) => (
-        <span className={styles.bidNumber}>{r.bidNumber}</span>
+        <span className={styles.bidNumber}>
+          {r.bidNumber}
+          <ConfidentialLock bidNumber={r.bidNumber} />
+        </span>
       ),
     },
     { key: "client", header: "Client" },
@@ -370,9 +374,7 @@ export const ApprovalDueImpactSection: React.FC<
           <DataTable<LateRow>
             data={lateRows}
             columns={columns}
-            onRowClick={(r) =>
-              navigate(`/bid/${encodeURIComponent(r.bidNumber)}`)
-            }
+            onRowClick={(r) => openBid(r.bidNumber)}
             emptyMessage="No BIDs closed late due to approval"
           />
         </div>

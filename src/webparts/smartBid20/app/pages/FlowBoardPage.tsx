@@ -1,8 +1,9 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../components/common/PageHeader";
 import { StatusBadge } from "../components/common/StatusBadge";
+import { ConfidentialLock } from "../components/bid/ConfidentialLock";
 import { useBids } from "../hooks/useBids";
+import { useOpenBid } from "../hooks/useOpenBid";
 import { getDueFreezeDate, isActiveBid } from "../utils/bidHelpers";
 import { useConfigStore } from "../stores/useConfigStore";
 import { getActiveStatuses, getDivisionColor } from "../utils/statusHelpers";
@@ -11,7 +12,7 @@ import { resolveSemanticColor } from "../hooks/useColorTheme";
 import styles from "./FlowBoardPage.module.scss";
 
 export const FlowBoardPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { openBid } = useOpenBid();
   const { bids } = useBids();
   const config = useConfigStore((s) => s.config);
   const activeBids = React.useMemo(() => bids.filter(isActiveBid), [bids]);
@@ -97,7 +98,7 @@ export const FlowBoardPage: React.FC = () => {
                 return (
                   <div
                     key={bid.bidNumber}
-                    onClick={() => navigate(`/bid/${bid.bidNumber}`)}
+                    onClick={() => openBid(bid.bidNumber)}
                     className={styles.card}
                     style={{
                       borderLeft: `3px solid ${getDivisionColor(bid.division)}`,
@@ -106,6 +107,7 @@ export const FlowBoardPage: React.FC = () => {
                     <div className={styles.cardHeader}>
                       <span className={styles.cardBidNumber}>
                         {bid.bidNumber}
+                        <ConfidentialLock bid={bid} />
                       </span>
                       <StatusBadge status={bid.priority} />
                     </div>

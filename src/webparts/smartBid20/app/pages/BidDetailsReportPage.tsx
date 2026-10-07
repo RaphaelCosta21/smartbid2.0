@@ -1,5 +1,4 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import {
   PieChart,
   Pie,
@@ -24,6 +23,8 @@ import { ChartTooltip } from "../components/charts/ChartTooltip";
 import { ExportBar } from "../components/reports/ExportBar";
 import { useChartTheme } from "../hooks/useChartTheme";
 import { useBids } from "../hooks/useBids";
+import { useOpenBid } from "../hooks/useOpenBid";
+import { isBidConfidential } from "../utils/bidConfidentiality";
 import {
   computeBidSectorDurations,
   computeApprovalCycleTime,
@@ -39,7 +40,6 @@ import { captureElementToPng, buildReportPdf } from "../utils/pdfExport";
 import { ExportService } from "../services/ExportService";
 import { bidsToCSV, downloadCSV } from "../utils/exportHelpers";
 import { IBid, IScopeItem, ICostSummary } from "../models";
-import { ROUTES } from "../config/routes.config";
 import styles from "./BidDetailsReportPage.module.scss";
 
 const CHART_SECTIONS: { key: string; title: string }[] = [
@@ -50,7 +50,7 @@ const CHART_SECTIONS: { key: string; title: string }[] = [
 
 export const BidDetailsReportPage: React.FC = () => {
   const { bids } = useBids();
-  const navigate = useNavigate();
+  const { openBid, canOpen } = useOpenBid();
   const chart = useChartTheme();
   const [busy, setBusy] = React.useState(false);
   const [search, setSearch] = React.useState("");
@@ -63,16 +63,17 @@ export const BidDetailsReportPage: React.FC = () => {
       chartEls.current[k] = el;
     };
 
+  // This report shows BID content, so confidential BIDs follow the BID Details gate.
   const sortedBids = React.useMemo(
     () =>
       bids
-        .slice()
+        .filter((b) => canOpen(b))
         .sort(
           (a, b) =>
             new Date(b.createdDate || 0).getTime() -
             new Date(a.createdDate || 0).getTime(),
         ),
-    [bids],
+    [bids, canOpen],
   );
 
   const filteredOptions = React.useMemo(() => {
@@ -97,8 +98,8 @@ export const BidDetailsReportPage: React.FC = () => {
   }, [sortedBids, selected]);
 
   const bid: IBid | undefined = React.useMemo(
-    () => bids.find((b) => b.bidNumber === selected),
-    [bids, selected],
+    () => sortedBids.find((b) => b.bidNumber === selected),
+    [sortedBids, selected],
   );
 
   const cs = (bid?.costSummary || {}) as ICostSummary;
@@ -331,6 +332,7 @@ export const BidDetailsReportPage: React.FC = () => {
           )}
           {filteredOptions.map((b) => (
             <option key={b.bidNumber} value={b.bidNumber}>
+              {isBidConfidential(b) ? "🔒 " : ""}
               {b.bidNumber} - {b.opportunityInfo?.client || "?"} -{" "}
               {b.opportunityInfo?.projectName || "?"}
             </option>
@@ -597,9 +599,7 @@ export const BidDetailsReportPage: React.FC = () => {
             <button
               type="button"
               className={styles.openBtn}
-              onClick={() =>
-                navigate(ROUTES.bidDetail.replace(":id", bid.bidNumber))
-              }
+              onClick={() => openBid(bid.bidNumber)}
             >
               Open Full BID →
             </button>

@@ -15,6 +15,7 @@ import { useUIStore } from "../../stores/useUIStore";
 import { useDashboardSync } from "../../hooks/useDashboardSync";
 import { LiveUpdates, useLiveOverview } from "../../hooks/useLiveOverview";
 import { useAccessLevel } from "../../hooks/useAccessLevel";
+import { useOpenBid } from "../../hooks/useOpenBid";
 import { IErnLinkRow } from "../../utils/ernHelpers";
 import { IPendingApprovalRow } from "../../utils/approvalHelpers";
 import { IUpcomingDeadline } from "../../utils/bidHelpers";
@@ -92,6 +93,7 @@ function diffSignature(
 
 export const LivePulse: React.FC = () => {
   const navigate = useNavigate();
+  const { openBid } = useOpenBid();
   const location = useLocation();
   const currentUser = useAuthStore((s) => s.currentUser);
   const allBids = useBidStore((s) => s.bids);
@@ -310,7 +312,7 @@ export const LivePulse: React.FC = () => {
                   navigate(ROUTES.dashboard);
                   closePanel();
                 }}
-                onOpenBid={(bidNumber) => navigate(`/bid/${bidNumber}`)}
+                onOpenBid={openBid}
                 onDashboard={onDashboard}
               />
             </div>

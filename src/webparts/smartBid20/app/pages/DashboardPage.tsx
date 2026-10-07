@@ -1,5 +1,4 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import { Activity, BarChart3, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { useBidStore } from "../stores/useBidStore";
@@ -13,6 +12,7 @@ import { useDashboardFilters } from "../hooks/useDashboardFilters";
 import { useLiveOverview } from "../hooks/useLiveOverview";
 import { useSlidingIndicator } from "../hooks/useSlidingIndicator";
 import { useResultStatus } from "../hooks/useResultStatus";
+import { useOpenBid } from "../hooks/useOpenBid";
 import { resolveSemanticColor } from "../hooks/useColorTheme";
 import { PageHeader } from "../components/common/PageHeader";
 import { SkeletonLoader } from "../components/common/SkeletonLoader";
@@ -63,7 +63,7 @@ const VIEW_OPTIONS: {
 ];
 
 export const DashboardPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { openBid } = useOpenBid();
   const bids = useBidStore((s) => s.bids);
   const erns = useErnStore((s) => s.erns);
   const config = useConfigStore((s) => s.config);
@@ -77,11 +77,6 @@ export const DashboardPage: React.FC = () => {
   const live = useLiveOverview(scopeBids);
   const kpis = useKPIs(analyticsBids);
   const { targets, priorityRules } = useKpiTargets();
-
-  const openBid = React.useCallback(
-    (bidNumber: string) => navigate(`/bid/${bidNumber}`),
-    [navigate],
-  );
 
   // History base for win chances: every decided BID, not just the filtered ones
   const winIndex = React.useMemo(() => buildWinRateIndex(bids), [bids]);

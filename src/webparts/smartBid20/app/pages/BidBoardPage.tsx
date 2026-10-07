@@ -1,11 +1,12 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import { useBids } from "../hooks/useBids";
+import { useOpenBid } from "../hooks/useOpenBid";
 import { getDueFreezeDate, isActiveBid } from "../utils/bidHelpers";
 import { getDivisionColor } from "../utils/statusHelpers";
 import { useConfigStore } from "../stores/useConfigStore";
 import { PageHeader } from "../components/common/PageHeader";
 import { StatusBadge } from "../components/common/StatusBadge";
+import { ConfidentialLock } from "../components/bid/ConfidentialLock";
 import { IBid } from "../models";
 import { getPhaseLabel } from "../config/phases.config";
 import { getSubStatusDef } from "../config/status.config";
@@ -13,7 +14,7 @@ import { formatDate, formatDaysLeft } from "../utils/formatters";
 import styles from "./BidBoardPage.module.scss";
 
 export const BidBoardPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { openBid } = useOpenBid();
   const { bids } = useBids();
   const config = useConfigStore((s) => s.config);
 
@@ -38,7 +39,7 @@ export const BidBoardPage: React.FC = () => {
   }, [config, activeBids]);
 
   const handleBidClick = (bid: IBid): void => {
-    navigate(`/bid/${bid.bidNumber}`);
+    openBid(bid.bidNumber);
   };
 
   return (
@@ -114,7 +115,10 @@ export const BidBoardPage: React.FC = () => {
                   >
                     {/* Top: BID # + Priority */}
                     <div className={styles.cardTop}>
-                      <span className={styles.bidNumber}>{bid.bidNumber}</span>
+                      <span className={styles.bidNumber}>
+                        {bid.bidNumber}
+                        <ConfidentialLock bid={bid} />
+                      </span>
                       <StatusBadge status={bid.priority} />
                     </div>
 

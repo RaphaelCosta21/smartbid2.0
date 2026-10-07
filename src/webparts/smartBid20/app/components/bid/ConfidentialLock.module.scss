@@ -1,0 +1,27 @@
+.lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 4px;
+  vertical-align: middle;
+  line-height: 1;
+  color: var(--text-secondary);
+}
+
+.restricted {
+  color: var(--warning);
+}
+
+.withLabel {
+  margin-left: 0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+}

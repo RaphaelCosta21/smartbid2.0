@@ -3,6 +3,7 @@ import { Star } from "lucide-react";
 import { IBid } from "../../models";
 import { StatusBadge } from "../common/StatusBadge";
 import { BidFavoriteButton } from "../bid/BidFavoriteButton";
+import { ConfidentialLock } from "../bid/ConfidentialLock";
 import { useStatusColors } from "../../hooks/useStatusColors";
 import { formatDate, formatNumber } from "../../utils/formatters";
 import { IPastBidRow } from "../../utils/pastBidHelpers";
@@ -59,7 +60,10 @@ export const PastBidCard: React.FC<PastBidCardProps> = ({
       }}
     >
       <div className={styles.header}>
-        <span className={styles.bidNumber}>{row.bidNumber}</span>
+        <span className={styles.bidNumber}>
+          {row.bidNumber}
+          <ConfidentialLock bid={bid} />
+        </span>
         {bid.crmNumber && (
           <span className={styles.crm}>CRM {bid.crmNumber}</span>
         )}

@@ -5,6 +5,7 @@ import { ROUTES } from "../../config/routes.config";
 import { useSurveyStore } from "../../stores/useSurveyStore";
 import { useBidStore } from "../../stores/useBidStore";
 import { useAccessLevel } from "../../hooks/useAccessLevel";
+import { useOpenBid } from "../../hooks/useOpenBid";
 import { useUIStore } from "../../stores/useUIStore";
 import { BidService } from "../../services/BidService";
 import { buildScopeItemsFromPackage } from "../../utils/surveyPackage";
@@ -35,6 +36,7 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
   const refreshBids = useBidStore((s) => s.refreshBids);
   const { getBidTabLevel } = useAccessLevel();
   const addToast = useUIStore((s) => s.addToast);
+  const { openBid, canOpen } = useOpenBid();
 
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -48,7 +50,9 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
     ? bids.find((b) => b.bidNumber === bidNumber)
     : undefined;
   const linkedOpen =
-    !!linkedBid && CLOSED_STATUSES.indexOf(linkedBid.currentStatus) < 0;
+    !!linkedBid &&
+    CLOSED_STATUSES.indexOf(linkedBid.currentStatus) < 0 &&
+    canOpen(linkedBid);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -62,6 +66,7 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
     const q = query.trim().toLowerCase();
     return bids
       .filter((b) => CLOSED_STATUSES.indexOf(b.currentStatus) < 0)
+      .filter((b) => canOpen(b))
       .filter(
         (b) =>
           !q ||
@@ -71,7 +76,7 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
           (b.opportunityInfo?.projectName || "").toLowerCase().includes(q),
       )
       .slice(0, 30);
-  }, [bids, query]);
+  }, [bids, query, canOpen]);
 
   const handleNewRequest = (): void => {
     startRequest();
@@ -102,7 +107,7 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
       });
       clearPackage();
       onClose();
-      navigate(`/bid/${target.bidNumber}`);
+      openBid(target.bidNumber);
     } catch (err) {
       console.error("Failed to add survey package to BID:", err);
       addToast({

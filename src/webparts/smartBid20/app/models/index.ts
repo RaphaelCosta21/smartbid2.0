@@ -67,6 +67,7 @@ export {
   type IBidKnowledgeProfile,
   type IBidKnowledgeDoc,
   type IBidTechnicalProposal,
+  type IBidConfidentiality,
   type IBidRevision,
   type IRevisionChange,
   type IAssetSubCost,

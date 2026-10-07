@@ -16,6 +16,7 @@ import { formatDate } from "../../utils/formatters";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import { GlassCard } from "../common/GlassCard";
 import { EmptyState } from "../common/EmptyState";
+import { ConfidentialLock } from "../bid/ConfidentialLock";
 import { SegmentedControl, SegmentOption } from "../insights/SegmentedControl";
 import {
   FocusButton,
@@ -194,7 +195,10 @@ export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
           <div className={styles.projectCol}>
             <span className={styles.project}>{project}</span>
             <span className={styles.meta}>
-              <span className={styles.bidNumber}>{bid.bidNumber}</span>
+              <span className={styles.bidNumber}>
+                {bid.bidNumber}
+                <ConfidentialLock bid={bid} />
+              </span>
               {meta.length > 0 ? ` · ${meta.join(" · ")}` : ""}
             </span>
           </div>

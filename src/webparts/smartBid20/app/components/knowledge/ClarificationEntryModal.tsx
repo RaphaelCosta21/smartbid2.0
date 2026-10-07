@@ -9,6 +9,7 @@ import { useConfigStore } from "../../stores/useConfigStore";
 import { SegmentedControl } from "../insights/SegmentedControl";
 import {
   activeConfigOptions,
+  categoryListFor,
   serviceLinesForDivision,
 } from "../../utils/clarificationHelpers";
 import styles from "./ClarificationEntryModal.module.scss";
@@ -47,7 +48,7 @@ export const ClarificationEntryModal: React.FC<
     setForm((prev) => ({ ...prev, ...p }));
 
   const categories = withCurrent(
-    activeConfigOptions(config?.clarificationCategories),
+    activeConfigOptions(categoryListFor(config, form.baseType)),
     form.category,
   );
   const clients = withCurrent(
@@ -153,7 +154,8 @@ export const ClarificationEntryModal: React.FC<
               </select>
               {categories.length === 0 && (
                 <span className={styles.hint}>
-                  Add categories in System Configuration - Clarif. Categories.
+                  Add categories in System Configuration - Clarif. & Qualif.
+                  Categories.
                 </span>
               )}
             </div>

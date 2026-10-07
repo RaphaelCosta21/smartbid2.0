@@ -143,9 +143,8 @@ const NAV_GROUPS: INavGroup[] = [
       },
       {
         key: "clarificationCategories",
-        label: "Clarif. Categories",
+        label: "Clarif. & Qualif. Categories",
         icon: "💬",
-        configKey: "clarificationCategories",
       },
     ],
   },
@@ -568,6 +567,40 @@ const SystemConfiguration: React.FC = () => {
 
   /* ---- generic list CRUD ---------------------------------------- */
 
+  // Built-in results / loss reasons referenced by BIDs and reports: color-only edits.
+  const PROTECTED_OPTION_VALUES: Partial<Record<keyof ISystemConfig, string[]>> =
+    {
+      bidResultOptions: ["Won", "Loss", "Client Canceled", "No Bid", "Pending"],
+      lossReasons: [
+        "Price higher than competitor",
+        "Technical non-compliance",
+        "Late submission",
+        "Client scope change",
+        "Client budget constraint",
+        "Competitor relationship",
+      ],
+      divisions: ["OPG", "SSR"],
+      serviceLines: [
+        "IMR",
+        "UWILD",
+        "Controls",
+        "Decommissioning",
+        "Installation",
+        "Engineer Solutions",
+        "ROV",
+        "Survey",
+        "Integrated",
+      ],
+    };
+  const isProtectedOption = (
+    configKey: keyof ISystemConfig | null,
+    item: IConfigOption | null,
+  ): boolean => {
+    if (!configKey || !item) return false;
+    const values = PROTECTED_OPTION_VALUES[configKey];
+    return !!values && values.indexOf(item.value) >= 0;
+  };
+
   const handleOptionToggle = (
     configKey: keyof ISystemConfig,
     optionId: string,
@@ -586,6 +619,8 @@ const SystemConfiguration: React.FC = () => {
   ): void => {
     if (!config || !canEdit) return;
     const list = (config[configKey] as IConfigOption[] | undefined) || [];
+    const target = list.find((o) => o.id === optionId) || null;
+    if (isProtectedOption(configKey, target)) return;
     updateConfig({ [configKey]: list.filter((o) => o.id !== optionId) });
   };
 
@@ -624,11 +659,17 @@ const SystemConfiguration: React.FC = () => {
     const key = panelConfigKey;
     const list = (config[key] as IConfigOption[] | undefined) || [];
     const isColorOnly =
-      key === "phases" || key === "subStatuses" || key === "terminalStatuses";
+      key === "phases" ||
+      key === "subStatuses" ||
+      key === "terminalStatuses" ||
+      isProtectedOption(key, editItem);
 
     // For phases we only allow color edits; for subStatuses allow color + phase applicability
     if (isColorOnly && editItem) {
       const patch: Partial<IConfigOption> = { color: panelForm.color };
+      if (key === "divisions" || key === "serviceLines") {
+        patch.projectNumber = panelForm.projectNumber || undefined;
+      }
       if (key === "subStatuses") {
         // Enforce locked phase-status pairs
         const LOCKED_PHASE_MAP: Record<string, string[]> = {
@@ -1468,14 +1509,26 @@ const SystemConfiguration: React.FC = () => {
                   <span className={styles.divisionName}>{div.label}</span>
                   {div.projectNumber ? (
                     <span className={styles.projectNumberTag}>
-                      PN: {String(div.projectNumber)}
+                      ERN Number: {String(div.projectNumber)}
                     </span>
                   ) : null}
                   {!div.isActive && (
                     <span className={styles.inactiveTag}>Inactive</span>
                   )}
                 </div>
-                {canEdit && (
+                {canEdit && isProtectedOption("divisions", div) && (
+                  <div className={styles.optionActions}>
+                    <button
+                      className={styles.actionBtn}
+                      onClick={() => openEditPanel("divisions", div)}
+                      title="Built-in division: only the color and ERN Number can be changed"
+                    >
+                      Edit
+                    </button>
+                    <span className={styles.protectedTag}>🔒 Protected</span>
+                  </div>
+                )}
+                {canEdit && !isProtectedOption("divisions", div) && (
                   <div className={styles.optionActions}>
                     <button
                       className={styles.actionBtn}
@@ -1531,14 +1584,28 @@ const SystemConfiguration: React.FC = () => {
                       <span className={styles.optionLabel}>{opt.label}</span>
                       {opt.projectNumber ? (
                         <span className={styles.projectNumberTag}>
-                          PN: {String(opt.projectNumber)}
+                          ERN Number: {String(opt.projectNumber)}
                         </span>
                       ) : null}
                       {!opt.isActive && (
                         <span className={styles.inactiveTag}>Inactive</span>
                       )}
                     </div>
-                    {canEdit && (
+                    {canEdit && isProtectedOption("serviceLines", opt) && (
+                      <div className={styles.optionActions}>
+                        <button
+                          className={styles.actionBtn}
+                          onClick={() => openEditPanel("serviceLines", opt)}
+                          title="Built-in service line: only the color and ERN Number can be changed"
+                        >
+                          Edit
+                        </button>
+                        <span className={styles.protectedTag}>
+                          🔒 Protected
+                        </span>
+                      </div>
+                    )}
+                    {canEdit && !isProtectedOption("serviceLines", opt) && (
                       <div className={styles.optionActions}>
                         <button
                           className={styles.actionBtn}
@@ -1828,7 +1895,19 @@ const SystemConfiguration: React.FC = () => {
                     <span className={styles.inactiveTag}>Inactive</span>
                   )}
                 </div>
-                {canEdit && (
+                {canEdit && isProtectedOption("bidResultOptions", opt) && (
+                  <div className={styles.optionActions}>
+                    <button
+                      className={styles.actionBtn}
+                      onClick={() => openEditPanel("bidResultOptions", opt)}
+                      title="Built-in result: only the color can be changed"
+                    >
+                      Edit Color
+                    </button>
+                    <span className={styles.protectedTag}>🔒 Protected</span>
+                  </div>
+                )}
+                {canEdit && !isProtectedOption("bidResultOptions", opt) && (
                   <div className={styles.optionActions}>
                     <button
                       className={styles.actionBtn}
@@ -1883,7 +1962,12 @@ const SystemConfiguration: React.FC = () => {
                     <span className={styles.inactiveTag}>Inactive</span>
                   )}
                 </div>
-                {canEdit && (
+                {canEdit && isProtectedOption("lossReasons", opt) && (
+                  <div className={styles.optionActions}>
+                    <span className={styles.protectedTag}>🔒 Protected</span>
+                  </div>
+                )}
+                {canEdit && !isProtectedOption("lossReasons", opt) && (
                   <div className={styles.optionActions}>
                     <button
                       className={styles.actionBtn}
@@ -3725,6 +3809,20 @@ const SystemConfiguration: React.FC = () => {
         return renderGroupsAndSubGroups();
       case "engineerDeliverables":
         return renderEngineerDeliverables();
+      case "clarificationCategories":
+        return (
+          <div>
+            {renderOptionsList(
+              "clarificationCategories",
+              "Clarification Categories",
+            )}
+            <div className={styles.optionsListSpacer} />
+            {renderOptionsList(
+              "qualificationCategories",
+              "Qualification Categories",
+            )}
+          </div>
+        );
       default: {
         if (currentNavItem?.configKey) {
           return renderOptionsList(currentNavItem.configKey);
@@ -3786,6 +3884,7 @@ const SystemConfiguration: React.FC = () => {
           {/* Sidebar */}
           <CollapsibleSidebar
             label="Configuration sections"
+            className={navigationCollapsed ? undefined : styles.sidebarShell}
             collapsed={navigationCollapsed}
             onToggle={() => setNavigationCollapsed((collapsed) => !collapsed)}
             sticky
@@ -3881,7 +3980,8 @@ const SystemConfiguration: React.FC = () => {
             <div className={styles.panelBody}>
               {((panelConfigKey !== "phases" &&
                 panelConfigKey !== "subStatuses" &&
-                panelConfigKey !== "terminalStatuses") ||
+                panelConfigKey !== "terminalStatuses" &&
+                !isProtectedOption(panelConfigKey, editItem)) ||
                 (panelConfigKey === "subStatuses" && !editItem)) && (
                 <div className={styles.fieldGroup}>
                   <label>Label</label>
@@ -3900,7 +4000,8 @@ const SystemConfiguration: React.FC = () => {
               )}
               {(panelConfigKey === "phases" ||
                 panelConfigKey === "subStatuses" ||
-                panelConfigKey === "terminalStatuses") &&
+                panelConfigKey === "terminalStatuses" ||
+                isProtectedOption(panelConfigKey, editItem)) &&
                 editItem && (
                   <div className={styles.fieldGroup}>
                     <label>Item</label>
@@ -3954,7 +4055,9 @@ const SystemConfiguration: React.FC = () => {
                   </select>
                 </div>
               )}
-              {panelConfigKey === "serviceLines" && config && (
+              {panelConfigKey === "serviceLines" &&
+                config &&
+                !isProtectedOption(panelConfigKey, editItem) && (
                 <div className={styles.fieldGroup}>
                   <label>Division</label>
                   <select

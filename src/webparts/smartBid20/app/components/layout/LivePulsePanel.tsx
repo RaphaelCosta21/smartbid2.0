@@ -33,6 +33,7 @@ import { getPhaseDef } from "../../config/status.config";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import { SegmentedControl, SegmentOption } from "../insights/SegmentedControl";
 import { StatusBadge } from "../common/StatusBadge";
+import { ConfidentialLock } from "../bid/ConfidentialLock";
 import { prefersReducedMotion } from "../dashboard/LiveFocusOverlay";
 import styles from "./LivePulsePanel.module.scss";
 
@@ -303,8 +304,9 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
               </span>
             </span>
             <span className={styles.rowMeta}>
-              {r.bid.bidNumber} · {r.approved}/{r.total} approved ·{" "}
-              {r.waiting.length} waiting
+              {r.bid.bidNumber}
+              <ConfidentialLock bid={r.bid} size={11} />
+              {` · ${r.approved}/${r.total} approved · ${r.waiting.length} waiting`}
             </span>
           </span>
           <span className={styles.pill}>
@@ -347,6 +349,7 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
             </span>
             <span className={styles.rowMeta}>
               {r.bid.bidNumber}
+              <ConfidentialLock bid={r.bid} size={11} />
               {project && client ? ` · ${client}` : ""}
               {` · Due ${formatDate(r.bid.dueDate, "MMM d")}`}
             </span>
@@ -373,7 +376,9 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
       className={styles.primaryBtn}
       onClick={() => onOpenBid(bidNumber)}
     >
-      Open {bidNumber} <ArrowUpRight size={14} />
+      Open {bidNumber}
+      <ConfidentialLock bidNumber={bidNumber} />
+      <ArrowUpRight size={14} />
     </button>
   );
 

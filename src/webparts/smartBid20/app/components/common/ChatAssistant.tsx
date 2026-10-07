@@ -12,6 +12,8 @@ import { useChatStore } from "../../stores/useChatStore";
 import { useBidStore } from "../../stores/useBidStore";
 import { useIsGuest } from "../../hooks/useCurrentUser";
 import { useResponsive } from "../../hooks/useResponsive";
+import { useOpenBid } from "../../hooks/useOpenBid";
+import { ConfidentialLock } from "../bid/ConfidentialLock";
 import { AI_CONFIG, isAiConfigured } from "../../config/ai.config";
 import { IChatMessage } from "../../models/IAiChat";
 import styles from "./ChatAssistant.module.scss";
@@ -33,6 +35,7 @@ const ChatBubble: React.FC<IBubbleProps> = ({ message, onFollowUp }) => {
   const followUps = message.followUps || [];
   const retrieved = message.retrieved || [];
   const bids = useBidStore((s) => s.bids);
+  const { openBid } = useOpenBid();
 
   // Past Bid documents are resolved through the store, never from model-written fields.
   const pastBidByPath = React.useMemo(() => {
@@ -82,6 +85,14 @@ const ChatBubble: React.FC<IBubbleProps> = ({ message, onFollowUp }) => {
                   }
                   target={pastBid ? undefined : "_blank"}
                   rel={pastBid ? undefined : "noopener noreferrer"}
+                  onClick={
+                    pastBid
+                      ? (e) => {
+                          e.preventDefault();
+                          openBid(pastBid);
+                        }
+                      : undefined
+                  }
                   title={
                     pastBid
                       ? `Open BID ${pastBid}`
@@ -90,6 +101,7 @@ const ChatBubble: React.FC<IBubbleProps> = ({ message, onFollowUp }) => {
                 >
                   <FileText size={13} className={styles.citationIcon} />
                   <span className={styles.citationTitle}>{c.title}</span>
+                  {pastBid && <ConfidentialLock bidNumber={pastBid} />}
                   {meta && (
                     <span className={styles.citationDetail}>{meta}</span>
                   )}

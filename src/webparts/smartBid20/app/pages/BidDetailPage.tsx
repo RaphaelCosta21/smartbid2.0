@@ -18,6 +18,8 @@ import { BidActivityLog } from "../components/bid/BidActivityLog";
 import { BidExportTab } from "../components/bid/BidExportTab";
 import { BidTimeline } from "../components/bid/BidTimeline";
 import { BidFavoriteButton } from "../components/bid/BidFavoriteButton";
+import { BidConfidentialButton } from "../components/bid/BidConfidentialButton";
+import { ConfidentialLock } from "../components/bid/ConfidentialLock";
 import { OverviewTab } from "../components/bid/OverviewTab";
 import { DocumentsTab } from "../components/bid/DocumentsTab";
 import { NotesTab } from "../components/bid/NotesTab";
@@ -70,6 +72,10 @@ import { isTerminalStatus } from "../utils/statusHelpers";
 import { getErnLinks } from "../utils/ernHelpers";
 import { makeId } from "../utils/idGenerator";
 import { getBidFx, withCostSummary } from "../utils/costCalculations";
+import {
+  canOpenBid,
+  getConfidentialManagers,
+} from "../utils/bidConfidentiality";
 import { useAccessLevel } from "../hooks/useAccessLevel";
 import {
   canEditLevel,
@@ -86,6 +92,7 @@ import { mapSuggestedClarification } from "../utils/aiClarificationMapper";
 import { BID_TAB_GROUPS, BidTab } from "../config/bidTabs.config";
 import { ViewOnlyBanner } from "../components/common/RequirePageAccess";
 import { EmptyState } from "../components/common/EmptyState";
+import { SkeletonLoader } from "../components/common/SkeletonLoader";
 import styles from "./BidDetailPage.module.scss";
 
 // Tabs with edit actions; read-only tabs (costs, timeline, activity, export) need no banner.
@@ -437,12 +444,15 @@ export const BidDetailPage: React.FC = () => {
   );
 
   const bid = bids.find((b) => b.bidNumber === id);
-  useApprovalSync(id, bid?.approvalStatus === "pending");
+  const authResolved = useAuthStore((s) => s.isResolved);
+  // Confidential BIDs: extra gate on top of the access matrix.
+  const hasBidAccess = !!bid && canOpenBid(bid, currentUser.email);
+  useApprovalSync(id, bid?.approvalStatus === "pending" && hasBidAccess);
 
   // The Teams approval flow writes decisions and completion straight into the BID
   // JSON; editors persist the matching activity/history entries (each tried once).
   const reconciledKeys = React.useRef<Record<string, boolean>>({});
-  const canReconcileApproval = canEditTab("tasks");
+  const canReconcileApproval = canEditTab("tasks") && hasBidAccess;
   React.useEffect(() => {
     if (!bid || !canReconcileApproval) return;
     // A child effect may have saved in this same commit; build on the store copy.
@@ -471,7 +481,7 @@ export const BidDetailPage: React.FC = () => {
 
   // Covers every path to Completed (approval auto-complete/override, revision close, Teams flow).
   const syncAttemptRef = React.useRef("");
-  const canSyncLibrary = canEditTab("qualifications");
+  const canSyncLibrary = canEditTab("qualifications") && hasBidAccess;
   React.useEffect(() => {
     if (!bid || !canSyncLibrary || !needsClarificationLibrarySync(bid)) return;
     const key = `${bid.bidNumber}|${bid.completedDate}`;
@@ -487,6 +497,38 @@ export const BidDetailPage: React.FC = () => {
           <h2>BID Not Found</h2>
           <p>The BID &ldquo;{id}&rdquo; could not be found.</p>
           <button onClick={() => navigate("/")}>Back to Dashboard</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasBidAccess) {
+    if (!authResolved) {
+      return (
+        <div className={styles.bidDetail}>
+          <SkeletonLoader height={120} borderRadius={16} />
+          <SkeletonLoader height={18} count={6} />
+        </div>
+      );
+    }
+    const managerNames = getConfidentialManagers(bid)
+      .map((p) => p.name || p.email)
+      .join(", ");
+    return (
+      <div className={styles.bidDetail}>
+        <div className={styles.confidentialDenied}>
+          <EmptyState
+            variant="glass"
+            icon={
+              <span className={styles.confidentialIcon}>
+                <Lock size={28} />
+              </span>
+            }
+            title="This BID is confidential"
+            description={`Only people granted access by the BID Responsible can open BID ${bid.bidNumber}.${managerNames ? ` Ask ${managerNames} for access.` : ""}`}
+            actionLabel="Go to BID Tracker"
+            onAction={() => navigate("/")}
+          />
         </div>
       </div>
     );
@@ -679,6 +721,7 @@ export const BidDetailPage: React.FC = () => {
         <div className={styles.bidHeaderLeft}>
           <div className={styles.bidHeaderTitle}>
             <span className={styles.bidNumber}>{bid.bidNumber}</span>
+            <ConfidentialLock bid={bid} showLabel />
             <span className={styles.headerSep}>-</span>
             <span>{bid.opportunityInfo?.client || "-"}</span>
             <span className={styles.headerSep}>-</span>
@@ -748,6 +791,12 @@ export const BidDetailPage: React.FC = () => {
             />
           </div>
           <div className={styles.headerButtons}>
+            <BidConfidentialButton
+              bid={bid}
+              teamMembers={teamMembers}
+              onSave={savePatch}
+              className={styles.shareBtn}
+            />
             <BidFavoriteButton
               bid={bid}
               showLabel

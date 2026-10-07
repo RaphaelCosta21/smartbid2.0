@@ -11,7 +11,11 @@ import {
 } from "../models/IClarificationDb";
 import { IDocLibraryMetadata } from "../models/IDocLibraryItem";
 import { IConfigOption, ISystemConfig } from "../models/ISystemConfig";
-import { cleanClientDocRef, configOptionLabel } from "./clarificationHelpers";
+import {
+  allCategoryOptions,
+  cleanClientDocRef,
+  configOptionLabel,
+} from "./clarificationHelpers";
 import { clean, day, heading, record } from "./pastBidDocument";
 
 export const CLARIFICATION_LIBRARY_DOC_TYPE = "Clarification Library";
@@ -61,7 +65,7 @@ function entry(
     safe(configOptionLabel(list, v));
   const body = [
     record(`Type: ${item.baseType}`, [
-      ["Category", label(config?.clarificationCategories, item.category)],
+      ["Category", label(allCategoryOptions(config), item.category)],
       ["Keyword", safe(item.keyword)],
       ["Client", label(config?.clientList, item.client)],
       ["Division", label(config?.divisions, item.division)],

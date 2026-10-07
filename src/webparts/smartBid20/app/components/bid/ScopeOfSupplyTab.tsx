@@ -52,7 +52,10 @@ import { ImportSourceModal } from "../common/ImportSourceModal";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { AttachmentService } from "../../services/AttachmentService";
 import { formatCurrency, formatNumber } from "../../utils/formatters";
-import { activeConfigOptions } from "../../utils/clarificationHelpers";
+import {
+  activeConfigOptions,
+  categoryListFor,
+} from "../../utils/clarificationHelpers";
 import {
   calculateMultiCurrencyTotals,
   getAssetCostBreakdown,
@@ -435,8 +438,8 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     null,
   );
   const clarCategoryOptions = React.useMemo(
-    () => activeConfigOptions(config?.clarificationCategories),
-    [config?.clarificationCategories],
+    () => activeConfigOptions(categoryListFor(config, clarDraft?.baseType)),
+    [config, clarDraft?.baseType],
   );
 
   const openClarPopup = (item: IScopeItem, anchor: HTMLElement): void => {

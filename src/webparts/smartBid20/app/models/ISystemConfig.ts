@@ -105,8 +105,10 @@ export interface ISystemConfig {
   resourceTypes: IResourceTypeConfig[];
   /** Scope categories used to classify completed BIDs on the Past Bids page */
   scopeCategories?: IConfigOption[];
-  /** Categories used to classify Clarifications & Qualifications (library + BID) */
+  /** Categories used to classify Clarifications (library + BID) */
   clarificationCategories?: IConfigOption[];
+  /** Categories used to classify Qualifications (library + BID qualification tables) */
+  qualificationCategories?: IConfigOption[];
   /** Supplier service types (Suppliers page filters + AI profile). */
   supplierServiceTypes?: IConfigOption[];
   currencySettings: ICurrencySettings;

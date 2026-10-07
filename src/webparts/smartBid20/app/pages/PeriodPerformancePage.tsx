@@ -1,5 +1,4 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import {
   PieChart,
   Pie,
@@ -28,8 +27,10 @@ import {
   SegmentOption,
 } from "../components/insights/SegmentedControl";
 import { ExportBar } from "../components/reports/ExportBar";
+import { ConfidentialLock } from "../components/bid/ConfidentialLock";
 import { useChartTheme, categoricalColor } from "../hooks/useChartTheme";
 import { useBids } from "../hooks/useBids";
+import { useOpenBid } from "../hooks/useOpenBid";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useAnalyticsFilters } from "../hooks/useAnalyticsFilters";
 import { formatDate } from "../utils/formatters";
@@ -63,7 +64,7 @@ const CHART_SECTIONS: { key: string; title: string }[] = [
 ];
 
 export const PeriodPerformancePage: React.FC = () => {
-  const navigate = useNavigate();
+  const { openBid } = useOpenBid();
   const { bids } = useBids();
   const config = useConfigStore((s) => s.config);
   const chart = useChartTheme();
@@ -450,7 +451,10 @@ export const PeriodPerformancePage: React.FC = () => {
       key: "title",
       header: "Title",
       render: (r: BidTableRow) => (
-        <span className={styles.cellStrong}>{r.title}</span>
+        <span className={styles.cellStrong}>
+          {r.title}
+          <ConfidentialLock bidNumber={r.bidNumber} />
+        </span>
       ),
     },
     { key: "requester", header: "Requester" },
@@ -879,9 +883,7 @@ export const PeriodPerformancePage: React.FC = () => {
               <DataTable<BidTableRow>
                 data={tableRows}
                 columns={columns}
-                onRowClick={(r) =>
-                  navigate(`/bid/${encodeURIComponent(r.bidNumber)}`)
-                }
+                onRowClick={(r) => openBid(r.bidNumber)}
                 emptyMessage="No BIDs"
               />
             </div>

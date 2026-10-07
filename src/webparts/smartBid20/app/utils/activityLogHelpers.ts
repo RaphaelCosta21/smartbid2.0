@@ -48,6 +48,21 @@ const ACTIVITY_META: Record<string, IActivityMeta> = {
     category: "lifecycle",
     colorVar: "var(--tertiary-accent)",
   },
+  CONFIDENTIALITY_ENABLED: {
+    label: "Marked confidential",
+    category: "lifecycle",
+    colorVar: "var(--warning)",
+  },
+  CONFIDENTIALITY_UPDATED: {
+    label: "Confidential access updated",
+    category: "lifecycle",
+    colorVar: "var(--warning)",
+  },
+  CONFIDENTIALITY_DISABLED: {
+    label: "Confidentiality removed",
+    category: "lifecycle",
+    colorVar: "var(--success)",
+  },
   STATUS_CHANGED: {
     label: "Status changed",
     category: "statusPhase",

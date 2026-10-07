@@ -627,6 +627,13 @@
   gap: 4px;
 }
 
+.assignFieldHint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin: -2px 0 8px;
+  line-height: 1.4;
+}
+
 .assignPeopleList {
   display: flex;
   flex-direction: column;

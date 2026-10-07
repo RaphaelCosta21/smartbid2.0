@@ -1,9 +1,10 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../components/common/PageHeader";
 import { DivisionBadge } from "../components/common/DivisionBadge";
 import { DataTable } from "../components/common/DataTable";
+import { ConfidentialLock } from "../components/bid/ConfidentialLock";
 import { useBids } from "../hooks/useBids";
+import { useOpenBid } from "../hooks/useOpenBid";
 import { useConfigStore } from "../stores/useConfigStore";
 import { usePageAccess } from "../hooks/usePageAccess";
 import { useBidStore } from "../stores/useBidStore";
@@ -56,7 +57,7 @@ export const FollowUpPage: React.FC = () => {
   const { bids } = useBids();
   const config = useConfigStore((s) => s.config);
   const setBids = useBidStore((s) => s.setBids);
-  const navigate = useNavigate();
+  const { openBid, canOpen } = useOpenBid();
   const chart = useChartTheme();
   const publishPastBid = usePastBidPublisher();
 
@@ -434,7 +435,10 @@ export const FollowUpPage: React.FC = () => {
       key: "bidNumber",
       header: "BID",
       render: (bid: IBid) => (
-        <span className={styles.bidNumberBold}>{bid.bidNumber}</span>
+        <span className={styles.bidNumberBold}>
+          {bid.bidNumber}
+          <ConfidentialLock bid={bid} />
+        </span>
       ),
     },
     {
@@ -1053,13 +1057,14 @@ export const FollowUpPage: React.FC = () => {
                 <span
                   className={styles.drawerBidNumber}
                   onClick={() => {
-                    closeDrawer();
-                    navigate(`/bid/${drawerBid.bidNumber}`);
+                    if (canOpen(drawerBid)) closeDrawer();
+                    openBid(drawerBid.bidNumber);
                   }}
                   style={{ cursor: "pointer" }}
                   title="Open BID details"
                 >
                   {drawerBid.bidNumber} ↗
+                  <ConfidentialLock bid={drawerBid} />
                 </span>
                 <span className={styles.drawerClient}>
                   {drawerBid.opportunityInfo?.client || "-"}

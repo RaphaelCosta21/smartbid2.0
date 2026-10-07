@@ -36,6 +36,7 @@ import {
 import { buildHistoryTransition } from "../../utils/phaseHelpers";
 import { isTerminalStatus } from "../../utils/statusHelpers";
 import { createActivityLogEntry } from "../../utils/activityLogHelpers";
+import { canOpenBid } from "../../utils/bidConfidentiality";
 import { formatDate } from "../../utils/formatters";
 import styles from "./ApprovalTab.module.scss";
 
@@ -410,7 +411,9 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
 
   // ── Helpers ──
   const getFilteredMembers = (cfg: SectorConfig): ITeamMember[] => {
-    const available = teamMembers.filter((m) => cfg.filterFn(m, bid));
+    const available = teamMembers.filter(
+      (m) => cfg.filterFn(m, bid) && canOpenBid(bid, m.email),
+    );
     const selected = sectorSelections[cfg.sector] || [];
     return available.filter((m) => !selected.some((s) => s.email === m.email));
   };
@@ -557,6 +560,16 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   visibleSectors.forEach((cfg) => {
     const w = getWaiver(cfg);
     if (w) activeWaivers.push(w);
+  });
+
+  activeSectors.forEach((cfg) => {
+    (sectorSelections[cfg.sector] || []).forEach((p) => {
+      if (!canOpenBid(bid, p.email)) {
+        validationErrors.push(
+          `${cfg.label}: ${p.name} is not in the confidential access list of this BID`,
+        );
+      }
+    });
   });
 
   activeSectors.forEach((cfg) => {
@@ -1427,6 +1440,14 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
                             size="small"
                           />
                         </div>
+                        {!canOpenBid(bid, person.email) && (
+                          <span
+                            className={styles.noAccessTag}
+                            title="Add this person in Manage access (BID header) or pick another approver"
+                          >
+                            No confidential access
+                          </span>
+                        )}
                         {locked || !canManageApproval ? (
                           <span className={styles.lockIcon}>🔒</span>
                         ) : (

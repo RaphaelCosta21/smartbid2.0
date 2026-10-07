@@ -9,6 +9,8 @@ import styles from "./CommandPalette.module.scss";
 import { useUIStore } from "../../stores/useUIStore";
 import { useBidStore } from "../../stores/useBidStore";
 import { useAccessLevel } from "../../hooks/useAccessLevel";
+import { useOpenBid } from "../../hooks/useOpenBid";
+import { isBidConfidential } from "../../utils/bidConfidentiality";
 import { NAVIGATION_ITEMS } from "../../config/navigation.config";
 
 interface ICommandItem {
@@ -26,6 +28,7 @@ export const CommandPalette: React.FC = () => {
   const setOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const bids = useBidStore((s) => s.bids);
   const access = useAccessLevel();
+  const { openBid } = useOpenBid();
 
   const [query, setQuery] = React.useState("");
   const [selectedIndex, setSelectedIndex] = React.useState(0);
@@ -51,10 +54,10 @@ export const CommandPalette: React.FC = () => {
     const bidCommands: ICommandItem[] = bids.slice(0, 20).map((b) => ({
       id: `bid-${b.bidNumber}`,
       label: `${b.bidNumber} - ${b.opportunityInfo.projectName}`,
-      description: `${b.opportunityInfo.client} · ${b.currentStatus}`,
-      icon: "📋",
+      description: `${b.opportunityInfo.client} · ${b.currentStatus}${isBidConfidential(b) ? " · Confidential" : ""}`,
+      icon: isBidConfidential(b) ? "🔒" : "📋",
       action: () => {
-        navigate(`/bid/${b.bidNumber}`);
+        openBid(b.bidNumber);
         setOpen(false);
       },
       category: "bid" as const,
@@ -86,7 +89,7 @@ export const CommandPalette: React.FC = () => {
     ];
 
     return [...actionCommands, ...navCommands, ...bidCommands];
-  }, [bids, navigate, setOpen, access]);
+  }, [bids, navigate, openBid, setOpen, access]);
 
   /* ---- filter ---------------------------------------------------- */
 

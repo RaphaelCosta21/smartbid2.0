@@ -4,6 +4,7 @@ import { IBid } from "../../models";
 import { IClarificationDbItem } from "../../models/IClarificationDb";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { DivisionBadge } from "../common/DivisionBadge";
+import { ConfidentialLock } from "../bid/ConfidentialLock";
 import {
   ClarificationCategoryChip,
   ClarificationOriginChip,
@@ -143,6 +144,7 @@ export const ClarificationEntryDrawer: React.FC<
                 <div className={styles.sourceTop}>
                   <span className={styles.sourceBid}>
                     {(sourceBid && sourceBid.crmNumber) || item.sourceBidNumber}
+                    <ConfidentialLock bidNumber={item.sourceBidNumber} />
                   </span>
                   {sourceBid && sourceBid.completedDate && (
                     <span className={styles.muted}>
