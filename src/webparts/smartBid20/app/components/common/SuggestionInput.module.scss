@@ -1,0 +1,137 @@
+.container {
+  position: relative;
+  width: 100%;
+
+  // Room for the chevron, also when a parent passes its own input class.
+  > input {
+    padding-right: 30px;
+  }
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--card-bg-elevated);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-accent);
+  }
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+}
+
+.toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s;
+
+  svg {
+    transition: transform 0.15s;
+  }
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--hover-bg);
+  }
+}
+
+.toggleOpen {
+  color: var(--primary-accent);
+
+  svg {
+    transform: rotate(180deg);
+  }
+}
+
+.dropdown {
+  position: fixed;
+  max-height: 260px;
+  overflow-y: auto;
+  z-index: var(--z-popover);
+  box-sizing: border-box;
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-card-hover);
+  padding: 4px;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 3px;
+  }
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: background 0.1s;
+}
+
+.highlighted {
+  background: var(--hover-bg);
+}
+
+.selected {
+  color: var(--primary-accent);
+  font-weight: 600;
+}
+
+.optionLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.check {
+  flex-shrink: 0;
+  color: var(--primary-accent);
+}
+
+.newHint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+
+  &:first-child {
+    border-top: none;
+  }
+}

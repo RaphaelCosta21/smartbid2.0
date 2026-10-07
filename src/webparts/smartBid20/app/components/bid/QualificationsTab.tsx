@@ -6,6 +6,7 @@ import {
   IQualificationTable,
   IQualificationItem,
   IAISuggestedClarification,
+  IAISuggestedQualification,
   IConfigOption,
 } from "../../models";
 import { GlassCard } from "../common/GlassCard";
@@ -13,16 +14,28 @@ import { EditToolbar } from "../common/EditLockBanner";
 import { EmptySection } from "./EmptySection";
 import { ExportClarificationModal } from "./ExportClarificationModal";
 import { ImportClarificationModal } from "./ImportClarificationModal";
+import { ImportQualificationModal } from "./ImportQualificationModal";
 import { ClarificationSuggestionsModal } from "./ClarificationSuggestionsModal";
+import { QualificationSuggestionsModal } from "./QualificationSuggestionsModal";
 import { useEditControl } from "../../hooks/useEditControl";
 import { makeId } from "../../utils/idGenerator";
 import { AIAnalysisService } from "../../services/AIAnalysisService";
 import { buildAiContext, buildRequirementsText } from "../../utils/aiContext";
 import { mapSuggestedClarification } from "../../utils/aiClarificationMapper";
-import { activeConfigOptions } from "../../utils/clarificationHelpers";
+import {
+  activeConfigOptions,
+  configOptionLabel,
+} from "../../utils/clarificationHelpers";
+import {
+  IQualificationDraft,
+  mergeQualificationsIntoTables,
+  normalizeQualificationTables,
+  qualificationCategoryValue,
+} from "../../utils/qualificationHelpers";
 import { useUIStore } from "../../stores/useUIStore";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { ClarificationCategoryChip } from "../knowledge/ClarificationBadges";
+import { QualificationCategoryInput } from "../knowledge/QualificationCategoryInput";
 import styles from "../../pages/BidDetailPage.module.scss";
 
 export interface QualificationsTabProps {
@@ -38,19 +51,30 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   canDelete = canEdit,
   onSave,
 }) => {
-  const tables = bid.qualificationTables || [];
+  const tables = React.useMemo(
+    () => normalizeQualificationTables(bid.qualificationTables),
+    [bid.qualificationTables],
+  );
   const clarifications = bid.clarifications || [];
   const scopeItems = bid.scopeItems || [];
 
   // Export / import modal state
   const [exportModalOpen, setExportModalOpen] = React.useState(false);
   const [importModalOpen, setImportModalOpen] = React.useState(false);
+  const [qualImportOpen, setQualImportOpen] = React.useState(false);
 
   // AI clarification suggestions
   const [aiModalOpen, setAiModalOpen] = React.useState(false);
   const [aiLoading, setAiLoading] = React.useState(false);
   const [aiSuggestions, setAiSuggestions] = React.useState<
     IAISuggestedClarification[]
+  >([]);
+
+  // AI qualification table suggestions
+  const [qualAiOpen, setQualAiOpen] = React.useState(false);
+  const [qualAiLoading, setQualAiLoading] = React.useState(false);
+  const [qualAiSuggestions, setQualAiSuggestions] = React.useState<
+    IAISuggestedQualification[]
   >([]);
   const addToast = useUIStore((s) => s.addToast);
   const config = useConfigStore((s) => s.config);
@@ -112,6 +136,12 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
     const existingIds = new Set(
       clarifications.filter((c) => c.isAutoImported).map((c) => c.scopeItemId),
     );
+    // Raised as a qualification from the Scope of Supply popup instead
+    tables.forEach((t) =>
+      t.items.forEach((i) => {
+        if (i.scopeItemId) existingIds.add(i.scopeItemId);
+      }),
+    );
     const newAuto: IClarificationItem[] = [];
     nonCompliant.forEach((si) => {
       if (!existingIds.has(si.id)) {
@@ -129,7 +159,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
       }
     });
     return newAuto;
-  }, [scopeItems, clarifications]);
+  }, [scopeItems, clarifications, tables]);
 
   const allClarifications = React.useMemo(() => {
     // Merge existing + auto-imported (dedupe by scopeItemId)
@@ -288,12 +318,15 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
             `- ${c.baseType || "Clarification"}: ${c.description || ""} - ${c.clarification || ""}`,
         )
         .concat(
-          tables.reduce<string[]>(
+          localTables.reduce<string[]>(
             (acc, t) =>
               acc.concat(
-                (t.items || [])
-                  .filter((q) => (q.description || "").trim())
-                  .map((q) => `- Qualification (${t.title}): ${q.description}`),
+                t.items
+                  .filter((q) => q.qualification.trim())
+                  .map(
+                    (q) =>
+                      `- Qualification (${t.title}) ${q.category}: ${q.qualification}`,
+                  ),
               ),
             [],
           ),
@@ -351,14 +384,6 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
     );
   };
 
-  const updateTableCategory = (tableId: string, category: string): void => {
-    saveQualTables(
-      localTables.map((t) =>
-        t.id === tableId ? { ...t, category: category || undefined } : t,
-      ),
-    );
-  };
-
   const deleteTable = (tableId: string): void => {
     if (!canDeleteQual) return;
     saveQualTables(localTables.filter((t) => t.id !== tableId));
@@ -375,7 +400,12 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
           ...t,
           items: [
             ...t.items,
-            { id: makeId("q"), item: nextItem, description: "", comments: "" },
+            {
+              id: makeId("q"),
+              item: nextItem,
+              category: "",
+              qualification: "",
+            },
           ],
         };
       }),
@@ -415,6 +445,97 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
     );
   };
 
+  const qualLibraryRefIds = React.useMemo(() => {
+    const ids: number[] = [];
+    localTables.forEach((t) =>
+      t.items.forEach((i) => {
+        if (i.libraryRefId) ids.push(i.libraryRefId);
+      }),
+    );
+    return ids;
+  }, [localTables]);
+
+  const addQualifications = (drafts: IQualificationDraft[]): void => {
+    if (drafts.length === 0) return;
+    saveQualTables(mergeQualificationsIntoTables(localTables, drafts));
+    addToast({
+      type: "success",
+      title: `${drafts.length} qualification${drafts.length > 1 ? "s" : ""} added`,
+    });
+  };
+
+  const handleSuggestQualifications = async (): Promise<void> => {
+    setQualAiSuggestions([]);
+    setQualAiOpen(true);
+    setQualAiLoading(true);
+    try {
+      const requirementsText = buildRequirementsText(bid);
+      if (!requirementsText.trim()) {
+        addToast({
+          type: "warning",
+          title: "Add scope items before requesting AI qualifications",
+        });
+        setQualAiOpen(false);
+        return;
+      }
+      const categoryList = config?.qualificationCategories;
+      const existingText = localTables
+        .filter((t) => t.items.some((q) => q.qualification.trim()))
+        .map((t) =>
+          [`Qualification table "${t.title}":`]
+            .concat(
+              t.items
+                .filter((q) => q.qualification.trim())
+                .map(
+                  (q) =>
+                    `- ${configOptionLabel(categoryList, q.category) || "No category"}: ${q.qualification}`,
+                ),
+            )
+            .join("\n"),
+        )
+        .concat(
+          localClarifications
+            .filter((c) => (c.clarification || "").trim())
+            .map(
+              (c) =>
+                `- ${c.baseType || "Clarification"}: ${c.description || ""} - ${c.clarification}`,
+            ),
+        )
+        .join("\n");
+      const suggestions = await AIAnalysisService.suggestQualifications(
+        requirementsText,
+        buildAiContext(bid),
+        {
+          bidNumber: bid.bidNumber,
+          existingText,
+          categories: qualCategoryOptions.map((o) => o.label),
+        },
+      );
+      setQualAiSuggestions(suggestions);
+    } catch (e) {
+      addToast({
+        type: "error",
+        title: e instanceof Error ? e.message : "AI suggestion failed",
+      });
+      setQualAiOpen(false);
+    } finally {
+      setQualAiLoading(false);
+    }
+  };
+
+  const handleAcceptQualifications = (
+    accepted: IAISuggestedQualification[],
+  ): void => {
+    addQualifications(
+      accepted.map((s) => ({
+        tableTitle: s.tableTitle,
+        category: qualificationCategoryValue(qualCategoryOptions, s.category),
+        qualification: s.qualification,
+      })),
+    );
+    setQualAiOpen(false);
+  };
+
   return (
     <div className={styles.flexColumn}>
       {/* ─── Qualifications ─── */}
@@ -426,15 +547,45 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
             label="Qualifications"
           />
         )}
-        <p
+        <div
           style={{
-            fontSize: 13,
-            color: "var(--text-secondary)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             marginBottom: 12,
           }}
         >
-          Qualification tables for client / vessel owner requirements.
-        </p>
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--text-secondary)",
+              margin: 0,
+            }}
+          >
+            Qualification tables for client / vessel owner requirements.
+          </p>
+          {canEditQual && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                className={`${styles.clarActionBtn} ${styles.clarAiBtn}`}
+                onClick={handleSuggestQualifications}
+                disabled={qualAiLoading}
+              >
+                <Sparkles size={14} />
+                {qualAiLoading ? "Suggesting…" : "Suggest with AI"}
+              </button>
+              <button
+                type="button"
+                className={styles.clarActionBtn}
+                onClick={() => setQualImportOpen(true)}
+              >
+                <BookOpen size={14} />
+                Import from Library
+              </button>
+            </div>
+          )}
+        </div>
         {localTables.length === 0 && (
           <EmptySection message="No qualification tables yet." />
         )}
@@ -475,22 +626,6 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                 >
                   {table.title}
                 </h4>
-              )}
-              {canEditQual ? (
-                <span style={{ marginRight: 8 }}>
-                  {renderCategorySelect(
-                    qualCategoryOptions,
-                    table.category,
-                    (v) => updateTableCategory(table.id, v),
-                    180,
-                  )}
-                </span>
-              ) : (
-                table.category && (
-                  <span style={{ marginLeft: "auto", marginRight: 8 }}>
-                    <ClarificationCategoryChip category={table.category} />
-                  </span>
-                )
               )}
               {canDeleteQual && (
                 <button
@@ -535,9 +670,10 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                       textAlign: "left",
                       borderBottom: "1px solid var(--border)",
                       color: "var(--text-secondary)",
+                      width: "30%",
                     }}
                   >
-                    Description
+                    Category
                   </th>
                   <th
                     style={{
@@ -547,7 +683,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                       color: "var(--text-secondary)",
                     }}
                   >
-                    Comments
+                    Qualification
                   </th>
                   {canDeleteQual && (
                     <th
@@ -578,28 +714,14 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                       }}
                     >
                       {canEditQual ? (
-                        <input
-                          value={qi.description}
-                          onChange={(e) =>
-                            updateQualItem(
-                              table.id,
-                              qi.id,
-                              "description",
-                              e.target.value,
-                            )
+                        <QualificationCategoryInput
+                          value={qi.category}
+                          onChange={(v) =>
+                            updateQualItem(table.id, qi.id, "category", v)
                           }
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            border: "1px solid var(--border)",
-                            borderRadius: 4,
-                            background: "var(--card-bg-elevated)",
-                            color: "var(--text-primary)",
-                            fontSize: 13,
-                          }}
                         />
                       ) : (
-                        qi.description || "-"
+                        <ClarificationCategoryChip category={qi.category} />
                       )}
                     </td>
                     <td
@@ -610,12 +732,12 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                     >
                       {canEditQual ? (
                         <input
-                          value={qi.comments}
+                          value={qi.qualification}
                           onChange={(e) =>
                             updateQualItem(
                               table.id,
                               qi.id,
-                              "comments",
+                              "qualification",
                               e.target.value,
                             )
                           }
@@ -630,7 +752,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                           }}
                         />
                       ) : (
-                        qi.comments || "-"
+                        qi.qualification || "-"
                       )}
                     </td>
                     {canDeleteQual && (
@@ -1204,6 +1326,25 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
           loading={aiLoading}
           onAccept={handleAcceptSuggestions}
           onClose={() => setAiModalOpen(false)}
+        />
+      )}
+
+      {qualImportOpen && (
+        <ImportQualificationModal
+          bid={bid}
+          existingRefIds={qualLibraryRefIds}
+          onClose={() => setQualImportOpen(false)}
+          onImport={addQualifications}
+        />
+      )}
+
+      {qualAiOpen && (
+        <QualificationSuggestionsModal
+          suggestions={qualAiSuggestions}
+          loading={qualAiLoading}
+          tables={localTables}
+          onAccept={handleAcceptQualifications}
+          onClose={() => setQualAiOpen(false)}
         />
       )}
     </div>

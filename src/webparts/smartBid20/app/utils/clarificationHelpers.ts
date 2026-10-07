@@ -62,6 +62,18 @@ export function configOptionLabel(
   return opt ? opt.label : value;
 }
 
+/** Select options that keep a stored value selectable when it is no longer in the configuration. */
+export function withCurrentOption(
+  options: IConfigOption[],
+  value: string,
+): { value: string; label: string }[] {
+  const list = options.map((o) => ({ value: o.value, label: o.label }));
+  if (value && !options.some((o) => o.value === value || o.label === value)) {
+    list.push({ value, label: `${value} (not in configuration)` });
+  }
+  return list;
+}
+
 /** Active service lines that belong to a division (`category` holds the division value). */
 export function serviceLinesForDivision(
   config: ISystemConfig | null | undefined,
@@ -74,9 +86,9 @@ export function serviceLinesForDivision(
 }
 
 /**
- * Library rows for a completed BID: clarification rows with text (minus the
- * ones imported from the library or pushed by the legacy flow) and every
- * qualification table item (Description = topic, Comments = qualification text).
+ * Clarifications Database rows for a completed BID: clarification rows with text
+ * (minus the ones imported from the library or pushed by the legacy flow).
+ * Qualification tables go to the Qualifications Database (qualificationHelpers).
  */
 export function buildLibraryRowsFromBid(bid: IBid): IClarificationDbItem[] {
   const base = {
@@ -103,27 +115,6 @@ export function buildLibraryRowsFromBid(bid: IBid): IClarificationDbItem[] {
       date: c.responseDate || "",
       category: c.category || "",
       sourceItemId: c.id,
-    });
-  });
-  (bid.qualificationTables || []).forEach((t) => {
-    const title = (t.title || "").trim();
-    (t.items || []).forEach((q) => {
-      const description = (q.description || "").trim();
-      const comments = (q.comments || "").trim();
-      if (!description && !comments) return;
-      // Tables have no client reply or approval; the table title is kept as keyword
-      rows.push({
-        ...base,
-        baseType: "Qualification",
-        clientDocRef: "",
-        etTopic: comments ? description : title,
-        clarification: comments || description,
-        clientReply: "",
-        keyword: title,
-        date: "",
-        category: t.category || "",
-        sourceItemId: q.id,
-      });
     });
   });
   return rows;

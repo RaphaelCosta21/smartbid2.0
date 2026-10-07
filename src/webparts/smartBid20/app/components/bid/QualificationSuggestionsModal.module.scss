@@ -1,0 +1,29 @@
+// Element selector so it wins over the shared modal shell regardless of load order
+div.modal {
+  width: 860px;
+  height: auto;
+  max-height: 88vh;
+}
+
+.status {
+  padding: 32px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.tableChip {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+}
+
+.tableChipNew {
+  color: var(--primary-accent);
+  border-color: color-mix(in srgb, var(--primary-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--primary-accent) 10%, transparent);
+}

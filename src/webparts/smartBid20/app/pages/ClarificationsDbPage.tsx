@@ -22,8 +22,14 @@ import {
 } from "../components/knowledge/ClarificationBadges";
 import { ClarificationEntryDrawer } from "../components/knowledge/ClarificationEntryDrawer";
 import { ClarificationEntryModal } from "../components/knowledge/ClarificationEntryModal";
+import {
+  QualificationLibraryView,
+  QualificationLibraryViewHandle,
+} from "../components/knowledge/QualificationLibraryView";
+import { SegmentedControl } from "../components/insights/SegmentedControl";
 import { ClarificationDbService } from "../services/ClarificationDbService";
 import { ClarificationKnowledgeService } from "../services/ClarificationKnowledgeService";
+import { QualificationDbService } from "../services/QualificationDbService";
 import { IClarificationDbItem } from "../models/IClarificationDb";
 import { usePageAccess } from "../hooks/usePageAccess";
 import { useOpenBid } from "../hooks/useOpenBid";
@@ -59,6 +65,10 @@ export const ClarificationsDbPage: React.FC = () => {
   const { canEdit: canManage } = usePageAccess();
   const addToast = useUIStore((s) => s.addToast);
 
+  const [tab, setTab] = React.useState<"clarifications" | "qualifications">(
+    "clarifications",
+  );
+  const qualView = React.useRef<QualificationLibraryViewHandle>(null);
   const [items, setItems] = React.useState<IClarificationDbItem[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState("");
@@ -129,6 +139,14 @@ export const ClarificationsDbPage: React.FC = () => {
   React.useEffect(() => {
     load();
   }, [load]);
+
+  // Site owners create the Qualifications Database the first time they open the page
+  React.useEffect(() => {
+    if (!canManage) return;
+    QualificationDbService.ensureList().catch((err) =>
+      console.warn("Qualifications Database not provisioned:", err),
+    );
+  }, [canManage]);
 
   const {
     rows,
@@ -387,145 +405,173 @@ export const ClarificationsDbPage: React.FC = () => {
               <button
                 type="button"
                 className={styles.createBtn}
-                onClick={() => setEditItem(emptyItem())}
+                onClick={() =>
+                  tab === "qualifications"
+                    ? qualView.current?.add()
+                    : setEditItem(emptyItem())
+                }
               >
-                <Plus size={15} /> Add Entry
+                <Plus size={15} />{" "}
+                {tab === "qualifications" ? "Add Qualifications" : "Add Entry"}
               </button>
             </div>
           ) : undefined
         }
       />
 
-      <div className={styles.stats}>
-        <span className={styles.statChip}>
-          <strong>{items.length}</strong> entries
-        </span>
-        <span className={styles.statChip}>
-          <strong>{stats.clarifications}</strong> clarifications
-        </span>
-        <span className={styles.statChip}>
-          <strong>{stats.qualifications}</strong> qualifications
-        </span>
-        <span className={styles.statChip}>
-          <strong>{stats.fromBids}</strong> from completed BIDs
-        </span>
-      </div>
+      <SegmentedControl<"clarifications" | "qualifications">
+        className={styles.libraryTabs}
+        value={tab}
+        segments={[
+          { value: "clarifications", label: "Clarifications" },
+          { value: "qualifications", label: "Qualifications" },
+        ]}
+        onChange={setTab}
+        ariaLabel="Library"
+      />
 
-      <div className={styles.filterBar}>
-        <div className={styles.filterSearch}>
-          <Search size={15} className={styles.filterSearchIcon} />
-          <input
-            type="text"
-            className={styles.filterSearchInput}
-            placeholder="Search text, topic, reply, keyword, BID…"
-            value={search}
-            onChange={(e) => setSearch(e.currentTarget.value)}
-            aria-label="Search clarifications and qualifications"
-          />
-          {search && (
-            <button
-              type="button"
-              className={styles.searchClearBtn}
-              onClick={() => setSearch("")}
-              title="Clear search"
-              aria-label="Clear search"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
-        <MultiSelectDropdown
-          label="Type"
-          options={options.type}
-          selected={filters.type}
-          onChange={setFilter("type")}
+      {tab === "qualifications" ? (
+        <QualificationLibraryView
+          ref={qualView}
+          canManage={canManage}
+          onChanged={() => {
+            publishKnowledge(false).catch(() => undefined);
+          }}
         />
-        <MultiSelectDropdown
-          label="Category"
-          options={options.category}
-          selected={filters.category}
-          onChange={setFilter("category")}
-        />
-        <MultiSelectDropdown
-          label="Client"
-          options={options.client}
-          selected={filters.client}
-          onChange={setFilter("client")}
-        />
-        <MultiSelectDropdown
-          label="Division"
-          options={options.division}
-          selected={filters.division}
-          onChange={setFilter("division")}
-        />
-        <MultiSelectDropdown
-          label="Service Line"
-          options={options.serviceLine}
-          selected={filters.serviceLine}
-          onChange={setFilter("serviceLine")}
-        />
-        <MultiSelectDropdown
-          label="Origin"
-          options={options.origin}
-          selected={filters.origin}
-          onChange={setFilter("origin")}
-        />
-        <MultiSelectDropdown
-          label="Approval"
-          options={options.approval}
-          selected={filters.approval}
-          onChange={setFilter("approval")}
-        />
-        {hasFilters && (
-          <button
-            type="button"
-            className={styles.clearFiltersBtn}
-            onClick={clearFilters}
-          >
-            <X size={14} /> Clear
-          </button>
-        )}
-        <span className={styles.resultCount}>
-          <strong>{filtered.length}</strong>{" "}
-          {hasFilters ? `of ${items.length} ` : ""}
-          {items.length === 1 ? "entry" : "entries"}
-        </span>
-      </div>
+      ) : (
+        <>
+          <div className={styles.stats}>
+            <span className={styles.statChip}>
+              <strong>{items.length}</strong> entries
+            </span>
+            <span className={styles.statChip}>
+              <strong>{stats.clarifications}</strong> clarifications
+            </span>
+            <span className={styles.statChip}>
+              <strong>{stats.qualifications}</strong> qualifications
+            </span>
+            <span className={styles.statChip}>
+              <strong>{stats.fromBids}</strong> from completed BIDs
+            </span>
+          </div>
 
-      <div className={styles.tableSection}>
-        {isLoading ? (
-          <SkeletonLoader height={52} count={6} />
-        ) : loadError ? (
-          <EmptyState
-            variant="glass"
-            title="Could not load the library"
-            description={loadError}
-            actionLabel="Retry"
-            onAction={load}
-          />
-        ) : items.length === 0 ? (
-          <EmptyState
-            variant="glass"
-            title="The library is empty"
-            description="Entries are added when a BID is completed, or manually with Add Entry."
-          />
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            variant="glass"
-            title="No entries match these filters"
-            description="Try fewer filters or another search term."
-            actionLabel="Clear filters"
-            onAction={clearFilters}
-          />
-        ) : (
-          <DataTable<ILibraryRow>
-            className={styles.libraryTable}
-            data={filtered}
-            columns={columns}
-            onRowClick={(r) => setSelectedId(r.item.id)}
-          />
-        )}
-      </div>
+          <div className={styles.filterBar}>
+            <div className={styles.filterSearch}>
+              <Search size={15} className={styles.filterSearchIcon} />
+              <input
+                type="text"
+                className={styles.filterSearchInput}
+                placeholder="Search text, topic, reply, keyword, BID…"
+                value={search}
+                onChange={(e) => setSearch(e.currentTarget.value)}
+                aria-label="Search clarifications and qualifications"
+              />
+              {search && (
+                <button
+                  type="button"
+                  className={styles.searchClearBtn}
+                  onClick={() => setSearch("")}
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            <MultiSelectDropdown
+              label="Type"
+              options={options.type}
+              selected={filters.type}
+              onChange={setFilter("type")}
+            />
+            <MultiSelectDropdown
+              label="Category"
+              options={options.category}
+              selected={filters.category}
+              onChange={setFilter("category")}
+            />
+            <MultiSelectDropdown
+              label="Client"
+              options={options.client}
+              selected={filters.client}
+              onChange={setFilter("client")}
+            />
+            <MultiSelectDropdown
+              label="Division"
+              options={options.division}
+              selected={filters.division}
+              onChange={setFilter("division")}
+            />
+            <MultiSelectDropdown
+              label="Service Line"
+              options={options.serviceLine}
+              selected={filters.serviceLine}
+              onChange={setFilter("serviceLine")}
+            />
+            <MultiSelectDropdown
+              label="Origin"
+              options={options.origin}
+              selected={filters.origin}
+              onChange={setFilter("origin")}
+            />
+            <MultiSelectDropdown
+              label="Approval"
+              options={options.approval}
+              selected={filters.approval}
+              onChange={setFilter("approval")}
+            />
+            {hasFilters && (
+              <button
+                type="button"
+                className={styles.clearFiltersBtn}
+                onClick={clearFilters}
+              >
+                <X size={14} /> Clear
+              </button>
+            )}
+            <span className={styles.resultCount}>
+              <strong>{filtered.length}</strong>{" "}
+              {hasFilters ? `of ${items.length} ` : ""}
+              {items.length === 1 ? "entry" : "entries"}
+            </span>
+          </div>
+
+          <div className={styles.tableSection}>
+            {isLoading ? (
+              <SkeletonLoader height={52} count={6} />
+            ) : loadError ? (
+              <EmptyState
+                variant="glass"
+                title="Could not load the library"
+                description={loadError}
+                actionLabel="Retry"
+                onAction={load}
+              />
+            ) : items.length === 0 ? (
+              <EmptyState
+                variant="glass"
+                title="The library is empty"
+                description="Entries are added when a BID is completed, or manually with Add Entry."
+              />
+            ) : filtered.length === 0 ? (
+              <EmptyState
+                variant="glass"
+                title="No entries match these filters"
+                description="Try fewer filters or another search term."
+                actionLabel="Clear filters"
+                onAction={clearFilters}
+              />
+            ) : (
+              <DataTable<ILibraryRow>
+                className={styles.libraryTable}
+                data={filtered}
+                columns={columns}
+                onRowClick={(r) => setSelectedId(r.item.id)}
+              />
+            )}
+          </div>
+        </>
+      )}
 
       {selectedRow && (
         <ClarificationEntryDrawer

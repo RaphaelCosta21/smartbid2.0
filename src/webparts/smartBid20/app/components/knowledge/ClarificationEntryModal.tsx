@@ -4,13 +4,13 @@ import {
   ClarificationBaseType,
   IClarificationDbItem,
 } from "../../models/IClarificationDb";
-import { IConfigOption } from "../../models/ISystemConfig";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { SegmentedControl } from "../insights/SegmentedControl";
 import {
   activeConfigOptions,
   categoryListFor,
   serviceLinesForDivision,
+  withCurrentOption,
 } from "../../utils/clarificationHelpers";
 import styles from "./ClarificationEntryModal.module.scss";
 
@@ -22,18 +22,6 @@ interface ClarificationEntryModalProps {
 }
 
 const toDateInput = (iso: string): string => (iso ? iso.substring(0, 10) : "");
-
-/** Keeps a stored value selectable when it is no longer in the configuration. */
-function withCurrent(
-  options: IConfigOption[],
-  value: string,
-): { value: string; label: string }[] {
-  const list = options.map((o) => ({ value: o.value, label: o.label }));
-  if (value && !options.some((o) => o.value === value || o.label === value)) {
-    list.push({ value, label: `${value} (not in configuration)` });
-  }
-  return list;
-}
 
 export const ClarificationEntryModal: React.FC<
   ClarificationEntryModalProps
@@ -47,21 +35,21 @@ export const ClarificationEntryModal: React.FC<
   const patch = (p: Partial<IClarificationDbItem>): void =>
     setForm((prev) => ({ ...prev, ...p }));
 
-  const categories = withCurrent(
+  const categories = withCurrentOption(
     activeConfigOptions(categoryListFor(config, form.baseType)),
     form.category,
   );
-  const clients = withCurrent(
+  const clients = withCurrentOption(
     activeConfigOptions(config?.clientList).sort((a, b) =>
       a.label.localeCompare(b.label),
     ),
     form.client,
   );
-  const divisions = withCurrent(
+  const divisions = withCurrentOption(
     activeConfigOptions(config?.divisions),
     form.division,
   );
-  const serviceLines = withCurrent(
+  const serviceLines = withCurrentOption(
     serviceLinesForDivision(config, form.division),
     form.serviceLine,
   );

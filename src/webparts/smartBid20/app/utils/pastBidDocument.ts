@@ -21,6 +21,7 @@ import {
 } from "../models";
 import { IDocLibraryMetadata } from "../models/IDocLibraryItem";
 import { isClarificationLibraryEligible } from "./clarificationHelpers";
+import { normalizeQualificationTables } from "./qualificationHelpers";
 import {
   buildCostSummary,
   getAssetCostBreakdown,
@@ -819,14 +820,14 @@ function qualifications(
   const tables =
     libraryRefs && isClarificationLibraryEligible(bid)
       ? []
-      : bid.qualificationTables || [];
+      : normalizeQualificationTables(bid.qualificationTables);
   tables.forEach((t) => {
-    const rows = (t.items || [])
-      .filter((q) => clean(q.description) || clean(q.comments))
+    const rows = t.items
+      .filter((q) => clean(q.qualification))
       .map((q) =>
         record(
-          `Qualification ${q.item} (${clean(t.title) || "table"}): ${clean(q.description)}`,
-          [["Comments", q.comments]],
+          `Qualification ${q.item} (${clean(t.title) || "table"}): ${clean(q.category) || "-"}`,
+          [["Text", q.qualification]],
         ),
       );
     if (!rows.length) return;
@@ -864,10 +865,8 @@ function libraryReference(bid: IBid, num: number): string[] {
       );
     });
   if (eligible) {
-    (bid.qualificationTables || []).forEach((t) => {
-      const count = (t.items || []).filter(
-        (q) => clean(q.description) || clean(q.comments),
-      ).length;
+    normalizeQualificationTables(bid.qualificationTables).forEach((t) => {
+      const count = t.items.filter((q) => clean(q.qualification)).length;
       if (count) {
         rows.push(
           record(

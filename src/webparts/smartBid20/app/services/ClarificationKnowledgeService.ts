@@ -1,18 +1,20 @@
 /**
  * ClarificationKnowledgeService — Rewrites the Clarif. & Qualif. library knowledge
  * documents (smartBidDocs/Clarifications Library, indexed by AI Search) from the
- * whole Clarifications Database list. Static singleton pattern.
+ * whole Clarifications Database and Qualifications Database lists. Static singleton pattern.
  */
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import { ClarificationBaseType } from "../models/IClarificationDb";
 import { ISystemConfig } from "../models/ISystemConfig";
 import { ClarificationDbService } from "./ClarificationDbService";
 import { DocLibraryCatalogService } from "./DocLibraryCatalogService";
+import { QualificationDbService } from "./QualificationDbService";
 import {
   CLARIFICATION_LIBRARY_FILES,
   CLARIFICATION_LIBRARY_WARN_CHARS,
   buildClarificationLibraryDocument,
   buildClarificationLibraryMetadata,
+  buildQualificationLibraryDocument,
 } from "../utils/clarificationLibraryDocument";
 
 export interface IClarificationKnowledgeResult {
@@ -68,7 +70,10 @@ export class ClarificationKnowledgeService {
   private static async _publish(
     config: ISystemConfig | null,
   ): Promise<IClarificationKnowledgeResult> {
-    const items = await ClarificationDbService.getAll();
+    const [items, qualifications] = await Promise.all([
+      ClarificationDbService.getAll(),
+      QualificationDbService.getAll(),
+    ]);
     const folder = ClarificationKnowledgeService.folderServerRelativeUrl;
     await ClarificationKnowledgeService._ensureColumns();
     await DocLibraryCatalogService.ensureFolder(folder);
@@ -80,11 +85,10 @@ export class ClarificationKnowledgeService {
     };
     for (const baseType of TYPES) {
       const fileName = CLARIFICATION_LIBRARY_FILES[baseType];
-      const { text, count } = buildClarificationLibraryDocument(
-        baseType,
-        items,
-        config,
-      );
+      const { text, count } =
+        baseType === "Qualification"
+          ? buildQualificationLibraryDocument(qualifications, items, config)
+          : buildClarificationLibraryDocument(baseType, items, config);
       if (baseType === "Clarification") result.clarifications = count;
       else result.qualifications = count;
       if (count === 0) {

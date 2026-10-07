@@ -1,13 +1,15 @@
 /**
- * useClarificationLibrarySync — Pushes a completed BID's clarifications and
- * qualification tables to the Clarif. & Qualif. library (upsert per row),
- * republishes the library knowledge files and records the result on the BID.
+ * useClarificationLibrarySync — Pushes a completed BID's clarifications (Clarifications
+ * Database) and qualification tables (Qualifications Database) to the Clarif. & Qualif.
+ * library (upsert per row), republishes the library knowledge files and records the
+ * result on the BID.
  */
 import * as React from "react";
 import { IBid, IClarificationLibrarySync } from "../models";
 import { BidService } from "../services/BidService";
 import { ClarificationDbService } from "../services/ClarificationDbService";
 import { ClarificationKnowledgeService } from "../services/ClarificationKnowledgeService";
+import { QualificationDbService } from "../services/QualificationDbService";
 import { useBidStore } from "../stores/useBidStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useUIStore } from "../stores/useUIStore";
@@ -15,6 +17,7 @@ import {
   buildLibraryRowsFromBid,
   isClarificationLibraryEligible,
 } from "../utils/clarificationHelpers";
+import { buildQualificationLibraryRowsFromBid } from "../utils/qualificationHelpers";
 
 const inFlight: Record<string, Promise<void>> = {};
 
@@ -34,10 +37,19 @@ export function useClarificationLibrarySync(): (bid: IBid) => Promise<void> {
       if (running) return running;
       const run = (async (): Promise<void> => {
         try {
-          const res = await ClarificationDbService.syncFromBid(
+          const clar = await ClarificationDbService.syncFromBid(
             bid.bidNumber,
             buildLibraryRowsFromBid(bid),
           );
+          const qual = await QualificationDbService.syncFromBid(
+            bid.bidNumber,
+            buildQualificationLibraryRowsFromBid(bid),
+          );
+          const res = {
+            created: clar.created + qual.created,
+            updated: clar.updated + qual.updated,
+            failed: clar.failed + qual.failed,
+          };
           if (res.failed > 0) {
             // No record, so the next visit by an editor retries (upsert is idempotent)
             addToast({

@@ -85,6 +85,10 @@
 }
 
 /* ─── Stats ─── */
+.libraryTabs {
+  align-self: flex-start;
+}
+
 .stats {
   display: flex;
   flex-wrap: wrap;

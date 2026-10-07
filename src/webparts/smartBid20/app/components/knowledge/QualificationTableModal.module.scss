@@ -1,0 +1,439 @@
+/* QualificationTableModal — multi-row editor of a Qualifications Database table */
+
+.modal {
+  width: 1000px;
+  max-width: 100%;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card-hover);
+  animation: tableModalIn 200ms ease;
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.noteBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.noteAction {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--info) 40%, transparent);
+  background: transparent;
+  color: var(--info);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 200ms ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--info) 12%, transparent);
+  }
+}
+
+.warnNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--warning);
+  }
+}
+
+.rowsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.rowsTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rowsTools {
+  display: flex;
+  gap: 8px;
+}
+
+.countBadge {
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-align: center;
+  color: var(--primary-accent);
+  background: color-mix(in srgb, var(--primary-accent) 14%, transparent);
+}
+
+.toolBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    color 200ms ease,
+    border-color 200ms ease,
+    background 200ms ease;
+
+  &:hover {
+    color: var(--text-primary);
+    border-color: var(--primary-accent);
+  }
+}
+
+.toolBtnActive {
+  color: var(--primary-accent);
+  border-color: var(--primary-accent);
+  background: color-mix(in srgb, var(--primary-accent) 10%, transparent);
+}
+
+.pastePanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px dashed color-mix(in srgb, var(--primary-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--primary-accent) 5%, transparent);
+}
+
+.pasteFooter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pasteSelect {
+  width: 200px;
+}
+
+.pasteHint {
+  flex: 1;
+  min-width: 200px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.pasteBtn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  background: var(--primary-accent);
+  color: var(--primary-accent-contrast);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 200ms ease;
+
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.rows {
+  // overflow: hidden drops the flex min-height, so without this the list shrinks instead of the body scrolling
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.rowsHead,
+.row {
+  display: grid;
+  grid-template-columns: 44px minmax(170px, 0.34fr) minmax(0, 1fr) 96px;
+  gap: 10px;
+  align-items: start;
+  padding: 8px 12px;
+}
+
+.rowsHead {
+  background: var(--card-bg-elevated);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.row {
+  border-top: 1px solid var(--border-subtle);
+  transition: background 150ms ease;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+}
+
+.rowNew {
+  box-shadow: inset 3px 0 0 var(--primary-accent);
+}
+
+.rowInvalid {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+.itemNo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.tag {
+  align-self: flex-start;
+  padding: 0 5px;
+  border-radius: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.tagNew {
+  color: var(--primary-accent);
+  background: color-mix(in srgb, var(--primary-accent) 14%, transparent);
+}
+
+.tagManual {
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.cellInput,
+.cellTextarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.45;
+  transition: border-color 200ms ease;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-accent);
+  }
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+}
+
+.cellInput {
+  height: 34px;
+}
+
+.cellTextarea {
+  min-height: 34px;
+  resize: none;
+  overflow: hidden;
+}
+
+.cellInvalid {
+  border-color: var(--danger);
+}
+
+.cellError {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--danger);
+}
+
+.rowActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  padding-top: 3px;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+
+  &:hover:not(:disabled) {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+}
+
+.iconBtnDanger:hover:not(:disabled) {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+.addRowBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-top: 1px dashed var(--border);
+  background: transparent;
+  color: var(--primary-accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 150ms ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--primary-accent) 6%, transparent);
+  }
+}
+
+.emptyRows {
+  padding: 18px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.kbdHint {
+  margin-top: -6px;
+  font-size: 11px;
+  color: var(--text-muted);
+
+  kbd {
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--card-bg-elevated);
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 10.5px;
+  }
+}
+
+.footerSummary {
+  margin-right: auto;
+  align-self: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+@keyframes tableModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 900px) {
+  .metaGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .metaGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rowsHead {
+    display: none;
+  }
+
+  .row {
+    grid-template-columns: 32px minmax(0, 1fr);
+
+    > :nth-child(3),
+    > :nth-child(4) {
+      grid-column: 2;
+    }
+  }
+
+  .rowActions {
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal {
+    animation: none;
+  }
+}

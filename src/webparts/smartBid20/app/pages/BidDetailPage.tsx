@@ -63,6 +63,7 @@ import {
   IBidComment,
   IActivityLogEntry,
   IAIImportMeta,
+  IQualificationItem,
 } from "../models";
 import { ITeamMember } from "../models/ITeamMember";
 import { PRIORITY_COLORS } from "../utils/constants";
@@ -89,6 +90,12 @@ import { useEditControl } from "../hooks/useEditControl";
 import { EditableTabContent } from "../components/common/EditLockBanner";
 import { CollapsibleSidebar } from "../components/common/CollapsibleSidebar";
 import { mapSuggestedClarification } from "../utils/aiClarificationMapper";
+import {
+  findScopeQualification,
+  normalizeQualificationTables,
+  removeScopeQualifications,
+  upsertQualificationItem,
+} from "../utils/qualificationHelpers";
 import { BID_TAB_GROUPS, BidTab } from "../config/bidTabs.config";
 import { ViewOnlyBanner } from "../components/common/RequirePageAccess";
 import { EmptyState } from "../components/common/EmptyState";
@@ -563,11 +570,50 @@ export const BidDetailPage: React.FC = () => {
       bid;
     const list = latest.clarifications || [];
     const exists = list.some((c) => c.id === clar.id);
-    saveQualifications({
+    const patch: Partial<IBid> = {
       clarifications: exists
         ? list.map((c) => (c.id === clar.id ? clar : c))
         : [...list, clar],
-    });
+    };
+    // Switching the popup type moves the item; Edit* users keep both instead.
+    const tables = normalizeQualificationTables(latest.qualificationTables);
+    if (
+      clar.scopeItemId &&
+      canDeleteTab("qualifications") &&
+      findScopeQualification(tables, clar.scopeItemId)
+    ) {
+      patch.qualificationTables = removeScopeQualifications(
+        tables,
+        clar.scopeItemId,
+      );
+    }
+    saveQualifications(patch);
+  };
+
+  const upsertScopeQualification = (
+    tableTitle: string,
+    item: IQualificationItem,
+  ): void => {
+    const latest =
+      useBidStore.getState().bids.find((b) => b.bidNumber === bid.bidNumber) ||
+      bid;
+    const patch: Partial<IBid> = {
+      qualificationTables: upsertQualificationItem(
+        normalizeQualificationTables(latest.qualificationTables),
+        tableTitle,
+        item,
+      ),
+    };
+    const scopeId = item.scopeItemId;
+    const list = latest.clarifications || [];
+    if (
+      scopeId &&
+      canDeleteTab("qualifications") &&
+      list.some((c) => c.scopeItemId === scopeId)
+    ) {
+      patch.clarifications = list.filter((c) => c.scopeItemId !== scopeId);
+    }
+    saveQualifications(patch);
   };
 
   /**
@@ -1031,6 +1077,12 @@ export const BidDetailPage: React.FC = () => {
                             onSaveClarification={
                               canEditTab("qualifications")
                                 ? upsertScopeClarification
+                                : undefined
+                            }
+                            qualificationTables={bid.qualificationTables}
+                            onSaveQualification={
+                              canEditTab("qualifications")
+                                ? upsertScopeQualification
                                 : undefined
                             }
                             tabNotes={

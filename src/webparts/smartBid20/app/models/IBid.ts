@@ -428,15 +428,24 @@ export interface IQualificationTable {
   id: string;
   title: string;
   items: IQualificationItem[];
-  /** Value from systemConfig.clarificationCategories, applied to every row */
+  /** @deprecated Legacy table-wide category; only a fallback for items without one */
   category?: string;
 }
 
 export interface IQualificationItem {
   id: string;
   item: number;
-  description: string;
-  comments: string;
+  /** systemConfig.qualificationCategories value, or free text */
+  category: string;
+  qualification: string;
+  /** Qualifications Database item this row was imported from */
+  libraryRefId?: number;
+  /** Scope item (Compliance = No) this qualification was raised from */
+  scopeItemId?: string | null;
+  /** @deprecated Legacy free-text topic, read as the category */
+  description?: string;
+  /** @deprecated Legacy text, read as the qualification */
+  comments?: string;
 }
 
 export interface IClarificationItem {

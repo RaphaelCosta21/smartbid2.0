@@ -34,6 +34,8 @@ import {
   IResourceAllocation,
   IAssetBreakdownItem,
   IAIImportMeta,
+  IQualificationItem,
+  IQualificationTable,
 } from "../../models";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
@@ -55,7 +57,14 @@ import { formatCurrency, formatNumber } from "../../utils/formatters";
 import {
   activeConfigOptions,
   categoryListFor,
+  configOptionLabel,
 } from "../../utils/clarificationHelpers";
+import {
+  DEFAULT_QUALIFICATION_TABLE,
+  findScopeQualification,
+  normalizeQualificationTables,
+} from "../../utils/qualificationHelpers";
+import { QualificationCategoryInput } from "../knowledge/QualificationCategoryInput";
 import {
   calculateMultiCurrencyTotals,
   getAssetCostBreakdown,
@@ -81,6 +90,10 @@ interface ScopeOfSupplyTabProps {
   clarifications?: IClarificationItem[];
   /** Upserts a clarification from the compliance popup (enables the inline form) */
   onSaveClarification?: (clar: IClarificationItem) => void;
+  /** BID qualification tables, for the popup's Qualification type */
+  qualificationTables?: IQualificationTable[];
+  /** Upserts a qualification table item from the compliance popup */
+  onSaveQualification?: (tableTitle: string, item: IQualificationItem) => void;
   /** BID number for AI analysis (enables the AI Generate button) */
   bidNumber?: string;
   /**
@@ -199,6 +212,8 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   readOnly = false,
   clarifications = [],
   onSaveClarification,
+  qualificationTables,
+  onSaveQualification,
   bidNumber,
   onAiImport,
   templateId,
@@ -437,14 +452,25 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   const [clarDraft, setClarDraft] = React.useState<IClarificationItem | null>(
     null,
   );
+  const [qualDraft, setQualDraft] = React.useState<{
+    tableTitle: string;
+    item: IQualificationItem;
+  } | null>(null);
+  const qualTables = React.useMemo(
+    () => normalizeQualificationTables(qualificationTables),
+    [qualificationTables],
+  );
   const clarCategoryOptions = React.useMemo(
     () => activeConfigOptions(categoryListFor(config, clarDraft?.baseType)),
     [config, clarDraft?.baseType],
   );
+  const qualMode =
+    !!onSaveQualification && clarDraft?.baseType === "Qualification";
 
   const openClarPopup = (item: IScopeItem, anchor: HTMLElement): void => {
     const rect = anchor.getBoundingClientRect();
     const existing = clarifications.find((c) => c.scopeItemId === item.id);
+    const linked = findScopeQualification(qualTables, item.id);
     setClarDraft(
       existing
         ? { ...existing }
@@ -456,8 +482,27 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
             clarification: "",
             clientResponse: "",
             isAutoImported: true,
-            baseType: "Clarification",
+            baseType: linked ? "Qualification" : "Clarification",
             createdDate: new Date().toISOString(),
+          },
+    );
+    // A legacy Qualification row seeds the table item, which replaces it on save
+    const legacy =
+      existing && existing.baseType === "Qualification" ? existing : undefined;
+    setQualDraft(
+      linked && !existing
+        ? { tableTitle: linked.table.title, item: { ...linked.item } }
+        : {
+            tableTitle:
+              (qualTables[0] && qualTables[0].title) ||
+              DEFAULT_QUALIFICATION_TABLE,
+            item: {
+              id: makeId("q"),
+              item: 0,
+              category: legacy ? legacy.category || "" : "",
+              qualification: legacy ? legacy.clarification : "",
+              scopeItemId: item.id,
+            },
           },
     );
     setClarPopup({
@@ -470,10 +515,27 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   const closeClarPopup = (): void => {
     setClarPopup(null);
     setClarDraft(null);
+    setQualDraft(null);
   };
 
   const saveClarDraft = (): void => {
-    if (!clarDraft || !onSaveClarification) return;
+    if (!clarDraft) return;
+    if (qualMode && qualDraft && onSaveQualification) {
+      onSaveQualification(qualDraft.tableTitle, {
+        ...qualDraft.item,
+        category: qualDraft.item.category.trim(),
+        qualification: qualDraft.item.qualification.trim(),
+        scopeItemId: clarDraft.scopeItemId,
+      });
+      addToast({
+        type: "success",
+        title: "Qualification saved",
+        message: `Added to the "${qualDraft.tableTitle.trim() || DEFAULT_QUALIFICATION_TABLE}" table in the Clarif. & Qualif. tab.`,
+      });
+      closeClarPopup();
+      return;
+    }
+    if (!onSaveClarification) return;
     onSaveClarification({
       ...clarDraft,
       clarification: clarDraft.clarification.trim(),
@@ -4365,50 +4427,107 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                       <option value="Qualification">Qualification</option>
                     </select>
                   </label>
+                  {qualMode && qualDraft ? (
+                    <label className={styles.clarFormField}>
+                      <span>Table</span>
+                      <input
+                        list="sos-qualification-tables"
+                        value={qualDraft.tableTitle}
+                        placeholder="Existing table or a new title"
+                        onChange={(e) =>
+                          setQualDraft({
+                            ...qualDraft,
+                            tableTitle: e.target.value,
+                          })
+                        }
+                      />
+                      <datalist id="sos-qualification-tables">
+                        {qualTables.map((t) => (
+                          <option key={t.id} value={t.title} />
+                        ))}
+                      </datalist>
+                    </label>
+                  ) : (
+                    <label className={styles.clarFormField}>
+                      <span>Category</span>
+                      <select
+                        value={clarDraft.category || ""}
+                        onChange={(e) =>
+                          setClarDraft({
+                            ...clarDraft,
+                            category: e.target.value || undefined,
+                          })
+                        }
+                      >
+                        <option value="">No category</option>
+                        {clarCategoryOptions.map((o) => (
+                          <option key={o.id} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                        {clarDraft.category &&
+                          !clarCategoryOptions.some(
+                            (o) => o.value === clarDraft.category,
+                          ) && (
+                            <option value={clarDraft.category}>
+                              {clarDraft.category}
+                            </option>
+                          )}
+                      </select>
+                    </label>
+                  )}
+                </div>
+                {qualMode && qualDraft ? (
+                  <>
+                    <label className={styles.clarFormField}>
+                      <span>Category</span>
+                      <QualificationCategoryInput
+                        value={qualDraft.item.category}
+                        onChange={(v) =>
+                          setQualDraft({
+                            ...qualDraft,
+                            item: { ...qualDraft.item, category: v },
+                          })
+                        }
+                      />
+                    </label>
+                    <label className={styles.clarFormField}>
+                      <span>Qualification</span>
+                      <textarea
+                        rows={4}
+                        autoFocus
+                        value={qualDraft.item.qualification}
+                        placeholder="Statement for the proposal (assumption, exclusion, responsibility...)"
+                        onChange={(e) =>
+                          setQualDraft({
+                            ...qualDraft,
+                            item: {
+                              ...qualDraft.item,
+                              qualification: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </label>
+                  </>
+                ) : (
                   <label className={styles.clarFormField}>
-                    <span>Category</span>
-                    <select
-                      value={clarDraft.category || ""}
+                    <span>Clarification / Question</span>
+                    <textarea
+                      rows={4}
+                      autoFocus
+                      value={clarDraft.clarification}
+                      placeholder="Describe the deviation or question for the client..."
                       onChange={(e) =>
                         setClarDraft({
                           ...clarDraft,
-                          category: e.target.value || undefined,
+                          clarification: e.target.value,
                         })
                       }
-                    >
-                      <option value="">No category</option>
-                      {clarCategoryOptions.map((o) => (
-                        <option key={o.id} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                      {clarDraft.category &&
-                        !clarCategoryOptions.some(
-                          (o) => o.value === clarDraft.category,
-                        ) && (
-                          <option value={clarDraft.category}>
-                            {clarDraft.category}
-                          </option>
-                        )}
-                    </select>
+                    />
                   </label>
-                </div>
-                <label className={styles.clarFormField}>
-                  <span>Clarification / Question</span>
-                  <textarea
-                    rows={4}
-                    autoFocus
-                    value={clarDraft.clarification}
-                    placeholder="Describe the deviation or question for the client..."
-                    onChange={(e) =>
-                      setClarDraft({
-                        ...clarDraft,
-                        clarification: e.target.value,
-                      })
-                    }
-                  />
-                </label>
-                {clarDraft.clientResponse && (
+                )}
+                {!qualMode && clarDraft.clientResponse && (
                   <div className={styles.clarFormField}>
                     <span>Client Response</span>
                     <p className={styles.clarPopupText}>
@@ -4425,7 +4544,11 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                   </button>
                   <button
                     className={styles.clarPopupSave}
-                    disabled={!clarDraft.clarification.trim()}
+                    disabled={
+                      qualMode
+                        ? !qualDraft || !qualDraft.item.qualification.trim()
+                        : !clarDraft.clarification.trim()
+                    }
                     onClick={saveClarDraft}
                   >
                     Save
@@ -4438,6 +4561,35 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                   const clar = clarifications.find(
                     (c) => c.scopeItemId === clarPopup.id,
                   );
+                  const linked = clar
+                    ? undefined
+                    : findScopeQualification(qualTables, clarPopup.id);
+                  if (linked) {
+                    return (
+                      <div style={{ marginBottom: 8 }}>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: "var(--text-secondary)",
+                            marginBottom: 2,
+                          }}
+                        >
+                          Qualification ({linked.table.title}
+                          {linked.item.category
+                            ? ` - ${configOptionLabel(config?.qualificationCategories, linked.item.category)}`
+                            : ""}
+                          ):
+                        </div>
+                        <p
+                          className={styles.clarPopupText}
+                          style={{ margin: 0 }}
+                        >
+                          {linked.item.qualification || "-"}
+                        </p>
+                      </div>
+                    );
+                  }
                   if (clar) {
                     return (
                       <>

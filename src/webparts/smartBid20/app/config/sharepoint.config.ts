@@ -13,6 +13,8 @@ export const SHAREPOINT_CONFIG = {
     templates: "smartbid-templates",
     quotations: "smartbid-quotations",
     clarificationsDatabase: "Clarifications Database",
+    /** Qualification tables library (created by QualificationDbService) */
+    qualificationsDatabase: "Qualifications Database",
     /** Engineering Request Number list (same-site) — note the double "t" */
     erns: "Engineering Requestt",
     /** Supplier registry (native CRUD form) — one row per supplier. */
@@ -162,6 +164,21 @@ export const SHAREPOINT_CONFIG = {
     serviceLine: "ServiceLine",
     sourceBidNumber: "SourceBidNumber",
     sourceItemId: "SourceItemId",
+  },
+
+  /** Internal field names for the "Qualifications Database" list (auto-provisioned) */
+  qualificationDbFields: {
+    tableTitle: "Title",
+    category: "Category",
+    qualification: "QualificationText",
+    client: "Client",
+    division: "Division",
+    serviceLine: "ServiceLine",
+    sourceBidNumber: "SourceBidNumber",
+    sourceTableId: "SourceTableId",
+    sourceItemId: "SourceItemId",
+    itemOrder: "ItemOrder",
+    tableKey: "TableKey",
   },
 
   folders: {

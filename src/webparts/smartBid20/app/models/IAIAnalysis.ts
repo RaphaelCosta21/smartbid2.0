@@ -13,7 +13,8 @@ export type AIUseCase =
   | "past-bid-profile"
   | "supplier-profile"
   | "chat"
-  | "clarification";
+  | "clarification"
+  | "qualification";
 
 /** A resource type with its configured sub-type values, for AI mapping. */
 export interface IAIResourceTypeOption {
@@ -195,7 +196,15 @@ export interface IAISuggestedClarification {
   confidence?: number;
 }
 
-/** One supplier line item extracted from a quotation document. */
+/** A qualification table row the AI proposes; rows with the same table title form one table. */
+export interface IAISuggestedQualification {
+  tableTitle: string;
+  /** Qualification Categories value or free text. */
+  category: string;
+  qualification: string;
+  rationale?: string;
+  confidence?: number;
+}
 export interface IExtractedQuotationLine {
   /** OII / manufacturer part number. */
   partNumber: string;

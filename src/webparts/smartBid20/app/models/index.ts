@@ -162,6 +162,7 @@ export {
   type IClarificationDbItem,
   type ClarificationBaseType,
 } from "./IClarificationDb";
+export { type IQualificationDbItem } from "./IQualificationDb";
 export {
   type IBidLink,
   type IBidRecommendation,
@@ -180,6 +181,7 @@ export {
   type SupplierProfileBasis,
   type AIUseCase,
   type IAISuggestedClarification,
+  type IAISuggestedQualification,
   type IExtractedQuotationLine,
   type IQuotationExtractionResult,
   type IAIImportMeta,

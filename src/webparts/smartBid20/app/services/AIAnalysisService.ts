@@ -18,6 +18,7 @@ import {
   IAIAnalysisRequest,
   IAIAnalysisContext,
   IAISuggestedClarification,
+  IAISuggestedQualification,
   IExtractedQuotationLine,
   IQuotationExtractionResult,
   IExtractedDocumentMetadata,
@@ -52,6 +53,8 @@ import {
   SUPPLIER_PROFILE_PROMPT_VERSION,
   buildClarificationSuggestionPrompt,
   CLARIFICATION_SUGGESTION_PROMPT_VERSION,
+  buildQualificationSuggestionPrompt,
+  QUALIFICATION_SUGGESTION_PROMPT_VERSION,
 } from "../config/ai.prompts";
 
 const SUPPLIER_PROFILE_BASES: SupplierProfileBasis[] = [
@@ -1096,5 +1099,70 @@ export class AIAnalysisService {
     return AIAnalysisService.parseClarifications(
       data ? data.suggestedClarifications : [],
     );
+  }
+
+  /**
+   * Suggest qualification tables for the current BID, grounded in the library
+   * and Past Bids (retrieved by the backend) and in the current scope.
+   * Same endpoint as clarifications: only the prompt and the row shape differ.
+   *
+   * @param ids.existingText - Qualification tables and clarifications already on the BID
+   * @param ids.categories - Active Qualification Categories labels
+   */
+  public static async suggestQualifications(
+    requirementsText: string,
+    context: IAIAnalysisContext = {},
+    ids: {
+      bidNumber?: string;
+      existingText?: string;
+      categories?: string[];
+    } = {},
+    abortSignal?: AbortSignal,
+  ): Promise<IAISuggestedQualification[]> {
+    AIAnalysisService.ensureConfigured();
+    const data = (await AIAnalysisService.postJson(
+      AI_CONFIG.endpoints.suggestClarifications,
+      {
+        requirementsText,
+        existingText: ids.existingText || "",
+        bidNumber: ids.bidNumber || "",
+        division: context.division || "",
+        serviceLine: context.serviceLine || "",
+        resourceTypes: context.resourceTypes || [],
+        contextSummary: context.contextSummary || "",
+        useCase: "qualification",
+        systemPrompt: buildQualificationSuggestionPrompt(ids.categories || []),
+        promptVersion: QUALIFICATION_SUGGESTION_PROMPT_VERSION,
+      },
+      abortSignal,
+    )) as Record<string, unknown>;
+    if (data && data.error) {
+      throw new Error(
+        data.details ? `${data.error}: ${data.details}` : String(data.error),
+      );
+    }
+    return AIAnalysisService.parseQualifications(
+      data ? data.suggestedClarifications : [],
+    );
+  }
+
+  private static parseQualifications(
+    raw: unknown,
+  ): IAISuggestedQualification[] {
+    if (!Array.isArray(raw)) return [];
+    const out: IAISuggestedQualification[] = [];
+    raw.forEach((entry: Record<string, unknown>) => {
+      const q = entry || {};
+      const text = String(q.qualification || q.clarification || "").trim();
+      if (!text) return;
+      out.push({
+        tableTitle: String(q.tableTitle || "").trim() || "Qualifications",
+        category: String(q.category || q.description || "").trim(),
+        qualification: text,
+        rationale: q.rationale ? String(q.rationale) : undefined,
+        confidence: typeof q.confidence === "number" ? q.confidence : undefined,
+      });
+    });
+    return out;
   }
 }

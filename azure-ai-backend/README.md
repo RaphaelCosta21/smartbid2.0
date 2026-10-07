@@ -185,7 +185,7 @@ and they work — keep that format.
 
 > **Clarifications Library:** SmartBid rewrites `Clarifications.md` and `Qualifications.md` in
 > `smartBidDocs/Clarifications Library` (`DocType = Clarification Library`) from the
-> Clarifications Database list. `/skills/chunk` emits one chunk per entry for that docType
+> Clarifications Database and Qualifications Database lists. `/skills/chunk` emits one chunk per entry for that docType
 > (no outline chunk), and only the dedicated library passes of `/scope/generate`,
 > `/clarifications/suggest` and `/chat` (`clarificationLibrary: true`) read it; the datasheet pass of
 > `/scope/generate` and the general `/chat` pass exclude it. Once the service runs this repo's

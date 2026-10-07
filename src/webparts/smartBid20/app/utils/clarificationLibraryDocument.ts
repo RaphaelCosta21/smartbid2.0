@@ -10,6 +10,7 @@ import {
   IClarificationDbItem,
 } from "../models/IClarificationDb";
 import { IDocLibraryMetadata } from "../models/IDocLibraryItem";
+import { IQualificationDbItem } from "../models/IQualificationDb";
 import { IConfigOption, ISystemConfig } from "../models/ISystemConfig";
 import {
   allCategoryOptions,
@@ -51,6 +52,10 @@ function topicOf(item: IClarificationDbItem): string {
       .split(" ")
       .slice(0, TOPIC_FALLBACK_WORDS)
       .join(" ");
+  return truncateTopic(topic);
+}
+
+function truncateTopic(topic: string): string {
   return topic.length > TOPIC_MAX_CHARS
     ? `${topic.substring(0, TOPIC_MAX_CHARS).trim()}...`
     : topic;
@@ -108,6 +113,63 @@ export function buildClarificationLibraryDocument(
     .sort((a, b) => a.id - b.id)
     .map((i) => entry(i, config));
   const text = [heading(1, `SmartBid ${PLURAL[baseType]} library`)]
+    .concat(entries)
+    .join("\n\n")
+    .concat("\n");
+  return { text, count: entries.length };
+}
+
+/** "Q" keeps these ids apart from the legacy Qualification rows of the Clarifications Database. */
+function qualificationEntry(
+  item: IQualificationDbItem,
+  config: ISystemConfig | null,
+): string {
+  const label = (list: IConfigOption[] | undefined, v: string): string =>
+    safe(configOptionLabel(list, v));
+  const table = safe(item.tableTitle) || "Qualifications";
+  const category = label(config?.qualificationCategories, item.category);
+  const body = [
+    record("Type: Qualification", [
+      ["Table", table],
+      ["Category", category],
+      ["Client", label(config?.clientList, item.client)],
+      ["Division", label(config?.divisions, item.division)],
+      ["Service line", label(config?.serviceLines, item.serviceLine)],
+      ["Source BID", safe(item.sourceBidNumber) || "manual library entry"],
+      ["Added to library", day(item.created)],
+    ]),
+    record("", [["Qualification text", safe(item.qualification)]]),
+  ];
+  const topic = truncateTopic([table, category].filter(Boolean).join(" - "));
+  return `${heading(2, `Qualification Q${item.id} - ${topic}`)}\n\n${body
+    .filter(Boolean)
+    .join("\n")}`;
+}
+
+/**
+ * Qualifications.md: the Qualifications Database tables, then the legacy
+ * Qualification rows still kept in the Clarifications Database.
+ */
+export function buildQualificationLibraryDocument(
+  items: IQualificationDbItem[],
+  legacy: IClarificationDbItem[],
+  config: ISystemConfig | null,
+): { text: string; count: number } {
+  const entries = items
+    .filter((i) => clean(i.qualification))
+    .sort((a, b) => a.id - b.id)
+    .map((i) => qualificationEntry(i, config))
+    .concat(
+      legacy
+        .filter(
+          (i) =>
+            i.baseType === "Qualification" &&
+            (clean(i.clarification) || clean(i.etTopic)),
+        )
+        .sort((a, b) => a.id - b.id)
+        .map((i) => entry(i, config)),
+    );
+  const text = [heading(1, "SmartBid Qualifications library")]
     .concat(entries)
     .join("\n\n")
     .concat("\n");
