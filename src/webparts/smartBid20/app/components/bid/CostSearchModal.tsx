@@ -25,6 +25,12 @@ import { useConfigStore } from "../../stores/useConfigStore";
 import { useQuotationStore } from "../../stores/useQuotationStore";
 import { BomCostAnalysisService } from "../../services/BomCostAnalysisService";
 import { AddQuotationModal } from "./AddQuotationModal";
+import { PartNumberDisplay } from "../common/PartNumberAutocomplete";
+import {
+  isPartNumberMarker,
+  isPlaceholderPartNumber,
+  searchablePartNumber,
+} from "../../utils/scopeHelpers";
 import styles from "./CostSearchModal.module.scss";
 
 export interface CostSearchImportItem {
@@ -314,6 +320,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
       let best: IQuotationItem | null = null;
       for (let k = 0; k < quotationItems.length; k++) {
         const qi = quotationItems[k];
+        if (isPlaceholderPartNumber(qi.partNumber)) continue;
         const qiKey = (qi.partNumber || "").trim().toUpperCase();
         if (pnKeys.indexOf(qiKey) < 0) continue;
         if (!best || dateMs(qi.quotationDate) > dateMs(best.quotationDate))
@@ -332,7 +339,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
             ? row.subItemScope.partNumber || ""
             : row.scopeItem.partNumber || "";
           const pnUpper = pn.trim().toUpperCase();
-          if (!pn.trim() || pnUpper === "TBD" || pnUpper === "TBC")
+          if (!searchablePartNumber(pn))
             return {
               ...row,
               result: null,
@@ -558,36 +565,18 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
       !r.isParentContext && (r.result?.found || r.bomResult || r.quoteResult),
   ).length;
   const notFoundCount = hasSearched
-    ? rows.filter((r) => {
-        if (r.isParentContext) return false;
-        const pn = (
-          r.subItemScope
-            ? r.subItemScope.partNumber || ""
-            : r.scopeItem.partNumber || ""
-        )
-          .trim()
-          .toUpperCase();
-        return (
+    ? rows.filter(
+        (r) =>
+          !r.isParentContext &&
           !r.result?.found &&
           !r.bomResult &&
           !r.quoteResult &&
-          pn &&
-          pn !== "TBD" &&
-          pn !== "TBC"
-        );
-      }).length
+          !!searchablePartNumber(rowPnKey(r)),
+      ).length
     : 0;
-  const noPN = rows.filter((r) => {
-    if (r.isParentContext) return false;
-    const pn = (
-      r.subItemScope
-        ? r.subItemScope.partNumber || ""
-        : r.scopeItem.partNumber || ""
-    )
-      .trim()
-      .toUpperCase();
-    return !pn || pn === "TBD" || pn === "TBC";
-  }).length;
+  const noPN = rows.filter(
+    (r) => !r.isParentContext && !searchablePartNumber(rowPnKey(r)),
+  ).length;
 
   /** Source badge CSS class */
   const srcClass = (
@@ -858,7 +847,11 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                       )}
                     </td>
                     <td className={styles.tdPN}>
-                      {pn || "-"}
+                      {isPlaceholderPartNumber(pn) ? (
+                        <PartNumberDisplay value={pn} />
+                      ) : (
+                        pn || "-"
+                      )}
                       {alias && (
                         <div
                           className={styles.aliasHint}
@@ -878,7 +871,11 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                     <td className={styles.tdStatus}>
                       {!hasSearched ? (
                         <span className={styles.pending}>-</span>
-                      ) : !pn.trim() ? (
+                      ) : isPartNumberMarker(pn) ? (
+                        <span className={styles.noPN}>
+                          {pn.trim().toUpperCase()}
+                        </span>
+                      ) : !searchablePartNumber(pn) ? (
                         <span className={styles.noPN}>No PN</span>
                       ) : hasAny ? (
                         <span className={styles.found}>
@@ -1018,7 +1015,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                       )}
                     </td>
                     <td className={styles.tdActions}>
-                      {hasSearched && !hasAny && pn.trim() && (
+                      {hasSearched && !hasAny && searchablePartNumber(pn) && (
                         <div className={styles.actionBtns}>
                           <button
                             className={styles.actionBtn}

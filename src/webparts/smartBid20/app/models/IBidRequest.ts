@@ -37,6 +37,7 @@ export interface IBidRequest {
   projectManager: IPersonRef[] | null;
   bidType: BidType;
   priority: BidPriority;
+  urgencyReason?: string;
   desiredDueDate: string;
   operationStartDate: string;
   totalDuration: number;

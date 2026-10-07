@@ -955,7 +955,16 @@
 }
 
 .subItemsHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
   padding: 4px 12px 6px;
+}
+
+.subItemsHint {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .subItemsCheck {
@@ -972,6 +981,21 @@
     margin: 0;
     accent-color: var(--primary-accent);
     cursor: pointer;
+  }
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+}
+
+.subItemRowSelected {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--primary-accent) 10%, transparent);
+
+  &:hover {
+    background: color-mix(in srgb, var(--primary-accent) 14%, transparent);
   }
 }
 

@@ -674,9 +674,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   const [expandedFavItems, setExpandedFavItems] = React.useState<Set<string>>(
     new Set(),
   );
-  const [includeSubItems, setIncludeSubItems] = React.useState<Set<string>>(
-    new Set(),
-  );
+  // Ticked favorite sub-item ids per parent id; survives tab changes like the picks
+  const [favChildSel, setFavChildSel] = React.useState<
+    Record<string, string[]>
+  >({});
 
   const [previewPhotoUrl, setPreviewPhotoUrl] = React.useState<string | null>(
     null,
@@ -734,7 +735,6 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     setFavActiveGroup(null);
     setFavActiveSubGroup(null);
     setExpandedFavItems(new Set());
-    setIncludeSubItems(new Set());
     setAssetCategory(null);
     setQueryTab(query?.queryTab || "financials");
     setQuerySubTab(query?.querySubTab || "priceConsulting");
@@ -914,7 +914,8 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
 
   const handleConfirm = (): void => {
     if (multiSelect) {
-      if (selectedMany.length > 0 && onSelectMany) onSelectMany(selectedMany);
+      if (totalPicks > 0 && onSelectMany)
+        onSelectMany([...selectedMany, ...orphanChildPicks]);
       return;
     }
     if (selectedItem && onSelect) {
@@ -1028,13 +1029,39 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     return favAllEquipment.filter((e) => e.parentId === parentId);
   };
 
-  /** Build sub-item payloads for a parent favorite */
-  const buildSubItems = (parentId: string): IImportSubItem[] => {
-    return getChildEquipment(parentId).map((c) => ({
-      partNumber: c.partNumber,
-      description: c.description,
-    }));
+  const getSelectedChildren = (parentId: string): IFavoriteEquipment[] => {
+    const ids = favChildSel[parentId] || [];
+    return getChildEquipment(parentId).filter((c) => ids.indexOf(c.id) >= 0);
   };
+
+  /** Sub-item payload of a parent favorite: only its ticked children */
+  const buildSubItems = (parentId: string): IImportSubItem[] | undefined => {
+    const children = getSelectedChildren(parentId);
+    return children.length > 0
+      ? children.map((c) => ({
+          partNumber: c.partNumber,
+          description: c.description,
+        }))
+      : undefined;
+  };
+
+  /** Ticked sub-items whose parent is not picked are imported on their own */
+  const orphanChildPicks: IImportPick[] = [];
+  if (multiSelect) {
+    Object.keys(favChildSel).forEach((parentId) => {
+      if (!favChildSel[parentId] || favChildSel[parentId].length === 0) return;
+      const parent = favAllEquipment.find((e) => e.id === parentId);
+      if (parent && isRowSelected(parent.partNumber, parent.description))
+        return;
+      getSelectedChildren(parentId).forEach((c) =>
+        orphanChildPicks.push({
+          partNumber: c.partNumber,
+          description: c.description,
+        }),
+      );
+    });
+  }
+  const totalPicks = selectedMany.length + orphanChildPicks.length;
 
   /** Toggle expand/collapse for a favorite item's sub-items */
   const toggleExpandFavItem = (id: string): void => {
@@ -1046,14 +1073,46 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     });
   };
 
-  /** Toggle whether sub-items should be included in the import */
-  const toggleIncludeSubItems = (id: string): void => {
-    setIncludeSubItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  /** Set the ticked sub-items of a parent favorite */
+  const setFavChildren = (parent: IFavoriteEquipment, ids: string[]): void => {
+    setFavChildSel((prev) => ({ ...prev, [parent.id]: ids }));
+    const children = getChildEquipment(parent.id).filter(
+      (c) => ids.indexOf(c.id) >= 0,
+    );
+    const nextSubs =
+      children.length > 0
+        ? children.map((c) => ({
+            partNumber: c.partNumber,
+            description: c.description,
+          }))
+        : undefined;
+    // Keep an already-made parent selection in sync with the new payload
+    if (multiSelect) {
+      const key = pickKey(parent.partNumber, parent.description);
+      setSelectedMany((prev) =>
+        prev.map((p) =>
+          pickKey(p.partNumber, p.description) === key
+            ? { ...p, subItems: nextSubs }
+            : p,
+        ),
+      );
+    } else if (isRowSelected(parent.partNumber, parent.description)) {
+      setSelectedItem({
+        pn: parent.partNumber,
+        desc: parent.description,
+        subs: nextSubs,
+      });
+    }
+  };
+
+  const toggleFavChild = (parent: IFavoriteEquipment, childId: string): void => {
+    const ids = favChildSel[parent.id] || [];
+    setFavChildren(
+      parent,
+      ids.indexOf(childId) >= 0
+        ? ids.filter((id) => id !== childId)
+        : [...ids, childId],
+    );
   };
 
   /* ──────── Tab: Favorites ──────── */
@@ -1181,15 +1240,15 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                     const children = getChildEquipment(eq.id);
                     const hasChildren = children.length > 0;
                     const isExpanded = expandedFavItems.has(eq.id);
-                    const subsIncluded = includeSubItems.has(eq.id);
-                    const isSelected = isRowSelected(
-                      eq.partNumber,
-                      eq.description,
-                    );
+                    const tickedIds = favChildSel[eq.id] || [];
+                    const tickedCount = children.filter(
+                      (c) => tickedIds.indexOf(c.id) >= 0,
+                    ).length;
+                    const allTicked =
+                      hasChildren && tickedCount === children.length;
+                    const someTicked = tickedCount > 0 && !allTicked;
 
-                    const subsPayload = subsIncluded
-                      ? buildSubItems(eq.id)
-                      : undefined;
+                    const subsPayload = buildSubItems(eq.id);
 
                     return (
                       <React.Fragment key={eq.id}>
@@ -1273,6 +1332,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                               )}
                             {hasChildren && (
                               <span className={styles.childBadge}>
+                                {tickedCount > 0 ? `${tickedCount}/` : ""}
                                 {children.length} sub-item
                                 {children.length > 1 ? "s" : ""}
                               </span>
@@ -1292,53 +1352,58 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                               <label className={styles.subItemsCheck}>
                                 <input
                                   type="checkbox"
-                                  checked={subsIncluded}
-                                  onChange={() => {
-                                    toggleIncludeSubItems(eq.id);
-                                    const nextSubs = !subsIncluded
-                                      ? buildSubItems(eq.id)
-                                      : undefined;
-                                    // Keep an already-made selection in sync with the new payload
-                                    if (multiSelect) {
-                                      const key = pickKey(
-                                        eq.partNumber,
-                                        eq.description,
-                                      );
-                                      setSelectedMany((prev) =>
-                                        prev.map((p) =>
-                                          pickKey(
-                                            p.partNumber,
-                                            p.description,
-                                          ) === key
-                                            ? { ...p, subItems: nextSubs }
-                                            : p,
-                                        ),
-                                      );
-                                    } else if (isSelected) {
-                                      setSelectedItem({
-                                        pn: eq.partNumber,
-                                        desc: eq.description,
-                                        subs: nextSubs,
-                                      });
-                                    }
+                                  checked={allTicked}
+                                  ref={(el) => {
+                                    if (el) el.indeterminate = someTicked;
                                   }}
+                                  onChange={() =>
+                                    setFavChildren(
+                                      eq,
+                                      allTicked
+                                        ? []
+                                        : children.map((c) => c.id),
+                                    )
+                                  }
                                 />
-                                <span>Include sub-items in import</span>
+                                <span>
+                                  {allTicked ? "Unselect all" : "Select all"}{" "}
+                                  sub-items
+                                </span>
                               </label>
+                              <span className={styles.subItemsHint}>
+                                {multiSelect
+                                  ? "Ticked sub-items go with the item, or alone if the item is not ticked."
+                                  : "Ticked sub-items are imported with the item."}
+                              </span>
                             </div>
-                            {children.map((child) => (
-                              <div key={child.id} className={styles.subItemRow}>
-                                <div className={styles.subItemIndent}>↳</div>
-                                <div
-                                  className={`${styles.colPn} ${styles.mono}`}
+                            {children.map((child) => {
+                              const ticked = tickedIds.indexOf(child.id) >= 0;
+                              return (
+                                <label
+                                  key={child.id}
+                                  className={`${styles.subItemRow}${ticked ? ` ${styles.subItemRowSelected}` : ""}`}
                                 >
-                                  {child.partNumber || "-"}
-                                </div>
-                                <div className={styles.colDesc}>
-                                  {child.description || "-"}
-                                </div>
-                              </div>
-                            ))}
+                                  <div className={styles.subItemIndent}>↳</div>
+                                  <div
+                                    className={`${styles.colPn} ${styles.mono}`}
+                                  >
+                                    {child.partNumber || "-"}
+                                  </div>
+                                  <div className={styles.colDesc}>
+                                    {child.description || "-"}
+                                  </div>
+                                  <div className={styles.colAction}>
+                                    <input
+                                      type="checkbox"
+                                      className={styles.rowCheckbox}
+                                      checked={ticked}
+                                      onChange={() => toggleFavChild(eq, child.id)}
+                                      aria-label={`Select sub-item ${child.partNumber || child.description}`}
+                                    />
+                                  </div>
+                                </label>
+                              );
+                            })}
                           </div>
                         )}
                       </React.Fragment>
@@ -2367,17 +2432,20 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
 
           {/* Footer */}
           <div className={styles.footer}>
-            {multiSelect && selectedMany.length > 0 && (
+            {multiSelect && totalPicks > 0 && (
               <div className={styles.selectedPreview}>
                 <span className={styles.selectedLabel}>Selected:</span>
                 <span className={styles.selectedCount}>
-                  {selectedMany.length} item
-                  {selectedMany.length > 1 ? "s" : ""}
+                  {totalPicks} item
+                  {totalPicks > 1 ? "s" : ""}
                 </span>
                 <button
                   type="button"
                   className={styles.clearSelectionBtn}
-                  onClick={() => setSelectedMany([])}
+                  onClick={() => {
+                    setSelectedMany([]);
+                    setFavChildSel({});
+                  }}
                 >
                   Clear
                 </button>
@@ -2400,7 +2468,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                 )}
               </div>
             )}
-            {(multiSelect ? selectedMany.length === 0 : !selectedItem) && (
+            {(multiSelect ? totalPicks === 0 : !selectedItem) && (
               <div className={styles.footerHint}>
                 {multiSelect
                   ? visibleTabs.length > 1
@@ -2420,15 +2488,13 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
               <button
                 type="button"
                 className={styles.confirmBtn}
-                disabled={
-                  multiSelect ? selectedMany.length === 0 : !selectedItem
-                }
+                disabled={multiSelect ? totalPicks === 0 : !selectedItem}
                 onClick={handleConfirm}
               >
                 {CheckIcon}
                 <span>
-                  {multiSelect && selectedMany.length > 0
-                    ? `Confirm (${selectedMany.length})`
+                  {multiSelect && totalPicks > 0
+                    ? `Confirm (${totalPicks})`
                     : "Confirm"}
                 </span>
               </button>

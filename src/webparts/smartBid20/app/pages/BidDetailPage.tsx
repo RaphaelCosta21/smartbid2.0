@@ -55,6 +55,7 @@ import { BidService } from "../services/BidService";
 import { MembersService } from "../services/MembersService";
 import {
   IBid,
+  IClarificationItem,
   IScopeItem,
   IHoursSummary,
   IBidComment,
@@ -514,6 +515,19 @@ export const BidDetailPage: React.FC = () => {
   const canEditBidTab = (tab: BidTab): boolean =>
     canEditTab(tab) && !isBidLocked && !isUnassigned;
 
+  const upsertScopeClarification = (clar: IClarificationItem): void => {
+    const latest =
+      useBidStore.getState().bids.find((b) => b.bidNumber === bid.bidNumber) ||
+      bid;
+    const list = latest.clarifications || [];
+    const exists = list.some((c) => c.id === clar.id);
+    saveQualifications({
+      clarifications: exists
+        ? list.map((c) => (c.id === clar.id ? clar : c))
+        : [...list, clar],
+    });
+  };
+
   /**
    * Merge AI-generated scope items into the BID, tag them as AI-sourced, and
    * record an activity-log entry describing what the AI produced and how the
@@ -965,6 +979,11 @@ export const BidDetailPage: React.FC = () => {
                               });
                             }}
                             clarifications={filteredClars}
+                            onSaveClarification={
+                              canEditTab("qualifications")
+                                ? upsertScopeClarification
+                                : undefined
+                            }
                             tabNotes={
                               (bid.bidNotes as Record<string, string>)?.scope ||
                               ""
@@ -1161,6 +1180,14 @@ export const BidDetailPage: React.FC = () => {
                               savePatch({
                                 assetsContingencyPerYear: perYear,
                                 assetsContingencyApplied: applied,
+                              });
+                            }}
+                            engSolutionsContingencySaved={
+                              bid.assetsEngSolutionsContingencyPct
+                            }
+                            onEngSolutionsContingencyChange={(pct) => {
+                              savePatch({
+                                assetsEngSolutionsContingencyPct: pct,
                               });
                             }}
                             onCreateBom={(partNumber, description) => {

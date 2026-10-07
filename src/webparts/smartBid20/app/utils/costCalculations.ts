@@ -10,6 +10,7 @@ import {
   IAvailabilitySplit,
   IAssetSubCost,
 } from "../models";
+import { isEngSolutionsSubType } from "./scopeHelpers";
 
 /** Per-resource-type asset cost breakdown */
 export interface IAssetResourceTypeCost {
@@ -59,6 +60,21 @@ export interface IAssetCostBreakdown {
 export interface IContingencyOpts {
   perYear: number;
   applied: boolean;
+  /** Flat % added to the typed unit cost of Eng. Solutions items (0 = off) */
+  engSolutionsPct?: number;
+}
+
+/** Contingency settings saved on a BID; undefined when every contingency is off. */
+export function getBidContingency(bid: IBid): IContingencyOpts | undefined {
+  const perYear = bid.assetsContingencyPerYear || 0;
+  const hasEngSolutions = (bid.scopeItems || []).some(
+    (s) => !s.isSection && isEngSolutionsSubType(s.resourceSubType),
+  );
+  const engSolutionsPct = hasEngSolutions
+    ? bid.assetsEngSolutionsContingencyPct || 0
+    : 0;
+  if (perYear <= 0 && engSolutionsPct <= 0) return undefined;
+  return { perYear, applied: perYear > 0, engSolutionsPct };
 }
 
 const NO_COST_AVAILABILITY = ["onboard", "call out", "not offered"];
@@ -80,27 +96,29 @@ export function isWorkshopAcq(acqType?: string): boolean {
   return norm(acqType).indexOf("workshop") === 0;
 }
 
-/** Apply contingency adjustment to a unit cost based on date reference age */
+/** Age-based contingency %: `perYear` for every calendar year since the date reference. */
+export function getAgeContingencyPct(
+  dateRef: string | undefined,
+  perYear: number,
+): number {
+  if (!dateRef || perYear <= 0) return 0;
+  const refDate = new Date(dateRef);
+  if (isNaN(refDate.getTime())) return 0;
+  const years = new Date().getFullYear() - refDate.getFullYear();
+  return years > 0 ? years * perYear : 0;
+}
+
+/** Typed unit cost with its contingencies: historical per-year first, then Eng. Solutions on the corrected price. */
 export function applyContingencyToCost(
   unitCost: number,
   dateRef: string | undefined,
-  pctPerYear: number,
+  cont: IContingencyOpts | undefined,
+  isEngSolutions = false,
 ): number {
-  if (!dateRef || pctPerYear <= 0 || unitCost <= 0) return unitCost;
-  const refDate = new Date(dateRef);
-  if (isNaN(refDate.getTime())) return unitCost;
-  const years = new Date().getFullYear() - refDate.getFullYear();
-  if (years <= 0) return unitCost;
-  return unitCost * (1 + (years * pctPerYear) / 100);
-}
-
-function contAdj(
-  cost: number,
-  dateRef: string | undefined,
-  cont?: IContingencyOpts,
-): number {
-  if (!cont || !cont.applied || cont.perYear <= 0 || cost <= 0) return cost;
-  return applyContingencyToCost(cost, dateRef, cont.perYear);
+  if (!cont || unitCost <= 0) return unitCost;
+  const agePct = cont.applied ? getAgeContingencyPct(dateRef, cont.perYear) : 0;
+  const engPct = isEngSolutions ? Math.max(0, cont.engSolutionsPct || 0) : 0;
+  return unitCost * (1 + agePct / 100) * (1 + engPct / 100);
 }
 
 /**
@@ -171,6 +189,7 @@ function accumulateNode(
 export function getSplitNode(
   split: IAvailabilitySplit,
   cont?: IContingencyOpts,
+  isEngSolutions = false,
 ): ICostNode {
   const fees = getFeesTotal(split.subCosts, split.dailyRate || 0);
   const qty = split.qty || 0;
@@ -183,7 +202,13 @@ export function getSplitNode(
   } else if (isRentalAcq(split.acquisitionType)) {
     base = (split.dailyRate || 0) * (split.rentalDays || 0) * qty;
   } else {
-    base = contAdj(split.unitCostUSD || 0, split.dateReference, cont) * qty;
+    base =
+      applyContingencyToCost(
+        split.unitCostUSD || 0,
+        split.dateReference,
+        cont,
+        isEngSolutions,
+      ) * qty;
   }
   return makeNode(base, fees, getEffectiveCategory(split), []);
 }
@@ -192,8 +217,9 @@ export function getSplitNode(
 export function getSplitCost(
   split: IAvailabilitySplit,
   cont?: IContingencyOpts,
+  isEngSolutions = false,
 ): number {
-  return getSplitNode(split, cont).total;
+  return getSplitNode(split, cont, isEngSolutions).total;
 }
 
 /** qty of the scope child (sub-item or PCF item) a cost entry points at */
@@ -213,11 +239,12 @@ export function getSubItemNode(
   sic: ISubItemCost,
   scopeItem: IScopeItem | undefined,
   cont?: IContingencyOpts,
+  isEngSolutions = false,
 ): ICostNode {
   const fees = getFeesTotal(sic.subCosts, sic.dailyRate || 0);
   const category = getEffectiveCategory(sic);
   const splits = (sic.availabilitySplits || []).map((sp) =>
-    getSplitNode(sp, cont),
+    getSplitNode(sp, cont, isEngSolutions),
   );
   if (splits.length > 0) {
     const base = splits.reduce((s, n) => s + n.total, 0);
@@ -229,7 +256,12 @@ export function getSubItemNode(
   const qty = resolveChildQty(scopeItem, sic.subItemId);
   const base = isRentalAcq(sic.acquisitionType)
     ? (sic.dailyRate || 0) * (sic.rentalDays || 0) * qty
-    : contAdj(sic.unitCostUSD || 0, sic.dateReference, cont) * qty;
+    : applyContingencyToCost(
+        sic.unitCostUSD || 0,
+        sic.dateReference,
+        cont,
+        isEngSolutions,
+      ) * qty;
   return makeNode(base, fees, category, []);
 }
 
@@ -238,8 +270,9 @@ export function getSubItemCostTotal(
   sic: ISubItemCost,
   scopeItem: IScopeItem | undefined,
   cont?: IContingencyOpts,
+  isEngSolutions = false,
 ): number {
-  return getSubItemNode(sic, scopeItem, cont).total;
+  return getSubItemNode(sic, scopeItem, cont, isEngSolutions).total;
 }
 
 /**
@@ -251,15 +284,17 @@ export function getAssetCostBreakdown(
   scopeItem: IScopeItem | undefined,
   cont?: IContingencyOpts,
 ): IAssetCostBreakdown {
+  // Sub-items carry their own sub-types; the item, its splits and its PCF are the Eng. Solutions cost
+  const engSol = isEngSolutionsSubType(scopeItem && scopeItem.resourceSubType);
   const splits = (asset.availabilitySplits || []).map((sp) =>
-    getSplitNode(sp, cont),
+    getSplitNode(sp, cont, engSol),
   );
   const hasSplits = splits.length > 0;
   const subItems = (asset.subItemCosts || []).map((sic) =>
     getSubItemNode(sic, scopeItem, cont),
   );
   const pcf = (asset.pcfCosts || []).map((pc) =>
-    getSubItemNode(pc, scopeItem, cont),
+    getSubItemNode(pc, scopeItem, cont, engSol),
   );
 
   const assetFees = getFeesTotal(asset.subCosts, asset.dailyRate || 0);
@@ -286,7 +321,13 @@ export function getAssetCostBreakdown(
     } else if (isRentalAcq(asset.acquisitionType)) {
       base = (asset.dailyRate || 0) * (asset.rentalDays || 0) * qty;
     } else {
-      base = contAdj(asset.unitCostUSD || 0, asset.dateReference, cont) * qty;
+      base =
+        applyContingencyToCost(
+          asset.unitCostUSD || 0,
+          asset.dateReference,
+          cont,
+          engSol,
+        ) * qty;
     }
     main = makeNode(base, assetFees, category, []);
   }
@@ -599,14 +640,11 @@ export function calculateMultiCurrencyTotals(
 export function buildCostSummary(bid: IBid): ICostSummary {
   const fx = getBidFx(bid);
   const ptax = fx.brlRate;
-  const contRate = bid.assetsContingencyPerYear || 0;
-  const contingency =
-    contRate > 0 ? { perYear: contRate, applied: true } : undefined;
   const assets = calculateAssetsTotals(
     bid.assetBreakdown || [],
     ptax,
     bid.scopeItems || [],
-    contingency,
+    getBidContingency(bid),
   );
   const hours = calculateHoursTotals(bid);
   const logistics = calculateMultiCurrencyTotals(
@@ -679,10 +717,64 @@ export function buildCostSummary(bid: IBid): ICostSummary {
   };
 }
 
-/** The BID with `costSummary` rebuilt from its cost breakdowns, so the stored JSON stays in sync. */
+/** Drops cost rows whose Scope item (or sub-item / PCF item) no longer exists, as the tabs already hide them. */
+export function pruneOrphanCosts<T extends IBid>(bid: T): T {
+  const scopeById = new Map<string, IScopeItem>();
+  (bid.scopeItems || []).forEach((si) => {
+    if (!si.isSection) scopeById.set(si.id, si);
+  });
+
+  let assetsChanged = false;
+  const assets: IAssetBreakdownItem[] = [];
+  (bid.assetBreakdown || []).forEach((a) => {
+    const si = scopeById.get(a.scopeItemId);
+    if (!si) {
+      assetsChanged = true;
+      return;
+    }
+    const subIds = new Set((si.subItems || []).map((s) => s.id));
+    const pcfIds = new Set((si.pcfItems || []).map((p) => p.id));
+    const subItemCosts = (a.subItemCosts || []).filter((c) =>
+      subIds.has(c.subItemId),
+    );
+    const pcfCosts = (a.pcfCosts || []).filter((c) => pcfIds.has(c.subItemId));
+    const subPruned = subItemCosts.length !== (a.subItemCosts || []).length;
+    const pcfPruned = pcfCosts.length !== (a.pcfCosts || []).length;
+    const dropPcfRollup = !!a.costFromPCF && pcfIds.size === 0;
+    if (!subPruned && !pcfPruned && !dropPcfRollup) {
+      assets.push(a);
+      return;
+    }
+    assetsChanged = true;
+    assets.push({
+      ...a,
+      ...(subPruned ? { subItemCosts } : {}),
+      ...(pcfPruned ? { pcfCosts } : {}),
+      ...(dropPcfRollup ? { costFromPCF: false } : {}),
+    });
+  });
+
+  const certs = bid.certificationsBreakdown || [];
+  const keptCerts = certs.filter((c) => {
+    if (c.isSection || !c.scopeItemId) return true;
+    const si = scopeById.get(c.scopeItemId);
+    return !!si && !!si.needsCertification;
+  });
+  const certsChanged = keptCerts.length !== certs.length;
+
+  if (!assetsChanged && !certsChanged) return bid;
+  return {
+    ...bid,
+    ...(assetsChanged ? { assetBreakdown: assets } : {}),
+    ...(certsChanged ? { certificationsBreakdown: keptCerts } : {}),
+  };
+}
+
+/** The BID without orphaned cost rows and with `costSummary` rebuilt, so the stored JSON stays in sync. */
 export function withCostSummary<T extends IBid>(bid: T): T {
   try {
-    return { ...bid, costSummary: buildCostSummary(bid) };
+    const pruned = pruneOrphanCosts(bid);
+    return { ...pruned, costSummary: buildCostSummary(pruned) };
   } catch {
     return bid;
   }

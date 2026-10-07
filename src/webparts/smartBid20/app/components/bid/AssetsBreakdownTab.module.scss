@@ -1481,6 +1481,13 @@
   white-space: nowrap;
 }
 
+.contingencyDivider {
+  width: 1px;
+  align-self: stretch;
+  margin: 0 4px;
+  background: var(--border);
+}
+
 .dateLegend {
   display: flex;
   align-items: center;

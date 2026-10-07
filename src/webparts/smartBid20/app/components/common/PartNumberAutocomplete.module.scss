@@ -44,6 +44,162 @@
   color: var(--text-primary);
 }
 
+/* ─── N/A / TBC marker ─── */
+.inputRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+  }
+}
+
+.markerRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.markerBadge {
+  position: relative;
+  z-index: 0;
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: currentColor;
+    opacity: 0.15;
+  }
+}
+
+.markerNA {
+  color: var(--text-secondary);
+}
+
+.markerTBC {
+  color: var(--warning);
+}
+
+.markerMenu {
+  min-width: 190px;
+}
+
+/* Typed placeholder (N/A, TBD...) warning */
+.inputWarn {
+  border-color: var(--warning);
+
+  &:focus {
+    border-color: var(--warning);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 20%, transparent);
+  }
+}
+
+.warnIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--warning);
+  cursor: help;
+}
+
+.typedPlaceholder {
+  color: var(--warning);
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+.pnHint {
+  min-width: 280px;
+  max-width: 340px;
+  padding: 10px 12px;
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+}
+
+.pnHintText {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.pnHintIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--warning);
+}
+
+.pnHintActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-left: 22px;
+}
+
+.pnHintBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: var(--hover-bg);
+    border-color: var(--primary-accent);
+  }
+}
+
+.markerOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+}
+
 /* ─── Dropdown ─── */
 .dropdown {
   position: fixed;

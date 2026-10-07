@@ -52,7 +52,7 @@ const INITIAL_MODAL: EditItemModalState = {
   notes: "",
   deliverables: [],
   hoursGrid: {},
-  includeManufacturing: false,
+  includeManufacturing: true,
 };
 
 export const EngineeringHoursSection: React.FC<
@@ -175,6 +175,7 @@ export const EngineeringHoursSection: React.FC<
           notes: "",
           deliverables: [],
           totalHours: 0,
+          includeManufacturing: true,
           integratedDivision:
             s.integratedDivision || parentSection?.integratedDivision,
         });
@@ -221,6 +222,47 @@ export const EngineeringHoursSection: React.FC<
   // Grand total
   const grandTotal = engItems.reduce((sum, item) => sum + item.totalHours, 0);
 
+  const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+  const getItemDesignByResource = (
+    item: IEngineeringHoursItem,
+  ): Record<string, number> => {
+    const map: Record<string, number> = {};
+    item.deliverables.forEach((d) => {
+      const byRes = d.hoursByResource
+        ? d.hoursByResource
+        : { [d.resourceType || "Unassigned"]: d.hours };
+      Object.keys(byRes).forEach((res) => {
+        map[res] = (map[res] || 0) + (byRes[res] || 0);
+      });
+    });
+    return map;
+  };
+
+  const getItemMfgByResource = (
+    item: IEngineeringHoursItem,
+  ): Record<string, number> => {
+    const mfg: Record<string, number> = {};
+    if (!item.includeManufacturing) return mfg;
+    const design = getItemDesignByResource(item);
+    Object.keys(design).forEach((res) => {
+      mfg[res] = round2(design[res] * 0.2);
+    });
+    return mfg;
+  };
+
+  const getItemResourceTotals = (
+    item: IEngineeringHoursItem,
+  ): Record<string, number> => {
+    const design = getItemDesignByResource(item);
+    const mfg = getItemMfgByResource(item);
+    const totals: Record<string, number> = {};
+    Object.keys(design).forEach((res) => {
+      totals[res] = design[res] + (mfg[res] || 0);
+    });
+    return totals;
+  };
+
   // Toggle expand/collapse
   const toggleExpand = (id: string): void => {
     setExpandedItems((prev) => {
@@ -266,7 +308,7 @@ export const EngineeringHoursSection: React.FC<
       notes: "",
       deliverables: [],
       hoursGrid: {},
-      includeManufacturing: false,
+      includeManufacturing: true,
     });
   };
 
@@ -294,7 +336,11 @@ export const EngineeringHoursSection: React.FC<
       notes: item.notes || "",
       deliverables: [...item.deliverables],
       hoursGrid: grid,
-      includeManufacturing: item.includeManufacturing || false,
+      // Items never saved through the modal (no flag yet) default to ON
+      includeManufacturing:
+        item.includeManufacturing === undefined
+          ? item.deliverables.length === 0
+          : item.includeManufacturing,
     });
   };
 
@@ -434,17 +480,26 @@ export const EngineeringHoursSection: React.FC<
   // ─── Resource Allocation ───
   const resourceAllocations = engineeringSection.resourceAllocations || [];
 
-  // Compute hours per resource from deliverables
+  // Compute hours per resource from deliverables (+ manufacturing support)
   const hoursByResource = React.useMemo(() => {
     const map: Record<string, number> = {};
     engItems.forEach((item) => {
-      item.deliverables.forEach((d) => {
-        const key = d.resourceType || "Unassigned";
-        map[key] = (map[key] || 0) + d.hours;
+      const totals = getItemResourceTotals(item);
+      Object.keys(totals).forEach((res) => {
+        map[res] = (map[res] || 0) + totals[res];
       });
     });
-    return map;
-  }, [engItems]);
+    const ordered: Record<string, number> = {};
+    resourceColumns.forEach((rc) => {
+      if (map[rc] > 0) ordered[rc] = Math.round(map[rc] * 100) / 100;
+    });
+    Object.keys(map).forEach((res) => {
+      if (!(res in ordered) && map[res] > 0)
+        ordered[res] = Math.round(map[res] * 100) / 100;
+    });
+    return ordered;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engItems, resourceColumns]);
 
   const updateResourceAllocation = (
     resourceType: string,
@@ -631,19 +686,39 @@ export const EngineeringHoursSection: React.FC<
                               <td className={styles.delivHours}>{d.hours}</td>
                             </tr>
                           ))}
+                          {item.includeManufacturing &&
+                            (() => {
+                              const mfg = getItemMfgByResource(item);
+                              const mfgTotal = Object.values(mfg).reduce(
+                                (s, v) => s + v,
+                                0,
+                              );
+                              return (
+                                <tr>
+                                  <td className={styles.delivType}>
+                                    <em>Manufacturing Support (20%)</em>
+                                  </td>
+                                  {resourceColumns.map((rc) => (
+                                    <td key={rc} className={styles.delivHours}>
+                                      {mfg[rc] > 0 ? round2(mfg[rc]) : "-"}
+                                    </td>
+                                  ))}
+                                  <td className={styles.delivHours}>
+                                    {round2(mfgTotal)}
+                                  </td>
+                                </tr>
+                              );
+                            })()}
                         </tbody>
                         <tfoot>
                           <tr>
                             <td className={styles.footLabel}>Subtotal</td>
                             {resourceColumns.map((rc) => {
-                              const colTotal = item.deliverables.reduce(
-                                (sum, d) =>
-                                  sum + (d.hoursByResource?.[rc] || 0),
-                                0,
-                              );
+                              const colTotal =
+                                getItemResourceTotals(item)[rc] || 0;
                               return (
                                 <td key={rc} className={styles.delivHours}>
-                                  {colTotal > 0 ? colTotal : "-"}
+                                  {colTotal > 0 ? round2(colTotal) : "-"}
                                 </td>
                               );
                             })}

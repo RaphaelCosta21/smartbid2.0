@@ -1001,6 +1001,21 @@ export const UnassignedRequestsPage: React.FC = () => {
                     )}
                   </span>
                 </div>
+                {r.priority === "Urgent" && r.urgencyReason && (
+                  <div
+                    className={`${styles.modalField} ${styles.modalFieldFull}`}
+                  >
+                    <span className={styles.modalFieldLabel}>
+                      Urgency Reason
+                    </span>
+                    <span
+                      className={styles.modalFieldValue}
+                      style={{ whiteSpace: "pre-wrap" }}
+                    >
+                      {r.urgencyReason}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1354,7 +1369,18 @@ export const UnassignedRequestsPage: React.FC = () => {
       header: "Priority",
       sortable: true,
       render: (r: IBidRequest) => (
-        <StatusBadge status={r.priority} color={PRIORITY_COLORS[r.priority]} />
+        <span
+          title={
+            r.priority === "Urgent" && r.urgencyReason
+              ? `Urgency Reason: ${r.urgencyReason}`
+              : undefined
+          }
+        >
+          <StatusBadge
+            status={r.priority}
+            color={PRIORITY_COLORS[r.priority]}
+          />
+        </span>
       ),
     },
     {

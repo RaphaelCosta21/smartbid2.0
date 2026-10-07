@@ -1309,17 +1309,10 @@ export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
       subTypes: [
         {
           id: "rt3-st1",
-          label: "Engineering Solutions",
-          value: "Engineering Solutions",
+          label: "Eng. Solutions",
+          value: "Eng. Solutions",
           isActive: true,
           order: 1,
-        },
-        {
-          id: "rt3-st2",
-          label: "Development",
-          value: "Development",
-          isActive: true,
-          order: 2,
         },
       ],
     },

@@ -7,6 +7,7 @@ import {
   calculateAssetsByResourceType,
   calculateHoursTotals,
   calculateMultiCurrencyTotals,
+  getBidContingency,
   getBidFx,
 } from "./costCalculations";
 
@@ -118,9 +119,7 @@ export function buildCostSummaryView(bid: IBid): ICostSummaryView {
   const assetsByType = calculateAssetsByResourceType(
     bid.assetBreakdown || [],
     bid.scopeItems || [],
-    (bid.assetsContingencyPerYear || 0) > 0
-      ? { perYear: bid.assetsContingencyPerYear || 0, applied: true }
-      : undefined,
+    getBidContingency(bid),
   );
   const isIntegrated = (bid.serviceLine || "").toLowerCase() === "integrated";
   const divisions = isIntegrated ? INTEGRATED_DIVISIONS : [];

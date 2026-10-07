@@ -292,9 +292,16 @@ export function buildCostSummarySheet(ctx: IBidExcelContext): void {
     );
   }
   const cont = getBidContingency(bid);
-  if (cont) {
+  if (cont && cont.perYear > 0) {
     x.note(
       `Assets contingency of ${cont.perYear}% per year applied on unit costs, based on the age of each cost's date reference.`,
+      span,
+      "info",
+    );
+  }
+  if (cont && (cont.engSolutionsPct || 0) > 0) {
+    x.note(
+      `Eng. Solutions contingency of ${cont.engSolutionsPct}% applied on the unit costs of Eng. Solutions items, on top of the price already corrected by the contingency per year.`,
       span,
       "info",
     );

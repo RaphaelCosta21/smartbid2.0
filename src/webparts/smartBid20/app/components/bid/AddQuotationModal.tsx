@@ -32,6 +32,7 @@ import {
 import { useSupplierStore } from "../../stores/useSupplierStore";
 import { useRegisterQuotationSuppliers } from "../../hooks/useRegisterQuotationSuppliers";
 import { canonicalSupplierName } from "../../utils/supplierMatching";
+import { searchablePartNumber } from "../../utils/scopeHelpers";
 import { SupplierCombobox } from "../common/SupplierCombobox";
 import styles from "./AddQuotationModal.module.scss";
 
@@ -107,7 +108,7 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
   const aiUsedRef = React.useRef(false);
   const supplierAboutRef = React.useRef("");
   const [lines, setLines] = React.useState<ILineItem[]>([
-    blankLineItem(defaultPartNumber, defaultDescription),
+    blankLineItem(searchablePartNumber(defaultPartNumber), defaultDescription),
   ]);
 
   const addLine = (): void =>

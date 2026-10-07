@@ -899,6 +899,8 @@ export interface IBid {
   bidType: BidType;
   bidSize: BidSize;
   priority: BidPriority;
+  /** Requester's justification, required when the request is Urgent. */
+  urgencyReason?: string;
   opportunityInfo: IOpportunityInfo;
   creator: IPersonRef;
   commercialRequester: IPersonRef | null;
@@ -928,6 +930,8 @@ export interface IBid {
   assetsContingencyPerYear?: number;
   /** Whether contingency is currently active on Assets Breakdown */
   assetsContingencyApplied?: boolean;
+  /** Flat contingency % on the typed cost of Eng. Solutions items (0 = disabled) */
+  assetsEngSolutionsContingencyPct?: number;
   logisticsBreakdown: ILogisticsItem[];
   certificationsBreakdown: ICertificationItem[];
   rtsItems: IRTSItem[];

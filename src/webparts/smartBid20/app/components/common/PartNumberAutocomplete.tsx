@@ -5,9 +5,19 @@
  * BOM Costs → Assets Catalog → Favorites.
  */
 import * as React from "react";
+import { MoreHorizontal, TriangleAlert, X } from "lucide-react";
 import styles from "./PartNumberAutocomplete.module.scss";
 import { useQuerySearch } from "../../hooks/useQuerySearch";
 import { ISearchResultItem, CatalogSearchBucket } from "../../models";
+import {
+  isPartNumberMarker,
+  isPlaceholderPartNumber,
+  PN_NOT_APPLICABLE,
+  PN_TO_CONFIRM,
+} from "../../utils/scopeHelpers";
+
+const TYPED_PLACEHOLDER_HINT =
+  "Don't type N/A, TBD, TBC or similar in the PN. Leave it empty and mark it as Not applicable or To be confirmed. Typed placeholders are ignored by Search Costs.";
 
 export interface PartNumberAutocompleteProps {
   /** Current field value */
@@ -30,7 +40,44 @@ export interface PartNumberAutocompleteProps {
   autoFocus?: boolean;
   /** Restrict which sources are searched. E.g. ["query"] for the Peoplesoft catalog only. */
   sourcesFilter?: CatalogSearchBucket[];
+  /** Offer "N/A" / "TBC" markers (PN fields); a marked value renders as a badge */
+  allowPlaceholder?: boolean;
 }
+
+/** Read-only PN: N/A / TBC markers as badges, typed placeholders flagged, otherwise the text (or "-") */
+export const PartNumberDisplay: React.FC<{ value: string; mono?: boolean }> = ({
+  value,
+  mono,
+}) => {
+  const v = (value || "").trim();
+  if (isPartNumberMarker(v)) {
+    const upper = v.toUpperCase();
+    const isNA = upper === PN_NOT_APPLICABLE;
+    return (
+      <span
+        className={`${styles.markerBadge} ${isNA ? styles.markerNA : styles.markerTBC}`}
+        title={isNA ? "Not applicable" : "To be confirmed"}
+      >
+        {upper}
+      </span>
+    );
+  }
+  if (isPlaceholderPartNumber(v)) {
+    return (
+      <span
+        className={`${mono ? styles.monoText : styles.plainText} ${styles.typedPlaceholder}`}
+        title={TYPED_PLACEHOLDER_HINT}
+      >
+        {v}
+      </span>
+    );
+  }
+  return (
+    <span className={mono ? styles.monoText : styles.plainText}>
+      {v || "-"}
+    </span>
+  );
+};
 
 /** Source label map */
 const SOURCE_LABELS: Record<string, { label: string; cls: string }> = {
@@ -60,6 +107,7 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
     onBlur,
     autoFocus,
     sourcesFilter,
+    allowPlaceholder,
   } = props;
 
   const { setQuery, results, isSearching, isCatalogLoading } = useQuerySearch({
@@ -77,6 +125,11 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
     left: number;
     width: number;
   } | null>(null);
+  const [markerMenuPos, setMarkerMenuPos] = React.useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const [isFocused, setIsFocused] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -91,10 +144,11 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
   };
 
   const handleFocus = (): void => {
+    setIsFocused(true);
+    updateDropdownPos();
     if (value && value.length >= 2) {
       setQuery(value);
       setShowDropdown(true);
-      updateDropdownPos();
     }
   };
 
@@ -114,6 +168,24 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
     onSelect(item.pn, item.description);
     setShowDropdown(false);
     setHighlightIndex(-1);
+  };
+
+  const toggleMarkerMenu = (e: React.MouseEvent<HTMLButtonElement>): void => {
+    if (markerMenuPos) {
+      setMarkerMenuPos(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setShowDropdown(false);
+    setMarkerMenuPos({ top: rect.bottom + 4, left: rect.right - 190 });
+  };
+
+  const applyMarker = (marker: string): void => {
+    setMarkerMenuPos(null);
+    setShowDropdown(false);
+    onChange(marker);
+    if (inputRef.current) inputRef.current.blur();
+    if (onBlur) onBlur();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
@@ -144,6 +216,7 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
         !containerRef.current.contains(e.target as Node)
       ) {
         setShowDropdown(false);
+        setMarkerMenuPos(null);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -160,6 +233,13 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
     return () => window.removeEventListener("scroll", handleScroll, true);
   }, [showDropdown]);
 
+  React.useEffect(() => {
+    if (!markerMenuPos) return;
+    const close = (): void => setMarkerMenuPos(null);
+    window.addEventListener("scroll", close, true);
+    return () => window.removeEventListener("scroll", close, true);
+  }, [markerMenuPos]);
+
   // Auto-focus
   React.useEffect(() => {
     if (autoFocus && inputRef.current) {
@@ -168,29 +248,157 @@ export const PartNumberAutocomplete: React.FC<PartNumberAutocompleteProps> = (
   }, [autoFocus]);
 
   if (readOnly) {
-    return (
+    return allowPlaceholder ? (
+      <PartNumberDisplay value={value} mono={mono} />
+    ) : (
       <span className={mono ? styles.monoText : styles.plainText}>
         {value || "-"}
       </span>
     );
   }
 
+  // Typing an exact marker is accepted as one once the field loses focus
+  if (allowPlaceholder && isPartNumberMarker(value) && !isFocused) {
+    return (
+      <div className={styles.markerRow}>
+        <PartNumberDisplay value={value} />
+        <button
+          type="button"
+          className={styles.iconBtn}
+          title="Clear marker and type a part number"
+          aria-label="Clear part number marker"
+          onClick={() => onChange("")}
+        >
+          <X size={12} />
+        </button>
+      </div>
+    );
+  }
+
+  const typedPlaceholder = !!allowPlaceholder && isPlaceholderPartNumber(value);
+
   return (
     <div ref={containerRef} className={styles.container}>
-      <input
-        ref={inputRef}
-        type="text"
-        className={`${styles.input} ${mono ? styles.mono : ""}`}
-        value={value}
-        onChange={handleChange}
-        onFocus={handleFocus}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        autoComplete="off"
-        spellCheck={false}
-      />
+      <div className={allowPlaceholder ? styles.inputRow : undefined}>
+        <input
+          ref={inputRef}
+          type="text"
+          className={`${styles.input} ${mono ? styles.mono : ""} ${typedPlaceholder ? styles.inputWarn : ""}`}
+          value={value}
+          onChange={handleChange}
+          onFocus={handleFocus}
+          onBlur={() => setIsFocused(false)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          title={typedPlaceholder ? TYPED_PLACEHOLDER_HINT : undefined}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {typedPlaceholder && !isFocused && (
+          <span
+            className={styles.warnIcon}
+            title={TYPED_PLACEHOLDER_HINT}
+            aria-label={TYPED_PLACEHOLDER_HINT}
+          >
+            <TriangleAlert size={12} />
+          </span>
+        )}
+        {allowPlaceholder && (
+          <button
+            type="button"
+            className={styles.iconBtn}
+            title="Mark as Not applicable (N/A) or To be confirmed (TBC)"
+            aria-label="Part number options"
+            aria-haspopup="menu"
+            aria-expanded={!!markerMenuPos}
+            onClick={toggleMarkerMenu}
+          >
+            <MoreHorizontal size={12} />
+          </button>
+        )}
+      </div>
+
+      {markerMenuPos && (
+        <div
+          className={`${styles.dropdown} ${styles.markerMenu}`}
+          style={{ top: markerMenuPos.top, left: markerMenuPos.left }}
+          role="menu"
+        >
+          <div
+            className={styles.markerOption}
+            role="menuitem"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              applyMarker(PN_NOT_APPLICABLE);
+            }}
+          >
+            <span className={`${styles.markerBadge} ${styles.markerNA}`}>
+              {PN_NOT_APPLICABLE}
+            </span>
+            Not applicable
+          </div>
+          <div
+            className={styles.markerOption}
+            role="menuitem"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              applyMarker(PN_TO_CONFIRM);
+            }}
+          >
+            <span className={`${styles.markerBadge} ${styles.markerTBC}`}>
+              {PN_TO_CONFIRM}
+            </span>
+            To be confirmed
+          </div>
+        </div>
+      )}
+
+      {typedPlaceholder && isFocused && !markerMenuPos && dropdownPos && (
+        <div
+          className={`${styles.dropdown} ${styles.pnHint}`}
+          style={{ top: dropdownPos.top, left: dropdownPos.left }}
+          role="alert"
+        >
+          <div className={styles.pnHintText}>
+            <TriangleAlert size={14} className={styles.pnHintIcon} />
+            <span>
+              Don&apos;t type <strong>{value.trim()}</strong> in the PN. Leave
+              it empty and mark it instead, or Search Costs will ignore it.
+            </span>
+          </div>
+          <div className={styles.pnHintActions}>
+            <button
+              type="button"
+              className={styles.pnHintBtn}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                applyMarker(PN_NOT_APPLICABLE);
+              }}
+            >
+              <span className={`${styles.markerBadge} ${styles.markerNA}`}>
+                {PN_NOT_APPLICABLE}
+              </span>
+              Not applicable
+            </button>
+            <button
+              type="button"
+              className={styles.pnHintBtn}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                applyMarker(PN_TO_CONFIRM);
+              }}
+            >
+              <span className={`${styles.markerBadge} ${styles.markerTBC}`}>
+                {PN_TO_CONFIRM}
+              </span>
+              To be confirmed
+            </button>
+          </div>
+        </div>
+      )}
 
       {showDropdown &&
+        !typedPlaceholder &&
         (results.length > 0 || isSearching || isCatalogLoading) && (
           <div
             className={styles.dropdown}

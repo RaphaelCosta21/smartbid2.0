@@ -46,6 +46,7 @@ import { getDueFreezeDate } from "../../utils/bidHelpers";
 import {
   buildCostSummary,
   calculateAssetsByResourceType,
+  getBidContingency,
 } from "../../utils/costCalculations";
 import { EmptySection } from "./EmptySection";
 import { TechnicalProposalChip } from "./TechnicalProposalChip";
@@ -1500,6 +1501,20 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </p>
         </div>
 
+        {bid.priority === "Urgent" && bid.urgencyReason && (
+          <div className={styles.infoSection}>
+            <h4 className={styles.infoTitle}>
+              Urgency Reason (Commercial Input)
+            </h4>
+            <p
+              className={styles.scopeDescription}
+              style={{ whiteSpace: "pre-wrap" }}
+            >
+              {bid.urgencyReason}
+            </p>
+          </div>
+        )}
+
         {/* Request Notes (Commercial Input) */}
         {(bid.bidNotes as Record<string, string>)?.general && (
           <div className={styles.infoSection}>
@@ -2770,9 +2785,7 @@ const CapexOpexVerticalChart: React.FC<{ bid: IBid }> = ({ bid }) => {
       calculateAssetsByResourceType(
         bid.assetBreakdown || [],
         bid.scopeItems || [],
-        (bid.assetsContingencyPerYear || 0) > 0
-          ? { perYear: bid.assetsContingencyPerYear || 0, applied: true }
-          : undefined,
+        getBidContingency(bid),
       ),
     [bid],
   );

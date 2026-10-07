@@ -43,12 +43,26 @@ import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { makeId } from "../../utils/idGenerator";
 import { buildAiContext } from "../../utils/aiContext";
 import { AIAnalyzerModal } from "../common/AIAnalyzerModal";
-import { PartNumberAutocomplete } from "../common/PartNumberAutocomplete";
+import {
+  PartNumberAutocomplete,
+  PartNumberDisplay,
+} from "../common/PartNumberAutocomplete";
 import { EquipmentImportModal, IImportPick } from "./EquipmentImportModal";
 import { ImportSourceModal } from "../common/ImportSourceModal";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { AttachmentService } from "../../services/AttachmentService";
-import { formatNumber } from "../../utils/formatters";
+import { formatCurrency, formatNumber } from "../../utils/formatters";
+import { activeConfigOptions } from "../../utils/clarificationHelpers";
+import {
+  calculateMultiCurrencyTotals,
+  getAssetCostBreakdown,
+  getBidFx,
+} from "../../utils/costCalculations";
+import { getBidContingency } from "../../utils/bidExcelExport/rows";
+import {
+  isEngSolutionsSubType,
+  isPlaceholderPartNumber,
+} from "../../utils/scopeHelpers";
 import {
   BidTabHeader,
   IHeaderStat,
@@ -62,6 +76,8 @@ interface ScopeOfSupplyTabProps {
   onSave: (items: IScopeItem[]) => void;
   readOnly?: boolean;
   clarifications?: IClarificationItem[];
+  /** Upserts a clarification from the compliance popup (enables the inline form) */
+  onSaveClarification?: (clar: IClarificationItem) => void;
   /** BID number for AI analysis (enables the AI Generate button) */
   bidNumber?: string;
   /**
@@ -108,7 +124,9 @@ const DRAWER_ANIM_MS = 180;
 
 /** Favorites are matched by PN when present, otherwise by description */
 const favoriteKey = (partNumber: string, description: string): string => {
-  const pn = (partNumber || "").trim().toLowerCase();
+  const pn = isPlaceholderPartNumber(partNumber)
+    ? ""
+    : (partNumber || "").trim().toLowerCase();
   return pn ? `pn:${pn}` : `desc:${(description || "").trim().toLowerCase()}`;
 };
 
@@ -177,6 +195,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   onSave,
   readOnly = false,
   clarifications = [],
+  onSaveClarification,
   bidNumber,
   onAiImport,
   templateId,
@@ -412,6 +431,57 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     x: number;
     y: number;
   } | null>(null);
+  const [clarDraft, setClarDraft] = React.useState<IClarificationItem | null>(
+    null,
+  );
+  const clarCategoryOptions = React.useMemo(
+    () => activeConfigOptions(config?.clarificationCategories),
+    [config?.clarificationCategories],
+  );
+
+  const openClarPopup = (item: IScopeItem, anchor: HTMLElement): void => {
+    const rect = anchor.getBoundingClientRect();
+    const existing = clarifications.find((c) => c.scopeItemId === item.id);
+    setClarDraft(
+      existing
+        ? { ...existing }
+        : {
+            id: makeId("q"),
+            scopeItemId: item.id,
+            item: item.clientDocRef || `#${item.lineNumber}`,
+            description: item.description,
+            clarification: "",
+            clientResponse: "",
+            isAutoImported: true,
+            baseType: "Clarification",
+            createdDate: new Date().toISOString(),
+          },
+    );
+    setClarPopup({
+      id: item.id,
+      x: Math.max(8, Math.min(rect.left, window.innerWidth - 380)),
+      y: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 380)),
+    });
+  };
+
+  const closeClarPopup = (): void => {
+    setClarPopup(null);
+    setClarDraft(null);
+  };
+
+  const saveClarDraft = (): void => {
+    if (!clarDraft || !onSaveClarification) return;
+    onSaveClarification({
+      ...clarDraft,
+      clarification: clarDraft.clarification.trim(),
+    });
+    addToast({
+      type: "success",
+      title: `${clarDraft.baseType || "Clarification"} saved`,
+      message: "Available in the Clarif. & Qualif. tab.",
+    });
+    closeClarPopup();
+  };
   const [expandedSpecs, setExpandedSpecs] = React.useState<Set<string>>(
     new Set(),
   );
@@ -641,6 +711,34 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     persist([...items, copiedHeader, ...copiedChildren]);
   };
 
+  /** USD that leaves the Cost Summary when these scope items go (see pruneOrphanCosts). */
+  const linkedCostsUSD = (
+    scopeIds: Set<string>,
+  ): { assets: number; certs: number } => {
+    const cont = aiBid ? getBidContingency(aiBid) : undefined;
+    const assets = (assetBreakdown || [])
+      .filter((a) => scopeIds.has(a.scopeItemId))
+      .reduce(
+        (s, a) =>
+          s +
+          getAssetCostBreakdown(
+            a,
+            items.find((i) => i.id === a.scopeItemId),
+            cont,
+          ).total,
+        0,
+      );
+    const certs = aiBid
+      ? calculateMultiCurrencyTotals(
+          (aiBid.certificationsBreakdown || []).filter(
+            (c) => !!c.scopeItemId && scopeIds.has(c.scopeItemId),
+          ),
+          getBidFx(aiBid),
+        ).totalUSD
+      : 0;
+    return { assets, certs };
+  };
+
   const deleteItem = (id: string): void => {
     const target = items.find((i) => i.id === id);
     if (target && target.isSection) {
@@ -672,16 +770,26 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       }
     }
 
-    // Safety check: warn if changing away from Eng. Solutions / Development with PCF data
+    if (field === "needsCertification" && value === false) {
+      const certUSD = linkedCostsUSD(new Set([id])).certs;
+      if (
+        certUSD > 0 &&
+        !window.confirm(
+          `This item has ${formatCurrency(certUSD)} of certification costs in the Certifications tab.\n\n` +
+            "Unchecking will permanently delete that cost line.\n\n" +
+            "Are you sure you want to proceed?",
+        )
+      ) {
+        return;
+      }
+    }
+
+    // Safety check: warn if changing away from Eng. Solutions with PCF data
     if (field === "resourceSubType") {
       const item = items.find((i) => i.id === id);
       if (item) {
-        const oldVal = (item.resourceSubType || "").toLowerCase();
-        const newVal = (value as string).toLowerCase();
-        const wasPCFType =
-          oldVal === "eng. solutions" || oldVal === "development";
-        const isPCFType =
-          newVal === "eng. solutions" || newVal === "development";
+        const wasPCFType = isEngSolutionsSubType(item.resourceSubType);
+        const isPCFType = isEngSolutionsSubType(value as string);
         if (wasPCFType && !isPCFType && (item.pcfItems || []).length > 0) {
           const confirmed = window.confirm(
             "This item has Preliminary Concept Form data that will be permanently deleted if you change the Sub-Type.\n\nAre you sure you want to proceed?",
@@ -705,9 +813,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     if (field === "resourceType") {
       const item = items.find((i) => i.id === id);
       if (item) {
-        const oldSubType = (item.resourceSubType || "").toLowerCase();
-        const wasPCFType =
-          oldSubType === "eng. solutions" || oldSubType === "development";
+        const wasPCFType = isEngSolutionsSubType(item.resourceSubType);
         if (wasPCFType && (item.pcfItems || []).length > 0) {
           const confirmed = window.confirm(
             "This item has Preliminary Concept Form data that will be permanently deleted if you change the Resource Type.\n\nAre you sure you want to proceed?",
@@ -733,12 +839,11 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       const patched = { ...i, [field]: value };
       // Clear sub-type when resource type changes
       if (field === "resourceType") patched.resourceSubType = "";
-      // Auto-mark needsEngineering when sub-type is Development or Eng. Solutions
-      if (field === "resourceSubType") {
-        const val = (value as string).toLowerCase();
-        if (val === "development" || val === "eng. solutions") {
-          patched.needsEngineering = true;
-        }
+      if (
+        field === "resourceSubType" &&
+        isEngSolutionsSubType(value as string)
+      ) {
+        patched.needsEngineering = true;
       }
       return patched;
     });
@@ -755,11 +860,11 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       if (i.isSection || i.sectionId !== sectionId) return i;
       const patched = { ...i, [field]: value };
       if (field === "resourceType") patched.resourceSubType = "";
-      if (field === "resourceSubType") {
-        const val = (value as string).toLowerCase();
-        if (val === "development" || val === "eng. solutions") {
-          patched.needsEngineering = true;
-        }
+      if (
+        field === "resourceSubType" &&
+        isEngSolutionsSubType(value as string)
+      ) {
+        patched.needsEngineering = true;
       }
       return patched;
     });
@@ -1522,6 +1627,23 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       const label = raw.length > 80 ? `${raw.slice(0, 80)}…` : raw;
       const n = (pendingDelete.subItems || []).length;
       pendingDeleteMessage = `Item #${pendingDelete.lineNumber}${label ? ` "${label}"` : ""} will be deleted${n > 0 ? ` together with its ${n} sub-item${n !== 1 ? "s" : ""}` : ""}.`;
+    }
+    const deletedIds = new Set([pendingDelete.id]);
+    if (pendingDelete.isSection) {
+      items.forEach((i) => {
+        if (i.sectionId === pendingDelete.id) deletedIds.add(i.id);
+      });
+    }
+    const linked = linkedCostsUSD(deletedIds);
+    const parts: string[] = [];
+    if (linked.assets > 0) {
+      parts.push(`${formatCurrency(linked.assets)} in Assets Breakdown`);
+    }
+    if (linked.certs > 0) {
+      parts.push(`${formatCurrency(linked.certs)} in Certifications`);
+    }
+    if (parts.length > 0) {
+      pendingDeleteMessage += ` Linked costs will also be removed: ${parts.join(" and ")}.`;
     }
   }
 
@@ -2566,30 +2688,31 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                             </button>
                             <button
                               className={`${styles.complianceBtn} ${styles.no} ${item.compliance === "no" ? styles.active : ""}`}
-                              onClick={() =>
+                              onClick={(e) => {
+                                const turningOn = item.compliance !== "no";
                                 updateField(
                                   item.id,
                                   "compliance",
-                                  item.compliance === "no" ? null : "no",
-                                )
-                              }
+                                  turningOn ? "no" : null,
+                                );
+                                if (turningOn && onSaveClarification) {
+                                  openClarPopup(item, e.currentTarget);
+                                }
+                              }}
                             >
                               No
                             </button>
                             {item.compliance === "no" && (
                               <span
                                 className={styles.clarIndicator}
-                                title="Clarification/Qualification required - click to view"
-                                onClick={(e) => {
-                                  const rect = (
-                                    e.target as HTMLElement
-                                  ).getBoundingClientRect();
-                                  setClarPopup({
-                                    id: item.id,
-                                    x: rect.left,
-                                    y: rect.bottom + 4,
-                                  });
-                                }}
+                                title={
+                                  onSaveClarification
+                                    ? "Clarification/Qualification required - click to fill in"
+                                    : "Clarification/Qualification required - click to view"
+                                }
+                                onClick={(e) =>
+                                  openClarPopup(item, e.currentTarget)
+                                }
                               >
                                 ⚠
                               </span>
@@ -2685,6 +2808,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                           searchField="pn"
                           readOnly={readOnly}
                           mono
+                          allowPlaceholder
                           placeholder="PN…"
                           autoFocus={
                             editingCell?.id === item.id &&
@@ -2998,11 +3122,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                   {(item.attachments || []).length}
                                 </span>
                               </div>
-                              {/* PCF tab — only for Eng. Solutions / Development items */}
-                              {((item.resourceSubType || "").toLowerCase() ===
-                                "eng. solutions" ||
-                                (item.resourceSubType || "").toLowerCase() ===
-                                  "development") && (
+                              {isEngSolutionsSubType(item.resourceSubType) && (
                                 <div
                                   className={`${styles.drawerTab}${activeTab === "pcf" ? ` ${styles.drawerTabActive}` : ""}`}
                                   onClick={() => setDrawerTab(item.id, "pcf")}
@@ -3231,14 +3351,16 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </div>
                                           <div className={styles.subCell}>
                                             {readOnly ? (
-                                              <span className={styles.cellMono}>
-                                                {sub.partNumber || "-"}
-                                              </span>
+                                              <PartNumberDisplay
+                                                value={sub.partNumber}
+                                                mono
+                                              />
                                             ) : (
                                               <PartNumberAutocomplete
                                                 value={sub.partNumber}
                                                 searchField="pn"
                                                 mono
+                                                allowPlaceholder
                                                 placeholder="PN…"
                                                 onChange={(v) =>
                                                   updateSubItem(
@@ -3968,14 +4090,16 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </div>
                                           <div className={styles.subCell}>
                                             {readOnly ? (
-                                              <span className={styles.cellMono}>
-                                                {pcf.partNumber || "-"}
-                                              </span>
+                                              <PartNumberDisplay
+                                                value={pcf.partNumber}
+                                                mono
+                                              />
                                             ) : (
                                               <PartNumberAutocomplete
                                                 value={pcf.partNumber}
                                                 searchField="pn"
                                                 mono
+                                                allowPlaceholder
                                                 placeholder="PN…"
                                                 onChange={(v) =>
                                                   updatePCFItem(
@@ -4207,85 +4331,182 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       {clarPopup && (
         <div
           className={styles.clarPopupOverlay}
-          onClick={() => setClarPopup(null)}
+          onClick={closeClarPopup}
         >
           <div
-            className={styles.clarPopup}
+            className={`${styles.clarPopup} ${onSaveClarification && clarDraft ? styles.clarPopupWide : ""}`}
             style={{ left: clarPopup.x, top: clarPopup.y }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className={styles.clarPopupTitle}>
               Clarification / Qualification
             </div>
-            {(() => {
-              const clar = clarifications.find(
-                (c) => c.scopeItemId === clarPopup.id,
-              );
-              if (clar) {
-                return (
-                  <>
-                    {clar.clarification && (
-                      <div style={{ marginBottom: 8 }}>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            color: "var(--text-secondary)",
-                            marginBottom: 2,
-                          }}
-                        >
-                          Clarification / Question:
-                        </div>
-                        <p
-                          className={styles.clarPopupText}
-                          style={{ margin: 0 }}
-                        >
-                          {clar.clarification}
-                        </p>
-                      </div>
-                    )}
-                    {clar.clientResponse && (
-                      <div style={{ marginBottom: 8 }}>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            color: "var(--text-secondary)",
-                            marginBottom: 2,
-                          }}
-                        >
-                          Client Response:
-                        </div>
-                        <p
-                          className={styles.clarPopupText}
-                          style={{ margin: 0 }}
-                        >
-                          {clar.clientResponse}
-                        </p>
-                      </div>
-                    )}
-                    {!clar.clarification && !clar.clientResponse && (
-                      <p className={styles.clarPopupText}>
-                        Clarification entry exists but no question/response yet.
-                        Fill in details on the Clarif. &amp; Qualif. tab.
-                      </p>
-                    )}
-                  </>
-                );
-              }
-              return (
+            {onSaveClarification && clarDraft ? (
+              <>
                 <p className={styles.clarPopupText}>
-                  This item has compliance = &quot;No&quot;. A clarification
-                  entry has been auto-created in the Clarif. &amp; Qualif. tab.
+                  <strong>{clarDraft.item}</strong>
+                  {clarDraft.description ? ` - ${clarDraft.description}` : ""}
                 </p>
-              );
-            })()}
-            <button
-              className={styles.clarPopupClose}
-              onClick={() => setClarPopup(null)}
-            >
-              Close
-            </button>
+                <div className={styles.clarFormRow}>
+                  <label className={styles.clarFormField}>
+                    <span>Type</span>
+                    <select
+                      value={clarDraft.baseType || "Clarification"}
+                      onChange={(e) =>
+                        setClarDraft({
+                          ...clarDraft,
+                          baseType: e.target.value as
+                            | "Clarification"
+                            | "Qualification",
+                        })
+                      }
+                    >
+                      <option value="Clarification">Clarification</option>
+                      <option value="Qualification">Qualification</option>
+                    </select>
+                  </label>
+                  <label className={styles.clarFormField}>
+                    <span>Category</span>
+                    <select
+                      value={clarDraft.category || ""}
+                      onChange={(e) =>
+                        setClarDraft({
+                          ...clarDraft,
+                          category: e.target.value || undefined,
+                        })
+                      }
+                    >
+                      <option value="">No category</option>
+                      {clarCategoryOptions.map((o) => (
+                        <option key={o.id} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                      {clarDraft.category &&
+                        !clarCategoryOptions.some(
+                          (o) => o.value === clarDraft.category,
+                        ) && (
+                          <option value={clarDraft.category}>
+                            {clarDraft.category}
+                          </option>
+                        )}
+                    </select>
+                  </label>
+                </div>
+                <label className={styles.clarFormField}>
+                  <span>Clarification / Question</span>
+                  <textarea
+                    rows={4}
+                    autoFocus
+                    value={clarDraft.clarification}
+                    placeholder="Describe the deviation or question for the client..."
+                    onChange={(e) =>
+                      setClarDraft({
+                        ...clarDraft,
+                        clarification: e.target.value,
+                      })
+                    }
+                  />
+                </label>
+                {clarDraft.clientResponse && (
+                  <div className={styles.clarFormField}>
+                    <span>Client Response</span>
+                    <p className={styles.clarPopupText}>
+                      {clarDraft.clientResponse}
+                    </p>
+                  </div>
+                )}
+                <div className={styles.clarPopupActions}>
+                  <button
+                    className={styles.clarPopupClose}
+                    onClick={closeClarPopup}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className={styles.clarPopupSave}
+                    disabled={!clarDraft.clarification.trim()}
+                    onClick={saveClarDraft}
+                  >
+                    Save
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {(() => {
+                  const clar = clarifications.find(
+                    (c) => c.scopeItemId === clarPopup.id,
+                  );
+                  if (clar) {
+                    return (
+                      <>
+                        {clar.clarification && (
+                          <div style={{ marginBottom: 8 }}>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                color: "var(--text-secondary)",
+                                marginBottom: 2,
+                              }}
+                            >
+                              Clarification / Question:
+                            </div>
+                            <p
+                              className={styles.clarPopupText}
+                              style={{ margin: 0 }}
+                            >
+                              {clar.clarification}
+                            </p>
+                          </div>
+                        )}
+                        {clar.clientResponse && (
+                          <div style={{ marginBottom: 8 }}>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                color: "var(--text-secondary)",
+                                marginBottom: 2,
+                              }}
+                            >
+                              Client Response:
+                            </div>
+                            <p
+                              className={styles.clarPopupText}
+                              style={{ margin: 0 }}
+                            >
+                              {clar.clientResponse}
+                            </p>
+                          </div>
+                        )}
+                        {!clar.clarification && !clar.clientResponse && (
+                          <p className={styles.clarPopupText}>
+                            Clarification entry exists but no question/response
+                            yet. Fill in details on the Clarif. &amp; Qualif.
+                            tab.
+                          </p>
+                        )}
+                      </>
+                    );
+                  }
+                  return (
+                    <p className={styles.clarPopupText}>
+                      This item has compliance = &quot;No&quot;. A
+                      clarification entry has been auto-created in the Clarif.
+                      &amp; Qualif. tab.
+                    </p>
+                  );
+                })()}
+                <button
+                  className={styles.clarPopupClose}
+                  onClick={closeClarPopup}
+                >
+                  Close
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -17,7 +17,15 @@ import { useQuotationStore } from "../../stores/useQuotationStore";
 import { QuotationService } from "../../services/QuotationService";
 import { ROUTES } from "../../config/routes.config";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { PartNumberDisplay } from "../common/PartNumberAutocomplete";
 import {
+  isEngSolutionsSubType,
+  isPlaceholderPartNumber,
+  searchablePartNumber,
+} from "../../utils/scopeHelpers";
+import {
+  applyContingencyToCost,
+  getAgeContingencyPct,
   getAssetCostBreakdown,
   getAssetsCostCompleteness,
   getSubItemNode,
@@ -31,6 +39,7 @@ import {
   ICostNode,
 } from "../../utils/costCalculations";
 import { formatCurrency } from "../../utils/formatters";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { BidTabHeader, HeaderChip, ShareBar } from "./BidTabHeader";
 import styles from "./AssetsBreakdownTab.module.scss";
 
@@ -47,6 +56,9 @@ interface AssetsBreakdownTabProps {
   contingencyAppliedSaved?: boolean;
   /** Called when contingency settings change, so parent can persist to bid */
   onContingencyChange?: (perYear: number, applied: boolean) => void;
+  /** Persisted Eng. Solutions contingency (% on the typed cost of Eng. Solutions items) */
+  engSolutionsContingencySaved?: number;
+  onEngSolutionsContingencyChange?: (pct: number) => void;
 }
 
 const blankAsset = (scopeItemId: string): IAssetBreakdownItem => ({
@@ -226,30 +238,8 @@ const QUERY_SOURCES = ["BUMBL", "BUMBR", "BUMCO", "FINANCIALS", "BOM COST"];
 /** Duration of the drawer/section collapse exit animation — keep in sync with the CSS keyframes */
 const DRAWER_ANIM_MS = 180;
 
-/** Calculate contingency % based on years since dateReference */
-const calcContingencyPct = (
-  dateRef: string | undefined,
-  pctPerYear: number,
-): number => {
-  if (!dateRef || pctPerYear <= 0) return 0;
-  const refDate = new Date(dateRef);
-  if (isNaN(refDate.getTime())) return 0;
-  const currentYear = new Date().getFullYear();
-  const years = currentYear - refDate.getFullYear();
-  if (years <= 0) return 0;
-  return years * pctPerYear;
-};
+const fmtPct = (n: number): number => Math.round(n * 100) / 100;
 
-/** Apply contingency to a unit cost */
-const applyContingency = (
-  unitCost: number,
-  dateRef: string | undefined,
-  pctPerYear: number,
-): number => {
-  const pct = calcContingencyPct(dateRef, pctPerYear);
-  if (pct <= 0) return unitCost;
-  return unitCost * (1 + pct / 100);
-};
 const isQuerySource = (ref: string): boolean => {
   if (!ref) return false;
   const upper = ref.toUpperCase();
@@ -284,6 +274,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   contingencyPerYearSaved,
   contingencyAppliedSaved,
   onContingencyChange,
+  engSolutionsContingencySaved,
+  onEngSolutionsContingencyChange,
 }) => {
   // Helper: append fieldEmpty class when value is empty/falsy
   const emptyIf = (base: string, value: unknown): string =>
@@ -434,6 +426,107 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         clearTimeout(contingencyTimerRef.current);
     };
   }, [contingencyPerYear]);
+
+  // ─── Eng. Solutions contingency: flat % on the typed cost of Eng. Solutions items ───
+  const [engSolutionsPct, setEngSolutionsPct] = React.useState(
+    engSolutionsContingencySaved ?? 0,
+  );
+  const [isEngSolutionsEditing, setIsEngSolutionsEditing] =
+    React.useState(false);
+  const engSolutionsMountedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!engSolutionsMountedRef.current) {
+      engSolutionsMountedRef.current = true;
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      if (onEngSolutionsContingencyChange) {
+        onEngSolutionsContingencyChange(engSolutionsPct);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [engSolutionsPct]);
+  const hasEngSolutionsItems = (scopeItems || []).some(
+    (s) => !s.isSection && isEngSolutionsSubType(s.resourceSubType),
+  );
+
+  const contingencyOpts: IContingencyOpts = {
+    perYear: contingencyPerYear,
+    applied: contingencyApplied,
+    engSolutionsPct,
+  };
+
+  // Contingency controls and labels are Engineering-only, in both Edit and View modes
+  const isEngineeringUser = useCurrentUser().role === "engineering";
+
+  /** "+X% → $" labels under a typed unit cost: historical first, then Eng. Solutions on the corrected price */
+  const renderContingencyBadge = (
+    unitCost: number,
+    dateRef: string | undefined,
+    isEngSolutions: boolean,
+  ): React.ReactNode => {
+    if (!isEngineeringUser || !(unitCost > 0)) return null;
+    const agePct = contingencyApplied
+      ? getAgeContingencyPct(dateRef, contingencyPerYear)
+      : 0;
+    const engPct = isEngSolutions ? engSolutionsPct : 0;
+    if (agePct <= 0 && engPct <= 0) return null;
+    return (
+      <>
+        {agePct > 0 && (
+          <span
+            className={styles.contingencyBadge}
+            title="Contingency per year (Date Ref. age)"
+          >
+            +{fmtPct(agePct)}% → ${" "}
+            {fmtCost(
+              applyContingencyToCost(unitCost, dateRef, contingencyOpts),
+            )}
+          </span>
+        )}
+        {engPct > 0 && (
+          <span
+            className={styles.contingencyBadge}
+            title={
+              agePct > 0
+                ? "Eng. Solutions contingency, on the price corrected by the contingency per year"
+                : "Eng. Solutions contingency"
+            }
+          >
+            Eng. Sol. +{fmtPct(engPct)}% → ${" "}
+            {fmtCost(
+              applyContingencyToCost(unitCost, dateRef, contingencyOpts, true),
+            )}
+          </span>
+        )}
+      </>
+    );
+  };
+
+  /** Read-only unit cost: Engineering sees the typed cost + label, everyone else the adjusted cost */
+  const renderUnitCostView = (
+    unitCost: number,
+    dateRef: string | undefined,
+    isEngSolutions: boolean,
+  ): React.ReactNode => {
+    const badge = renderContingencyBadge(unitCost, dateRef, isEngSolutions);
+    if (!badge) {
+      return `$ ${fmtCost(
+        applyContingencyToCost(
+          unitCost || 0,
+          dateRef,
+          contingencyOpts,
+          isEngSolutions,
+        ),
+      )}`;
+    }
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <span>$ {fmtCost(unitCost)}</span>
+        {badge}
+      </div>
+    );
+  };
 
   // ─── Add Quotation modal state ───
   const [addQuotationTarget, setAddQuotationTarget] = React.useState<{
@@ -1432,12 +1525,15 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     sic: ISubItemCost,
     scopeItemId: string,
     kind: CostKind = "sub",
-  ): ICostNode =>
-    getSubItemNode(
+  ): ICostNode => {
+    const si = (scopeItems || []).find((s) => s.id === scopeItemId);
+    return getSubItemNode(
       sic,
-      (scopeItems || []).find((s) => s.id === scopeItemId),
-      { perYear: contingencyPerYear, applied: contingencyApplied },
+      si,
+      contingencyOpts,
+      kind === "pcf" && isEngSolutionsSubType(si?.resourceSubType),
     );
+  };
 
   /** Get the effective total for a sub-item / PCF cost entry */
   const getSubItemCostTotal = (
@@ -1813,11 +1909,6 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   const getScopeItem = (scopeItemId: string): IScopeItem | undefined =>
     (scopeItems || []).find((s) => s.id === scopeItemId);
 
-  const contingencyOpts: IContingencyOpts = {
-    perYear: contingencyPerYear,
-    applied: contingencyApplied,
-  };
-
   /** Canonical cost breakdown for an asset — every total on this tab goes through it */
   const breakdownOf = (a: IAssetBreakdownItem): IAssetCostBreakdown =>
     getAssetCostBreakdown(a, getScopeItem(a.scopeItemId), contingencyOpts);
@@ -1868,6 +1959,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     const sicShowDashCost = sicIsNoCost || sicIsWorkshopOrInHouse;
     const sicShowDashMeta = sicIsNoCost || sicIsWorkshopOrInHouse;
     const sicNode = subItemNodeOf(sic, asset.scopeItemId, kind);
+    const sicEngSol =
+      kind === "pcf" &&
+      isEngSolutionsSubType(getScopeItem(asset.scopeItemId)?.resourceSubType);
     const sicFees = sicNode.fees;
     const sicHasSplits = (sic.availabilitySplits || []).length > 0;
     const sicSplitsTotal = sicHasSplits ? sicNode.total : 0;
@@ -1904,7 +1998,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           {kind === "sub" ? (
             <>
               <div className={`${styles.subCell} ${styles.subCellMono}`}>
-                {sub.partNumber || "-"}
+                <PartNumberDisplay value={sub.partNumber} mono />
               </div>
               <div className={styles.subCell}>{sub.subType || "-"}</div>
             </>
@@ -1912,7 +2006,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             <>
               <div className={styles.subCell}>{sub.subType || "-"}</div>
               <div className={`${styles.subCell} ${styles.subCellMono}`}>
-                {sub.partNumber || "-"}
+                <PartNumberDisplay value={sub.partNumber} mono />
               </div>
             </>
           )}
@@ -2185,60 +2279,41 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 </div>
               )
             ) : readOnly ? (
-              `$ ${fmtCost(
-                contingencyApplied
-                  ? applyContingency(
-                      sic.unitCostUSD,
-                      sic.dateReference,
-                      contingencyPerYear,
-                    )
-                  : sic.unitCostUSD,
-              )}`
+              renderUnitCostView(
+                sic.unitCostUSD,
+                sic.dateReference,
+                sicEngSol,
+              )
             ) : (
-              (() => {
-                const sicContPct = contingencyApplied
-                  ? calcContingencyPct(sic.dateReference, contingencyPerYear)
-                  : 0;
-                const sicAdjusted =
-                  sicContPct > 0
-                    ? applyContingency(
-                        sic.unitCostUSD,
-                        sic.dateReference,
-                        contingencyPerYear,
-                      )
-                    : sic.unitCostUSD;
-                return (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 2,
-                    }}
-                  >
-                    <input
-                      className={missingIf(styles.numInput, sic.unitCostUSD)}
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      value={Math.round(sic.unitCostUSD * 100) / 100}
-                      onChange={(e) =>
-                        updateSubItemCost(
-                          asset.id,
-                          sic.id,
-                          "unitCostUSD",
-                          Number(e.target.value) || 0,
-                          kind,
-                        )
-                      }
-                    />
-                    {sicContPct > 0 && (
-                      <span className={styles.contingencyBadge}>
-                        +{sicContPct}% → $ {fmtCost(sicAdjusted)}
-                      </span>
-                    )}
-                  </div>
-                );
-              })()
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                }}
+              >
+                <input
+                  className={missingIf(styles.numInput, sic.unitCostUSD)}
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={Math.round(sic.unitCostUSD * 100) / 100}
+                  onChange={(e) =>
+                    updateSubItemCost(
+                      asset.id,
+                      sic.id,
+                      "unitCostUSD",
+                      Number(e.target.value) || 0,
+                      kind,
+                    )
+                  }
+                />
+                {renderContingencyBadge(
+                  sic.unitCostUSD,
+                  sic.dateReference,
+                  sicEngSol,
+                )}
+              </div>
             )}
           </div>
           <div className={`${styles.subCell} ${styles.subCellBold}`}>
@@ -2638,7 +2713,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 spAvail === "not offered";
               const spRental = spAcq === "rental";
               // Includes the split's own fees, so the lines add up to the "Total:" below
-              const spTotal = getSplitNode(sp, contingencyOpts).total;
+              const spTotal = getSplitNode(sp, contingencyOpts, sicEngSol).total;
               return (
                 <div
                   key={sp.id}
@@ -3217,16 +3292,18 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       pcfCostsTotal,
       byResourceType,
     };
-  }, [localAssets, contingencyApplied, contingencyPerYear]);
+  }, [localAssets, contingencyApplied, contingencyPerYear, engSolutionsPct]);
 
   // ─── Cost completeness tracker (same rule gates the Close Out phase) ───
   const costCompleteness = React.useMemo(
-    () =>
-      getAssetsCostCompleteness(scopeItems, localAssets, {
-        perYear: contingencyPerYear,
-        applied: contingencyApplied,
-      }),
-    [localAssets, scopeItems, contingencyApplied, contingencyPerYear],
+    () => getAssetsCostCompleteness(scopeItems, localAssets, contingencyOpts),
+    [
+      localAssets,
+      scopeItems,
+      contingencyApplied,
+      contingencyPerYear,
+      engSolutionsPct,
+    ],
   );
 
   const { totalMissing, totalItems } = costCompleteness;
@@ -3336,7 +3413,13 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     });
 
     return items;
-  }, [localAssets, scopeItems, contingencyApplied, contingencyPerYear]);
+  }, [
+    localAssets,
+    scopeItems,
+    contingencyApplied,
+    contingencyPerYear,
+    engSolutionsPct,
+  ]);
 
   const scrollToAsset = React.useCallback(
     (assetId: string, sectionId: string | null) => {
@@ -3759,7 +3842,13 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
               splitAvail === "not offered";
             const isRentalSplit = splitAcq === "rental";
             const isWorkshopSplit = splitAcq === "workshop";
-            const splitNode = getSplitNode(split, contingencyOpts);
+            const splitNode = getSplitNode(
+              split,
+              contingencyOpts,
+              isEngSolutionsSubType(
+                getScopeItem(asset.scopeItemId)?.resourceSubType,
+              ),
+            );
             const acqOptions = (() => {
               const filtered = split.availabilityStatus
                 ? acquisitionTypes.filter(
@@ -4259,6 +4348,17 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     );
   };
 
+  const pickerTargetPn = quotationPickerTarget
+    ? searchablePartNumber(quotationPickerTarget.partNumber).toUpperCase()
+    : "";
+  const pickerQuotes = pickerTargetPn
+    ? quotationItems.filter(
+        (q) =>
+          !isPlaceholderPartNumber(q.partNumber) &&
+          q.partNumber.trim().toUpperCase().indexOf(pickerTargetPn) >= 0,
+      )
+    : [];
+
   return (
     <div className={styles.container}>
       <BidTabHeader
@@ -4381,7 +4481,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                     )}
                     {item.equipmentOffer}
                   </td>
-                  <td className={styles.missingPN}>{item.partNumber}</td>
+                  <td className={styles.missingPN}>
+                    <PartNumberDisplay value={item.partNumber} mono />
+                  </td>
                   <td>{item.resourceType}</td>
                   <td>{item.resourceSubType}</td>
                   <td>
@@ -4418,63 +4520,122 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         )}
       </div>
 
-      {/* Contingency Bar */}
-      <div className={styles.contingencyBar}>
-        <span className={styles.contingencyLabel}>Contingency per year:</span>
-        {!readOnly && isContingencyEditing ? (
-          <>
-            <input
-              type="number"
-              className={styles.contingencyInput}
-              value={contingencyPerYear}
-              onChange={(e) =>
-                setContingencyPerYear(parseFloat(e.target.value) || 0)
-              }
-              min={0}
-              max={100}
-              step={0.5}
-              autoFocus
-            />
-            <span className={styles.contingencySuffix}>
-              % / year since Date Ref.
-            </span>
-            <button
-              className={styles.contingencyApplyBtn}
-              onClick={() => setIsContingencyEditing(false)}
-            >
-              OK
-            </button>
-          </>
-        ) : (
-          <>
-            <span className={styles.contingencyValue}>
-              {contingencyPerYear}% / year
-            </span>
-            {contingencyApplied && (
-              <span className={styles.contingencyActiveBadge}>Active</span>
-            )}
-            {!readOnly && (
+      {/* Contingency Bar (Engineering only) */}
+      {isEngineeringUser && (
+        <div className={styles.contingencyBar}>
+          <span className={styles.contingencyLabel}>Contingency per year:</span>
+          {!readOnly && isContingencyEditing ? (
+            <>
+              <input
+                type="number"
+                className={styles.contingencyInput}
+                value={contingencyPerYear}
+                onChange={(e) =>
+                  setContingencyPerYear(parseFloat(e.target.value) || 0)
+                }
+                min={0}
+                max={100}
+                step={0.5}
+                autoFocus
+              />
+              <span className={styles.contingencySuffix}>
+                % / year since Date Ref.
+              </span>
               <button
-                className={styles.contingencyEditBtn}
-                onClick={() => setIsContingencyEditing(true)}
+                className={styles.contingencyApplyBtn}
+                onClick={() => setIsContingencyEditing(false)}
               >
-                ✏️ Edit
+                OK
               </button>
-            )}
-          </>
-        )}
+            </>
+          ) : (
+            <>
+              <span className={styles.contingencyValue}>
+                {contingencyPerYear}% / year
+              </span>
+              {contingencyApplied && (
+                <span className={styles.contingencyActiveBadge}>Active</span>
+              )}
+              {!readOnly && (
+                <button
+                  className={styles.contingencyEditBtn}
+                  onClick={() => setIsContingencyEditing(true)}
+                >
+                  ✏️ Edit
+                </button>
+              )}
+            </>
+          )}
 
-        {/* Date ref legend */}
-        <span className={styles.dateLegend}>
-          <span className={`${styles.dateBadge} ${styles.dateRecent}`}>
-            &lt;1y (no adj.)
+          {hasEngSolutionsItems && (
+            <>
+              <span className={styles.contingencyDivider} />
+              <span className={styles.contingencyLabel}>
+                Eng. Solutions contingency:
+              </span>
+              {!readOnly && isEngSolutionsEditing ? (
+                <>
+                  <input
+                    type="number"
+                    className={styles.contingencyInput}
+                    value={engSolutionsPct}
+                    onChange={(e) =>
+                      setEngSolutionsPct(
+                        Math.max(0, parseFloat(e.target.value) || 0),
+                      )
+                    }
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    autoFocus
+                  />
+                  <span className={styles.contingencySuffix}>
+                    % on Eng. Solutions items, after the contingency per year
+                  </span>
+                  <button
+                    className={styles.contingencyApplyBtn}
+                    onClick={() => setIsEngSolutionsEditing(false)}
+                  >
+                    OK
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className={styles.contingencyValue}>
+                    {engSolutionsPct}%
+                  </span>
+                  {engSolutionsPct > 0 && (
+                    <span className={styles.contingencyActiveBadge}>
+                      Active
+                    </span>
+                  )}
+                  {!readOnly && (
+                    <button
+                      className={styles.contingencyEditBtn}
+                      onClick={() => setIsEngSolutionsEditing(true)}
+                    >
+                      ✏️ Edit
+                    </button>
+                  )}
+                </>
+              )}
+            </>
+          )}
+
+          {/* Date ref legend */}
+          <span className={styles.dateLegend}>
+            <span className={`${styles.dateBadge} ${styles.dateRecent}`}>
+              &lt;1y (no adj.)
+            </span>
+            <span className={`${styles.dateBadge} ${styles.dateWarn}`}>
+              1-2y
+            </span>
+            <span className={`${styles.dateBadge} ${styles.dateOld}`}>
+              &gt;2y
+            </span>
           </span>
-          <span className={`${styles.dateBadge} ${styles.dateWarn}`}>1-2y</span>
-          <span className={`${styles.dateBadge} ${styles.dateOld}`}>
-            &gt;2y
-          </span>
-        </span>
-      </div>
+        </div>
+      )}
 
       {/* Resource Type Sub-Tabs */}
       {showResourceTypeFilter && (
@@ -4913,7 +5074,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                         </span>
                       </td>
                       <td className={styles.readOnlyCell}>
-                        {si?.partNumber || "-"}
+                        <PartNumberDisplay value={si?.partNumber || ""} mono />
                       </td>
                       <td className={styles.readOnlyCell}>
                         {si?.resourceType || "-"}
@@ -5483,25 +5644,18 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           );
                         }
                         // Normal (non-rental) cost fields
-                        const contingencyPct = contingencyApplied
-                          ? calcContingencyPct(
-                              asset.dateReference,
-                              contingencyPerYear,
-                            )
-                          : 0;
-                        const adjustedUnitCost =
-                          contingencyPct > 0
-                            ? applyContingency(
-                                asset.unitCostUSD,
-                                asset.dateReference,
-                                contingencyPerYear,
-                              )
-                            : asset.unitCostUSD;
+                        const isEngSol = isEngSolutionsSubType(
+                          si?.resourceSubType,
+                        );
                         return (
                           <>
                             <td>
                               {readOnly ? (
-                                `$ ${fmtCost(adjustedUnitCost)}`
+                                renderUnitCostView(
+                                  asset.unitCostUSD,
+                                  asset.dateReference,
+                                  isEngSol,
+                                )
                               ) : (
                                 <div
                                   style={{
@@ -5535,11 +5689,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                       persist(updated);
                                     }}
                                   />
-                                  {contingencyPct > 0 && (
-                                    <span className={styles.contingencyBadge}>
-                                      +{contingencyPct}% → ${" "}
-                                      {fmtCost(adjustedUnitCost)}
-                                    </span>
+                                  {renderContingencyBadge(
+                                    asset.unitCostUSD,
+                                    asset.dateReference,
+                                    isEngSol,
                                   )}
                                 </div>
                               )}
@@ -6349,7 +6502,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           </td>
                         </tr>
                       )}
-                    {/* PCF drawer (Preliminary Concept Form — for Eng. Solutions / Development) */}
+                    {/* PCF drawer (Preliminary Concept Form — for Eng. Solutions) */}
                     {siHasPCF && (
                       <tr className={styles.drawerRow}>
                         <td colSpan={COLS}>
@@ -6371,7 +6524,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 Preliminary Concept Form ({siPCFItems.length})
                               </span>
                               <span className={styles.drawerHint}>
-                                Eng. Solutions / Development BOM concept
+                                Eng. Solutions BOM concept
                               </span>
                               <label
                                 style={{
@@ -6598,57 +6751,41 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             </div>
             <p className={styles.pickerSubtitle}>
               Select a quotation to import cost data for{" "}
-              <strong>{quotationPickerTarget.partNumber || "this item"}</strong>
+              <strong>{pickerTargetPn || "this item"}</strong>
             </p>
             <div className={styles.pickerList}>
-              {quotationItems
-                .filter((q) => {
-                  const pn = quotationPickerTarget.partNumber
-                    .trim()
-                    .toUpperCase();
-                  if (!pn || pn === "TBD" || pn === "TBC") return false;
-                  return q.partNumber.trim().toUpperCase().indexOf(pn) >= 0;
-                })
-                .map((q) => (
-                  <div
-                    key={q.id}
-                    className={styles.pickerItem}
-                    onClick={() => handleQuotationPickerImport(q)}
-                  >
-                    <div className={styles.pickerItemMain}>
-                      <span className={styles.pickerItemPN}>
-                        {q.partNumber}
-                      </span>
-                      <span className={styles.pickerItemDesc}>
-                        {q.description}
-                      </span>
-                    </div>
-                    <div className={styles.pickerItemMeta}>
-                      <span>
-                        ${" "}
-                        {(q.costUSD || q.cost).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
-                      <span className={styles.pickerItemSupplier}>
-                        {q.supplier}
-                      </span>
-                      <span className={styles.pickerItemDate}>
-                        {q.quotationDate
-                          ? new Date(q.quotationDate).toLocaleDateString()
-                          : ""}
-                      </span>
-                    </div>
+              {pickerQuotes.map((q) => (
+                <div
+                  key={q.id}
+                  className={styles.pickerItem}
+                  onClick={() => handleQuotationPickerImport(q)}
+                >
+                  <div className={styles.pickerItemMain}>
+                    <span className={styles.pickerItemPN}>{q.partNumber}</span>
+                    <span className={styles.pickerItemDesc}>
+                      {q.description}
+                    </span>
                   </div>
-                ))}
-              {quotationItems.filter((q) => {
-                const pn = quotationPickerTarget.partNumber
-                  .trim()
-                  .toUpperCase();
-                if (!pn) return true;
-                return q.partNumber.trim().toUpperCase().indexOf(pn) >= 0;
-              }).length === 0 && (
+                  <div className={styles.pickerItemMeta}>
+                    <span>
+                      ${" "}
+                      {(q.costUSD || q.cost).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                    <span className={styles.pickerItemSupplier}>
+                      {q.supplier}
+                    </span>
+                    <span className={styles.pickerItemDate}>
+                      {q.quotationDate
+                        ? new Date(q.quotationDate).toLocaleDateString()
+                        : ""}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {pickerQuotes.length === 0 && (
                 <div className={styles.pickerEmpty}>
                   No matching quotations found.
                 </div>

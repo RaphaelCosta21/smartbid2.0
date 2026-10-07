@@ -2801,7 +2801,7 @@ const SystemConfiguration: React.FC = () => {
     // Protected resource types that cannot be edited or deleted
     const LOCKED_TYPES = ["rov asset", "survey asset", "tooling"];
     // Protected sub-types within Tooling that cannot be edited or deleted
-    const LOCKED_SUBTYPES = ["eng. solutions", "development"];
+    const LOCKED_SUBTYPES = ["eng. solutions"];
 
     const isLockedType = (label: string): boolean =>
       LOCKED_TYPES.indexOf(label.toLowerCase()) >= 0;

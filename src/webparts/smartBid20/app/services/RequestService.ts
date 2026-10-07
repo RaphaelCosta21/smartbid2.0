@@ -44,6 +44,7 @@ export class RequestService {
           : null,
       bidType: bid.bidType,
       priority: bid.priority,
+      urgencyReason: bid.urgencyReason || "",
       desiredDueDate: bid.desiredDueDate || bid.dueDate || "",
       operationStartDate: opp.operationStartDate || "",
       totalDuration: opp.totalDuration || 0,
@@ -121,6 +122,8 @@ export class RequestService {
       bidType: request.bidType,
       bidSize: "Standard",
       priority: request.priority,
+      urgencyReason:
+        request.priority === "Urgent" ? request.urgencyReason || "" : "",
       opportunityInfo: {
         client: request.client,
         clientContact: request.clientContact,

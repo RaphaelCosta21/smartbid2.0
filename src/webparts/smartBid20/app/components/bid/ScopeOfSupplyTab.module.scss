@@ -1635,6 +1635,83 @@
   }
 }
 
+.clarPopupWide {
+  width: 360px;
+  max-width: calc(100vw - 16px);
+}
+
+.clarFormRow {
+  display: flex;
+  gap: 8px;
+
+  > .clarFormField {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.clarFormField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+
+  > span {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  select,
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: inherit;
+
+    &:focus {
+      outline: none;
+      border-color: var(--primary-accent);
+    }
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 72px;
+  }
+}
+
+.clarPopupActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.clarPopupSave {
+  padding: 4px 14px;
+  border-radius: 6px;
+  border: none;
+  background: var(--primary-accent);
+  color: var(--primary-accent-contrast);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
 /* ─── Client Technical Specs ─── */
 
 /* Description cell wrapper with badge */

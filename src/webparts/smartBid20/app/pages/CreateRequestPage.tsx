@@ -45,6 +45,7 @@ interface FormData {
   commercialRequesterIsCreator: boolean;
   bidType: string;
   desiredDueDate: string;
+  urgencyReason: string;
   operationStartDate: string;
   totalDuration: string;
   vessel: string;
@@ -69,6 +70,7 @@ const INITIAL_FORM: FormData = {
   commercialRequesterIsCreator: false,
   bidType: "Firm",
   desiredDueDate: "",
+  urgencyReason: "",
   operationStartDate: "",
   totalDuration: "",
   vessel: "",
@@ -380,6 +382,12 @@ export const CreateRequestPage: React.FC = () => {
       if (!form.bidType) stepErrors.push("BID Type is required.");
       if (!form.desiredDueDate)
         stepErrors.push("Desired Due Date is required.");
+      if (
+        form.desiredDueDate &&
+        computedPriority === "Urgent" &&
+        !form.urgencyReason.trim()
+      )
+        stepErrors.push("Urgency Reason is required for Urgent requests.");
       if (!form.commercialRequester)
         stepErrors.push("Commercial Requester is required.");
       setErrors(stepErrors);
@@ -440,6 +448,8 @@ export const CreateRequestPage: React.FC = () => {
             : null,
         bidType: form.bidType as any,
         priority: computedPriority,
+        urgencyReason:
+          computedPriority === "Urgent" ? form.urgencyReason.trim() : "",
         desiredDueDate: form.desiredDueDate,
         operationStartDate: form.operationStartDate || "",
         totalDuration: form.totalDuration
@@ -1205,6 +1215,20 @@ export const CreateRequestPage: React.FC = () => {
                     )}
                   </div>
                 )}
+
+                {form.desiredDueDate && computedPriority === "Urgent" && (
+                  <label className={styles.formGroupFull}>
+                    <span className={styles.formLabel}>Urgency Reason *</span>
+                    <textarea
+                      className={`${styles.formInput} ${styles.textareaInput}`}
+                      value={form.urgencyReason}
+                      onChange={(e) =>
+                        updateField("urgencyReason", e.target.value)
+                      }
+                      placeholder="Explain why this request is urgent..."
+                    />
+                  </label>
+                )}
               </div>
             </>
           )}
@@ -1475,6 +1499,19 @@ export const CreateRequestPage: React.FC = () => {
                     )}
                   </div>
                 </div>
+                {computedPriority === "Urgent" && form.urgencyReason.trim() && (
+                  <div className={styles.reviewCellFull}>
+                    <span className={styles.reviewCellLabel}>
+                      Urgency Reason
+                    </span>
+                    <span
+                      className={styles.reviewCellValue}
+                      style={{ whiteSpace: "pre-wrap" }}
+                    >
+                      {form.urgencyReason}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Additional Info */}

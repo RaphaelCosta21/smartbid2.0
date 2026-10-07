@@ -10,7 +10,9 @@ import {
   CostCategory,
   IContingencyOpts,
   applyContingencyToCost,
+  getAgeContingencyPct,
   getAssetCostBreakdown,
+  getBidContingency,
   getEffectiveCategory,
   getSplitNode,
   getSubItemNode,
@@ -18,12 +20,10 @@ import {
   isRentalAcq,
   isWorkshopAcq,
 } from "../costCalculations";
+import { isEngSolutionsSubType } from "../scopeHelpers";
 
 /** Same contingency rule as buildCostSummary, so every export total matches the Cost Summary. */
-export function getBidContingency(bid: IBid): IContingencyOpts | undefined {
-  const perYear = bid.assetsContingencyPerYear || 0;
-  return perYear > 0 ? { perYear, applied: true } : undefined;
-}
+export { getBidContingency };
 
 export function fmtUSD(v: number): string {
   return (
@@ -208,17 +208,20 @@ function summarizeAsset(
         : "";
 
   let unitCost: number | null = null;
-  let contPct = 0;
+  let agePct = 0;
+  let engPct = 0;
   if (!hasSplits && !rollup && !noCost && !workshop) {
     if (rental) {
       unitCost = asset.dailyRate || 0;
     } else {
       const raw = asset.unitCostUSD || 0;
-      unitCost = cont
-        ? applyContingencyToCost(raw, asset.dateReference, cont.perYear)
-        : raw;
-      if (raw > 0 && unitCost > raw) {
-        contPct = Math.round((unitCost / raw - 1) * 100);
+      const engSol = isEngSolutionsSubType(si && si.resourceSubType);
+      unitCost = applyContingencyToCost(raw, asset.dateReference, cont, engSol);
+      if (raw > 0 && cont) {
+        if (cont.applied) {
+          agePct = getAgeContingencyPct(asset.dateReference, cont.perYear);
+        }
+        if (engSol) engPct = cont.engSolutionsPct || 0;
       }
     }
   }
@@ -236,7 +239,14 @@ function summarizeAsset(
   }
   const fees = bd.main.fees + bd.splits.reduce((s, n) => s + n.fees, 0);
   if (fees > 0) includes.push(`Services & fees ${fmtUSD(fees)}`);
-  if (contPct > 0) includes.push(`Contingency +${contPct}%`);
+  if (agePct > 0) {
+    includes.push(`Contingency +${Math.round(agePct * 100) / 100}%`);
+  }
+  if (engPct > 0) {
+    includes.push(
+      `Eng. Solutions contingency +${Math.round(engPct * 100) / 100}%`,
+    );
+  }
 
   const buckets: string[] = [];
   if (bd.capex > 0) buckets.push("CAPEX");
@@ -365,6 +375,8 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
   (bid.assetBreakdown || []).forEach((asset) => {
     const si = scopeMap.get(asset.scopeItemId);
     const parentName = (si && (si.equipmentOffer || si.description)) || "-";
+    // Item, splits and PCF carry the Eng. Solutions contingency; sub-items do not
+    const engSol = isEngSolutionsSubType(si && si.resourceSubType);
     const base = {
       parent: "",
       resourceType: (si && si.resourceType) || "",
@@ -376,15 +388,18 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
         dailyRate?: number | null;
         dateReference?: string;
       },
+      isEngSol: boolean,
     ): { unitCost: number; unitIsDaily: boolean } => {
       if (isRentalAcq(e.acquisitionType)) {
         return { unitCost: e.dailyRate || 0, unitIsDaily: true };
       }
-      const raw = e.unitCostUSD || 0;
       return {
-        unitCost: cont
-          ? applyContingencyToCost(raw, e.dateReference, cont.perYear)
-          : raw,
+        unitCost: applyContingencyToCost(
+          e.unitCostUSD || 0,
+          e.dateReference,
+          cont,
+          isEngSol,
+        ),
         unitIsDaily: false,
       };
     };
@@ -426,7 +441,7 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
         leadTime: e.leadTimeDays && e.leadTimeDays > 0 ? e.leadTimeDays : null,
         total,
         category: categoryLabel(getEffectiveCategory(e)),
-        ...unitOf(e),
+        ...unitOf(e, engSol && level !== "Sub-item"),
       });
     };
 
@@ -440,7 +455,7 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
           (si && si.partNumber) || "",
           sp.qty || 0,
           sp,
-          getSplitNode(sp, cont).total,
+          getSplitNode(sp, cont, engSol).total,
         ),
       );
     } else if (!asset.costFromSubItems && !asset.costFromPCF) {
@@ -458,6 +473,7 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
     }
 
     const pushChildren = (level: SupplierLevel, list: ISubItemCost[]): void => {
+      const childEngSol = engSol && level === "PCF";
       list.forEach((sic) => {
         const child = findChild(si, sic.subItemId);
         const name =
@@ -473,7 +489,7 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
               pn,
               sp.qty || 0,
               sp,
-              getSplitNode(sp, cont).total,
+              getSplitNode(sp, cont, childEngSol).total,
             ),
           );
           return;
@@ -485,7 +501,7 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
           pn,
           (child && child.qty) || 1,
           sic,
-          getSubItemNode(sic, si, cont).total,
+          getSubItemNode(sic, si, cont, childEngSol).total,
         );
       });
     };
