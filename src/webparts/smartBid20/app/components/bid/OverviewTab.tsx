@@ -1090,12 +1090,22 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <InfoRow
               label="Priority"
               value={
-                <StatusBadge
-                  status={bid.priority}
-                  color={
-                    PRIORITY_COLORS[bid.priority] || PRIORITY_COLORS.Normal
-                  }
-                />
+                <>
+                  <StatusBadge
+                    status={bid.priority}
+                    color={
+                      PRIORITY_COLORS[bid.priority] || PRIORITY_COLORS.Normal
+                    }
+                  />
+                  {bid.priority === "Urgent" && bid.urgencyReason && (
+                    <div
+                      className={styles.urgencyReason}
+                      title="Urgency reason"
+                    >
+                      {bid.urgencyReason}
+                    </div>
+                  )}
+                </>
               }
             />
             <InfoRow
@@ -1500,20 +1510,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               "No description provided."}
           </p>
         </div>
-
-        {bid.priority === "Urgent" && bid.urgencyReason && (
-          <div className={styles.infoSection}>
-            <h4 className={styles.infoTitle}>
-              Urgency Reason (Commercial Input)
-            </h4>
-            <p
-              className={styles.scopeDescription}
-              style={{ whiteSpace: "pre-wrap" }}
-            >
-              {bid.urgencyReason}
-            </p>
-          </div>
-        )}
 
         {/* Request Notes (Commercial Input) */}
         {(bid.bidNotes as Record<string, string>)?.general && (

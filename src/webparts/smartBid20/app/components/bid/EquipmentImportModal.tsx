@@ -1105,7 +1105,10 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     }
   };
 
-  const toggleFavChild = (parent: IFavoriteEquipment, childId: string): void => {
+  const toggleFavChild = (
+    parent: IFavoriteEquipment,
+    childId: string,
+  ): void => {
     const ids = favChildSel[parent.id] || [];
     setFavChildren(
       parent,
@@ -1397,7 +1400,9 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                                       type="checkbox"
                                       className={styles.rowCheckbox}
                                       checked={ticked}
-                                      onChange={() => toggleFavChild(eq, child.id)}
+                                      onChange={() =>
+                                        toggleFavChild(eq, child.id)
+                                      }
                                       aria-label={`Select sub-item ${child.partNumber || child.description}`}
                                     />
                                   </div>

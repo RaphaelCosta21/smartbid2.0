@@ -151,6 +151,19 @@
     color: var(--text-primary);
     font-weight: 500;
   }
+
+  .urgencyReason {
+    margin-top: 6px;
+    padding-left: 8px;
+    border-left: 2px solid var(--danger);
+    font-size: 12px;
+    font-weight: 400;
+    font-style: italic;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
 }
 
 .monoValue {

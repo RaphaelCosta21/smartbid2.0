@@ -2279,11 +2279,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 </div>
               )
             ) : readOnly ? (
-              renderUnitCostView(
-                sic.unitCostUSD,
-                sic.dateReference,
-                sicEngSol,
-              )
+              renderUnitCostView(sic.unitCostUSD, sic.dateReference, sicEngSol)
             ) : (
               <div
                 style={{
@@ -2713,7 +2709,11 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 spAvail === "not offered";
               const spRental = spAcq === "rental";
               // Includes the split's own fees, so the lines add up to the "Total:" below
-              const spTotal = getSplitNode(sp, contingencyOpts, sicEngSol).total;
+              const spTotal = getSplitNode(
+                sp,
+                contingencyOpts,
+                sicEngSol,
+              ).total;
               return (
                 <div
                   key={sp.id}

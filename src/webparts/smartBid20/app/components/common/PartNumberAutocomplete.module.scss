@@ -64,7 +64,9 @@
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 
   &:hover {
     background: var(--hover-bg);
@@ -178,7 +180,9 @@
   color: var(--text-primary);
   font-size: 11px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 
   &:hover {
     background: var(--hover-bg);

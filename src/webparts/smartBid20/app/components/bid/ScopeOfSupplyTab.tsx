@@ -4329,10 +4329,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
 
       {/* Clarification Popup */}
       {clarPopup && (
-        <div
-          className={styles.clarPopupOverlay}
-          onClick={closeClarPopup}
-        >
+        <div className={styles.clarPopupOverlay} onClick={closeClarPopup}>
           <div
             className={`${styles.clarPopup} ${onSaveClarification && clarDraft ? styles.clarPopupWide : ""}`}
             style={{ left: clarPopup.x, top: clarPopup.y }}
@@ -4493,9 +4490,9 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                   }
                   return (
                     <p className={styles.clarPopupText}>
-                      This item has compliance = &quot;No&quot;. A
-                      clarification entry has been auto-created in the Clarif.
-                      &amp; Qualif. tab.
+                      This item has compliance = &quot;No&quot;. A clarification
+                      entry has been auto-created in the Clarif. &amp; Qualif.
+                      tab.
                     </p>
                   );
                 })()}
