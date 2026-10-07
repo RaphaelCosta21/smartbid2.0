@@ -445,17 +445,29 @@ export function createSurveyScene(
     },
   );
 
-  // GNSS satellite + beam
-  const satellite = buildSatellite();
-  satellite.position.set(18, 24, -16);
-  scene.add(satellite);
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1, 8, 1, true), glow(PALETTE.acoustic, 0.55));
-  scene.add(beam);
-  const photons: THREE.Mesh[] = [];
-  for (let i = 0; i < 4; i++) {
-    const p = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), glow(PALETTE.acoustic, 0.95));
-    photons.push(p);
-    scene.add(p);
+  // GNSS constellation: 3 satellites orbiting the vessel, each beaming to the C-Nav antenna (triangulation).
+  const GNSS_ORBIT_CENTER = new THREE.Vector3(2, 26, -4);
+  const GNSS_ORBIT_RADIUS = 24;
+  const GNSS_ORBIT_TILT = 0.32;
+  const GNSS_ORBIT_SPEED = 0.12;
+  const satellites: THREE.Group[] = [];
+  const gnssBeams: { beam: THREE.Mesh; photons: THREE.Mesh[] }[] = [];
+  for (let s = 0; s < 3; s++) {
+    const sat = buildSatellite();
+    satellites.push(sat);
+    scene.add(sat);
+    const beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.045, 1, 8, 1, true),
+      glow(PALETTE.acoustic, 0.16),
+    );
+    scene.add(beam);
+    const photons: THREE.Mesh[] = [];
+    for (let i = 0; i < 4; i++) {
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 12), glow(PALETTE.acoustic, 0.5));
+      photons.push(p);
+      scene.add(p);
+    }
+    gnssBeams.push({ beam, photons });
   }
 
   // USBL acoustic cone + ping rings
@@ -550,7 +562,7 @@ export function createSurveyScene(
   });
 
   const anchors: Record<SurveySceneAnchor, THREE.Object3D> = {
-    gnss: satellite,
+    gnss: satellites[0],
     vessel: cnavAnchor,
     mast: mastAnchor,
     bridge: bridgeAnchor,
@@ -880,20 +892,28 @@ export function createSurveyScene(
     vessel.rotation.z = Math.sin(t * 0.6) * 0.015;
     vessel.rotation.x = Math.cos(t * 0.5) * 0.012;
 
-    satellite.position.y = 24 + Math.sin(t * 0.4) * 0.4;
-    satellite.rotation.y = t * 0.15;
+    satellites.forEach((sat, s) => {
+      const angle = t * GNSS_ORBIT_SPEED + (s * Math.PI * 2) / 3;
+      sat.position.set(
+        GNSS_ORBIT_CENTER.x + Math.cos(angle) * GNSS_ORBIT_RADIUS,
+        GNSS_ORBIT_CENTER.y + Math.sin(angle) * GNSS_ORBIT_RADIUS * GNSS_ORBIT_TILT,
+        GNSS_ORBIT_CENTER.z + Math.sin(angle) * GNSS_ORBIT_RADIUS,
+      );
+      sat.rotation.y = t * 0.15 + s;
 
-    // GNSS beam from satellite to the C-Nav antenna
-    satellite.getWorldPosition(tmpA);
-    cnavAnchor.getWorldPosition(tmpB);
-    tmpC.subVectors(tmpB, tmpA);
-    const len = tmpC.length();
-    beam.position.copy(tmpA).addScaledVector(tmpC, 0.5);
-    beam.scale.set(1, len, 1);
-    beam.quaternion.setFromUnitVectors(up, tmpC.normalize());
-    photons.forEach((p, i) => {
-      const k = (t * 0.35 + i / photons.length) % 1;
-      p.position.lerpVectors(tmpA, tmpB, k);
+      // GNSS beam from this satellite down to the C-Nav antenna
+      sat.getWorldPosition(tmpA);
+      cnavAnchor.getWorldPosition(tmpB);
+      tmpC.subVectors(tmpB, tmpA);
+      const len = tmpC.length();
+      const { beam, photons } = gnssBeams[s];
+      beam.position.copy(tmpA).addScaledVector(tmpC, 0.5);
+      beam.scale.set(1, len, 1);
+      beam.quaternion.setFromUnitVectors(up, tmpC.normalize());
+      photons.forEach((p, i) => {
+        const k = (t * 0.35 + i / photons.length) % 1;
+        p.position.lerpVectors(tmpA, tmpB, k);
+      });
     });
 
     // USBL pings travelling down the cone

@@ -84,7 +84,7 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     key: "survey-portal",
     label: "Survey Portal",
     icon: "Radar",
-    route: "/knowledge/survey/equipment",
+    route: "/knowledge/survey/system",
     section: "knowledge",
     requiredAccess: "engineering",
   },

@@ -42,6 +42,7 @@ export type SurveySceneShape =
   | "transponder"
   | "fibre-reel"
   | "network-cloud"
+  | "software"
   | "system-core";
 
 export interface ISurveyFamily {

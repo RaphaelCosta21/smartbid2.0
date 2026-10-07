@@ -47,6 +47,7 @@ import {
   traceDataLineage,
   traceSignalPath,
 } from "../utils/surveySpreadGraph";
+import { buildFreeScene, FREE_SPREAD_ID } from "../utils/surveyFreeScene";
 import styles from "./SurveySystemPage.module.scss";
 
 const SurveySystemScene = React.lazy(
@@ -137,6 +138,18 @@ export const SurveySystemPage: React.FC = () => {
 
   const spreads = catalog?.spreads || [];
   const spread = spreads.find((s) => s.id === spreadId) || spreads[0];
+  // "Free composition" starts from a blank vessel; the package drives which rooms appear.
+  const isFree = spreadId === FREE_SPREAD_ID;
+  // Richest spread (most physical rooms) is the location template for free placement.
+  const locationSpread = React.useMemo(() => {
+    const list = catalog?.spreads || [];
+    if (!list.length) return undefined;
+    return list.reduce((best, s) => {
+      const rc = (s.zones || []).filter((z) => z.sceneAnchor).length;
+      const bc = (best.zones || []).filter((z) => z.sceneAnchor).length;
+      return rc > bc ? s : best;
+    }, list[0]);
+  }, [catalog]);
 
   const spreadNodes = React.useMemo(
     () => (spread && catalog ? expandSpreadNodes(spread, catalog) : []),
@@ -199,6 +212,29 @@ export const SurveySystemPage: React.FC = () => {
   const searchHits = React.useMemo<SurveySearchHit[]>(() => {
     const q = search.trim().toLowerCase();
     if (!q || !catalog) return [];
+    if (isFree) {
+      // Free mode searches the whole catalog; a hit adds the equipment to the package.
+      const familyTitle: Record<string, string> = {};
+      catalog.families.forEach((f) => (familyTitle[f.id] = f.title));
+      const hits: { eq: ISurveyEquipment; score: number }[] = [];
+      catalog.equipment.forEach((eq) => {
+        const title = eq.title.toLowerCase();
+        const haystack = [title, eq.technology, eq.partNumber, eq.manufacturer, eq.model]
+          .concat(eq.aliases || [])
+          .join(" ")
+          .toLowerCase();
+        if (haystack.indexOf(q) < 0) return;
+        hits.push({ eq, score: title.indexOf(q) === 0 ? 0 : title.indexOf(q) > 0 ? 1 : 2 });
+      });
+      return hits
+        .sort((a, b) => a.score - b.score)
+        .slice(0, SEARCH_HITS_MAX)
+        .map(({ eq }) => ({
+          id: eq.id,
+          title: eq.title,
+          meta: familyTitle[eq.familyId] || eq.technology || "",
+        }));
+    }
     const zoneTitle: Record<string, string> = {};
     (spread?.zones || []).forEach((z) => (zoneTitle[z.id] = z.title));
     const scored: { node: ISpreadNode; score: number }[] = [];
@@ -221,7 +257,7 @@ export const SurveySystemPage: React.FC = () => {
         title: node.label,
         meta: zoneTitle[node.zoneId] || "",
       }));
-  }, [search, catalog, spread, nodes]);
+  }, [search, catalog, spread, nodes, isFree]);
 
   // Cables between rooms, aggregated per room pair for the overview arcs.
   const trunkDetails = React.useMemo(() => {
@@ -361,6 +397,15 @@ export const SurveySystemPage: React.FC = () => {
     () => packageLines.map((l) => l.equipmentId),
     [packageLines],
   );
+  // Free composition: blank vessel that fills up as equipment is added to the package.
+  const freeScene = React.useMemo(
+    () =>
+      isFree ? buildFreeScene(locationSpread, catalog, packageEquipmentIds, activeZoneId) : null,
+    [isFree, locationSpread, catalog, packageEquipmentIds, activeZoneId],
+  );
+  const activeZones = isFree && freeScene ? freeScene.zones : sceneZones;
+  const activeTrunks = isFree ? [] : trunks;
+  const activeFocus = isFree ? (freeScene ? freeScene.focus : null) : focus;
   const nodeStates = React.useMemo<SceneNodeStates>(() => {
     const traceNodeIds = trace ? trace.nodeIds.slice() : [];
     // Steps in other rooms light the portal that leads there.
@@ -371,8 +416,8 @@ export const SurveySystemPage: React.FC = () => {
       });
     }
     const hoverLinkKeys =
-      !selectedNodeId && hoverNodeId && focus
-        ? focus.links
+      !selectedNodeId && hoverNodeId && activeFocus
+        ? activeFocus.links
             .filter((l) => l.from === hoverNodeId || l.to === hoverNodeId)
             .map((l) => l.key)
         : [];
@@ -384,7 +429,7 @@ export const SurveySystemPage: React.FC = () => {
       traceLinkKeys: trace ? trace.linkKeys : [],
       hoverLinkKeys,
     };
-  }, [selectedNodeId, hoverNodeId, packageEquipmentIds, trace, activeZoneId, nodeById, focus]);
+  }, [selectedNodeId, hoverNodeId, packageEquipmentIds, trace, activeZoneId, nodeById, activeFocus]);
   const tracePath = React.useMemo<SurveyTraceStep[] | null>(() => {
     if (!trace) return null;
     const steps: SurveyTraceStep[] = trace.nodeIds.map((id, i) => ({
@@ -504,6 +549,32 @@ export const SurveySystemPage: React.FC = () => {
     handleSelect(node.equipmentId);
   };
 
+  // Free scene nodes carry the equipment id directly (no spread wiring behind them).
+  const handleSceneNodeSelect = (id: string): void => {
+    if (!isFree) {
+      handleNodeSelect(id);
+      return;
+    }
+    if (id.indexOf(PORTAL_PREFIX) === 0) {
+      handleZoneSelect(id.slice(PORTAL_PREFIX.length));
+      return;
+    }
+    stopTour();
+    setSelectedNodeId(id);
+    handleSelect(id);
+  };
+
+  const handleSearchHit = (id: string): void => {
+    if (!isFree) {
+      handleNodeSelect(id);
+      return;
+    }
+    addToPackage(id, 1);
+    const eq = catalog?.equipment.find((e) => e.id === id);
+    addToast({ type: "success", title: "Added to package", message: eq ? eq.title : id });
+    setFilters({ search: "" });
+  };
+
   const handleSelectLine = (zoneId: string, equipmentId: string): void => {
     const node = nodes.find((n) => n.zoneId === zoneId && n.equipmentId === equipmentId);
     if (node) handleNodeSelect(node.id);
@@ -554,7 +625,7 @@ export const SurveySystemPage: React.FC = () => {
   React.useEffect(() => {
     openZone(null);
     setTourStep(null);
-  }, [spread?.id]);
+  }, [spreadId]);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -615,7 +686,7 @@ export const SurveySystemPage: React.FC = () => {
     }
     return (
       <>
-        {spread && (
+        {spread && !isFree && (
           <div
             className={`${styles.spreadPanel} ${activeZoneId ? styles.spreadPanelOpen : ""}`}
             key={spread.id}
@@ -635,6 +706,32 @@ export const SurveySystemPage: React.FC = () => {
               onAddZone={handleAddZone}
               onAddSpread={handleAddSpread}
             />
+          </div>
+        )}
+
+        {isFree && packageLines.length === 0 && (
+          <div
+            style={{
+              position: "absolute",
+              top: 20,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 3,
+              pointerEvents: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 16px",
+              borderRadius: 10,
+              background: "var(--card-bg)",
+              border: "1px solid var(--border)",
+              color: "var(--text-secondary)",
+              fontSize: 13,
+              maxWidth: "min(540px, 90%)",
+            }}
+          >
+            <Radar size={16} />
+            <span>Blank vessel — search above to add any equipment. Rooms appear as you build.</span>
           </div>
         )}
 
@@ -673,20 +770,22 @@ export const SurveySystemPage: React.FC = () => {
           <React.Suspense fallback={null}>
             <SurveySystemScene
               topInset={headerHeight}
-              zones={sceneZones}
-              trunks={trunks}
-              focus={focus}
-              spreadTitle={spread ? spread.title : ""}
+              zones={activeZones}
+              trunks={activeTrunks}
+              focus={activeFocus}
+              spreadTitle={isFree ? "Free composition" : spread ? spread.title : ""}
               nodeStates={nodeStates}
-              tracePath={tracePath}
-              cableInfo={cableInfo}
-              tour={tour}
+              tracePath={isFree ? null : tracePath}
+              cableInfo={isFree ? null : cableInfo}
+              tour={isFree ? null : tour}
               onZoneSelect={handleZoneSelect}
-              onNodeSelect={handleNodeSelect}
+              onNodeSelect={handleSceneNodeSelect}
               onNodeHover={setHoverNodeId}
               onCableHover={setHoverCableKey}
               onInteract={stopTour}
-              onTourStart={() => setTourStep(0)}
+              onTourStart={() => {
+                if (!isFree) setTourStep(0);
+              }}
               onTourStep={stepTour}
               onTourStop={stopTour}
             />
@@ -696,10 +795,9 @@ export const SurveySystemPage: React.FC = () => {
       <div className={styles.overlay}>
         <div ref={headerRef} className={styles.headerLayer}>
           <SurveyPortalHeader
-            view="system"
             onOpenPackage={() => setPackageOpen(true)}
             searchHits={searchHits}
-            onSearchHit={handleNodeSelect}
+            onSearchHit={handleSearchHit}
           />
         </div>
         <div className={styles.body}>

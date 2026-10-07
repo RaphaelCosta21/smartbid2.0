@@ -555,6 +555,7 @@ const SHAPE_RULES: [RegExp, SurveySceneShape][] = [
   [/transponder|beacon|node|compatt|hpt/i, "transponder"],
   [/fibre|fiber|umbilical/i, "fibre-reel"],
   [/internet/i, "network-cloud"],
+  [/software|navipac|naviscan|naviedit|navimodel|fusion|rovnav|license/i, "software"],
   [/system/i, "system-core"],
   [/mux|bottle|subsea/i, "subsea-bottle"],
   [/radio/i, "radio"],

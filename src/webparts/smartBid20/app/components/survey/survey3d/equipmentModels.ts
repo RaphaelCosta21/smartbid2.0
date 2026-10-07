@@ -299,6 +299,19 @@ export class EquipmentModelFactory {
         torus(0.5, 0.025, "screen", 0, 0, 0).rotation.x = Math.PI / 2;
         break;
       }
+      case "software": {
+        // A floating app window / license panel — reads as software, not hardware.
+        box(0.95, 0.66, 0.05, "dark", 0, 0.12);
+        box(0.84, 0.5, 0.02, "screen", 0, 0.16, 0.04);
+        box(0.84, 0.1, 0.02, "accent", 0, 0.36, 0.05);
+        leds(3, 0.5, 0.26, 0.06, "green");
+        box(0.6, 0.02, 0.02, "steel", -0.08, 0.08, 0.06);
+        box(0.44, 0.02, 0.02, "steel", -0.16, -0.02, 0.06);
+        box(0.52, 0.02, 0.02, "steel", -0.12, -0.12, 0.06);
+        cyl(0.08, 0.2, "steel", 0, -0.26);
+        box(0.5, 0.04, 0.3, "steel", 0, -0.38);
+        break;
+      }
       case "portal": {
         // Two crossed rings read as a gateway from any angle.
         torus(0.5, 0.05, "accent");

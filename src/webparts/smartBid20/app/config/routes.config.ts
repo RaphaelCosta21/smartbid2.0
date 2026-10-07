@@ -19,7 +19,6 @@ export const ROUTES = {
   technicalProposals: "/knowledge/technical-proposals",
   clarificationsDb: "/knowledge/clarifications",
   linksRecommendations: "/knowledge/links",
-  surveyEquipment: "/knowledge/survey/equipment",
   surveySystem: "/knowledge/survey/system",
   analytics: "/analytics",
   reports: "/reports",

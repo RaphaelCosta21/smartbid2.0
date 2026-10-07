@@ -1,22 +1,19 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Search,
-  LayoutGrid,
-  Box,
   Package,
   Upload,
   ChevronDown,
   FileSearch,
   X,
 } from "lucide-react";
-import { ROUTES } from "../../config/routes.config";
 import { useSurveyStore } from "../../stores/useSurveyStore";
 import { useBidStore } from "../../stores/useBidStore";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useUIStore } from "../../stores/useUIStore";
 import { SurveyCatalogService } from "../../services/SurveyCatalogService";
 import { IBid, ISurveyCatalog } from "../../models";
+import { FREE_SPREAD_ID } from "../../utils/surveyFreeScene";
 import styles from "./SurveyPortalHeader.module.scss";
 
 export interface SurveySearchHit {
@@ -26,7 +23,6 @@ export interface SurveySearchHit {
 }
 
 interface SurveyPortalHeaderProps {
-  view: "equipment" | "system";
   onOpenPackage: () => void;
   /** System view: equipment matching the search, offered in a dropdown. */
   searchHits?: SurveySearchHit[];
@@ -39,12 +35,10 @@ const surveyRank = (b: IBid): number =>
   b.division === "SSR-Survey" ? 0 : b.division === "SSR-Integrated" ? 1 : 2;
 
 export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
-  view,
   onOpenPackage,
   searchHits,
   onSearchHit,
 }) => {
-  const navigate = useNavigate();
   const catalog = useSurveyStore((s) => s.catalog);
   const filters = useSurveyStore((s) => s.filters);
   const setFilters = useSurveyStore((s) => s.setFilters);
@@ -202,7 +196,7 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
           {searchHits && searchFocus && filters.search.trim() && (
             <ul className={styles.hits} role="listbox" aria-label="Matching equipment">
               {searchHits.length === 0 ? (
-                <li className={styles.hitEmpty}>No equipment in this diagram matches.</li>
+                <li className={styles.hitEmpty}>No equipment matches.</li>
               ) : (
                 searchHits.map((h) => (
                   <li key={h.id}>
@@ -291,14 +285,15 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
           </span>
         )}
 
-        {view === "system" && spreads.length > 0 && (
-          <label className={styles.selectChip} title="One-line diagram (spread template)">
+        {spreads.length > 0 && (
+          <label className={styles.selectChip} title="One-line diagram or free composition">
             <span className={styles.selectLabel}>DIAGRAM</span>
             <select
-              value={spread ? spread.id : ""}
+              value={spreadId === FREE_SPREAD_ID ? FREE_SPREAD_ID : spread ? spread.id : ""}
               onChange={(e) => setSpreadId(e.target.value)}
               aria-label="Diagram"
             >
+              <option value={FREE_SPREAD_ID}>Free composition (blank)</option>
               {spreads.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.title}
@@ -311,26 +306,6 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
 
         <span className={styles.spacer} />
 
-        <div className={styles.viewToggle} role="tablist">
-          <button
-            role="tab"
-            aria-selected={view === "equipment"}
-            className={view === "equipment" ? styles.viewActive : ""}
-            onClick={() => navigate(ROUTES.surveyEquipment)}
-            title="Equipment explorer"
-          >
-            <LayoutGrid size={12} />
-          </button>
-          <button
-            role="tab"
-            aria-selected={view === "system"}
-            className={view === "system" ? styles.viewActive : ""}
-            onClick={() => navigate(ROUTES.surveySystem)}
-            title="3D system view"
-          >
-            <Box size={12} />
-          </button>
-        </div>
         {canImport && (
           <>
             <button
