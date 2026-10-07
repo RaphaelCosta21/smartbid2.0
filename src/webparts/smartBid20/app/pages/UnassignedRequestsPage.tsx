@@ -559,8 +559,8 @@ export const UnassignedRequestsPage: React.FC = () => {
         <div className={styles.assignFieldGroup}>
           <div className={styles.assignFieldLabel}>🛠️ BID Responsible</div>
           <div className={styles.assignFieldHint}>
-            Person responsible for leading the BID in Engineering, preparing
-            the requirements and presenting them.
+            Person responsible for leading the BID in Engineering, preparing the
+            requirements and presenting them.
           </div>
 
           {/* Selected chips */}

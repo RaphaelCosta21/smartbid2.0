@@ -17,8 +17,7 @@ const normalizeEmail = (email: string | undefined): string =>
 const hasEmail = (people: IPersonRef[], email: string): boolean => {
   const target = normalizeEmail(email);
   return (
-    !!target &&
-    people.some((p) => !!p && normalizeEmail(p.email) === target)
+    !!target && people.some((p) => !!p && normalizeEmail(p.email) === target)
   );
 };
 
@@ -51,10 +50,7 @@ export function getConfidentialManagers(bid: IBid): IPersonRef[] {
 export function getBidKeyPeople(bid: IBid): IKeyPerson[] {
   const byEmail: Record<string, IKeyPerson> = {};
   const out: IKeyPerson[] = [];
-  const add = (
-    p: IPersonRef | null | undefined,
-    role: KeyPeopleRole,
-  ): void => {
+  const add = (p: IPersonRef | null | undefined, role: KeyPeopleRole): void => {
     const key = normalizeEmail(p?.email);
     if (!p || !key) return;
     if (!byEmail[key]) {
@@ -73,10 +69,7 @@ export function getBidKeyPeople(bid: IBid): IKeyPerson[] {
   return out;
 }
 
-export function canManageBidConfidentiality(
-  bid: IBid,
-  email: string,
-): boolean {
+export function canManageBidConfidentiality(bid: IBid, email: string): boolean {
   return hasEmail(getConfidentialManagers(bid), email);
 }
 

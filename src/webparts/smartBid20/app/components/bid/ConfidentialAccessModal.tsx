@@ -336,9 +336,7 @@ export const ConfidentialAccessModal: React.FC<
                   <div
                     key={g.key}
                     className={styles.groupCard}
-                    style={
-                      { "--sector-color": g.color } as React.CSSProperties
-                    }
+                    style={{ "--sector-color": g.color } as React.CSSProperties}
                   >
                     <div className={styles.groupHeader}>
                       <span className={styles.groupIcon}>{g.icon}</span>

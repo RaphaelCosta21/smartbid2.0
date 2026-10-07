@@ -568,30 +568,31 @@ const SystemConfiguration: React.FC = () => {
   /* ---- generic list CRUD ---------------------------------------- */
 
   // Built-in results / loss reasons referenced by BIDs and reports: color-only edits.
-  const PROTECTED_OPTION_VALUES: Partial<Record<keyof ISystemConfig, string[]>> =
-    {
-      bidResultOptions: ["Won", "Loss", "Client Canceled", "No Bid", "Pending"],
-      lossReasons: [
-        "Price higher than competitor",
-        "Technical non-compliance",
-        "Late submission",
-        "Client scope change",
-        "Client budget constraint",
-        "Competitor relationship",
-      ],
-      divisions: ["OPG", "SSR"],
-      serviceLines: [
-        "IMR",
-        "UWILD",
-        "Controls",
-        "Decommissioning",
-        "Installation",
-        "Engineer Solutions",
-        "ROV",
-        "Survey",
-        "Integrated",
-      ],
-    };
+  const PROTECTED_OPTION_VALUES: Partial<
+    Record<keyof ISystemConfig, string[]>
+  > = {
+    bidResultOptions: ["Won", "Loss", "Client Canceled", "No Bid", "Pending"],
+    lossReasons: [
+      "Price higher than competitor",
+      "Technical non-compliance",
+      "Late submission",
+      "Client scope change",
+      "Client budget constraint",
+      "Competitor relationship",
+    ],
+    divisions: ["OPG", "SSR"],
+    serviceLines: [
+      "IMR",
+      "UWILD",
+      "Controls",
+      "Decommissioning",
+      "Installation",
+      "Engineer Solutions",
+      "ROV",
+      "Survey",
+      "Integrated",
+    ],
+  };
   const isProtectedOption = (
     configKey: keyof ISystemConfig | null,
     item: IConfigOption | null,
@@ -4058,28 +4059,28 @@ const SystemConfiguration: React.FC = () => {
               {panelConfigKey === "serviceLines" &&
                 config &&
                 !isProtectedOption(panelConfigKey, editItem) && (
-                <div className={styles.fieldGroup}>
-                  <label>Division</label>
-                  <select
-                    value={panelForm.category}
-                    onChange={(e) =>
-                      setPanelForm({
-                        ...panelForm,
-                        category: e.currentTarget.value,
-                      })
-                    }
-                  >
-                    <option value="">- Select -</option>
-                    {config.divisions
-                      .filter((d) => d.isActive)
-                      .map((d) => (
-                        <option key={d.id} value={d.value}>
-                          {d.label}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              )}
+                  <div className={styles.fieldGroup}>
+                    <label>Division</label>
+                    <select
+                      value={panelForm.category}
+                      onChange={(e) =>
+                        setPanelForm({
+                          ...panelForm,
+                          category: e.currentTarget.value,
+                        })
+                      }
+                    >
+                      <option value="">- Select -</option>
+                      {config.divisions
+                        .filter((d) => d.isActive)
+                        .map((d) => (
+                          <option key={d.id} value={d.value}>
+                            {d.label}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
               {panelConfigKey === "supplierServiceTypes" && config && (
                 <div className={styles.fieldGroup}>
                   <label>Category</label>

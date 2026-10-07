@@ -327,9 +327,7 @@ export const BidDetailsReportPage: React.FC = () => {
           value={selected}
           onChange={(e) => setSelected(e.target.value)}
         >
-          {filteredOptions.length === 0 && (
-            <option value="">No results</option>
-          )}
+          {filteredOptions.length === 0 && <option value="">No results</option>}
           {filteredOptions.map((b) => (
             <option key={b.bidNumber} value={b.bidNumber}>
               {isBidConfidential(b) ? "🔒 " : ""}
@@ -541,7 +539,7 @@ export const BidDetailsReportPage: React.FC = () => {
                         <ChartTooltip valueFormatter={(v) => `${v} dias`} />
                       }
                     />
-                      <Bar
+                    <Bar
                       dataKey="days"
                       name="Days"
                       radius={[0, 6, 6, 0]}

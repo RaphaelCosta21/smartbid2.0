@@ -10,7 +10,10 @@ import {
   cleanClientDocRef,
   configOptionLabel,
 } from "../../utils/clarificationHelpers";
-import { matchesPastBidSearch, normalizeText } from "../../utils/pastBidHelpers";
+import {
+  matchesPastBidSearch,
+  normalizeText,
+} from "../../utils/pastBidHelpers";
 import { SegmentedControl } from "../insights/SegmentedControl";
 import {
   ClarificationCategoryChip,
@@ -87,8 +90,7 @@ export const ExportClarificationModal: React.FC<
   const qualCount = rows.filter((r) => r.isQual).length;
   const visible = rows.filter(
     (r) =>
-      (typeFilter === "all" ||
-        (typeFilter === "Qualification") === r.isQual) &&
+      (typeFilter === "all" || (typeFilter === "Qualification") === r.isQual) &&
       (!search.trim() || matchesPastBidSearch(r.searchText, search)),
   );
   const selectedCount = rows.filter((r) => selected[r.item.id]).length;

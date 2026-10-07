@@ -3,10 +3,7 @@ import { Lock } from "lucide-react";
 import { IBid } from "../../models";
 import { useBidStore } from "../../stores/useBidStore";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
-import {
-  canOpenBid,
-  isBidConfidential,
-} from "../../utils/bidConfidentiality";
+import { canOpenBid, isBidConfidential } from "../../utils/bidConfidentiality";
 import styles from "./ConfidentialLock.module.scss";
 
 interface ConfidentialLockProps {

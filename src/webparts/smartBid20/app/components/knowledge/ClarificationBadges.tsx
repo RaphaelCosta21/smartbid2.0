@@ -29,9 +29,7 @@ export const ClarificationCategoryChip: React.FC<{
   const config = useConfigStore((s) => s.config);
   if (!category) return <span className={styles.empty}>{emptyLabel}</span>;
   const list = allCategoryOptions(config);
-  const opt = list.find(
-    (o) => o.value === category || o.label === category,
-  );
+  const opt = list.find((o) => o.value === category || o.label === category);
   const style = opt?.color
     ? ({ "--chip-color": opt.color } as React.CSSProperties)
     : undefined;
