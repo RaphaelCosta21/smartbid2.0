@@ -24,6 +24,46 @@ export const ERN_REVISION_REASONS: string[] = [
   "Obsolete document / PN replacement",
 ];
 
+/** Deliverable Type pre-selected when creating an ERN from a BID. */
+export const ERN_DEFAULT_DELIVERABLE_TYPE =
+  "Bids - Engineering Hours and Lead Time Estimate";
+
+/** SmartBid service line (normalized) -> ERN list Service Line choice. */
+const ERN_SERVICE_LINE_MAP: Record<string, string> = {
+  survey: "SSR - Survey",
+  rov: "SSR - ROV",
+  imr: "IMR",
+  uwild: "IMR",
+  controls: "Controls",
+  engineersolutions: "Eng Solutions",
+  decommissioning: "Intervention",
+  installation: "Intervention",
+};
+
+const normalizeChoice = (s: string | null | undefined): string =>
+  (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Find a choice ignoring case, spaces and punctuation. */
+export function findErnChoice(
+  choices: string[],
+  target: string | null | undefined,
+): string | undefined {
+  const t = normalizeChoice(target);
+  if (!t) return undefined;
+  return choices.find((c) => normalizeChoice(c) === t);
+}
+
+/** ERN Service Line choice matching a SmartBid service line ("" when unknown). */
+export function resolveErnServiceLineChoice(
+  choices: string[],
+  serviceLine: string | null | undefined,
+): string {
+  const mapped = ERN_SERVICE_LINE_MAP[normalizeChoice(serviceLine)];
+  return (
+    findErnChoice(choices, mapped) || findErnChoice(choices, serviceLine) || ""
+  );
+}
+
 /** The service line value that means a BID spans both ROV and Survey. */
 export const INTEGRATED_SERVICE_LINE = "Integrated";
 

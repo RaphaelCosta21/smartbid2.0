@@ -118,11 +118,11 @@ export class ErnService {
       [ERN.projectNumber]: data.field_14,
       [ERN.projectName]: data.field_15,
       [ERN.projectTitle]: data.ProjectTitle,
-      // Deliverable Type is a multi-choice field — must be an array
-      [ERN.deliverableType]: { results: [data.field_20] },
-      [ERN.dueDate]: data.field_4,
-      [ERN.checkerDueDate]: data.CheckerDueDate,
-      [ERN.leadDate]: data.LeadDate,
+      // Multi-choice field: PnPjs v3 posts JSON light, so a plain array (not { results })
+      [ERN.deliverableType]: [data.field_20],
+      [ERN.dueDate]: data.field_4 || null,
+      [ERN.checkerDueDate]: data.CheckerDueDate || null,
+      [ERN.leadDate]: data.LeadDate || null,
       [ERN.resource1]: data.Resource1,
       [ERN.emailResource1]: data.EmailResource1,
       [ERN.resource3]: data.Resource3,

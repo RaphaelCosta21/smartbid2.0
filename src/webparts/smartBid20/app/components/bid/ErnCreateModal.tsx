@@ -13,6 +13,9 @@ import { PeoplePicker, IPickedPerson } from "../common/PeoplePicker";
 import {
   ERN_REVISION_REASONS,
   resolveErnProjectNumber,
+  resolveErnServiceLineChoice,
+  findErnChoice,
+  ERN_DEFAULT_DELIVERABLE_TYPE,
   ErnDivision,
 } from "../../utils/ernHelpers";
 import { linkErnToBid } from "../../utils/ernLink";
@@ -113,17 +116,18 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
     const slPromise = ErnService.getFieldChoices(F.serviceLine)
       .then((c) => {
         setServiceLineChoices(c);
-        // Pre-select the choice matching this slot's division (Integrated),
-        // otherwise the first available choice.
-        const match = slotServiceLine
-          ? c.find((x) => x.toLowerCase() === slotServiceLine.toLowerCase())
-          : undefined;
-        if (match) setServiceLine(match);
-        else if (c.length > 0) setServiceLine(c[0]);
+        setServiceLine(
+          resolveErnServiceLineChoice(c, slotServiceLine || bid.serviceLine),
+        );
       })
       .catch(console.error);
     const dtPromise = ErnService.getFieldChoices(F.deliverableType)
-      .then(setDeliverableChoices)
+      .then((c) => {
+        setDeliverableChoices(c);
+        setDeliverableType(
+          findErnChoice(c, ERN_DEFAULT_DELIVERABLE_TYPE) || "",
+        );
+      })
       .catch(console.error);
     Promise.all([slPromise, dtPromise])
       .then(() => setChoicesLoading(false))
