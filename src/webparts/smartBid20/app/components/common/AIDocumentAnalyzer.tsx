@@ -125,6 +125,8 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
   const [previewItems, setPreviewItems] = React.useState<IScopeItem[]>([]);
   const [isDragOver, setIsDragOver] = React.useState(false);
   const [instructions, setInstructions] = React.useState("");
+  const [suggestClarifications, setSuggestClarifications] =
+    React.useState(true);
   const [appliedInstructions, setAppliedInstructions] = React.useState("");
   const [showApplied, setShowApplied] = React.useState(false);
   const [resultsView, setResultsView] = React.useState<
@@ -310,6 +312,7 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
         assetCatalogOptions: await loadAssetCatalog(),
         contextSummary,
         userInstructions,
+        suggestClarifications,
       };
       if (templateId) {
         analysisResult = await AIAnalysisService.analyzeDocumentForTemplate(
@@ -451,6 +454,7 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
     setResult(null);
     setPreviewItems([]);
     setInstructions("");
+    setSuggestClarifications(true);
     setAppliedInstructions("");
   };
 
@@ -678,6 +682,24 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
                   {instructions.length} / {SCOPE_USER_INSTRUCTIONS_MAX_CHARS}
                 </span>
               </div>
+
+              <label className={styles.optionRow}>
+                <input
+                  type="checkbox"
+                  className={styles.clarCheck}
+                  checked={suggestClarifications}
+                  onChange={(e) => setSuggestClarifications(e.target.checked)}
+                />
+                <span className={styles.optionText}>
+                  <span className={styles.optionTitle}>
+                    Suggest clarifications and qualifications
+                  </span>
+                  <span className={styles.optionHint}>
+                    Based on the Clarif. &amp; Qualif. library and past BIDs.
+                    Turn off to extract the scope only.
+                  </span>
+                </span>
+              </label>
             </section>
           </div>
 
@@ -751,8 +773,10 @@ export const AIDocumentAnalyzer: React.FC<AIDocumentAnalyzerProps> = ({
                 <Layers size={14} /> Matching datasheets, catalog and past BIDs
               </li>
               <li>
-                <ListTree size={14} /> Building sections, items and
-                clarifications
+                <ListTree size={14} />{" "}
+                {suggestClarifications
+                  ? "Building sections, items and clarifications"
+                  : "Building sections and items"}
               </li>
             </ul>
 

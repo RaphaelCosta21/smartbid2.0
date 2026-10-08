@@ -5,7 +5,7 @@
     "AzureWebJobsStorage": "",
     "AZURE_OPENAI_ENDPOINT": "https://cog-opgbbes-openai-prd.openai.azure.com/",
     "AZURE_OPENAI_CHAT_DEPLOYMENT": "gpt-5-mini",
-    "AZURE_OPENAI_API_VERSION": "2024-10-21",
+    "AZURE_OPENAI_API_VERSION": "2025-04-01-preview",
     "AZURE_SEARCH_ENDPOINT": "https://srch-opgbbes-prd.search.windows.net",
     "AZURE_SEARCH_INDEX": "smartbid-docs-index"
   }

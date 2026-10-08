@@ -669,12 +669,15 @@ def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
     except (ValueError, KeyError, TypeError) as e:
         logging.warning("Malformed scope/generate request: %s", e)
         return _bad_request()
+    # Older SmartBid builds don't send the flag and always expect suggestions.
+    suggest_clarifications = body.get("suggestClarifications") is not False
 
     logging.info(
-        "scope/generate — caller=%s bid=%s promptVersion=%s",
+        "scope/generate — caller=%s bid=%s promptVersion=%s suggestClarifications=%s",
         _caller_upn(req) or "<unknown>",
         body.get("bidNumber") or body.get("templateId") or "<none>",
         body.get("promptVersion") or "<none>",
+        suggest_clarifications,
     )
 
     stage = "document parsing"
@@ -696,10 +699,12 @@ def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
             query_text, _not_this_bid(body)
         )
         warnings.extend(past_bid_warnings)
-        clar_library, _, clar_library_warnings = _clarification_library_material(
-            query_text, SCOPE_CLAR_LIB_MAX_ENTRIES, SCOPE_CLAR_LIB_MAX_CONTEXT_CHARS
-        )
-        warnings.extend(clar_library_warnings)
+        clar_library = ""
+        if suggest_clarifications:
+            clar_library, _, clar_library_warnings = _clarification_library_material(
+                query_text, SCOPE_CLAR_LIB_MAX_ENTRIES, SCOPE_CLAR_LIB_MAX_CONTEXT_CHARS
+            )
+            warnings.extend(clar_library_warnings)
         retrieved_at = time.perf_counter()
 
         # 3) Append the BID context and retrieved Reference Material to OUR system prompt
@@ -743,7 +748,9 @@ def generate_scope(req: func.HttpRequest) -> func.HttpResponse:
         # 5) Shape to IAIAnalysisResult (frontend assigns id/lineNumber)
         response = {
             "scopeItems": model_json.get("scopeItems", []),
-            "suggestedClarifications": model_json.get("suggestedClarifications", []),
+            "suggestedClarifications": (
+                model_json.get("suggestedClarifications", []) if suggest_clarifications else []
+            ),
             "isComplete": bool(model_json.get("isComplete", True)) and not warnings,
             "warnings": warnings,
             "chunksProcessed": 1,

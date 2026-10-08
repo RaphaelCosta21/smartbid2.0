@@ -19,6 +19,7 @@ import {
   IAIAnalysisContext,
   IAISuggestedClarification,
   IAISuggestedQualification,
+  IAISuggestionsResult,
   IExtractedQuotationLine,
   IQuotationExtractionResult,
   IExtractedDocumentMetadata,
@@ -329,12 +330,17 @@ export class AIAnalysisService {
       useCase,
     };
 
+    if (useCase === "scope-of-supply") {
+      request.suggestClarifications = context.suggestClarifications !== false;
+    }
+
     if (AI_CONFIG.sendPromptFromClient) {
       if (useCase === "scope-of-supply") {
         request.systemPrompt = buildScopeOfSupplyPrompt(
           resourceTypeOptions,
           context.assetCatalogOptions || [],
           context.userInstructions,
+          request.suggestClarifications,
         );
         request.promptVersion = SCOPE_OF_SUPPLY_PROMPT_VERSION;
       } else if (useCase === "quotation") {
@@ -460,6 +466,8 @@ export class AIAnalysisService {
     );
     const result = AIAnalysisService.validateResponse(data, file.name);
     result.promptVersion = request.promptVersion;
+    // A backend deployed before the flag existed still returns suggestions.
+    if (!request.suggestClarifications) result.suggestedClarifications = [];
     return result;
   }
 
@@ -491,6 +499,7 @@ export class AIAnalysisService {
     );
     const result = AIAnalysisService.validateResponse(data, file.name);
     result.promptVersion = request.promptVersion;
+    if (!request.suggestClarifications) result.suggestedClarifications = [];
     return result;
   }
 
@@ -1073,7 +1082,7 @@ export class AIAnalysisService {
     context: IAIAnalysisContext = {},
     ids: { bidNumber?: string; existingText?: string } = {},
     abortSignal?: AbortSignal,
-  ): Promise<IAISuggestedClarification[]> {
+  ): Promise<IAISuggestionsResult<IAISuggestedClarification>> {
     AIAnalysisService.ensureConfigured();
     const data = (await AIAnalysisService.postJson(
       AI_CONFIG.endpoints.suggestClarifications,
@@ -1096,9 +1105,12 @@ export class AIAnalysisService {
         data.details ? `${data.error}: ${data.details}` : String(data.error),
       );
     }
-    return AIAnalysisService.parseClarifications(
-      data ? data.suggestedClarifications : [],
-    );
+    return {
+      suggestions: AIAnalysisService.parseClarifications(
+        data ? data.suggestedClarifications : [],
+      ),
+      warnings: AIAnalysisService.parseWarnings(data),
+    };
   }
 
   /**
@@ -1118,7 +1130,7 @@ export class AIAnalysisService {
       categories?: string[];
     } = {},
     abortSignal?: AbortSignal,
-  ): Promise<IAISuggestedQualification[]> {
+  ): Promise<IAISuggestionsResult<IAISuggestedQualification>> {
     AIAnalysisService.ensureConfigured();
     const data = (await AIAnalysisService.postJson(
       AI_CONFIG.endpoints.suggestClarifications,
@@ -1141,9 +1153,17 @@ export class AIAnalysisService {
         data.details ? `${data.error}: ${data.details}` : String(data.error),
       );
     }
-    return AIAnalysisService.parseQualifications(
-      data ? data.suggestedClarifications : [],
-    );
+    return {
+      suggestions: AIAnalysisService.parseQualifications(
+        data ? data.suggestedClarifications : [],
+      ),
+      warnings: AIAnalysisService.parseWarnings(data),
+    };
+  }
+
+  private static parseWarnings(data: Record<string, unknown> | null): string[] {
+    const raw = data ? data.warnings : null;
+    return Array.isArray(raw) ? raw.map(String).filter(Boolean) : [];
   }
 
   private static parseQualifications(

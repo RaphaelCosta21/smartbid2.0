@@ -238,20 +238,21 @@ pre-built Scope of Supply for human review.
 
 Shared by all document endpoints (`useCase` selects the behaviour):
 
-| Field            | Type       | Notes                                                                         |
-| ---------------- | ---------- | ----------------------------------------------------------------------------- |
-| `fileContent`    | `string`   | **Base64 of the raw file.** Primary input; backend extracts text + OCR/vision |
-| `documentText`   | `string`   | Optional pre-extracted text; used instead of `fileContent` when non-empty     |
-| `fileName`       | `string`   | Original file name, e.g. `"client-scope.pdf"`                                 |
-| `division`       | `string`   | BID division context (e.g. `"SSR-ROV"`)                                       |
-| `serviceLine`    | `string`   | BID service line context (e.g. `"ROV"`)                                       |
-| `resourceTypes`  | `string[]` | Valid resource types from system config (guides categorization)               |
-| `contextSummary` | `string`   | Human-readable BID context (division, client, project, field, vessel)         |
-| `bidNumber`      | `string`   | Optional — for logging/traceability                                           |
-| `templateId`     | `string`   | Optional — set instead of `bidNumber` when analyzing for a template           |
-| `useCase`        | `string`   | `"scope-of-supply"` \| `"quotation"` \| `"clarification"` \| `"chat"`         |
-| `systemPrompt`   | `string`   | Our prompt (sent when `AI_CONFIG.sendPromptFromClient = true`) — see §5       |
-| `promptVersion`  | `string`   | Version tag of the prompt above, for traceability                             |
+| Field                   | Type       | Notes                                                                                                                              |
+| ----------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `fileContent`           | `string`   | **Base64 of the raw file.** Primary input; backend extracts text + OCR/vision                                                      |
+| `documentText`          | `string`   | Optional pre-extracted text; used instead of `fileContent` when non-empty                                                          |
+| `fileName`              | `string`   | Original file name, e.g. `"client-scope.pdf"`                                                                                      |
+| `division`              | `string`   | BID division context (e.g. `"SSR-ROV"`)                                                                                            |
+| `serviceLine`           | `string`   | BID service line context (e.g. `"ROV"`)                                                                                            |
+| `resourceTypes`         | `string[]` | Valid resource types from system config (guides categorization)                                                                    |
+| `contextSummary`        | `string`   | Human-readable BID context (division, client, project, field, vessel)                                                              |
+| `bidNumber`             | `string`   | Optional — for logging/traceability                                                                                                |
+| `templateId`            | `string`   | Optional — set instead of `bidNumber` when analyzing for a template                                                                |
+| `useCase`               | `string`   | `"scope-of-supply"` \| `"quotation"` \| `"clarification"` \| `"chat"`                                                              |
+| `systemPrompt`          | `string`   | Our prompt (sent when `AI_CONFIG.sendPromptFromClient = true`) — see §5                                                            |
+| `promptVersion`         | `string`   | Version tag of the prompt above, for traceability                                                                                  |
+| `suggestClarifications` | `boolean`  | Scope of Supply only. `false` skips the Clarif. & Qualif. library pass and returns `suggestedClarifications: []`; missing = `true` |
 
 ```json
 {

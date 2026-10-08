@@ -332,12 +332,19 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
           ),
         )
         .join("\n");
-      const suggestions = await AIAnalysisService.suggestClarifications(
+      const result = await AIAnalysisService.suggestClarifications(
         requirementsText,
         buildAiContext(bid),
         { bidNumber: bid.bidNumber, existingText },
       );
-      setAiSuggestions(suggestions);
+      setAiSuggestions(result.suggestions);
+      if (result.warnings.length > 0) {
+        addToast({
+          type: "warning",
+          title: "AI clarification suggestions",
+          message: result.warnings.join(" "),
+        });
+      }
     } catch (e) {
       addToast({
         type: "error",
@@ -502,7 +509,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
             ),
         )
         .join("\n");
-      const suggestions = await AIAnalysisService.suggestQualifications(
+      const result = await AIAnalysisService.suggestQualifications(
         requirementsText,
         buildAiContext(bid),
         {
@@ -511,7 +518,14 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
           categories: qualCategoryOptions.map((o) => o.label),
         },
       );
-      setQualAiSuggestions(suggestions);
+      setQualAiSuggestions(result.suggestions);
+      if (result.warnings.length > 0) {
+        addToast({
+          type: "warning",
+          title: "AI qualification suggestions",
+          message: result.warnings.join(" "),
+        });
+      }
     } catch (e) {
       addToast({
         type: "error",

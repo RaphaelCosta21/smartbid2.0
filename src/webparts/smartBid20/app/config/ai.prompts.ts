@@ -19,7 +19,7 @@ import {
 } from "../models/IAIAnalysis";
 
 /** Version tag sent alongside the Scope of Supply prompt. */
-export const SCOPE_OF_SUPPLY_PROMPT_VERSION = "scope-of-supply-v13";
+export const SCOPE_OF_SUPPLY_PROMPT_VERSION = "scope-of-supply-v14";
 
 /** Max length of the user's free-text instructions appended to the scope prompt. */
 export const SCOPE_USER_INSTRUCTIONS_MAX_CHARS = 1000;
@@ -58,11 +58,14 @@ export const KNOWLEDGE_CHAT_PROMPT_VERSION = "knowledge-chat-v7";
  *   equipmentOffer/partNumber.
  * @param userInstructions Optional focus/exclusion notes typed by the user for
  *   this analysis only (e.g. "ignore Scope B").
+ * @param suggestClarifications When false, the model returns no clarification
+ *   or qualification suggestions.
  */
 export function buildScopeOfSupplyPrompt(
   resourceTypes: IAIResourceTypeOption[],
   assetCatalog?: IAIAssetCatalogOption[],
   userInstructions?: string,
+  suggestClarifications: boolean = true,
 ): string {
   const resourceTypeBlock =
     resourceTypes && resourceTypes.length > 0
@@ -110,6 +113,24 @@ ${instructions}
 `
     : "";
 
+  const pastBidClarificationNote = suggestClarifications
+    ? `
+  • Their "Clarifications" and "Qualifications" lines are a source for "suggestedClarifications" (rules 19-21). Recent past BIDs list only topics in a "Clarif. & Qualif. reference" section: their full text is in the CLARIF. & QUALIF. LIBRARY.`
+    : "";
+  const clarificationLibraryNote = suggestClarifications
+    ? `
+
+CLARIF. & QUALIF. LIBRARY: the backend may also append a "CLARIF. & QUALIF. LIBRARY" block with entries of Oceaneering's library of clarifications and qualifications raised in past BIDs. Each entry is an excerpt whose section reads "Clarification <id> - <topic>" or "Qualification <id> - <topic>", followed by lines with Type, Category, Keyword, Client, Division, Service line, Source BID, Client document ref and Date; the text sent to the client (or the qualification text); the client reply; and "Accepted by client: Yes" when the client accepted it. Qualification table entries read "Qualification Q<id> - <table> - <category>" and carry Table and Category lines instead. They are PRECEDENT for "suggestedClarifications" only — never a source of scope lines, sub-items or specifications.`
+    : "";
+  const nearMissClarification = suggestClarifications
+    ? ', and raise a "Clarification" in "suggestedClarifications" stating the client figure and the figure our equipment achieves'
+    : "";
+  const clarificationRules = suggestClarifications
+    ? `19. Based on the client requirements AND the precedent in the CLARIF. & QUALIF. LIBRARY and the PAST BIDS (when present), propose clarifications (questions to ask the client) and qualifications (exceptions/assumptions to state) relevant to THIS document. Adapt a past item only when it concerns the same or similar equipment, operation or requirement here: the idea may carry over while the client, the clause and the wording differ, so rewrite it for this document. An entry the client accepted is stronger precedent. Never propose the same idea twice, even when it appears in both blocks.
+20. Only propose items that are clearly useful. Return an empty array if none apply. Never fabricate a client reply.
+21. Each suggestion shape: {"baseType":"Clarification"|"Qualification","description":"short topic","clarification":"text to send to the client","relatedRef":"clientDocRef or empty","rationale":"Based on library Clarification|Qualification <id> (<Client>, BID <Source BID>) — short reason, or Based on BID <Ref> (<Client>) — short reason, or the client clause that motivates it"}`
+    : `19. The BID engineer turned clarification and qualification suggestions OFF for this analysis: always return "suggestedClarifications": [] and spend no effort on them.`;
+
   return `You are a senior BID engineer at Oceaneering, specializing in ROV, Survey, Tooling, OPG (Offshore Projects Group), and Engineering Solutions for the oil and gas industry. You have deep knowledge of subsea equipment, ROV systems, tooling, sensors and oil & gas tender documents.
 
 TASK: Analyze the client tender / technical document and extract the SCOPE OF SUPPLY — the list of physical things Oceaneering must furnish to serve this contract: ROV and Survey assets, systems, tooling, sensors, equipment and their components. Capture every one of them, preserving the full technical specifications exactly as written in the source document.
@@ -126,14 +147,11 @@ Use this material ONLY to categorize, map and disambiguate. It must NEVER introd
 PAST BIDS: the backend may also append a "PAST BIDS" section with excerpts of BIDs Oceaneering already completed for a similar scope (Type: Past Bid — scope lines, pricing, clarifications and qualifications). They are PRECEDENT, not requirements:
   • Reuse how we structured and named comparable sections, which resourceType / resourceSubType we gave comparable equipment, and the sub-items (consumables, spares, cases, accessories) we included for the SAME equipment — but only when THIS client document calls for that equipment.
   • NEVER add a scope line, a sub-item or a specification because a past BID had it. A past BID shows what another client asked for.
-  • A part number seen in a past BID is valid only if the same PN is in the OCEANEERING ASSETS CATALOG below; otherwise ignore it.
-  • Their "Clarifications" and "Qualifications" lines are a source for "suggestedClarifications" (rules 19-21). Recent past BIDs list only topics in a "Clarif. & Qualif. reference" section: their full text is in the CLARIF. & QUALIF. LIBRARY.
-
-CLARIF. & QUALIF. LIBRARY: the backend may also append a "CLARIF. & QUALIF. LIBRARY" block with entries of Oceaneering's library of clarifications and qualifications raised in past BIDs. Each entry is an excerpt whose section reads "Clarification <id> - <topic>" or "Qualification <id> - <topic>", followed by lines with Type, Category, Keyword, Client, Division, Service line, Source BID, Client document ref and Date; the text sent to the client (or the qualification text); the client reply; and "Accepted by client: Yes" when the client accepted it. Qualification table entries read "Qualification Q<id> - <table> - <category>" and carry Table and Category lines instead. They are PRECEDENT for "suggestedClarifications" only — never a source of scope lines, sub-items or specifications.
+  • A part number seen in a past BID is valid only if the same PN is in the OCEANEERING ASSETS CATALOG below; otherwise ignore it.${pastBidClarificationNote}${clarificationLibraryNote}
 
 HOW THE REFERENCE MATERIAL IS RENDERED: each document appears as a file name and URL, then metadata lines (Type / Client or manufacturer / Ref or equipment model / Rev, Discipline, Keywords, Scope), then one excerpt introduced by "--- excerpt — section: ... ---". The metadata lines come from our catalogue and are AUTHORITATIVE — prefer them over anything you infer from the file name, and use the section name to know which part of the document you are reading (a "Technical Data" section carries the measurable specifications). Excerpts are the most relevant parts of a document, never the whole of it, so the absence of a specification in an excerpt does NOT mean the equipment lacks it.
 
-MATCHING A CLIENT SPECIFICATION: when the client states a measurable requirement (accuracy, torque range, depth rating, class, interface) and an excerpt shows an Oceaneering item that meets it, use that evidence to fill "equipmentOffer" from the ASSETS CATALOG entry for the same equipment. When the closest item does NOT meet the stated figure, still map it, and raise a "Clarification" in "suggestedClarifications" stating the client figure and the figure our equipment achieves. Never present a near miss as compliant, and never restate a value the excerpts do not contain.
+MATCHING A CLIENT SPECIFICATION: when the client states a measurable requirement (accuracy, torque range, depth rating, class, interface) and an excerpt shows an Oceaneering item that meets it, use that evidence to fill "equipmentOffer" from the ASSETS CATALOG entry for the same equipment. When the closest item does NOT meet the stated figure, still map it${nearMissClarification}. Never present a near miss as compliant, and never restate a value the excerpts do not contain.
 
 RESOURCE TYPES (from current system configuration — for "resourceType" use ONLY a parent label below; for "resourceSubType" use ONLY a sub-type listed under the chosen parent):
 ${resourceTypeBlock}
@@ -181,9 +199,7 @@ CRITICAL QUALITY RULES
 ═══════════════════════════════════════════════
 SUGGESTED CLARIFICATIONS & QUALIFICATIONS
 ═══════════════════════════════════════════════
-19. Based on the client requirements AND the precedent in the CLARIF. & QUALIF. LIBRARY and the PAST BIDS (when present), propose clarifications (questions to ask the client) and qualifications (exceptions/assumptions to state) relevant to THIS document. Adapt a past item only when it concerns the same or similar equipment, operation or requirement here: the idea may carry over while the client, the clause and the wording differ, so rewrite it for this document. An entry the client accepted is stronger precedent. Never propose the same idea twice, even when it appears in both blocks.
-20. Only propose items that are clearly useful. Return an empty array if none apply. Never fabricate a client reply.
-21. Each suggestion shape: {"baseType":"Clarification"|"Qualification","description":"short topic","clarification":"text to send to the client","relatedRef":"clientDocRef or empty","rationale":"Based on library Clarification|Qualification <id> (<Client>, BID <Source BID>) — short reason, or Based on BID <Ref> (<Client>) — short reason, or the client clause that motivates it"}
+${clarificationRules}
 
 ${instructionsBlock}═══════════════════════════════════════════════
 OUTPUT FORMAT

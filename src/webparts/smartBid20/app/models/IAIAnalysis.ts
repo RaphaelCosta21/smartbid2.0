@@ -96,6 +96,8 @@ export interface IAIAnalysisContext {
   contextSummary?: string;
   /** Free-text focus/exclusion instructions typed by the user for this analysis. */
   userInstructions?: string;
+  /** Scope of Supply: false to skip clarification/qualification suggestions (default true). */
+  suggestClarifications?: boolean;
 }
 
 /** Request payload POSTed to the Azure AI backend. */
@@ -124,6 +126,8 @@ export interface IAIAnalysisRequest {
   systemPrompt?: string;
   /** Version tag of the prompt above (for traceability). */
   promptVersion?: string;
+  /** Scope of Supply only: false skips the Clarif. & Qualif. library and suggestions. */
+  suggestClarifications?: boolean;
 }
 
 /** Response from the Azure AI backend. */
@@ -194,6 +198,12 @@ export interface IAISuggestedClarification {
   relatedRef?: string;
   /** Backend confidence 0..1, when provided. */
   confidence?: number;
+}
+
+/** On-demand suggestions plus the backend's notes (e.g. no precedent found). */
+export interface IAISuggestionsResult<T> {
+  suggestions: T[];
+  warnings: string[];
 }
 
 /** A qualification table row the AI proposes; rows with the same table title form one table. */

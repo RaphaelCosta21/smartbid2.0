@@ -183,6 +183,7 @@ export {
   type AIUseCase,
   type IAISuggestedClarification,
   type IAISuggestedQualification,
+  type IAISuggestionsResult,
   type IExtractedQuotationLine,
   type IQuotationExtractionResult,
   type IAIImportMeta,
