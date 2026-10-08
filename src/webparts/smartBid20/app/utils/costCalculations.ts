@@ -369,8 +369,7 @@ export function getAssetCostBreakdown(
   // Splits own the asset's cost, so they switch the roll-up off
   const rollSub = !hasSplits && !!asset.costFromSubItems;
   const rollPcf = !hasSplits && !!asset.costFromPCF;
-  const rollupUnit =
-    (rollSub ? subItemsTotal : 0) + (rollPcf ? pcfTotal : 0);
+  const rollupUnit = (rollSub ? subItemsTotal : 0) + (rollPcf ? pcfTotal : 0);
 
   let main: ICostNode;
   if (hasSplits) {
@@ -429,9 +428,7 @@ export function getAssetCostBreakdown(
       : rollSub || rollPcf
         ? 0
         : main.base,
-    feesCounted: hasSplits
-      ? splits.reduce((s, n) => s + n.fees, 0)
-      : assetFees,
+    feesCounted: hasSplits ? splits.reduce((s, n) => s + n.fees, 0) : assetFees,
     capex: buckets.CAPEX,
     opex: buckets.OPEX,
     uncategorized: buckets.UNCATEGORIZED,

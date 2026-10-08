@@ -545,9 +545,9 @@ function pricing(bid: IBid, num: number): string[] {
       (a.subCosts || []).forEach((sc) => {
         const link = sc.linkedTo;
         const linked = link
-          ? ((link.kind === "pcf" ? scope?.pcfItems : scope?.subItems) || []).find(
-              (s) => s.id === link.subItemId,
-            )
+          ? (
+              (link.kind === "pcf" ? scope?.pcfItems : scope?.subItems) || []
+            ).find((s) => s.id === link.subItemId)
           : undefined;
         children.push(
           record(`Additional cost of ${owner}: ${clean(sc.description)}`, [

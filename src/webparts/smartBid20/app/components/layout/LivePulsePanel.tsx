@@ -406,7 +406,9 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
       </span>
     );
     if (u.gone) {
-      return <div className={`${styles.update} ${styles.updateGone}`}>{body}</div>;
+      return (
+        <div className={`${styles.update} ${styles.updateGone}`}>{body}</div>
+      );
     }
     return (
       <button
@@ -437,8 +439,8 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
       >
         <div className={styles.updatesHead}>
           <span className={styles.newDot} aria-hidden="true" />
-          {updates.count} update{updates.count === 1 ? "" : "s"} since your
-          last check
+          {updates.count} update{updates.count === 1 ? "" : "s"} since your last
+          check
         </div>
         <ul className={styles.updatesList}>
           {shown.map((u) => (

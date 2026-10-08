@@ -963,7 +963,11 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   };
 
   /** Link an asset fee to a sub-item / PCF item by its `feeLinkKey`; "" unlinks it */
-  const setFeeLink = (assetId: string, subCostId: string, key: string): void => {
+  const setFeeLink = (
+    assetId: string,
+    subCostId: string,
+    key: string,
+  ): void => {
     const sep = key.indexOf(":");
     const link: IFeeLink | null =
       sep > 0
@@ -1041,9 +1045,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         if (splits.length === 0 || unlinked.length === 0) return a;
         return {
           ...a,
-          subCosts: (a.subCosts || []).filter(
-            (sc) => unlinked.indexOf(sc) < 0,
-          ),
+          subCosts: (a.subCosts || []).filter((sc) => unlinked.indexOf(sc) < 0),
           availabilitySplits: splits.map((sp, i) =>
             i === 0
               ? {
@@ -2152,9 +2154,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
               </select>
             )}
             {fees.length > 1 && (
-              <span className={styles.linkedFeesSum}>
-                Σ $ {fmtCost(sum)}
-              </span>
+              <span className={styles.linkedFeesSum}>Σ $ {fmtCost(sum)}</span>
             )}
           </div>
         )}
@@ -2828,9 +2828,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                     : "Link a service / fee to this item"
                 }
               >
-                {rowLinkedFees.length > 0
-                  ? `💲${rowLinkedFees.length}`
-                  : "+💲"}
+                {rowLinkedFees.length > 0 ? `💲${rowLinkedFees.length}` : "+💲"}
               </button>
             )}
             {!readOnly && (
@@ -5603,24 +5601,27 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 qty > 1 &&
                                 !asset.costFromSubItems &&
                                 !asset.costFromPCF && (
-                                <button
-                                  className={styles.splitEnableBtn}
-                                  onClick={() => handleEnableSplits(asset.id)}
-                                  title="Split availability by quantity - assign different statuses to portions of the total quantity"
-                                  style={{ padding: "3px 4px", lineHeight: 1 }}
-                                >
-                                  <svg
-                                    viewBox="0 0 16 16"
-                                    width="12"
-                                    height="12"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="1.5"
+                                  <button
+                                    className={styles.splitEnableBtn}
+                                    onClick={() => handleEnableSplits(asset.id)}
+                                    title="Split availability by quantity - assign different statuses to portions of the total quantity"
+                                    style={{
+                                      padding: "3px 4px",
+                                      lineHeight: 1,
+                                    }}
                                   >
-                                    <path d="M8 2v12M4 6l4-4 4 4M4 10l4 4 4-4" />
-                                  </svg>
-                                </button>
-                              )}
+                                    <svg
+                                      viewBox="0 0 16 16"
+                                      width="12"
+                                      height="12"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="1.5"
+                                    >
+                                      <path d="M8 2v12M4 6l4-4 4 4M4 10l4 4 4-4" />
+                                    </svg>
+                                  </button>
+                                )}
                             </div>
                           );
                         })()}
@@ -6642,136 +6643,130 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           tab: DrawerTab,
                         ): React.ReactNode => (
                           <>
-                                {tab === "splits" && !readOnly && (
-                                  <button
-                                    className={styles.addSubCostBtn}
-                                    onClick={() => handleAddSplit(asset.id)}
-                                  >
-                                    + Add Split
-                                  </button>
-                                )}
-                                {tab === "items" && !readOnly && (
-                                  <>
-                                    <select
-                                      className={styles.setAllSelect}
-                                      value=""
-                                      onChange={(e) => {
-                                        if (e.target.value)
-                                          bulkUpdateSubItems(
-                                            asset.id,
-                                            "availabilityStatus",
-                                            e.target.value,
-                                          );
-                                        e.target.value = "";
-                                      }}
-                                      title="Set Availability for all sub-items"
-                                    >
-                                      <option value="">Set All Avail.</option>
-                                      {availabilityStatuses.map((as) => (
-                                        <option key={as.id} value={as.value}>
-                                          {as.label}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <select
-                                      className={styles.setAllSelect}
-                                      value=""
-                                      onChange={(e) => {
-                                        if (e.target.value)
-                                          bulkUpdateSubItems(
-                                            asset.id,
-                                            "acquisitionType",
-                                            e.target.value,
-                                          );
-                                        e.target.value = "";
-                                      }}
-                                      title="Set Acq. Type for all sub-items"
-                                    >
-                                      <option value="">
-                                        Set All Acq. Type
-                                      </option>
-                                      {acquisitionTypes.map((at) => (
-                                        <option key={at.id} value={at.value}>
-                                          {at.label}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </>
-                                )}
-                                {tab === "items" &&
-                                  (!readOnly || siHasSubItems) && (
-                                    <label
-                                      className={`${styles.rollupToggle}${rollupLocked ? ` ${styles.rollupToggleDisabled}` : ""}`}
-                                      style={
-                                        readOnly
-                                          ? { cursor: "default" }
-                                          : undefined
-                                      }
-                                      title={
-                                        !rollupLocked
-                                          ? "Unit Cost = sum of these sub-items (qty per main unit), linked services & fees included. Total = Unit Cost × (QTY OP + QTY SP) + unlinked services & fees."
-                                          : assetSplits.length > 0
-                                            ? "Unavailable - this item uses Availability Splits. Remove them first to roll up the sub-items."
-                                            : "Unavailable - the main item already has its own cost. Clear it first to roll up the sub-items."
-                                      }
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={!!asset.costFromSubItems}
-                                        disabled={readOnly || rollupLocked}
-                                        onChange={(e) =>
-                                          updateField(
-                                            asset.id,
-                                            "costFromSubItems",
-                                            e.target.checked,
-                                          )
-                                        }
-                                      />
-                                      Σ Unit cost = sum of sub-items
-                                    </label>
-                                  )}
-                                {tab === "fees" &&
-                                  !readOnly &&
-                                  assetSplits.length === 0 &&
-                                  (asset.subCosts || []).length > 0 && (
-                                    <button
-                                      className={styles.addSubCostBtn}
-                                      onClick={() => addSubCost(asset.id)}
-                                    >
-                                      + Add Service / Fee
-                                    </button>
-                                  )}
-                                {tab === "pcf" && (
-                                  <label
-                                    className={`${styles.rollupToggle}${pcfRollupLocked ? ` ${styles.rollupToggleDisabled}` : ""}`}
-                                    style={
-                                      readOnly
-                                        ? { cursor: "default" }
-                                        : undefined
+                            {tab === "splits" && !readOnly && (
+                              <button
+                                className={styles.addSubCostBtn}
+                                onClick={() => handleAddSplit(asset.id)}
+                              >
+                                + Add Split
+                              </button>
+                            )}
+                            {tab === "items" && !readOnly && (
+                              <>
+                                <select
+                                  className={styles.setAllSelect}
+                                  value=""
+                                  onChange={(e) => {
+                                    if (e.target.value)
+                                      bulkUpdateSubItems(
+                                        asset.id,
+                                        "availabilityStatus",
+                                        e.target.value,
+                                      );
+                                    e.target.value = "";
+                                  }}
+                                  title="Set Availability for all sub-items"
+                                >
+                                  <option value="">Set All Avail.</option>
+                                  {availabilityStatuses.map((as) => (
+                                    <option key={as.id} value={as.value}>
+                                      {as.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <select
+                                  className={styles.setAllSelect}
+                                  value=""
+                                  onChange={(e) => {
+                                    if (e.target.value)
+                                      bulkUpdateSubItems(
+                                        asset.id,
+                                        "acquisitionType",
+                                        e.target.value,
+                                      );
+                                    e.target.value = "";
+                                  }}
+                                  title="Set Acq. Type for all sub-items"
+                                >
+                                  <option value="">Set All Acq. Type</option>
+                                  {acquisitionTypes.map((at) => (
+                                    <option key={at.id} value={at.value}>
+                                      {at.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </>
+                            )}
+                            {tab === "items" &&
+                              (!readOnly || siHasSubItems) && (
+                                <label
+                                  className={`${styles.rollupToggle}${rollupLocked ? ` ${styles.rollupToggleDisabled}` : ""}`}
+                                  style={
+                                    readOnly ? { cursor: "default" } : undefined
+                                  }
+                                  title={
+                                    !rollupLocked
+                                      ? "Unit Cost = sum of these sub-items (qty per main unit), linked services & fees included. Total = Unit Cost × (QTY OP + QTY SP) + unlinked services & fees."
+                                      : assetSplits.length > 0
+                                        ? "Unavailable - this item uses Availability Splits. Remove them first to roll up the sub-items."
+                                        : "Unavailable - the main item already has its own cost. Clear it first to roll up the sub-items."
+                                  }
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={!!asset.costFromSubItems}
+                                    disabled={readOnly || rollupLocked}
+                                    onChange={(e) =>
+                                      updateField(
+                                        asset.id,
+                                        "costFromSubItems",
+                                        e.target.checked,
+                                      )
                                     }
-                                    title={
-                                      !pcfRollupLocked
-                                        ? "Unit Cost = sum of these PCF items (qty per main unit), linked services & fees included. Total = Unit Cost × (QTY OP + QTY SP) + unlinked services & fees."
-                                        : assetSplits.length > 0
-                                          ? "Unavailable - this item uses Availability Splits. Remove them first to roll up the PCF."
-                                          : "Unavailable - the main item already has its own cost. Clear it first to roll up the PCF."
-                                    }
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={!!asset.costFromPCF}
-                                      disabled={readOnly || pcfRollupLocked}
-                                      onChange={(e) =>
-                                        updateField(
-                                          asset.id,
-                                          "costFromPCF",
-                                          e.target.checked,
-                                        )
-                                      }
-                                    />
-                                    Σ Unit cost = sum of PCF
-                                  </label>
-                                )}
+                                  />
+                                  Σ Unit cost = sum of sub-items
+                                </label>
+                              )}
+                            {tab === "fees" &&
+                              !readOnly &&
+                              assetSplits.length === 0 &&
+                              (asset.subCosts || []).length > 0 && (
+                                <button
+                                  className={styles.addSubCostBtn}
+                                  onClick={() => addSubCost(asset.id)}
+                                >
+                                  + Add Service / Fee
+                                </button>
+                              )}
+                            {tab === "pcf" && (
+                              <label
+                                className={`${styles.rollupToggle}${pcfRollupLocked ? ` ${styles.rollupToggleDisabled}` : ""}`}
+                                style={
+                                  readOnly ? { cursor: "default" } : undefined
+                                }
+                                title={
+                                  !pcfRollupLocked
+                                    ? "Unit Cost = sum of these PCF items (qty per main unit), linked services & fees included. Total = Unit Cost × (QTY OP + QTY SP) + unlinked services & fees."
+                                    : assetSplits.length > 0
+                                      ? "Unavailable - this item uses Availability Splits. Remove them first to roll up the PCF."
+                                      : "Unavailable - the main item already has its own cost. Clear it first to roll up the PCF."
+                                }
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={!!asset.costFromPCF}
+                                  disabled={readOnly || pcfRollupLocked}
+                                  onChange={(e) =>
+                                    updateField(
+                                      asset.id,
+                                      "costFromPCF",
+                                      e.target.checked,
+                                    )
+                                  }
+                                />
+                                Σ Unit cost = sum of PCF
+                              </label>
+                            )}
                           </>
                         );
                         const renderDrawerBody = (
@@ -6832,78 +6827,59 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                               </div>
                             );
                           return siHasSubItems ? (
-                                  <div className={styles.subTblWrap}>
-                                    <div className={styles.subTblHead}>
-                                      <div className={styles.subTh}>#</div>
-                                      <div className={styles.subTh}>
-                                        Equipment Offer
-                                      </div>
-                                      <div className={styles.subTh}>
-                                        OII / MFG PN
-                                      </div>
-                                      <div className={styles.subTh}>
-                                        Sub-Type
-                                      </div>
-                                      <div className={styles.subTh}>Qty</div>
-                                      <div className={styles.subTh}>
-                                        Availability
-                                      </div>
-                                      <div className={styles.subTh}>
-                                        Acq. Type
-                                      </div>
-                                      <div className={styles.subTh}>
-                                        Unit Cost
-                                      </div>
-                                      <div className={styles.subTh}>
-                                        Total Cost
-                                      </div>
-                                      <div className={styles.subTh}>
-                                        Cost Ref / Supplier
-                                      </div>
-                                      <div className={styles.subTh}>
-                                        Date Ref
-                                      </div>
-                                      <div className={styles.subTh}>
-                                        Lead Time
-                                      </div>
-                                      <div className={styles.subTh}>
-                                        CAPEX/OPEX
-                                      </div>
-                                      <div className={styles.subTh}>Notes</div>
-                                    </div>
-                                    <div className={styles.subRows}>
-                                      {(asset.subItemCosts || []).map(
-                                        (sic, idx) =>
-                                          renderCostRow(asset, sic, idx, "sub"),
-                                      )}
-                                    </div>
-                                    {assetBd.subItemsTotal > 0 && (
-                                      <div className={styles.subFooter}>
-                                        <span className={styles.subFooterLabel}>
-                                          {rollSubItems
-                                            ? "Sub-items per unit:"
-                                            : "Sub-items subtotal:"}
-                                        </span>
-                                        <span className={styles.subFooterValue}>
-                                          $ {fmtCost(assetBd.subItemsTotal)}
-                                        </span>
-                                        {rollSubItems && (
-                                          <span className={styles.subFooterCalc}>
-                                            × {assetBd.qty} = ${" "}
-                                            {fmtCost(assetBd.subItemsCounted)}
-                                          </span>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className={styles.feeNotice}>
-                                    <p>
-                                      No sub-items. Add them in the Scope of
-                                      Supply tab.
-                                    </p>
-                                  </div>
-                                );
+                            <div className={styles.subTblWrap}>
+                              <div className={styles.subTblHead}>
+                                <div className={styles.subTh}>#</div>
+                                <div className={styles.subTh}>
+                                  Equipment Offer
+                                </div>
+                                <div className={styles.subTh}>OII / MFG PN</div>
+                                <div className={styles.subTh}>Sub-Type</div>
+                                <div className={styles.subTh}>Qty</div>
+                                <div className={styles.subTh}>Availability</div>
+                                <div className={styles.subTh}>Acq. Type</div>
+                                <div className={styles.subTh}>Unit Cost</div>
+                                <div className={styles.subTh}>Total Cost</div>
+                                <div className={styles.subTh}>
+                                  Cost Ref / Supplier
+                                </div>
+                                <div className={styles.subTh}>Date Ref</div>
+                                <div className={styles.subTh}>Lead Time</div>
+                                <div className={styles.subTh}>CAPEX/OPEX</div>
+                                <div className={styles.subTh}>Notes</div>
+                              </div>
+                              <div className={styles.subRows}>
+                                {(asset.subItemCosts || []).map((sic, idx) =>
+                                  renderCostRow(asset, sic, idx, "sub"),
+                                )}
+                              </div>
+                              {assetBd.subItemsTotal > 0 && (
+                                <div className={styles.subFooter}>
+                                  <span className={styles.subFooterLabel}>
+                                    {rollSubItems
+                                      ? "Sub-items per unit:"
+                                      : "Sub-items subtotal:"}
+                                  </span>
+                                  <span className={styles.subFooterValue}>
+                                    $ {fmtCost(assetBd.subItemsTotal)}
+                                  </span>
+                                  {rollSubItems && (
+                                    <span className={styles.subFooterCalc}>
+                                      × {assetBd.qty} = ${" "}
+                                      {fmtCost(assetBd.subItemsCounted)}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className={styles.feeNotice}>
+                              <p>
+                                No sub-items. Add them in the Scope of Supply
+                                tab.
+                              </p>
+                            </div>
+                          );
                         };
                         const viewToggle = availableTabs.length > 1 && (
                           <button
@@ -6932,9 +6908,27 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 </>
                               ) : (
                                 <>
-                                  <rect x="3" y="4" width="18" height="4" rx="1" />
-                                  <rect x="3" y="10" width="18" height="4" rx="1" />
-                                  <rect x="3" y="16" width="18" height="4" rx="1" />
+                                  <rect
+                                    x="3"
+                                    y="4"
+                                    width="18"
+                                    height="4"
+                                    rx="1"
+                                  />
+                                  <rect
+                                    x="3"
+                                    y="10"
+                                    width="18"
+                                    height="4"
+                                    rx="1"
+                                  />
+                                  <rect
+                                    x="3"
+                                    y="16"
+                                    width="18"
+                                    height="4"
+                                    rx="1"
+                                  />
                                 </>
                               )}
                             </svg>
@@ -6991,7 +6985,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                         <button
                                           key={t}
                                           className={`${styles.drawerTab}${activeTab === t ? ` ${styles.drawerTabActive}` : ""}`}
-                                          onClick={() => openDrawer(asset.id, t)}
+                                          onClick={() =>
+                                            openDrawer(asset.id, t)
+                                          }
                                         >
                                           {tabIcon(t)}
                                           {tabLabel[t]}

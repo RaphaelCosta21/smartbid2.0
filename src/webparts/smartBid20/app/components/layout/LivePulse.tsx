@@ -121,9 +121,7 @@ function sameFields(
   b: Record<string, string>,
 ): boolean {
   const ka = Object.keys(a);
-  return (
-    ka.length === Object.keys(b).length && ka.every((k) => a[k] === b[k])
-  );
+  return ka.length === Object.keys(b).length && ka.every((k) => a[k] === b[k]);
 }
 
 function fmtDay(value: string): string {
@@ -173,10 +171,7 @@ function personKeys(fields: Record<string, string>): string[] {
   return Object.keys(fields).filter((k) => k.indexOf(PERSON_PREFIX) === 0);
 }
 
-function describeApproval(
-  prev: SigEntry | undefined,
-  cur: SigEntry,
-): string[] {
+function describeApproval(prev: SigEntry | undefined, cur: SigEntry): string[] {
   const f = cur.fields;
   const progress = `${f.approved}/${f.total} approved`;
   if (!prev) {
@@ -210,10 +205,7 @@ function describeApproval(
   return out.length ? out : ["Approval details updated"];
 }
 
-function describeDeadline(
-  prev: SigEntry | undefined,
-  cur: SigEntry,
-): string[] {
+function describeDeadline(prev: SigEntry | undefined, cur: SigEntry): string[] {
   const f = cur.fields;
   if (!prev) return [`New active BID, due ${fmtDay(f.dueDate)}`];
   const p = prev.fields;

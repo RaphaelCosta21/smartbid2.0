@@ -49,7 +49,9 @@ const groupQuotations = (items: IQuotationItem[]): IQuotationGroup[] => {
   items.forEach((q) => {
     const reference = (q.reference || "").trim();
     const key =
-      reference || q.fileUrl ? `${reference}|${q.fileUrl || ""}` : `item|${q.id}`;
+      reference || q.fileUrl
+        ? `${reference}|${q.fileUrl || ""}`
+        : `item|${q.id}`;
     let group = byKey[key];
     if (!group) {
       group = {
@@ -357,8 +359,7 @@ export const SupplierDrawer: React.FC<SupplierDrawerProps> = ({
                               rel="noopener noreferrer"
                               title={g.fileName || "Open quotation file"}
                             >
-                              <ExternalLink size={12} />{" "}
-                              {g.fileName || "File"}
+                              <ExternalLink size={12} /> {g.fileName || "File"}
                             </a>
                           </div>
                         )}
