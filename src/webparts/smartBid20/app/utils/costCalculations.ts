@@ -41,9 +41,10 @@ export interface ICostNode {
 
 /** Full cost picture of one asset row, layer by layer. */
 export interface IAssetCostBreakdown {
-  /** The asset's own cost. `base` is 0 when splits or a roll-up drive the cost. */
+  /** The asset's own cost. With a roll-up, `base` = rollupUnit × qty; with splits it is 0. */
   main: ICostNode;
   splits: ICostNode[];
+  /** Sub-item / PCF nodes, linked fees included, per main unit (not multiplied by qty) */
   subItems: ICostNode[];
   pcf: ICostNode[];
   splitsTotal: number;
@@ -51,6 +52,20 @@ export interface IAssetCostBreakdown {
   pcfTotal: number;
   /** Asset-level fees left uncounted because the splits own the costs. */
   orphanFees: number;
+  /** Main item qty (qtyOperational + qtySpare, at least 1) */
+  qty: number;
+  /** Unit cost rolled up from sub-items and/or PCF (0 when no roll-up applies) */
+  rollupUnit: number;
+  /** Asset fees counted through a linked sub-item / PCF item (per unit) */
+  linkedFees: number;
+  /** Sub-items money actually in `total` (× qty when rolled up) */
+  subItemsCounted: number;
+  /** PCF money actually in `total` (× qty when rolled up) */
+  pcfCounted: number;
+  /** Main item's own equipment cost in `total` (own unit/rental or split bases; 0 when rolled up) */
+  ownCost: number;
+  /** Services & fees in `total` outside sub-items / PCF (unlinked asset fees + split fees) */
+  feesCounted: number;
   capex: number;
   opex: number;
   uncategorized: number;
@@ -150,6 +165,41 @@ export function getFeesTotal(
   );
 }
 
+export const feeLinkKey = (kind: "sub" | "pcf", subItemId: string): string =>
+  `${kind}:${subItemId}`;
+
+/** Asset fees grouped by where they are counted. */
+export interface IFeeLinks {
+  /** Counted directly in the asset total: no link, or a link that is not valid right now */
+  unlinked: IAssetSubCost[];
+  /** Counted with a sub-item / PCF entry, keyed by `feeLinkKey` */
+  linked: Record<string, IAssetSubCost[]>;
+}
+
+/** A link counts only while its target cost row exists; transit rates are never linked. */
+export function resolveFeeLinks(asset: IAssetBreakdownItem): IFeeLinks {
+  const targets = new Set<string>();
+  (asset.subItemCosts || []).forEach((c) =>
+    targets.add(feeLinkKey("sub", c.subItemId)),
+  );
+  (asset.pcfCosts || []).forEach((c) =>
+    targets.add(feeLinkKey("pcf", c.subItemId)),
+  );
+  const unlinked: IAssetSubCost[] = [];
+  const linked: Record<string, IAssetSubCost[]> = {};
+  (asset.subCosts || []).forEach((sc) => {
+    const link = sc.isTransitRate ? null : sc.linkedTo;
+    const key = link ? feeLinkKey(link.kind, link.subItemId) : "";
+    if (key && targets.has(key)) {
+      if (!linked[key]) linked[key] = [];
+      linked[key].push(sc);
+    } else {
+      unlinked.push(sc);
+    }
+  });
+  return { unlinked, linked };
+}
+
 /** Determine effective CAPEX/OPEX bucket for any costed entity */
 export function getEffectiveCategory(a: {
   acquisitionType?: string;
@@ -234,14 +284,15 @@ function resolveChildQty(
   return (sub && sub.qty) || 1;
 }
 
-/** Cost node of a single sub-item / PCF entry, its own fees and splits included. */
+/** Cost node of a single sub-item / PCF entry, its own fees, linked asset fees and splits included. */
 export function getSubItemNode(
   sic: ISubItemCost,
   scopeItem: IScopeItem | undefined,
   cont?: IContingencyOpts,
   isEngSolutions = false,
+  linkedFees = 0,
 ): ICostNode {
-  const fees = getFeesTotal(sic.subCosts, sic.dailyRate || 0);
+  const fees = getFeesTotal(sic.subCosts, sic.dailyRate || 0) + linkedFees;
   const category = getEffectiveCategory(sic);
   const splits = (sic.availabilitySplits || []).map((sp) =>
     getSplitNode(sp, cont, isEngSolutions),
@@ -290,28 +341,44 @@ export function getAssetCostBreakdown(
     getSplitNode(sp, cont, engSol),
   );
   const hasSplits = splits.length > 0;
+  const links = resolveFeeLinks(asset);
+  let linkedFees = 0;
+  const linkedTo = (kind: "sub" | "pcf", sic: ISubItemCost): number => {
+    const amount = getFeesTotal(
+      links.linked[feeLinkKey(kind, sic.subItemId)],
+      asset.dailyRate || 0,
+    );
+    linkedFees += amount;
+    return amount;
+  };
   const subItems = (asset.subItemCosts || []).map((sic) =>
-    getSubItemNode(sic, scopeItem, cont),
+    getSubItemNode(sic, scopeItem, cont, false, linkedTo("sub", sic)),
   );
   const pcf = (asset.pcfCosts || []).map((pc) =>
-    getSubItemNode(pc, scopeItem, cont, engSol),
+    getSubItemNode(pc, scopeItem, cont, engSol, linkedTo("pcf", pc)),
   );
+  const subItemsTotal = subItems.reduce((s, n) => s + n.total, 0);
+  const pcfTotal = pcf.reduce((s, n) => s + n.total, 0);
 
-  const assetFees = getFeesTotal(asset.subCosts, asset.dailyRate || 0);
+  const assetFees = getFeesTotal(links.unlinked, asset.dailyRate || 0);
   const category = getEffectiveCategory(asset);
-  const isRollup = !!asset.costFromSubItems || !!asset.costFromPCF;
+  const qty =
+    (scopeItem
+      ? (scopeItem.qtyOperational || 0) + (scopeItem.qtySpare || 0)
+      : 0) || 1;
+  // Splits own the asset's cost, so they switch the roll-up off
+  const rollSub = !hasSplits && !!asset.costFromSubItems;
+  const rollPcf = !hasSplits && !!asset.costFromPCF;
+  const rollupUnit =
+    (rollSub ? subItemsTotal : 0) + (rollPcf ? pcfTotal : 0);
 
   let main: ICostNode;
   if (hasSplits) {
     // Splits own the asset's costs, so asset-level fees are reported as orphans, not counted.
     main = makeNode(0, 0, category, splits);
-  } else if (isRollup) {
-    main = makeNode(0, assetFees, category, []);
+  } else if (rollSub || rollPcf) {
+    main = makeNode(rollupUnit * qty, assetFees, category, []);
   } else {
-    const qty =
-      (scopeItem
-        ? (scopeItem.qtyOperational || 0) + (scopeItem.qtySpare || 0)
-        : 0) || 1;
     let base = 0;
     if (
       isNoCostAvailability(asset.availabilityStatus) ||
@@ -336,9 +403,12 @@ export function getAssetCostBreakdown(
   const add = (c: CostCategory, v: number): void => {
     buckets[c] += v;
   };
-  accumulateNode(main, add);
-  subItems.forEach((n) => accumulateNode(n, add));
-  if (asset.costFromPCF) pcf.forEach((n) => accumulateNode(n, add));
+  const addPerUnit = (c: CostCategory, v: number): void => add(c, v * qty);
+  // Rolled-up children keep their own CAPEX/OPEX, scaled by the main qty
+  if (rollSub || rollPcf) add(category, assetFees);
+  else accumulateNode(main, add);
+  subItems.forEach((n) => accumulateNode(n, rollSub ? addPerUnit : add));
+  pcf.forEach((n) => accumulateNode(n, rollPcf ? addPerUnit : add));
 
   return {
     main,
@@ -346,9 +416,22 @@ export function getAssetCostBreakdown(
     subItems,
     pcf,
     splitsTotal: splits.reduce((s, n) => s + n.total, 0),
-    subItemsTotal: subItems.reduce((s, n) => s + n.total, 0),
-    pcfTotal: pcf.reduce((s, n) => s + n.total, 0),
+    subItemsTotal,
+    pcfTotal,
     orphanFees: hasSplits ? assetFees : 0,
+    qty,
+    rollupUnit,
+    linkedFees,
+    subItemsCounted: subItemsTotal * (rollSub ? qty : 1),
+    pcfCounted: pcfTotal * (rollPcf ? qty : 1),
+    ownCost: hasSplits
+      ? splits.reduce((s, n) => s + n.base, 0)
+      : rollSub || rollPcf
+        ? 0
+        : main.base,
+    feesCounted: hasSplits
+      ? splits.reduce((s, n) => s + n.fees, 0)
+      : assetFees,
     capex: buckets.CAPEX,
     opex: buckets.OPEX,
     uncategorized: buckets.UNCATEGORIZED,
@@ -741,7 +824,14 @@ export function pruneOrphanCosts<T extends IBid>(bid: T): T {
     const subPruned = subItemCosts.length !== (a.subItemCosts || []).length;
     const pcfPruned = pcfCosts.length !== (a.pcfCosts || []).length;
     const dropPcfRollup = !!a.costFromPCF && pcfIds.size === 0;
-    if (!subPruned && !pcfPruned && !dropPcfRollup) {
+    // A fee whose linked item is gone stays, now counted directly in the asset total
+    const staleLink = (sc: IAssetSubCost): boolean =>
+      !!sc.linkedTo &&
+      !(sc.linkedTo.kind === "pcf" ? pcfIds : subIds).has(
+        sc.linkedTo.subItemId,
+      );
+    const linksPruned = (a.subCosts || []).some(staleLink);
+    if (!subPruned && !pcfPruned && !dropPcfRollup && !linksPruned) {
       assets.push(a);
       return;
     }
@@ -751,6 +841,13 @@ export function pruneOrphanCosts<T extends IBid>(bid: T): T {
       ...(subPruned ? { subItemCosts } : {}),
       ...(pcfPruned ? { pcfCosts } : {}),
       ...(dropPcfRollup ? { costFromPCF: false } : {}),
+      ...(linksPruned
+        ? {
+            subCosts: (a.subCosts || []).map((sc) =>
+              staleLink(sc) ? { ...sc, linkedTo: null } : sc,
+            ),
+          }
+        : {}),
     });
   });
 

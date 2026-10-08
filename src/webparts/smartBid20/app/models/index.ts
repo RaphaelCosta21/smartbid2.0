@@ -71,6 +71,7 @@ export {
   type IBidRevision,
   type IRevisionChange,
   type IAssetSubCost,
+  type IFeeLink,
   type ISubItemCost,
   type IAvailabilitySplit,
   type IPCFItem,

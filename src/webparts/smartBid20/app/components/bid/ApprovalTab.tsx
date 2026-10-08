@@ -23,6 +23,7 @@ import { ITeamMember } from "../../models/ITeamMember";
 import { IPersonRef, Sector } from "../../models/IUser";
 import { ApprovalStatus } from "../../models/IBidStatus";
 import { PersonaCard } from "../common/PersonaCard";
+import { AssetCostsBlockDialog } from "./BidStatusPhasePanel";
 import { ApprovalOverrideBanner } from "../approval/ApprovalOverrideBanner";
 import { ApprovalService } from "../../services/ApprovalService";
 import { useUIStore } from "../../stores/useUIStore";
@@ -38,6 +39,7 @@ import { isTerminalStatus } from "../../utils/statusHelpers";
 import { createActivityLogEntry } from "../../utils/activityLogHelpers";
 import { canOpenBid } from "../../utils/bidConfidentiality";
 import { formatDate } from "../../utils/formatters";
+import { getAssetsCostCompleteness } from "../../utils/costCalculations";
 import styles from "./ApprovalTab.module.scss";
 
 interface ApprovalTabProps {
@@ -349,6 +351,12 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   const [showConfirm, setShowConfirm] = React.useState(false);
   const [showPhaseTransitionConfirm, setShowPhaseTransitionConfirm] =
     React.useState(false);
+  const [showAssetCostsBlock, setShowAssetCostsBlock] = React.useState(false);
+  const assetsCostCompleteness = React.useMemo(
+    () =>
+      getAssetsCostCompleteness(bid.scopeItems || [], bid.assetBreakdown || []),
+    [bid.scopeItems, bid.assetBreakdown],
+  );
   const [submitting, setSubmitting] = React.useState(false);
   const [showOverrideConfirm, setShowOverrideConfirm] = React.useState(false);
   const [overrideReason, setOverrideReason] = React.useState("");
@@ -595,6 +603,11 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
 
   // ── Start Approval ──
   const handleStartApproval = async (): Promise<void> => {
+    if (assetsCostCompleteness.totalMissing > 0) {
+      setShowConfirm(false);
+      setShowAssetCostsBlock(true);
+      return;
+    }
     setSubmitting(true);
     try {
       const now = new Date().toISOString();
@@ -1325,6 +1338,10 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
             className={styles.startBtn}
             disabled={!canStart || submitting}
             onClick={() => {
+              if (assetsCostCompleteness.totalMissing > 0) {
+                setShowAssetCostsBlock(true);
+                return;
+              }
               // If not already in Close Out / Pending Approval, show phase transition confirmation first
               if (
                 bid.currentPhase !== "Close Out" ||
@@ -1525,6 +1542,19 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
           );
         })}
       </div>
+
+      {/* Asset Costs Block Dialog */}
+      {showAssetCostsBlock && (
+        <AssetCostsBlockDialog
+          completeness={assetsCostCompleteness}
+          blockedAction={
+            <>
+              starting the <strong>approval flow</strong>
+            </>
+          }
+          onClose={() => setShowAssetCostsBlock(false)}
+        />
+      )}
 
       {/* Phase Transition Confirm Dialog */}
       {showPhaseTransitionConfirm && (

@@ -17,7 +17,11 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { LiveOverview, LiveUpdates } from "../../hooks/useLiveOverview";
+import {
+  ILiveUpdate,
+  LiveOverview,
+  LiveUpdates,
+} from "../../hooks/useLiveOverview";
 import { DashboardSync } from "../../hooks/useDashboardSync";
 import {
   ErnWatchFilter,
@@ -58,6 +62,19 @@ interface DetailRef {
 
 const LIST_LIMIT = 40;
 const SOON_BID_DAYS = 3;
+const UPDATES_PREVIEW = 3;
+
+const KEY_PREFIX: Record<Tab, string> = {
+  erns: "ern:",
+  approvals: "apr:",
+  deadlines: "due:",
+};
+
+const KIND_LABEL: Record<Tab, string> = {
+  erns: "ERN",
+  approvals: "Approval",
+  deadlines: "Deadline",
+};
 
 const ERN_FILTERS: { value: ErnWatchFilter; label: string }[] = [
   { value: "overdue", label: "Overdue" },
@@ -178,6 +195,7 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
   const [ernFilter, setErnFilter] = React.useState<ErnWatchFilter>("open");
   const [mine, setMine] = React.useState(false);
   const [detail, setDetail] = React.useState<DetailRef | null>(null);
+  const [showAllUpdates, setShowAllUpdates] = React.useState(false);
   const [direction, setDirection] = React.useState<"forward" | "back">(
     "forward",
   );
@@ -233,7 +251,7 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
     updates.keys[key] ? (
       <span
         className={styles.newDot}
-        title="Updated since your last check"
+        title={updates.keys[key].changes.join("; ")}
         aria-label="Updated"
       />
     ) : null;
@@ -367,6 +385,97 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
       : tab === "approvals"
         ? approvals.length
         : deadlines.length;
+
+  /* ── What changed since the last check ── */
+
+  const renderUpdate = (u: ILiveUpdate): React.ReactNode => {
+    const body = (
+      <span className={styles.rowMain}>
+        <span className={styles.rowTitle}>
+          <span className={styles.updateKind}>{KIND_LABEL[u.kind]}</span>
+          <span className={styles.mono}>{u.id}</span>
+          {u.title !== u.id && (
+            <span className={styles.rowTitleText}>{u.title}</span>
+          )}
+        </span>
+        {u.changes.map((c, i) => (
+          <span key={i} className={styles.updateText}>
+            {c}
+          </span>
+        ))}
+      </span>
+    );
+    if (u.gone) {
+      return <div className={`${styles.update} ${styles.updateGone}`}>{body}</div>;
+    }
+    return (
+      <button
+        type="button"
+        className={styles.update}
+        onClick={() => {
+          setTab(u.kind);
+          openDetail(u.kind, u.id);
+        }}
+      >
+        {body}
+        <ChevronRight size={14} className={styles.rowChevron} />
+      </button>
+    );
+  };
+
+  const renderUpdates = (): React.ReactNode => {
+    const shown = showAllUpdates
+      ? updates.items
+      : updates.items.slice(0, UPDATES_PREVIEW);
+    const hidden = updates.items.length - UPDATES_PREVIEW;
+    return (
+      <section
+        className={styles.updates}
+        data-pulse-item=""
+        style={itemStyle(0)}
+        aria-label="What changed since your last check"
+      >
+        <div className={styles.updatesHead}>
+          <span className={styles.newDot} aria-hidden="true" />
+          {updates.count} update{updates.count === 1 ? "" : "s"} since your
+          last check
+        </div>
+        <ul className={styles.updatesList}>
+          {shown.map((u) => (
+            <li key={u.key}>{renderUpdate(u)}</li>
+          ))}
+        </ul>
+        {hidden > 0 && (
+          <button
+            type="button"
+            className={styles.updatesMore}
+            onClick={() => setShowAllUpdates((v) => !v)}
+            aria-expanded={showAllUpdates}
+          >
+            {showAllUpdates ? "Show less" : `Show ${hidden} more`}
+          </button>
+        )}
+      </section>
+    );
+  };
+
+  const renderChangeNote = (d: DetailRef): React.ReactNode => {
+    const u = updates.keys[KEY_PREFIX[d.kind] + d.key];
+    if (!u) return null;
+    return (
+      <div className={styles.changeNote}>
+        <span className={styles.changeNoteLabel}>
+          <span className={styles.newDot} aria-hidden="true" />
+          What changed since your last check
+        </span>
+        <ul className={styles.changeList}>
+          {u.changes.map((c, i) => (
+            <li key={i}>{c}</li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
 
   /* ── Detail views ── */
 
@@ -605,6 +714,7 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
         <button type="button" className={styles.backBtn} onClick={goBack}>
           <ChevronLeft size={15} /> Back
         </button>
+        {content && renderChangeNote(d)}
         {content || (
           <div className={styles.empty}>
             This item is no longer pending. It was updated in the last sync.
@@ -672,17 +782,7 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
             key="main"
             className={`${styles.view} ${direction === "back" ? styles.viewBack : ""}`}
           >
-            {updates.count > 0 && (
-              <div
-                className={styles.updatesBanner}
-                data-pulse-item=""
-                style={itemStyle(0)}
-              >
-                <span className={styles.newDot} aria-hidden="true" />
-                {updates.count} update{updates.count === 1 ? "" : "s"} since
-                your last check
-              </div>
-            )}
+            {updates.count > 0 && renderUpdates()}
             <div
               className={styles.tiles}
               data-pulse-item=""

@@ -231,11 +231,11 @@ export interface IAssetBreakdownItem {
   subCosts?: IAssetSubCost[];
   /** Cost entries for scope sub-items (consumables, spares) */
   subItemCosts?: ISubItemCost[];
-  /** When true, the main item has no own cost — its cost is the rollup of its sub-items (e.g. Eng. Solutions / developed items) */
+  /** When true, unit cost = sum of sub-items (per main unit); total = unit × (qtyOper + qtySpare) + unlinked fees */
   costFromSubItems?: boolean;
   /** PCF cost entries (synced from IScopeItem.pcfItems for Eng. Solutions / Development items) */
   pcfCosts?: ISubItemCost[];
-  /** When true, the main item's cost is derived from the PCF items */
+  /** When true, unit cost includes the sum of the PCF items (per main unit), multiplied like costFromSubItems */
   costFromPCF?: boolean;
   /** Partial availability splits — when set, overrides main availability/cost fields */
   availabilitySplits?: IAvailabilitySplit[];
@@ -396,6 +396,13 @@ export interface IAssetSubCost {
   importDays?: number;
   exportDays?: number;
   transitDiscount?: number;
+  /** Asset-level fee tied to a sub-item / PCF item (FK to IScopeSubItem.id); counted with that item */
+  linkedTo?: IFeeLink | null;
+}
+
+export interface IFeeLink {
+  kind: "sub" | "pcf";
+  subItemId: string;
 }
 
 /* ——— Preliminary Concept Form (PCF) — ad-hoc BOM for Eng. Solutions/Development items ——— */

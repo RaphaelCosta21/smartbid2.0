@@ -19,13 +19,62 @@ import { GlassCard } from "../common/GlassCard";
 import { BidTaskChecklist } from "./BidTaskChecklist";
 import { getRevisionLetter } from "./RevisionsTab";
 import { formatDateTime } from "../../utils/formatters";
-import { getAssetsCostCompleteness } from "../../utils/costCalculations";
+import {
+  getAssetsCostCompleteness,
+  IAssetsCostCompleteness,
+} from "../../utils/costCalculations";
 import {
   formatDurationHours,
   calcDurationHours,
   calcElapsedDays,
 } from "../../utils/durationHelpers";
 import styles from "./BidStatusPhasePanel.module.scss";
+
+/* ─── Asset Costs Block Dialog (shared with ApprovalTab) ─── */
+
+interface AssetCostsBlockDialogProps {
+  completeness: IAssetsCostCompleteness;
+  /** Completes "All items must have costs mapped before ..." */
+  blockedAction: React.ReactNode;
+  onClose: () => void;
+}
+
+export const AssetCostsBlockDialog: React.FC<AssetCostsBlockDialogProps> = ({
+  completeness,
+  blockedAction,
+  onClose,
+}) => (
+  <div className={styles.overlay} onClick={onClose}>
+    <div className={styles.confirmDialog} onClick={(e) => e.stopPropagation()}>
+      <div className={styles.confirmIcon}>
+        <TriangleAlert size={32} color="var(--warning)" />
+      </div>
+      <h3 className={styles.confirmTitle}>Asset Costs Not Mapped</h3>
+      <div className={styles.confirmMeta} style={{ textAlign: "center" }}>
+        <strong>
+          {completeness.totalMissing} of {completeness.totalItems} item
+          {completeness.totalItems !== 1 ? "s" : ""} still missing cost
+        </strong>{" "}
+        in the Assets Breakdown
+        {completeness.itemsMissing > 0 &&
+          ` · ${completeness.itemsMissing} main item${completeness.itemsMissing !== 1 ? "s" : ""}`}
+        {completeness.subItemsMissing > 0 &&
+          ` · ${completeness.subItemsMissing} sub-item${completeness.subItemsMissing !== 1 ? "s" : ""}`}
+        {completeness.pcfItemsMissing > 0 &&
+          ` · ${completeness.pcfItemsMissing} PCF item${completeness.pcfItemsMissing !== 1 ? "s" : ""}`}
+        .
+        <br />
+        <br />
+        All items must have costs mapped before {blockedAction}.
+      </div>
+      <div className={styles.confirmActions}>
+        <button className={styles.confirmCancel} onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
 /* ─── Props ─── */
 
@@ -1187,48 +1236,15 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
 
       {/* ─── Asset Costs Block Dialog ─── */}
       {assetCostsBlock && (
-        <div
-          className={styles.overlay}
-          onClick={() => setAssetCostsBlock(false)}
-        >
-          <div
-            className={styles.confirmDialog}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className={styles.confirmIcon}>
-              <TriangleAlert size={32} color="var(--warning)" />
-            </div>
-            <h3 className={styles.confirmTitle}>Asset Costs Not Mapped</h3>
-            <div className={styles.confirmMeta} style={{ textAlign: "center" }}>
-              <strong>
-                {assetsCostCompleteness.totalMissing} of{" "}
-                {assetsCostCompleteness.totalItems} item
-                {assetsCostCompleteness.totalItems !== 1 ? "s" : ""} still
-                missing cost
-              </strong>{" "}
-              in the Assets Breakdown
-              {assetsCostCompleteness.itemsMissing > 0 &&
-                ` · ${assetsCostCompleteness.itemsMissing} main item${assetsCostCompleteness.itemsMissing !== 1 ? "s" : ""}`}
-              {assetsCostCompleteness.subItemsMissing > 0 &&
-                ` · ${assetsCostCompleteness.subItemsMissing} sub-item${assetsCostCompleteness.subItemsMissing !== 1 ? "s" : ""}`}
-              {assetsCostCompleteness.pcfItemsMissing > 0 &&
-                ` · ${assetsCostCompleteness.pcfItemsMissing} PCF item${assetsCostCompleteness.pcfItemsMissing !== 1 ? "s" : ""}`}
-              .
-              <br />
-              <br />
-              All items must have costs mapped before advancing to{" "}
-              <strong>Close Out</strong>.
-            </div>
-            <div className={styles.confirmActions}>
-              <button
-                className={styles.confirmCancel}
-                onClick={() => setAssetCostsBlock(false)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <AssetCostsBlockDialog
+          completeness={assetsCostCompleteness}
+          blockedAction={
+            <>
+              advancing to <strong>Close Out</strong>
+            </>
+          }
+          onClose={() => setAssetCostsBlock(false)}
+        />
       )}
 
       {/* ─── Confirmation Dialog ─── */}

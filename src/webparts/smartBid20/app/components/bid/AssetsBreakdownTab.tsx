@@ -4,6 +4,7 @@ import {
   IScopeItem,
   IAssetBreakdownItem,
   IAssetSubCost,
+  IFeeLink,
   IScopeSubItem,
   ISubItemCost,
   IAvailabilitySplit,
@@ -25,6 +26,7 @@ import {
 } from "../../utils/scopeHelpers";
 import {
   applyContingencyToCost,
+  feeLinkKey,
   getAgeContingencyPct,
   getAssetCostBreakdown,
   getAssetsCostCompleteness,
@@ -32,6 +34,7 @@ import {
   getSubCostAmount,
   isRentalAcq,
   isWorkshopAcq,
+  resolveFeeLinks,
   TRANSIT_DEFAULT_DISCOUNT,
   getSplitNode,
   IAssetCostBreakdown,
@@ -188,7 +191,7 @@ const leavesRental = (field: string, value: unknown): boolean =>
   (field === "acquisitionType" && !isRentalAcq(String(value || "")));
 
 /** The three sections of an asset's detail drawer */
-type DrawerTab = "splits" | "items" | "fees";
+type DrawerTab = "splits" | "items" | "fees" | "pcf";
 
 /** Format cost number with 2 decimal places and thousands separator */
 const fmtCost = (n: number): string =>
@@ -316,6 +319,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   /** Which tab the asset's detail drawer is showing */
   const [drawerTab, setDrawerTab] = React.useState<Record<string, DrawerTab>>(
     {},
+  );
+  /** Drawers showing every table stacked instead of the tab bar */
+  const [showAllDrawers, setShowAllDrawers] = React.useState<Set<string>>(
+    new Set(),
   );
   /** Anchor for the cost-breakdown popover (viewport coords — the table wrapper clips absolutes) */
   const [breakdownAnchor, setBreakdownAnchor] = React.useState<{
@@ -521,7 +528,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       )}`;
     }
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <div className={styles.unitCostStack}>
         <span>$ {fmtCost(unitCost)}</span>
         {badge}
       </div>
@@ -955,6 +962,39 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     persist(updated);
   };
 
+  /** Link an asset fee to a sub-item / PCF item by its `feeLinkKey`; "" unlinks it */
+  const setFeeLink = (assetId: string, subCostId: string, key: string): void => {
+    const sep = key.indexOf(":");
+    const link: IFeeLink | null =
+      sep > 0
+        ? {
+            kind: key.slice(0, sep) as CostKind,
+            subItemId: key.slice(sep + 1),
+          }
+        : null;
+    updateSubCost(assetId, subCostId, "linkedTo", link);
+  };
+
+  const addLinkedFee = (
+    assetId: string,
+    kind: CostKind,
+    subItemId: string,
+  ): void => {
+    persist(
+      localAssets.map((a) =>
+        a.id !== assetId
+          ? a
+          : {
+              ...a,
+              subCosts: [
+                ...(a.subCosts || []),
+                { ...blankSubCost(), linkedTo: { kind, subItemId } },
+              ],
+            },
+      ),
+    );
+  };
+
   const mapSplit = (
     assetId: string,
     splitId: string,
@@ -996,15 +1036,19 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       localAssets.map((a) => {
         if (a.id !== assetId) return a;
         const splits = a.availabilitySplits || [];
-        if (splits.length === 0 || (a.subCosts || []).length === 0) return a;
+        // Fees linked to a sub-item / PCF item are still counted, so they stay
+        const { unlinked } = resolveFeeLinks(a);
+        if (splits.length === 0 || unlinked.length === 0) return a;
         return {
           ...a,
-          subCosts: [],
+          subCosts: (a.subCosts || []).filter(
+            (sc) => unlinked.indexOf(sc) < 0,
+          ),
           availabilitySplits: splits.map((sp, i) =>
             i === 0
               ? {
                   ...sp,
-                  subCosts: [...(sp.subCosts || []), ...(a.subCosts || [])],
+                  subCosts: [...(sp.subCosts || []), ...unlinked],
                 }
               : sp,
           ),
@@ -1019,6 +1063,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     const si = getScopeItem(a.scopeItemId);
     if (((si?.subItems || []) as IScopeSubItem[]).length > 0) return "items";
     if ((a.availabilitySplits || []).length > 0) return "splits";
+    if (((si?.pcfItems || []) as IScopeSubItem[]).length > 0) return "pcf";
     return "fees";
   };
 
@@ -1048,7 +1093,23 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         next.delete(assetId);
         return next;
       });
+      setShowAllDrawers((prev) => {
+        if (!prev.has(assetId)) return prev;
+        const next = new Set(prev);
+        next.delete(assetId);
+        return next;
+      });
     }, DRAWER_ANIM_MS);
+  };
+
+  /** Switch a drawer between the tab bar and the "all tables at once" view */
+  const toggleShowAll = (assetId: string): void => {
+    setShowAllDrawers((prev) => {
+      const next = new Set(prev);
+      if (next.has(assetId)) next.delete(assetId);
+      else next.add(assetId);
+      return next;
+    });
   };
 
   /** Chevron in the first column — toggles the whole drawer */
@@ -1064,7 +1125,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   /** Jump straight to a tab — closes the drawer if that tab is already showing */
   const toggleDrawerTab = (assetId: string, tab: DrawerTab): void => {
     const isOpen = !collapsedSubItems.has(assetId);
-    if (isOpen && drawerTab[assetId] === tab) closeDrawer(assetId);
+    if (isOpen && (drawerTab[assetId] === tab || showAllDrawers.has(assetId)))
+      closeDrawer(assetId);
     else openDrawer(assetId, tab);
   };
 
@@ -1601,6 +1663,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       if (a.id !== assetId) return a;
       const si = getScopeItem(a.scopeItemId);
       const totalQty = (si?.qtyOperational || 0) + (si?.qtySpare || 0) || 1;
+      const { unlinked } = resolveFeeLinks(a);
       // Create first split from current values, second blank for user to fill
       const firstSplit: IAvailabilitySplit = {
         id: makeId("split"),
@@ -1617,9 +1680,14 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         dailyRate: a.dailyRate,
         rentalDays: a.rentalDays,
         notes: "",
-        subCosts: a.subCosts || [],
+        subCosts: unlinked,
       };
-      return { ...a, availabilitySplits: [firstSplit], subCosts: [] };
+      // Linked fees stay on the asset, counted with their sub-item / PCF item
+      return {
+        ...a,
+        availabilitySplits: [firstSplit],
+        subCosts: (a.subCosts || []).filter((sc) => unlinked.indexOf(sc) < 0),
+      };
     });
     persist(updated);
     openDrawer(assetId, "splits");
@@ -1653,7 +1721,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           leadTimeDays: first.leadTimeDays || 0,
           dailyRate: first.dailyRate,
           rentalDays: first.rentalDays,
-          subCosts: mergedFees,
+          subCosts: [
+            ...(a.subCosts || []).filter((sc) => !!sc.linkedTo),
+            ...mergedFees,
+          ],
         };
       }
       return { ...a, availabilitySplits: undefined };
@@ -1916,21 +1987,180 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   /** Compute the effective displayed total for an asset (matches what Total Cost USD column shows) */
   const getEffectiveTotal = (a: IAssetBreakdownItem): number => {
     const bd = breakdownOf(a);
-    // Rolled-up items have no own cost — their value lives in the sub-items,
-    // which are already counted separately. Return 0 to avoid double counting.
-    if (a.costFromSubItems) return 0;
-    if (a.costFromPCF) return bd.pcfTotal;
     if (bd.splits.length > 0) return bd.splitsTotal;
     return bd.main.total;
   };
 
-  /** Get the total of all sub-item costs for an asset */
-  const getSubItemCostsTotal = (a: IAssetBreakdownItem): number =>
-    breakdownOf(a).subItemsTotal;
+  /** Main-row Total Cost: the item's whole total (own or Σ cost, sub-items/PCF not rolled up, fees) with its formula */
+  const renderMainTotal = (
+    a: IAssetBreakdownItem,
+    bd: IAssetCostBreakdown,
+    base: string,
+    opts: { baseAlone?: boolean; zeroLabel?: string } = {},
+  ): React.ReactNode => {
+    const noSplits = bd.splits.length === 0;
+    const parts: string[] = base ? [base] : [];
+    if (!(noSplits && a.costFromSubItems) && bd.subItemsCounted > 0) {
+      parts.push(`${fmtCost(bd.subItemsCounted)} sub-items`);
+    }
+    if (!(noSplits && a.costFromPCF) && bd.pcfCounted > 0) {
+      parts.push(`${fmtCost(bd.pcfCounted)} PCF`);
+    }
+    if (bd.main.fees > 0) parts.push(`${fmtCost(bd.main.fees)} fees`);
+    const showCalc =
+      parts.length > 1 || (!!base && (!!opts.baseAlone || bd.qty > 1));
+    return (
+      <td className={styles.mainTotalCost}>
+        <div className={styles.rollupCell}>
+          {bd.total === 0 && opts.zeroLabel !== undefined ? (
+            <span className={styles.cellMuted}>{opts.zeroLabel}</span>
+          ) : (
+            <span>$ {fmtCost(bd.total)}</span>
+          )}
+          {showCalc && (
+            <span className={styles.subCellCalc}>{parts.join(" + ")}</span>
+          )}
+        </div>
+      </td>
+    );
+  };
 
-  /** Get the total of all PCF costs for an asset (reuses sub-item cost logic) */
-  const getPCFTotal = (a: IAssetBreakdownItem): number =>
-    breakdownOf(a).pcfTotal;
+  /** Compact view of the asset fees linked to one sub-item / PCF row; full detail lives in Services & Fees */
+  const renderLinkedFeesPanel = (
+    asset: IAssetBreakdownItem,
+    sic: ISubItemCost,
+    kind: CostKind,
+    fees: IAssetSubCost[],
+  ): React.ReactNode => {
+    const bd = breakdownOf(asset);
+    const rolledUp =
+      bd.splits.length === 0 &&
+      (kind === "pcf" ? !!asset.costFromPCF : !!asset.costFromSubItems);
+    const hint = rolledUp
+      ? `Per unit - enters the Unit Cost (× ${bd.qty})`
+      : `Counted with this ${kind === "pcf" ? "PCF item" : "sub-item"}`;
+    const candidates = (asset.subCosts || []).filter(
+      (sc) => !sc.isTransitRate && !sc.linkedTo,
+    );
+    const sum = fees.reduce((s, sc) => s + (sc.costUSD || 0), 0);
+    return (
+      <div className={styles.linkedFeesPanel}>
+        <div className={styles.linkedFeesHead}>
+          <span className={styles.noteLabel}>💲 Services &amp; fees</span>
+          <span className={styles.linkedFeesHint}>{hint}</span>
+          <button
+            className={styles.linkedFeesOpen}
+            onClick={() => openDrawer(asset.id, "fees")}
+          >
+            Open in Services &amp; Fees →
+          </button>
+        </div>
+        {fees.length === 0 && (
+          <span className={styles.noteText}>
+            No services or fees linked yet.
+          </span>
+        )}
+        {fees.map((sc) => (
+          <div key={sc.id} className={styles.linkedFeeRow}>
+            {readOnly ? (
+              <span className={styles.linkedFeeDesc}>
+                {sc.description || "-"}
+              </span>
+            ) : (
+              <input
+                className={styles.editInput}
+                placeholder="e.g. Machining, Assembly, Test..."
+                value={sc.description}
+                autoFocus={!sc.description && !sc.costUSD}
+                onChange={(e) =>
+                  updateSubCost(asset.id, sc.id, "description", e.target.value)
+                }
+              />
+            )}
+            {readOnly ? (
+              <span className={styles.linkedFeeCost}>
+                $ {fmtCost(sc.costUSD || 0)}
+              </span>
+            ) : (
+              <input
+                className={missingIf(styles.numInput, sc.costUSD)}
+                type="number"
+                min={0}
+                step={0.01}
+                value={sc.costUSD}
+                onChange={(e) =>
+                  updateSubCost(
+                    asset.id,
+                    sc.id,
+                    "costUSD",
+                    Number(e.target.value) || 0,
+                  )
+                }
+              />
+            )}
+            {!readOnly && (
+              <div className={styles.linkedFeeActions}>
+                <button
+                  className={styles.subCostToggle}
+                  onClick={() => setFeeLink(asset.id, sc.id, "")}
+                  title="Unlink - keeps it in Services & Fees, counted directly in the item Total"
+                >
+                  <Unlink size={12} />
+                </button>
+                <button
+                  className={styles.deleteSubCost}
+                  onClick={() => deleteSubCost(asset.id, sc.id)}
+                  title="Remove"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {(!readOnly || fees.length > 1) && (
+          <div className={styles.linkedFeesActions}>
+            {!readOnly && (
+              <button
+                className={styles.addSubCostBtn}
+                onClick={() => addLinkedFee(asset.id, kind, sic.subItemId)}
+              >
+                + Add Service / Fee
+              </button>
+            )}
+            {!readOnly && candidates.length > 0 && (
+              <select
+                className={styles.selectCell}
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setFeeLink(
+                      asset.id,
+                      e.target.value,
+                      feeLinkKey(kind, sic.subItemId),
+                    );
+                  }
+                }}
+                title="Link a service / fee already listed for this item"
+              >
+                <option value="">Link existing...</option>
+                {candidates.map((sc) => (
+                  <option key={sc.id} value={sc.id}>
+                    {`${sc.description || "(no description)"} - $ ${fmtCost(sc.costUSD || 0)}`}
+                  </option>
+                ))}
+              </select>
+            )}
+            {fees.length > 1 && (
+              <span className={styles.linkedFeesSum}>
+                Σ $ {fmtCost(sum)}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   /**
    * Shared renderer for a sub-item / PCF cost row (incl. splits, contingency,
@@ -1967,6 +2197,14 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     const sicSplitsTotal = sicHasSplits ? sicNode.total : 0;
     const splitKey = `${kind === "pcf" ? "pcf" : "sic"}-${sic.id}`;
     const noteKey = `${kind === "pcf" ? "pcf" : "sic"}-note-${sic.id}`;
+    const feesKey = `${kind === "pcf" ? "pcf" : "sic"}-fees-${sic.id}`;
+    const rowLinkedFees = (asset.subCosts || []).filter(
+      (sc) =>
+        !sc.isTransitRate &&
+        !!sc.linkedTo &&
+        sc.linkedTo.kind === kind &&
+        sc.linkedTo.subItemId === sic.subItemId,
+    );
     return (
       <React.Fragment key={sic.id}>
         <div
@@ -2281,13 +2519,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             ) : readOnly ? (
               renderUnitCostView(sic.unitCostUSD, sic.dateReference, sicEngSol)
             ) : (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 2,
-                }}
-              >
+              <div className={styles.unitCostStack}>
                 <input
                   className={missingIf(styles.numInput, sic.unitCostUSD)}
                   type="number"
@@ -2583,6 +2815,24 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 💬
               </button>
             )}
+            {(!readOnly || rowLinkedFees.length > 0) && (
+              <button
+                className={noteBtnClass(
+                  feesKey,
+                  rowLinkedFees.length > 0 ? "linked" : "",
+                )}
+                onClick={() => toggleNotesExpand(feesKey)}
+                title={
+                  rowLinkedFees.length > 0
+                    ? "Services & fees linked to this item"
+                    : "Link a service / fee to this item"
+                }
+              >
+                {rowLinkedFees.length > 0
+                  ? `💲${rowLinkedFees.length}`
+                  : "+💲"}
+              </button>
+            )}
             {!readOnly && (
               <button
                 className={styles.noteBtn}
@@ -2657,6 +2907,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             )}
           </div>
         )}
+        {expandedNotesIds.has(feesKey) &&
+          renderLinkedFeesPanel(asset, sic, kind, rowLinkedFees)}
         {/* Splits section */}
         {sicHasSplits && expandedSplits.has(splitKey) && (
           <div
@@ -3157,6 +3409,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       setCollapsedSections(new Set());
     } else {
       setCollapsedSections(new Set(sections.map((s) => s.id)));
+      setCollapsedSubItems(new Set(localAssets.map((a) => a.id)));
+      setClosingSubItems(new Set());
+      setShowAllDrawers(new Set());
     }
   };
 
@@ -3261,6 +3516,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     let capex = 0;
     let opex = 0;
     let uncategorized = 0;
+    let mainCostsTotal = 0;
     let subCostsTotal = 0;
     let subItemCostsTotal = 0;
     let pcfCostsTotal = 0;
@@ -3274,9 +3530,11 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       opex += bd.opex;
       uncategorized += bd.uncategorized;
 
-      subCostsTotal += bd.main.fees + bd.orphanFees;
-      subItemCostsTotal += bd.subItemsTotal;
-      pcfCostsTotal += bd.pcfTotal;
+      // Four disjoint parts that add up to bd.total
+      mainCostsTotal += bd.ownCost;
+      subCostsTotal += bd.feesCounted;
+      subItemCostsTotal += bd.subItemsCounted;
+      pcfCostsTotal += bd.pcfCounted;
 
       if (resType) {
         byResourceType[resType] = (byResourceType[resType] || 0) + bd.total;
@@ -3287,6 +3545,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       opex,
       uncategorized,
       total: capex + opex + uncategorized,
+      mainCostsTotal,
       subCostsTotal,
       subItemCostsTotal,
       pcfCostsTotal,
@@ -3349,7 +3608,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             sectionId: si.sectionId || null,
             lineNumber: si.lineNumber,
             equipmentOffer: si.equipmentOffer || si.description || "-",
-            partNumber: si.partNumber || "-",
+            partNumber: si.partNumber || "",
             resourceType: si.resourceType || "-",
             resourceSubType: si.resourceSubType || "-",
           });
@@ -3376,7 +3635,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             equipmentOffer: sub
               ? sub.equipmentOffer || sub.description || "Sub-item"
               : "Sub-item",
-            partNumber: sub ? sub.partNumber || "-" : "-",
+            partNumber: sub ? sub.partNumber || "" : "",
             resourceType: si.resourceType || "-",
             resourceSubType: sub ? sub.subType || "-" : "-",
           });
@@ -3404,7 +3663,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             equipmentOffer: pcfSub
               ? pcfSub.equipmentOffer || pcfSub.description || "PCF item"
               : "PCF item",
-            partNumber: pcfSub ? pcfSub.partNumber || "-" : "-",
+            partNumber: pcfSub ? pcfSub.partNumber || "" : "",
             resourceType: si.resourceType || "-",
             resourceSubType: pcfSub ? pcfSub.subType || "-" : "-",
           });
@@ -3627,6 +3886,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       value: unknown,
     ) => void,
     onDelete: (subCostId: string) => void,
+    linkCell?: (sc: IAssetSubCost) => React.ReactNode,
   ): React.ReactNode[] => {
     const inSplit = variant === "split";
     return fees.map((sc, idx) => {
@@ -3726,6 +3986,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
               />
             )}
           </div>
+          {linkCell && <div className={styles.subCell}>{linkCell(sc)}</div>}
           <div className={`${styles.subCell} ${styles.subCostTotal}`}>
             {isTransit || readOnly ? (
               <>
@@ -4259,41 +4520,183 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     );
   };
 
+  /** Sub-items / PCF items of an asset a service or fee can be linked to */
+  const feeLinkTargets = (
+    asset: IAssetBreakdownItem,
+  ): { key: string; kind: CostKind; label: string }[] => {
+    const out: { key: string; kind: CostKind; label: string }[] = [];
+    (["sub", "pcf"] as CostKind[]).forEach((kind) =>
+      costsOf(asset, kind).forEach((c, i) => {
+        const child = getSubItemForCost(asset.scopeItemId, c.subItemId, kind);
+        if (!child) return;
+        out.push({
+          key: feeLinkKey(kind, c.subItemId),
+          kind,
+          label: `${i + 1}. ${child.equipmentOffer || child.description || "-"}`,
+        });
+      }),
+    );
+    return out;
+  };
+
+  /** "Linked to" cell of the Services & Fees table */
+  const renderFeeLinkCell = (
+    asset: IAssetBreakdownItem,
+    sc: IAssetSubCost,
+    targets: { key: string; kind: CostKind; label: string }[],
+  ): React.ReactNode => {
+    if (sc.isTransitRate) {
+      return <span className={styles.cellMuted}>Main item</span>;
+    }
+    const key = sc.linkedTo
+      ? feeLinkKey(sc.linkedTo.kind, sc.linkedTo.subItemId)
+      : "";
+    const target = targets.find((t) => t.key === key);
+    const warn =
+      sc.linkedTo && !target ? "Linked item removed - counted in Total" : "";
+    const subs = targets.filter((t) => t.kind === "sub");
+    const pcfs = targets.filter((t) => t.kind === "pcf");
+    return (
+      <div className={styles.feeLinkCell}>
+        {readOnly ? (
+          <span className={target ? styles.feeLinkTag : styles.cellMuted}>
+            {target
+              ? `${target.kind === "pcf" ? "PCF" : "Sub-item"} ${target.label}`
+              : "Main item"}
+          </span>
+        ) : (
+          <select
+            className={styles.selectCell}
+            value={target ? key : ""}
+            onChange={(e) => setFeeLink(asset.id, sc.id, e.target.value)}
+            title="Linked to a sub-item / PCF item, the fee enters that item's cost (and the Unit Cost when Σ is on)"
+          >
+            <option value="">Main item</option>
+            {subs.length > 0 && (
+              <optgroup label="Sub-items">
+                {subs.map((t) => (
+                  <option key={t.key} value={t.key}>
+                    {t.label}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {pcfs.length > 0 && (
+              <optgroup label="PCF">
+                {pcfs.map((t) => (
+                  <option key={t.key} value={t.key}>
+                    {t.label}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+        )}
+        {warn && <span className={styles.feeLinkWarn}>{warn}</span>}
+      </div>
+    );
+  };
+
   /** Services & Fees tab — pre-job, post-job, maintenance and transit costs */
   const renderFeesTab = (asset: IAssetBreakdownItem): React.ReactNode => {
     const fees = asset.subCosts || [];
     const hasSplits = (asset.availabilitySplits || []).length > 0;
     const bd = breakdownOf(asset);
-    if (hasSplits) {
-      return (
-        <div className={styles.feeNotice}>
-          <p>
-            This item uses <strong>Availability Splits</strong>, so its services
-            &amp; fees belong to a specific split.
-          </p>
-          {fees.length > 0 && (
-            <p className={styles.feeNoticeWarn}>
-              ⚠ {fees.length} entr{fees.length > 1 ? "ies" : "y"} worth ${" "}
-              {fmtCost(bd.orphanFees)} are stored here and are{" "}
-              <strong>not counted</strong> in any total.
-            </p>
+    const links = resolveFeeLinks(asset);
+    const countedAsLinked = new Set<string>();
+    Object.keys(links.linked).forEach((k) =>
+      links.linked[k].forEach((sc) => countedAsLinked.add(sc.id)),
+    );
+    const targets = feeLinkTargets(asset);
+    const rolledUp =
+      !hasSplits && (!!asset.costFromSubItems || !!asset.costFromPCF);
+
+    const renderTable = (rows: IAssetSubCost[]): React.ReactNode => (
+      <div className={styles.subTblWrap}>
+        <div className={styles.feeTblHead}>
+          <div className={styles.subTh}>#</div>
+          <div className={styles.subTh}>Description</div>
+          <div className={styles.subTh}>Linked to</div>
+          <div className={styles.subTh}>Total Cost USD</div>
+          <div className={styles.subTh}>Cost Ref / Supplier</div>
+          <div className={styles.subTh}>Lead Time</div>
+          <div className={styles.subTh}>Notes</div>
+          <div className={styles.subTh} />
+        </div>
+        <div className={styles.subRows}>
+          {renderFeeRows(
+            rows,
+            asset.dailyRate || 0,
+            isRentalAcq(asset.acquisitionType),
+            "fees",
+            (subCostId, field, value) =>
+              updateSubCost(asset.id, subCostId, field, value),
+            (subCostId) => deleteSubCost(asset.id, subCostId),
+            (sc) => renderFeeLinkCell(asset, sc, targets),
           )}
-          <div className={styles.feeNoticeActions}>
-            <button
-              className={styles.addSubCostBtn}
-              onClick={() => openDrawer(asset.id, "splits")}
-            >
-              Go to Splits
-            </button>
-            {!readOnly && fees.length > 0 && (
+        </div>
+        <div className={styles.subFooter}>
+          {bd.linkedFees > 0 && (
+            <>
+              <span className={styles.subFooterLabel}>
+                Linked to items{rolledUp ? " (per unit)" : ""}:
+              </span>
+              <span className={styles.subFooterCalc}>
+                $ {fmtCost(bd.linkedFees)}
+              </span>
+            </>
+          )}
+          {!hasSplits && (
+            <>
+              <span className={styles.subFooterLabel}>
+                {bd.linkedFees > 0
+                  ? "Not linked (in Total):"
+                  : "Services & fees subtotal:"}
+              </span>
+              <span className={styles.subFooterValue}>
+                $ {fmtCost(bd.main.fees)}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+    );
+
+    if (hasSplits) {
+      const orphans = links.unlinked;
+      const linkedRows = fees.filter((sc) => countedAsLinked.has(sc.id));
+      return (
+        <div className={styles.feeStack}>
+          <div className={styles.feeNotice}>
+            <p>
+              This item uses <strong>Availability Splits</strong>, so its
+              services &amp; fees belong to a specific split.
+            </p>
+            {orphans.length > 0 && (
+              <p className={styles.feeNoticeWarn}>
+                ⚠ {orphans.length} entr{orphans.length > 1 ? "ies" : "y"} worth
+                $ {fmtCost(bd.orphanFees)} are stored here and are{" "}
+                <strong>not counted</strong> in any total.
+              </p>
+            )}
+            <div className={styles.feeNoticeActions}>
               <button
                 className={styles.addSubCostBtn}
-                onClick={() => moveFeesToFirstSplit(asset.id)}
+                onClick={() => openDrawer(asset.id, "splits")}
               >
-                Move to Split 1
+                Go to Splits
               </button>
-            )}
+              {!readOnly && orphans.length > 0 && (
+                <button
+                  className={styles.addSubCostBtn}
+                  onClick={() => moveFeesToFirstSplit(asset.id)}
+                >
+                  Move to Split 1
+                </button>
+              )}
+            </div>
           </div>
+          {linkedRows.length > 0 && renderTable(linkedRows)}
         </div>
       );
     }
@@ -4314,38 +4717,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         </div>
       );
     }
-    return (
-      <div className={styles.subTblWrap}>
-        <div className={styles.feeTblHead}>
-          <div className={styles.subTh}>#</div>
-          <div className={styles.subTh}>Description</div>
-          <div className={styles.subTh}>Total Cost USD</div>
-          <div className={styles.subTh}>Cost Ref / Supplier</div>
-          <div className={styles.subTh}>Lead Time</div>
-          <div className={styles.subTh}>Notes</div>
-          <div className={styles.subTh} />
-        </div>
-        <div className={styles.subRows}>
-          {renderFeeRows(
-            fees,
-            asset.dailyRate || 0,
-            isRentalAcq(asset.acquisitionType),
-            "fees",
-            (subCostId, field, value) =>
-              updateSubCost(asset.id, subCostId, field, value),
-            (subCostId) => deleteSubCost(asset.id, subCostId),
-          )}
-        </div>
-        <div className={styles.subFooter}>
-          <span className={styles.subFooterLabel}>
-            Services &amp; fees subtotal:
-          </span>
-          <span className={styles.subFooterValue}>
-            $ {fmtCost(bd.main.fees)}
-          </span>
-        </div>
-      </div>
-    );
+    return renderTable(fees);
   };
 
   const pickerTargetPn = quotationPickerTarget
@@ -4371,12 +4743,26 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           sub: `${localAssets.length} item${localAssets.length !== 1 ? "s" : ""}`,
         }}
         stats={[
-          { label: "Sub-costs", value: formatCurrency(totals.subCostsTotal) },
+          {
+            label: "Main items",
+            value: formatCurrency(totals.mainCostsTotal),
+            sub: "Own cost of each item",
+          },
+          {
+            label: "Services & Fees",
+            value: formatCurrency(totals.subCostsTotal),
+            sub: "Extra costs added to items",
+          },
           {
             label: "Sub-items",
             value: formatCurrency(totals.subItemCostsTotal),
+            sub: "Spares, consumables, accessories",
           },
-          { label: "PCF", value: formatCurrency(totals.pcfCostsTotal) },
+          {
+            label: "PCF",
+            value: formatCurrency(totals.pcfCostsTotal),
+            sub: "Eng. Solutions BOM concept Items",
+          },
         ]}
         footer={
           <>
@@ -4908,28 +5294,36 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 const assetSplits = asset.availabilitySplits || [];
                 const isSubItemsClosing = closingSubItems.has(asset.id);
                 const isDrawerOpen = !collapsedSubItems.has(asset.id);
+                const siPCFItems = (si?.pcfItems || []) as IScopeSubItem[];
+                const siHasPCF = siPCFItems.length > 0;
+                const availableTabs: DrawerTab[] = [];
+                if (assetSplits.length > 0) availableTabs.push("splits");
+                if (siHasSubItems || !readOnly) availableTabs.push("items");
+                if (hasSubCosts || !readOnly) availableTabs.push("fees");
+                if (siHasPCF) availableTabs.push("pcf");
+                const storedTab = drawerTab[asset.id];
                 const activeTab: DrawerTab =
-                  drawerTab[asset.id] || defaultDrawerTab(asset);
-                // The drawer is worth opening if any of its three tabs has something to offer
-                const hasDrawerContent =
-                  siHasSubItems ||
-                  assetSplits.length > 0 ||
-                  hasSubCosts ||
-                  !readOnly;
+                  storedTab && availableTabs.indexOf(storedTab) >= 0
+                    ? storedTab
+                    : defaultDrawerTab(asset);
+                const hasDrawerContent = availableTabs.length > 0;
                 const isSubItemsExpanded = hasDrawerContent && isDrawerOpen;
                 const isSectionClosing = si?.sectionId
                   ? closingSectionIds.has(si.sectionId)
                   : false;
-                const siPCFItems = (si?.pcfItems || []) as IScopeSubItem[];
-                const siHasPCF = siPCFItems.length > 0;
                 const assetBd = breakdownOf(asset);
-                const subCostsSum = assetBd.main.fees + assetBd.orphanFees;
-                // Rollup only makes sense while the main item has no own cost yet
+                // Splits own the cost, and an own unit cost would be silently replaced by the roll-up
                 const rollupLocked =
                   !asset.costFromSubItems &&
-                  (assetSplits.length > 0
-                    ? assetBd.splits.some((n) => n.base > 0)
-                    : assetBd.main.base > 0);
+                  (assetSplits.length > 0 ||
+                    (!asset.costFromPCF && assetBd.main.base > 0));
+                const pcfRollupLocked =
+                  !asset.costFromPCF &&
+                  (assetSplits.length > 0 ||
+                    (!asset.costFromSubItems && assetBd.main.base > 0));
+                const rollSubItems =
+                  !!asset.costFromSubItems && assetSplits.length === 0;
+                const rollPCF = !!asset.costFromPCF && assetSplits.length === 0;
 
                 return (
                   <React.Fragment key={asset.id}>
@@ -4949,7 +5343,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                             title={
                               isSubItemsExpanded
                                 ? "Collapse details"
-                                : "Splits, sub-items, services & fees"
+                                : siHasPCF
+                                  ? "Splits, sub-items, services & fees, PCF"
+                                  : "Splits, sub-items, services & fees"
                             }
                           >
                             <svg
@@ -5203,7 +5599,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   ))}
                                 </select>
                               )}
-                              {!readOnly && qty > 1 && (
+                              {!readOnly &&
+                                qty > 1 &&
+                                !asset.costFromSubItems &&
+                                !asset.costFromPCF && (
                                 <button
                                   className={styles.splitEnableBtn}
                                   onClick={() => handleEnableSplits(asset.id)}
@@ -5316,93 +5715,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                       </td>
                       {/* Rental-specific, no-cost, workshop, or normal cost fields */}
                       {(() => {
-                        // Rolled-up item: cost is derived from its sub-items (read-only)
-                        if (asset.costFromSubItems) {
-                          const rollup = getSubItemCostsTotal(asset);
-                          return (
-                            <>
-                              <td className={`${styles.cellRight}`}>
-                                <span
-                                  style={{
-                                    fontSize: 11,
-                                    color: "var(--text-muted)",
-                                    fontStyle: "italic",
-                                  }}
-                                >
-                                  Σ sub-items
-                                </span>
-                              </td>
-                              <td className={styles.mainTotalCost}>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "flex-end",
-                                    gap: 2,
-                                  }}
-                                >
-                                  <span>$ {fmtCost(rollup)}</span>
-                                  <span
-                                    style={{
-                                      fontSize: 10,
-                                      color: "var(--text-muted)",
-                                      fontWeight: 400,
-                                    }}
-                                  >
-                                    from sub-items
-                                  </span>
-                                </div>
-                              </td>
-                            </>
-                          );
-                        }
-
-                        // PCF-driven item: cost is derived from Preliminary Concept Form
-                        if (asset.costFromPCF) {
-                          const rollup = getPCFTotal(asset);
-                          return (
-                            <>
-                              <td className={`${styles.cellRight}`}>
-                                <span
-                                  style={{
-                                    fontSize: 11,
-                                    color: "var(--text-muted)",
-                                    fontStyle: "italic",
-                                  }}
-                                >
-                                  Σ PCF
-                                </span>
-                              </td>
-                              <td className={styles.mainTotalCost}>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "flex-end",
-                                    gap: 2,
-                                  }}
-                                >
-                                  <span>$ {fmtCost(rollup)}</span>
-                                  <span
-                                    style={{
-                                      fontSize: 10,
-                                      color: "var(--text-muted)",
-                                      fontWeight: 400,
-                                    }}
-                                  >
-                                    from PCF
-                                  </span>
-                                </div>
-                              </td>
-                            </>
-                          );
-                        }
-
                         const hasSplits =
                           (asset.availabilitySplits || []).length > 0;
                         if (hasSplits) {
-                          // When splits are active, show aggregated total only
-                          const splitsTotal = getEffectiveTotal(asset);
                           return (
                             <>
                               <td className={`${styles.cellRight}`}>
@@ -5416,9 +5731,41 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   See splits
                                 </span>
                               </td>
-                              <td className={styles.mainTotalCost}>
-                                <span>$ {fmtCost(splitsTotal)}</span>
+                              {renderMainTotal(
+                                asset,
+                                assetBd,
+                                `${fmtCost(assetBd.splitsTotal)} splits`,
+                              )}
+                            </>
+                          );
+                        }
+
+                        // Rolled-up item: unit cost = Σ sub-items / PCF (read-only)
+                        if (asset.costFromSubItems || asset.costFromPCF) {
+                          const source =
+                            asset.costFromSubItems && asset.costFromPCF
+                              ? "sub-items + PCF"
+                              : asset.costFromPCF
+                                ? "PCF"
+                                : "sub-items";
+                          return (
+                            <>
+                              <td className={styles.cellRight}>
+                                <div className={styles.rollupCell}>
+                                  <span className={styles.rollupUnit}>
+                                    $ {fmtCost(assetBd.rollupUnit)}
+                                  </span>
+                                  <span className={styles.subCellCalc}>
+                                    Σ {source}
+                                  </span>
+                                </div>
                               </td>
+                              {renderMainTotal(
+                                asset,
+                                assetBd,
+                                `${fmtCost(assetBd.rollupUnit)} × ${assetBd.qty}`,
+                                { baseAlone: true },
+                              )}
                             </>
                           );
                         }
@@ -5435,7 +5782,6 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           avail === "call out" ||
                           avail === "not offered";
                         const isWorkshop = acqType === "workshop";
-                        const hasAnySubs = (asset.subCosts || []).length > 0;
 
                         if (isNoCost) {
                           return (
@@ -5450,21 +5796,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   -
                                 </span>
                               </td>
-                              <td className={`${styles.cellRight}`}>
-                                <span
-                                  style={{
-                                    fontSize: 12,
-                                    color: hasAnySubs
-                                      ? "var(--text-primary)"
-                                      : "var(--text-muted)",
-                                    fontWeight: hasAnySubs ? 600 : 400,
-                                  }}
-                                >
-                                  {hasAnySubs
-                                    ? `$ ${fmtCost(subCostsSum)}`
-                                    : "$ 0"}
-                                </span>
-                              </td>
+                              {renderMainTotal(asset, assetBd, "", {
+                                zeroLabel: "$ 0",
+                              })}
                             </>
                           );
                         }
@@ -5482,21 +5816,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   -
                                 </span>
                               </td>
-                              <td className={`${styles.cellRight}`}>
-                                <span
-                                  style={{
-                                    fontSize: 12,
-                                    color: hasAnySubs
-                                      ? "var(--text-primary)"
-                                      : "var(--text-muted)",
-                                    fontWeight: hasAnySubs ? 600 : 400,
-                                  }}
-                                >
-                                  {hasAnySubs
-                                    ? `$ ${fmtCost(subCostsSum)}`
-                                    : "-"}
-                                </span>
-                              </td>
+                              {renderMainTotal(asset, assetBd, "", {
+                                zeroLabel: "-",
+                              })}
                             </>
                           );
                         }
@@ -5617,29 +5939,14 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   </div>
                                 )}
                               </td>
-                              <td className={styles.mainTotalCost}>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "flex-end",
-                                    gap: 2,
-                                  }}
-                                >
-                                  <span>$ {fmtCost(assetBd.main.total)}</span>
-                                  {rate > 0 && days > 0 && (
-                                    <span
-                                      style={{
-                                        fontSize: 10,
-                                        color: "var(--text-muted)",
-                                        fontWeight: 400,
-                                      }}
-                                    >
-                                      {fmtCost(rate)} × {days}d × {qty}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
+                              {renderMainTotal(
+                                asset,
+                                assetBd,
+                                rate > 0 && days > 0
+                                  ? `${fmtCost(rate)} × ${days}d${assetBd.qty > 1 ? ` × ${assetBd.qty}` : ""}`
+                                  : "",
+                                { baseAlone: true },
+                              )}
                             </>
                           );
                         }
@@ -5657,13 +5964,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   isEngSol,
                                 )
                               ) : (
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 2,
-                                  }}
-                                >
+                                <div className={styles.unitCostStack}>
                                   <input
                                     className={missingIf(
                                       styles.numInput,
@@ -5697,9 +5998,13 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 </div>
                               )}
                             </td>
-                            <td className={styles.mainTotalCost}>
-                              $ {fmtCost(assetBd.main.total)}
-                            </td>
+                            {renderMainTotal(
+                              asset,
+                              assetBd,
+                              assetBd.main.base > 0
+                                ? `${fmtCost(assetBd.main.base / assetBd.qty)} × ${assetBd.qty}`
+                                : "",
+                            )}
                           </>
                         );
                       })()}
@@ -6266,81 +6571,78 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                         </td>
                       </tr>
                     )}
-                    {/* Detail drawer — Splits / Sub-Items / Services & Fees */}
+                    {/* Detail drawer — Splits / Sub-Items / Services & Fees / PCF */}
                     {(isSubItemsExpanded || isSubItemsClosing) &&
-                      hasDrawerContent && (
-                        <tr className={styles.drawerRow}>
-                          <td colSpan={COLS}>
-                            <div
-                              className={`${styles.drawerInner}${isSubItemsClosing ? ` ${styles.drawerClosing}` : ""}`}
+                      hasDrawerContent &&
+                      (() => {
+                        const showAll = showAllDrawers.has(asset.id);
+                        const tabIcon = (tab: DrawerTab): React.ReactNode => {
+                          if (tab === "fees") return <span>💲</span>;
+                          if (tab === "splits")
+                            return (
+                              <svg
+                                viewBox="0 0 16 16"
+                                width="12"
+                                height="12"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                              >
+                                <path d="M8 2v12M4 6l4-4 4 4M4 10l4 4 4-4" />
+                              </svg>
+                            );
+                          if (tab === "pcf")
+                            return (
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="13"
+                                height="13"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                                <path d="M2 17l10 5 10-5" />
+                                <path d="M2 12l10 5 10-5" />
+                              </svg>
+                            );
+                          return (
+                            <svg
+                              viewBox="0 0 24 24"
+                              width="13"
+                              height="13"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
                             >
-                              <div className={styles.drawerTabs}>
-                                {assetSplits.length > 0 && (
-                                  <button
-                                    className={`${styles.drawerTab}${activeTab === "splits" ? ` ${styles.drawerTabActive}` : ""}`}
-                                    onClick={() =>
-                                      openDrawer(asset.id, "splits")
-                                    }
-                                  >
-                                    <svg
-                                      viewBox="0 0 16 16"
-                                      width="12"
-                                      height="12"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="1.5"
-                                    >
-                                      <path d="M8 2v12M4 6l4-4 4 4M4 10l4 4 4-4" />
-                                    </svg>
-                                    Splits
-                                    <span className={styles.drawerTabCount}>
-                                      {assetSplits.length}
-                                    </span>
-                                  </button>
-                                )}
-                                {(siHasSubItems || !readOnly) && (
-                                  <button
-                                    className={`${styles.drawerTab}${activeTab === "items" ? ` ${styles.drawerTabActive}` : ""}`}
-                                    onClick={() =>
-                                      openDrawer(asset.id, "items")
-                                    }
-                                  >
-                                    <svg
-                                      viewBox="0 0 24 24"
-                                      width="13"
-                                      height="13"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                    >
-                                      <polyline points="9 17 4 12 9 7" />
-                                      <path d="M20 18v-2a4 4 0 00-4-4H4" />
-                                    </svg>
-                                    Sub-Items
-                                    <span className={styles.drawerTabCount}>
-                                      {siSubItems.length}
-                                    </span>
-                                  </button>
-                                )}
-                                {(hasSubCosts || !readOnly) && (
-                                  <button
-                                    className={`${styles.drawerTab}${activeTab === "fees" ? ` ${styles.drawerTabActive}` : ""}`}
-                                    onClick={() => openDrawer(asset.id, "fees")}
-                                  >
-                                    💲 Services &amp; Fees
-                                    <span className={styles.drawerTabCount}>
-                                      {(asset.subCosts || []).length}
-                                    </span>
-                                  </button>
-                                )}
-                                <span className={styles.drawerHint}>
-                                  {activeTab === "splits"
-                                    ? `Partial quantities with different status or cost - total qty ${qty}`
-                                    : activeTab === "items"
-                                      ? "Consumables, spare parts & accessories"
-                                      : "Pre-job, post-job, maintenance & transit"}
-                                </span>
-                                {activeTab === "splits" && !readOnly && (
+                              <polyline points="9 17 4 12 9 7" />
+                              <path d="M20 18v-2a4 4 0 00-4-4H4" />
+                            </svg>
+                          );
+                        };
+                        const tabLabel: Record<DrawerTab, string> = {
+                          splits: "Splits",
+                          items: "Sub-Items",
+                          fees: "Services & Fees",
+                          pcf: "Preliminary Concept Form",
+                        };
+                        const tabCount: Record<DrawerTab, number> = {
+                          splits: assetSplits.length,
+                          items: siSubItems.length,
+                          fees: (asset.subCosts || []).length,
+                          pcf: siPCFItems.length,
+                        };
+                        const tabHint: Record<DrawerTab, string> = {
+                          splits: `Partial quantities with different status or cost - total qty ${qty}`,
+                          items: "Consumables, spare parts & accessories",
+                          fees: "Pre-job, post-job, maintenance & transit",
+                          pcf: "Eng. Solutions BOM concept",
+                        };
+                        const renderDrawerActions = (
+                          tab: DrawerTab,
+                        ): React.ReactNode => (
+                          <>
+                                {tab === "splits" && !readOnly && (
                                   <button
                                     className={styles.addSubCostBtn}
                                     onClick={() => handleAddSplit(asset.id)}
@@ -6348,7 +6650,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                     + Add Split
                                   </button>
                                 )}
-                                {activeTab === "items" && !readOnly && (
+                                {tab === "items" && !readOnly && (
                                   <>
                                     <select
                                       className={styles.setAllSelect}
@@ -6394,18 +6696,29 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                         </option>
                                       ))}
                                     </select>
+                                  </>
+                                )}
+                                {tab === "items" &&
+                                  (!readOnly || siHasSubItems) && (
                                     <label
                                       className={`${styles.rollupToggle}${rollupLocked ? ` ${styles.rollupToggleDisabled}` : ""}`}
+                                      style={
+                                        readOnly
+                                          ? { cursor: "default" }
+                                          : undefined
+                                      }
                                       title={
-                                        rollupLocked
-                                          ? "Unavailable - the main item already has its own cost. Clear it first to roll up the sub-items."
-                                          : "When enabled, the main item has no own cost - its cost is the sum (rollup) of these sub-items. Use this for Eng. Solutions / developed items."
+                                        !rollupLocked
+                                          ? "Unit Cost = sum of these sub-items (qty per main unit), linked services & fees included. Total = Unit Cost × (QTY OP + QTY SP) + unlinked services & fees."
+                                          : assetSplits.length > 0
+                                            ? "Unavailable - this item uses Availability Splits. Remove them first to roll up the sub-items."
+                                            : "Unavailable - the main item already has its own cost. Clear it first to roll up the sub-items."
                                       }
                                     >
                                       <input
                                         type="checkbox"
                                         checked={!!asset.costFromSubItems}
-                                        disabled={rollupLocked}
+                                        disabled={readOnly || rollupLocked}
                                         onChange={(e) =>
                                           updateField(
                                             asset.id,
@@ -6414,11 +6727,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                           )
                                         }
                                       />
-                                      Σ Main cost = sum of sub-items
+                                      Σ Unit cost = sum of sub-items
                                     </label>
-                                  </>
-                                )}
-                                {activeTab === "fees" &&
+                                  )}
+                                {tab === "fees" &&
                                   !readOnly &&
                                   assetSplits.length === 0 &&
                                   (asset.subCosts || []).length > 0 && (
@@ -6429,11 +6741,97 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                       + Add Service / Fee
                                     </button>
                                   )}
+                                {tab === "pcf" && (
+                                  <label
+                                    className={`${styles.rollupToggle}${pcfRollupLocked ? ` ${styles.rollupToggleDisabled}` : ""}`}
+                                    style={
+                                      readOnly
+                                        ? { cursor: "default" }
+                                        : undefined
+                                    }
+                                    title={
+                                      !pcfRollupLocked
+                                        ? "Unit Cost = sum of these PCF items (qty per main unit), linked services & fees included. Total = Unit Cost × (QTY OP + QTY SP) + unlinked services & fees."
+                                        : assetSplits.length > 0
+                                          ? "Unavailable - this item uses Availability Splits. Remove them first to roll up the PCF."
+                                          : "Unavailable - the main item already has its own cost. Clear it first to roll up the PCF."
+                                    }
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={!!asset.costFromPCF}
+                                      disabled={readOnly || pcfRollupLocked}
+                                      onChange={(e) =>
+                                        updateField(
+                                          asset.id,
+                                          "costFromPCF",
+                                          e.target.checked,
+                                        )
+                                      }
+                                    />
+                                    Σ Unit cost = sum of PCF
+                                  </label>
+                                )}
+                          </>
+                        );
+                        const renderDrawerBody = (
+                          tab: DrawerTab,
+                        ): React.ReactNode => {
+                          if (tab === "splits") return renderSplitsTab(asset);
+                          if (tab === "fees") return renderFeesTab(asset);
+                          if (tab === "pcf")
+                            return (
+                              <div className={styles.subTblWrap}>
+                                <div className={styles.subTblHead}>
+                                  <div className={styles.subTh}>#</div>
+                                  <div className={styles.subTh}>
+                                    Equipment Offer
+                                  </div>
+                                  <div className={styles.subTh}>Sub-Type</div>
+                                  <div className={styles.subTh}>
+                                    OII / MFG PN
+                                  </div>
+                                  <div className={styles.subTh}>Qty</div>
+                                  <div className={styles.subTh}>
+                                    Availability
+                                  </div>
+                                  <div className={styles.subTh}>Acq. Type</div>
+                                  <div className={styles.subTh}>Unit Cost</div>
+                                  <div className={styles.subTh}>Total Cost</div>
+                                  <div className={styles.subTh}>
+                                    Cost Ref / Supplier
+                                  </div>
+                                  <div className={styles.subTh}>Date Ref</div>
+                                  <div className={styles.subTh}>Lead Time</div>
+                                  <div className={styles.subTh}>CAPEX/OPEX</div>
+                                  <div className={styles.subTh}>Notes</div>
+                                </div>
+                                <div className={styles.subRows}>
+                                  {(asset.pcfCosts || []).map((pc, idx) =>
+                                    renderCostRow(asset, pc, idx, "pcf"),
+                                  )}
+                                </div>
+                                {assetBd.pcfTotal > 0 && (
+                                  <div className={styles.subFooter}>
+                                    <span className={styles.subFooterLabel}>
+                                      {rollPCF
+                                        ? "PCF per unit:"
+                                        : "PCF subtotal:"}
+                                    </span>
+                                    <span className={styles.subFooterValue}>
+                                      $ {fmtCost(assetBd.pcfTotal)}
+                                    </span>
+                                    {rollPCF && (
+                                      <span className={styles.subFooterCalc}>
+                                        × {assetBd.qty} = ${" "}
+                                        {fmtCost(assetBd.pcfCounted)}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
-                              {activeTab === "splits" && renderSplitsTab(asset)}
-                              {activeTab === "fees" && renderFeesTab(asset)}
-                              {activeTab === "items" &&
-                                (siHasSubItems ? (
+                            );
+                          return siHasSubItems ? (
                                   <div className={styles.subTblWrap}>
                                     <div className={styles.subTblHead}>
                                       <div className={styles.subTh}>#</div>
@@ -6482,11 +6880,19 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                     {assetBd.subItemsTotal > 0 && (
                                       <div className={styles.subFooter}>
                                         <span className={styles.subFooterLabel}>
-                                          Sub-items subtotal:
+                                          {rollSubItems
+                                            ? "Sub-items per unit:"
+                                            : "Sub-items subtotal:"}
                                         </span>
                                         <span className={styles.subFooterValue}>
                                           $ {fmtCost(assetBd.subItemsTotal)}
                                         </span>
+                                        {rollSubItems && (
+                                          <span className={styles.subFooterCalc}>
+                                            × {assetBd.qty} = ${" "}
+                                            {fmtCost(assetBd.subItemsCounted)}
+                                          </span>
+                                        )}
                                       </div>
                                     )}
                                   </div>
@@ -6497,106 +6903,119 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                       Supply tab.
                                     </p>
                                   </div>
-                                ))}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    {/* PCF drawer (Preliminary Concept Form — for Eng. Solutions) */}
-                    {siHasPCF && (
-                      <tr className={styles.drawerRow}>
-                        <td colSpan={COLS}>
-                          <div className={styles.drawerInner}>
-                            <div className={styles.drawerHeader}>
-                              <svg
-                                viewBox="0 0 24 24"
-                                width="13"
-                                height="13"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
+                                );
+                        };
+                        const viewToggle = availableTabs.length > 1 && (
+                          <button
+                            type="button"
+                            className={`${styles.drawerViewToggle}${showAll ? ` ${styles.drawerViewToggleActive}` : ""}`}
+                            onClick={() => toggleShowAll(asset.id)}
+                            aria-pressed={showAll}
+                            title={
+                              showAll
+                                ? "Back to the tabs view"
+                                : "Show all tables at once"
+                            }
+                          >
+                            <svg
+                              viewBox="0 0 24 24"
+                              width="12"
+                              height="12"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              {showAll ? (
+                                <>
+                                  <path d="M3 9h18v11H3z" />
+                                  <path d="M3 9V5h7v4M10 5h6v4" />
+                                </>
+                              ) : (
+                                <>
+                                  <rect x="3" y="4" width="18" height="4" rx="1" />
+                                  <rect x="3" y="10" width="18" height="4" rx="1" />
+                                  <rect x="3" y="16" width="18" height="4" rx="1" />
+                                </>
+                              )}
+                            </svg>
+                            {showAll ? "Tabs view" : "Show all"}
+                          </button>
+                        );
+                        return (
+                          <tr className={styles.drawerRow}>
+                            <td colSpan={COLS}>
+                              <div
+                                className={`${styles.drawerInner}${isSubItemsClosing ? ` ${styles.drawerClosing}` : ""}`}
                               >
-                                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                                <path d="M2 17l10 5 10-5" />
-                                <path d="M2 12l10 5 10-5" />
-                              </svg>
-                              <span className={styles.drawerTitle}>
-                                Preliminary Concept Form ({siPCFItems.length})
-                              </span>
-                              <span className={styles.drawerHint}>
-                                Eng. Solutions BOM concept
-                              </span>
-                              <label
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 6,
-                                  marginLeft: "auto",
-                                  fontSize: 11,
-                                  fontWeight: 500,
-                                  color: "var(--text-secondary)",
-                                  cursor: readOnly ? "default" : "pointer",
-                                  whiteSpace: "nowrap",
-                                }}
-                                title="When enabled, the main item cost is the sum of these PCF items."
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={!!asset.costFromPCF}
-                                  disabled={readOnly}
-                                  onChange={(e) =>
-                                    updateField(
-                                      asset.id,
-                                      "costFromPCF",
-                                      e.target.checked,
-                                    )
-                                  }
-                                />
-                                Σ Main cost = sum of PCF
-                              </label>
-                            </div>
-                            <div className={styles.subTblWrap}>
-                              <div className={styles.subTblHead}>
-                                <div className={styles.subTh}>#</div>
-                                <div className={styles.subTh}>
-                                  Equipment Offer
-                                </div>
-                                <div className={styles.subTh}>Sub-Type</div>
-                                <div className={styles.subTh}>OII / MFG PN</div>
-                                <div className={styles.subTh}>Qty</div>
-                                <div className={styles.subTh}>Availability</div>
-                                <div className={styles.subTh}>Acq. Type</div>
-                                <div className={styles.subTh}>Unit Cost</div>
-                                <div className={styles.subTh}>Total Cost</div>
-                                <div className={styles.subTh}>
-                                  Cost Ref / Supplier
-                                </div>
-                                <div className={styles.subTh}>Date Ref</div>
-                                <div className={styles.subTh}>Lead Time</div>
-                                <div className={styles.subTh}>CAPEX/OPEX</div>
-                                <div className={styles.subTh}>Notes</div>
-                              </div>
-                              <div className={styles.subRows}>
-                                {(asset.pcfCosts || []).map((pc, idx) =>
-                                  renderCostRow(asset, pc, idx, "pcf"),
+                                {showAll ? (
+                                  <>
+                                    <div className={styles.drawerTabs}>
+                                      <span className={styles.drawerTitle}>
+                                        All details
+                                      </span>
+                                      <span className={styles.drawerHint}>
+                                        {availableTabs
+                                          .map((t) => tabLabel[t])
+                                          .join(" · ")}
+                                      </span>
+                                      {viewToggle}
+                                    </div>
+                                    {availableTabs.map((t) => (
+                                      <div
+                                        key={t}
+                                        className={styles.drawerSection}
+                                      >
+                                        <div className={styles.drawerHeader}>
+                                          {tabIcon(t)}
+                                          <span className={styles.drawerTitle}>
+                                            {tabLabel[t]}
+                                          </span>
+                                          <span
+                                            className={styles.drawerTabCount}
+                                          >
+                                            {tabCount[t]}
+                                          </span>
+                                          <span className={styles.drawerHint}>
+                                            {tabHint[t]}
+                                          </span>
+                                          {renderDrawerActions(t)}
+                                        </div>
+                                        {renderDrawerBody(t)}
+                                      </div>
+                                    ))}
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className={styles.drawerTabs}>
+                                      {availableTabs.map((t) => (
+                                        <button
+                                          key={t}
+                                          className={`${styles.drawerTab}${activeTab === t ? ` ${styles.drawerTabActive}` : ""}`}
+                                          onClick={() => openDrawer(asset.id, t)}
+                                        >
+                                          {tabIcon(t)}
+                                          {tabLabel[t]}
+                                          <span
+                                            className={styles.drawerTabCount}
+                                          >
+                                            {tabCount[t]}
+                                          </span>
+                                        </button>
+                                      ))}
+                                      <span className={styles.drawerHint}>
+                                        {tabHint[activeTab]}
+                                      </span>
+                                      {renderDrawerActions(activeTab)}
+                                      {viewToggle}
+                                    </div>
+                                    {renderDrawerBody(activeTab)}
+                                  </>
                                 )}
                               </div>
-                              {/* PCF subtotal */}
-                              {getPCFTotal(asset) > 0 && (
-                                <div className={styles.subFooter}>
-                                  <span className={styles.subFooterLabel}>
-                                    PCF subtotal:
-                                  </span>
-                                  <span className={styles.subFooterValue}>
-                                    $ {getPCFTotal(asset).toLocaleString()}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
+                            </td>
+                          </tr>
+                        );
+                      })()}
                   </React.Fragment>
                 );
               })}
@@ -6658,22 +7077,34 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           const a = localAssets.find((x) => x.id === breakdownAnchor.assetId);
           if (!a) return null;
           const bd = breakdownOf(a);
+          const hasSplitsBd = bd.splits.length > 0;
+          const rollSub = !hasSplitsBd && !!a.costFromSubItems;
+          const rollPcf = !hasSplitsBd && !!a.costFromPCF;
           const layers: { label: string; value: number }[] = [];
-          if (bd.splits.length > 0) {
+          if (hasSplitsBd) {
             layers.push({ label: "Splits", value: bd.splitsTotal });
-          } else if (a.costFromSubItems) {
-            layers.push({ label: "Own cost (rolled up)", value: 0 });
+          } else if (rollSub || rollPcf) {
+            layers.push({
+              label: `Unit cost (Σ) $ ${fmtCost(bd.rollupUnit)} × ${bd.qty}`,
+              value: bd.main.base,
+            });
           } else {
             layers.push({ label: "Own cost", value: bd.main.base });
           }
           if (bd.main.fees > 0) {
-            layers.push({ label: "Services & fees", value: bd.main.fees });
+            layers.push({
+              label:
+                bd.linkedFees > 0
+                  ? "Services & fees (not linked)"
+                  : "Services & fees",
+              value: bd.main.fees,
+            });
           }
-          if (bd.subItems.length > 0) {
-            layers.push({ label: "Sub-items", value: bd.subItemsTotal });
+          if (!rollSub && bd.subItems.length > 0) {
+            layers.push({ label: "Sub-items", value: bd.subItemsCounted });
           }
-          if (a.costFromPCF && bd.pcf.length > 0) {
-            layers.push({ label: "PCF items", value: bd.pcfTotal });
+          if (!rollPcf && bd.pcf.length > 0) {
+            layers.push({ label: "PCF items", value: bd.pcfCounted });
           }
           return (
             <>
@@ -6707,6 +7138,15 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                   <div className={styles.breakdownRow}>
                     <span>Uncategorized</span>
                     <span>$ {fmtCost(bd.uncategorized)}</span>
+                  </div>
+                )}
+                {bd.linkedFees > 0 && (
+                  <div className={styles.breakdownRow}>
+                    <span>
+                      Linked services &amp; fees
+                      {rollSub || rollPcf ? " (per unit)" : ""}
+                    </span>
+                    <span>$ {fmtCost(bd.linkedFees)}</span>
                   </div>
                 )}
                 {bd.orphanFees > 0 && (

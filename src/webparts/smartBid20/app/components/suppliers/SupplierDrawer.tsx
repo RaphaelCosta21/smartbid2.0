@@ -3,7 +3,15 @@
  * the quotations registered for it (same layout as the Past Bids drawer).
  */
 import * as React from "react";
-import { ExternalLink, Mail, Pencil, Phone, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Mail,
+  Pencil,
+  Phone,
+  X,
+} from "lucide-react";
 import { IConfigOption, IQuotationItem, ISupplier } from "../../models";
 import { QuotationService } from "../../services/QuotationService";
 import { formatCurrency, formatDate } from "../../utils/formatters";
@@ -20,8 +28,52 @@ interface SupplierDrawerProps {
   onViewQuotations: () => void;
 }
 
-const RECENT_QUOTATIONS = 5;
 const MAX_PART_NUMBERS = 30;
+
+/** One supplier quotation document (same REF + same file). */
+interface IQuotationGroup {
+  key: string;
+  reference: string;
+  fileUrl?: string;
+  fileName?: string;
+  quotationDate: string;
+  totalUSD: number;
+  hasRental: boolean;
+  items: IQuotationItem[];
+}
+
+/** Groups items by REF + document, keeping the input (most recent first) order. */
+const groupQuotations = (items: IQuotationItem[]): IQuotationGroup[] => {
+  const groups: IQuotationGroup[] = [];
+  const byKey: Record<string, IQuotationGroup> = {};
+  items.forEach((q) => {
+    const reference = (q.reference || "").trim();
+    const key =
+      reference || q.fileUrl ? `${reference}|${q.fileUrl || ""}` : `item|${q.id}`;
+    let group = byKey[key];
+    if (!group) {
+      group = {
+        key,
+        reference,
+        fileUrl: q.fileUrl,
+        fileName: q.fileName,
+        quotationDate: q.quotationDate,
+        totalUSD: 0,
+        hasRental: false,
+        items: [],
+      };
+      byKey[key] = group;
+      groups.push(group);
+    }
+    group.items.push(q);
+    group.totalUSD += q.costUSD || 0;
+    if (q.type === "rental") group.hasRental = true;
+    if (q.quotationDate && q.quotationDate > (group.quotationDate || "")) {
+      group.quotationDate = q.quotationDate;
+    }
+  });
+  return groups;
+};
 
 const initials = (name: string): string =>
   name
@@ -55,6 +107,13 @@ export const SupplierDrawer: React.FC<SupplierDrawerProps> = ({
     (c) => c.name || c.email || c.phone,
   );
   const lastQuotation = quotations.length ? quotations[0] : undefined;
+  const quotationGroups = React.useMemo(
+    () => groupQuotations(quotations),
+    [quotations],
+  );
+  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+  const toggleGroup = (key: string): void =>
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const renderChips = (
     values: string[],
@@ -237,44 +296,98 @@ export const SupplierDrawer: React.FC<SupplierDrawerProps> = ({
             ) : (
               <>
                 <span className={styles.muted}>
-                  {quotations.length} quotation item
-                  {quotations.length > 1 ? "s" : ""}
+                  {quotationGroups.length} quotation
+                  {quotationGroups.length > 1 ? "s" : ""}, {quotations.length}{" "}
+                  item{quotations.length > 1 ? "s" : ""}
                   {lastQuotation && lastQuotation.quotationDate
                     ? `, last on ${formatDate(lastQuotation.quotationDate)}`
                     : ""}
                 </span>
                 <div className={styles.quoteList}>
-                  {quotations.slice(0, RECENT_QUOTATIONS).map((q) => (
-                    <div key={q.id} className={styles.quoteItem}>
-                      <div className={styles.quoteTop}>
-                        <span className={styles.quotePn}>
-                          {q.partNumber || "-"}
-                        </span>
-                        <span className={styles.quoteCost}>
-                          {formatCurrency(q.costUSD, "USD")}
-                        </span>
-                      </div>
-                      <span className={styles.quoteDesc} title={q.description}>
-                        {q.description || "-"}
-                      </span>
-                      <div className={styles.quoteMeta}>
-                        <span>
-                          {q.quotationDate ? formatDate(q.quotationDate) : "-"}
-                        </span>
-                        {q.reference && <span>REF {q.reference}</span>}
-                        {q.fileUrl && (
-                          <a
-                            className={styles.contactLink}
-                            href={QuotationService.getFileOpenUrl(q.fileUrl)}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                  {quotationGroups.map((g, gi) => {
+                    const isOpen = !!expanded[g.key];
+                    const itemsId = `supplier-quote-${supplier.id}-${gi}`;
+                    return (
+                      <div key={g.key} className={styles.quoteItem}>
+                        <button
+                          type="button"
+                          className={styles.quoteGroupHeader}
+                          onClick={() => toggleGroup(g.key)}
+                          aria-expanded={isOpen}
+                          aria-controls={itemsId}
+                        >
+                          {isOpen ? (
+                            <ChevronDown size={16} />
+                          ) : (
+                            <ChevronRight size={16} />
+                          )}
+                          <span className={styles.quoteGroupMain}>
+                            <span className={styles.quoteTop}>
+                              <span className={styles.quotePn}>
+                                {g.reference
+                                  ? `REF ${g.reference}`
+                                  : g.fileName || "No reference"}
+                              </span>
+                              <span className={styles.quoteCost}>
+                                {formatCurrency(g.totalUSD, "USD")}
+                              </span>
+                            </span>
+                            <span className={styles.quoteMeta}>
+                              <span>
+                                {g.quotationDate
+                                  ? formatDate(g.quotationDate)
+                                  : "-"}
+                              </span>
+                              <span>
+                                {g.items.length} item
+                                {g.items.length > 1 ? "s" : ""}
+                              </span>
+                              {g.hasRental && <span>Includes day rates</span>}
+                            </span>
+                          </span>
+                        </button>
+                        {g.fileUrl && (
+                          <div
+                            className={`${styles.quoteMeta} ${styles.quoteIndent}`}
                           >
-                            <ExternalLink size={12} /> File
-                          </a>
+                            <a
+                              className={styles.contactLink}
+                              href={QuotationService.getFileOpenUrl(g.fileUrl)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={g.fileName || "Open quotation file"}
+                            >
+                              <ExternalLink size={12} />{" "}
+                              {g.fileName || "File"}
+                            </a>
+                          </div>
+                        )}
+                        {isOpen && (
+                          <div id={itemsId} className={styles.quoteLines}>
+                            {g.items.map((q) => (
+                              <div key={q.id} className={styles.quoteLine}>
+                                <div className={styles.quoteTop}>
+                                  <span className={styles.quotePn}>
+                                    {q.partNumber || "-"}
+                                  </span>
+                                  <span className={styles.quoteCost}>
+                                    {formatCurrency(q.costUSD, "USD")}
+                                    {q.type === "rental" ? " /day" : ""}
+                                  </span>
+                                </div>
+                                <span
+                                  className={styles.quoteDesc}
+                                  title={q.description}
+                                >
+                                  {q.description || "-"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}

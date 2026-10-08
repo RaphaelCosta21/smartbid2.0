@@ -38,12 +38,29 @@ export interface LiveOverview {
   deadlines: IUpcomingDeadline[];
 }
 
+export type LiveUpdateKind = "erns" | "approvals" | "deadlines";
+
+/** One Live item that changed since the user last checked, in plain language. */
+export interface ILiveUpdate {
+  key: string;
+  kind: LiveUpdateKind;
+  /** ERN number (erns) or BID number (approvals / deadlines) */
+  id: string;
+  title: string;
+  /** What changed, one sentence each */
+  changes: string[];
+  /** The item left the Live overview (nothing to open) */
+  gone: boolean;
+}
+
 /** Live items that changed since the user last checked (header Live panel). */
 export interface LiveUpdates {
   /** Item keys (ern: / apr: / due:) new or changed */
-  keys: Record<string, boolean>;
+  keys: Record<string, ILiveUpdate>;
   /** Changed + new + gone items */
   count: number;
+  /** Changed + new + gone items, described */
+  items: ILiveUpdate[];
 }
 
 export function useLiveOverview(bids: IBid[]): LiveOverview {

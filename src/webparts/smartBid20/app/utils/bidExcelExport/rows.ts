@@ -9,13 +9,13 @@ import {
 import {
   CostCategory,
   IContingencyOpts,
+  ICostNode,
   applyContingencyToCost,
   getAgeContingencyPct,
   getAssetCostBreakdown,
   getBidContingency,
   getEffectiveCategory,
   getSplitNode,
-  getSubItemNode,
   isNoCostAvailability,
   isRentalAcq,
   isWorkshopAcq,
@@ -167,11 +167,17 @@ function summarizeAsset(
   const bd = getAssetCostBreakdown(asset, si, cont);
   const splits = asset.availabilitySplits || [];
   const hasSplits = splits.length > 0;
-  const rollup = asset.costFromSubItems
-    ? "sub-items"
-    : asset.costFromPCF
-      ? "PCF"
-      : "";
+  // Splits switch the roll-up off (same rule as getAssetCostBreakdown)
+  const rollSub = !hasSplits && !!asset.costFromSubItems;
+  const rollPcf = !hasSplits && !!asset.costFromPCF;
+  const rollup =
+    rollSub && rollPcf
+      ? "sub-items + PCF"
+      : rollSub
+        ? "sub-items"
+        : rollPcf
+          ? "PCF"
+          : "";
   const avail = (asset.availabilityStatus || "").trim();
   const notOffered = !hasSplits && avail.toLowerCase() === "not offered";
   const noCost = !hasSplits && isNoCostAvailability(avail);
@@ -186,7 +192,7 @@ function summarizeAsset(
     else children.push(c);
   };
   (asset.subItemCosts || []).forEach(addChild);
-  if (asset.costFromPCF) (asset.pcfCosts || []).forEach(addChild);
+  (asset.pcfCosts || []).forEach(addChild);
   const procuredChildren = children.filter(isProcured);
   const procuredSplits = splits.filter(isProcured);
 
@@ -210,7 +216,9 @@ function summarizeAsset(
   let unitCost: number | null = null;
   let agePct = 0;
   let engPct = 0;
-  if (!hasSplits && !rollup && !noCost && !workshop) {
+  if (rollup) {
+    unitCost = bd.rollupUnit;
+  } else if (!hasSplits && !noCost && !workshop) {
     if (rental) {
       unitCost = asset.dailyRate || 0;
     } else {
@@ -228,17 +236,24 @@ function summarizeAsset(
 
   const includes: string[] = [];
   if (hasSplits) includes.push(`${splits.length} availability splits`);
-  if (rollup) includes.push(`Σ ${rollup}`);
-  if (bd.subItems.length > 0 && bd.subItemsTotal > 0) {
+  if (rollup) {
+    includes.push(`Σ ${rollup} ${fmtUSD(bd.rollupUnit)}/unit × ${bd.qty}`);
+  }
+  if (!rollSub && bd.subItems.length > 0 && bd.subItemsCounted > 0) {
     includes.push(
-      `Sub-items (${bd.subItems.length}) ${fmtUSD(bd.subItemsTotal)}`,
+      `Sub-items (${bd.subItems.length}) ${fmtUSD(bd.subItemsCounted)}`,
     );
   }
-  if (asset.costFromPCF && bd.pcfTotal > 0) {
-    includes.push(`PCF (${bd.pcf.length}) ${fmtUSD(bd.pcfTotal)}`);
+  if (!rollPcf && bd.pcfCounted > 0) {
+    includes.push(`PCF (${bd.pcf.length}) ${fmtUSD(bd.pcfCounted)}`);
   }
   const fees = bd.main.fees + bd.splits.reduce((s, n) => s + n.fees, 0);
   if (fees > 0) includes.push(`Services & fees ${fmtUSD(fees)}`);
+  if (bd.linkedFees > 0) {
+    includes.push(
+      `Linked services & fees ${fmtUSD(bd.linkedFees)}${rollup ? "/unit" : ""}`,
+    );
+  }
   if (agePct > 0) {
     includes.push(`Contingency +${Math.round(agePct * 100) / 100}%`);
   }
@@ -276,7 +291,7 @@ function summarizeAsset(
           : "N/A"
         : asset.acquisitionType || "-",
     unitCost,
-    unitIsDaily: rental && unitCost !== null,
+    unitIsDaily: rental && !rollup && unitCost !== null,
     total: bd.total,
     capex: bd.capex,
     opex: bd.opex,
@@ -446,6 +461,7 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
     };
 
     const splits = asset.availabilitySplits || [];
+    const bd = getAssetCostBreakdown(asset, si, cont);
     if (splits.length > 0) {
       splits.forEach((sp, i) =>
         push(
@@ -459,22 +475,26 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
         ),
       );
     } else if (!asset.costFromSubItems && !asset.costFromPCF) {
-      const bd = getAssetCostBreakdown(asset, si, cont);
-      const qty = (si ? (si.qtyOperational || 0) + (si.qtySpare || 0) : 0) || 1;
       push(
         "Main",
         parentName,
         "",
         (si && si.partNumber) || "",
-        qty,
+        bd.qty,
         asset,
         bd.main.total,
       );
     }
 
-    const pushChildren = (level: SupplierLevel, list: ISubItemCost[]): void => {
+    // Rolled-up children are priced per main unit, so they scale with the main qty
+    const pushChildren = (
+      level: SupplierLevel,
+      list: ISubItemCost[],
+      nodes: ICostNode[],
+      mult: number,
+    ): void => {
       const childEngSol = engSol && level === "PCF";
-      list.forEach((sic) => {
+      list.forEach((sic, idx) => {
         const child = findChild(si, sic.subItemId);
         const name =
           (child && (child.equipmentOffer || child.description)) || "-";
@@ -487,9 +507,9 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
               `${name} (split ${i + 1})`,
               parentName,
               pn,
-              sp.qty || 0,
+              (sp.qty || 0) * mult,
               sp,
-              getSplitNode(sp, cont, childEngSol).total,
+              getSplitNode(sp, cont, childEngSol).total * mult,
             ),
           );
           return;
@@ -499,14 +519,25 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
           name,
           parentName,
           pn,
-          (child && child.qty) || 1,
+          ((child && child.qty) || 1) * mult,
           sic,
-          getSubItemNode(sic, si, cont, childEngSol).total,
+          (nodes[idx] ? nodes[idx].total : 0) * mult,
         );
       });
     };
-    pushChildren("Sub-item", asset.subItemCosts || []);
-    if (asset.costFromPCF) pushChildren("PCF", asset.pcfCosts || []);
+    const rolled = splits.length === 0;
+    pushChildren(
+      "Sub-item",
+      asset.subItemCosts || [],
+      bd.subItems,
+      rolled && asset.costFromSubItems ? bd.qty : 1,
+    );
+    pushChildren(
+      "PCF",
+      asset.pcfCosts || [],
+      bd.pcf,
+      rolled && asset.costFromPCF ? bd.qty : 1,
+    );
   });
 
   return rows.sort((a, b) => {

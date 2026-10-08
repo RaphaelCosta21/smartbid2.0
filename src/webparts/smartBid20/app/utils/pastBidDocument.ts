@@ -438,6 +438,8 @@ function pricing(bid: IBid, num: number): string[] {
         ? (scope.qtyOperational || 0) + (scope.qtySpare || 0)
         : 0;
       const owner = scope ? `line ${scope.lineNumber}` : "unlinked asset";
+      const rolledUp =
+        bd.splits.length === 0 && (!!a.costFromSubItems || !!a.costFromPCF);
       const main = record(
         scope
           ? `Asset ${lineLabel(scope)}`
@@ -448,7 +450,10 @@ function pricing(bid: IBid, num: number): string[] {
           ["Qty", qty || ""],
           ["Availability", a.availabilityStatus],
           ["Acquisition", a.acquisitionType],
-          ["Unit cost", amount(a.unitCostUSD, "USD")],
+          [
+            "Unit cost",
+            amount(rolledUp ? bd.rollupUnit : a.unitCostUSD, "USD"),
+          ],
           [
             "Original price",
             a.originalCost ? money(a.originalCost, a.originalCurrency) : "",
@@ -468,7 +473,13 @@ function pricing(bid: IBid, num: number): string[] {
           ["Lead time", a.leadTimeDays ? `${a.leadTimeDays} days` : ""],
           [
             "Cost from",
-            a.costFromSubItems ? "sub-items" : a.costFromPCF ? "PCF items" : "",
+            a.costFromSubItems && a.costFromPCF
+              ? "sub-items + PCF items"
+              : a.costFromSubItems
+                ? "sub-items"
+                : a.costFromPCF
+                  ? "PCF items"
+                  : "",
           ],
           ["Notes", a.notes],
         ],
@@ -531,15 +542,27 @@ function pricing(bid: IBid, num: number): string[] {
         });
       childCosts("Sub-item cost", a.subItemCosts, scope?.subItems);
       childCosts("PCF item cost", a.pcfCosts, scope?.pcfItems);
-      (a.subCosts || []).forEach((sc) =>
+      (a.subCosts || []).forEach((sc) => {
+        const link = sc.linkedTo;
+        const linked = link
+          ? ((link.kind === "pcf" ? scope?.pcfItems : scope?.subItems) || []).find(
+              (s) => s.id === link.subItemId,
+            )
+          : undefined;
         children.push(
           record(`Additional cost of ${owner}: ${clean(sc.description)}`, [
             ["Amount", amount(sc.costUSD, "USD")],
+            [
+              "Linked to",
+              linked
+                ? `${link?.kind === "pcf" ? "PCF item" : "Sub-item"}: ${clean(linked.description)}`
+                : "",
+            ],
             ["Cost source", sc.costReference],
             ["Notes", sc.notes],
           ]),
-        ),
-      );
+        );
+      });
       return lines([main].concat(children));
     }),
   );

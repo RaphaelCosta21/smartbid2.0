@@ -1028,6 +1028,44 @@
   text-align: center;
 }
 
+/* "Show all" mode — every drawer table stacked instead of tabs */
+.drawerSection + .drawerSection {
+  margin-top: 16px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.drawerViewToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+
+  &:hover {
+    color: var(--accent-color);
+    border-color: var(--accent-color);
+  }
+}
+
+.drawerViewToggleActive {
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+  background: color-mix(in srgb, var(--accent-500) 10%, transparent);
+}
+
 .rollupToggle {
   display: flex;
   align-items: center;
@@ -1144,8 +1182,8 @@
 .feeRow {
   display: grid;
   grid-template-columns:
-    34px minmax(0, 2fr) minmax(0, 124px) minmax(0, 1fr) minmax(0, 82px)
-    minmax(0, 1.4fr) 32px;
+    34px minmax(0, 2fr) minmax(0, 170px) minmax(0, 124px) minmax(0, 1fr)
+    minmax(0, 82px) minmax(0, 1.4fr) 32px;
 }
 
 .feeTblHead {
@@ -1230,6 +1268,154 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+}
+
+.feeStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ─── "Linked to" column of the Services & Fees card ─── */
+.feeLinkCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+}
+
+.feeLinkTag {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary-accent);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.feeLinkWarn {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--warning);
+  white-space: normal;
+}
+
+/* ─── Roll-up (Σ) unit / total cells on the main row ─── */
+.rollupCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.rollupUnit {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.subFooterCalc {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* ─── Fees linked to a sub-item / PCF row (inline, under the row) ─── */
+.linkedFeesPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px 8px 46px;
+  background: var(--hover-bg, rgba(255, 255, 255, 0.03));
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: inset 2px 0 0 0 var(--primary-accent);
+  min-width: 0;
+}
+
+.linkedFeesHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+
+  .noteLabel {
+    margin-bottom: 0;
+  }
+}
+
+.linkedFeesHint {
+  font-size: 10px;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.linkedFeesOpen {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--primary-accent);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    background: color-mix(in srgb, var(--primary-accent) 10%, transparent);
+  }
+}
+
+.linkedFeeRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px auto;
+  align-items: center;
+  gap: 8px;
+  max-width: 560px;
+
+  .numInput {
+    width: 100%;
+  }
+}
+
+.linkedFeeDesc {
+  font-size: 11px;
+  color: var(--text-primary);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.linkedFeeCost {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.linkedFeeActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.linkedFeesActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 560px;
+
+  .selectCell {
+    width: auto;
+    max-width: 260px;
+  }
+}
+
+.linkedFeesSum {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-accent);
 }
 
 /* ─── Shared cell helpers ─── */
@@ -1478,7 +1664,21 @@
   background: color-mix(in srgb, var(--accent-500) 10%, transparent);
   padding: 1px 5px;
   border-radius: 3px;
-  white-space: nowrap;
+  line-height: 1.3;
+  max-width: 100%;
+  box-sizing: border-box;
+  align-self: flex-start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Typed unit cost + contingency badges; badge must wrap instead of widening (and clipping) the input */
+.unitCostStack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
 }
 
 .contingencyDivider {

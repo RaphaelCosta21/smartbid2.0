@@ -165,13 +165,13 @@
   clip-path: inset(0 0 0 0 round 18px);
 }
 
+// Content stays visible while the clip shrinks, then the whole surface fades,
+// so no empty card (bright white in light mode) collapses into the header
 .panelClosing .surface {
-  transition: clip-path 400ms cubic-bezier(0.4, 0, 0.2, 1);
-
-  > * {
-    opacity: 0;
-    transition: opacity 140ms ease;
-  }
+  opacity: 0;
+  transition:
+    clip-path 400ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 240ms ease 140ms;
 }
 
 /* Sections cascade in while the surface opens */
