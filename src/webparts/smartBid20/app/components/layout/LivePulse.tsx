@@ -297,7 +297,8 @@ export const LivePulse: React.FC = () => {
   const dashboardView = useUIStore((s) => s.dashboardView);
   const setDashboardView = useUIStore((s) => s.setDashboardView);
   const { canViewPage } = useAccessLevel();
-  const allowed = canViewPage("dashboard");
+  const allowed =
+    canViewPage("dashboard") && currentUser.role === "engineering";
 
   const [phase, setPhase] = React.useState<Phase>("closed");
   const [anchor, setAnchor] = React.useState<Anchor | null>(null);

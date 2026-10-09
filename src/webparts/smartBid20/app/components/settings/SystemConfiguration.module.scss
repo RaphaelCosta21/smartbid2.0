@@ -1218,6 +1218,43 @@
   color: var(--text-muted);
 }
 
+.assistantTeams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.assistantTeamChip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary-accent);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.7;
+  }
+}
+
+.assistantTeamChipActive {
+  background: color-mix(in srgb, var(--primary-accent) 14%, transparent);
+  border-color: var(--primary-accent);
+  color: var(--primary-accent);
+  font-weight: 600;
+}
+
 /* ================================================================ */
 /* PANEL OVERLAY (slide-over)                                       */
 /* ================================================================ */

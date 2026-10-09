@@ -31,8 +31,11 @@ export const ROUTES = {
   bomCosts: "/tools/bom-costs",
   quotations: "/tools/quotations",
   tooling: "/tools/tooling",
-  queryConsulting: "/tools/query-consulting",
-  queryConsultingExternal: "/tools/query-consulting-external",
+  queryConsulting: "/tools/peoplesoft-consulting",
+  queryConsultingExternal: "/tools/peoplesoft-consulting-external",
+  // Pre-rename links (Query Consulting), redirected to the routes above
+  queryConsultingLegacy: "/tools/query-consulting",
+  queryConsultingExternalLegacy: "/tools/query-consulting-external",
   easiPriceHistory: "/tools/price-history",
   easiBidPresentation: "/tools/bid-presentation",
   easiBidComparator: "/tools/bid-comparator",

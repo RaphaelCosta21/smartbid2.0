@@ -244,11 +244,11 @@ export const NAVIGATION_ITEMS: INavItem[] = [
   },
   {
     key: "query-consulting",
-    label: "Query Consulting",
+    label: "Peoplesoft Consulting",
     icon: "CircleDollarSign",
-    route: "/tools/query-consulting",
+    route: "/tools/peoplesoft-consulting",
     section: "tools",
-    externalRoute: "/tools/query-consulting-external",
+    externalRoute: "/tools/peoplesoft-consulting-external",
   },
   {
     key: "easi-price-history",

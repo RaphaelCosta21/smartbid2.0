@@ -21,6 +21,8 @@ export const SHAREPOINT_CONFIG = {
     suppliers: "smartbid-suppliers",
     /** Survey Knowledge & BID Portal catalog (families, equipment, systems). */
     surveyCatalog: "smartbid-survey-catalog",
+    /** One row per app load (Title = user email); provisioned by the super admin master. */
+    accessLog: "smartbid-access-log",
   },
   libraries: {
     attachments: "SmartBidAttachments",
@@ -28,6 +30,12 @@ export const SHAREPOINT_CONFIG = {
 
   /** Base URL for equipment photos (format: {partNumber}.jpg) — relative to siteUrl */
   photosBaseUrl: "/smartBidDocs/photos",
+
+  /** Internal field names for smartbid-access-log (Title holds the email). */
+  accessLogFields: {
+    userName: "UserName",
+    accessArea: "AccessArea",
+  },
 
   /** Internal field names for smartbid-survey-catalog (auto-provisioned). */
   surveyCatalogFields: {

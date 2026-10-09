@@ -1,5 +1,11 @@
 import * as React from "react";
-import { HashRouter, Routes, Route, useLocation } from "react-router-dom";
+import {
+  HashRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 import { useUIStore } from "../../stores/useUIStore";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useBidStore } from "../../stores/useBidStore";
@@ -8,6 +14,7 @@ import { BidService } from "../../services/BidService";
 import { SystemConfigService } from "../../services/SystemConfigService";
 import { MembersService } from "../../services/MembersService";
 import { UserService } from "../../services/UserService";
+import { AccessLogService } from "../../services/AccessLogService";
 import { isSuperAdmin } from "../../utils/accessControl";
 import { IUser, UserRole } from "../../models";
 import { ROUTES } from "../../config/routes.config";
@@ -145,6 +152,15 @@ export const AppLayout: React.FC = () => {
           isSuperAdmin: admin,
         };
         setCurrentUser(resolved);
+        const hash = window.location.hash.replace(/^#/, "");
+        const isExternalView =
+          hash.indexOf(ROUTES.queryConsultingExternal) === 0 ||
+          hash.indexOf(ROUTES.queryConsultingExternalLegacy) === 0;
+        AccessLogService.logAccess(
+          spUser.email,
+          resolved.displayName,
+          isExternalView ? "peoplesoft-external" : "smartbid",
+        ).catch(() => undefined);
         if (member && member.themePreference) {
           setTheme(member.themePreference);
         }
@@ -196,7 +212,9 @@ const AppLayoutInner: React.FC<{
   dismissToast,
 }) => {
   const location = useLocation();
-  const isExternal = location.pathname === ROUTES.queryConsultingExternal;
+  const isExternal =
+    location.pathname === ROUTES.queryConsultingExternal ||
+    location.pathname === ROUTES.queryConsultingExternalLegacy;
 
   if (isExternal) {
     return (
@@ -214,6 +232,10 @@ const AppLayoutInner: React.FC<{
           <Route
             path={ROUTES.queryConsultingExternal}
             element={guard("query-consulting", <QueryConsultingPage />)}
+          />
+          <Route
+            path={ROUTES.queryConsultingExternalLegacy}
+            element={<Navigate to={ROUTES.queryConsultingExternal} replace />}
           />
         </Routes>
       </div>
@@ -389,6 +411,10 @@ const AppLayoutInner: React.FC<{
             <Route
               path={ROUTES.queryConsulting}
               element={guard("query-consulting", <QueryConsultingPage />)}
+            />
+            <Route
+              path={ROUTES.queryConsultingLegacy}
+              element={<Navigate to={ROUTES.queryConsulting} replace />}
             />
             <Route
               path={ROUTES.easiPriceHistory}

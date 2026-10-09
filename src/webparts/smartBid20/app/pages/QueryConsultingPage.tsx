@@ -1,23 +1,52 @@
 /**
- * QueryConsultingPage — Full query consultation tool.
+ * QueryConsultingPage — Peoplesoft Consulting: full query consultation tool.
  * A general search (PN or description) covers every view; two source tabs
  * (Peoplesoft Financials / Peoplesoft Brazil) each hold two views
  * (Price Consulting / Active Registered with Manuf.) with their own column filters,
  * Business Unit filters, sortable columns, photo column, and pagination.
  * Financials › Active Registered with Manuf. comes from the CSV export;
  * every other tab comes from Queries.xlsx.
+ * Page chrome is EN / PT (config/peoplesoftConsulting.i18n); table data is never translated.
  *
  * Reuses useQueryCatalogStore — data is loaded once and cached in memory.
  * If BOM Costs or Favorites already triggered loadCatalog(), data is instant.
  */
 import * as React from "react";
+import { useLocation } from "react-router-dom";
+import {
+  ChevronLeft,
+  ChevronRight,
+  CircleQuestionMark,
+  Info,
+} from "lucide-react";
 import { PageHeader } from "../components/common/PageHeader";
 import { PhotoLightbox } from "../components/common/PhotoLightbox";
+import {
+  GuidedTour,
+  GuidedTourPlacement,
+  IGuidedTourStep,
+} from "../components/common/GuidedTour";
+import {
+  HowItWorksDrawer,
+  LanguageSwitch,
+} from "../components/peoplesoft/HowItWorksDrawer";
 import { useQueryCatalogStore } from "../stores/useQueryCatalogStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useDebounce } from "../hooks/useDebounce";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
+import { ROUTES } from "../config/routes.config";
+import {
+  PEOPLESOFT_TEXT,
+  PEOPLESOFT_TOUR_ORDER,
+  PeoplesoftLang,
+  PeoplesoftSourceKey,
+  PeoplesoftTourStepId,
+  PeoplesoftViewKey,
+  readPeoplesoftLang,
+  savePeoplesoftLang,
+} from "../config/peoplesoftConsulting.i18n";
 import { convertToUSD } from "../utils/costCalculations";
+import { getVisibleRect } from "../utils/domVisibility";
 import {
   formatCurrency,
   formatDate,
@@ -27,8 +56,8 @@ import { IExchangeRate } from "../models";
 import styles from "./QueryConsultingPage.module.scss";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type TabKey = "financials" | "brazil";
-type SubTabKey = "priceConsulting" | "activeRegistered";
+type TabKey = PeoplesoftSourceKey;
+type SubTabKey = PeoplesoftViewKey;
 
 interface IBusinessUnitFilter {
   name: string;
@@ -265,10 +294,21 @@ const SOURCES: [TabKey, string][] = [
   ["financials", "Peoplesoft Financials"],
   ["brazil", "Peoplesoft Brazil"],
 ];
-const VIEWS: [SubTabKey, string][] = [
-  ["priceConsulting", "Price Consulting"],
-  ["activeRegistered", "Active Registered with Manuf."],
-];
+const VIEW_KEYS: SubTabKey[] = ["priceConsulting", "activeRegistered"];
+
+const TOUR_PLACEMENT: Partial<Record<PeoplesoftTourStepId, GuidedTourPlacement>> =
+  {
+    hscroll: "top",
+    pagination: "top",
+  };
+/** Time for the How it Works drawer to slide out before the tour starts */
+const TOUR_START_DELAY_MS = 260;
+/** Hover-scroll speed on the table arrows (px/s), ramping from MIN to MAX */
+const HOVER_SPEED_MIN = 900;
+const HOVER_SPEED_MAX = 1800;
+const HOVER_RAMP_MS = 800;
+/** Min distance (px) between an arrow center and the table top/bottom */
+const ARROW_EDGE = 28;
 
 const SearchIcon = (
   <svg
@@ -348,6 +388,35 @@ export function QueryConsultingPage(): React.ReactElement {
       systemConfig.currencySettings.exchangeRates) ||
     [];
 
+  const location = useLocation();
+  const isExternal = location.pathname === ROUTES.queryConsultingExternal;
+
+  // ── Language, help drawer and guided tour ──────────────────────────────────
+  const [lang, setLang] = React.useState<PeoplesoftLang>(readPeoplesoftLang);
+  const t = PEOPLESOFT_TEXT[lang];
+  const changeLang = (next: PeoplesoftLang): void => {
+    setLang(next);
+    savePeoplesoftLang(next);
+  };
+  const [helpOpen, setHelpOpen] = React.useState(false);
+  const [tourOpen, setTourOpen] = React.useState(false);
+  const tourTimerRef = React.useRef(0);
+  React.useEffect(() => () => window.clearTimeout(tourTimerRef.current), []);
+  const startTour = (): void => {
+    setHelpOpen(false);
+    window.clearTimeout(tourTimerRef.current);
+    tourTimerRef.current = window.setTimeout(
+      () => setTourOpen(true),
+      TOUR_START_DELAY_MS,
+    );
+  };
+  const tourSteps: IGuidedTourStep[] = PEOPLESOFT_TOUR_ORDER.map((id) => ({
+    target: "psc-" + id,
+    title: t.tour.steps[id].title,
+    body: t.tour.steps[id].body,
+    placement: TOUR_PLACEMENT[id],
+  }));
+
   // ── Page state ─────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = React.useState<TabKey>("financials");
   const [activeSubTab, setActiveSubTab] =
@@ -412,6 +481,121 @@ export function QueryConsultingPage(): React.ReactElement {
     startX: number;
     startW: number;
   } | null>(null);
+
+  // ── Horizontal table scroll: bar above the table + hover-scroll edge arrows ──
+  const tableWrapRef = React.useRef<HTMLDivElement>(null);
+  const tableAreaRef = React.useRef<HTMLDivElement>(null);
+  const hScrollBarRef = React.useRef<HTMLDivElement>(null);
+  const [hScroll, setHScroll] = React.useState({
+    max: 0,
+    canLeft: false,
+    canRight: false,
+  });
+  const updateHScroll = React.useCallback((): void => {
+    const el = tableWrapRef.current;
+    if (!el) return;
+    const max = Math.max(0, el.scrollWidth - el.clientWidth);
+    const next = {
+      max: max > 1 ? max : 0,
+      canLeft: max > 1 && el.scrollLeft > 1,
+      canRight: max > 1 && el.scrollLeft < max - 1,
+    };
+    setHScroll((prev) =>
+      prev.max === next.max &&
+      prev.canLeft === next.canLeft &&
+      prev.canRight === next.canRight
+        ? prev
+        : next,
+    );
+  }, []);
+  // Arrows sit in the middle of the part of the table that is on screen
+  const [arrowTop, setArrowTop] = React.useState<number | null>(null);
+  const updateArrowTop = React.useCallback((): void => {
+    const area = tableAreaRef.current;
+    if (!area) return;
+    const box = area.getBoundingClientRect();
+    const visible = getVisibleRect(area);
+    const next = visible
+      ? Math.round(
+          Math.min(
+            Math.max(visible.top + visible.height / 2 - box.top, ARROW_EDGE),
+            Math.max(ARROW_EDGE, box.height - ARROW_EDGE),
+          ),
+        )
+      : null;
+    setArrowTop((prev) => (prev === next ? prev : next));
+  }, []);
+  // Ranges match (bar inner width = its width + table max), so equal values mean "already synced"
+  const handleTableScroll = (): void => {
+    const table = tableWrapRef.current;
+    const bar = hScrollBarRef.current;
+    if (table && bar && Math.abs(bar.scrollLeft - table.scrollLeft) >= 1)
+      bar.scrollLeft = table.scrollLeft;
+    updateHScroll();
+  };
+  const handleBarScroll = (): void => {
+    const table = tableWrapRef.current;
+    const bar = hScrollBarRef.current;
+    if (table && bar && Math.abs(table.scrollLeft - bar.scrollLeft) >= 1)
+      table.scrollLeft = bar.scrollLeft;
+  };
+  const scrollTableBy = (direction: 1 | -1): void => {
+    const table = tableWrapRef.current;
+    if (!table) return;
+    const reduce =
+      !!window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    table.scrollBy({
+      left: direction * table.clientWidth * 0.8,
+      behavior: reduce ? "auto" : "smooth",
+    });
+  };
+  // Mouse resting on an arrow keeps scrolling (speeds up during the first moments)
+  const hoverDirRef = React.useRef(0);
+  const hoverRafRef = React.useRef(0);
+  const stopHoverScroll = (): void => {
+    hoverDirRef.current = 0;
+    window.cancelAnimationFrame(hoverRafRef.current);
+  };
+  const startHoverScroll = (
+    direction: 1 | -1,
+    e: React.PointerEvent<HTMLButtonElement>,
+  ): void => {
+    if (e.pointerType !== "mouse") return;
+    stopHoverScroll();
+    hoverDirRef.current = direction;
+    const started = performance.now();
+    let last = started;
+    const step = (now: number): void => {
+      const table = tableWrapRef.current;
+      if (!table || hoverDirRef.current !== direction) return;
+      const dt = Math.min(now - last, 50) / 1000;
+      last = now;
+      const ramp = Math.min((now - started) / HOVER_RAMP_MS, 1);
+      const speed =
+        HOVER_SPEED_MIN + ramp * (HOVER_SPEED_MAX - HOVER_SPEED_MIN);
+      const before = table.scrollLeft;
+      table.scrollLeft = before + direction * speed * dt;
+      if (dt > 0 && table.scrollLeft === before) {
+        stopHoverScroll();
+        return;
+      }
+      hoverRafRef.current = window.requestAnimationFrame(step);
+    };
+    hoverRafRef.current = window.requestAnimationFrame(step);
+  };
+  React.useEffect(
+    () => () => window.cancelAnimationFrame(hoverRafRef.current),
+    [],
+  );
+  // Mouse users already scroll by hovering; clicks only jump for keyboard / touch
+  const handleArrowClick = (direction: 1 | -1): void => {
+    if (hoverDirRef.current === 0) scrollTableBy(direction);
+  };
+  const resetTableScroll = (): void => {
+    stopHoverScroll();
+    if (tableWrapRef.current) tableWrapRef.current.scrollLeft = 0;
+  };
 
   const hiddenKey = activeTab + "_" + activeSubTab;
   const currentHidden = hiddenCols[hiddenKey] || new Set<string>();
@@ -624,12 +808,14 @@ export function QueryConsultingPage(): React.ReactElement {
     setActiveSubTab("priceConsulting");
     setBuFilterOpen(false);
     setPage(0);
+    resetTableScroll();
   };
 
   const handleSubTabChange = (sub: SubTabKey): void => {
     setActiveSubTab(sub);
     setBuFilterOpen(false);
     setPage(0);
+    resetTableScroll();
   };
 
   // ── Helper to update tabs state ────────────────────────────────────────────
@@ -732,18 +918,19 @@ export function QueryConsultingPage(): React.ReactElement {
     }[] = [];
 
     const col = (idx: number): string => hdrs[idx] || "";
+    const H = t.headers;
 
     if (activeTab === "financials" && activeSubTab === "activeRegistered") {
       // ── Financials — Active Registered with Manufacturer (CSV export) ──────
       // Col 0: BUSINESS UNIT, Col 1: PART NUMBER, Col 2: DESCRIPTION,
       // Col 3: MFG NAME, Col 4: MFG REF, Col 5: LAST ORDER DATE
       const defs: { idx: number; header: string; width: string }[] = [
-        { idx: 0, header: "BUSINESS UNIT", width: "10%" },
-        { idx: 1, header: "PART NUMBER", width: "14%" },
-        { idx: 2, header: "DESCRIPTION", width: "34%" },
-        { idx: 3, header: "MFG NAME", width: "14%" },
-        { idx: 4, header: "MFG REF", width: "14%" },
-        { idx: 5, header: "LAST ORDER DATE", width: "14%" },
+        { idx: 0, header: H.businessUnit, width: "10%" },
+        { idx: 1, header: H.partNumber, width: "14%" },
+        { idx: 2, header: H.description, width: "34%" },
+        { idx: 3, header: H.mfgName, width: "14%" },
+        { idx: 4, header: H.mfgRef, width: "14%" },
+        { idx: 5, header: H.lastOrderDate, width: "14%" },
       ];
       defs.forEach((d) => {
         const h = col(d.idx);
@@ -759,12 +946,12 @@ export function QueryConsultingPage(): React.ReactElement {
       // Col 0: Business Unit, Col 1: PN, Col 2: Descripton, Col 3: LAST ORDER DATE,
       // Col 4: ORIGINAL CURRENCY PRICE, Col 5: Currency, Col 6: Lead Time
       const defs: { idx: number; header: string; width: string }[] = [
-        { idx: 0, header: "BUSINESS UNIT", width: "10%" },
-        { idx: 1, header: "PART NUMBER", width: "14%" },
-        { idx: 2, header: "DESCRIPTION", width: "36%" },
-        { idx: 3, header: "LAST ORDER DATE", width: "16%" },
-        { idx: 4, header: "COST (USD)", width: "12%" },
-        { idx: 6, header: "LEAD TIME", width: "8%" },
+        { idx: 0, header: H.businessUnit, width: "10%" },
+        { idx: 1, header: H.partNumber, width: "14%" },
+        { idx: 2, header: H.description, width: "36%" },
+        { idx: 3, header: H.lastOrderDate, width: "16%" },
+        { idx: 4, header: H.cost, width: "12%" },
+        { idx: 6, header: H.leadTime, width: "8%" },
       ];
       defs.forEach((d) => {
         const h = col(d.idx);
@@ -790,13 +977,13 @@ export function QueryConsultingPage(): React.ReactElement {
         // Col 0: Unit, Col 1: Item, Col 2: Descript, Col 17: Repl Cost - Vendor Name,
         // Col 25: PO Date, Col 26: PO Due (lead time = col26-col25), Col 27: Last Price Paid (BRL→USD)
         const defs: { idx: number; header: string; width: string }[] = [
-          { idx: 0, header: "BUSINESS UNIT", width: "9%" },
-          { idx: 1, header: "PART NUMBER", width: "12%" },
-          { idx: 2, header: "DESCRIPTION", width: "28%" },
-          { idx: 17, header: "VENDOR", width: "18%" },
-          { idx: 25, header: "LAST ORDER DATE", width: "14%" },
-          { idx: -1, header: "LEAD TIME", width: "8%" }, // computed
-          { idx: 27, header: "COST (USD)", width: "8%" },
+          { idx: 0, header: H.businessUnit, width: "9%" },
+          { idx: 1, header: H.partNumber, width: "12%" },
+          { idx: 2, header: H.description, width: "28%" },
+          { idx: 17, header: H.vendor, width: "18%" },
+          { idx: 25, header: H.lastOrderDate, width: "14%" },
+          { idx: -1, header: H.leadTime, width: "8%" }, // computed
+          { idx: 27, header: H.cost, width: "8%" },
         ];
         defs.forEach((d) => {
           if (d.idx === -1) {
@@ -829,15 +1016,15 @@ export function QueryConsultingPage(): React.ReactElement {
         // Col 0: Unit, Col 1: Item, Col 2: Long Descr, Col 3: Qty Avail, Col 4: Qty On Hand,
         // Col 7: Last Date, Col 13: Mfg ID, Col 14: Mfg Itm ID, Col 17: Name (Vendor)
         const defs: { idx: number; header: string; width: string }[] = [
-          { idx: 0, header: "BUSINESS UNIT", width: "8%" },
-          { idx: 1, header: "PART NUMBER", width: "11%" },
-          { idx: 2, header: "DESCRIPTION", width: "22%" },
-          { idx: 3, header: "QTY AVAIL", width: "7%" },
-          { idx: 4, header: "QTY ON HAND", width: "7%" },
-          { idx: 7, header: "LAST ORDER DATE", width: "13%" },
-          { idx: 13, header: "MFG NAME", width: "10%" },
-          { idx: 14, header: "MFG REF.", width: "10%" },
-          { idx: 17, header: "VENDOR", width: "9%" },
+          { idx: 0, header: H.businessUnit, width: "8%" },
+          { idx: 1, header: H.partNumber, width: "11%" },
+          { idx: 2, header: H.description, width: "22%" },
+          { idx: 3, header: H.qtyAvail, width: "7%" },
+          { idx: 4, header: H.qtyOnHand, width: "7%" },
+          { idx: 7, header: H.lastOrderDate, width: "13%" },
+          { idx: 13, header: H.mfgName, width: "10%" },
+          { idx: 14, header: H.mfgRef, width: "10%" },
+          { idx: 17, header: H.vendor, width: "9%" },
         ];
         defs.forEach((d) => {
           const h = col(d.idx);
@@ -859,38 +1046,39 @@ export function QueryConsultingPage(): React.ReactElement {
   // ── Column filter options per tab/subtab ───────────────────────────────────
   const getFilterColumnOptions = (): { key: string; label: string }[] => {
     const hdrs = currentTab.headers;
+    const H = t.headers;
     if (!isMultiFilter) {
       // Price Consulting: PN (col 1), Description (col 2), Vendor (col 17, Brazil only)
       const opts = [
-        { key: hdrs[1], label: "PART NUMBER" },
-        { key: hdrs[2], label: "DESCRIPTION" },
+        { key: hdrs[1], label: H.partNumber },
+        { key: hdrs[2], label: H.description },
       ];
-      if (activeTab === "brazil") opts.push({ key: hdrs[17], label: "VENDOR" });
+      if (activeTab === "brazil") opts.push({ key: hdrs[17], label: H.vendor });
       return opts.filter((o) => o.key);
     }
     if (activeTab === "financials") {
       return [
-        { key: hdrs[0], label: "BUSINESS UNIT" },
-        { key: hdrs[1], label: "PART NUMBER" },
-        { key: hdrs[2], label: "DESCRIPTION" },
-        { key: hdrs[3], label: "MFG NAME" },
-        { key: hdrs[4], label: "MFG REF" },
+        { key: hdrs[0], label: H.businessUnit },
+        { key: hdrs[1], label: H.partNumber },
+        { key: hdrs[2], label: H.description },
+        { key: hdrs[3], label: H.mfgName },
+        { key: hdrs[4], label: H.mfgRef },
       ].filter((o) => o.key);
     }
     return [
-      { key: hdrs[0], label: "BUSINESS UNIT" },
-      { key: hdrs[1], label: "PART NUMBER" },
-      { key: hdrs[2], label: "DESCRIPTION" },
-      { key: hdrs[13], label: "MFG NAME" },
-      { key: hdrs[14], label: "MFG REF." },
-      { key: hdrs[17], label: "VENDOR" },
+      { key: hdrs[0], label: H.businessUnit },
+      { key: hdrs[1], label: H.partNumber },
+      { key: hdrs[2], label: H.description },
+      { key: hdrs[13], label: H.mfgName },
+      { key: hdrs[14], label: H.mfgRef },
+      { key: hdrs[17], label: H.vendor },
     ].filter((o) => o.key);
   };
 
   // ── Computed column defs (memoized) ────────────────────────────────────────
   const allColumns = React.useMemo(
     () => getVisibleColumns(),
-    [activeTab, activeSubTab, currentTab.headers, exchangeRates],
+    [activeTab, activeSubTab, currentTab.headers, exchangeRates, t],
   );
   const columns = React.useMemo(
     () => allColumns.filter((c) => !currentHidden.has(c.key)),
@@ -904,13 +1092,13 @@ export function QueryConsultingPage(): React.ReactElement {
   const ratesBadges = React.useMemo(() => {
     if (!exchangeRates || exchangeRates.length === 0) return null;
     return (
-      <div className={styles.ratesBadges}>
+      <div className={styles.ratesBadges} data-tour="psc-rates">
         {exchangeRates.map((r) => (
           <span
             key={r.currency}
             className={styles.rateBadge}
             title={
-              r.lastUpdate ? "Updated " + formatDateTime(r.lastUpdate) : ""
+              r.lastUpdate ? t.ratesUpdated(formatDateTime(r.lastUpdate)) : ""
             }
           >
             <strong>{r.currency}</strong>: {r.rate.toFixed(2)}
@@ -924,15 +1112,61 @@ export function QueryConsultingPage(): React.ReactElement {
         ))}
       </div>
     );
-  }, [exchangeRates]);
+  }, [exchangeRates, t]);
 
   // ── Open in external fullscreen tab ────────────────────────────────────────
   const handleOpenExternal = (): void => {
-    const currentUrl = window.location.href;
-    const baseUrl = currentUrl.split("#")[0];
-    const externalUrl = baseUrl + "#/tools/query-consulting-external";
-    window.open(externalUrl, "_blank");
+    const baseUrl = window.location.href.split("#")[0];
+    window.open(baseUrl + "#" + ROUTES.queryConsultingExternal, "_blank");
   };
+
+  // ── Keep the scroll helpers in sync with the table size ────────────────────────────
+  const tableVisible = !(storeLoading && !storeData) && !storeError;
+  React.useEffect(() => {
+    updateHScroll();
+  });
+  React.useEffect(() => {
+    const el = tableWrapRef.current;
+    if (!tableVisible || !el) return undefined;
+    window.addEventListener("resize", updateHScroll);
+    let observer: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(() => updateHScroll());
+      observer.observe(el);
+      if (el.firstElementChild) observer.observe(el.firstElementChild);
+    }
+    return () => {
+      window.removeEventListener("resize", updateHScroll);
+      if (observer) observer.disconnect();
+    };
+  }, [tableVisible, updateHScroll]);
+  // The bar mounts only when the table overflows: align it with the table on appear
+  React.useEffect(() => {
+    const table = tableWrapRef.current;
+    const bar = hScrollBarRef.current;
+    if (table && bar) bar.scrollLeft = table.scrollLeft;
+  }, [hScroll.max]);
+  // Arrows follow the visible part of the table whatever scrolls (app content or SharePoint page)
+  const hasHOverflow = hScroll.max > 0;
+  React.useEffect(() => {
+    if (!hasHOverflow) {
+      stopHoverScroll();
+      return undefined;
+    }
+    let raf = 0;
+    const schedule = (): void => {
+      window.cancelAnimationFrame(raf);
+      raf = window.requestAnimationFrame(updateArrowTop);
+    };
+    schedule();
+    window.addEventListener("scroll", schedule, true);
+    window.addEventListener("resize", schedule);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", schedule, true);
+      window.removeEventListener("resize", schedule);
+    };
+  }, [hasHOverflow, updateArrowTop, pageRows.length, buFilterOpen]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -941,8 +1175,8 @@ export function QueryConsultingPage(): React.ReactElement {
     return (
       <div className={styles.page}>
         <PageHeader
-          title="Query Consulting"
-          subtitle="Loading catalog data..."
+          title={t.title}
+          subtitle={t.loadingSubtitle}
           icon={
             <svg
               width="28"
@@ -959,7 +1193,7 @@ export function QueryConsultingPage(): React.ReactElement {
         />
         <div className={styles.loadingWrap}>
           <div className={styles.spinner} />
-          <span>Loading query data from SharePoint...</span>
+          <span>{t.loadingMessage}</span>
         </div>
       </div>
     );
@@ -969,7 +1203,7 @@ export function QueryConsultingPage(): React.ReactElement {
   if (storeError) {
     return (
       <div className={styles.page}>
-        <PageHeader title="Query Consulting" subtitle="Error loading data" />
+        <PageHeader title={t.title} subtitle={t.errorSubtitle} />
         <div className={styles.errorBanner}>{storeError}</div>
       </div>
     );
@@ -994,7 +1228,7 @@ export function QueryConsultingPage(): React.ReactElement {
     return (
       <span
         className={`${styles.countBadge}${count === 0 ? ` ${styles.countBadgeEmpty}` : ""}`}
-        title="Matches for the general search and the filters of each view"
+        title={t.countTitle}
       >
         {count.toLocaleString()}
       </span>
@@ -1003,82 +1237,105 @@ export function QueryConsultingPage(): React.ReactElement {
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        title="Query Consulting"
-        subtitle={`${filteredCount.toLocaleString()} of ${totalRows.toLocaleString()} items`}
-        icon={
-          <svg
-            width="28"
-            height="28"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-        }
-        actions={
-          <div className={styles.headerActions}>
-            {ratesBadges}
-            <button
-              type="button"
-              className={styles.externalBtn}
-              onClick={handleOpenExternal}
-              title="Open in fullscreen external view"
+      <div className={styles.headerWrap} data-tour="psc-header">
+        <PageHeader
+          title={t.title}
+          subtitle={t.itemsOf(
+            filteredCount.toLocaleString(),
+            totalRows.toLocaleString(),
+          )}
+          icon={
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <polyline points="15 3 21 3 21 9" />
-                <line x1="10" y1="14" x2="21" y2="3" />
-                <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" />
-              </svg>
-              External View
-            </button>
-          </div>
-        }
-      />
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          }
+          actions={
+            <div className={styles.headerActions}>
+              {ratesBadges}
+              <LanguageSwitch
+                lang={lang}
+                onChange={changeLang}
+                ariaLabel={t.languageAria}
+                tourId="psc-language"
+              />
+              <div className={styles.headerBtnColumn}>
+                <button
+                  type="button"
+                  className={styles.helpBtn}
+                  onClick={() => setHelpOpen(true)}
+                  title={t.howItWorksTitle}
+                  data-tour="psc-help"
+                >
+                  <CircleQuestionMark size={16} />
+                  {t.howItWorks}
+                </button>
+                {!isExternal && (
+                  <button
+                    type="button"
+                    className={styles.externalBtn}
+                    onClick={handleOpenExternal}
+                    title={t.externalViewTitle}
+                    data-tour="psc-external"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                      <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" />
+                    </svg>
+                    {t.externalView}
+                  </button>
+                )}
+              </div>
+            </div>
+          }
+        />
+      </div>
 
       {/* ── General search: every source and view ───────────────────────── */}
-      <div className={styles.searchBar}>
+      <div className={styles.searchBar} data-tour="psc-search">
         <span className={styles.searchIcon}>{SearchIcon}</span>
         <input
           type="text"
           className={styles.searchBarInput}
-          placeholder="Search Peoplesoft Financials and Peoplesoft Brazil by part number or description..."
+          placeholder={t.searchPlaceholder}
           value={generalSearch}
           onChange={(e) => setGeneralSearch(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Escape") setGeneralSearch("");
           }}
-          aria-label="Search every Query Consulting view by part number or description"
+          aria-label={t.searchAria}
         />
         {isSearching && (
-          <span className={styles.searchingTag}>Searching...</span>
+          <span className={styles.searchingTag}>{t.searching}</span>
         )}
         {generalSearch && (
           <button
             type="button"
             className={styles.searchClear}
             onClick={() => setGeneralSearch("")}
-            title="Clear search (Esc)"
-            aria-label="Clear search"
+            title={t.clearSearch}
+            aria-label={t.clearSearch}
           >
             {CloseIcon}
           </button>
         )}
-        <span
-          className={styles.searchScope}
-          title="Applies to every source and view below"
-        >
-          All views
+        <span className={styles.searchScope} title={t.allViewsTitle}>
+          {t.allViews}
         </span>
       </div>
 
@@ -1086,7 +1343,8 @@ export function QueryConsultingPage(): React.ReactElement {
       <div
         className={styles.sourceTabs}
         role="tablist"
-        aria-label="Data source"
+        aria-label={t.dataSourceAria}
+        data-tour="psc-sources"
       >
         {SOURCES.map(([key, label]) => (
           <button
@@ -1096,6 +1354,7 @@ export function QueryConsultingPage(): React.ReactElement {
             aria-selected={activeTab === key}
             className={`${styles.sourceTab}${activeTab === key ? ` ${styles.sourceTabActive}` : ""}`}
             onClick={() => handleTabChange(key)}
+            title={t.sourceHints[key]}
           >
             <span className={styles.sourceTabIcon}>{DatabaseIcon}</span>
             {label}
@@ -1106,36 +1365,47 @@ export function QueryConsultingPage(): React.ReactElement {
 
       {/* ── Level 2: views of the selected source, inside its panel ─────── */}
       <div className={styles.sourcePanel} role="tabpanel">
-        <div className={styles.viewRow}>
-          <span className={styles.viewLabel}>
-            {CornerDownRightIcon}
-            {sourceLabel} views
-          </span>
-          <div
-            className={styles.viewTabs}
-            role="tablist"
-            aria-label={`${sourceLabel} views`}
-          >
-            {VIEWS.map(([key, label]) => (
-              <button
-                type="button"
-                role="tab"
-                key={key}
-                aria-selected={activeSubTab === key}
-                className={`${styles.viewTab}${activeSubTab === key ? ` ${styles.viewTabActive}` : ""}`}
-                onClick={() => handleSubTabChange(key)}
-              >
-                {label}
-                {renderCount(activeTab, [key])}
-              </button>
-            ))}
+        <div className={styles.viewBlock}>
+          <div className={styles.viewRow}>
+            <span className={styles.viewLabel}>
+              {CornerDownRightIcon}
+              {t.sourceViews(sourceLabel)}
+            </span>
+            <div
+              className={styles.viewTabs}
+              role="tablist"
+              aria-label={t.sourceViews(sourceLabel)}
+              data-tour="psc-views"
+            >
+              {VIEW_KEYS.map((key) => (
+                <button
+                  type="button"
+                  role="tab"
+                  key={key}
+                  aria-selected={activeSubTab === key}
+                  className={`${styles.viewTab}${activeSubTab === key ? ` ${styles.viewTabActive}` : ""}`}
+                  onClick={() => handleSubTabChange(key)}
+                  title={t.viewLegends[activeTab][key]}
+                >
+                  {t.views[key]}
+                  {renderCount(activeTab, [key])}
+                </button>
+              ))}
+            </div>
           </div>
+          <p className={styles.viewLegend} data-tour="psc-legend">
+            <Info size={14} className={styles.viewLegendIcon} />
+            <span>
+              <strong>{t.aboutThisView}:</strong>{" "}
+              {t.viewLegends[activeTab][activeSubTab]}
+            </span>
+          </p>
         </div>
 
         {/* ── Toolbar: this view's column filters + BU / column options ── */}
         <div className={styles.filterToolbar}>
-          <div className={styles.filterGroup}>
-            <span className={styles.filterLabel}>Filter this view</span>
+          <div className={styles.filterGroup} data-tour="psc-filters">
+            <span className={styles.filterLabel}>{t.filterThisView}</span>
             {currentTab.searchFilters.map((filter) => {
               const colLabel = (
                 filterColOptions.filter((o) => o.key === filter.column)[0] || {
@@ -1150,7 +1420,7 @@ export function QueryConsultingPage(): React.ReactElement {
                     onChange={(e) =>
                       handleUpdateFilter(filter.id, e.target.value)
                     }
-                    aria-label="Filter column"
+                    aria-label={t.filterColumnAria}
                   >
                     {filterColOptions.map((opt) => (
                       <option key={opt.key} value={opt.key}>
@@ -1163,14 +1433,14 @@ export function QueryConsultingPage(): React.ReactElement {
                     className={styles.filterInput}
                     placeholder={
                       colLabel
-                        ? `Filter by ${colLabel.toLowerCase()}...`
-                        : "Filter value..."
+                        ? t.filterBy(colLabel)
+                        : t.filterValuePlaceholder
                     }
                     value={filter.value}
                     onChange={(e) =>
                       handleUpdateFilter(filter.id, undefined, e.target.value)
                     }
-                    aria-label="Filter value"
+                    aria-label={t.filterValueAria}
                   />
                   {isMultiFilter && (
                     <button
@@ -1178,8 +1448,8 @@ export function QueryConsultingPage(): React.ReactElement {
                       className={styles.removeFilterBtn}
                       onClick={() => handleRemoveFilter(filter.id)}
                       disabled={currentTab.searchFilters.length <= 1}
-                      title="Remove filter"
-                      aria-label="Remove filter"
+                      title={t.removeFilter}
+                      aria-label={t.removeFilter}
                     >
                       {CloseIcon}
                     </button>
@@ -1194,7 +1464,7 @@ export function QueryConsultingPage(): React.ReactElement {
                   className={styles.addFilterBtn}
                   onClick={handleAddFilter}
                 >
-                  + Add Filter
+                  {t.addFilter}
                 </button>
               )}
           </div>
@@ -1205,8 +1475,9 @@ export function QueryConsultingPage(): React.ReactElement {
               className={`${styles.toolbarBtn}${buFilterOpen ? ` ${styles.toolbarBtnOpen}` : ""}`}
               onClick={() => setBuFilterOpen(!buFilterOpen)}
               aria-expanded={buFilterOpen}
+              data-tour="psc-businessUnits"
             >
-              Business Units
+              {t.businessUnits}
               {buPartial && (
                 <span className={styles.countBadge}>
                   {selectedBuCount}/{currentBuFilters.length}
@@ -1218,7 +1489,11 @@ export function QueryConsultingPage(): React.ReactElement {
                 {ChevronDownIcon}
               </span>
             </button>
-            <div className={styles.columnToggleWrap} data-qc-colmenu="">
+            <div
+              className={styles.columnToggleWrap}
+              data-qc-colmenu=""
+              data-tour="psc-columns"
+            >
               <button
                 type="button"
                 className={`${styles.toolbarBtn}${colMenuOpen ? ` ${styles.toolbarBtnOpen}` : ""}`}
@@ -1236,7 +1511,7 @@ export function QueryConsultingPage(): React.ReactElement {
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
-                Columns
+                {t.columns}
                 {hiddenCount > 0 && (
                   <span className={styles.countBadge}>
                     {allColumns.length - hiddenCount}/{allColumns.length}
@@ -1271,9 +1546,9 @@ export function QueryConsultingPage(): React.ReactElement {
           <div className={styles.buFilterPanel}>
             <div className={styles.buFilterHeader}>
               <span className={styles.buFilterTitle}>
-                Filter by Business Unit
+                {t.filterByBusinessUnit}
                 <span className={styles.buFilterCount}>
-                  {selectedBuCount} of {currentBuFilters.length} selected
+                  {t.selectedOf(selectedBuCount, currentBuFilters.length)}
                 </span>
               </span>
               <div className={styles.buFilterActions}>
@@ -1282,22 +1557,20 @@ export function QueryConsultingPage(): React.ReactElement {
                   className={styles.buFilterActionBtn}
                   onClick={selectAllBuFilters}
                 >
-                  Select All
+                  {t.selectAll}
                 </button>
                 <button
                   type="button"
                   className={styles.buFilterActionBtn}
                   onClick={clearAllBuFilters}
                 >
-                  Clear All
+                  {t.clearAll}
                 </button>
               </div>
             </div>
             <div className={styles.buFilterList}>
               {currentBuFilters.length === 0 ? (
-                <span className={styles.noFilters}>
-                  No Business Units available
-                </span>
+                <span className={styles.noFilters}>{t.noBusinessUnits}</span>
               ) : (
                 currentBuFilters.map((f) => (
                   <label
@@ -1318,91 +1591,160 @@ export function QueryConsultingPage(): React.ReactElement {
         )}
 
         {/* ── Data Table ──────────────────────────────────────────────────── */}
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th className={styles.photoColHeader} style={{ width: 50 }}>
-                  Photo
-                </th>
-                {columns.map((col) => {
-                  const wOverride = colWidths[col.key];
-                  const thStyle: React.CSSProperties = wOverride
-                    ? { width: wOverride + "px" }
-                    : { width: col.width };
-                  return (
+        <div className={styles.tableFrame}>
+          {hScroll.max > 0 && (
+            <div
+              ref={hScrollBarRef}
+              className={styles.hScrollBar}
+              onScroll={handleBarScroll}
+              aria-label={t.scrollBarAria}
+              data-tour="psc-hscroll"
+            >
+              <div
+                className={styles.hScrollInner}
+                style={{ width: `calc(100% + ${hScroll.max}px)` }}
+              />
+            </div>
+          )}
+
+          <div ref={tableAreaRef} className={styles.tableArea}>
+            <div
+              ref={tableWrapRef}
+              className={styles.tableWrap}
+              onScroll={handleTableScroll}
+            >
+              <table className={styles.table}>
+                <thead data-tour="psc-table">
+                  <tr>
                     <th
-                      key={col.key}
-                      className={styles.sortableHeader}
-                      style={thStyle}
-                      onClick={() => handleSort(col.key)}
+                      className={styles.photoColHeader}
+                      style={{ width: 50 }}
                     >
-                      {col.header}
-                      {currentTab.sortColumn === col.key && (
-                        <span className={styles.sortArrow}>
-                          {currentTab.sortDescending ? " ▼" : " ▲"}
-                        </span>
-                      )}
-                      <span
-                        className={styles.resizeHandle}
-                        onMouseDown={(e) => handleResizeStart(col.key, e)}
-                      />
+                      {t.headers.photo}
                     </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {pageRows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={columns.length + 1}
-                    className={styles.emptyMessage}
-                  >
-                    No results found. Try different search criteria or adjust
-                    filters.
-                  </td>
-                </tr>
-              ) : (
-                pageRows.map((row, idx) => {
-                  const pn = String(row[pnColumnKey] || "").trim();
-                  const photoUrl = pn ? getPhotoUrl(pn) : "";
-                  return (
-                    <tr key={safePage * PAGE_SIZE + idx}>
-                      <td className={styles.photoCell}>
-                        {photoUrl && (
-                          <PhotoThumbnail
-                            url={photoUrl}
-                            pn={pn}
-                            onClick={() => setPreviewPhotoUrl(photoUrl)}
+                    {columns.map((col) => {
+                      const wOverride = colWidths[col.key];
+                      const thStyle: React.CSSProperties = wOverride
+                        ? { width: wOverride + "px" }
+                        : { width: col.width };
+                      return (
+                        <th
+                          key={col.key}
+                          className={styles.sortableHeader}
+                          style={thStyle}
+                          onClick={() => handleSort(col.key)}
+                        >
+                          {col.header}
+                          {currentTab.sortColumn === col.key && (
+                            <span className={styles.sortArrow}>
+                              {currentTab.sortDescending ? " ▼" : " ▲"}
+                            </span>
+                          )}
+                          <span
+                            className={styles.resizeHandle}
+                            onMouseDown={(e) => handleResizeStart(col.key, e)}
                           />
-                        )}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={columns.length + 1}
+                        className={styles.emptyMessage}
+                      >
+                        {t.emptyTable}
                       </td>
-                      {columns.map((col) => (
-                        <td key={col.key}>{col.render(row)}</td>
-                      ))}
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                  ) : (
+                    pageRows.map((row, idx) => {
+                      const pn = String(row[pnColumnKey] || "").trim();
+                      const photoUrl = pn ? getPhotoUrl(pn) : "";
+                      return (
+                        <tr key={safePage * PAGE_SIZE + idx}>
+                          <td className={styles.photoCell}>
+                            {photoUrl && (
+                              <PhotoThumbnail
+                                url={photoUrl}
+                                pn={pn}
+                                onClick={() => setPreviewPhotoUrl(photoUrl)}
+                              />
+                            )}
+                          </td>
+                          {columns.map((col) => (
+                            <td key={col.key}>{col.render(row)}</td>
+                          ))}
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {hScroll.max > 0 && (
+              <>
+                <div
+                  className={`${styles.scrollRail} ${styles.scrollRailLeft}${hScroll.canLeft ? ` ${styles.scrollRailOn}` : ""}`}
+                >
+                  <button
+                    type="button"
+                    className={styles.scrollArrow}
+                    style={arrowTop !== null ? { top: arrowTop } : undefined}
+                    onPointerEnter={(e) => startHoverScroll(-1, e)}
+                    onPointerLeave={stopHoverScroll}
+                    onClick={() => handleArrowClick(-1)}
+                    disabled={!hScroll.canLeft}
+                    title={t.scrollLeft}
+                    aria-label={t.scrollLeft}
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                </div>
+                <div
+                  className={`${styles.scrollRail} ${styles.scrollRailRight}${hScroll.canRight ? ` ${styles.scrollRailOn}` : ""}`}
+                >
+                  <button
+                    type="button"
+                    className={styles.scrollArrow}
+                    style={arrowTop !== null ? { top: arrowTop } : undefined}
+                    onPointerEnter={(e) => startHoverScroll(1, e)}
+                    onPointerLeave={stopHoverScroll}
+                    onClick={() => handleArrowClick(1)}
+                    disabled={!hScroll.canRight}
+                    title={t.scrollRight}
+                    aria-label={t.scrollRight}
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* ── Pagination ──────────────────────────────────────────────────── */}
         <div className={styles.paginationBar}>
           <span className={styles.resultCount}>
-            Showing {Math.min(safePage * PAGE_SIZE + 1, filteredCount)}-
-            {Math.min((safePage + 1) * PAGE_SIZE, filteredCount)} of{" "}
-            {filteredCount.toLocaleString()} items
+            {t.showing(
+              String(Math.min(safePage * PAGE_SIZE + 1, filteredCount)),
+              String(Math.min((safePage + 1) * PAGE_SIZE, filteredCount)),
+              filteredCount.toLocaleString(),
+            )}
           </span>
-          <div className={styles.paginationControls}>
+          <div
+            className={styles.paginationControls}
+            data-tour="psc-pagination"
+          >
             <button
               type="button"
               className={styles.pageBtn}
               disabled={safePage === 0}
               onClick={() => setPage(0)}
-              title="First page"
+              title={t.firstPage}
             >
               ««
             </button>
@@ -1411,19 +1753,19 @@ export function QueryConsultingPage(): React.ReactElement {
               className={styles.pageBtn}
               disabled={safePage === 0}
               onClick={() => setPage(safePage - 1)}
-              title="Previous page"
+              title={t.previousPage}
             >
               «
             </button>
             <span className={styles.pageInfo}>
-              Page {safePage + 1} of {totalPages}
+              {t.pageOf(safePage + 1, totalPages)}
             </span>
             <button
               type="button"
               className={styles.pageBtn}
               disabled={safePage >= totalPages - 1}
               onClick={() => setPage(safePage + 1)}
-              title="Next page"
+              title={t.nextPage}
             >
               »
             </button>
@@ -1432,7 +1774,7 @@ export function QueryConsultingPage(): React.ReactElement {
               className={styles.pageBtn}
               disabled={safePage >= totalPages - 1}
               onClick={() => setPage(totalPages - 1)}
-              title="Last page"
+              title={t.lastPage}
             >
               »»
             </button>
@@ -1442,9 +1784,9 @@ export function QueryConsultingPage(): React.ReactElement {
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <div className={styles.footer}>
-        Update Date: Automatic update every morning.
+        {t.footerUpdate}
         <br />
-        Created By: Raphael Costa
+        {t.footerCreatedBy}
       </div>
 
       {/* ── Photo Lightbox ──────────────────────────────────────────────── */}
@@ -1452,9 +1794,24 @@ export function QueryConsultingPage(): React.ReactElement {
         <PhotoLightbox
           url={previewPhotoUrl}
           onClose={() => setPreviewPhotoUrl(null)}
-          alt="Equipment photo"
+          alt={t.photoAlt}
         />
       )}
+
+      <HowItWorksDrawer
+        open={helpOpen}
+        t={t}
+        lang={lang}
+        onLangChange={changeLang}
+        onStartTour={startTour}
+        onClose={() => setHelpOpen(false)}
+      />
+      <GuidedTour
+        open={tourOpen}
+        steps={tourSteps}
+        labels={t.tour}
+        onClose={() => setTourOpen(false)}
+      />
     </div>
   );
 }

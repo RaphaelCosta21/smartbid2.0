@@ -142,6 +142,7 @@ export {
   type IActivityLogEntry as IActivityLogEntryDef,
   type IActivityLog,
 } from "./IActivityLog";
+export { type AccessLogArea, type IAccessLogEntry } from "./IAccessLog";
 export {
   type IDashboardKPI,
   type IMonthlyVolume,

@@ -10,11 +10,16 @@ import {
 } from "lucide-react";
 import { useChatStore } from "../../stores/useChatStore";
 import { useBidStore } from "../../stores/useBidStore";
-import { useIsGuest } from "../../hooks/useCurrentUser";
+import { useCurrentUser, useIsGuest } from "../../hooks/useCurrentUser";
+import { useConfigStore } from "../../stores/useConfigStore";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useOpenBid } from "../../hooks/useOpenBid";
 import { ConfidentialLock } from "../bid/ConfidentialLock";
-import { AI_CONFIG, isAiConfigured } from "../../config/ai.config";
+import {
+  AI_CONFIG,
+  DEFAULT_ASSISTANT_TEAMS,
+  isAiConfigured,
+} from "../../config/ai.config";
 import { IChatMessage } from "../../models/IAiChat";
 import styles from "./ChatAssistant.module.scss";
 
@@ -156,6 +161,12 @@ const ChatBubble: React.FC<IBubbleProps> = ({ message, onFollowUp }) => {
 
 export const ChatAssistant: React.FC = () => {
   const isGuest = useIsGuest();
+  const currentUser = useCurrentUser();
+  const assistantTeams = useConfigStore(
+    (s) => (s.config && s.config.assistantTeams) || DEFAULT_ASSISTANT_TEAMS,
+  );
+  const isTeamAllowed =
+    !!currentUser && assistantTeams.indexOf(currentUser.role) >= 0;
   const { isMobile } = useResponsive();
 
   const isOpen = useChatStore((s) => s.isOpen);
@@ -224,7 +235,7 @@ export const ChatAssistant: React.FC = () => {
     }
   };
 
-  if (isGuest || !isAiConfigured()) return null;
+  if (isGuest || !isTeamAllowed || !isAiConfigured()) return null;
 
   const canSend = draft.trim().length > 0 && !isSending;
 

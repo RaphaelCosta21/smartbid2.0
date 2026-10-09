@@ -50,6 +50,7 @@ import {
   ColorThemeId,
 } from "../../config/colorThemes.config";
 import { buildDefaultSupplierServiceTypes } from "../../config/suppliers.config";
+import { DEFAULT_ASSISTANT_TEAMS } from "../../config/ai.config";
 import {
   BID_PRIORITIES,
   DEFAULT_PRIORITY_RULES,
@@ -76,6 +77,8 @@ import {
   IAccessMatrixGroup,
   SuperAdminsCard,
 } from "./AccessMatrix";
+import { AccessLog } from "./AccessLog";
+import { isSuperAdminMaster } from "../../utils/accessControl";
 import {
   BookOpen,
   FileChartColumn,
@@ -233,10 +236,13 @@ const NAV_GROUPS: INavGroup[] = [
       { key: "access", label: "Access Levels", icon: "🔐" },
       { key: "notifications", label: "Notifications", icon: "🔔" },
       { key: "themeSelector", label: "Theme Selector", icon: "🎨" },
-      { key: "apiDiagnostics", label: "API Diagnostics", icon: "🧪" },
+      { key: "apiDiagnostics", label: "AI Assistant & API", icon: "🧪" },
+      { key: "accessLog", label: "Access Log", icon: "📜" },
     ],
   },
 ];
+
+const MASTER_ONLY_TABS = ["accessLog"];
 
 const ALL_NAV_ITEMS: INavItem[] = ([] as INavItem[]).concat(
   ...NAV_GROUPS.map((g) => g.items),
@@ -488,6 +494,19 @@ const SystemConfiguration: React.FC = () => {
   const [newDelCatName, setNewDelCatName] = React.useState("");
 
   const currentNavItem = ALL_NAV_ITEMS.find((n) => n.key === activeTab);
+  const isMaster = isSuperAdminMaster(currentUser?.email || "");
+  const navGroups = React.useMemo(
+    () =>
+      isMaster
+        ? NAV_GROUPS
+        : NAV_GROUPS.map((g) => ({
+            ...g,
+            items: g.items.filter(
+              (i) => MASTER_ONLY_TABS.indexOf(i.key) < 0,
+            ),
+          })),
+    [isMaster],
+  );
 
   /* ---- helpers --------------------------------------------------- */
 
@@ -2686,9 +2705,54 @@ const SystemConfiguration: React.FC = () => {
     }
   };
 
+  const assistantTeams: string[] =
+    (config && config.assistantTeams) || DEFAULT_ASSISTANT_TEAMS;
+
+  const toggleAssistantTeam = (team: UserRole): void => {
+    updateConfig({
+      assistantTeams:
+        assistantTeams.indexOf(team) >= 0
+          ? (assistantTeams.filter((t) => t !== team) as UserRole[])
+          : ([...assistantTeams, team] as UserRole[]),
+    });
+  };
+
   const renderApiDiagnostics = (): React.ReactElement => (
     <div>
       <div className={styles.sectionHeader}>
+        <h3>SmartBid Assistant visibility</h3>
+        <p>
+          Teams that see the floating SmartBid Assistant button. This only
+          hides the button; the AI backend still decides who can call the API.
+          Guests never see it.
+        </p>
+      </div>
+      <div className={styles.assistantTeams}>
+        {ACCESS_ROLES.filter((r) => r.value !== "guest").map((r) => {
+          const active = assistantTeams.indexOf(r.value) >= 0;
+          return (
+            <button
+              key={r.value}
+              type="button"
+              className={`${styles.assistantTeamChip} ${
+                active ? styles.assistantTeamChipActive : ""
+              }`}
+              onClick={() => toggleAssistantTeam(r.value)}
+              disabled={!canEdit}
+              aria-pressed={active}
+            >
+              {r.label}
+            </button>
+          );
+        })}
+      </div>
+      {assistantTeams.length === 0 && (
+        <p className={styles.themeHint}>
+          No team selected - the assistant is hidden for everyone.
+        </p>
+      )}
+
+      <div className={styles.sectionHeader} style={{ marginTop: 24 }}>
         <h3>API Diagnostics - SmartBid AI backend</h3>
         <p>
           Runs the production code path end to end: configuration, session
@@ -3780,6 +3844,7 @@ const SystemConfiguration: React.FC = () => {
 
   const renderTabContent = (): React.ReactElement | null => {
     if (activeTab === "themeSelector") return renderThemeSelector();
+    if (activeTab === "accessLog") return isMaster ? <AccessLog /> : null;
     if (!config) return null;
     switch (activeTab) {
       case "kpi":
@@ -3892,7 +3957,7 @@ const SystemConfiguration: React.FC = () => {
             stickyTop={24}
             collapsedContent={
               <nav className={`${styles.sidebar} ${styles.sidebarCollapsed}`}>
-                {NAV_GROUPS.map((group) =>
+                {navGroups.map((group) =>
                   group.items.map((item) => (
                     <button
                       key={item.key}
@@ -3908,7 +3973,7 @@ const SystemConfiguration: React.FC = () => {
             }
           >
             <nav className={styles.sidebar}>
-              {NAV_GROUPS.map((group) => (
+              {navGroups.map((group) => (
                 <div key={group.group} className={styles.navGroup}>
                   <div className={styles.navGroupLabel}>{group.group}</div>
                   {group.items.map((item) => (

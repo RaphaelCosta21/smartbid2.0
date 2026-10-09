@@ -133,6 +133,9 @@ export const AI_CONFIG: IAiConfig = {
   },
 };
 
+/** Teams that see the SmartBid Assistant until an admin saves `assistantTeams`. */
+export const DEFAULT_ASSISTANT_TEAMS: string[] = ["engineering"];
+
 /** True when the Azure AI backend is switched on and has an endpoint + sign-in. */
 export function isAiConfigured(): boolean {
   return (

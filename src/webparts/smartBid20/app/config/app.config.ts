@@ -26,6 +26,8 @@ export const APP_CONFIG = {
     "lcampanati@oceaneering.com",
     "wcastrojunior@oceaneering.com",
   ],
+  /** Only this account sees the Access Log in System Configuration. */
+  superAdminMasterEmail: "rcosta1@oceaneering.com",
   defaults: {
     pageSize: 25,
     debounceMs: 300,

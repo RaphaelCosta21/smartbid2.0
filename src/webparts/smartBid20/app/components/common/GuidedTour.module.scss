@@ -1,0 +1,289 @@
+/* GuidedTour.module.scss — spotlight + balloon product tour */
+
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popover);
+  pointer-events: none;
+}
+
+.blocker {
+  position: fixed;
+  inset: 0;
+  pointer-events: auto;
+  cursor: default;
+}
+
+.dim {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  animation: tourFade 250ms ease both;
+}
+
+/* Cut-out around the target: the huge spread shadow dims everything else */
+.spotlight {
+  position: fixed;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 2px var(--primary-accent),
+    0 0 0 9999px var(--overlay-bg);
+  transition:
+    top 300ms ease,
+    left 300ms ease,
+    width 300ms ease,
+    height 300ms ease;
+  animation: tourFade 250ms ease both;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    border: 2px solid var(--primary-accent);
+    animation: tourPulse 1.8s ease-out infinite;
+  }
+}
+
+@keyframes tourFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes tourPulse {
+  0% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes tourIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Balloon ─────────────────────────────────────────────────────────────── */
+
+.balloon {
+  position: fixed;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  padding: 16px 18px 14px;
+  border-radius: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--elevation-3);
+  color: var(--text-primary);
+  pointer-events: auto;
+  transition:
+    top 300ms ease,
+    left 300ms ease;
+  animation: tourIn 250ms ease both;
+}
+
+.measuring {
+  visibility: hidden;
+}
+
+.arrow {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  transition:
+    top 300ms ease,
+    left 300ms ease;
+}
+
+/* Balloon below the target: arrow on its top edge, pointing up */
+.placeBottom .arrow {
+  top: -8px;
+  transform: translateX(-50%) rotate(45deg);
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+}
+
+.placeTop .arrow {
+  bottom: -8px;
+  transform: translateX(-50%) rotate(45deg);
+  border-left-color: transparent;
+  border-top-color: transparent;
+}
+
+.placeRight .arrow {
+  left: -8px;
+  transform: translateY(-50%) rotate(45deg);
+  border-right-color: transparent;
+  border-top-color: transparent;
+}
+
+.placeLeft .arrow {
+  right: -8px;
+  transform: translateY(-50%) rotate(45deg);
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.stepChip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--primary-accent);
+  background: color-mix(in srgb, var(--primary-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary-accent) 35%, transparent);
+}
+
+.closeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+
+  &:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+  }
+}
+
+.content {
+  animation: tourIn 250ms ease both;
+}
+
+.title {
+  margin: 0 0 6px;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  color: var(--text-primary);
+}
+
+.body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.progress {
+  height: 4px;
+  margin: 14px 0 12px;
+  border-radius: 999px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary-accent);
+  transition: width 300ms ease;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.skipBtn {
+  padding: 4px 2px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 150ms ease;
+
+  &:hover {
+    color: var(--text-primary);
+    text-decoration: underline;
+  }
+}
+
+.navBtns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.backBtn,
+.nextBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.backBtn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+
+  &:hover {
+    border-color: var(--primary-accent);
+    color: var(--text-primary);
+  }
+}
+
+.nextBtn {
+  padding: 0 14px;
+  border: 1px solid var(--primary-accent);
+  background: var(--primary-accent);
+  color: var(--primary-accent-contrast);
+
+  &:hover {
+    opacity: 0.9;
+  }
+}

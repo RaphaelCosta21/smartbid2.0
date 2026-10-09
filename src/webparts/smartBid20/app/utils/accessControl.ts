@@ -28,6 +28,13 @@ export function isSuperAdmin(email: string): boolean {
   );
 }
 
+export function isSuperAdminMaster(email: string): boolean {
+  return (
+    (email || "").trim().toLowerCase() ===
+    APP_CONFIG.superAdminMasterEmail.toLowerCase()
+  );
+}
+
 export function isSuperAdminUser(user: MaybeUser): boolean {
   return !!user && (user.isSuperAdmin === true || isSuperAdmin(user.email));
 }

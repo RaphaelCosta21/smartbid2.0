@@ -115,5 +115,7 @@ export interface ISystemConfig {
   notifications: Record<string, string[]>;
   accessLevels: Record<UserRole, IAccessLevelDef>;
   bidAccessLevels?: Record<UserRole, IBidAccessLevelDef>;
+  /** Teams that see the SmartBid Assistant button (absent = DEFAULT_ASSISTANT_TEAMS). */
+  assistantTeams?: UserRole[];
   favoriteGroups: IFavoriteGroup[];
 }

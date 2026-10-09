@@ -1,10 +1,27 @@
-/* QueryConsultingPage.module.scss — Query Consulting page styles */
+/* QueryConsultingPage.module.scss — Peoplesoft Consulting page styles */
 
 .page {
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 0 4px;
+}
+
+/* Tour target around PageHeader: its bottom margin moves here so the spotlight fits the banner */
+.headerWrap {
+  margin-bottom: 24px;
+
+  > div {
+    margin-bottom: 0;
+    // Actions drop below the title instead of squeezing the one-line rates
+    flex-wrap: wrap;
+    row-gap: 16px;
+  }
+
+  > div > div:last-child {
+    margin-left: auto;
+    max-width: 100%;
+  }
 }
 
 /* ── Loading / Error ──────────────────────────────────────────────────────── */
@@ -258,13 +275,44 @@
 
 /* ── Level 2: views of the selected source ────────────────────────────────── */
 
+.viewBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--border);
+}
+
 .viewRow {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px 12px;
-  padding-bottom: 14px;
-  border-bottom: 1px dashed var(--border);
+}
+
+/* Short description of what the active view contains */
+.viewLegend {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--primary-accent) 6%, transparent);
+
+  strong {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+}
+
+.viewLegendIcon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--primary-accent);
 }
 
 .viewLabel {
@@ -653,12 +701,123 @@
 
 /* ── Data Table ───────────────────────────────────────────────────────────── */
 
+/* Table + edge arrows + the horizontal bar above it */
+.tableFrame {
+  display: flex;
+  flex-direction: column;
+}
+
+.tableArea {
+  position: relative;
+}
+
 .tableWrap {
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--card-bg);
   max-width: 100%;
+}
+
+.scrollRail {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  z-index: 3;
+  width: 56px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.scrollRailLeft {
+  left: 1px;
+  border-radius: 11px 0 0 11px;
+  background: linear-gradient(to right, var(--card-bg), transparent);
+
+  .scrollArrow {
+    left: 8px;
+  }
+}
+
+.scrollRailRight {
+  right: 1px;
+  border-radius: 0 11px 11px 0;
+  background: linear-gradient(to left, var(--card-bg), transparent);
+
+  .scrollArrow {
+    right: 8px;
+  }
+}
+
+.scrollRailOn {
+  opacity: 1;
+
+  .scrollArrow {
+    pointer-events: auto;
+  }
+}
+
+/* `top` is set inline to the middle of the visible part of the table */
+.scrollArrow {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-card-hover);
+  cursor: pointer;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition:
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 250ms ease;
+
+  &:hover {
+    border-color: var(--primary-accent);
+    color: var(--primary-accent);
+    transform: translateY(-50%) scale(1.08);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+}
+
+.hScrollBar {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin-bottom: 6px;
+}
+
+.hScrollInner {
+  height: 1px;
+}
+
+.tableFrame .hScrollBar::-webkit-scrollbar {
+  height: 10px;
+}
+
+.tableFrame .hScrollBar::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 6px;
+}
+
+.tableFrame .hScrollBar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 6px;
+
+  &:hover {
+    background: var(--primary-accent);
+  }
 }
 
 .table {
@@ -836,19 +995,42 @@
 
 .headerActions {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 16px;
   min-width: 0;
+
+  > * {
+    flex-shrink: 0;
+  }
 }
 
+/* Always one line; scrolls sideways only if the header gets narrower than the rates */
 .ratesBadges {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: flex-end;
   min-width: 0;
+  flex-shrink: 1 !important;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* How it Works above External View; the EN/PT switch centers against this column */
+.headerBtnColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  > button {
+    justify-content: center;
+  }
 }
 
 /* Header keeps a dark gradient in both themes — use --header-* tokens */
@@ -926,5 +1108,34 @@
   .searchingTag::before,
   .spinner {
     animation: none;
+  }
+}
+
+/* How it Works: accent outline so it stands out on the dark hero */
+.helpBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid color-mix(in srgb, var(--primary-accent) 55%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--primary-accent) 14%, transparent);
+  color: var(--primary-accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease;
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    border-color: var(--primary-accent);
+    background: color-mix(in srgb, var(--primary-accent) 24%, transparent);
   }
 }

@@ -13,6 +13,7 @@ import { useLiveOverview } from "../hooks/useLiveOverview";
 import { useSlidingIndicator } from "../hooks/useSlidingIndicator";
 import { useResultStatus } from "../hooks/useResultStatus";
 import { useOpenBid } from "../hooks/useOpenBid";
+import { useCurrentUser } from "../hooks/useCurrentUser";
 import { resolveSemanticColor } from "../hooks/useColorTheme";
 import { PageHeader } from "../components/common/PageHeader";
 import { SkeletonLoader } from "../components/common/SkeletonLoader";
@@ -33,7 +34,7 @@ import { EngHoursOutlook } from "../components/dashboard/EngHoursOutlook";
 import { DashboardBidTable } from "../components/dashboard/DashboardBidTable";
 import { DashboardService } from "../services/DashboardService";
 import { BID_PRIORITIES } from "../config/kpi.config";
-import { IErn } from "../models";
+import { IBid, IErn } from "../models";
 import {
   isActiveBid,
   isOverdueBid,
@@ -62,19 +63,24 @@ const VIEW_OPTIONS: {
   },
 ];
 
+const NO_BIDS: IBid[] = [];
+
 export const DashboardPage: React.FC = () => {
   const { openBid } = useOpenBid();
   const bids = useBidStore((s) => s.bids);
   const erns = useErnStore((s) => s.erns);
   const config = useConfigStore((s) => s.config);
-  const view = useUIStore((s) => s.dashboardView);
+  const storedView = useUIStore((s) => s.dashboardView);
   const setView = useUIStore((s) => s.setDashboardView);
+  // Live Overview is Engineering-team only
+  const canSeeLive = useCurrentUser().role === "engineering";
+  const view: DashboardView = canSeeLive ? storedView : "engineering";
   const viewIndicator = useSlidingIndicator(view);
   const { lastSyncedAt, syncing, refreshNow } = useDashboardSync();
   const { getResult, options: resultOptions } = useResultStatus();
   const filters = useDashboardFilters(bids, getResult);
   const { scopeBids, analyticsBids } = filters;
-  const live = useLiveOverview(scopeBids);
+  const live = useLiveOverview(canSeeLive ? scopeBids : NO_BIDS);
   const kpis = useKPIs(analyticsBids);
   const { targets, priorityRules } = useKpiTargets();
 
@@ -234,6 +240,7 @@ export const DashboardPage: React.FC = () => {
             subtitle={`${headerActive.length} active BIDs across ${divisionCount} divisions`}
             actions={
               <div className={styles.headerActions}>
+                {canSeeLive && (
                 <div
                   ref={viewIndicator.containerRef}
                   className={styles.viewToggle}
@@ -264,6 +271,7 @@ export const DashboardPage: React.FC = () => {
                     );
                   })}
                 </div>
+                )}
                 <span className={styles.syncInfo}>
                   {syncing
                     ? "Syncing..."

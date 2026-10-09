@@ -1,7 +1,7 @@
 /**
  * EquipmentImportModal — Multi-source equipment browser for importing PN + Description
  * into Scope of Supply rows. Tabs: All Sources (global search), Favorites, Assets Catalog,
- * BOM Costs, Quotations, Query Consulting.
+ * BOM Costs, Quotations, Peoplesoft Consulting.
  */
 import * as React from "react";
 import styles from "./EquipmentImportModal.module.scss";
@@ -276,7 +276,7 @@ const TABS: TabDef[] = [
   { id: "assets", label: "Assets Catalog", icon: PackageIcon },
   { id: "bom", label: "BOM Costs", icon: CubeIcon },
   { id: "quotations", label: "Quotations", icon: FileTextIcon },
-  { id: "query", label: "Query Consulting", icon: SearchIcon },
+  { id: "query", label: "Peoplesoft Consulting", icon: SearchIcon },
 ];
 
 const TAB_BY_ID: Record<string, TabDef> = {};
@@ -531,7 +531,7 @@ function searchQueryViews(
           tab: "query",
           queryTab: v.queryTab,
           querySubTab: v.querySubTab,
-          label: "Query Consulting",
+          label: "Peoplesoft Consulting",
           path: v.path,
         },
         pnKey ? v.rows : [],
@@ -2346,7 +2346,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                 </div>
                 <p className={styles.subtitle}>
                   {subtitle ||
-                    "Find equipment by part number or description across Favorites, Assets Catalog, BOM Costs, Quotations and Query Consulting."}
+                    "Find equipment by part number or description across Favorites, Assets Catalog, BOM Costs, Quotations and Peoplesoft Consulting."}
                 </p>
               </div>
             </div>
