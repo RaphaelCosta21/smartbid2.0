@@ -18,7 +18,9 @@ const componentStubs = {
   "../common/EditLockBanner": { EditToolbar: Empty },
   "./ExportClarificationModal": { ExportClarificationModal: Empty },
   "./ImportClarificationModal": { ImportClarificationModal: Empty },
+  "./ImportQualificationModal": { ImportQualificationModal: Empty },
   "./ClarificationSuggestionsModal": { ClarificationSuggestionsModal: Empty },
+  "./QualificationSuggestionsModal": { QualificationSuggestionsModal: Empty },
   "../knowledge/ClarificationBadges": { ClarificationCategoryChip: Empty },
   "../../hooks/useEditControl": { useEditControl: () => ({ isEditing: true }) },
   "../../stores/useUIStore": {
@@ -53,6 +55,8 @@ function load(relative) {
     if (name.endsWith("/hooks/useColorTheme")) {
       return { resolveSemanticColor: (_, __, fallback) => fallback };
     }
+    if (name.endsWith("/stores/useConfigStore"))
+      return componentStubs["../../stores/useConfigStore"];
     if (filename.endsWith("Tab.tsx") && componentStubs[name])
       return componentStubs[name];
     if (!name.startsWith(".")) return require(name);

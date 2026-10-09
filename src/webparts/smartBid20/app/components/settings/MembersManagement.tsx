@@ -32,6 +32,7 @@ import {
 import { MembersService } from "../../services/MembersService";
 import { useSpfxContext } from "../../config/SpfxContext";
 import { usePageAccess } from "../../hooks/usePageAccess";
+import { useStatusColors } from "../../hooks/useStatusColors";
 import { PageHeader } from "../common/PageHeader";
 import { EmptyState } from "../common/EmptyState";
 import { SkeletonLoader } from "../common/SkeletonLoader";
@@ -103,12 +104,6 @@ const sectorStyle = (color: string): React.CSSProperties =>
 
 const BUSINESS_LINES: BusinessLine[] = ["ROV", "OPG", "SURVEY"];
 
-const BL_COLORS: Record<BusinessLine, { color: string; bg: string }> = {
-  ROV: { color: "#0369a1", bg: "rgba(3,105,161,0.14)" },
-  OPG: { color: "#b45309", bg: "rgba(180,83,9,0.14)" },
-  SURVEY: { color: "#047857", bg: "rgba(4,120,87,0.14)" },
-};
-
 type MemberFacetKey = "sector" | "businessLine";
 
 const MEMBER_FACET_VALUES: Record<
@@ -164,6 +159,11 @@ interface IPeopleResult {
 const MembersManagement: React.FC = () => {
   const spfxContext = useSpfxContext();
   const { canEdit } = usePageAccess();
+  const { getBusinessLineColor } = useStatusColors();
+  const blColorOf = (bl: string): { color: string; bg: string } => {
+    const color = getBusinessLineColor(bl);
+    return { color, bg: `${color}24` };
+  };
 
   const [membersData, setMembersData] = React.useState<IMembersData>({
     members: [],
@@ -288,7 +288,7 @@ const MembersManagement: React.FC = () => {
   const blOptions: MultiSelectOption[] = BUSINESS_LINES.map((bl) => ({
     value: bl,
     label: bl,
-    color: BL_COLORS[bl].color,
+    color: getBusinessLineColor(bl),
     count: facetCounts.businessLine[bl] || 0,
   }));
 
@@ -769,7 +769,7 @@ const MembersManagement: React.FC = () => {
                       <div className={styles.memberMeta}>
                         {/* Business Lines */}
                         {m.businessLines.map((bl) => {
-                          const blColor = BL_COLORS[bl];
+                          const blColor = blColorOf(bl);
                           return (
                             <span
                               key={bl}
@@ -1007,7 +1007,7 @@ const MembersManagement: React.FC = () => {
                     </span>
                     <div className={styles.divisionBadgesRow}>
                       {panelForm.businessLines.map((bl) => {
-                        const blColor = BL_COLORS[bl];
+                        const blColor = blColorOf(bl);
                         return (
                           <button
                             key={bl}
@@ -1047,7 +1047,7 @@ const MembersManagement: React.FC = () => {
                       {BUSINESS_LINES.filter(
                         (bl) => !panelForm.businessLines.includes(bl),
                       ).map((bl) => {
-                        const blColor = BL_COLORS[bl];
+                        const blColor = blColorOf(bl);
                         return (
                           <button
                             key={bl}

@@ -68,7 +68,7 @@ export function withCurrentOption(
   value: string,
 ): { value: string; label: string }[] {
   const list = options.map((o) => ({ value: o.value, label: o.label }));
-  if (value && !options.some((o) => o.value === value || o.label === value)) {
+  if (value && !options.some((o) => o.value === value)) {
     list.push({ value, label: `${value} (not in configuration)` });
   }
   return list;

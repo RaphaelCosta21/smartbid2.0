@@ -18,6 +18,8 @@ interface StatusColorLookup {
   getPriorityColor: (priority: string) => string;
   getDivisionColor: (division: string) => string;
   getServiceLineColor: (serviceLine: string) => string;
+  /** Member business lines (ROV/SURVEY/OPG) resolved against Divisions & Service Lines. */
+  getBusinessLineColor: (businessLine: string) => string;
 }
 
 export function useStatusColors(): StatusColorLookup {
@@ -29,6 +31,7 @@ export function useStatusColors(): StatusColorLookup {
     const subStatusMap = new Map<string, string>();
     const divisionMap = new Map<string, string>();
     const serviceLineMap = new Map<string, string>();
+    const businessLineMap = new Map<string, string>();
 
     if (config) {
       (config.phases || []).forEach((p) => {
@@ -46,6 +49,16 @@ export function useStatusColors(): StatusColorLookup {
       (config.serviceLines || []).forEach((s) => {
         if (s.value && s.color) serviceLineMap.set(s.value, s.color);
       });
+      // Divisions win over service lines on a name clash
+      (config.serviceLines || [])
+        .concat(config.divisions || [])
+        .forEach((o) => {
+          const color = o.color;
+          if (!color) return;
+          [o.value, o.label].forEach((k) => {
+            if (k) businessLineMap.set(k.toUpperCase(), color);
+          });
+        });
     }
 
     return {
@@ -72,6 +85,9 @@ export function useStatusColors(): StatusColorLookup {
 
       getServiceLineColor: (serviceLine: string) =>
         serviceLineMap.get(serviceLine) || "#94a3b8",
+
+      getBusinessLineColor: (businessLine: string) =>
+        businessLineMap.get((businessLine || "").toUpperCase()) || "#94a3b8",
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- colorTheme is read inside resolveSemanticColor
   }, [config, colorTheme]);

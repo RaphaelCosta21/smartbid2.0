@@ -9,6 +9,7 @@ import { ErnService } from "../../services/ErnService";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useUIStore } from "../../stores/useUIStore";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { useTeamMembers } from "../../hooks/useTeamMembers";
 import { PeoplePicker, IPickedPerson } from "../common/PeoplePicker";
 import {
   ERN_REVISION_REASONS,
@@ -86,6 +87,35 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
   const [lead, setLead] = React.useState<IPickedPerson | null>(null);
   const [description, setDescription] = React.useState("");
 
+  const { members, loading: membersLoading } = useTeamMembers();
+  const engineeringMembers = React.useMemo(
+    () =>
+      members
+        .filter((m) => m.isActive && m.sector === "engineering")
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [members],
+  );
+  const leadMembers = React.useMemo(
+    () => engineeringMembers.filter((m) => m.bidRole === "lead"),
+    [engineeringMembers],
+  );
+  const pickMember = (
+    list: typeof members,
+    email: string,
+  ): IPickedPerson | null => {
+    const m = list.filter((x) => x.email === email)[0];
+    return m
+      ? {
+          name: m.name,
+          email: m.email,
+          photoUrl: m.photoUrl || "",
+          jobTitle: m.jobTitle,
+        }
+      : null;
+  };
+  const memberPlaceholder = (count: number): string =>
+    membersLoading ? "Loading…" : count === 0 ? "No members found" : "Select…";
+
   // Pre-fill on open
   React.useEffect(() => {
     if (!isOpen) return;
@@ -151,7 +181,13 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
     (contentAction !== "Revise" || !!revisionReason);
 
   const canSubmit =
-    !!engDueDate && !!resource1 && !!checker && !!lead && !saving;
+    !!engDueDate &&
+    !!checkerDueDate &&
+    !!leadDate &&
+    !!resource1 &&
+    !!checker &&
+    !!lead &&
+    !saving;
 
   const handleSubmit = async (): Promise<void> => {
     if (!resource1 || !checker || !lead) return;
@@ -381,7 +417,7 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
                 />
               </label>
               <label className={styles.field}>
-                <span className={styles.label}>Checker Due Date</span>
+                <span className={styles.label}>Checker Due Date *</span>
                 <input
                   type="date"
                   className={styles.input}
@@ -390,7 +426,7 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
                 />
               </label>
               <label className={styles.field}>
-                <span className={styles.label}>Lead Date</span>
+                <span className={styles.label}>Lead Date *</span>
                 <input
                   type="date"
                   className={styles.input}
@@ -405,16 +441,46 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
                   onChange={setResource1}
                 />
               </div>
-              <div className={styles.field}>
-                <PeoplePicker
-                  label="Checker *"
-                  value={checker}
-                  onChange={setChecker}
-                />
-              </div>
-              <div className={styles.field}>
-                <PeoplePicker label="Lead *" value={lead} onChange={setLead} />
-              </div>
+              <label className={styles.field}>
+                <span className={styles.label}>Checker *</span>
+                <select
+                  className={styles.input}
+                  value={checker?.email || ""}
+                  disabled={membersLoading}
+                  onChange={(e) =>
+                    setChecker(pickMember(engineeringMembers, e.target.value))
+                  }
+                >
+                  <option value="">
+                    {memberPlaceholder(engineeringMembers.length)}
+                  </option>
+                  {engineeringMembers.map((m) => (
+                    <option key={m.email} value={m.email}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={styles.field}>
+                <span className={styles.label}>Lead *</span>
+                <select
+                  className={styles.input}
+                  value={lead?.email || ""}
+                  disabled={membersLoading}
+                  onChange={(e) =>
+                    setLead(pickMember(leadMembers, e.target.value))
+                  }
+                >
+                  <option value="">
+                    {memberPlaceholder(leadMembers.length)}
+                  </option>
+                  {leadMembers.map((m) => (
+                    <option key={m.email} value={m.email}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className={`${styles.field} ${styles.fieldFull}`}>
                 <span className={styles.label}>Deliverable Description</span>
                 <textarea

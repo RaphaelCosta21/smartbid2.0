@@ -7,11 +7,15 @@ import {
   RefreshCw,
   FastForward,
   ShieldCheck,
+  FileText,
+  Wrench,
+  Briefcase,
 } from "lucide-react";
 import {
   IBid,
   IExchangeRateSnapshot,
   ITeamMember,
+  BusinessLine,
   Division,
   BidType,
   BidSize,
@@ -53,6 +57,7 @@ import { TechnicalProposalChip } from "./TechnicalProposalChip";
 import { getTechnicalProposalState } from "../../utils/technicalProposalHelpers";
 import { getPhaseLabelForBid } from "../../utils/phaseHelpers";
 import { calcElapsedDays } from "../../utils/durationHelpers";
+import { withCurrentOption } from "../../utils/clarificationHelpers";
 import { getCurrentRevisionLetter, hasActiveRevision } from "./RevisionsTab";
 import { ErnCreateModal } from "./ErnCreateModal";
 import { ErnDetailsModal } from "./ErnDetailsModal";
@@ -70,6 +75,8 @@ import styles from "../../pages/BidDetailPage.module.scss";
 
 /* ─── Helpers ─── */
 
+const PM_BUSINESS_LINES: BusinessLine[] = ["ROV", "SURVEY", "OPG"];
+
 const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({
   label,
   value,
@@ -78,6 +85,30 @@ const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({
     <div className={styles.infoLabel}>{label}</div>
     <div className={styles.infoValue}>{value || "-"}</div>
   </div>
+);
+
+// Keep the component type stable so draft updates do not remount focused inputs.
+const EditInput: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  style?: React.CSSProperties;
+}> = ({ value, onChange, type, style }) => (
+  <input
+    type={type || "text"}
+    value={value || ""}
+    onChange={(e) => onChange(e.target.value)}
+    style={{
+      width: "100%",
+      padding: "4px 8px",
+      border: "1px solid var(--border)",
+      borderRadius: 6,
+      background: "var(--card-bg-elevated)",
+      color: "var(--text-primary)",
+      fontSize: 13,
+      ...style,
+    }}
+  />
 );
 
 /* ─── Approval Status Card (Overview sidebar) ─── */
@@ -532,15 +563,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             });
         });
 
-        if (bid.serviceLine === "Integrated") {
-          const data = await MembersService.getAll();
-          if (!cancelled) {
-            const map: Record<string, ITeamMember> = {};
-            (data.members || []).forEach((m) => {
-              map[m.email.toLowerCase()] = m;
-            });
-            setMembersMap(map);
-          }
+        const data = await MembersService.getAll();
+        if (!cancelled) {
+          const map: Record<string, ITeamMember> = {};
+          (data.members || []).forEach((m) => {
+            if (m.email) map[m.email.toLowerCase()] = m;
+          });
+          setMembersMap(map);
         }
       } catch {
         /* ignore */
@@ -550,15 +579,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [allPeople, spfxContext, bid.serviceLine]);
-
-  const getPersonDivision = (email: string): "ROV" | "SURVEY" | null => {
-    const member = membersMap[email.toLowerCase()];
-    if (!member) return null;
-    if (member.businessLines.indexOf("ROV" as any) >= 0) return "ROV";
-    if (member.businessLines.indexOf("SURVEY" as any) >= 0) return "SURVEY";
-    return null;
-  };
+  }, [allPeople, spfxContext]);
 
   const PersonChip: React.FC<{
     name: string;
@@ -568,47 +589,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   }> = ({ name, email, role, photoUrl }) => {
     const imgSrc = photoMap[email] || photoUrl;
     return (
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          marginRight: 12,
-          marginBottom: 6,
-        }}
-      >
+      <span className={styles.kpPerson} title={`${name} (${email})`}>
         {imgSrc ? (
-          <img
-            src={imgSrc}
-            alt=""
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: "50%",
-              objectFit: "cover",
-            }}
-          />
+          <img src={imgSrc} alt="" className={styles.kpAvatar} />
         ) : (
-          <span
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: "50%",
-              background: "var(--border-subtle)",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 12,
-              fontWeight: 600,
-              color: "var(--text-secondary)",
-            }}
-          >
-            {name.charAt(0).toUpperCase()}
+          <span className={styles.kpAvatar}>
+            {(name || "?").charAt(0).toUpperCase()}
           </span>
         )}
-        <span style={{ fontSize: 13 }}>
-          {name}
-          {role ? ` (${role})` : ""}
+        <span className={styles.kpPersonText}>
+          <span className={styles.kpPersonName}>{name}</span>
+          {role && <span className={styles.kpPersonRole}>{role}</span>}
         </span>
       </span>
     );
@@ -706,6 +697,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const saveOps = (): void => {
     const changes: string[] = [];
     const prev = bid.opportunityInfo;
+    if (opsDraft.projectName !== prev?.projectName)
+      changes.push(`Project Name → "${opsDraft.projectName}"`);
     if (opsDraft.client !== prev?.client)
       changes.push(`Client → "${opsDraft.client}"`);
     if (opsDraft.clientContact !== prev?.clientContact)
@@ -724,7 +717,20 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       changes.push(`Duration → ${opsDraft.totalDuration}`);
     if (changes.length > 0) {
       logAndSave(
-        { opportunityInfo: { ...prev, ...opsDraft } },
+        {
+          opportunityInfo: {
+            ...prev,
+            projectName: opsDraft.projectName,
+            client: opsDraft.client,
+            clientContact: opsDraft.clientContact,
+            region: opsDraft.region,
+            vessel: opsDraft.vessel,
+            field: opsDraft.field,
+            waterDepth: opsDraft.waterDepth,
+            operationStartDate: opsDraft.operationStartDate,
+            totalDuration: opsDraft.totalDuration,
+          },
+        },
         `Operational Summary updated: ${changes.join("; ")}`,
       );
     }
@@ -831,28 +837,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     padding: "2px 8px",
     fontSize: 11,
   };
-  const EditInput: React.FC<{
-    value: string;
-    onChange: (v: string) => void;
-    type?: string;
-    style?: React.CSSProperties;
-  }> = ({ value, onChange, type, style }) => (
-    <input
-      type={type || "text"}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      style={{
-        width: "100%",
-        padding: "4px 8px",
-        border: "1px solid var(--border)",
-        borderRadius: 6,
-        background: "var(--card-bg-elevated)",
-        color: "var(--text-primary)",
-        fontSize: 13,
-        ...style,
-      }}
-    />
-  );
 
   const slColor = (config?.serviceLines || []).find(
     (sl) => sl.value === bid.serviceLine,
@@ -967,10 +951,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         fontSize: 13,
                       }}
                     >
-                      {(config?.divisions || [])
-                        .filter((d) => d.isActive !== false)
+                      <option value="">- Select -</option>
+                      {withCurrentOption(
+                        (config?.divisions || []).filter(
+                          (d) => d.isActive !== false,
+                        ),
+                        genDraft.division,
+                      )
                         .map((d) => (
-                          <option key={d.id} value={d.value}>
+                          <option key={d.value} value={d.value}>
                             {d.label}
                           </option>
                         ))}
@@ -982,12 +971,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   value={
                     <select
                       value={genDraft.serviceLine}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const serviceLine = e.target.value;
                         setGenDraft((d) => ({
                           ...d,
-                          serviceLine: e.target.value,
-                        }))
-                      }
+                          serviceLine,
+                        }));
+                      }}
                       style={{
                         width: "100%",
                         padding: "4px 8px",
@@ -998,15 +988,18 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         fontSize: 13,
                       }}
                     >
-                      {(config?.serviceLines || [])
-                        .filter(
+                      <option value="">- Select -</option>
+                      {withCurrentOption(
+                        (config?.serviceLines || []).filter(
                           (sl) =>
                             sl.isActive !== false &&
                             (!genDraft.division ||
                               sl.category === genDraft.division),
-                        )
+                        ),
+                        genDraft.serviceLine,
+                      )
                         .map((sl) => (
-                          <option key={sl.id} value={sl.value}>
+                          <option key={sl.value} value={sl.value}>
                             {sl.label}
                           </option>
                         ))}
@@ -1018,12 +1011,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   value={
                     <select
                       value={genDraft.bidType}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const bidType = e.target.value as BidType;
                         setGenDraft((d) => ({
                           ...d,
-                          bidType: e.target.value as BidType,
-                        }))
-                      }
+                          bidType,
+                        }));
+                      }}
                       style={{
                         width: "100%",
                         padding: "4px 8px",
@@ -1034,10 +1028,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         fontSize: 13,
                       }}
                     >
-                      {(config?.bidTypes || [])
-                        .filter((bt) => bt.isActive !== false)
+                      <option value="">- Select -</option>
+                      {withCurrentOption(
+                        (config?.bidTypes || []).filter(
+                          (bt) => bt.isActive !== false,
+                        ),
+                        genDraft.bidType,
+                      )
                         .map((bt) => (
-                          <option key={bt.id} value={bt.value}>
+                          <option key={bt.value} value={bt.value}>
                             {bt.label}
                           </option>
                         ))}
@@ -1321,13 +1320,25 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           {editingOps ? (
             <div className={styles.infoGrid}>
               <InfoRow
+                label="Project Name"
+                value={
+                  <EditInput
+                    value={opsDraft.projectName || ""}
+                    onChange={(v) =>
+                      setOpsDraft((d) => ({ ...d, projectName: v }))
+                    }
+                  />
+                }
+              />
+              <InfoRow
                 label="Client"
                 value={
                   <select
                     value={opsDraft.client || ""}
-                    onChange={(e) =>
-                      setOpsDraft((d) => ({ ...d, client: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      const client = e.target.value;
+                      setOpsDraft((d) => ({ ...d, client }));
+                    }}
                     style={{
                       width: "100%",
                       padding: "4px 8px",
@@ -1339,10 +1350,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     }}
                   >
                     <option value="">- Select -</option>
-                    {(config?.clientList || [])
-                      .filter((c) => c.isActive !== false)
+                    {withCurrentOption(
+                      (config?.clientList || []).filter(
+                        (c) => c.isActive !== false,
+                      ),
+                      opsDraft.client,
+                    )
                       .map((c) => (
-                        <option key={c.id} value={c.value}>
+                        <option key={c.value} value={c.value}>
                           {c.label}
                         </option>
                       ))}
@@ -1365,9 +1380,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 value={
                   <select
                     value={opsDraft.region || ""}
-                    onChange={(e) =>
-                      setOpsDraft((d) => ({ ...d, region: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      const region = e.target.value;
+                      setOpsDraft((d) => ({ ...d, region }));
+                    }}
                     style={{
                       width: "100%",
                       padding: "4px 8px",
@@ -1379,10 +1395,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     }}
                   >
                     <option value="">- Select -</option>
-                    {(config?.regions || [])
-                      .filter((r) => r.isActive !== false)
+                    {withCurrentOption(
+                      (config?.regions || []).filter(
+                        (r) => r.isActive !== false,
+                      ),
+                      opsDraft.region,
+                    )
                       .map((r) => (
-                        <option key={r.id} value={r.value}>
+                        <option key={r.value} value={r.value}>
                           {r.label}
                         </option>
                       ))}
@@ -1408,7 +1428,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 }
               />
               <InfoRow
-                label="Water Depth"
+                label={`Water Depth (${opsDraft.waterDepthUnit || "m"})`}
                 value={
                   <EditInput
                     type="number"
@@ -1424,7 +1444,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 value={
                   <EditInput
                     type="date"
-                    value={opsDraft.operationStartDate || ""}
+                    value={(opsDraft.operationStartDate || "").split("T")[0]}
                     onChange={(v) =>
                       setOpsDraft((d) => ({ ...d, operationStartDate: v }))
                     }
@@ -1432,7 +1452,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 }
               />
               <InfoRow
-                label="Duration (days)"
+                label={`Duration (${opsDraft.totalDurationUnit || "days"})`}
                 value={
                   <EditInput
                     type="number"
@@ -1607,345 +1627,101 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         {/* People */}
         <div className={styles.infoSection}>
           <h4 className={styles.infoTitle}>Key People</h4>
-          {bid.serviceLine === "Integrated" ? (
-            (() => {
-              const groupByDiv = (
-                people: {
-                  name: string;
-                  email: string;
-                  role?: string;
-                  photoUrl?: string;
-                }[],
-              ): {
-                rov: typeof people;
-                survey: typeof people;
-                other: typeof people;
-              } => {
-                const rov: typeof people = [];
-                const survey: typeof people = [];
-                const other: typeof people = [];
-                people.forEach((p) => {
-                  const div = getPersonDivision(p.email);
-                  if (div === "ROV") rov.push(p);
-                  else if (div === "SURVEY") survey.push(p);
-                  else other.push(p);
-                });
-                return { rov, survey, other };
-              };
-              const engineers = groupByDiv(bid.engineerResponsible || []);
-              const analysts = groupByDiv(bid.analyst || []);
-              const renderGroup = (
-                label: string,
-                groups: {
-                  rov: {
-                    name: string;
-                    email: string;
-                    role?: string;
-                    photoUrl?: string;
-                  }[];
-                  survey: (typeof groups)["rov"];
-                  other: (typeof groups)["rov"];
-                },
-              ): React.ReactNode => (
-                <div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "var(--text-secondary)",
-                      marginBottom: 4,
-                    }}
-                  >
-                    {label}
-                  </div>
-                  {groups.rov.length > 0 && (
-                    <div style={{ marginBottom: 4 }}>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: "var(--primary-accent)",
-                          marginRight: 8,
-                        }}
-                      >
-                        ROV
-                      </span>
-                      {groups.rov.map((p) => (
-                        <PersonChip
-                          key={p.email}
-                          name={p.name}
-                          email={p.email}
-                          role={p.role}
-                          photoUrl={p.photoUrl}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  {groups.survey.length > 0 && (
-                    <div style={{ marginBottom: 4 }}>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: "var(--warning)",
-                          marginRight: 8,
-                        }}
-                      >
-                        SURVEY
-                      </span>
-                      {groups.survey.map((p) => (
-                        <PersonChip
-                          key={p.email}
-                          name={p.name}
-                          email={p.email}
-                          role={p.role}
-                          photoUrl={p.photoUrl}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  {groups.other.length > 0 && (
-                    <div>
-                      {groups.other.map((p) => (
-                        <PersonChip
-                          key={p.email}
-                          name={p.name}
-                          email={p.email}
-                          role={p.role}
-                          photoUrl={p.photoUrl}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  {groups.rov.length === 0 &&
-                    groups.survey.length === 0 &&
-                    groups.other.length === 0 && (
-                      <span
-                        style={{ fontSize: 13, color: "var(--text-secondary)" }}
-                      >
-                        -
-                      </span>
-                    )}
+          {(() => {
+            type Person = {
+              name: string;
+              email: string;
+              role?: string;
+              photoUrl?: string;
+            };
+            const renderPeople = (people: Person[]): React.ReactNode =>
+              people.length > 0 ? (
+                <div className={styles.kpPeople}>
+                  {people.map((p) => (
+                    <PersonChip
+                      key={p.email}
+                      name={p.name}
+                      email={p.email}
+                      role={p.role}
+                      photoUrl={p.photoUrl}
+                    />
+                  ))}
                 </div>
+              ) : (
+                <span className={styles.kpEmpty}>-</span>
               );
-              return (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "repeat(auto-fill, minmax(220px, 1fr))",
-                    gap: "16px 24px",
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: "var(--text-secondary)",
-                        marginBottom: 4,
-                      }}
-                    >
-                      Creator
-                    </div>
-                    {bid.creator ? (
-                      <PersonChip
-                        name={bid.creator.name}
-                        email={bid.creator.email}
-                        role={bid.creator.role}
-                        photoUrl={bid.creator.photoUrl}
-                      />
-                    ) : (
-                      "-"
-                    )}
-                  </div>
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: "var(--text-secondary)",
-                        marginBottom: 4,
-                      }}
-                    >
-                      Commercial Requester
-                    </div>
-                    {bid.commercialRequester ? (
-                      <PersonChip
-                        name={bid.commercialRequester.name}
-                        email={bid.commercialRequester.email}
-                        role={bid.commercialRequester.role}
-                        photoUrl={bid.commercialRequester.photoUrl}
-                      />
-                    ) : (
-                      "-"
-                    )}
-                  </div>
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: "var(--text-secondary)",
-                        marginBottom: 4,
-                      }}
-                    >
-                      Project Manager
-                    </div>
-                    {(bid.projectManager || []).length > 0 ? (
-                      (bid.projectManager || []).map((pm) => (
-                        <PersonChip
-                          key={pm.email}
-                          name={pm.name}
-                          email={pm.email}
-                          photoUrl={pm.photoUrl}
-                        />
-                      ))
-                    ) : (
-                      <span
-                        style={{ fontSize: 13, color: "var(--text-secondary)" }}
-                      >
-                        -
-                      </span>
-                    )}
-                  </div>
-                  {renderGroup("Engineer Responsible", engineers)}
-                  {renderGroup("Analyst", analysts)}
-                </div>
+            const renderRole = (
+              label: string,
+              people: Person[],
+            ): React.ReactNode => (
+              <div className={styles.kpRole}>
+                <div className={styles.kpRoleLabel}>{label}</div>
+                {renderPeople(people)}
+              </div>
+            );
+            const pmByLine: Record<BusinessLine, Person[]> = {
+              ROV: [],
+              SURVEY: [],
+              OPG: [],
+            };
+            const pmUnassigned: Person[] = [];
+            (bid.projectManager || []).forEach((pm) => {
+              const lines =
+                membersMap[(pm.email || "").toLowerCase()]?.businessLines ||
+                [];
+              const matched = PM_BUSINESS_LINES.filter(
+                (bl) => lines.indexOf(bl) >= 0,
               );
-            })()
-          ) : (
-            <div className={styles.infoGrid}>
-              <div style={{ marginBottom: 8 }}>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "var(--text-secondary)",
-                    marginBottom: 4,
-                  }}
-                >
-                  Creator
+              if (matched.length === 0) pmUnassigned.push(pm);
+              matched.forEach((bl) => pmByLine[bl].push(pm));
+            });
+            return (
+              <div className={styles.kpLayout}>
+                <div className={styles.kpPanel}>
+                  <div className={styles.kpPanelTitle}>
+                    <FileText size={14} /> Request
+                  </div>
+                  <div className={styles.kpPanelBody}>
+                    {renderRole("Creator", bid.creator ? [bid.creator] : [])}
+                    {renderRole(
+                      "Commercial Requester",
+                      bid.commercialRequester ? [bid.commercialRequester] : [],
+                    )}
+                  </div>
                 </div>
-                {bid.creator ? (
-                  <PersonChip
-                    name={bid.creator.name}
-                    email={bid.creator.email}
-                    role={bid.creator.role}
-                    photoUrl={bid.creator.photoUrl}
-                  />
-                ) : (
-                  "-"
-                )}
-              </div>
-              <div style={{ marginBottom: 8 }}>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "var(--text-secondary)",
-                    marginBottom: 4,
-                  }}
-                >
-                  Commercial Requester
+                <div className={styles.kpPanel}>
+                  <div className={styles.kpPanelTitle}>
+                    <Wrench size={14} /> Engineering
+                  </div>
+                  <div className={styles.kpPanelBody}>
+                    {renderRole(
+                      "Engineer Responsible",
+                      bid.engineerResponsible || [],
+                    )}
+                    {renderRole("Analyst", bid.analyst || [])}
+                  </div>
                 </div>
-                {bid.commercialRequester ? (
-                  <PersonChip
-                    name={bid.commercialRequester.name}
-                    email={bid.commercialRequester.email}
-                    role={bid.commercialRequester.role}
-                    photoUrl={bid.commercialRequester.photoUrl}
-                  />
-                ) : (
-                  "-"
-                )}
-              </div>
-              <div style={{ marginBottom: 8 }}>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "var(--text-secondary)",
-                    marginBottom: 4,
-                  }}
-                >
-                  Engineer Responsible
+                <div className={`${styles.kpPanel} ${styles.kpPanelWide}`}>
+                  <div className={styles.kpPanelTitle}>
+                    <Briefcase size={14} /> Project Manager
+                  </div>
+                  <div className={styles.kpDivisionGrid}>
+                    {PM_BUSINESS_LINES.filter(
+                      (bl) => pmByLine[bl].length > 0,
+                    ).map((bl) => (
+                      <React.Fragment key={bl}>
+                        {renderRole(bl, pmByLine[bl])}
+                      </React.Fragment>
+                    ))}
+                    {pmUnassigned.length > 0 &&
+                      renderRole("No business line", pmUnassigned)}
+                    {(bid.projectManager || []).length === 0 &&
+                      renderPeople([])}
+                  </div>
                 </div>
-                {(bid.engineerResponsible || []).length > 0 ? (
-                  bid.engineerResponsible.map((e) => (
-                    <PersonChip
-                      key={e.email}
-                      name={e.name}
-                      email={e.email}
-                      photoUrl={e.photoUrl}
-                    />
-                  ))
-                ) : (
-                  <span
-                    style={{ fontSize: 13, color: "var(--text-secondary)" }}
-                  >
-                    -
-                  </span>
-                )}
               </div>
-              <div style={{ marginBottom: 8 }}>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "var(--text-secondary)",
-                    marginBottom: 4,
-                  }}
-                >
-                  Analyst
-                </div>
-                {(bid.analyst || []).length > 0 ? (
-                  bid.analyst.map((a) => (
-                    <PersonChip
-                      key={a.email}
-                      name={a.name}
-                      email={a.email}
-                      photoUrl={a.photoUrl}
-                    />
-                  ))
-                ) : (
-                  <span
-                    style={{ fontSize: 13, color: "var(--text-secondary)" }}
-                  >
-                    -
-                  </span>
-                )}
-              </div>
-              <div style={{ marginBottom: 8 }}>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "var(--text-secondary)",
-                    marginBottom: 4,
-                  }}
-                >
-                  Project Manager
-                </div>
-                {(bid.projectManager || []).length > 0 ? (
-                  bid.projectManager.map((pm) => (
-                    <PersonChip
-                      key={pm.email}
-                      name={pm.name}
-                      email={pm.email}
-                      photoUrl={pm.photoUrl}
-                    />
-                  ))
-                ) : (
-                  <span
-                    style={{ fontSize: 13, color: "var(--text-secondary)" }}
-                  >
-                    -
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </div>
 
