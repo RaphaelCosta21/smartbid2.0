@@ -28,6 +28,8 @@ import { MembersService } from "../services/MembersService";
 import { RequestService } from "../services/RequestService";
 import { AttachmentService } from "../services/AttachmentService";
 import { BidService } from "../services/BidService";
+import { NotificationDispatchService } from "../services/NotificationDispatchService";
+import { buildCreatedNotification } from "../utils/notificationEvents";
 import styles from "./CreateRequestPage.module.scss";
 
 interface FormData {
@@ -543,6 +545,18 @@ export const CreateRequestPage: React.FC = () => {
         requestNumber,
         uploadedAttachments,
       );
+
+      NotificationDispatchService.emit(
+        [
+          buildCreatedNotification(
+            requestNumber,
+            currentUser.displayName,
+            form.commercialRequester ? form.commercialRequester.name : null,
+            form.projectManagers,
+          ),
+        ],
+        { name: currentUser.displayName, email: currentUser.email },
+      ).catch(() => undefined);
 
       // 5. Update local store with correct request number
       newReq.requestNumber = requestNumber;

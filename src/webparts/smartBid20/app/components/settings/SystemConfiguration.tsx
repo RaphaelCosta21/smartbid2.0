@@ -21,8 +21,12 @@ import {
   UserRole,
   IFavoriteGroup,
   IFavoriteSubGroup,
+  INotificationEventRule,
+  INotificationSettings,
+  NotificationEventKey,
 } from "../../models";
 import { SystemConfigService } from "../../services/SystemConfigService";
+import { NotificationDispatchService } from "../../services/NotificationDispatchService";
 import { CurrencyService } from "../../services/CurrencyService";
 import { BidService } from "../../services/BidService";
 import { QuotationService } from "../../services/QuotationService";
@@ -44,6 +48,7 @@ import {
   normalizeBidAccessLevels,
 } from "../../config/accessControl.config";
 import { BID_TAB_GROUPS } from "../../config/bidTabs.config";
+import { buildDefaultNotificationRules } from "../../config/notifications.config";
 import {
   COLOR_THEMES,
   UPCOMING_COLOR_THEMES,
@@ -78,6 +83,11 @@ import {
   SuperAdminsCard,
 } from "./AccessMatrix";
 import { AccessLog } from "./AccessLog";
+import {
+  NotificationDeliveryCard,
+  NotificationLegend,
+  NotificationMatrix,
+} from "./NotificationMatrix";
 import { isSuperAdminMaster } from "../../utils/accessControl";
 import {
   BookOpen,
@@ -267,15 +277,8 @@ const getEditablePriorityRules = (config: ISystemConfig): IPriorityRules => ({
 });
 
 /* ------------------------------------------------------------------ */
-/* ACCESS / NOTIFICATION CONSTANTS                                    */
+/* ACCESS CONSTANTS                                                   */
 /* ------------------------------------------------------------------ */
-
-const ROLES = ACCESS_ROLES.map((r) => r.value);
-
-const ROLE_LABELS: Record<string, string> = {};
-ACCESS_ROLES.forEach((r) => {
-  ROLE_LABELS[r.value] = r.label;
-});
 
 const AREA_ICONS: Record<AccessAreaKey, React.ReactNode> = {
   workspace: <LayoutDashboard size={14} />,
@@ -302,17 +305,6 @@ const BID_MATRIX_GROUPS: IAccessMatrixGroup[] = BID_TAB_GROUPS.map((g) => ({
 }));
 
 const cloneDeep = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
-
-const NOTIFICATION_LABELS: Record<string, string> = {
-  BID_CREATED: "BID Created",
-  BID_ASSIGNED: "BID Assigned",
-  STATUS_CHANGED: "Status Changed",
-  APPROVAL_REQUESTED: "Approval Requested",
-  APPROVAL_RESPONSE: "Approval Response",
-  BID_COMPLETED: "BID Completed",
-  BID_OVERDUE: "BID Overdue",
-  DEADLINE_WARNING: "Deadline Warning",
-};
 
 /* ------------------------------------------------------------------ */
 /* SUB-COMPONENTS for Phases & Status (need useState per row)          */
@@ -441,6 +433,9 @@ const SystemConfiguration: React.FC = () => {
   const { canEdit } = usePageAccess();
   const savedConfig = useConfigStore((s) => s.config);
   const [confirmAccessReset, setConfirmAccessReset] = React.useState(false);
+  const [confirmNotificationReset, setConfirmNotificationReset] =
+    React.useState(false);
+  const [testingNotification, setTestingNotification] = React.useState(false);
 
   // Subscribe to favorites data for equipment counts (Groups tab)
   const favEquipment = useFavoritesStore((s) => s.data?.equipment || []);
@@ -2461,65 +2456,106 @@ const SystemConfiguration: React.FC = () => {
     );
   };
 
-  /* ---- Notifications (toggle matrix) ---------------------------- */
+  /* ---- Notifications (Power Automate routing) -------------------- */
 
   const renderNotifications = (): React.ReactElement => {
     if (!config) return <></>;
-    const notifs = config.notifications;
-    const events = Object.keys(notifs);
+    const settings = config.notifications;
+    const savedRules = savedConfig?.notifications?.rules;
 
-    const toggleNotif = (event: string, role: string): void => {
-      if (!canEdit) return;
-      const current = notifs[event] || [];
-      const updated = current.includes(role)
-        ? current.filter((r) => r !== role)
-        : [...current, role];
-      updateConfig({ notifications: { ...notifs, [event]: updated } });
+    const patchNotifications = (patch: Partial<INotificationSettings>): void =>
+      updateConfig({ notifications: { ...settings, ...patch } });
+
+    const patchRule = (
+      event: NotificationEventKey,
+      patch: Partial<INotificationEventRule>,
+    ): void =>
+      patchNotifications({
+        rules: {
+          ...settings.rules,
+          [event]: { ...settings.rules[event], ...patch },
+        },
+      });
+
+    const handleSendTest = async (): Promise<void> => {
+      setTestingNotification(true);
+      try {
+        await NotificationDispatchService.sendTest(settings.flowUrl, {
+          name: currentUser.displayName,
+          email: currentUser.email,
+        });
+        showMsg(
+          "success",
+          "Test sent. It can take a minute to reach Teams and your inbox.",
+        );
+      } catch (err) {
+        console.error("Notification test failed:", err);
+        showMsg("error", "Test failed - check the flow URL and the console");
+      } finally {
+        setTestingNotification(false);
+      }
     };
 
-    const roleCount = ROLES.length;
-
     return (
-      <div>
+      <div className={styles.accessSection}>
         <div className={styles.sectionHeader}>
-          <h3>Notification Rules</h3>
+          <h3>Notifications</h3>
           <p>
             {canEdit
-              ? "Toggle which roles receive notifications for each event."
-              : "View notification settings. You have read-only access to this page."}
+              ? "Turn events on or off and choose who receives them. Click a cell to send to the whole team, only some BID roles or the Key People of the BID."
+              : "Notification routing per team. You have read-only access to this page."}
           </p>
         </div>
-        <div
-          className={styles.notifGrid}
-          style={{ "--role-count": roleCount } as React.CSSProperties}
-        >
-          <div className={styles.notifGridHeader}>
-            <div>Event</div>
-            {ROLES.map((r) => (
-              <div key={r}>{ROLE_LABELS[r]}</div>
-            ))}
-          </div>
-          {events.map((event) => (
-            <div key={event} className={styles.notifGridRow}>
-              <div>
-                {NOTIFICATION_LABELS[event] || event.replace(/_/g, " ")}
-              </div>
-              {ROLES.map((role) => {
-                const isOn = (notifs[event] || []).includes(role);
-                return (
-                  <div key={role}>
-                    <button
-                      className={`${styles.notifToggle} ${isOn ? styles.on : styles.off} ${!canEdit ? styles.readonly : ""}`}
-                      onClick={() => toggleNotif(event, role)}
-                      disabled={!canEdit}
-                      title={isOn ? "Enabled" : "Disabled"}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+
+        <div className={styles.accessTopRow}>
+          <NotificationLegend />
+          {canEdit && (
+            <button
+              className={styles.actionBtn}
+              onClick={() => setConfirmNotificationReset(true)}
+            >
+              Reset to defaults
+            </button>
+          )}
         </div>
+
+        <NotificationDeliveryCard
+          flowUrl={settings.flowUrl}
+          filterByBusinessLine={settings.filterByBusinessLine}
+          deadlineWarningDays={settings.deadlineWarningDays}
+          readOnly={!canEdit}
+          testing={testingNotification}
+          onChange={patchNotifications}
+          onSendTest={() => {
+            handleSendTest().catch(() => undefined);
+          }}
+        />
+
+        <NotificationMatrix
+          rules={settings.rules}
+          savedRules={savedRules}
+          filterByBusinessLine={settings.filterByBusinessLine}
+          readOnly={!canEdit}
+          onToggleEvent={(event, enabled) => patchRule(event, { enabled })}
+          onSetTeamRule={(event, team, rule) =>
+            patchRule(event, {
+              teams: { ...settings.rules[event].teams, [team]: rule },
+            })
+          }
+        />
+
+        <ConfirmDialog
+          isOpen={confirmNotificationReset}
+          title="Reset notification rules?"
+          message="Every event is turned on again with the default teams. The flow URL and delivery settings are kept. Nothing is stored until you click Save Changes."
+          confirmLabel="Reset"
+          variant="warning"
+          onConfirm={() => {
+            setConfirmNotificationReset(false);
+            patchNotifications({ rules: buildDefaultNotificationRules() });
+          }}
+          onCancel={() => setConfirmNotificationReset(false)}
+        />
       </div>
     );
   };

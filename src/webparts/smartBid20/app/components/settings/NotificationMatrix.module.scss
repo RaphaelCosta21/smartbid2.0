@@ -1,0 +1,653 @@
+/* ================================================================ */
+/* NOTIFICATION MATRIX (System Configuration > Notifications)       */
+/* Table chrome comes from AccessMatrix.module.scss.                */
+/* ================================================================ */
+
+table.wideTable {
+  min-width: 1180px;
+}
+
+th.eventCorner {
+  min-width: 340px;
+  width: 340px;
+}
+
+th.eventHead {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.eventInner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.eventIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--tone-color);
+  background: color-mix(in srgb, var(--tone-color) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tone-color) 26%, transparent);
+}
+
+.eventText {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 1px;
+}
+
+.eventLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.eventTrigger {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  white-space: normal;
+}
+
+.disabledRow {
+  .eventLabel {
+    color: var(--text-muted);
+  }
+
+  .eventIcon {
+    filter: grayscale(1);
+    opacity: 0.55;
+  }
+
+  .modePill {
+    opacity: 0.4;
+  }
+}
+
+/* ---- Channel chips --------------------------------------------- */
+
+.channels {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.channelChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--chip-color) 35%, transparent);
+  background: color-mix(in srgb, var(--chip-color) 12%, transparent);
+  color: var(--chip-color);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  line-height: 1.5;
+}
+
+.email {
+  --chip-color: var(--tertiary-accent);
+}
+
+.teams {
+  --chip-color: var(--secondary-accent);
+}
+
+/* ---- Group row summaries --------------------------------------- */
+
+.enabledChip {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--success);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.enabledChipOff {
+  border-color: var(--border-subtle);
+  background: var(--card-bg-elevated);
+  color: var(--text-muted);
+}
+
+.groupSummary {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.groupSummaryEmpty {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+/* ---- Audience pills (base .pill from AccessMatrix) -------------- */
+
+.modePill {
+  max-width: 132px;
+  white-space: nowrap;
+}
+
+.pillText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modeAll {
+  --pill-color: var(--success);
+}
+
+.modeCustom {
+  --pill-color: var(--info);
+}
+
+.modeOff {
+  --pill-color: var(--text-muted);
+}
+
+.modeEmpty {
+  --pill-color: var(--warning);
+  border-style: dashed;
+}
+
+.cellSelected {
+  box-shadow: inset 0 -3px 0 var(--role-color);
+}
+
+/* ---- Switch ----------------------------------------------------- */
+
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 34px;
+  height: 20px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card-bg-elevated);
+  cursor: pointer;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    box-shadow 150ms ease;
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+}
+
+.switchThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition:
+    transform 200ms ease,
+    background 200ms ease;
+}
+
+.switchOn {
+  background: var(--primary-accent);
+  border-color: var(--primary-accent);
+
+  .switchThumb {
+    transform: translateX(14px);
+    background: var(--primary-accent-contrast);
+  }
+}
+
+.switchChanged {
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--primary-accent) 65%, transparent);
+}
+
+/* ---- Inline team editor ---------------------------------------- */
+
+.editorRow > td {
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card-bg-elevated) 55%, var(--card-bg));
+}
+
+.editor {
+  position: sticky;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 760px;
+  padding: 14px 20px 16px 46px;
+  border-left: 3px solid var(--role-color);
+  animation: notifEditorIn 180ms ease;
+}
+
+.editorHead {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.editorTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+
+  strong {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  span {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+}
+
+.editorClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--text-primary);
+    background: var(--hover-bg);
+    outline: none;
+  }
+}
+
+.segmented {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg-elevated);
+}
+
+.segBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 1px;
+  }
+}
+
+.segActive {
+  background: var(--card-bg);
+  color: var(--primary-accent);
+  box-shadow: var(--shadow-card);
+
+  &:hover {
+    color: var(--primary-accent);
+  }
+}
+
+.customBody {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+
+.optionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.optionLabel {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.roleChip {
+  --chip-color: var(--primary-accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+
+  &:hover {
+    color: var(--text-primary);
+    border-color: color-mix(in srgb, var(--chip-color) 55%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+}
+
+.roleChipOn {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--chip-color) 45%, transparent);
+  background: color-mix(in srgb, var(--chip-color) 14%, transparent);
+  color: var(--chip-color);
+
+  &:hover {
+    color: var(--chip-color);
+  }
+}
+
+.keyPeopleChip {
+  --chip-color: var(--primary-accent);
+}
+
+.editorHint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+@keyframes notifEditorIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ================================================================ */
+/* DELIVERY CARD                                                    */
+/* ================================================================ */
+
+.delivery {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 20px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-card);
+}
+
+.deliveryHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.deliveryIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: var(--primary-accent);
+  background: color-mix(in srgb, var(--primary-accent) 14%, transparent);
+}
+
+.deliveryHeading {
+  flex: 1;
+  min-width: 0;
+
+  h4 {
+    margin: 0 0 2px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+}
+
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--status-color) 32%, transparent);
+  background: color-mix(in srgb, var(--status-color) 12%, transparent);
+  color: var(--status-color);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.statusOk {
+  --status-color: var(--success);
+}
+
+.statusWarn {
+  --status-color: var(--warning);
+}
+
+.deliveryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px 24px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+}
+
+.fieldLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 0 3px
+      color-mix(in srgb, var(--primary-accent) 18%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: default;
+  }
+}
+
+.inputInvalid {
+  border-color: var(--danger);
+
+  &:focus {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
+  }
+}
+
+.urlRow {
+  display: flex;
+  gap: 8px;
+}
+
+.urlInput {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+}
+
+.testBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--gradient-primary);
+  color: var(--primary-accent-contrast);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 250ms ease,
+    box-shadow 250ms ease,
+    opacity 150ms ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-glow);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.spin {
+  animation: notifSpin 900ms linear infinite;
+}
+
+@keyframes notifSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fieldHint,
+.fieldError {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.fieldHint {
+  color: var(--text-muted);
+}
+
+.fieldError {
+  color: var(--danger);
+}
+
+.switchRow,
+.daysRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.daysInput {
+  width: 72px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor,
+  .spin {
+    animation: none;
+  }
+}

@@ -1,4 +1,4 @@
-import { UserRole } from "./IUser";
+import { BidRole, Sector, UserRole } from "./IUser";
 import { IFavoriteGroup } from "./IFavoriteItem";
 import { BidPriority } from "./IBidStatus";
 
@@ -72,6 +72,45 @@ export type IBidAccessLevelDef = Record<BidTabGroupKey, AccessPermission> & {
   tabs?: Record<string, AccessPermission>;
 };
 
+export type NotificationEventKey =
+  | "BID_CREATED"
+  | "BID_ASSIGNED"
+  | "PHASE_CHANGED"
+  | "STATUS_CHANGED"
+  | "BID_ON_HOLD"
+  | "REVISION_STARTED"
+  | "BID_COMPLETED"
+  | "BID_CANCELED"
+  | "APPROVAL_STARTED"
+  | "APPROVAL_RESPONSE"
+  | "APPROVAL_OVERRIDE"
+  | "DUE_DATE_CHANGED"
+  | "DEADLINE_WARNING"
+  | "BID_OVERDUE"
+  | "TECHNICAL_PROPOSAL_UPLOADED";
+
+export type NotificationAudienceMode = "off" | "all" | "custom";
+
+/** `custom` = team members holding one of `bidRoles`, plus the BID Key People of this team when `keyPeople`. */
+export interface INotificationTeamRule {
+  mode: NotificationAudienceMode;
+  bidRoles?: BidRole[];
+  keyPeople?: boolean;
+}
+
+export interface INotificationEventRule {
+  enabled: boolean;
+  teams: Record<Sector, INotificationTeamRule>;
+}
+
+/** Read by the Power Automate notification flows (power-automate/NOTIFICATIONS.md). */
+export interface INotificationSettings {
+  flowUrl: string;
+  filterByBusinessLine: boolean;
+  deadlineWarningDays: number;
+  rules: Record<NotificationEventKey, INotificationEventRule>;
+}
+
 export interface IResourceTypeConfig {
   id: string;
   label: string;
@@ -112,7 +151,7 @@ export interface ISystemConfig {
   /** Supplier service types (Suppliers page filters + AI profile). */
   supplierServiceTypes?: IConfigOption[];
   currencySettings: ICurrencySettings;
-  notifications: Record<string, string[]>;
+  notifications: INotificationSettings;
   accessLevels: Record<UserRole, IAccessLevelDef>;
   bidAccessLevels?: Record<UserRole, IBidAccessLevelDef>;
   /** Teams that see the SmartBid Assistant button (absent = DEFAULT_ASSISTANT_TEAMS). */

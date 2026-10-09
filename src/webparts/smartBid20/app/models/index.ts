@@ -93,6 +93,11 @@ export {
   type ICurrencySettings,
   type IExchangeRate,
   type AccessPermission,
+  type NotificationEventKey,
+  type NotificationAudienceMode,
+  type INotificationTeamRule,
+  type INotificationEventRule,
+  type INotificationSettings,
 } from "./ISystemConfig";
 export {
   type IBidRequest,

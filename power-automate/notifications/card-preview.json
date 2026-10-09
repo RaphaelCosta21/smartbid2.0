@@ -1,0 +1,76 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.4",
+  "msteams": { "width": "Full" },
+  "body": [
+    {
+      "type": "Container",
+      "style": "good",
+      "bleed": true,
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "SMARTBID · OCEANEERING",
+          "size": "Small",
+          "weight": "Bolder",
+          "isSubtle": true,
+          "spacing": "None"
+        },
+        {
+          "type": "TextBlock",
+          "text": "✅ SmartBID concluído",
+          "size": "Large",
+          "weight": "Bolder",
+          "wrap": true,
+          "spacing": "Small"
+        },
+        {
+          "type": "TextBlock",
+          "text": "REQ-2026-0010 · Petrobras · Búzios 10 ROV Support",
+          "isSubtle": true,
+          "wrap": true,
+          "spacing": "None"
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "O SmartBID foi concluído.",
+      "wrap": true,
+      "spacing": "Medium"
+    },
+    {
+      "type": "FactSet",
+      "spacing": "Medium",
+      "separator": true,
+      "facts": [
+        { "title": "Concluído em", "value": "09/10/2026" },
+        { "title": "Concluído por", "value": "Raphael Costa" },
+        { "title": "BID", "value": "REQ-2026-0010" },
+        { "title": "Cliente", "value": "Petrobras" },
+        { "title": "Projeto", "value": "Búzios 10 ROV Support" },
+        { "title": "CRM", "value": "CRM-123456" },
+        { "title": "Divisão / Service Line", "value": "SSR / ROV" },
+        { "title": "Fase", "value": "Close Out" },
+        { "title": "Status", "value": "Completed" },
+        { "title": "Prazo", "value": "15/10/2026" }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Por Raphael Costa · 09/10/2026 14:30",
+      "size": "Small",
+      "isSubtle": true,
+      "wrap": true,
+      "spacing": "Medium"
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Abrir no SmartBID",
+      "url": "https://oceaneering.sharepoint.com/sites/G-OPGSSRBrazilEngineering"
+    }
+  ]
+}

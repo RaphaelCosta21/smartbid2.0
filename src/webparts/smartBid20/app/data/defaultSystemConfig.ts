@@ -8,6 +8,7 @@ import {
   DEFAULT_ACCESS_LEVELS,
   DEFAULT_BID_ACCESS_LEVELS,
 } from "../config/accessControl.config";
+import { DEFAULT_NOTIFICATION_SETTINGS } from "../config/notifications.config";
 
 export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
   kpiTargets: {
@@ -1328,16 +1329,7 @@ export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
     ],
     updateFrequency: "monthly",
   },
-  notifications: {
-    BID_CREATED: ["commercial"],
-    BID_ASSIGNED: ["commercial", "engineering"],
-    STATUS_CHANGED: ["commercial", "engineering", "project"],
-    APPROVAL_REQUESTED: ["commercial", "project"],
-    APPROVAL_RESPONSE: ["commercial", "engineering"],
-    BID_COMPLETED: ["commercial", "project"],
-    BID_OVERDUE: ["commercial", "engineering"],
-    DEADLINE_WARNING: ["commercial", "engineering"],
-  },
+  notifications: DEFAULT_NOTIFICATION_SETTINGS,
   accessLevels: DEFAULT_ACCESS_LEVELS,
   bidAccessLevels: DEFAULT_BID_ACCESS_LEVELS,
   favoriteGroups: getDefaultFavoriteGroups(),

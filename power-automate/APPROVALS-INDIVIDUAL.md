@@ -8,13 +8,15 @@ por aprovador** e um **chat em grupo** que mostra o andamento da rodada.
   (e e-mail). Ninguém consegue responder o pedido de outra pessoa.
 - Cada resposta, **em qualquer ordem**, atualiza o grupo (`Approved` ou `Rejected`), as Approver rows
   e o BID no SharePoint, **com o comentário** da pessoa.
-- Quando **todos aprovam**, o fluxo fecha o BID e envia o card final e o e-mail.
+- Quando **todos aprovam**, o fluxo fecha o BID, envia o card final no chat e avisa o fluxo de
+  notificações, que manda o e-mail de conclusão ([NOTIFICATIONS.md](./NOTIFICATIONS.md)).
   Uma **recusa** encerra a rodada como rejeitada.
 - **Uma vez por dia**, um fluxo de lembrete menciona no chat em grupo quem ainda não respondeu.
 - Toda escrita no BID usa **ETag + retry**.
 
-Usa apenas conectores **Standard** (Approvals, SharePoint, Teams, Office 365 Users, Mail).
-**Não precisa de Dataverse nem de licença Premium.**
+Usa conectores **Standard** (Approvals, SharePoint, Teams, Office 365 Users, Mail) e **não precisa de
+Dataverse**. A única ação Premium é a **HTTP** que avisa o fluxo de notificações (passos 14.11 d e 18.2);
+a conta dona precisa da mesma licença Premium do fluxo `SmartBid – Notifications`.
 
 > **Escopo:** roteiro de configuração. Não é um fluxo exportado nem testado no tenant.
 > Itens marcados com **Verificar** dependem do ambiente e devem ser confirmados no primeiro teste.
@@ -30,7 +32,7 @@ Usa apenas conectores **Standard** (Approvals, SharePoint, Teams, Office 365 Use
 | [`cards/02-status.json`](./cards/02-status.json)               | Status card atualizado a cada resposta                    |
 | `cards/03-approver.json`                                       | **Não usar**: o pedido agora é o card nativo do Approvals |
 | [`cards/04-final.json`](./cards/04-final.json)                 | Mensagem final, **somente quando todos aprovam**          |
-| [`email/completion-email.html`](./email/completion-email.html) | E-mail final, **somente quando todos aprovam**            |
+| `email/completion-email.html`                                  | **Não usar**: o e-mail de conclusão vem do fluxo de notificações ([NOTIFICATIONS.md](./NOTIFICATIONS.md)) |
 | [README.md §5](./README.md)                                    | Receita do write-back com ETag (detalhes e armadilhas)    |
 | [README.md §7](./README.md)                                    | Solução de problemas comuns do Power Automate             |
 | [README.md §10.2](./README.md)                                 | Fluxo de aviso de override no chat                        |
@@ -54,7 +56,7 @@ flowchart TD
     G -->|Rodada rejeitada ou override| X[Sai da espera]
     I --> K{Todos os ramos terminaram}
     X --> K
-    K -->|Todos aprovaram| L[BID Completed + card final + e-mail]
+    K -->|Todos aprovaram| L[BID Completed + card final + notificação de conclusão]
     K -->|Alguem recusou| M[Rodada rejeitada]
     K -->|Prazo esgotado| N[Rodada expirada, sem sucesso]
     R[Fluxo de lembrete diario] -->|@mention de quem falta| C
@@ -90,7 +92,7 @@ flowchart TD
 
 ## 2. Pré-requisitos
 
-### 2.1 Conexões (todas Standard)
+### 2.1 Conexões
 
 | Conector              | Uso                                                                                                                                                                        |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -98,7 +100,8 @@ flowchart TD
 | SharePoint            | Get/Create/Update item e `Send an HTTP request to SharePoint` (ETag)                                                                                                       |
 | Microsoft Teams       | `Create a chat`, `Post card in a chat or channel`, `Update an adaptive card in a chat or channel`, `Post message in a chat or channel`, `Get an @mention token for a user` |
 | Office 365 Users      | `Get my profile (V2)`: identidade que cria o chat                                                                                                                          |
-| Mail                  | `Send an email notification (V3)`: e-mail final                                                                                                                            |
+| Mail                  | `Send an email notification (V3)`: avisos de falha para o administrador                                                                                                    |
+| HTTP (Premium)        | `HTTP`: avisa o fluxo `SmartBid – Notifications` (passos 14.11 d e 18.2)                                                                                                   |
 | OneDrive for Business | Opcional, `Convert file` para o PDF final (§7)                                                                                                                             |
 
 Use, de preferência, uma conta de serviço como dona dos fluxos e das conexões. Ela aparece como
@@ -133,8 +136,8 @@ Ajustes manuais (ou incluir em `ensureApprovalColumns()`):
 **Colunas de data com hora.** `RespondedDate`, `OverriddenDate` e `LastReminderDate` precisam estar
 com **Incluir hora = Sim** (List settings → coluna → _Date and Time Format_: **Date & Time**). Listas
 antigas criadas pelo app têm essas colunas como **somente data**. Nesse formato, o SharePoint devolve
-`2026-10-02T00:00:00.0000000`: sem a hora e sem o `Z` de UTC. Aí o `convertFromUtc` do passo 18.2
-falha, e o e-mail final mostra 00:00. Linhas gravadas antes da mudança continuam sem hora.
+`2026-10-02T00:00:00.0000000`: sem a hora e sem o `Z` de UTC. Isso afeta qualquer `convertFromUtc`
+sobre essas colunas, e as datas aparecem como 00:00. Linhas gravadas antes da mudança continuam sem hora.
 
 Preencha **`Title` em todo Create item / Update item** (a coluna é obrigatória).
 
@@ -351,6 +354,7 @@ loops e ramos.
 [14.11]                   Condition_person_rejected
                           ├─ True: Update_Round_rejected → Post_msg_rejected
                           └─ False: Post_msg_approved
+                          Post_notify_response (HTTP, abaixo da Condition)
 [15]    Get_Round_final → Get_rows_final → filRejected_final → filApproved_final → comFinalOutcome
 [15.6]  Condition_overridden
         └─ True: Terminate_overridden
@@ -364,7 +368,7 @@ loops e ramos.
 [17]    selApprovedEmails_final → comApprovedPeople_final → comFilled_final → comProgressBar_final
         → selStatusMD_final → joinStatusMD_final → Update_StatusCard_final
 [18]    Condition_final_approved
-        └─ True: Post_card_Final → selEmailRows → joinEmailRows → filEmailCc → Send_email_V3
+        └─ True: Post_card_Final → Post_notify_completed (HTTP)
 ```
 
 ### Fase 1 — Gatilho, aprovadores e BID
@@ -434,6 +438,7 @@ Se você já gerou o schema a partir do exemplo da §2.3, pode mantê-lo. Troque
 | `varStatusMsgId`    | String  | —                    | deixe vazio                                                           |
 | `varFlowOwnerEmail` | String  | —                    | deixe vazio                                                           |
 | `varAdminEmail`     | String  | Texto                | e-mail de quem recebe os avisos de falha (você ou a conta de serviço) |
+| `varNotifyUrl`      | String  | Texto                | URL do gatilho do fluxo `SmartBid – Notifications` (a mesma colada em System Configuration > Notifications) |
 
 `varBidReady` controla a repetição do passo 6. `varAdminEmail` recebe todas as notificações de falha.
 
@@ -1436,6 +1441,47 @@ c. **Post message in a chat or channel `Post_msg_approved`** — mesmos campos d
 
 O comentário não é publicado no grupo: ele fica no BID e aparece no SmartBid.
 
+d. **HTTP `Post_notify_response`** — no ramo True de `Condition_written_inc`, **abaixo** de
+`Condition_person_rejected` (fora dela). Avisa o fluxo de notificações (evento **Approval Response**).
+**Ação:** HTTP → **HTTP**. **Nome:** `Post_notify_response`.
+
+| Campo             | Como preencher | Valor                               |
+| ----------------- | -------------- | ----------------------------------- |
+| Method            | Lista          | `POST`                              |
+| URI               | fx             | `variables('varNotifyUrl')`         |
+| Headers (1 linha) | Texto          | `Content-Type` = `application/json` |
+| Body              | JSON           | bloco abaixo, colado inteiro        |
+
+```json
+{
+  "schemaVersion": 1,
+  "eventKey": "APPROVAL_RESPONSE|@{variables('varBidNumber')}|R@{variables('varRound')}|@{items('Apply_to_each_person')}",
+  "event": "APPROVAL_RESPONSE",
+  "source": "approvalFlow",
+  "occurredAt": "@{outputs('comResponseDate')}",
+  "bidNumber": "@{variables('varBidNumber')}",
+  "deepLink": "@{variables('varDeepLink')}",
+  "actor": { "name": "@{outputs('comPersonName')}", "email": "@{items('Apply_to_each_person')}" },
+  "channels": ["teams"],
+  "presentation": {
+    "title": "@{if(equals(outputs('comDecision'), 'approved'), 'Aprovação registrada', 'Aprovação recusada')}",
+    "emoji": "@{if(equals(outputs('comDecision'), 'approved'), '✅', '❌')}",
+    "tone": "@{if(equals(outputs('comDecision'), 'approved'), 'success', 'danger')}"
+  },
+  "headline": "@{outputs('comPersonName')} @{if(equals(outputs('comDecision'), 'approved'), 'aprovou', 'recusou')} a rodada @{variables('varRound')} de aprovação.",
+  "facts": [
+    { "title": "Aprovador", "value": "@{outputs('comPersonName')}" },
+    { "title": "Setor(es)", "value": "@{outputs('comPersonSectors')}" },
+    { "title": "Decisão", "value": "@{if(equals(outputs('comDecision'), 'approved'), 'Aprovado', 'Recusado')}" },
+    { "title": "Rodada", "value": "@{variables('varRound')}" },
+    { "title": "Progresso", "value": "@{outputs('comApprovedPeople')} de @{length(outputs('comUniqueApproverEmails'))} aprovaram" },
+    { "title": "Comentário", "value": "@{coalesce(outputs('comComments'), '-')}" }
+  ]
+}
+```
+
+O aprovador vai como `actor`, então ele não recebe a notificação da própria resposta.
+
 ### Fase 4 — Fechamento (depois do `Apply_to_each_person`)
 
 O loop termina quando todas as pessoas saíram da espera: cada uma respondeu, alguém recusou, houve
@@ -1748,7 +1794,7 @@ g. **Update an adaptive card in a chat or channel `Update_StatusCard_final`** �
 | `[[APPROVER_LIST_MD]]` | `@{body('joinStatusMD_final')}`                                                                                                                            |
 | `[[UPDATED_AT]]`       | `@{convertFromUtc(utcNow(), 'E. South America Standard Time', 'dd/MM HH:mm')}`                                                                             |
 
-#### 18) Card final e e-mail (somente quando todos aprovam)
+#### 18) Card final e notificação de conclusão (somente quando todos aprovam)
 
 **Condition `Condition_final_approved`** — abaixo de `Update_StatusCard_final`.
 
@@ -1756,9 +1802,9 @@ g. **Update an adaptive card in a chat or channel `Update_StatusCard_final`** �
 | ---------------------------- | ----------- | ---------------- |
 | `outputs('comFinalOutcome')` | is equal to | texto `approved` |
 
-- **True:** ações 18.1 a 18.5.
-- **False:** deixe vazio. Na recusa e na expiração **não** use `04-final.json` nem
-  `completion-email.html`: o texto deles diz que todos aprovaram.
+- **True:** ações 18.1 e 18.2.
+- **False:** deixe vazio. Na recusa e na expiração **não** use `04-final.json`: o texto dele diz que
+  todos aprovaram.
 
 **18.1) Post card in a chat or channel `Post_card_Final`** — Post as **Flow bot**, Post in
 **Group chat**, Group chat (Enter custom value → fx) `variables('varChatId')`, Adaptive Card (Texto + fx)
@@ -1775,52 +1821,46 @@ g. **Update an adaptive card in a chat or channel `Update_StatusCard_final`** �
 | `[[APPROVER_LIST_MD]]` | `@{body('joinStatusMD_final')}`                                                                                                  |
 | `[[DEEP_LINK]]`        | `@{variables('varDeepLink')}`                                                                                                    |
 
-**18.2) Select `selEmailRows`** — uma linha `<tr>` por responsabilidade para a tabela do e-mail.
-From (fx) `body('Get_rows_final')?['value']`; Map (modo **T**, fx):
+**18.2) HTTP `Post_notify_completed`** — no ramo True, abaixo de `Post_card_Final`. Avisa o fluxo de
+notificações (evento **SmartBID Completed**), que envia o card e o **único e-mail de conclusão** para os
+times configurados em System Configuration > Notifications. Este fluxo não envia mais e-mail de conclusão.
+**Ação:** HTTP → **HTTP**. **Nome:** `Post_notify_completed`.
 
-```text
-concat('<tr><td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-weight:600">', item()?['ApproverName'], '</td><td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">', item()?['SectorLabel'], '</td><td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">', convertFromUtc(item()?['RespondedDate'], 'E. South America Standard Time', 'dd/MM/yyyy HH:mm'), '</td></tr>')
+| Campo             | Como preencher | Valor                               |
+| ----------------- | -------------- | ----------------------------------- |
+| Method            | Lista          | `POST`                              |
+| URI               | fx             | `variables('varNotifyUrl')`         |
+| Headers (1 linha) | Texto          | `Content-Type` = `application/json` |
+| Body              | JSON           | bloco abaixo, colado inteiro        |
+
+```json
+{
+  "schemaVersion": 1,
+  "eventKey": "BID_COMPLETED|@{variables('varBidNumber')}|rev@{length(coalesce(body('Parse_BID_final')?['revisions'], json('[]')))}",
+  "event": "BID_COMPLETED",
+  "source": "approvalFlow",
+  "occurredAt": "@{outputs('comCompletionDate')}",
+  "bidNumber": "@{variables('varBidNumber')}",
+  "deepLink": "@{variables('varDeepLink')}",
+  "actor": { "name": "Fluxo de aprovação", "email": "" },
+  "channels": ["email", "teams"],
+  "presentation": { "title": "SmartBID concluído", "emoji": "✅", "tone": "success" },
+  "headline": "Todos os aprovadores aprovaram a rodada @{variables('varRound')} e o SmartBID foi concluído.",
+  "facts": [
+    { "title": "Rodada", "value": "@{variables('varRound')}" },
+    { "title": "Aprovadores", "value": "@{outputs('comApprovedPeople_final')} de @{length(outputs('comUniqueApproverEmails'))}" },
+    { "title": "Concluído em", "value": "@{convertFromUtc(outputs('comCompletionDate'), 'E. South America Standard Time', 'dd/MM/yyyy HH:mm')}" }
+  ]
+}
 ```
 
-**18.3) Join `joinEmailRows`** — From (fx) `body('selEmailRows')`; Join With (fx)
-`decodeUriComponent('%0A')`.
+A chave `BID_COMPLETED|BID|rev{n}` é a mesma usada pelo app: se o SmartBID também registrar a conclusão,
+o fluxo de notificações envia uma vez só.
 
-**18.4) Filter array `filEmailCc`** — cópia para solicitante, engenheiros e analistas, sem quem já
-está no To.
+> **Fluxos já criados:** exclua as ações antigas `selEmailRows`, `joinEmailRows`, `filEmailCc` e
+> `Send_email_V3` (menu `...` → **Delete**) antes de adicionar `Post_notify_completed`.
 
-| Campo | Como preencher | Valor                                                                                                                                                 |
-| ----- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| From  | fx             | `union(union(body('selEngineerEmails'), body('selAnalystEmails')), createArray(toLower(coalesce(body('Parse_JSON')?['requestedBy']?['email'], ''))))` |
-
-| Esquerda (fx)                                                                        | Operador    | Direita   |
-| ------------------------------------------------------------------------------------ | ----------- | --------- |
-| `and(not(empty(item())), not(contains(outputs('comUniqueApproverEmails'), item())))` | is equal to | fx `true` |
-
-**18.5) Send an email notification (V3) `Send_email_V3`**
-**Ação:** Mail → **Send an email notification (V3)**. **Nome:** `Send_email_V3`.
-
-| Campo                | Como preencher | Valor                                                                     |
-| -------------------- | -------------- | ------------------------------------------------------------------------- |
-| To                   | fx             | `join(outputs('comUniqueApproverEmails'), ';')`                           |
-| Subject              | Texto + fx     | `✅ BID @{variables('varBidNumber')} aprovado por todos os setores`       |
-| Body                 | Texto + fx     | HTML de `email/completion-email.html`, colado no modo código (`</>`) (§6) |
-| CC (Advanced params) | fx             | `join(body('filEmailCc'), ';')`                                           |
-
-Tokens do HTML:
-
-| Token                    | Substituir por                                                                                                                   |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `[[BID_NUMBER]]`         | `@{variables('varBidNumber')}`                                                                                                   |
-| `[[CLIENT]]`             | `@{variables('varClient')}`                                                                                                      |
-| `[[DIVISION]]`           | `@{variables('varDivision')}`                                                                                                    |
-| `[[SERVICE_LINE]]`       | `@{variables('varServiceLine')}`                                                                                                 |
-| `[[REQUESTED_BY]]`       | `@{variables('varRequestedBy')}`                                                                                                 |
-| `[[COMPLETED_AT]]`       | `@{convertFromUtc(outputs('comCompletionDate'), 'E. South America Standard Time', 'dd/MM/yyyy HH:mm')}`                          |
-| `[[DURATION]]`           | `@{concat(div(sub(ticks(outputs('comCompletionDate')), ticks(body('Parse_JSON')?['requestedDate'])), 864000000000), ' dia(s)')}` |
-| `[[APPROVER_ROWS_HTML]]` | `@{body('joinEmailRows')}`                                                                                                       |
-| `[[DEEP_LINK]]`          | `@{variables('varDeepLink')}`                                                                                                    |
-
-Se desejar o PDF da aprovação (§7), ele entra no ramo True, abaixo de `Send_email_V3`.
+Se desejar o PDF da aprovação (§7), ele entra no ramo True, abaixo de `Post_notify_completed`.
 
 ---
 
@@ -2009,10 +2049,10 @@ Cada passo que posta um card ou envia o e-mail traz a sua tabela de tokens. Para
 | [`cards/01-welcome.json`](./cards/01-welcome.json)             | 10.3 `Post_card_Welcome`                                                             |
 | [`cards/02-status.json`](./cards/02-status.json)               | 11.1 `Post_card_Status`, 14.10 j `Update_StatusCard`, 17 g `Update_StatusCard_final` |
 | [`cards/04-final.json`](./cards/04-final.json)                 | 18.1 `Post_card_Final` — **somente quando todos aprovam**                            |
-| [`email/completion-email.html`](./email/completion-email.html) | 18.5 `Send_email_V3` — **somente quando todos aprovam**                              |
 
-Na recusa ou na expiração, **não** use `04-final.json` nem `completion-email.html`: o texto deles diz
-que todos aprovaram.
+Na recusa ou na expiração, **não** use `04-final.json`: o texto dele diz que todos aprovaram. O e-mail
+de conclusão não é mais enviado por este fluxo: ele vem do fluxo de notificações
+([NOTIFICATIONS.md](./NOTIFICATIONS.md)).
 
 ---
 
@@ -2020,7 +2060,7 @@ que todos aprovaram.
 
 O conector Approvals não devolve o PDF gerado pelo Teams. Para anexar um comprovante ao BID, o
 próprio fluxo gera o PDF depois do fechamento aprovado, no ramo True de `Condition_final_approved`,
-abaixo de `Send_email_V3`. Este item opcional ainda não está detalhado ação por ação:
+abaixo de `Post_notify_completed`. Este item opcional ainda não está detalhado ação por ação:
 
 1. Monte um HTML com BID, rodada, aprovadores, setores, decisão, data e comentário
    (Select sobre `Get_rows_final` + Join). Escape `& < > " '` nos comentários antes de concatenar.
@@ -2109,7 +2149,8 @@ Ainda não tratado no app:
 8. Mesma pessoa em dois setores → **um** pedido; as duas responsabilidades atualizadas; contada uma vez.
 9. Uma recusa com comentário → aviso imediato no grupo, rodada e BID `rejected`, lembretes param,
    outros ramos encerram em até 24 h, sem card/e-mail de sucesso.
-10. Todos aprovam → BID `Completed` / `Close Out`, Status card `✅ Concluído`, card final e e-mail.
+10. Todos aprovam → BID `Completed` / `Close Out`, Status card `✅ Concluído`, card final no chat e um
+    único **SmartBID Completed** (card + e-mail) pelo fluxo de notificações.
 11. Pendentes há mais de 20 h → **um** lembrete por dia no grupo, mencionando só quem falta.
 12. Override durante a espera → nenhuma escrita depois do override, nenhuma mensagem de sucesso.
 13. Comentário com aspas, acentos, quebras de linha e `<script>` → gravado como texto, sem executar.
@@ -2138,5 +2179,5 @@ Ainda não tratado no app:
 | Progresso a cada resposta   | Sim                                             | Só com Dataverse                                        | **Sim**                                 |
 | Comentários                 | Não                                             | Só com Dataverse (parciais)                             | **Sim**, a cada resposta                |
 | Recusa                      | Não suportada                                   | Encerra o pedido coletivo                               | Encerra a rodada; pedidos abertos ficam |
-| Licença Premium / Dataverse | Não                                             | Sim                                                     | **Não**                                 |
+| Licença Premium / Dataverse | Não                                             | Sim                                                     | **Só a ação HTTP** das notificações; sem Dataverse |
 | Lembretes                   | Por card, dentro do loop                        | Fluxo agendado                                          | **1x por dia no grupo**, fluxo agendado |

@@ -54,6 +54,8 @@ import { getTechnicalProposalAttachment } from "../utils/technicalProposalHelper
 import { useUIStore } from "../stores/useUIStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { BidService } from "../services/BidService";
+import { NotificationDispatchService } from "../services/NotificationDispatchService";
+import { deriveBidNotifications } from "../utils/notificationEvents";
 import { MembersService } from "../services/MembersService";
 import {
   IBid,
@@ -299,6 +301,14 @@ export const BidDetailPage: React.FC = () => {
           ...finalPatch,
           lastModified: new Date().toISOString(),
         });
+        NotificationDispatchService.emit(
+          deriveBidNotifications(
+            currentBid,
+            finalPatch,
+            currentUser.displayName || currentUser.email,
+          ),
+          { name: currentUser.displayName, email: currentUser.email },
+        ).catch(() => undefined);
         if (
           finalPatch.currentStatus === "Completed" &&
           currentBid.currentStatus !== "Completed"

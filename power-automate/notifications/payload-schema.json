@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "properties": {
+    "schemaVersion": { "type": "integer" },
+    "eventKey": { "type": "string" },
+    "event": { "type": "string" },
+    "source": { "type": "string" },
+    "occurredAt": { "type": "string" },
+    "bidNumber": { "type": "string" },
+    "deepLink": { "type": "string" },
+    "actor": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" }
+      }
+    },
+    "channels": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "presentation": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "emoji": { "type": "string" },
+        "tone": { "type": "string" }
+      }
+    },
+    "headline": { "type": "string" },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "value": { "type": "string" }
+        },
+        "required": ["title", "value"]
+      }
+    }
+  },
+  "required": ["eventKey", "event", "channels", "presentation", "headline", "facts"]
+}

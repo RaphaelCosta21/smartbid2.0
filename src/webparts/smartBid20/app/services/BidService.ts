@@ -298,6 +298,7 @@ export class BidService {
         await BidService._list.items.getById(row.Id).update(
           {
             jsondata: JSON.stringify(merged),
+            Status: merged.currentStatus,
             ...BidService._searchColumns(merged),
             ...(dueDateChanged
               ? { DueDate: merged.desiredDueDate || merged.dueDate }

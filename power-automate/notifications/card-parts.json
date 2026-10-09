@@ -1,0 +1,64 @@
+{
+  "shell": {
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "type": "AdaptiveCard",
+    "version": "1.4",
+    "msteams": { "width": "Full" },
+    "body": [],
+    "actions": [
+      {
+        "type": "Action.OpenUrl",
+        "title": "Abrir no SmartBID",
+        "url": "@{variables('varDeepLink')}"
+      }
+    ]
+  },
+  "top": [
+    {
+      "type": "Container",
+      "style": "@{outputs('comToneMap')?[outputs('comTone')]?['card']}",
+      "bleed": true,
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "SMARTBID · OCEANEERING",
+          "size": "Small",
+          "weight": "Bolder",
+          "isSubtle": true,
+          "spacing": "None"
+        },
+        {
+          "type": "TextBlock",
+          "text": "@{triggerBody()?['presentation']?['emoji']} @{triggerBody()?['presentation']?['title']}",
+          "size": "Large",
+          "weight": "Bolder",
+          "wrap": true,
+          "spacing": "Small"
+        },
+        {
+          "type": "TextBlock",
+          "text": "@{outputs('comSubtitle')}",
+          "isSubtle": true,
+          "wrap": true,
+          "spacing": "None"
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "@{triggerBody()?['headline']}",
+      "wrap": true,
+      "spacing": "Medium"
+    }
+  ],
+  "bottom": [
+    {
+      "type": "TextBlock",
+      "text": "@{outputs('comFooter')}",
+      "size": "Small",
+      "isSubtle": true,
+      "wrap": true,
+      "spacing": "Medium"
+    }
+  ]
+}

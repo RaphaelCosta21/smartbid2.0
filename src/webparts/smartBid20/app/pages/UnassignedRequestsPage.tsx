@@ -21,6 +21,8 @@ import { useConfigStore } from "../stores/useConfigStore";
 import { MembersService } from "../services/MembersService";
 import { RequestService } from "../services/RequestService";
 import { BidService } from "../services/BidService";
+import { NotificationDispatchService } from "../services/NotificationDispatchService";
+import { buildAssignedNotification } from "../utils/notificationEvents";
 import { useBidStore } from "../stores/useBidStore";
 import { IBidRequest } from "../models/IBidRequest";
 import { BidPriority, IPersonRef, IBid } from "../models";
@@ -503,6 +505,17 @@ export const UnassignedRequestsPage: React.FC = () => {
       if (spItems.length > 0) {
         const spId = (spItems[0] as { Id: number }).Id;
         await BidService.update(spId, bid);
+        NotificationDispatchService.emit(
+          [
+            buildAssignedNotification(
+              bidNumber,
+              engineers,
+              analysts,
+              currentUser.displayName,
+            ),
+          ],
+          { name: currentUser.displayName, email: currentUser.email },
+        ).catch(() => undefined);
       }
 
       showMsg(

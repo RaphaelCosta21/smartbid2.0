@@ -5,6 +5,7 @@
 import { SPService } from "./SPService";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import { normalizeAccessConfig } from "../config/accessControl.config";
+import { normalizeNotificationSettings } from "../config/notifications.config";
 import { ISystemConfig } from "../models";
 
 export class SystemConfigService {
@@ -39,6 +40,9 @@ export class SystemConfigService {
     let config: ISystemConfig;
     try {
       config = normalizeAccessConfig(JSON.parse(raw) as ISystemConfig);
+      config.notifications = normalizeNotificationSettings(
+        config.notifications,
+      );
     } catch {
       throw new Error("System configuration has invalid JSON");
     }
