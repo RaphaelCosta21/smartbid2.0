@@ -607,15 +607,6 @@ const MembersManagement: React.FC = () => {
           >
             <RefreshCw size={15} /> Refresh
           </button>
-          {canEdit && (
-            <button
-              type="button"
-              className={styles.createBtn}
-              onClick={openAddPanel}
-            >
-              <UserPlus size={15} /> Add Member
-            </button>
-          )}
         </div>
       }
     />
@@ -723,6 +714,15 @@ const MembersManagement: React.FC = () => {
           {hasFilters ? `of ${allMembers.length} ` : ""}
           {allMembers.length === 1 ? "member" : "members"}
         </span>
+        {canEdit && (
+          <button
+            type="button"
+            className={styles.createBtn}
+            onClick={openAddPanel}
+          >
+            <UserPlus size={15} /> Add Member
+          </button>
+        )}
       </div>
 
       {/* Members grouped by sector */}
