@@ -957,12 +957,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           (d) => d.isActive !== false,
                         ),
                         genDraft.division,
-                      )
-                        .map((d) => (
-                          <option key={d.value} value={d.value}>
-                            {d.label}
-                          </option>
-                        ))}
+                      ).map((d) => (
+                        <option key={d.value} value={d.value}>
+                          {d.label}
+                        </option>
+                      ))}
                     </select>
                   }
                 />
@@ -997,12 +996,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                               sl.category === genDraft.division),
                         ),
                         genDraft.serviceLine,
-                      )
-                        .map((sl) => (
-                          <option key={sl.value} value={sl.value}>
-                            {sl.label}
-                          </option>
-                        ))}
+                      ).map((sl) => (
+                        <option key={sl.value} value={sl.value}>
+                          {sl.label}
+                        </option>
+                      ))}
                     </select>
                   }
                 />
@@ -1034,12 +1032,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           (bt) => bt.isActive !== false,
                         ),
                         genDraft.bidType,
-                      )
-                        .map((bt) => (
-                          <option key={bt.value} value={bt.value}>
-                            {bt.label}
-                          </option>
-                        ))}
+                      ).map((bt) => (
+                        <option key={bt.value} value={bt.value}>
+                          {bt.label}
+                        </option>
+                      ))}
                     </select>
                   }
                 />
@@ -1355,12 +1352,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         (c) => c.isActive !== false,
                       ),
                       opsDraft.client,
-                    )
-                      .map((c) => (
-                        <option key={c.value} value={c.value}>
-                          {c.label}
-                        </option>
-                      ))}
+                    ).map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.label}
+                      </option>
+                    ))}
                   </select>
                 }
               />
@@ -1400,12 +1396,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         (r) => r.isActive !== false,
                       ),
                       opsDraft.region,
-                    )
-                      .map((r) => (
-                        <option key={r.value} value={r.value}>
-                          {r.label}
-                        </option>
-                      ))}
+                    ).map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    ))}
                   </select>
                 }
               />
@@ -1667,8 +1662,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             const pmUnassigned: Person[] = [];
             (bid.projectManager || []).forEach((pm) => {
               const lines =
-                membersMap[(pm.email || "").toLowerCase()]?.businessLines ||
-                [];
+                membersMap[(pm.email || "").toLowerCase()]?.businessLines || [];
               const matched = PM_BUSINESS_LINES.filter(
                 (bl) => lines.indexOf(bl) >= 0,
               );

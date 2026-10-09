@@ -15,7 +15,9 @@ global.window = dom.window;
 global.document = dom.window.document;
 global.navigator = dom.window.navigator;
 global.HTMLElement = dom.window.HTMLElement;
-global.requestAnimationFrame = dom.window.requestAnimationFrame.bind(dom.window);
+global.requestAnimationFrame = dom.window.requestAnimationFrame.bind(
+  dom.window,
+);
 global.cancelAnimationFrame = dom.window.cancelAnimationFrame.bind(dom.window);
 // React 17's scheduler does not close Node's MessageChannel ports after DOM tests.
 global.MessageChannel = undefined;
@@ -34,10 +36,17 @@ const spfxContext = {
 };
 const costSummary = Object.fromEntries(
   [
-    "engineeringHoursCostBRL", "onshoreHoursCostBRL", "offshoreHoursCostBRL",
-    "logisticsCostBRL", "certificationsCostBRL", "rtsCostBRL",
-    "mobilizationCostBRL", "consumablesCostBRL", "assetsCapexUSD",
-    "assetsOpexUSD", "totalCostUSD",
+    "engineeringHoursCostBRL",
+    "onshoreHoursCostBRL",
+    "offshoreHoursCostBRL",
+    "logisticsCostBRL",
+    "certificationsCostBRL",
+    "rtsCostBRL",
+    "mobilizationCostBRL",
+    "consumablesCostBRL",
+    "assetsCapexUSD",
+    "assetsOpexUSD",
+    "totalCostUSD",
   ].map((key) => [key, 0]),
 );
 const stubs = {
@@ -131,7 +140,9 @@ function load(relative) {
     if (filename.endsWith("OverviewTab.tsx") && stubs[name]) return stubs[name];
     if (!name.startsWith(".")) return require(name);
     const target = path.resolve(path.dirname(filename), name);
-    const extension = [".ts", ".tsx"].find((ext) => fs.existsSync(target + ext));
+    const extension = [".ts", ".tsx"].find((ext) =>
+      fs.existsSync(target + ext),
+    );
     return load(extension ? target + extension : path.join(target, "index.ts"));
   };
   vm.runInThisContext(`(function(require, module, exports) { ${code}\n})`, {
@@ -184,7 +195,9 @@ test.beforeEach(() => {
   document.body.appendChild(container);
 });
 test.afterEach(() => {
-  act(() => { ReactDOM.unmountComponentAtNode(container); });
+  act(() => {
+    ReactDOM.unmountComponentAtNode(container);
+  });
   container.remove();
 });
 test.after(() => dom.window.close());
@@ -207,19 +220,28 @@ function mount(initial = makeBid(), canEdit = true) {
       },
     });
   }
-  act(() => { ReactDOM.render(React.createElement(Harness), container); });
-  return { patches, get bid() { return bid; } };
+  act(() => {
+    ReactDOM.render(React.createElement(Harness), container);
+  });
+  return {
+    patches,
+    get bid() {
+      return bid;
+    },
+  };
 }
 
 function card(title) {
-  const heading = Array.from(container.querySelectorAll("h4"))
-    .find((el) => el.textContent === title);
+  const heading = Array.from(container.querySelectorAll("h4")).find(
+    (el) => el.textContent === title,
+  );
   assert.ok(heading, `Missing card ${title}`);
   return heading.closest(".infoSection");
 }
 function row(section, label) {
-  const item = Array.from(section.querySelectorAll(".infoItem"))
-    .find((el) => el.querySelector(".infoLabel").textContent.startsWith(label));
+  const item = Array.from(section.querySelectorAll(".infoItem")).find((el) =>
+    el.querySelector(".infoLabel").textContent.startsWith(label),
+  );
   assert.ok(item, `Missing field ${label}`);
   return item;
 }
@@ -229,10 +251,13 @@ function control(section, label) {
   return input;
 }
 async function click(section, text) {
-  const button = Array.from(section.querySelectorAll("button"))
-    .find((el) => el.textContent === text);
+  const button = Array.from(section.querySelectorAll("button")).find(
+    (el) => el.textContent === text,
+  );
   assert.ok(button, `Missing button ${text}`);
-  await act(async () => { Simulate.click(button); });
+  await act(async () => {
+    Simulate.click(button);
+  });
 }
 function change(input, value) {
   act(() => {
@@ -254,20 +279,28 @@ function type(section, label, text) {
 test("Operational Summary retains all nine fields and stored units in Edit", async () => {
   mount();
   const section = card("Operational Summary");
-  const labels = Array.from(section.querySelectorAll(".infoLabel"))
-    .map((el) => el.textContent);
+  const labels = Array.from(section.querySelectorAll(".infoLabel")).map(
+    (el) => el.textContent,
+  );
   await click(section, "Edit");
   assert.deepEqual(
-    Array.from(section.querySelectorAll(".infoLabel"))
-      .map((el) => el.textContent.replace(/ \(.+\)$/, "")),
+    Array.from(section.querySelectorAll(".infoLabel")).map((el) =>
+      el.textContent.replace(/ \(.+\)$/, ""),
+    ),
     labels,
   );
   for (const [label, value] of [
-    ["Project Name", "Original project"], ["Client", "Legacy client"],
-    ["Client Contact", "Original contact"], ["Region", "Legacy region"],
-    ["Vessel", "Original vessel"], ["Field", "Original field"],
-    ["Water Depth", "150"], ["Operation Start", "2026-11-16"], ["Duration", "2"],
-  ]) assert.equal(control(section, label).value, value);
+    ["Project Name", "Original project"],
+    ["Client", "Legacy client"],
+    ["Client Contact", "Original contact"],
+    ["Region", "Legacy region"],
+    ["Vessel", "Original vessel"],
+    ["Field", "Original field"],
+    ["Water Depth", "150"],
+    ["Operation Start", "2026-11-16"],
+    ["Duration", "2"],
+  ])
+    assert.equal(control(section, label).value, value);
   assert.match(row(section, "Water Depth").textContent, /Water Depth \(ft\)/);
   assert.match(row(section, "Duration").textContent, /Duration \(weeks\)/);
 });
@@ -292,15 +325,28 @@ test("all Operational Summary text inputs keep focus and persist through Save/Ed
   assert.equal(locks["overview-ops"].releases, 1);
   for (const [label, key, value] of edits) {
     assert.equal(state.bid.opportunityInfo[key], value);
-    assert.equal(row(section, label).querySelector(".infoValue").textContent, value);
+    assert.equal(
+      row(section, label).querySelector(".infoValue").textContent,
+      value,
+    );
   }
-  for (const key of ["client", "region", "waterDepthUnit", "totalDurationUnit",
-    "projectDescription", "currency", "ptax", "ptaxDate", "exchangeRatesSnapshot",
-    "qualifications"])
+  for (const key of [
+    "client",
+    "region",
+    "waterDepthUnit",
+    "totalDurationUnit",
+    "projectDescription",
+    "currency",
+    "ptax",
+    "ptaxDate",
+    "exchangeRatesSnapshot",
+    "qualifications",
+  ])
     assert.deepEqual(state.bid.opportunityInfo[key], before[key]);
   assert.match(state.patches[0].activityLog[0].description, /Project Name/);
   await click(section, "Edit");
-  for (const [label, , value] of edits) assert.equal(control(section, label).value, value);
+  for (const [label, , value] of edits)
+    assert.equal(control(section, label).value, value);
   assert.equal(control(section, "Water Depth").value, "200");
   assert.equal(control(section, "Duration").value, "3");
   assert.equal(control(section, "Operation Start").value, "2026-12-01");
@@ -314,8 +360,11 @@ test("Project Name alone triggers saving, including clearing it", async () => {
     change(control(section, "Project Name"), value);
     await click(section, "Save");
     assert.equal(state.bid.opportunityInfo.projectName, value);
-    assert.match(state.patches[state.patches.length - 1].activityLog.slice(-1)[0].description,
-      /Project Name/);
+    assert.match(
+      state.patches[state.patches.length - 1].activityLog.slice(-1)[0]
+        .description,
+      /Project Name/,
+    );
   }
   assert.equal(state.patches.length, 2);
 });
@@ -337,7 +386,12 @@ test("Cancel discards drafts; unchanged Save preserves legacy fields without a p
 test("inactive and label-only client/region values remain selected and can be changed", async () => {
   config = {
     clientList: [
-      { id: "inactive", value: "Legacy client", label: "Legacy client", isActive: false },
+      {
+        id: "inactive",
+        value: "Legacy client",
+        label: "Legacy client",
+        isActive: false,
+      },
       { id: "active", value: "client-id", label: "Active client" },
     ],
     regions: [{ id: "region", value: "region-id", label: "Legacy region" }],
@@ -361,10 +415,20 @@ test("General Information retains legacy selections and input focus", async () =
     divisions: [{ id: "div", value: "new-div", label: "New division" }],
     serviceLines: [
       { id: "sl", value: "new-sl", label: "New service", category: "new-div" },
-      { id: "sl-other", value: "other-sl", label: "Other service", category: "new-div" },
+      {
+        id: "sl-other",
+        value: "other-sl",
+        label: "Other service",
+        category: "new-div",
+      },
     ],
     bidTypes: [
-      { id: "type", value: "Legacy type", label: "Legacy type", isActive: false },
+      {
+        id: "type",
+        value: "Legacy type",
+        label: "Legacy type",
+        isActive: false,
+      },
       { id: "type-active", value: "new-type", label: "New type" },
     ],
   };
@@ -372,8 +436,11 @@ test("General Information retains legacy selections and input focus", async () =
   const section = card("General Information");
   await click(section, "Edit");
   for (const [label, value] of [
-    ["Division", "Legacy division"], ["Service Line", "Legacy service"], ["Type", "Legacy type"],
-  ]) assert.equal(control(section, label).value, value);
+    ["Division", "Legacy division"],
+    ["Service Line", "Legacy service"],
+    ["Type", "Legacy type"],
+  ])
+    assert.equal(control(section, label).value, value);
   type(section, "CRM Number", "CRM-Updated");
   type(section, "Size", "Large");
   await click(section, "Save");
@@ -404,7 +471,10 @@ test("Engineer Overview and Analysis Notes retain focus and edited content", asy
   assert.equal(document.activeElement, textarea);
   await click(overview, "Save");
   await click(overview, "Edit");
-  assert.equal(overview.querySelector("textarea").value, "Updated engineering overview");
+  assert.equal(
+    overview.querySelector("textarea").value,
+    "Updated engineering overview",
+  );
   await click(overview, "Cancel");
   const notes = card("BID Analysis Notes / Premisses");
   await click(notes, "Edit");
@@ -426,7 +496,13 @@ test("Exchange Rates refresh preserves the operational fields", async () => {
   await click(section, "Edit");
   await click(section, "\uD83D\uDD04 Update Rates (BCB)");
   assert.equal(state.bid.opportunityInfo.ptax, 5);
-  for (const key of ["projectName", "client", "vessel", "waterDepthUnit", "totalDurationUnit"])
+  for (const key of [
+    "projectName",
+    "client",
+    "vessel",
+    "waterDepthUnit",
+    "totalDurationUnit",
+  ])
     assert.equal(state.bid.opportunityInfo[key], before[key]);
 });
 
@@ -458,8 +534,12 @@ test("native date control displays the calendar date of an ISO timestamp", async
 
 test("read-only Overview does not expose Edit buttons", () => {
   mount(makeBid(), false);
-  assert.equal(Array.from(container.querySelectorAll("button"))
-    .some((el) => el.textContent === "Edit"), false);
+  assert.equal(
+    Array.from(container.querySelectorAll("button")).some(
+      (el) => el.textContent === "Edit",
+    ),
+    false,
+  );
 });
 
 test("withCurrentOption matches values, not just labels, without duplicates or mutations", () => {
@@ -467,8 +547,10 @@ test("withCurrentOption matches values, not just labels, without duplicates or m
   assert.deepEqual(withCurrentOption(options, "client-id"), [
     { value: "client-id", label: "Client name" },
   ]);
-  assert.deepEqual(withCurrentOption(options, "Client name").map((o) => o.value),
-    ["client-id", "Client name"]);
+  assert.deepEqual(
+    withCurrentOption(options, "Client name").map((o) => o.value),
+    ["client-id", "Client name"],
+  );
   assert.equal(withCurrentOption(options, "").length, 1);
   assert.equal(options.length, 1);
 });
