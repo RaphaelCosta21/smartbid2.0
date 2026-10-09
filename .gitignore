@@ -37,5 +37,5 @@ obj
 templates/survey-catalog/diagramas Survey/
 
 # graphify (commit the graph; keep local-only cost + cache out)
-graphify-out/cost.json
-graphify-out/cache/
+.graphify/cost.json
+.graphify/cache/

@@ -1,4 +1,4 @@
-# Node Description Batch 34 of 43
+# Node Description Batch 34 of 86
 
 Graphify is running in assistant/skill mode (no API key). You are the host
 assistant (Claude Code / Codex / Gemini CLI). Read the prompt below and write
@@ -12,58 +12,51 @@ describing what it is or does. Use only the provided context.
 For a code symbol (kind=code-symbol — a function, class, or constant),
 describe what the function/symbol does based on its name, source location
 and neighbors — e.g. "Resolves the configured ontology profile from graphify.yaml.".
-For an entity node (any other kind — e.g. a person, place, event, object),
-describe what the entity is and its role, grounded in its type, its
-relations (neighbors) and the provided citations/evidence — e.g.
-"Lady Carfax, a wealthy heiress who disappears en route to Lausanne.".
-Ground entity descriptions in the citations/evidence when present; do not
-speculate beyond the context, so a node with no supporting context may be
-left out of the reply.
 Write every description in English (en). Do not switch languages.
 No marketing language.
 Respond ONLY with a JSON object mapping each node id (as a string) to its
 one-sentence description — no prose, no markdown fences.
 
-- "function_app_function_app_rationale_325": "Render one retrieved document with the catalogued metadata, followed by\r     eve" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L325 | neighbors=[_document_block()]
-- "function_app_function_app_rationale_361": "Hybrid (keyword + vector) retrieval. Retrieval is an enhancement, not a\r     har" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L361 | neighbors=[_reference_material()]
-- "function_app_function_app_rationale_417": "UPN of the authenticated caller, from the EasyAuth X-MS-CLIENT-PRINCIPAL\r     he" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L417 | neighbors=[_caller_upn()]
-- "function_app_function_app_rationale_593": "One hybrid search pass. Semantic ranking is billed per tier, so the caller" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L593 | neighbors=[_chat_search()]
-- "function_app_function_app_rationale_616": "Hybrid retrieval for chat, deduplicated per document.\r \r     `top` counts CHUNKS" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L616 | neighbors=[_chat_reference_material()]
-- "function_app_function_app_rationale_676": "Normalize the conversation, keeping only the most recent turns." | kind=entity | source=azure-ai-backend/function-app/function_app.py:L676 | neighbors=[_chat_messages()]
-- "function_app_function_app_skill_chunk": "skill_chunk()" | kind=code-symbol | source=azure-ai-backend/function-app/function_app.py:L784 | neighbors=[function_app.py]
-- "gulpfile_build": "build" | kind=code-symbol | source=gulpfile.js:L3 | neighbors=[gulpfile.js]
-- "hooks_useanalyticsfilters_default": "DEFAULT" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useAnalyticsFilters.ts:L26 | neighbors=[useAnalyticsFilters.ts]
-- "hooks_useapprovals_approvalsummary": "ApprovalSummary" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useApprovals.ts:L8 | neighbors=[useApprovals.ts]
-- "hooks_usecharttheme_categorical": "CATEGORICAL" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useChartTheme.ts:L40 | neighbors=[useChartTheme.ts]
-- "hooks_usecharttheme_charttheme": "ChartTheme" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useChartTheme.ts:L17 | neighbors=[useChartTheme.ts]
-- "hooks_usecharttheme_dark": "DARK" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useChartTheme.ts:L53 | neighbors=[useChartTheme.ts]
-- "hooks_usecharttheme_light": "LIGHT" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useChartTheme.ts:L74 | neighbors=[useChartTheme.ts]
-- "hooks_useconfigphases_iconfigphase": "IConfigPhase" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useConfigPhases.ts:L5 | neighbors=[useConfigPhases.ts]
-- "hooks_useern_useern": "useErn()" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useErn.ts:L17 | neighbors=[useErn.ts]
-- "hooks_useern_useernresult": "UseErnResult" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useErn.ts:L9 | neighbors=[useErn.ts]
-- "hooks_useexport_useexport": "useExport()" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useExport.ts:L9 | neighbors=[useExport.ts]
-- "hooks_usekpis_bidkpis": "BidKPIs" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useKPIs.ts:L9 | neighbors=[useKPIs.ts]
-- "hooks_usequerysearch_empty_results": "EMPTY_RESULTS" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useQuerySearch.ts:L11 | neighbors=[useQuerySearch.ts]
-- "hooks_usequerysearch_usequerysearchoptions": "UseQuerySearchOptions" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useQuerySearch.ts:L17 | neighbors=[useQuerySearch.ts]
-- "hooks_usequerysearch_usequerysearchreturn": "UseQuerySearchReturn" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useQuerySearch.ts:L30 | neighbors=[useQuerySearch.ts]
-- "hooks_userequests_userequests": "useRequests()" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useRequests.ts:L8 | neighbors=[useRequests.ts]
-- "hooks_useresponsive_breakpoints": "Breakpoints" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useResponsive.ts:L7 | neighbors=[useResponsive.ts]
-- "hooks_usestatuscolors_statuscolorlookup": "StatusColorLookup" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useStatusColors.ts:L13 | neighbors=[useStatusColors.ts]
-- "insights_aiinsightspanel_aiinsightspanelprops": "AIInsightsPanelProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/insights/AIInsightsPanel.tsx:L4 | neighbors=[AIInsightsPanel.tsx]
-- "insights_analyticsfilterbar_analyticsfilterbarprops": "AnalyticsFilterBarProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/insights/AnalyticsFilterBar.tsx:L7 | neighbors=[AnalyticsFilterBar.tsx]
-- "insights_analyticsfilterbar_presets": "PRESETS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/insights/AnalyticsFilterBar.tsx:L20 | neighbors=[AnalyticsFilterBar.tsx]
-- "insights_multiselectdropdown_multiselectdropdownprops": "MultiSelectDropdownProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/insights/MultiSelectDropdown.tsx:L10 | neighbors=[MultiSelectDropdown.tsx]
-- "insights_segmentedcontrol_segmentedcontrolprops": "SegmentedControlProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/insights/SegmentedControl.tsx:L11 | neighbors=[SegmentedControl.tsx]
-- "knowledge_doclibrarycatalog_bulkaistatus": "BulkAiStatus" | kind=code-symbol | source=src/webparts/smartBid20/app/components/knowledge/DocLibraryCatalog.tsx:L112 | neighbors=[DocLibraryCatalog.tsx]
-- "knowledge_doclibrarycatalog_default_field_labels": "DEFAULT_FIELD_LABELS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/knowledge/DocLibraryCatalog.tsx:L38 | neighbors=[DocLibraryCatalog.tsx]
-- "knowledge_doclibrarycatalog_doclibrarycatalogprops": "DocLibraryCatalogProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/knowledge/DocLibraryCatalog.tsx:L54 | neighbors=[DocLibraryCatalog.tsx]
-- "knowledge_doclibrarycatalog_docthumb": "DocThumb()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/knowledge/DocLibraryCatalog.tsx:L283 | neighbors=[DocLibraryCatalog.tsx]
-- "knowledge_doclibrarycatalog_groupsuggestionbanner": "GroupSuggestionBanner()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/knowledge/DocLibraryCatalog.tsx:L434 | neighbors=[DocLibraryCatalog.tsx]
-- "knowledge_doclibrarycatalog_ibulkairow": "IBulkAiRow" | kind=code-symbol | source=src/webparts/smartBid20/app/components/knowledge/DocLibraryCatalog.tsx:L120 | neighbors=[DocLibraryCatalog.tsx]
-- "knowledge_doclibrarycatalog_idoclibraryfieldlabels": "IDocLibraryFieldLabels" | kind=code-symbol | source=src/webparts/smartBid20/app/components/knowledge/DocLibraryCatalog.tsx:L21 | neighbors=[DocLibraryCatalog.tsx]
-- "knowledge_doclibrarycatalog_igroupsuggestion": "IGroupSuggestion" | kind=code-symbol | source=src/webparts/smartBid20/app/components/knowledge/DocLibraryCatalog.tsx:L115 | neighbors=[DocLibraryCatalog.tsx]
-- "knowledge_doclibrarycatalog_metadatafields": "MetadataFields()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/knowledge/DocLibraryCatalog.tsx:L317 | neighbors=[DocLibraryCatalog.tsx]
-- "knowledge_doclibrarycatalog_runwithconcurrency": "runWithConcurrency()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/knowledge/DocLibraryCatalog.tsx:L259 | neighbors=[DocLibraryCatalog.tsx]
+- "utils_businessdays_gettodayiso": "getTodayISO()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/businessDays.ts:L49 | neighbors=[CreateRequestPage.tsx, businessDays.ts, isToday()]
+- "utils_businessdays_istoday": "isToday()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/businessDays.ts:L62 | neighbors=[CreateRequestPage.tsx, businessDays.ts, getTodayISO()]
+- "utils_clarificationexcelexport_exportclarificationstoexcel": "exportClarificationsToExcel()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/clarificationExcelExport.ts:L52 | neighbors=[ExportClarificationModal.tsx, clarificationExcelExport.ts, getClarificationExcelFilename()]
+- "utils_clarificationhelpers_categorylistfor": "categoryListFor()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/clarificationHelpers.ts:L38 | neighbors=[ScopeOfSupplyTab.tsx, ClarificationEntryModal.tsx, clarificationHelpers.ts]
+- "utils_clarificationhelpers_isclarificationlibraryeligible": "isClarificationLibraryEligible()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/clarificationHelpers.ts:L16 | neighbors=[useClarificationLibrarySync.ts, clarificationHelpers.ts, pastBidDocument.ts]
+- "utils_clarificationlibrarydocument_entry": "entry()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/clarificationLibraryDocument.ts:L64 | neighbors=[clarificationLibraryDocument.ts, safe(), topicOf()]
+- "utils_clarificationlibrarydocument_qualificationentry": "qualificationEntry()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/clarificationLibraryDocument.ts:L123 | neighbors=[clarificationLibraryDocument.ts, safe(), truncateTopic()]
+- "utils_clarificationlibrarydocument_truncatetopic": "truncateTopic()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/clarificationLibraryDocument.ts:L58 | neighbors=[clarificationLibraryDocument.ts, qualificationEntry(), topicOf()]
+- "utils_constants_divisions": "DIVISIONS" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/constants.ts:L20 | neighbors=[TemplatesPage.tsx, TemplateEditor.tsx, constants.ts]
+- "utils_constants_service_lines": "SERVICE_LINES" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/constants.ts:L27 | neighbors=[TemplatesPage.tsx, TemplateEditor.tsx, constants.ts]
+- "utils_costcalculations_calculatecertificationstotals": "calculateCertificationsTotals()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/costCalculations.ts:L478 | neighbors=[BidCostSummary.tsx, costCalculations.ts, buildCostSummary()]
+- "utils_costcalculations_calculateconsumablestotals": "calculateConsumablesTotals()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/costCalculations.ts:L543 | neighbors=[BidCostSummary.tsx, costCalculations.ts, buildCostSummary()]
+- "utils_costcalculations_calculatelogisticstotals": "calculateLogisticsTotals()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/costCalculations.ts:L454 | neighbors=[BidCostSummary.tsx, costCalculations.ts, buildCostSummary()]
+- "utils_costcalculations_calculatemobilizationtotals": "calculateMobilizationTotals()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/costCalculations.ts:L522 | neighbors=[BidCostSummary.tsx, costCalculations.ts, buildCostSummary()]
+- "utils_costcalculations_calculatertstotals": "calculateRTSTotals()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/costCalculations.ts:L501 | neighbors=[BidCostSummary.tsx, costCalculations.ts, buildCostSummary()]
+- "utils_costcalculations_icontingencyopts": "IContingencyOpts" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/costCalculations.ts:L75 | neighbors=[AssetsBreakdownTab.tsx, rows.ts, costCalculations.ts]
+- "utils_costcalculations_icostnode": "ICostNode" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/costCalculations.ts:L31 | neighbors=[AssetsBreakdownTab.tsx, rows.ts, costCalculations.ts]
+- "utils_costcalculations_resolvefeelinks": "resolveFeeLinks()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/costCalculations.ts:L180 | neighbors=[AssetsBreakdownTab.tsx, costCalculations.ts, getAssetCostBreakdown()]
+- "utils_costsummaryview_sumby": "sumBy()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/costSummaryView.ts:L72 | neighbors=[costSummaryView.ts, buildCostSummaryView(), hoursByDivision()]
+- "utils_csvparser_parsecsvrows": "parseCSVRows()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/csvParser.ts:L11 | neighbors=[QueryCatalogService.ts, bomParser.ts, csvParser.ts]
+- "utils_doccataloghelpers_findgroupbyname": "findGroupByName()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/docCatalogHelpers.ts:L10 | neighbors=[DocLibraryCatalog.tsx, TechnicalProposalKnowledgeService.ts, docCatalogHelpers.ts]
+- "utils_doccataloghelpers_findsubgroupbyname": "findSubGroupByName()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/docCatalogHelpers.ts:L16 | neighbors=[DocLibraryCatalog.tsx, TechnicalProposalKnowledgeService.ts, docCatalogHelpers.ts]
+- "utils_doccataloghelpers_withcategory": "withCategory()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/docCatalogHelpers.ts:L30 | neighbors=[DocLibraryCatalog.tsx, TechnicalProposalKnowledgeService.ts, docCatalogHelpers.ts]
+- "utils_domvisibility_getvisiblerect": "getVisibleRect()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/domVisibility.ts:L9 | neighbors=[GuidedTour.tsx, QueryConsultingPage.tsx, domVisibility.ts]
+- "utils_durationhelpers_calcelapseddays": "calcElapsedDays()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/durationHelpers.ts:L75 | neighbors=[BidStatusPhasePanel.tsx, OverviewTab.tsx, durationHelpers.ts]
+- "utils_enghourshelpers_formathours": "formatHours()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/engHoursHelpers.ts:L144 | neighbors=[DashboardBidTable.tsx, EngHoursOutlook.tsx, engHoursHelpers.ts]
+- "utils_ernhelpers_geterncountdownlabel": "getErnCountdownLabel()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/ernHelpers.ts:L293 | neighbors=[ErnWatchlist.tsx, LivePulsePanel.tsx, ernHelpers.ts]
+- "utils_ernhelpers_geternslots": "getErnSlots()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/ernHelpers.ts:L90 | neighbors=[OverviewTab.tsx, ernHelpers.ts, isIntegratedBid()]
+- "utils_ernhelpers_getlinkederntitles": "getLinkedErnTitles()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/ernHelpers.ts:L129 | neighbors=[OverviewTab.tsx, ernHelpers.ts, getErnLinks()]
+- "utils_ernhelpers_isernassignedto": "isErnAssignedTo()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/ernHelpers.ts:L250 | neighbors=[ErnWatchlist.tsx, LivePulsePanel.tsx, ernHelpers.ts]
+- "utils_ernhelpers_isernclosed": "isErnClosed()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/ernHelpers.ts:L161 | neighbors=[ErnSearchModal.tsx, ernHelpers.ts, getErnDeadlineState()]
+- "utils_ernhelpers_isintegratedbid": "isIntegratedBid()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/ernHelpers.ts:L82 | neighbors=[UnassignedRequestsPage.tsx, ernHelpers.ts, getErnSlots()]
+- "utils_ernhelpers_matchesernwatchfilter": "matchesErnWatchFilter()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/ernHelpers.ts:L282 | neighbors=[ErnWatchlist.tsx, LivePulsePanel.tsx, ernHelpers.ts]
+- "utils_ernhelpers_normalizechoice": "normalizeChoice()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/ernHelpers.ts:L43 | neighbors=[ernHelpers.ts, findErnChoice(), resolveErnServiceLineChoice()]
+- "utils_ernlink_linkerntobid": "linkErnToBid()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/ernLink.ts:L26 | neighbors=[ErnCreateModal.tsx, ErnSearchModal.tsx, ernLink.ts]
+- "utils_exporthelpers_getexportfilename": "getExportFilename()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/exportHelpers.ts:L86 | neighbors=[exportHelpers.ts, zeroPad(), BidDetailPage.tsx]
+- "utils_formatters_formatelapsedhours": "formatElapsedHours()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/formatters.ts:L113 | neighbors=[OperationalSummaryPage.tsx, ApprovalDueImpactSection.tsx, formatters.ts]
+- "utils_formatters_formatrelativetime": "formatRelativeTime()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/formatters.ts:L80 | neighbors=[BidActivityLog.tsx, AccessLog.tsx, formatters.ts]
+- "utils_kpihelpers_buildcyclebreakdown": "buildCycleBreakdown()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/kpiHelpers.ts:L351 | neighbors=[DashboardKPIRow.tsx, OperationalSummaryPage.tsx, kpiHelpers.ts]
+- "utils_kpihelpers_computefirstpassapproval": "computeFirstPassApproval()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/kpiHelpers.ts:L214 | neighbors=[OperationalSummaryPage.tsx, kpiHelpers.ts, toRate()]
 
 ## Instructions
 

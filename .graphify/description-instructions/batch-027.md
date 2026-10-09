@@ -1,4 +1,4 @@
-# Node Description Batch 28 of 43
+# Node Description Batch 28 of 86
 
 Graphify is running in assistant/skill mode (no API key). You are the host
 assistant (Claude Code / Codex / Gemini CLI). Read the prompt below and write
@@ -12,51 +12,58 @@ describing what it is or does. Use only the provided context.
 For a code symbol (kind=code-symbol — a function, class, or constant),
 describe what the function/symbol does based on its name, source location
 and neighbors — e.g. "Resolves the configured ontology profile from graphify.yaml.".
+For an entity node (any other kind — e.g. a person, place, event, object),
+describe what the entity is and its role, grounded in its type, its
+relations (neighbors) and the provided citations/evidence — e.g.
+"Lady Carfax, a wealthy heiress who disappears en route to Lausanne.".
+Ground entity descriptions in the citations/evidence when present; do not
+speculate beyond the context, so a node with no supporting context may be
+left out of the reply.
 Write every description in English (en). Do not switch languages.
 No marketing language.
 Respond ONLY with a JSON object mapping each node id (as a string) to its
 one-sentence description — no prose, no markdown fences.
 
-- "bid_addquotationmodal_addquotationmodalprops": "AddQuotationModalProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AddQuotationModal.tsx:L55 | neighbors=[AddQuotationModal.tsx]
-- "bid_addquotationmodal_iquotationlinedraft": "IQuotationLineDraft" | kind=code-symbol | neighbors=[ILineItem]
-- "bid_aitab_aitabprops": "AITabProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AITab.tsx:L7 | neighbors=[AITab.tsx]
-- "bid_approvaltab_approvaltabprops": "ApprovalTabProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/ApprovalTab.tsx:L18 | neighbors=[ApprovalTab.tsx]
-- "bid_approvaltab_matchesdivision": "matchesDivision()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/ApprovalTab.tsx:L45 | neighbors=[ApprovalTab.tsx]
-- "bid_approvaltab_sector_configs": "SECTOR_CONFIGS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/ApprovalTab.tsx:L70 | neighbors=[ApprovalTab.tsx]
-- "bid_approvaltab_sectorconfig": "SectorConfig" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/ApprovalTab.tsx:L31 | neighbors=[ApprovalTab.tsx]
-- "bid_approvaltab_status_display": "STATUS_DISPLAY" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/ApprovalTab.tsx:L178 | neighbors=[ApprovalTab.tsx]
-- "bid_assetsbreakdowntab_assetsbreakdowntabprops": "AssetsBreakdownTabProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L19 | neighbors=[AssetsBreakdownTab.tsx]
-- "bid_assetsbreakdowntab_blankasset": "blankAsset()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L34 | neighbors=[AssetsBreakdownTab.tsx]
-- "bid_assetsbreakdowntab_blanksubcost": "blankSubCost()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L59 | neighbors=[AssetsBreakdownTab.tsx]
-- "bid_assetsbreakdowntab_blanksubitemcost": "blankSubItemCost()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L81 | neighbors=[AssetsBreakdownTab.tsx]
-- "bid_assetsbreakdowntab_blanktransitsubcost": "blankTransitSubCost()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L68 | neighbors=[AssetsBreakdownTab.tsx]
-- "bid_assetsbreakdowntab_costrefbadgeclass": "costRefBadgeClass()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L173 | neighbors=[AssetsBreakdownTab.tsx]
-- "bid_assetsbreakdowntab_dateageclass": "dateAgeClass()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L125 | neighbors=[AssetsBreakdownTab.tsx]
-- "bid_assetsbreakdowntab_formatdateref": "formatDateRef()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L103 | neighbors=[AssetsBreakdownTab.tsx]
-- "bid_assetsbreakdowntab_isquerysource": "isQuerySource()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L164 | neighbors=[AssetsBreakdownTab.tsx]
-- "bid_assetsbreakdowntab_query_sources": "QUERY_SOURCES" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L138 | neighbors=[AssetsBreakdownTab.tsx]
-- "bid_bidactivitylog_bidactivitylogprops": "BidActivityLogProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidActivityLog.tsx:L7 | neighbors=[BidActivityLog.tsx]
-- "bid_bidactivitylog_getactivitycolor": "getActivityColor()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidActivityLog.tsx:L37 | neighbors=[BidActivityLog.tsx]
-- "bid_bidapprovalpanel_bidapprovalpanel": "BidApprovalPanel()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidApprovalPanel.tsx:L13 | neighbors=[BidApprovalPanel.tsx]
-- "bid_bidapprovalpanel_bidapprovalpanelprops": "BidApprovalPanelProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidApprovalPanel.tsx:L7 | neighbors=[BidApprovalPanel.tsx]
-- "bid_bidcard_bidcardprops": "BidCardProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidCard.tsx:L13 | neighbors=[BidCard.tsx]
-- "bid_bidcomments_bidcommentsprops": "BidCommentsProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidComments.tsx:L7 | neighbors=[BidComments.tsx]
-- "bid_bidcostsummary_bidcostsummaryprops": "BidCostSummaryProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidCostSummary.tsx:L16 | neighbors=[BidCostSummary.tsx]
-- "bid_bidequipmenttable_bidequipmenttable": "BidEquipmentTable()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidEquipmentTable.tsx:L13 | neighbors=[BidEquipmentTable.tsx]
-- "bid_bidequipmenttable_bidequipmenttableprops": "BidEquipmentTableProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidEquipmentTable.tsx:L6 | neighbors=[BidEquipmentTable.tsx]
-- "bid_bidexportbutton_bidexportbuttonprops": "BidExportButtonProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidExportButton.tsx:L4 | neighbors=[BidExportButton.tsx]
-- "bid_bidhourstable_bidhourstableprops": "BidHoursTableProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidHoursTable.tsx:L18 | neighbors=[BidHoursTable.tsx]
-- "bid_bidhourstable_blankhoursitem": "blankHoursItem()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidHoursTable.tsx:L34 | neighbors=[BidHoursTable.tsx]
-- "bid_bidhourstable_colorpickerinline": "ColorPickerInline()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidHoursTable.tsx:L1584 | neighbors=[BidHoursTable.tsx]
-- "bid_bidhourstable_hoursrow": "HoursRow()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidHoursTable.tsx:L1209 | neighbors=[BidHoursTable.tsx]
-- "bid_bidhourstable_hoursrowprops": "HoursRowProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidHoursTable.tsx:L1179 | neighbors=[BidHoursTable.tsx]
-- "bid_bidhourstable_sectionkey": "SectionKey" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidHoursTable.tsx:L54 | neighbors=[BidHoursTable.tsx]
-- "bid_bidphaseprogress_bidphaseprogress": "BidPhaseProgress()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidPhaseProgress.tsx:L9 | neighbors=[BidPhaseProgress.tsx]
-- "bid_bidphaseprogress_bidphaseprogressprops": "BidPhaseProgressProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidPhaseProgress.tsx:L5 | neighbors=[BidPhaseProgress.tsx]
-- "bid_bidstatusdropdown_bidstatusdropdown": "BidStatusDropdown()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidStatusDropdown.tsx:L11 | neighbors=[BidStatusDropdown.tsx]
-- "bid_bidstatusdropdown_bidstatusdropdownprops": "BidStatusDropdownProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidStatusDropdown.tsx:L5 | neighbors=[BidStatusDropdown.tsx]
-- "bid_bidstatusphasepanel_bidstatusphasepanelprops": "BidStatusPhasePanelProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidStatusPhasePanel.tsx:L33 | neighbors=[BidStatusPhasePanel.tsx]
-- "bid_bidstatusphasepanel_terminalstatussection": "TerminalStatusSection()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidStatusPhasePanel.tsx:L1634 | neighbors=[BidStatusPhasePanel.tsx]
+- "bid_revisionstab_hasactiverevision": "hasActiveRevision()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/RevisionsTab.tsx:L36 | neighbors=[OverviewTab.tsx, RevisionsTab.tsx, BidDetailPage.tsx]
+- "bid_technicalproposalchip_technicalproposalchip": "TechnicalProposalChip()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/TechnicalProposalChip.tsx:L23 | neighbors=[DocumentsTab.tsx, OverviewTab.tsx, TechnicalProposalChip.tsx]
+- "bidexcelexport_context_getbidapprovalstate": "getBidApprovalState()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/bidExcelExport/context.ts:L77 | neighbors=[BidExportTab.tsx, context.ts, index.ts]
+- "bidexcelexport_index_exportbidtoexcel": "exportBidToExcel()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/bidExcelExport/index.ts:L54 | neighbors=[BidExportTab.tsx, index.ts, getBidExcelFilename()]
+- "bidexcelexport_index_getbidexcelfilename": "getBidExcelFilename()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/bidExcelExport/index.ts:L39 | neighbors=[BidExportTab.tsx, index.ts, exportBidToExcel()]
+- "bidexcelexport_rows_groupbysection": "groupBySection()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/bidExcelExport/rows.ts:L65 | neighbors=[rows.ts, buildAssetSummary(), scopeSheet.ts]
+- "bidexcelexport_rows_scopemapof": "scopeMapOf()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/bidExcelExport/rows.ts:L90 | neighbors=[rows.ts, buildAssetSummary(), buildSupplierRows()]
+- "bidexcelexport_rows_summarizesuppliers": "summarizeSuppliers()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/bidExcelExport/rows.ts:L551 | neighbors=[BidExportTab.tsx, rows.ts, suppliersSheet.ts]
+- "bidexcelexport_runtime_loadexceljs": "loadExcelJS()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/bidExcelExport/runtime.ts:L13 | neighbors=[index.ts, runtime.ts, clarificationExcelExport.ts]
+- "bidexcelexport_runtime_loadlogodataurl": "loadLogoDataUrl()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/bidExcelExport/runtime.ts:L23 | neighbors=[index.ts, runtime.ts, clarificationExcelExport.ts]
+- "bidexcelexport_runtime_sanitizefilepart": "sanitizeFilePart()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/bidExcelExport/runtime.ts:L41 | neighbors=[index.ts, runtime.ts, clarificationExcelExport.ts]
+- "commit:repo:github.com/RaphaelCosta21/smartbid2.0@2b67088eeeb1d6db427afb67b8e3ce9a4cde6917": "2b67088 commit final Survey Knowledge & traduçao EN EASI" | kind=Commit | source=git | neighbors=[main, ddf6c96 Merge branch 'feat/survey-knowl…, 8267c28 i18n: translate EASI, suppliers…]
+- "commit:repo:github.com/RaphaelCosta21/smartbid2.0@5ba1094dd8eb0c59c51552c23d5fb4bc2c2c1cea": "5ba1094 style(survey): spread card pure glass, readable drawing eyebrow" | kind=Commit | source=git | neighbors=[main, d574851 style(survey): calmer overview …, fbe2c0e feat(survey): remove division/s…]
+- "commit:repo:github.com/RaphaelCosta21/smartbid2.0@8f7062d7348739499b9429de72405558366ce398": "8f7062d Remove outdated UI/UX design guide and related configurations; add new …" | kind=Commit | source=git | neighbors=[27f41ab refactor: improve code formatti…, main, MembersManagement.tsx]
+- "common_aianalyzermodal_aianalyzermodal": "AIAnalyzerModal()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/common/AIAnalyzerModal.tsx:L23 | neighbors=[ScopeOfSupplyTab.tsx, AIAnalyzerModal.tsx, TemplatesPage.tsx]
+- "common_editlockbanner_edittoolbar": "EditToolbar()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/common/EditLockBanner.tsx:L65 | neighbors=[QualificationsTab.tsx, EditLockBanner.tsx, TemplateEditor.tsx]
+- "common_guidedtour_revealtarget": "revealTarget()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/common/GuidedTour.tsx:L103 | neighbors=[GuidedTour.tsx, getScrollParent(), prefersReducedMotion()]
+- "common_importsourcemodal_importsourcemodal": "ImportSourceModal()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/common/ImportSourceModal.tsx:L30 | neighbors=[BidHoursTable.tsx, ScopeOfSupplyTab.tsx, ImportSourceModal.tsx]
+- "common_integrateddivisiontabs_integrateddivisiontabs": "IntegratedDivisionTabs()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/common/IntegratedDivisionTabs.tsx:L52 | neighbors=[IntegratedDivisionTabs.tsx, resolveDivisions(), BidDetailPage.tsx]
+- "common_integrateddivisiontabs_resolvedivisions": "resolveDivisions()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/common/IntegratedDivisionTabs.tsx:L44 | neighbors=[IntegratedDivisionTabs.tsx, IntegratedDivisionTabs(), BidDetailPage.tsx]
+- "common_peoplepicker_ipickedperson": "IPickedPerson" | kind=code-symbol | source=src/webparts/smartBid20/app/components/common/PeoplePicker.tsx:L10 | neighbors=[ErnCreateModal.tsx, PeoplePicker.tsx, IGraphResult]
+- "common_suppliercombobox_suppliercombobox": "SupplierCombobox()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/common/SupplierCombobox.tsx:L25 | neighbors=[AddQuotationModal.tsx, SupplierCombobox.tsx, QuotationsPage.tsx]
+- "components_ismartbid20props_ismartbid20props": "ISmartBid20Props" | kind=code-symbol | source=src/webparts/smartBid20/components/ISmartBid20Props.ts:L3 | neighbors=[ISmartBid20Props.ts, SmartBid20.tsx, SmartBid20WebPart.ts]
+- "components_smartbid20_smartbid20": "SmartBid20" | kind=code-symbol | source=src/webparts/smartBid20/components/SmartBid20.tsx:L8 | neighbors=[SmartBid20.tsx, .componentDidMount(), .render()]
+- "config_accesscontrol_config_normalizeaccessconfig": "normalizeAccessConfig()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/accessControl.config.ts:L279 | neighbors=[accessControl.config.ts, normalizeAccessLevels(), normalizeBidAccessLevels()]
+- "config_defaultfavoritegroups_getdefaultfavoritegroups": "getDefaultFavoriteGroups()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/defaultFavoriteGroups.ts:L26 | neighbors=[defaultFavoriteGroups.ts, makeGroup(), defaultSystemConfig.ts]
+- "config_defaultfavoritegroups_makegroup": "makeGroup()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/defaultFavoriteGroups.ts:L13 | neighbors=[defaultFavoriteGroups.ts, getDefaultFavoriteGroups(), nextId()]
+- "config_notifications_config_teamrule": "teamRule()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/notifications.config.ts:L240 | neighbors=[notifications.config.ts, buildDefaultRule(), normalizeTeamRule()]
+- "config_phases_config_getphaseconfig": "getPhaseConfig()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/phases.config.ts:L277 | neighbors=[phases.config.ts, getPhaseLabel(), getPhaseTasks()]
+- "dashboard_enghoursranking_enghoursranking": "EngHoursRanking()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/EngHoursRanking.tsx:L32 | neighbors=[EngHoursOutlook.tsx, EngHoursRanking.tsx, DashboardPage.tsx]
+- "data_mocknotifications": "mockNotifications.ts" | kind=code-symbol | source=src/webparts/smartBid20/app/data/mockNotifications.ts:L1 | neighbors=[fe3728a smartbid2.0, MOCK_NOTIFICATIONS, index.ts]
+- "data_mocktemplates": "mockTemplates.ts" | kind=code-symbol | source=src/webparts/smartBid20/app/data/mockTemplates.ts:L1 | neighbors=[fe3728a smartbid2.0, IBidTemplate, MOCK_TEMPLATES]
+- "function_app_document_structure_is_title_case": "_is_title_case()" | kind=code-symbol | source=azure-ai-backend/function-app/document_structure.py:L117 | neighbors=[document_structure.py, _heading(), _has_letters()]
+- "function_app_document_structure_letter_count": "_letter_count()" | kind=code-symbol | source=azure-ai-backend/function-app/document_structure.py:L107 | neighbors=[document_structure.py, _has_word(), _heading()]
+- "function_app_function_app_bad_request": "_bad_request()" | kind=code-symbol | source=azure-ai-backend/function-app/function_app.py:L261 | neighbors=[function_app.py, extract_quotation(), generate_scope()]
+- "function_app_function_app_clarification_library_block": "_clarification_library_block()" | kind=code-symbol | source=azure-ai-backend/function-app/function_app.py:L617 | neighbors=[function_app.py, generate_scope(), suggest_clarifications()]
+- "function_app_function_app_odata_literal": "_odata_literal()" | kind=code-symbol | source=azure-ai-backend/function-app/function_app.py:L443 | neighbors=[function_app.py, _chat_past_bid_material(), _not_this_bid()]
+- "function_app_function_app_parent_key": "_parent_key()" | kind=code-symbol | source=azure-ai-backend/function-app/function_app.py:L439 | neighbors=[function_app.py, _chat_past_bid_material(), _group_by_document()]
+- "function_app_function_app_past_bid_refs": "_past_bid_refs()" | kind=code-symbol | source=azure-ai-backend/function-app/function_app.py:L937 | neighbors=[function_app.py, chat(), _bid_ref()]
+- "function_app_function_app_unreadable": "_unreadable()" | kind=code-symbol | source=azure-ai-backend/function-app/function_app.py:L249 | neighbors=[function_app.py, extract_quotation(), generate_scope()]
 
 ## Instructions
 
