@@ -107,9 +107,7 @@ export const HowItWorksDrawer: React.FC<HowItWorksDrawerProps> = ({
   const [closing, setClosing] = React.useState(false);
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const closeRef = React.useRef<HTMLButtonElement>(null);
-  const sectionRefs = React.useRef<Partial<Record<SectionId, HTMLElement>>>(
-    {},
-  );
+  const sectionRefs = React.useRef<Partial<Record<SectionId, HTMLElement>>>({});
 
   React.useEffect(() => {
     if (open) {
@@ -216,7 +214,9 @@ export const HowItWorksDrawer: React.FC<HowItWorksDrawerProps> = ({
   const drawer =
     mounted && host
       ? ReactDOM.createPortal(
-          <div className={`${styles.root}${closing ? ` ${styles.closing}` : ""}`}>
+          <div
+            className={`${styles.root}${closing ? ` ${styles.closing}` : ""}`}
+          >
             <div className={styles.scrim} onMouseDown={onClose} />
             <aside
               className={styles.panel}

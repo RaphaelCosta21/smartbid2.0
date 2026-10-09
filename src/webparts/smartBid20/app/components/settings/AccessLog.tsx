@@ -124,8 +124,8 @@ export const AccessLog: React.FC = () => {
         <div>
           <h3>Access Log</h3>
           <p>
-            Who opened SmartBid and the PeopleSoft Consulting External View.
-            One row per app load; reloads within 15 minutes are not repeated.
+            Who opened SmartBid and the PeopleSoft Consulting External View. One
+            row per app load; reloads within 15 minutes are not repeated.
             Visible only to the super admin master.
           </p>
         </div>

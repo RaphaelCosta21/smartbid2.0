@@ -296,11 +296,12 @@ const SOURCES: [TabKey, string][] = [
 ];
 const VIEW_KEYS: SubTabKey[] = ["priceConsulting", "activeRegistered"];
 
-const TOUR_PLACEMENT: Partial<Record<PeoplesoftTourStepId, GuidedTourPlacement>> =
-  {
-    hscroll: "top",
-    pagination: "top",
-  };
+const TOUR_PLACEMENT: Partial<
+  Record<PeoplesoftTourStepId, GuidedTourPlacement>
+> = {
+  hscroll: "top",
+  pagination: "top",
+};
 /** Time for the How it Works drawer to slide out before the tour starts */
 const TOUR_START_DELAY_MS = 260;
 /** Hover-scroll speed on the table arrows (px/s), ramping from MIN to MAX */
@@ -1432,9 +1433,7 @@ export function QueryConsultingPage(): React.ReactElement {
                     type="text"
                     className={styles.filterInput}
                     placeholder={
-                      colLabel
-                        ? t.filterBy(colLabel)
-                        : t.filterValuePlaceholder
+                      colLabel ? t.filterBy(colLabel) : t.filterValuePlaceholder
                     }
                     value={filter.value}
                     onChange={(e) =>
@@ -1616,10 +1615,7 @@ export function QueryConsultingPage(): React.ReactElement {
               <table className={styles.table}>
                 <thead data-tour="psc-table">
                   <tr>
-                    <th
-                      className={styles.photoColHeader}
-                      style={{ width: 50 }}
-                    >
+                    <th className={styles.photoColHeader} style={{ width: 50 }}>
                       {t.headers.photo}
                     </th>
                     {columns.map((col) => {
@@ -1735,10 +1731,7 @@ export function QueryConsultingPage(): React.ReactElement {
               filteredCount.toLocaleString(),
             )}
           </span>
-          <div
-            className={styles.paginationControls}
-            data-tour="psc-pagination"
-          >
+          <div className={styles.paginationControls} data-tour="psc-pagination">
             <button
               type="button"
               className={styles.pageBtn}

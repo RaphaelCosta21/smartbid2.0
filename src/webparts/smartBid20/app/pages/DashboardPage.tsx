@@ -241,36 +241,36 @@ export const DashboardPage: React.FC = () => {
             actions={
               <div className={styles.headerActions}>
                 {canSeeLive && (
-                <div
-                  ref={viewIndicator.containerRef}
-                  className={styles.viewToggle}
-                  role="tablist"
-                  aria-label="Dashboard view"
-                >
-                  {viewIndicator.style && (
-                    <span
-                      aria-hidden="true"
-                      className={`${styles.viewIndicator} ${viewIndicator.animated ? styles.viewIndicatorAnimated : ""}`}
-                      style={viewIndicator.style}
-                    />
-                  )}
-                  {VIEW_OPTIONS.map((opt) => {
-                    const active = view === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        role="tab"
-                        aria-selected={active}
-                        className={`${styles.viewBtn} ${active ? styles.viewBtnActive : ""}`}
-                        onClick={() => setView(opt.value)}
-                      >
-                        {opt.icon}
-                        <span>{opt.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                  <div
+                    ref={viewIndicator.containerRef}
+                    className={styles.viewToggle}
+                    role="tablist"
+                    aria-label="Dashboard view"
+                  >
+                    {viewIndicator.style && (
+                      <span
+                        aria-hidden="true"
+                        className={`${styles.viewIndicator} ${viewIndicator.animated ? styles.viewIndicatorAnimated : ""}`}
+                        style={viewIndicator.style}
+                      />
+                    )}
+                    {VIEW_OPTIONS.map((opt) => {
+                      const active = view === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          role="tab"
+                          aria-selected={active}
+                          className={`${styles.viewBtn} ${active ? styles.viewBtnActive : ""}`}
+                          onClick={() => setView(opt.value)}
+                        >
+                          {opt.icon}
+                          <span>{opt.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
                 <span className={styles.syncInfo}>
                   {syncing

@@ -24,7 +24,8 @@ export type PeoplesoftTourStepId =
   | "external"
   | "help";
 
-export const PEOPLESOFT_LANG_STORAGE_KEY = "smartbid.peoplesoftConsulting.language";
+export const PEOPLESOFT_LANG_STORAGE_KEY =
+  "smartbid.peoplesoftConsulting.language";
 
 /** Tour order; steps whose target is not on screen are skipped by the tour. */
 export const PEOPLESOFT_TOUR_ORDER: PeoplesoftTourStepId[] = [
@@ -534,7 +535,9 @@ const PT: IPeoplesoftConsultingText = {
     },
     external: {
       title: "Visão Externa",
-      paragraphs: ["Abre a página em uma nova aba do navegador, em tela cheia."],
+      paragraphs: [
+        "Abre a página em uma nova aba do navegador, em tela cheia.",
+      ],
     },
     refreshNote: "Os dados são atualizados automaticamente todas as manhãs.",
   },
@@ -610,8 +613,10 @@ const PT: IPeoplesoftConsultingText = {
   },
 };
 
-export const PEOPLESOFT_TEXT: Record<PeoplesoftLang, IPeoplesoftConsultingText> =
-  { en: EN, pt: PT };
+export const PEOPLESOFT_TEXT: Record<
+  PeoplesoftLang,
+  IPeoplesoftConsultingText
+> = { en: EN, pt: PT };
 
 /** Portuguese (PT-BR) is the default; English only when the user picked it. */
 export function readPeoplesoftLang(): PeoplesoftLang {

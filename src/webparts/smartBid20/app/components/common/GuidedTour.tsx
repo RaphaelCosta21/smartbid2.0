@@ -86,7 +86,10 @@ function getScrollParent(el: HTMLElement): HTMLElement | null {
   let p = el.parentElement;
   while (p && p !== document.body && p !== document.documentElement) {
     const oy = window.getComputedStyle(p).overflowY;
-    if ((oy === "auto" || oy === "scroll") && p.scrollHeight > p.clientHeight + 1)
+    if (
+      (oy === "auto" || oy === "scroll") &&
+      p.scrollHeight > p.clientHeight + 1
+    )
       return p;
     p = p.parentElement;
   }
@@ -210,9 +213,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
   const balloonRef = React.useRef<HTMLDivElement>(null);
   const nextRef = React.useRef<HTMLButtonElement>(null);
   const restoreFocusRef = React.useRef<HTMLElement | null>(null);
-  const idRef = React.useRef(
-    "tour" + Math.random().toString(36).slice(2, 8),
-  );
+  const idRef = React.useRef("tour" + Math.random().toString(36).slice(2, 8));
 
   // Resolve the available steps once per opening
   React.useEffect(() => {
@@ -307,7 +308,9 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
   }, [open, currentTarget]);
 
   // Keyboard: Esc closes, arrows navigate, Tab stays inside the balloon
-  const keyHandlerRef = React.useRef<(e: KeyboardEvent) => void>(() => undefined);
+  const keyHandlerRef = React.useRef<(e: KeyboardEvent) => void>(
+    () => undefined,
+  );
   keyHandlerRef.current = (e: KeyboardEvent): void => {
     if (e.key === "Escape") {
       e.preventDefault();
@@ -325,10 +328,16 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
       const first = focusables[0] as HTMLElement;
       const last = focusables[focusables.length - 1] as HTMLElement;
       const active = document.activeElement;
-      if (e.shiftKey && (active === first || !balloonRef.current.contains(active))) {
+      if (
+        e.shiftKey &&
+        (active === first || !balloonRef.current.contains(active))
+      ) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && (active === last || !balloonRef.current.contains(active))) {
+      } else if (
+        !e.shiftKey &&
+        (active === last || !balloonRef.current.contains(active))
+      ) {
         e.preventDefault();
         first.focus();
       }
