@@ -63,7 +63,10 @@ export class NotificationDispatchService {
     try {
       settings = (await SystemConfigService.get()).notifications;
     } catch (err) {
-      console.warn("Notifications skipped: system configuration unavailable", err);
+      console.warn(
+        "Notifications skipped: system configuration unavailable",
+        err,
+      );
       return;
     }
     if (!settings || !isValidFlowUrl(settings.flowUrl)) return;
@@ -94,7 +97,10 @@ export class NotificationDispatchService {
           facts: e.facts,
         });
       } catch (err) {
-        console.warn(`Notification ${e.event} for ${e.bidNumber} not sent`, err);
+        console.warn(
+          `Notification ${e.event} for ${e.bidNumber} not sent`,
+          err,
+        );
       }
     }
   }
@@ -117,7 +123,11 @@ export class NotificationDispatchService {
       deepLink: `${appUrl()}#/`,
       actor,
       channels: ["email", "teams"],
-      presentation: { title: "Teste de notificação", emoji: "🧪", tone: "brand" },
+      presentation: {
+        title: "Teste de notificação",
+        emoji: "🧪",
+        tone: "brand",
+      },
       headline:
         "Se você recebeu esta mensagem, o fluxo de notificações do SmartBID está funcionando.",
       facts: [

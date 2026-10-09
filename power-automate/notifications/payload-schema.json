@@ -40,5 +40,12 @@
       }
     }
   },
-  "required": ["eventKey", "event", "channels", "presentation", "headline", "facts"]
+  "required": [
+    "eventKey",
+    "event",
+    "channels",
+    "presentation",
+    "headline",
+    "facts"
+  ]
 }

@@ -227,7 +227,10 @@ export function deriveBidNotifications(
         { title: "Cancelado por", value: by },
       ],
     });
-  } else if (statusChanged && (toStatus === ON_HOLD || fromStatus === ON_HOLD)) {
+  } else if (
+    statusChanged &&
+    (toStatus === ON_HOLD || fromStatus === ON_HOLD)
+  ) {
     const paused = toStatus === ON_HOLD;
     events.push({
       event: "BID_ON_HOLD",

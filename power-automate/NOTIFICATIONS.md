@@ -21,12 +21,12 @@ Regras principais:
 
 ## Arquivos
 
-| Arquivo                                                                    | Uso                                                        |
-| -------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [`notifications/payload-schema.json`](./notifications/payload-schema.json) | Schema do corpo da requisição, colado no gatilho (passo 1) |
-| [`notifications/card-parts.json`](./notifications/card-parts.json)         | Partes do Adaptive Card, coladas no `comCardParts`         |
+| Arquivo                                                                    | Uso                                                          |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [`notifications/payload-schema.json`](./notifications/payload-schema.json) | Schema do corpo da requisição, colado no gatilho (passo 1)   |
+| [`notifications/card-parts.json`](./notifications/card-parts.json)         | Partes do Adaptive Card, coladas no `comCardParts`           |
 | [`notifications/card-preview.json`](./notifications/card-preview.json)     | Card de exemplo para ver o visual no Adaptive Cards Designer |
-| [`notifications/email-template.html`](./notifications/email-template.html) | HTML do e-mail, colado no `Send_email`                     |
+| [`notifications/email-template.html`](./notifications/email-template.html) | HTML do e-mail, colado no `Send_email`                       |
 
 ---
 
@@ -54,37 +54,37 @@ flowchart TD
 
 ### 1.2 Eventos e onde disparam
 
-| Evento                      | Chave (`event`)               | Canais        | Onde dispara                                                                                         | Origem                |
-| --------------------------- | ----------------------------- | ------------- | ---------------------------------------------------------------------------------------------------- | --------------------- |
-| SmartBID Created            | `BID_CREATED`                 | Email + Teams | Página **Create Request** > botão **Submit Request**                                                 | App                   |
-| SmartBID Assigned           | `BID_ASSIGNED`                | Teams         | **Unassigned Requests** > painel Assign > botão **Assign**                                           | App                   |
-| Phase Changed               | `PHASE_CHANGED`               | Teams         | BID Details > painel Status/Phase (seletor de fase, Advance / Revert)                                | App                   |
-| Status Changed              | `STATUS_CHANGED`              | Teams         | BID Details > painel Status/Phase (chips de status)                                                  | App                   |
-| SmartBID On Hold / Resumed  | `BID_ON_HOLD`                 | Teams         | Mesmo painel: status **On Hold**, ou saída de On Hold                                                | App                   |
-| Revision Started            | `REVISION_STARTED`            | Teams         | BID Details > **Revisions** > **+ Start New Revision**                                               | App                   |
+| Evento                      | Chave (`event`)               | Canais        | Onde dispara                                                                                              | Origem                   |
+| --------------------------- | ----------------------------- | ------------- | --------------------------------------------------------------------------------------------------------- | ------------------------ |
+| SmartBID Created            | `BID_CREATED`                 | Email + Teams | Página **Create Request** > botão **Submit Request**                                                      | App                      |
+| SmartBID Assigned           | `BID_ASSIGNED`                | Teams         | **Unassigned Requests** > painel Assign > botão **Assign**                                                | App                      |
+| Phase Changed               | `PHASE_CHANGED`               | Teams         | BID Details > painel Status/Phase (seletor de fase, Advance / Revert)                                     | App                      |
+| Status Changed              | `STATUS_CHANGED`              | Teams         | BID Details > painel Status/Phase (chips de status)                                                       | App                      |
+| SmartBID On Hold / Resumed  | `BID_ON_HOLD`                 | Teams         | Mesmo painel: status **On Hold**, ou saída de On Hold                                                     | App                      |
+| Revision Started            | `REVISION_STARTED`            | Teams         | BID Details > **Revisions** > **+ Start New Revision**                                                    | App                      |
 | SmartBID Completed          | `BID_COMPLETED`               | Email + Teams | Status → Completed; Revisions > **Close Revision**; Approval > Override; fechamento do fluxo de aprovação | App + fluxo de aprovação |
-| SmartBID Canceled           | `BID_CANCELED`                | Email + Teams | Painel Status/Phase: status **Canceled** ou **Client Canceled**                                      | App                   |
-| New Approval Flow Started   | `APPROVAL_STARTED`            | Teams         | BID Details > **Approval** > **Request Approvals**                                                   | App                   |
-| Approval Response           | `APPROVAL_RESPONSE`           | Teams         | Aprovador responde no Approvals do Teams (fluxo `SmartBid – Approval Round`, passo 14.11)            | Fluxo de aprovação    |
-| Approval Override           | `APPROVAL_OVERRIDE`           | Teams         | BID Details > **Approval** > **Override Approval**                                                   | App                   |
-| Due Date Changed            | `DUE_DATE_CHANGED`            | Teams         | BID Details > **Overview** > Key Dates > **Change**                                                  | App                   |
-| Deadline Warning            | `DEADLINE_WARNING`            | Teams         | Verificação diária, seg a sex às 08:00 (Brasília)                                                    | Deadline Monitor      |
-| SmartBID Overdue            | `BID_OVERDUE`                 | Teams         | Mesma verificação: 1x quando atrasa e depois 1x por semana. Ignora On Hold e status encerrados       | Deadline Monitor      |
-| Technical Proposal Uploaded | `TECHNICAL_PROPOSAL_UPLOADED` | Teams         | BID Details > **Documents** > "This is the Technical Proposal" + **Upload**                          | App                   |
+| SmartBID Canceled           | `BID_CANCELED`                | Email + Teams | Painel Status/Phase: status **Canceled** ou **Client Canceled**                                           | App                      |
+| New Approval Flow Started   | `APPROVAL_STARTED`            | Teams         | BID Details > **Approval** > **Request Approvals**                                                        | App                      |
+| Approval Response           | `APPROVAL_RESPONSE`           | Teams         | Aprovador responde no Approvals do Teams (fluxo `SmartBid – Approval Round`, passo 14.11)                 | Fluxo de aprovação       |
+| Approval Override           | `APPROVAL_OVERRIDE`           | Teams         | BID Details > **Approval** > **Override Approval**                                                        | App                      |
+| Due Date Changed            | `DUE_DATE_CHANGED`            | Teams         | BID Details > **Overview** > Key Dates > **Change**                                                       | App                      |
+| Deadline Warning            | `DEADLINE_WARNING`            | Teams         | Verificação diária, seg a sex às 08:00 (Brasília)                                                         | Deadline Monitor         |
+| SmartBID Overdue            | `BID_OVERDUE`                 | Teams         | Mesma verificação: 1x quando atrasa e depois 1x por semana. Ignora On Hold e status encerrados            | Deadline Monitor         |
+| Technical Proposal Uploaded | `TECHNICAL_PROPOSAL_UPLOADED` | Teams         | BID Details > **Documents** > "This is the Technical Proposal" + **Upload**                               | App                      |
 
 **Um evento por ação.** Quando uma ação muda várias coisas, o app envia só o evento mais específico:
 
-| Ação                                            | Evento enviado                                     |
-| ----------------------------------------------- | -------------------------------------------------- |
-| Assign (muda fase e status)                     | `BID_ASSIGNED`                                     |
-| Status → Completed (com ou sem mudança de fase) | `BID_COMPLETED`                                    |
-| Status → Canceled / Client Canceled             | `BID_CANCELED`                                     |
-| Entrar ou sair de On Hold                       | `BID_ON_HOLD`                                      |
-| Start New Revision (vai para Rework)            | `REVISION_STARTED`                                 |
-| Request Approvals (vai para Pending Approval)   | `APPROVAL_STARTED`                                 |
-| Override Approval                               | `APPROVAL_OVERRIDE` **e** `BID_COMPLETED`          |
-| Fase mudou (e o status também)                  | `PHASE_CHANGED`                                    |
-| Só o status mudou                               | `STATUS_CHANGED`                                   |
+| Ação                                            | Evento enviado                            |
+| ----------------------------------------------- | ----------------------------------------- |
+| Assign (muda fase e status)                     | `BID_ASSIGNED`                            |
+| Status → Completed (com ou sem mudança de fase) | `BID_COMPLETED`                           |
+| Status → Canceled / Client Canceled             | `BID_CANCELED`                            |
+| Entrar ou sair de On Hold                       | `BID_ON_HOLD`                             |
+| Start New Revision (vai para Rework)            | `REVISION_STARTED`                        |
+| Request Approvals (vai para Pending Approval)   | `APPROVAL_STARTED`                        |
+| Override Approval                               | `APPROVAL_OVERRIDE` **e** `BID_COMPLETED` |
+| Fase mudou (e o status também)                  | `PHASE_CHANGED`                           |
+| Só o status mudou                               | `STATUS_CHANGED`                          |
 
 `BID_COMPLETED` e `BID_CANCELED` usam a chave `EVENTO|BID|rev{quantidade de revisões}`. O app e o fluxo
 de aprovação geram a mesma chave, então a conclusão nunca é enviada duas vezes.
@@ -93,10 +93,10 @@ de aprovação geram a mesma chave, então a conclusão nunca é enviada duas ve
 
 Para cada evento (linha) e time (coluna) da página **Notifications**:
 
-| Modo           | Quem recebe                                                                                            |
-| -------------- | ------------------------------------------------------------------------------------------------------ |
-| **Off**        | Ninguém do time                                                                                        |
-| **Whole team** | Todo membro **ativo** do time em Members Management                                                    |
+| Modo           | Quem recebe                                                                                               |
+| -------------- | --------------------------------------------------------------------------------------------------------- |
+| **Off**        | Ninguém do time                                                                                           |
+| **Whole team** | Todo membro **ativo** do time em Members Management                                                       |
 | **Custom**     | Membros ativos do time com uma das **BID Roles** escolhidas e/ou os **Key People** do BID que são do time |
 
 - **Key People** = BID Responsible, Analyst, Project Manager, Commercial Requester e Creator do BID.
@@ -122,13 +122,13 @@ Para cada evento (linha) e time (coluna) da página **Notifications**:
 
 ### 2.1 Conexões
 
-| Conector              | Classe   | Uso                                                       |
-| --------------------- | -------- | --------------------------------------------------------- |
-| Request               | Premium  | Gatilho **When an HTTP request is received**              |
-| HTTP                  | Premium  | Deadline Monitor e fluxo de aprovação chamando este fluxo |
-| SharePoint            | Standard | Config, Members, BID e lista de log                       |
-| Microsoft Teams       | Standard | **Post card in a chat or channel** (Flow bot)             |
-| Mail                  | Standard | **Send an email notification (V3)**                       |
+| Conector        | Classe   | Uso                                                       |
+| --------------- | -------- | --------------------------------------------------------- |
+| Request         | Premium  | Gatilho **When an HTTP request is received**              |
+| HTTP            | Premium  | Deadline Monitor e fluxo de aprovação chamando este fluxo |
+| SharePoint      | Standard | Config, Members, BID e lista de log                       |
+| Microsoft Teams | Standard | **Post card in a chat or channel** (Flow bot)             |
+| Mail            | Standard | **Send an email notification (V3)**                       |
 
 Use a mesma conta de serviço como dona dos fluxos e das conexões.
 
@@ -137,17 +137,17 @@ Use a mesma conta de serviço como dona dos fluxos e das conexões.
 Crie a lista no site do SmartBID (`Site contents` > **New** > **List** > **Blank list**), com o nome
 `smartbid-notification-log`. Depois crie as colunas (**+ Add column**) exatamente com estes nomes:
 
-| Coluna           | Tipo                                     | Configuração                                                                      |
-| ---------------- | ---------------------------------------- | --------------------------------------------------------------------------------- |
-| `Title`          | já existe                                | List settings > Title > **Enforce unique values: Yes** (aceite criar o índice)    |
-| `Event`          | Single line of text                      |                                                                                   |
-| `BidNumber`      | Single line of text                      |                                                                                   |
-| `Source`         | Single line of text                      |                                                                                   |
-| `Actor`          | Single line of text                      |                                                                                   |
-| `DeliveryStatus` | Choice                                   | Opções `Received`, `Sent`, `Skipped`, `Failed`; padrão `Received`                 |
-| `Recipients`     | Multiple lines of text                   | **Plain text**                                                                    |
-| `Payload`        | Multiple lines of text                   | **Plain text**                                                                    |
-| `Notes`          | Multiple lines of text                   | **Plain text**                                                                    |
+| Coluna           | Tipo                   | Configuração                                                                   |
+| ---------------- | ---------------------- | ------------------------------------------------------------------------------ |
+| `Title`          | já existe              | List settings > Title > **Enforce unique values: Yes** (aceite criar o índice) |
+| `Event`          | Single line of text    |                                                                                |
+| `BidNumber`      | Single line of text    |                                                                                |
+| `Source`         | Single line of text    |                                                                                |
+| `Actor`          | Single line of text    |                                                                                |
+| `DeliveryStatus` | Choice                 | Opções `Received`, `Sent`, `Skipped`, `Failed`; padrão `Received`              |
+| `Recipients`     | Multiple lines of text | **Plain text**                                                                 |
+| `Payload`        | Multiple lines of text | **Plain text**                                                                 |
+| `Notes`          | Multiple lines of text | **Plain text**                                                                 |
 
 O `Title` guarda o `eventKey`. Como ele é **único**, um segundo envio com a mesma chave falha ao criar o
 item, e o fluxo para ali (passo 4). É isso que evita notificações repetidas.
@@ -169,20 +169,20 @@ Enquanto a URL não for salva, o app não envia nada.
 
 Todo envio (app, fluxo de aprovação e Deadline Monitor) usa este JSON:
 
-| Campo           | Tipo   | Conteúdo                                                                              |
-| --------------- | ------ | ------------------------------------------------------------------------------------- |
-| `schemaVersion` | número | `1`                                                                                   |
-| `eventKey`      | texto  | Chave única do envio (vai para o `Title` do log)                                      |
-| `event`         | texto  | Chave do evento (tabela 1.2) ou `TEST`                                                |
-| `source`        | texto  | `app`, `approvalFlow` ou `deadlineMonitor`                                            |
-| `occurredAt`    | texto  | Data/hora UTC ISO 8601                                                                |
-| `bidNumber`     | texto  | Número do BID (`Title` da `smartbid-tracker`); vazio no `TEST`                        |
-| `deepLink`      | texto  | Link do BID no SmartBID                                                               |
-| `actor`         | objeto | `{ "name", "email" }` de quem disparou; não recebe a notificação                      |
-| `channels`      | lista  | `["teams"]` ou `["email", "teams"]`                                                   |
+| Campo           | Tipo   | Conteúdo                                                                                 |
+| --------------- | ------ | ---------------------------------------------------------------------------------------- |
+| `schemaVersion` | número | `1`                                                                                      |
+| `eventKey`      | texto  | Chave única do envio (vai para o `Title` do log)                                         |
+| `event`         | texto  | Chave do evento (tabela 1.2) ou `TEST`                                                   |
+| `source`        | texto  | `app`, `approvalFlow` ou `deadlineMonitor`                                               |
+| `occurredAt`    | texto  | Data/hora UTC ISO 8601                                                                   |
+| `bidNumber`     | texto  | Número do BID (`Title` da `smartbid-tracker`); vazio no `TEST`                           |
+| `deepLink`      | texto  | Link do BID no SmartBID                                                                  |
+| `actor`         | objeto | `{ "name", "email" }` de quem disparou; não recebe a notificação                         |
+| `channels`      | lista  | `["teams"]` ou `["email", "teams"]`                                                      |
 | `presentation`  | objeto | `{ "title", "emoji", "tone" }`; `tone` = `brand`, `info`, `success`, `warning`, `danger` |
-| `headline`      | texto  | Frase principal do card e do e-mail (PT-BR, texto puro)                               |
-| `facts`         | lista  | `[{ "title", "value" }]` com os detalhes do evento                                    |
+| `headline`      | texto  | Frase principal do card e do e-mail (PT-BR, texto puro)                                  |
+| `facts`         | lista  | `[{ "title", "value" }]` com os detalhes do evento                                       |
 
 Exemplo (Phase Changed enviado pelo app):
 
@@ -216,13 +216,13 @@ status e prazo), lidos da `smartbid-tracker`.
 Cada ação aparece com **Onde** (posição), **Ação** (conector → nome da ação), **Nome** (renomeie a ação
 pelo menu `...` → **Rename**; as expressões dependem desses nomes) e uma tabela Campo | Como preencher | Valor.
 
-| Como preencher | O que fazer                                                                                                                                    |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Lista**      | Escolha a opção na lista suspensa.                                                                                                             |
-| **Texto**      | Digite o valor exatamente como está.                                                                                                           |
-| **fx**         | Clique no campo → ícone **fx** (ou aba **Expression**) → cole a expressão **sem** `@{ }` → **Add**.                                           |
+| Como preencher | O que fazer                                                                                                                                     |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Lista**      | Escolha a opção na lista suspensa.                                                                                                              |
+| **Texto**      | Digite o valor exatamente como está.                                                                                                            |
+| **fx**         | Clique no campo → ícone **fx** (ou aba **Expression**) → cole a expressão **sem** `@{ }` → **Add**.                                             |
 | **Texto + fx** | Cole a linha inteira; o designer converte cada `@{...}` num bloco. Se algum trecho ficar como texto, apague-o e insira a expressão pelo **fx**. |
-| **JSON**       | Cole o bloco JSON inteiro no campo. Os trechos `@{...}` dentro das aspas viram expressões.                                                     |
+| **JSON**       | Cole o bloco JSON inteiro no campo. Os trechos `@{...}` dentro das aspas viram expressões.                                                      |
 
 - **Conditions e Filter array no modo básico.** Esquerda sempre pelo **fx**. Na direita, `fx true` / `fx 0`
   = insira pelo **fx**; `texto Failed` = digite. Várias linhas: seletor em **AND**.
@@ -276,11 +276,11 @@ Crie um **Instant cloud flow**, escolha **When an HTTP request is received** e s
 
 **Ação:** Request → **When an HTTP request is received**.
 
-| Campo                                    | Como preencher | Valor                                                                         |
-| ---------------------------------------- | -------------- | ----------------------------------------------------------------------------- |
-| Who can trigger the flow?                | Lista          | **Anyone**                                                                    |
-| Request Body JSON Schema                 | JSON           | conteúdo de [`notifications/payload-schema.json`](./notifications/payload-schema.json) |
-| Method (Advanced parameters)             | Lista          | **POST**                                                                      |
+| Campo                        | Como preencher | Valor                                                                                  |
+| ---------------------------- | -------------- | -------------------------------------------------------------------------------------- |
+| Who can trigger the flow?    | Lista          | **Anyone**                                                                             |
+| Request Body JSON Schema     | JSON           | conteúdo de [`notifications/payload-schema.json`](./notifications/payload-schema.json) |
+| Method (Advanced parameters) | Lista          | **POST**                                                                               |
 
 Salve o fluxo. O campo **HTTP URL** aparece preenchido: copie e cole em SmartBID > System Configuration >
 Notifications > **Flow URL** (seção 2.3).
@@ -293,13 +293,13 @@ Notifications > **Flow URL** (seção 2.3).
 
 **Onde:** logo abaixo do gatilho. Uma ação **Variable → Initialize variable** por linha, nesta ordem.
 
-| Name            | Type    | Como preencher Value | Value                                                                                                                                              |
-| --------------- | ------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `varEvent`      | String  | fx                   | `coalesce(triggerBody()?['event'], '')`                                                                                                             |
-| `varBidNumber`  | String  | fx                   | `coalesce(triggerBody()?['bidNumber'], '')`                                                                                                         |
-| `varActorEmail` | String  | fx                   | `toLower(coalesce(triggerBody()?['actor']?['email'], ''))`                                                                                          |
-| `varIsTest`     | Boolean | fx                   | `equals(triggerBody()?['event'], 'TEST')`                                                                                                           |
-| `varAppUrl`     | String  | Texto                | URL da página do SmartBID, sem o `#` e o que vem depois (copie da barra do navegador)                                                               |
+| Name            | Type    | Como preencher Value | Value                                                                                                                                                  |
+| --------------- | ------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `varEvent`      | String  | fx                   | `coalesce(triggerBody()?['event'], '')`                                                                                                                |
+| `varBidNumber`  | String  | fx                   | `coalesce(triggerBody()?['bidNumber'], '')`                                                                                                            |
+| `varActorEmail` | String  | fx                   | `toLower(coalesce(triggerBody()?['actor']?['email'], ''))`                                                                                             |
+| `varIsTest`     | Boolean | fx                   | `equals(triggerBody()?['event'], 'TEST')`                                                                                                              |
+| `varAppUrl`     | String  | Texto                | URL da página do SmartBID, sem o `#` e o que vem depois (copie da barra do navegador)                                                                  |
 | `varDeepLink`   | String  | fx                   | `if(empty(coalesce(triggerBody()?['deepLink'], '')), concat(variables('varAppUrl'), '#/bid/', variables('varBidNumber')), triggerBody()?['deepLink'])` |
 
 #### 3) Create item `Create_log`
@@ -307,30 +307,30 @@ Notifications > **Flow URL** (seção 2.3).
 **Onde:** abaixo da última Initialize variable.
 **Ação:** SharePoint → **Create item**. **Nome:** `Create_log`.
 
-| Campo          | Como preencher | Valor                                        |
-| -------------- | -------------- | -------------------------------------------- |
-| Site Address   | Lista          | site do SmartBID                             |
-| List Name      | Lista          | `smartbid-notification-log`                  |
-| Title          | fx             | `triggerBody()?['eventKey']`                 |
-| Event          | fx             | `variables('varEvent')`                      |
-| BidNumber      | fx             | `variables('varBidNumber')`                  |
-| Source         | fx             | `coalesce(triggerBody()?['source'], 'app')`  |
-| Actor          | fx             | `variables('varActorEmail')`                 |
-| DeliveryStatus | Lista          | `Received`                                   |
-| Payload        | fx             | `string(triggerBody())`                      |
+| Campo          | Como preencher | Valor                                       |
+| -------------- | -------------- | ------------------------------------------- |
+| Site Address   | Lista          | site do SmartBID                            |
+| List Name      | Lista          | `smartbid-notification-log`                 |
+| Title          | fx             | `triggerBody()?['eventKey']`                |
+| Event          | fx             | `variables('varEvent')`                     |
+| BidNumber      | fx             | `variables('varBidNumber')`                 |
+| Source         | fx             | `coalesce(triggerBody()?['source'], 'app')` |
+| Actor          | fx             | `variables('varActorEmail')`                |
+| DeliveryStatus | Lista          | `Received`                                  |
+| Payload        | fx             | `string(triggerBody())`                     |
 
 #### 4) Condition `Condition_duplicate`
 
 **Onde:** abaixo de `Create_log`.
 **Ação:** Control → **Condition**. **Nome:** `Condition_duplicate`.
 
-| Esquerda (fx)                     | Operador    | Direita        |
-| --------------------------------- | ----------- | -------------- |
+| Esquerda (fx)                      | Operador    | Direita        |
+| ---------------------------------- | ----------- | -------------- |
 | `actions('Create_log')?['status']` | is equal to | texto `Failed` |
 
-| Configuração                                | Como preencher | Valor                                  |
-| ------------------------------------------- | -------------- | -------------------------------------- |
-| Settings → Run after (`Create_log`)         | marcar         | **is successful** e **has failed**     |
+| Configuração                        | Como preencher | Valor                              |
+| ----------------------------------- | -------------- | ---------------------------------- |
+| Settings → Run after (`Create_log`) | marcar         | **is successful** e **has failed** |
 
 - **True:** Control → **Terminate**, **Nome:** `Terminate_duplicate`, Status **Cancelled**. O `eventKey`
   já existe no log: o evento já foi tratado.
@@ -347,26 +347,26 @@ Notifications > **Flow URL** (seção 2.3).
 **Onde:** abaixo de `Condition_duplicate`.
 **Ação:** SharePoint → **Get items**. **Nome:** `Get_config`.
 
-| Campo                              | Como preencher | Valor                         |
-| ---------------------------------- | -------------- | ----------------------------- |
-| Site Address                       | Lista          | site do SmartBID              |
-| List Name                          | Lista          | `smartbid-config`             |
-| Filter Query (Advanced parameters) | Texto          | `Title eq 'SYSTEM_CONFIG'`    |
-| Top Count (Advanced parameters)    | Texto          | `1`                           |
+| Campo                              | Como preencher | Valor                      |
+| ---------------------------------- | -------------- | -------------------------- |
+| Site Address                       | Lista          | site do SmartBID           |
+| List Name                          | Lista          | `smartbid-config`          |
+| Filter Query (Advanced parameters) | Texto          | `Title eq 'SYSTEM_CONFIG'` |
+| Top Count (Advanced parameters)    | Texto          | `1`                        |
 
 **5.2) Compose `comSettings`**
 
 **Ação:** Data Operation → **Compose**. **Nome:** `comSettings`.
 
-| Campo  | Como preencher | Valor                                                                        |
-| ------ | -------------- | ---------------------------------------------------------------------------- |
+| Campo  | Como preencher | Valor                                                                         |
+| ------ | -------------- | ----------------------------------------------------------------------------- |
 | Inputs | fx             | `json(first(body('Get_config')?['value'])?['ConfigValue'])?['notifications']` |
 
 **5.3) Compose `comRule`** — a regra do evento recebido.
 
-| Campo  | Como preencher | Valor                                                          |
-| ------ | -------------- | -------------------------------------------------------------- |
-| Inputs | fx             | `outputs('comSettings')?['rules']?[variables('varEvent')]`     |
+| Campo  | Como preencher | Valor                                                      |
+| ------ | -------------- | ---------------------------------------------------------- |
+| Inputs | fx             | `outputs('comSettings')?['rules']?[variables('varEvent')]` |
 
 #### 6) BID
 
@@ -383,18 +383,18 @@ Notifications > **Flow URL** (seção 2.3).
 
 **6.2) Compose `comBid`** — o JSON do BID (vazio no `TEST`).
 
-| Campo  | Como preencher | Valor                                                                  |
-| ------ | -------------- | ---------------------------------------------------------------------- |
-| Inputs | fx             | `json(coalesce(first(body('Get_bid')?['value'])?['jsondata'], '{}'))`  |
+| Campo  | Como preencher | Valor                                                                 |
+| ------ | -------------- | --------------------------------------------------------------------- |
+| Inputs | fx             | `json(coalesce(first(body('Get_bid')?['value'])?['jsondata'], '{}'))` |
 
 #### 7) Condition `Condition_can_send`
 
 **Onde:** abaixo de `comBid`.
 **Ação:** Control → **Condition**. **Nome:** `Condition_can_send`.
 
-| Esquerda (fx)                                                                                                                                  | Operador    | Direita   |
-| ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | --------- |
-| `or(variables('varIsTest'), and(equals(outputs('comRule')?['enabled'], true), not(empty(outputs('comBid')?['bidNumber']))))`                   | is equal to | fx `true` |
+| Esquerda (fx)                                                                                                                | Operador    | Direita   |
+| ---------------------------------------------------------------------------------------------------------------------------- | ----------- | --------- |
+| `or(variables('varIsTest'), and(equals(outputs('comRule')?['enabled'], true), not(empty(outputs('comBid')?['bidNumber']))))` | is equal to | fx `true` |
 
 Passa quando é um teste, ou quando o evento está ligado e o BID foi encontrado.
 
@@ -403,13 +403,13 @@ Passa quando é um teste, ou quando o evento está ligado e o BID foi encontrado
 
 **7.1) Update item `Update_log_skipped`** — no ramo **False**.
 
-| Campo          | Como preencher | Valor                                                                                                      |
-| -------------- | -------------- | ---------------------------------------------------------------------------------------------------------- |
-| Site Address   | Lista          | site do SmartBID                                                                                           |
-| List Name      | Lista          | `smartbid-notification-log`                                                                                |
-| Id             | fx             | `body('Create_log')?['ID']`                                                                                |
-| Title          | fx             | `triggerBody()?['eventKey']`                                                                               |
-| DeliveryStatus | Lista          | `Skipped`                                                                                                  |
+| Campo          | Como preencher | Valor                                                                                                           |
+| -------------- | -------------- | --------------------------------------------------------------------------------------------------------------- |
+| Site Address   | Lista          | site do SmartBID                                                                                                |
+| List Name      | Lista          | `smartbid-notification-log`                                                                                     |
+| Id             | fx             | `body('Create_log')?['ID']`                                                                                     |
+| Title          | fx             | `triggerBody()?['eventKey']`                                                                                    |
+| DeliveryStatus | Lista          | `Skipped`                                                                                                       |
 | Notes          | Texto + fx     | `Evento desligado em System Configuration > Notifications, ou BID @{variables('varBidNumber')} não encontrado.` |
 
 **7.2) Terminate `Terminate_skipped`** — no ramo **False**, abaixo da 7.1. Status **Succeeded**.
@@ -424,17 +424,17 @@ Passa quando é um teste, ou quando o evento está ligado e o BID foi encontrado
 
 **Ação:** SharePoint → **Get items**. **Nome:** `Get_members`.
 
-| Campo                              | Como preencher | Valor                      |
-| ---------------------------------- | -------------- | -------------------------- |
-| Site Address                       | Lista          | site do SmartBID           |
-| List Name                          | Lista          | `smartbid-config`          |
-| Filter Query (Advanced parameters) | Texto          | `Title eq 'TEAM_MEMBERS'`  |
-| Top Count (Advanced parameters)    | Texto          | `1`                        |
+| Campo                              | Como preencher | Valor                     |
+| ---------------------------------- | -------------- | ------------------------- |
+| Site Address                       | Lista          | site do SmartBID          |
+| List Name                          | Lista          | `smartbid-config`         |
+| Filter Query (Advanced parameters) | Texto          | `Title eq 'TEAM_MEMBERS'` |
+| Top Count (Advanced parameters)    | Texto          | `1`                       |
 
 **8.2) Compose `comMembers`** — a lista de membros de Members Management.
 
-| Campo  | Como preencher | Valor                                                                                                        |
-| ------ | -------------- | ------------------------------------------------------------------------------------------------------------ |
+| Campo  | Como preencher | Valor                                                                                                          |
+| ------ | -------------- | -------------------------------------------------------------------------------------------------------------- |
 | Inputs | fx             | `coalesce(json(coalesce(first(body('Get_members')?['value'])?['ConfigValue'], '{}'))?['members'], json('[]'))` |
 
 **Verificar:** o item `TEAM_MEMBERS` deve estar no formato `{ "members": [ ... ] }`. Se o fluxo falhar aqui
@@ -445,10 +445,10 @@ qualquer membro uma vez: o app regrava no formato atual.
 
 **9.1) Select `selKeyPeople`** — e-mails dos Key People do BID.
 
-| Campo            | Como preencher | Valor                                                                                                                                                                                                                                                                                                          |
-| ---------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Campo            | Como preencher | Valor                                                                                                                                                                                                                                                                                                                        |
+| ---------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | From             | fx             | `union(coalesce(outputs('comBid')?['engineerResponsible'], json('[]')), coalesce(outputs('comBid')?['analyst'], json('[]')), coalesce(outputs('comBid')?['projectManager'], json('[]')), createArray(coalesce(outputs('comBid')?['commercialRequester'], json('{}')), coalesce(outputs('comBid')?['creator'], json('{}'))))` |
-| Map (modo **T**) | fx             | `toLower(coalesce(item()?['email'], ''))`                                                                                                                                                                                                                                                                      |
+| Map (modo **T**) | fx             | `toLower(coalesce(item()?['email'], ''))`                                                                                                                                                                                                                                                                                    |
 
 **9.2) Compose `comKeyPeople`** — Inputs (fx): `union(body('selKeyPeople'), body('selKeyPeople'))`
 
@@ -458,20 +458,20 @@ qualquer membro uma vez: o app regrava no formato atual.
 if(equals(toLower(coalesce(outputs('comBid')?['serviceLine'], '')), 'integrated'), createArray('ROV', 'SURVEY'), if(equals(toLower(coalesce(outputs('comBid')?['serviceLine'], '')), 'rov'), createArray('ROV'), if(equals(toLower(coalesce(outputs('comBid')?['serviceLine'], '')), 'survey'), createArray('SURVEY'), if(startsWith(toUpper(coalesce(outputs('comBid')?['division'], '')), 'OPG'), createArray('OPG'), createArray('ROV', 'SURVEY')))))
 ```
 
-| Service Line / Divisão do BID | Business Lines    |
-| ----------------------------- | ----------------- |
-| `Integrated`                  | ROV e SURVEY      |
-| `ROV`                         | ROV               |
-| `Survey`                      | SURVEY            |
-| Divisão `OPG`                 | OPG               |
-| Outros casos (SSR)            | ROV e SURVEY      |
+| Service Line / Divisão do BID | Business Lines |
+| ----------------------------- | -------------- |
+| `Integrated`                  | ROV e SURVEY   |
+| `ROV`                         | ROV            |
+| `Survey`                      | SURVEY         |
+| Divisão `OPG`                 | OPG            |
+| Outros casos (SSR)            | ROV e SURVEY   |
 
 **9.4) Select `selAllowed`** — quem pode ver um BID confidencial.
 
-| Campo            | Como preencher | Valor                                                                                                                                                                                                      |
-| ---------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Campo            | Como preencher | Valor                                                                                                                                                                                                        |
+| ---------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | From             | fx             | `union(coalesce(outputs('comBid')?['engineerResponsible'], json('[]')), coalesce(outputs('comBid')?['analyst'], json('[]')), coalesce(outputs('comBid')?['confidentiality']?['allowedPeople'], json('[]')))` |
-| Map (modo **T**) | fx             | `toLower(coalesce(item()?['email'], ''))`                                                                                                                                                                  |
+| Map (modo **T**) | fx             | `toLower(coalesce(item()?['email'], ''))`                                                                                                                                                                    |
 
 **9.5) Compose `comIsConfidential`** — Inputs (fx):
 `equals(outputs('comBid')?['confidentiality']?['enabled'], true)`
@@ -502,20 +502,20 @@ Em palavras: membro ativo, com e-mail, e
 
 **10.2) Select `selRecipientEmails`**
 
-| Campo            | Como preencher | Valor                         |
-| ---------------- | -------------- | ----------------------------- |
-| From             | fx             | `body('filRecipients')`       |
-| Map (modo **T**) | fx             | `toLower(item()?['email'])`   |
+| Campo            | Como preencher | Valor                       |
+| ---------------- | -------------- | --------------------------- |
+| From             | fx             | `body('filRecipients')`     |
+| Map (modo **T**) | fx             | `toLower(item()?['email'])` |
 
 **10.3) Filter array `filFinalRecipients`** — tira repetidos, quem disparou e, em BID confidencial, quem
 não tem acesso. No `TEST`, a lista é só quem clicou em **Send test**.
 
-| Campo | Como preencher | Valor                                                                                                                              |
-| ----- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Campo | Como preencher | Valor                                                                                                                                |
+| ----- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | From  | fx             | `if(variables('varIsTest'), createArray(variables('varActorEmail')), union(body('selRecipientEmails'), body('selRecipientEmails')))` |
 
-| Esquerda (fx)                                                                                                                                                  | Operador    | Direita   |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | --------- |
+| Esquerda (fx)                                                                                                                                                   | Operador    | Direita   |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | --------- |
 | `or(variables('varIsTest'), and(not(equals(item(), variables('varActorEmail'))), or(not(outputs('comIsConfidential')), contains(body('selAllowed'), item()))))` | is equal to | fx `true` |
 
 #### 11) Condition `Condition_has_recipients`
@@ -529,14 +529,14 @@ não tem acesso. No `TEST`, a lista é só quem clicou em **Send test**.
 
 **11.1) Update item `Update_log_norecipients`** — no ramo **False**.
 
-| Campo          | Como preencher | Valor                                                          |
-| -------------- | -------------- | -------------------------------------------------------------- |
-| Site Address   | Lista          | site do SmartBID                                               |
-| List Name      | Lista          | `smartbid-notification-log`                                    |
-| Id             | fx             | `body('Create_log')?['ID']`                                    |
-| Title          | fx             | `triggerBody()?['eventKey']`                                   |
-| DeliveryStatus | Lista          | `Skipped`                                                      |
-| Notes          | Texto          | `Nenhum destinatário depois de aplicar as regras dos times.`   |
+| Campo          | Como preencher | Valor                                                        |
+| -------------- | -------------- | ------------------------------------------------------------ |
+| Site Address   | Lista          | site do SmartBID                                             |
+| List Name      | Lista          | `smartbid-notification-log`                                  |
+| Id             | fx             | `body('Create_log')?['ID']`                                  |
+| Title          | fx             | `triggerBody()?['eventKey']`                                 |
+| DeliveryStatus | Lista          | `Skipped`                                                    |
+| Notes          | Texto          | `Nenhum destinatário depois de aplicar as regras dos times.` |
 
 **11.2) Terminate `Terminate_norecipients`** — no ramo **False**, abaixo da 11.1. Status **Succeeded**.
 
@@ -548,16 +548,16 @@ não tem acesso. No `TEST`, a lista é só quem clicou em **Send test**.
 
 Um **Compose** por linha, nesta ordem.
 
-| Nome (Compose) | Como preencher Inputs | Inputs                                                                                                                                                                                                                                                                       |
-| -------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `comTone`      | fx                    | `coalesce(triggerBody()?['presentation']?['tone'], 'brand')`                                                                                                                                                                                                                 |
-| `comToneMap`   | JSON                  | bloco abaixo                                                                                                                                                                                                                                                                 |
-| `comSubtitle`  | fx                    | `if(variables('varIsTest'), 'Teste do fluxo de notificações', concat(variables('varBidNumber'), ' · ', coalesce(outputs('comBid')?['opportunityInfo']?['client'], '-'), ' · ', coalesce(outputs('comBid')?['opportunityInfo']?['projectName'], '-')))`                   |
+| Nome (Compose) | Como preencher Inputs | Inputs                                                                                                                                                                                                                                                   |
+| -------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `comTone`      | fx                    | `coalesce(triggerBody()?['presentation']?['tone'], 'brand')`                                                                                                                                                                                             |
+| `comToneMap`   | JSON                  | bloco abaixo                                                                                                                                                                                                                                             |
+| `comSubtitle`  | fx                    | `if(variables('varIsTest'), 'Teste do fluxo de notificações', concat(variables('varBidNumber'), ' · ', coalesce(outputs('comBid')?['opportunityInfo']?['client'], '-'), ' · ', coalesce(outputs('comBid')?['opportunityInfo']?['projectName'], '-')))`   |
 | `comFooter`    | fx                    | `concat('Por ', if(empty(coalesce(triggerBody()?['actor']?['name'], '')), 'SmartBID', triggerBody()?['actor']?['name']), ' · ', convertFromUtc(coalesce(triggerBody()?['occurredAt'], utcNow()), 'E. South America Standard Time', 'dd/MM/yyyy HH:mm'))` |
-| `comDueRaw`    | fx                    | `if(empty(coalesce(outputs('comBid')?['dueDate'], '')), coalesce(outputs('comBid')?['desiredDueDate'], ''), outputs('comBid')?['dueDate'])`                                                                                                                                  |
-| `comDueLabel`  | fx                    | expressão abaixo                                                                                                                                                                                                                                                             |
-| `comBidFacts`  | JSON                  | bloco abaixo                                                                                                                                                                                                                                                                 |
-| `comFacts`     | fx                    | `if(variables('varIsTest'), coalesce(triggerBody()?['facts'], json('[]')), union(coalesce(triggerBody()?['facts'], json('[]')), outputs('comBidFacts')))`                                                                                                                    |
+| `comDueRaw`    | fx                    | `if(empty(coalesce(outputs('comBid')?['dueDate'], '')), coalesce(outputs('comBid')?['desiredDueDate'], ''), outputs('comBid')?['dueDate'])`                                                                                                              |
+| `comDueLabel`  | fx                    | expressão abaixo                                                                                                                                                                                                                                         |
+| `comBidFacts`  | JSON                  | bloco abaixo                                                                                                                                                                                                                                             |
+| `comFacts`     | fx                    | `if(variables('varIsTest'), coalesce(triggerBody()?['facts'], json('[]')), union(coalesce(triggerBody()?['facts'], json('[]')), outputs('comBidFacts')))`                                                                                                |
 
 `comToneMap` — estilo do card e cor do e-mail para cada tom:
 
@@ -582,12 +582,30 @@ if(empty(outputs('comDueRaw')), '-', convertFromUtc(if(empty(outputs('comDueRaw'
 ```json
 [
   { "title": "BID", "value": "@{variables('varBidNumber')}" },
-  { "title": "Cliente", "value": "@{coalesce(outputs('comBid')?['opportunityInfo']?['client'], '-')}" },
-  { "title": "Projeto", "value": "@{coalesce(outputs('comBid')?['opportunityInfo']?['projectName'], '-')}" },
-  { "title": "CRM", "value": "@{coalesce(outputs('comBid')?['crmNumber'], '-')}" },
-  { "title": "Divisão / Service Line", "value": "@{coalesce(outputs('comBid')?['division'], '-')} / @{coalesce(outputs('comBid')?['serviceLine'], '-')}" },
-  { "title": "Fase", "value": "@{coalesce(outputs('comBid')?['currentPhase'], '-')}" },
-  { "title": "Status", "value": "@{coalesce(outputs('comBid')?['currentStatus'], '-')}" },
+  {
+    "title": "Cliente",
+    "value": "@{coalesce(outputs('comBid')?['opportunityInfo']?['client'], '-')}"
+  },
+  {
+    "title": "Projeto",
+    "value": "@{coalesce(outputs('comBid')?['opportunityInfo']?['projectName'], '-')}"
+  },
+  {
+    "title": "CRM",
+    "value": "@{coalesce(outputs('comBid')?['crmNumber'], '-')}"
+  },
+  {
+    "title": "Divisão / Service Line",
+    "value": "@{coalesce(outputs('comBid')?['division'], '-')} / @{coalesce(outputs('comBid')?['serviceLine'], '-')}"
+  },
+  {
+    "title": "Fase",
+    "value": "@{coalesce(outputs('comBid')?['currentPhase'], '-')}"
+  },
+  {
+    "title": "Status",
+    "value": "@{coalesce(outputs('comBid')?['currentStatus'], '-')}"
+  },
   { "title": "Prazo", "value": "@{outputs('comDueLabel')}" }
 ]
 ```
@@ -626,19 +644,19 @@ em https://adaptivecards.io/designer (Host app: **Microsoft Teams**).
 
 **14.1) Condition `Condition_send_email`** — dentro do Scope, primeira ação.
 
-| Esquerda (fx)                                                          | Operador    | Direita   |
-| ---------------------------------------------------------------------- | ----------- | --------- |
-| `contains(coalesce(triggerBody()?['channels'], json('[]')), 'email')`  | is equal to | fx `true` |
+| Esquerda (fx)                                                         | Operador    | Direita   |
+| --------------------------------------------------------------------- | ----------- | --------- |
+| `contains(coalesce(triggerBody()?['channels'], json('[]')), 'email')` | is equal to | fx `true` |
 
 - **True:** ações a a d.
 - **False:** deixe vazio.
 
 a. **Select `selEmailRows`** — uma linha `<tr>` por fato, com o texto escapado.
 
-| Campo            | Como preencher | Valor                |
-| ---------------- | -------------- | -------------------- |
+| Campo            | Como preencher | Valor                 |
+| ---------------- | -------------- | --------------------- |
 | From             | fx             | `outputs('comFacts')` |
-| Map (modo **T**) | fx             | expressão abaixo     |
+| Map (modo **T**) | fx             | expressão abaixo      |
 
 ```text
 concat('<tr><td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:13px;width:190px;vertical-align:top">', replace(replace(replace(string(item()?['title']), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'), '</td><td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;color:#0f172a;font-size:13px;font-weight:600">', replace(replace(replace(replace(string(item()?['value']), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'), decodeUriComponent('%0A'), '<br>'), '</td></tr>')
@@ -646,10 +664,10 @@ concat('<tr><td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;color:#
 
 b. **Join `joinEmailRows`**
 
-| Campo     | Como preencher | Valor                         |
-| --------- | -------------- | ----------------------------- |
-| From      | fx             | `body('selEmailRows')`        |
-| Join With | fx             | `decodeUriComponent('%0A')`   |
+| Campo     | Como preencher | Valor                       |
+| --------- | -------------- | --------------------------- |
+| From      | fx             | `body('selEmailRows')`      |
+| Join With | fx             | `decodeUriComponent('%0A')` |
 
 c. **Compose `comSafe`** — textos do e-mail com `& < >` escapados. Inputs (JSON):
 
@@ -665,35 +683,35 @@ c. **Compose `comSafe`** — textos do e-mail com `& < >` escapados. Inputs (JSO
 d. **Send an email notification (V3) `Send_email`**
 **Ação:** Mail → **Send an email notification (V3)**. **Nome:** `Send_email`.
 
-| Campo   | Como preencher | Valor                                                                                                                                                                                         |
-| ------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| To      | fx             | `join(body('filFinalRecipients'), ';')`                                                                                                                                                        |
+| Campo   | Como preencher | Valor                                                                                                                                                                                                       |
+| ------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| To      | fx             | `join(body('filFinalRecipients'), ';')`                                                                                                                                                                     |
 | Subject | Texto + fx     | `[SmartBID] @{triggerBody()?['presentation']?['title']}@{if(variables('varIsTest'), '', concat(' · ', variables('varBidNumber'), ' · ', coalesce(outputs('comBid')?['opportunityInfo']?['client'], '-')))}` |
-| Body    | Texto + fx     | HTML de [`notifications/email-template.html`](./notifications/email-template.html), colado no modo código (`</>`), com os tokens abaixo                                                       |
+| Body    | Texto + fx     | HTML de [`notifications/email-template.html`](./notifications/email-template.html), colado no modo código (`</>`), com os tokens abaixo                                                                     |
 
 Antes de colar, apague o comentário `<!-- ... -->` do topo do HTML e troque cada token:
 
-| Token                | Substituir por                                                  |
-| -------------------- | --------------------------------------------------------------- |
-| `[[TONE_COLOR]]`     | `@{outputs('comToneMap')?[outputs('comTone')]?['color']}`       |
-| `[[TITLE]]`          | `@{outputs('comSafe')?['title']}`                               |
-| `[[SUBTITLE]]`       | `@{outputs('comSafe')?['subtitle']}`                            |
-| `[[HEADLINE]]`       | `@{outputs('comSafe')?['headline']}`                            |
-| `[[FACT_ROWS_HTML]]` | `@{body('joinEmailRows')}`                                      |
-| `[[DEEP_LINK]]`      | `@{variables('varDeepLink')}`                                   |
-| `[[FOOTER]]`         | `@{outputs('comSafe')?['footer']}`                              |
+| Token                | Substituir por                                            |
+| -------------------- | --------------------------------------------------------- |
+| `[[TONE_COLOR]]`     | `@{outputs('comToneMap')?[outputs('comTone')]?['color']}` |
+| `[[TITLE]]`          | `@{outputs('comSafe')?['title']}`                         |
+| `[[SUBTITLE]]`       | `@{outputs('comSafe')?['subtitle']}`                      |
+| `[[HEADLINE]]`       | `@{outputs('comSafe')?['headline']}`                      |
+| `[[FACT_ROWS_HTML]]` | `@{body('joinEmailRows')}`                                |
+| `[[DEEP_LINK]]`      | `@{variables('varDeepLink')}`                             |
+| `[[FOOTER]]`         | `@{outputs('comSafe')?['footer']}`                        |
 
 `[[TONE_COLOR]]` aparece duas vezes no HTML: troque as duas.
 
 **14.2) Condition `Condition_send_teams`** — dentro do Scope, abaixo de `Condition_send_email`.
 
-| Esquerda (fx)                                                          | Operador    | Direita   |
-| ---------------------------------------------------------------------- | ----------- | --------- |
-| `contains(coalesce(triggerBody()?['channels'], json('[]')), 'teams')`  | is equal to | fx `true` |
+| Esquerda (fx)                                                         | Operador    | Direita   |
+| --------------------------------------------------------------------- | ----------- | --------- |
+| `contains(coalesce(triggerBody()?['channels'], json('[]')), 'teams')` | is equal to | fx `true` |
 
-| Configuração                                    | Como preencher | Valor                              |
-| ----------------------------------------------- | -------------- | ---------------------------------- |
-| Settings → Run after (`Condition_send_email`)   | marcar         | **is successful** e **has failed** |
+| Configuração                                  | Como preencher | Valor                              |
+| --------------------------------------------- | -------------- | ---------------------------------- |
+| Settings → Run after (`Condition_send_email`) | marcar         | **is successful** e **has failed** |
 
 Assim uma falha no e-mail não impede os cards do Teams.
 
@@ -702,21 +720,21 @@ Assim uma falha no e-mail não impede os cards do Teams.
 
 a. **Apply to each `Apply_to_each_recipient`**
 
-| Campo                                | Como preencher | Valor                         |
-| ------------------------------------ | -------------- | ----------------------------- |
-| Select an output from previous steps | fx             | `body('filFinalRecipients')`  |
-| Settings → Concurrency control       | Lista          | **On**                        |
-| Settings → Degree of parallelism     | Texto          | `5`                           |
+| Campo                                | Como preencher | Valor                        |
+| ------------------------------------ | -------------- | ---------------------------- |
+| Select an output from previous steps | fx             | `body('filFinalRecipients')` |
+| Settings → Concurrency control       | Lista          | **On**                       |
+| Settings → Degree of parallelism     | Texto          | `5`                          |
 
 b. **Post card in a chat or channel `Post_card_recipient`** — dentro de `Apply_to_each_recipient`.
 **Ação:** Microsoft Teams → **Post card in a chat or channel**. **Nome:** `Post_card_recipient`.
 
-| Campo         | Como preencher | Valor                                 |
-| ------------- | -------------- | ------------------------------------- |
-| Post as       | Lista          | **Flow bot**                          |
-| Post in       | Lista          | **Chat with Flow bot**                |
-| Recipient     | fx             | `items('Apply_to_each_recipient')`    |
-| Adaptive Card | fx             | `string(outputs('comCard'))`          |
+| Campo         | Como preencher | Valor                              |
+| ------------- | -------------- | ---------------------------------- |
+| Post as       | Lista          | **Flow bot**                       |
+| Post in       | Lista          | **Chat with Flow bot**             |
+| Recipient     | fx             | `items('Apply_to_each_recipient')` |
+| Adaptive Card | fx             | `string(outputs('comCard'))`       |
 
 Se uma pessoa não puder receber (sem licença do Teams, por exemplo), só o card dela falha; os outros
 continuam, e o log fica `Failed` para você conferir.
@@ -726,16 +744,16 @@ continuam, e o log fica `Failed` para você conferir.
 **Onde:** abaixo de `Scope_deliver`, fora dele.
 **Ação:** SharePoint → **Update item**. **Nome:** `Update_log_done`.
 
-| Campo                                  | Como preencher          | Valor                                                                                                                         |
-| -------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Site Address                           | Lista                   | site do SmartBID                                                                                                              |
-| List Name                              | Lista                   | `smartbid-notification-log`                                                                                                   |
-| Id                                     | fx                      | `body('Create_log')?['ID']`                                                                                                   |
-| Title                                  | fx                      | `triggerBody()?['eventKey']`                                                                                                  |
-| DeliveryStatus                         | Enter custom value → fx | `if(equals(actions('Scope_deliver')?['status'], 'Succeeded'), 'Sent', 'Failed')`                                              |
-| Recipients                             | fx                      | `join(body('filFinalRecipients'), '; ')`                                                                                      |
+| Campo                                  | Como preencher          | Valor                                                                                                                                            |
+| -------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Site Address                           | Lista                   | site do SmartBID                                                                                                                                 |
+| List Name                              | Lista                   | `smartbid-notification-log`                                                                                                                      |
+| Id                                     | fx                      | `body('Create_log')?['ID']`                                                                                                                      |
+| Title                                  | fx                      | `triggerBody()?['eventKey']`                                                                                                                     |
+| DeliveryStatus                         | Enter custom value → fx | `if(equals(actions('Scope_deliver')?['status'], 'Succeeded'), 'Sent', 'Failed')`                                                                 |
+| Recipients                             | fx                      | `join(body('filFinalRecipients'), '; ')`                                                                                                         |
 | Notes                                  | fx                      | `concat('Canais: ', join(coalesce(triggerBody()?['channels'], json('[]')), ', '), '. Destinatários: ', length(body('filFinalRecipients')), '.')` |
-| Settings → Run after (`Scope_deliver`) | marcar                  | **is successful**, **has failed** e **has timed out**                                                                         |
+| Settings → Run after (`Scope_deliver`) | marcar                  | **is successful**, **has failed** e **has timed out**                                                                                            |
 
 #### 16) Condition `Condition_delivery_failed`
 
@@ -787,22 +805,22 @@ Regras:
 
 #### 1) Recurrence
 
-| Campo                                  | Como preencher | Valor                                                     |
-| -------------------------------------- | -------------- | --------------------------------------------------------- |
-| Interval                               | Texto          | `1`                                                       |
-| Frequency                              | Lista          | **Week**                                                  |
-| Time zone (Advanced parameters)        | Lista          | **(UTC-03:00) Brasilia**                                  |
-| On these days (Advanced parameters)    | Lista          | Monday, Tuesday, Wednesday, Thursday, Friday              |
-| At these hours (Advanced parameters)   | Lista          | `8`                                                       |
-| At these minutes (Advanced parameters) | Texto          | `0`                                                       |
+| Campo                                  | Como preencher | Valor                                        |
+| -------------------------------------- | -------------- | -------------------------------------------- |
+| Interval                               | Texto          | `1`                                          |
+| Frequency                              | Lista          | **Week**                                     |
+| Time zone (Advanced parameters)        | Lista          | **(UTC-03:00) Brasilia**                     |
+| On these days (Advanced parameters)    | Lista          | Monday, Tuesday, Wednesday, Thursday, Friday |
+| At these hours (Advanced parameters)   | Lista          | `8`                                          |
+| At these minutes (Advanced parameters) | Texto          | `0`                                          |
 
 #### 2) Variáveis
 
-| Name          | Type    | Como preencher Value | Value                                                                                          |
-| ------------- | ------- | -------------------- | ---------------------------------------------------------------------------------------------- |
-| `varAppUrl`   | String  | Texto                | a mesma URL da página do SmartBID usada no Fluxo 1 (sem `#`)                                   |
-| `varToday`    | String  | fx                   | `convertFromUtc(utcNow(), 'E. South America Standard Time', 'yyyy-MM-dd')`                     |
-| `varIsFriday` | Boolean | fx                   | `equals(dayOfWeek(convertFromUtc(utcNow(), 'E. South America Standard Time')), 5)`             |
+| Name          | Type    | Como preencher Value | Value                                                                              |
+| ------------- | ------- | -------------------- | ---------------------------------------------------------------------------------- |
+| `varAppUrl`   | String  | Texto                | a mesma URL da página do SmartBID usada no Fluxo 1 (sem `#`)                       |
+| `varToday`    | String  | fx                   | `convertFromUtc(utcNow(), 'E. South America Standard Time', 'yyyy-MM-dd')`         |
+| `varIsFriday` | Boolean | fx                   | `equals(dayOfWeek(convertFromUtc(utcNow(), 'E. South America Standard Time')), 5)` |
 
 #### 3) Configuração
 
@@ -823,23 +841,23 @@ Regras:
 
 Um **Compose** por linha (exceto `selTerminal`, que é um **Select**), nesta ordem.
 
-| Nome              | Ação    | Como preencher | Valor                                                                                                         |
-| ----------------- | ------- | -------------- | ------------------------------------------------------------------------------------------------------------- |
-| `comOverdueOn`    | Compose | fx             | `equals(outputs('comSettings')?['rules']?['BID_OVERDUE']?['enabled'], true)`                                   |
-| `comWarnOn`       | Compose | fx             | `equals(outputs('comSettings')?['rules']?['DEADLINE_WARNING']?['enabled'], true)`                              |
-| `comWindowDays`   | Compose | fx             | `add(int(coalesce(outputs('comSettings')?['deadlineWarningDays'], 2)), if(variables('varIsFriday'), 2, 0))`   |
-| `selTerminal`     | Select  | From (fx)      | `coalesce(outputs('comConfig')?['terminalStatuses'], json('[]'))`                                              |
+| Nome              | Ação    | Como preencher   | Valor                                                                                                       |
+| ----------------- | ------- | ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| `comOverdueOn`    | Compose | fx               | `equals(outputs('comSettings')?['rules']?['BID_OVERDUE']?['enabled'], true)`                                |
+| `comWarnOn`       | Compose | fx               | `equals(outputs('comSettings')?['rules']?['DEADLINE_WARNING']?['enabled'], true)`                           |
+| `comWindowDays`   | Compose | fx               | `add(int(coalesce(outputs('comSettings')?['deadlineWarningDays'], 2)), if(variables('varIsFriday'), 2, 0))` |
+| `selTerminal`     | Select  | From (fx)        | `coalesce(outputs('comConfig')?['terminalStatuses'], json('[]'))`                                           |
 |                   |         | Map (modo T, fx) | `string(item()?['value'])`                                                                                  |
-| `comSkipStatuses` | Compose | fx             | `union(body('selTerminal'), createArray('Completed', 'Canceled', 'No Bid', 'On Hold'))`                        |
+| `comSkipStatuses` | Compose | fx               | `union(body('selTerminal'), createArray('Completed', 'Canceled', 'No Bid', 'On Hold'))`                     |
 
 #### 5) Condition `Condition_monitor_on`
 
 Seletor **AND**.
 
-| #   | Esquerda (fx)                                                   | Operador    | Direita    |
-| --- | --------------------------------------------------------------- | ----------- | ---------- |
-| 1   | `empty(coalesce(outputs('comSettings')?['flowUrl'], ''))`       | is equal to | fx `false` |
-| 2   | `or(outputs('comOverdueOn'), outputs('comWarnOn'))`             | is equal to | fx `true`  |
+| #   | Esquerda (fx)                                             | Operador    | Direita    |
+| --- | --------------------------------------------------------- | ----------- | ---------- |
+| 1   | `empty(coalesce(outputs('comSettings')?['flowUrl'], ''))` | is equal to | fx `false` |
+| 2   | `or(outputs('comOverdueOn'), outputs('comWarnOn'))`       | is equal to | fx `true`  |
 
 - **True:** deixe vazio.
 - **False:** Control → **Terminate**, **Nome:** `Terminate_off`, Status **Succeeded**.
@@ -850,13 +868,13 @@ Seletor **AND**.
 
 **Ação:** SharePoint → **Get items**. **Nome:** `Get_due_bids`.
 
-| Campo                              | Como preencher | Valor                                                                                                                                                         |
-| ---------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Site Address                       | Lista          | site do SmartBID                                                                                                                                              |
-| List Name                          | Lista          | `smartbid-tracker`                                                                                                                                            |
+| Campo                              | Como preencher | Valor                                                                                                                                                                      |
+| ---------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Site Address                       | Lista          | site do SmartBID                                                                                                                                                           |
+| List Name                          | Lista          | `smartbid-tracker`                                                                                                                                                         |
 | Filter Query (Advanced parameters) | Texto + fx     | `DueDate le '@{addDays(variables('varToday'), add(outputs('comWindowDays'), 1), 'yyyy-MM-dd')}' and Status ne 'Completed' and Status ne 'Canceled' and Status ne 'No Bid'` |
-| Top Count (Advanced parameters)    | Texto          | `5000`                                                                                                                                                        |
-| Settings → Pagination              | Lista          | **On**, Threshold `5000`                                                                                                                                      |
+| Top Count (Advanced parameters)    | Texto          | `5000`                                                                                                                                                                     |
+| Settings → Pagination              | Lista          | **On**, Threshold `5000`                                                                                                                                                   |
 
 O filtro pela coluna `Status` só reduz a lista; a regra real (passo 7) olha o status dentro do JSON do BID.
 **Verificar:** se a `smartbid-tracker` passar de 5.000 itens, indexe as colunas `DueDate` e `Status`
@@ -864,52 +882,52 @@ O filtro pela coluna `Status` só reduz a lista; a regra real (passo 7) olha o s
 
 #### 7) Apply to each `Apply_to_each_bid`
 
-| Campo                                | Como preencher | Valor                              |
-| ------------------------------------ | -------------- | ---------------------------------- |
-| Select an output from previous steps | fx             | `body('Get_due_bids')?['value']`   |
-| Settings → Concurrency control       | Lista          | **On**                             |
-| Settings → Degree of parallelism     | Texto          | `5`                                |
+| Campo                                | Como preencher | Valor                            |
+| ------------------------------------ | -------------- | -------------------------------- |
+| Select an output from previous steps | fx             | `body('Get_due_bids')?['value']` |
+| Settings → Concurrency control       | Lista          | **On**                           |
+| Settings → Degree of parallelism     | Texto          | `5`                              |
 
 Dentro do loop, nesta ordem. **Não use Set variable aqui dentro** (o loop roda em paralelo).
 
 **7.1) Composes do BID** — um Compose por linha:
 
-| Nome         | Como preencher | Inputs                                                                                                                                                                                                                                                                          |
-| ------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `comB`       | fx             | `json(items('Apply_to_each_bid')?['jsondata'])`                                                                                                                                                                                                                                  |
-| `comDueRawM` | fx             | `if(empty(coalesce(outputs('comB')?['dueDate'], '')), coalesce(outputs('comB')?['desiredDueDate'], ''), outputs('comB')?['dueDate'])`                                                                                                                                           |
-| `comDueDay`  | fx             | `convertFromUtc(if(empty(outputs('comDueRawM')), '2000-01-01T12:00:00Z', if(equals(length(outputs('comDueRawM')), 10), concat(outputs('comDueRawM'), 'T12:00:00Z'), outputs('comDueRawM'))), 'E. South America Standard Time', 'yyyy-MM-dd')`                                   |
-| `comDays`    | fx             | `div(sub(ticks(concat(outputs('comDueDay'), 'T00:00:00Z')), ticks(concat(variables('varToday'), 'T00:00:00Z'))), 864000000000)`                                                                                                                                                  |
-| `comActive`  | fx             | `and(not(empty(outputs('comDueRawM'))), not(contains(outputs('comSkipStatuses'), string(outputs('comB')?['currentStatus']))))`                                                                                                                                                  |
+| Nome         | Como preencher | Inputs                                                                                                                                                                                                                                        |
+| ------------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `comB`       | fx             | `json(items('Apply_to_each_bid')?['jsondata'])`                                                                                                                                                                                               |
+| `comDueRawM` | fx             | `if(empty(coalesce(outputs('comB')?['dueDate'], '')), coalesce(outputs('comB')?['desiredDueDate'], ''), outputs('comB')?['dueDate'])`                                                                                                         |
+| `comDueDay`  | fx             | `convertFromUtc(if(empty(outputs('comDueRawM')), '2000-01-01T12:00:00Z', if(equals(length(outputs('comDueRawM')), 10), concat(outputs('comDueRawM'), 'T12:00:00Z'), outputs('comDueRawM'))), 'E. South America Standard Time', 'yyyy-MM-dd')` |
+| `comDays`    | fx             | `div(sub(ticks(concat(outputs('comDueDay'), 'T00:00:00Z')), ticks(concat(variables('varToday'), 'T00:00:00Z'))), 864000000000)`                                                                                                               |
+| `comActive`  | fx             | `and(not(empty(outputs('comDueRawM'))), not(contains(outputs('comSkipStatuses'), string(outputs('comB')?['currentStatus']))))`                                                                                                                |
 
 `comDays` = dias do hoje até o prazo: `0` = vence hoje, `1` = amanhã, negativo = atrasado.
 
 **7.2) Select `selResponsible`**
 
-| Campo            | Como preencher | Valor                                                                   |
-| ---------------- | -------------- | ----------------------------------------------------------------------- |
-| From             | fx             | `coalesce(outputs('comB')?['engineerResponsible'], json('[]'))`         |
-| Map (modo **T**) | fx             | `coalesce(item()?['name'], '')`                                         |
+| Campo            | Como preencher | Valor                                                           |
+| ---------------- | -------------- | --------------------------------------------------------------- |
+| From             | fx             | `coalesce(outputs('comB')?['engineerResponsible'], json('[]'))` |
+| Map (modo **T**) | fx             | `coalesce(item()?['name'], '')`                                 |
 
 **7.3) Condition `Condition_overdue`** — Seletor **AND**.
 
-| #   | Esquerda (fx)            | Operador     | Direita   |
-| --- | ------------------------ | ------------ | --------- |
-| 1   | `outputs('comActive')`   | is equal to  | fx `true` |
-| 2   | `outputs('comOverdueOn')` | is equal to | fx `true` |
-| 3   | `outputs('comDays')`     | is less than | fx `0`    |
+| #   | Esquerda (fx)             | Operador     | Direita   |
+| --- | ------------------------- | ------------ | --------- |
+| 1   | `outputs('comActive')`    | is equal to  | fx `true` |
+| 2   | `outputs('comOverdueOn')` | is equal to  | fx `true` |
+| 3   | `outputs('comDays')`      | is less than | fx `0`    |
 
 - **True:** ação **HTTP** `Post_overdue` (abaixo).
 - **False:** deixe vazio.
 
 **HTTP `Post_overdue`** — **Ação:** HTTP → **HTTP**. **Nome:** `Post_overdue`.
 
-| Campo                | Como preencher | Valor                                   |
-| -------------------- | -------------- | --------------------------------------- |
-| Method               | Lista          | `POST`                                  |
-| URI                  | fx             | `outputs('comSettings')?['flowUrl']`    |
-| Headers (1 linha)    | Texto          | `Content-Type` = `application/json`     |
-| Body                 | JSON           | bloco abaixo                            |
+| Campo             | Como preencher | Valor                                |
+| ----------------- | -------------- | ------------------------------------ |
+| Method            | Lista          | `POST`                               |
+| URI               | fx             | `outputs('comSettings')?['flowUrl']` |
+| Headers (1 linha) | Texto          | `Content-Type` = `application/json`  |
+| Body              | JSON           | bloco abaixo                         |
 
 ```json
 {
@@ -922,12 +940,22 @@ Dentro do loop, nesta ordem. **Não use Set variable aqui dentro** (o loop roda 
   "deepLink": "@{variables('varAppUrl')}#/bid/@{outputs('comB')?['bidNumber']}",
   "actor": { "name": "SmartBID", "email": "" },
   "channels": ["teams"],
-  "presentation": { "title": "SmartBID atrasado", "emoji": "🔴", "tone": "danger" },
+  "presentation": {
+    "title": "SmartBID atrasado",
+    "emoji": "🔴",
+    "tone": "danger"
+  },
   "headline": "O prazo deste SmartBID venceu há @{sub(0, outputs('comDays'))} dia(s) e ele ainda está em @{outputs('comB')?['currentStatus']}.",
   "facts": [
-    { "title": "Prazo", "value": "@{formatDateTime(concat(outputs('comDueDay'), 'T12:00:00Z'), 'dd/MM/yyyy')}" },
+    {
+      "title": "Prazo",
+      "value": "@{formatDateTime(concat(outputs('comDueDay'), 'T12:00:00Z'), 'dd/MM/yyyy')}"
+    },
     { "title": "Dias de atraso", "value": "@{sub(0, outputs('comDays'))}" },
-    { "title": "BID Responsible", "value": "@{join(body('selResponsible'), ', ')}" }
+    {
+      "title": "BID Responsible",
+      "value": "@{join(body('selResponsible'), ', ')}"
+    }
   ]
 }
 ```
@@ -937,12 +965,12 @@ por diante. O Fluxo 1 descarta a mesma chave nos outros dias, então sai um avis
 
 **7.4) Condition `Condition_warning`** — abaixo de `Condition_overdue`, fora dela. Seletor **AND**.
 
-| #   | Esquerda (fx)          | Operador                     | Direita                      |
-| --- | ---------------------- | ---------------------------- | ---------------------------- |
-| 1   | `outputs('comActive')` | is equal to                  | fx `true`                    |
-| 2   | `outputs('comWarnOn')` | is equal to                  | fx `true`                    |
-| 3   | `outputs('comDays')`   | is greater than or equal to  | fx `0`                       |
-| 4   | `outputs('comDays')`   | is less than or equal to     | fx `outputs('comWindowDays')` |
+| #   | Esquerda (fx)          | Operador                    | Direita                       |
+| --- | ---------------------- | --------------------------- | ----------------------------- |
+| 1   | `outputs('comActive')` | is equal to                 | fx `true`                     |
+| 2   | `outputs('comWarnOn')` | is equal to                 | fx `true`                     |
+| 3   | `outputs('comDays')`   | is greater than or equal to | fx `0`                        |
+| 4   | `outputs('comDays')`   | is less than or equal to    | fx `outputs('comWindowDays')` |
 
 - **True:** ação **HTTP** `Post_warning` (abaixo).
 - **False:** deixe vazio.
@@ -967,12 +995,22 @@ por diante. O Fluxo 1 descarta a mesma chave nos outros dias, então sai um avis
   "deepLink": "@{variables('varAppUrl')}#/bid/@{outputs('comB')?['bidNumber']}",
   "actor": { "name": "SmartBID", "email": "" },
   "channels": ["teams"],
-  "presentation": { "title": "Prazo se aproximando", "emoji": "⏰", "tone": "warning" },
+  "presentation": {
+    "title": "Prazo se aproximando",
+    "emoji": "⏰",
+    "tone": "warning"
+  },
   "headline": "O prazo deste SmartBID vence @{if(equals(outputs('comDays'), 0), 'hoje', if(equals(outputs('comDays'), 1), 'amanhã', concat('em ', string(outputs('comDays')), ' dias')))}.",
   "facts": [
-    { "title": "Prazo", "value": "@{formatDateTime(concat(outputs('comDueDay'), 'T12:00:00Z'), 'dd/MM/yyyy')}" },
+    {
+      "title": "Prazo",
+      "value": "@{formatDateTime(concat(outputs('comDueDay'), 'T12:00:00Z'), 'dd/MM/yyyy')}"
+    },
     { "title": "Dias restantes", "value": "@{outputs('comDays')}" },
-    { "title": "BID Responsible", "value": "@{join(body('selResponsible'), ', ')}" }
+    {
+      "title": "BID Responsible",
+      "value": "@{join(body('selResponsible'), ', ')}"
+    }
   ]
 }
 ```
@@ -990,9 +1028,9 @@ conclusão é o do evento **SmartBID Completed**. O card final no chat em grupo 
 **Onde:** no passo 4 do fluxo de aprovação, abaixo da última Initialize variable (`varAdminEmail`).
 **Ação:** Variable → **Initialize variable**.
 
-| Name           | Type   | Como preencher Value | Value                                                       |
-| -------------- | ------ | -------------------- | ----------------------------------------------------------- |
-| `varNotifyUrl` | String | Texto                | a mesma URL colada em System Configuration > Notifications  |
+| Name           | Type   | Como preencher Value | Value                                                      |
+| -------------- | ------ | -------------------- | ---------------------------------------------------------- |
+| `varNotifyUrl` | String | Texto                | a mesma URL colada em System Configuration > Notifications |
 
 Se a URL do Fluxo 1 mudar, atualize esta variável também.
 
@@ -1002,12 +1040,12 @@ Se a URL do Fluxo 1 mudar, atualize esta variável também.
 `Condition_person_rejected` (fora dela). É a última ação desse ramo.
 **Ação:** HTTP → **HTTP**. **Nome:** `Post_notify_response`.
 
-| Campo             | Como preencher | Valor                                |
-| ----------------- | -------------- | ------------------------------------ |
-| Method            | Lista          | `POST`                               |
-| URI               | fx             | `variables('varNotifyUrl')`          |
-| Headers (1 linha) | Texto          | `Content-Type` = `application/json`  |
-| Body              | JSON           | bloco abaixo                         |
+| Campo             | Como preencher | Valor                               |
+| ----------------- | -------------- | ----------------------------------- |
+| Method            | Lista          | `POST`                              |
+| URI               | fx             | `variables('varNotifyUrl')`         |
+| Headers (1 linha) | Texto          | `Content-Type` = `application/json` |
+| Body              | JSON           | bloco abaixo                        |
 
 ```json
 {
@@ -1018,7 +1056,10 @@ Se a URL do Fluxo 1 mudar, atualize esta variável também.
   "occurredAt": "@{outputs('comResponseDate')}",
   "bidNumber": "@{variables('varBidNumber')}",
   "deepLink": "@{variables('varDeepLink')}",
-  "actor": { "name": "@{outputs('comPersonName')}", "email": "@{items('Apply_to_each_person')}" },
+  "actor": {
+    "name": "@{outputs('comPersonName')}",
+    "email": "@{items('Apply_to_each_person')}"
+  },
   "channels": ["teams"],
   "presentation": {
     "title": "@{if(equals(outputs('comDecision'), 'approved'), 'Aprovação registrada', 'Aprovação recusada')}",
@@ -1029,10 +1070,19 @@ Se a URL do Fluxo 1 mudar, atualize esta variável também.
   "facts": [
     { "title": "Aprovador", "value": "@{outputs('comPersonName')}" },
     { "title": "Setor(es)", "value": "@{outputs('comPersonSectors')}" },
-    { "title": "Decisão", "value": "@{if(equals(outputs('comDecision'), 'approved'), 'Aprovado', 'Recusado')}" },
+    {
+      "title": "Decisão",
+      "value": "@{if(equals(outputs('comDecision'), 'approved'), 'Aprovado', 'Recusado')}"
+    },
     { "title": "Rodada", "value": "@{variables('varRound')}" },
-    { "title": "Progresso", "value": "@{outputs('comApprovedPeople')} de @{length(outputs('comUniqueApproverEmails'))} aprovaram" },
-    { "title": "Comentário", "value": "@{coalesce(outputs('comComments'), '-')}" }
+    {
+      "title": "Progresso",
+      "value": "@{outputs('comApprovedPeople')} de @{length(outputs('comUniqueApproverEmails'))} aprovaram"
+    },
+    {
+      "title": "Comentário",
+      "value": "@{coalesce(outputs('comComments'), '-')}"
+    }
   ]
 }
 ```
@@ -1046,12 +1096,12 @@ O aprovador é o `actor`, então ele não recebe a notificação da própria res
 devem ser **excluídas** (menu `...` → **Delete**).
 **Ação:** HTTP → **HTTP**. **Nome:** `Post_notify_completed`.
 
-| Campo             | Como preencher | Valor                                |
-| ----------------- | -------------- | ------------------------------------ |
-| Method            | Lista          | `POST`                               |
-| URI               | fx             | `variables('varNotifyUrl')`          |
-| Headers (1 linha) | Texto          | `Content-Type` = `application/json`  |
-| Body              | JSON           | bloco abaixo                         |
+| Campo             | Como preencher | Valor                               |
+| ----------------- | -------------- | ----------------------------------- |
+| Method            | Lista          | `POST`                              |
+| URI               | fx             | `variables('varNotifyUrl')`         |
+| Headers (1 linha) | Texto          | `Content-Type` = `application/json` |
+| Body              | JSON           | bloco abaixo                        |
 
 ```json
 {
@@ -1064,12 +1114,22 @@ devem ser **excluídas** (menu `...` → **Delete**).
   "deepLink": "@{variables('varDeepLink')}",
   "actor": { "name": "Fluxo de aprovação", "email": "" },
   "channels": ["email", "teams"],
-  "presentation": { "title": "SmartBID concluído", "emoji": "✅", "tone": "success" },
+  "presentation": {
+    "title": "SmartBID concluído",
+    "emoji": "✅",
+    "tone": "success"
+  },
   "headline": "Todos os aprovadores aprovaram a rodada @{variables('varRound')} e o SmartBID foi concluído.",
   "facts": [
     { "title": "Rodada", "value": "@{variables('varRound')}" },
-    { "title": "Aprovadores", "value": "@{outputs('comApprovedPeople_final')} de @{length(outputs('comUniqueApproverEmails'))}" },
-    { "title": "Concluído em", "value": "@{convertFromUtc(outputs('comCompletionDate'), 'E. South America Standard Time', 'dd/MM/yyyy HH:mm')}" }
+    {
+      "title": "Aprovadores",
+      "value": "@{outputs('comApprovedPeople_final')} de @{length(outputs('comUniqueApproverEmails'))}"
+    },
+    {
+      "title": "Concluído em",
+      "value": "@{convertFromUtc(outputs('comCompletionDate'), 'E. South America Standard Time', 'dd/MM/yyyy HH:mm')}"
+    }
   ]
 }
 ```
@@ -1081,23 +1141,23 @@ Fluxo 1 envia só uma vez.
 
 ## 6. Templates — visual
 
-| Elemento          | Card do Teams                                         | E-mail                                                       |
-| ----------------- | ----------------------------------------------------- | ------------------------------------------------------------ |
-| Marca             | Faixa `SMARTBID · OCEANEERING` no topo                | Barra teal `#00c9a7` + cabeçalho navy `#0f1b2d`              |
-| Título            | Emoji + título do evento                              | Emoji + título do evento                                     |
-| Subtítulo         | `BID · Cliente · Projeto`                             | `BID · Cliente · Projeto`                                    |
-| Cor do evento     | Estilo do container (`comToneMap.card`)               | Barra lateral da frase principal (`comToneMap.color`)        |
-| Detalhes          | FactSet: fatos do evento + dados do BID               | Tabela "Detalhes": fatos do evento + dados do BID            |
-| Ação              | Botão **Abrir no SmartBID**                           | Botão teal `#0d9488` **Abrir no SmartBID**                   |
-| Rodapé            | `Por {quem disparou} · dd/MM/yyyy HH:mm`              | Mesmo texto + aviso de e-mail automático                     |
+| Elemento      | Card do Teams                            | E-mail                                                |
+| ------------- | ---------------------------------------- | ----------------------------------------------------- |
+| Marca         | Faixa `SMARTBID · OCEANEERING` no topo   | Barra teal `#00c9a7` + cabeçalho navy `#0f1b2d`       |
+| Título        | Emoji + título do evento                 | Emoji + título do evento                              |
+| Subtítulo     | `BID · Cliente · Projeto`                | `BID · Cliente · Projeto`                             |
+| Cor do evento | Estilo do container (`comToneMap.card`)  | Barra lateral da frase principal (`comToneMap.color`) |
+| Detalhes      | FactSet: fatos do evento + dados do BID  | Tabela "Detalhes": fatos do evento + dados do BID     |
+| Ação          | Botão **Abrir no SmartBID**              | Botão teal `#0d9488` **Abrir no SmartBID**            |
+| Rodapé        | `Por {quem disparou} · dd/MM/yyyy HH:mm` | Mesmo texto + aviso de e-mail automático              |
 
-| Tom       | Usado em                                                          | Card        | E-mail    |
-| --------- | ----------------------------------------------------------------- | ----------- | --------- |
-| `brand`   | Created, Assigned, Approval Started, Test                         | `accent`    | `#0d9488` |
-| `info`    | Phase, Status, Due Date Changed, Technical Proposal               | `emphasis`  | `#0e7490` |
-| `success` | Completed, Resumed, aprovação registrada                          | `good`      | `#059669` |
-| `warning` | On Hold, Revision Started, Override, Deadline Warning             | `warning`   | `#d97706` |
-| `danger`  | Canceled, Overdue, aprovação recusada                             | `attention` | `#dc2626` |
+| Tom       | Usado em                                              | Card        | E-mail    |
+| --------- | ----------------------------------------------------- | ----------- | --------- |
+| `brand`   | Created, Assigned, Approval Started, Test             | `accent`    | `#0d9488` |
+| `info`    | Phase, Status, Due Date Changed, Technical Proposal   | `emphasis`  | `#0e7490` |
+| `success` | Completed, Resumed, aprovação registrada              | `good`      | `#059669` |
+| `warning` | On Hold, Revision Started, Override, Deadline Warning | `warning`   | `#d97706` |
+| `danger`  | Canceled, Overdue, aprovação recusada                 | `attention` | `#dc2626` |
 
 ---
 
@@ -1136,28 +1196,28 @@ Fluxo 1 envia só uma vez.
 
 ## 9. Solução de problemas
 
-| Sintoma                                                        | Causa provável / ação                                                                                                                                                     |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Send test** mostra "Test failed" e o console cita **CORS**   | **Verificar** se o ambiente permite chamada do navegador. Confirme que a URL é a do gatilho e que **Who can trigger** é **Anyone**.                                       |
-| Toda execução termina `Cancelled` em `Condition_duplicate`     | `Create_log` está falhando por outro motivo (coluna com nome errado, permissão). Abra `Create_log` no histórico e veja o erro.                                            |
-| Execução `Succeeded`, log `Skipped`                            | Evento desligado, regra ainda não salva (salve a página Notifications uma vez) ou BID não encontrado.                                                                     |
-| Log `Skipped` com "Nenhum destinatário"                        | Nenhum membro ativo atende à regra. Confira time, BID Role e Business Line do membro em Members Management, e lembre que quem disparou não recebe.                        |
-| `Post_card_recipient` falha para uma pessoa                    | Usuário sem Teams ou e-mail diferente do UPN. Corrija o e-mail em Members Management.                                                                                     |
-| `Send_email` falha com 429                                     | Limite do Mail V3 (5 e-mails a cada 5 minutos, 100 por dia). Aguarde; se for frequente, troque por Office 365 Outlook → **Send an email (V2)** com os mesmos campos.      |
-| Card não aparece / erro "invalid adaptive card"                | `comCardParts` colado com alteração, ou `Adaptive Card` sem `string(...)`. Cole o arquivo de novo e use `string(outputs('comCard'))`.                                    |
-| Prazo aparece um dia antes                                     | `comDueLabel` / `comDueDay` sem a regra de data curta (`T12:00:00Z`). Cole a expressão inteira de novo.                                                                   |
+| Sintoma                                                      | Causa provável / ação                                                                                                                                                |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Send test** mostra "Test failed" e o console cita **CORS** | **Verificar** se o ambiente permite chamada do navegador. Confirme que a URL é a do gatilho e que **Who can trigger** é **Anyone**.                                  |
+| Toda execução termina `Cancelled` em `Condition_duplicate`   | `Create_log` está falhando por outro motivo (coluna com nome errado, permissão). Abra `Create_log` no histórico e veja o erro.                                       |
+| Execução `Succeeded`, log `Skipped`                          | Evento desligado, regra ainda não salva (salve a página Notifications uma vez) ou BID não encontrado.                                                                |
+| Log `Skipped` com "Nenhum destinatário"                      | Nenhum membro ativo atende à regra. Confira time, BID Role e Business Line do membro em Members Management, e lembre que quem disparou não recebe.                   |
+| `Post_card_recipient` falha para uma pessoa                  | Usuário sem Teams ou e-mail diferente do UPN. Corrija o e-mail em Members Management.                                                                                |
+| `Send_email` falha com 429                                   | Limite do Mail V3 (5 e-mails a cada 5 minutos, 100 por dia). Aguarde; se for frequente, troque por Office 365 Outlook → **Send an email (V2)** com os mesmos campos. |
+| Card não aparece / erro "invalid adaptive card"              | `comCardParts` colado com alteração, ou `Adaptive Card` sem `string(...)`. Cole o arquivo de novo e use `string(outputs('comCard'))`.                                |
+| Prazo aparece um dia antes                                   | `comDueLabel` / `comDueDay` sem a regra de data curta (`T12:00:00Z`). Cole a expressão inteira de novo.                                                              |
 
 ## 10. SPFx — onde o app dispara
 
-| O quê                        | Código                                                                                                         |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| SmartBID Created             | `pages/CreateRequestPage.tsx` → `handleSubmit`, depois de `BidService.updateAfterCreate`                       |
-| SmartBID Assigned            | `pages/UnassignedRequestsPage.tsx` → `handleAssign`, depois de `BidService.update`                             |
-| Demais eventos do app        | `pages/BidDetailPage.tsx` → `savePatch`, depois de gravar; o evento vem de `utils/notificationEvents.ts` (`deriveBidNotifications`) |
-| Envio (POST)                 | `services/NotificationDispatchService.ts`; não envia sem URL válida ou com o evento desligado; erro só no console |
-| Catálogo de eventos e padrões | `config/notifications.config.ts`                                                                               |
-| Página Notifications         | `components/settings/NotificationMatrix.tsx`                                                                   |
-| Regras salvas                | `SYSTEM_CONFIG` → `notifications` (`flowUrl`, `filterByBusinessLine`, `deadlineWarningDays`, `rules`)          |
+| O quê                         | Código                                                                                                                              |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| SmartBID Created              | `pages/CreateRequestPage.tsx` → `handleSubmit`, depois de `BidService.updateAfterCreate`                                            |
+| SmartBID Assigned             | `pages/UnassignedRequestsPage.tsx` → `handleAssign`, depois de `BidService.update`                                                  |
+| Demais eventos do app         | `pages/BidDetailPage.tsx` → `savePatch`, depois de gravar; o evento vem de `utils/notificationEvents.ts` (`deriveBidNotifications`) |
+| Envio (POST)                  | `services/NotificationDispatchService.ts`; não envia sem URL válida ou com o evento desligado; erro só no console                   |
+| Catálogo de eventos e padrões | `config/notifications.config.ts`                                                                                                    |
+| Página Notifications          | `components/settings/NotificationMatrix.tsx`                                                                                        |
+| Regras salvas                 | `SYSTEM_CONFIG` → `notifications` (`flowUrl`, `filterByBusinessLine`, `deadlineWarningDays`, `rules`)                               |
 
 O app grava também a coluna `Status` da `smartbid-tracker` a cada alteração do BID, usada no filtro do
 Deadline Monitor.

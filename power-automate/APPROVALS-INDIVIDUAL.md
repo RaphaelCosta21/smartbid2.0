@@ -26,16 +26,16 @@ a conta dona precisa da mesma licença Premium do fluxo `SmartBid – Notificati
 
 ## O que é reutilizado
 
-| Artefato                                                       | Uso                                                       |
-| -------------------------------------------------------------- | --------------------------------------------------------- |
-| [`cards/01-welcome.json`](./cards/01-welcome.json)             | Boas-vindas no chat em grupo                              |
-| [`cards/02-status.json`](./cards/02-status.json)               | Status card atualizado a cada resposta                    |
-| `cards/03-approver.json`                                       | **Não usar**: o pedido agora é o card nativo do Approvals |
-| [`cards/04-final.json`](./cards/04-final.json)                 | Mensagem final, **somente quando todos aprovam**          |
-| `email/completion-email.html`                                  | **Não usar**: o e-mail de conclusão vem do fluxo de notificações ([NOTIFICATIONS.md](./NOTIFICATIONS.md)) |
-| [README.md §5](./README.md)                                    | Receita do write-back com ETag (detalhes e armadilhas)    |
-| [README.md §7](./README.md)                                    | Solução de problemas comuns do Power Automate             |
-| [README.md §10.2](./README.md)                                 | Fluxo de aviso de override no chat                        |
+| Artefato                                           | Uso                                                                                                       |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| [`cards/01-welcome.json`](./cards/01-welcome.json) | Boas-vindas no chat em grupo                                                                              |
+| [`cards/02-status.json`](./cards/02-status.json)   | Status card atualizado a cada resposta                                                                    |
+| `cards/03-approver.json`                           | **Não usar**: o pedido agora é o card nativo do Approvals                                                 |
+| [`cards/04-final.json`](./cards/04-final.json)     | Mensagem final, **somente quando todos aprovam**                                                          |
+| `email/completion-email.html`                      | **Não usar**: o e-mail de conclusão vem do fluxo de notificações ([NOTIFICATIONS.md](./NOTIFICATIONS.md)) |
+| [README.md §5](./README.md)                        | Receita do write-back com ETag (detalhes e armadilhas)                                                    |
+| [README.md §7](./README.md)                        | Solução de problemas comuns do Power Automate                                                             |
+| [README.md §10.2](./README.md)                     | Fluxo de aviso de override no chat                                                                        |
 
 ---
 
@@ -418,26 +418,26 @@ Se você já gerou o schema a partir do exemplo da §2.3, pode mantê-lo. Troque
 **Onde:** abaixo de `Parse_JSON`. Crie **uma ação Initialize variable por linha**, nesta ordem.
 **Ação:** Variable → **Initialize variable**. O nome da ação não importa; o que importa é o campo **Name**.
 
-| Name                | Type    | Como preencher Value | Value                                                                 |
-| ------------------- | ------- | -------------------- | --------------------------------------------------------------------- |
-| `varBidNumber`      | String  | fx                   | `body('Parse_JSON')?['bidNumber']`                                    |
-| `varRound`          | Integer | fx                   | `int(body('Parse_JSON')?['round'])`                                   |
-| `varRoundItemId`    | Integer | fx                   | `int(triggerOutputs()?['body/ID'])`                                   |
-| `varDeepLink`       | String  | fx                   | `body('Parse_JSON')?['deepLink']`                                     |
-| `varRequestedBy`    | String  | fx                   | `body('Parse_JSON')?['requestedBy']?['name']`                         |
-| `varClient`         | String  | fx                   | `coalesce(body('Parse_JSON')?['client'], '')`                         |
-| `varProjectName`    | String  | fx                   | `coalesce(body('Parse_JSON')?['projectName'], '')`                    |
-| `varCrmNumber`      | String  | fx                   | `coalesce(body('Parse_JSON')?['crmNumber'], '')`                      |
-| `varDivision`       | String  | fx                   | `body('Parse_JSON')?['division']`                                     |
-| `varServiceLine`    | String  | fx                   | `body('Parse_JSON')?['serviceLine']`                                  |
-| `varApprovers`      | Array   | fx                   | `json('[]')`                                                          |
-| `varApproverEmails` | Array   | fx                   | `json('[]')`                                                          |
-| `varBidItemId`      | Integer | Texto                | `0`                                                                   |
-| `varBidReady`       | Boolean | fx                   | `false`                                                               |
-| `varChatId`         | String  | —                    | deixe vazio                                                           |
-| `varStatusMsgId`    | String  | —                    | deixe vazio                                                           |
-| `varFlowOwnerEmail` | String  | —                    | deixe vazio                                                           |
-| `varAdminEmail`     | String  | Texto                | e-mail de quem recebe os avisos de falha (você ou a conta de serviço) |
+| Name                | Type    | Como preencher Value | Value                                                                                                       |
+| ------------------- | ------- | -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `varBidNumber`      | String  | fx                   | `body('Parse_JSON')?['bidNumber']`                                                                          |
+| `varRound`          | Integer | fx                   | `int(body('Parse_JSON')?['round'])`                                                                         |
+| `varRoundItemId`    | Integer | fx                   | `int(triggerOutputs()?['body/ID'])`                                                                         |
+| `varDeepLink`       | String  | fx                   | `body('Parse_JSON')?['deepLink']`                                                                           |
+| `varRequestedBy`    | String  | fx                   | `body('Parse_JSON')?['requestedBy']?['name']`                                                               |
+| `varClient`         | String  | fx                   | `coalesce(body('Parse_JSON')?['client'], '')`                                                               |
+| `varProjectName`    | String  | fx                   | `coalesce(body('Parse_JSON')?['projectName'], '')`                                                          |
+| `varCrmNumber`      | String  | fx                   | `coalesce(body('Parse_JSON')?['crmNumber'], '')`                                                            |
+| `varDivision`       | String  | fx                   | `body('Parse_JSON')?['division']`                                                                           |
+| `varServiceLine`    | String  | fx                   | `body('Parse_JSON')?['serviceLine']`                                                                        |
+| `varApprovers`      | Array   | fx                   | `json('[]')`                                                                                                |
+| `varApproverEmails` | Array   | fx                   | `json('[]')`                                                                                                |
+| `varBidItemId`      | Integer | Texto                | `0`                                                                                                         |
+| `varBidReady`       | Boolean | fx                   | `false`                                                                                                     |
+| `varChatId`         | String  | —                    | deixe vazio                                                                                                 |
+| `varStatusMsgId`    | String  | —                    | deixe vazio                                                                                                 |
+| `varFlowOwnerEmail` | String  | —                    | deixe vazio                                                                                                 |
+| `varAdminEmail`     | String  | Texto                | e-mail de quem recebe os avisos de falha (você ou a conta de serviço)                                       |
 | `varNotifyUrl`      | String  | Texto                | URL do gatilho do fluxo `SmartBid – Notifications` (a mesma colada em System Configuration > Notifications) |
 
 `varBidReady` controla a repetição do passo 6. `varAdminEmail` recebe todas as notificações de falha.
@@ -1461,7 +1461,10 @@ d. **HTTP `Post_notify_response`** — no ramo True de `Condition_written_inc`, 
   "occurredAt": "@{outputs('comResponseDate')}",
   "bidNumber": "@{variables('varBidNumber')}",
   "deepLink": "@{variables('varDeepLink')}",
-  "actor": { "name": "@{outputs('comPersonName')}", "email": "@{items('Apply_to_each_person')}" },
+  "actor": {
+    "name": "@{outputs('comPersonName')}",
+    "email": "@{items('Apply_to_each_person')}"
+  },
   "channels": ["teams"],
   "presentation": {
     "title": "@{if(equals(outputs('comDecision'), 'approved'), 'Aprovação registrada', 'Aprovação recusada')}",
@@ -1472,10 +1475,19 @@ d. **HTTP `Post_notify_response`** — no ramo True de `Condition_written_inc`, 
   "facts": [
     { "title": "Aprovador", "value": "@{outputs('comPersonName')}" },
     { "title": "Setor(es)", "value": "@{outputs('comPersonSectors')}" },
-    { "title": "Decisão", "value": "@{if(equals(outputs('comDecision'), 'approved'), 'Aprovado', 'Recusado')}" },
+    {
+      "title": "Decisão",
+      "value": "@{if(equals(outputs('comDecision'), 'approved'), 'Aprovado', 'Recusado')}"
+    },
     { "title": "Rodada", "value": "@{variables('varRound')}" },
-    { "title": "Progresso", "value": "@{outputs('comApprovedPeople')} de @{length(outputs('comUniqueApproverEmails'))} aprovaram" },
-    { "title": "Comentário", "value": "@{coalesce(outputs('comComments'), '-')}" }
+    {
+      "title": "Progresso",
+      "value": "@{outputs('comApprovedPeople')} de @{length(outputs('comUniqueApproverEmails'))} aprovaram"
+    },
+    {
+      "title": "Comentário",
+      "value": "@{coalesce(outputs('comComments'), '-')}"
+    }
   ]
 }
 ```
@@ -1844,12 +1856,22 @@ times configurados em System Configuration > Notifications. Este fluxo não envi
   "deepLink": "@{variables('varDeepLink')}",
   "actor": { "name": "Fluxo de aprovação", "email": "" },
   "channels": ["email", "teams"],
-  "presentation": { "title": "SmartBID concluído", "emoji": "✅", "tone": "success" },
+  "presentation": {
+    "title": "SmartBID concluído",
+    "emoji": "✅",
+    "tone": "success"
+  },
   "headline": "Todos os aprovadores aprovaram a rodada @{variables('varRound')} e o SmartBID foi concluído.",
   "facts": [
     { "title": "Rodada", "value": "@{variables('varRound')}" },
-    { "title": "Aprovadores", "value": "@{outputs('comApprovedPeople_final')} de @{length(outputs('comUniqueApproverEmails'))}" },
-    { "title": "Concluído em", "value": "@{convertFromUtc(outputs('comCompletionDate'), 'E. South America Standard Time', 'dd/MM/yyyy HH:mm')}" }
+    {
+      "title": "Aprovadores",
+      "value": "@{outputs('comApprovedPeople_final')} de @{length(outputs('comUniqueApproverEmails'))}"
+    },
+    {
+      "title": "Concluído em",
+      "value": "@{convertFromUtc(outputs('comCompletionDate'), 'E. South America Standard Time', 'dd/MM/yyyy HH:mm')}"
+    }
   ]
 }
 ```
@@ -2044,11 +2066,11 @@ Cada passo que posta um card ou envia o e-mail traz a sua tabela de tokens. Para
    (`</>`). O designer converte cada `@{...}` num bloco.
 5. No primeiro teste, confira se o card aparece. JSON inválido faz a ação do Teams falhar.
 
-| Arquivo                                                        | Usado em                                                                             |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| [`cards/01-welcome.json`](./cards/01-welcome.json)             | 10.3 `Post_card_Welcome`                                                             |
-| [`cards/02-status.json`](./cards/02-status.json)               | 11.1 `Post_card_Status`, 14.10 j `Update_StatusCard`, 17 g `Update_StatusCard_final` |
-| [`cards/04-final.json`](./cards/04-final.json)                 | 18.1 `Post_card_Final` — **somente quando todos aprovam**                            |
+| Arquivo                                            | Usado em                                                                             |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| [`cards/01-welcome.json`](./cards/01-welcome.json) | 10.3 `Post_card_Welcome`                                                             |
+| [`cards/02-status.json`](./cards/02-status.json)   | 11.1 `Post_card_Status`, 14.10 j `Update_StatusCard`, 17 g `Update_StatusCard_final` |
+| [`cards/04-final.json`](./cards/04-final.json)     | 18.1 `Post_card_Final` — **somente quando todos aprovam**                            |
 
 Na recusa ou na expiração, **não** use `04-final.json`: o texto dele diz que todos aprovaram. O e-mail
 de conclusão não é mais enviado por este fluxo: ele vem do fluxo de notificações
@@ -2171,13 +2193,13 @@ Ainda não tratado no app:
 
 ## 12. Comparação com os outros desenhos
 
-| Aspecto                     | [README.md](./README.md) (cards personalizados) | [APPROVALS-NATIVE.md](./APPROVALS-NATIVE.md) (coletivo) | **Este guia**                           |
-| --------------------------- | ----------------------------------------------- | ------------------------------------------------------- | --------------------------------------- |
-| Pedido                      | Card no grupo, um por pessoa                    | Um pedido nativo para todos                             | Um pedido nativo **por pessoa**         |
-| Onde a pessoa responde      | Card no chat em grupo                           | Card coletivo / Approvals                               | **Em particular** (Approvals / e-mail)  |
-| Alguém clicar pelo outro    | Possível; o fluxo precisa barrar                | Bloqueado pelo serviço                                  | Bloqueado pelo serviço                  |
-| Progresso a cada resposta   | Sim                                             | Só com Dataverse                                        | **Sim**                                 |
-| Comentários                 | Não                                             | Só com Dataverse (parciais)                             | **Sim**, a cada resposta                |
-| Recusa                      | Não suportada                                   | Encerra o pedido coletivo                               | Encerra a rodada; pedidos abertos ficam |
+| Aspecto                     | [README.md](./README.md) (cards personalizados) | [APPROVALS-NATIVE.md](./APPROVALS-NATIVE.md) (coletivo) | **Este guia**                                      |
+| --------------------------- | ----------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------- |
+| Pedido                      | Card no grupo, um por pessoa                    | Um pedido nativo para todos                             | Um pedido nativo **por pessoa**                    |
+| Onde a pessoa responde      | Card no chat em grupo                           | Card coletivo / Approvals                               | **Em particular** (Approvals / e-mail)             |
+| Alguém clicar pelo outro    | Possível; o fluxo precisa barrar                | Bloqueado pelo serviço                                  | Bloqueado pelo serviço                             |
+| Progresso a cada resposta   | Sim                                             | Só com Dataverse                                        | **Sim**                                            |
+| Comentários                 | Não                                             | Só com Dataverse (parciais)                             | **Sim**, a cada resposta                           |
+| Recusa                      | Não suportada                                   | Encerra o pedido coletivo                               | Encerra a rodada; pedidos abertos ficam            |
 | Licença Premium / Dataverse | Não                                             | Sim                                                     | **Só a ação HTTP** das notificações; sem Dataverse |
-| Lembretes                   | Por card, dentro do loop                        | Fluxo agendado                                          | **1x por dia no grupo**, fluxo agendado |
+| Lembretes                   | Por card, dentro do loop                        | Fluxo agendado                                          | **1x por dia no grupo**, fluxo agendado            |

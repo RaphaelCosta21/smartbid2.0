@@ -164,7 +164,9 @@ const sameTeamRule = (
   const roles = (r: INotificationTeamRule): string =>
     (r.bidRoles || []).slice().sort().join(",");
   return (
-    a.mode === b.mode && !!a.keyPeople === !!b.keyPeople && roles(a) === roles(b)
+    a.mode === b.mode &&
+    !!a.keyPeople === !!b.keyPeople &&
+    roles(a) === roles(b)
   );
 };
 
@@ -366,10 +368,7 @@ export const NotificationDeliveryCard: React.FC<
         </div>
 
         <div className={styles.field}>
-          <label
-            htmlFor="sb-notif-warning-days"
-            className={styles.fieldLabel}
-          >
+          <label htmlFor="sb-notif-warning-days" className={styles.fieldLabel}>
             <AlarmClock size={12} />
             Deadline warning
           </label>
@@ -531,7 +530,11 @@ const TeamRuleEditor: React.FC<{
                 className={`${styles.roleChip} ${styles.keyPeopleChip} ${rule.keyPeople ? styles.roleChipOn : ""}`}
                 title="BID Responsible, Analyst, Project Manager, Commercial Requester and Creator"
                 onClick={() =>
-                  onChange({ ...rule, mode: "custom", keyPeople: !rule.keyPeople })
+                  onChange({
+                    ...rule,
+                    mode: "custom",
+                    keyPeople: !rule.keyPeople,
+                  })
                 }
               >
                 {rule.keyPeople ? <Check size={11} /> : <UserCheck size={11} />}
@@ -575,9 +578,7 @@ export const NotificationMatrix: React.FC<NotificationMatrixProps> = ({
   onToggleEvent,
   onSetTeamRule,
 }) => {
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>(
-    {},
-  );
+  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const [hoverTeam, setHoverTeam] = React.useState<Sector | null>(null);
   const [editing, setEditing] = React.useState<{
     event: NotificationEventKey;
@@ -623,7 +624,10 @@ export const NotificationMatrix: React.FC<NotificationMatrixProps> = ({
         key={def.key}
         className={`${accessStyles.itemRow} ${isLast && !editingTeam ? accessStyles.lastItem : ""} ${rule.enabled ? "" : styles.disabledRow}`}
       >
-        <th scope="row" className={`${accessStyles.rowHead} ${styles.eventHead}`}>
+        <th
+          scope="row"
+          className={`${accessStyles.rowHead} ${styles.eventHead}`}
+        >
           <div className={styles.eventInner}>
             <span
               className={styles.eventIcon}

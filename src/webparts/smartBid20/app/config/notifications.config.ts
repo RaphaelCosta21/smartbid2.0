@@ -11,7 +11,12 @@ import { ACCESS_ROLES } from "./accessControl.config";
 import { BID_ROLE_META } from "./bidRoles.config";
 
 export type NotificationChannel = "email" | "teams";
-export type NotificationTone = "brand" | "info" | "success" | "warning" | "danger";
+export type NotificationTone =
+  | "brand"
+  | "info"
+  | "success"
+  | "warning"
+  | "danger";
 export type NotificationSource = "app" | "approvalFlow" | "deadlineMonitor";
 export type NotificationGroupKey =
   | "lifecycle"
@@ -33,13 +38,15 @@ export interface INotificationEventDef {
   tone: NotificationTone;
 }
 
-export const NOTIFICATION_GROUPS: { key: NotificationGroupKey; label: string }[] =
-  [
-    { key: "lifecycle", label: "BID lifecycle" },
-    { key: "approvals", label: "Approvals" },
-    { key: "deadlines", label: "Deadlines" },
-    { key: "documents", label: "Documents" },
-  ];
+export const NOTIFICATION_GROUPS: {
+  key: NotificationGroupKey;
+  label: string;
+}[] = [
+  { key: "lifecycle", label: "BID lifecycle" },
+  { key: "approvals", label: "Approvals" },
+  { key: "deadlines", label: "Deadlines" },
+  { key: "documents", label: "Documents" },
+];
 
 export const NOTIFICATION_EVENTS: INotificationEventDef[] = [
   {
@@ -302,7 +309,9 @@ export function normalizeNotificationSettings(
 
   const rules = {} as Record<NotificationEventKey, INotificationEventRule>;
   NOTIFICATION_EVENTS.forEach((e) => {
-    const rawRule = rawRules ? (rawRules[e.key] as Partial<INotificationEventRule>) : null;
+    const rawRule = rawRules
+      ? (rawRules[e.key] as Partial<INotificationEventRule>)
+      : null;
     if (!rawRule || typeof rawRule !== "object") {
       rules[e.key] = buildDefaultRule(e.key);
       return;

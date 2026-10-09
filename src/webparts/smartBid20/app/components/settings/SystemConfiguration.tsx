@@ -496,9 +496,7 @@ const SystemConfiguration: React.FC = () => {
         ? NAV_GROUPS
         : NAV_GROUPS.map((g) => ({
             ...g,
-            items: g.items.filter(
-              (i) => MASTER_ONLY_TABS.indexOf(i.key) < 0,
-            ),
+            items: g.items.filter((i) => MASTER_ONLY_TABS.indexOf(i.key) < 0),
           })),
     [isMaster],
   );
@@ -2758,9 +2756,9 @@ const SystemConfiguration: React.FC = () => {
       <div className={styles.sectionHeader}>
         <h3>SmartBid Assistant visibility</h3>
         <p>
-          Teams that see the floating SmartBid Assistant button. This only
-          hides the button; the AI backend still decides who can call the API.
-          Guests never see it.
+          Teams that see the floating SmartBid Assistant button. This only hides
+          the button; the AI backend still decides who can call the API. Guests
+          never see it.
         </p>
       </div>
       <div className={styles.assistantTeams}>
