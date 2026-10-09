@@ -23,6 +23,8 @@ export const SHAREPOINT_CONFIG = {
     surveyCatalog: "smartbid-survey-catalog",
     /** One row per app load (Title = user email); provisioned by the super admin master. */
     accessLog: "smartbid-access-log",
+    /** Notification delivery log; Title is the unique eventKey. */
+    notificationLog: "smartbid-notification-log",
   },
   libraries: {
     attachments: "SmartBidAttachments",
@@ -35,6 +37,18 @@ export const SHAREPOINT_CONFIG = {
   accessLogFields: {
     userName: "UserName",
     accessArea: "AccessArea",
+  },
+
+  /** Internal field names used by the Power Automate notification flow. */
+  notificationLogFields: {
+    event: "Event",
+    bidNumber: "BidNumber",
+    source: "Source",
+    actor: "Actor",
+    deliveryStatus: "DeliveryStatus",
+    recipients: "Recipients",
+    payload: "Payload",
+    notes: "Notes",
   },
 
   /** Internal field names for smartbid-survey-catalog (auto-provisioned). */

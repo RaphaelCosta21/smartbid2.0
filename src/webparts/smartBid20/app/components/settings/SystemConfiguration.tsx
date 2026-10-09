@@ -27,6 +27,7 @@ import {
 } from "../../models";
 import { SystemConfigService } from "../../services/SystemConfigService";
 import { NotificationDispatchService } from "../../services/NotificationDispatchService";
+import { NotificationLogService } from "../../services/NotificationLogService";
 import { CurrencyService } from "../../services/CurrencyService";
 import { BidService } from "../../services/BidService";
 import { QuotationService } from "../../services/QuotationService";
@@ -2484,11 +2485,14 @@ const SystemConfiguration: React.FC = () => {
         });
         showMsg(
           "success",
-          "Test sent. It can take a minute to reach Teams and your inbox.",
+          "Test request accepted. Check the flow run and notification log to confirm Teams and email delivery.",
         );
       } catch (err) {
         console.error("Notification test failed:", err);
-        showMsg("error", "Test failed - check the flow URL and the console");
+        showMsg(
+          "error",
+          `Test request failed: ${err instanceof Error ? err.message : String(err)}. Check the flow URL, run history and browser console.`,
+        );
       } finally {
         setTestingNotification(false);
       }
@@ -2694,6 +2698,29 @@ const SystemConfiguration: React.FC = () => {
   const [provisioning, setProvisioning] = React.useState(false);
   const [provisionResult, setProvisionResult] = React.useState("");
 
+  const [provisioningNotifications, setProvisioningNotifications] =
+    React.useState(false);
+  const [notificationProvisionResult, setNotificationProvisionResult] =
+    React.useState("");
+
+  const handleProvisionNotifications = async (): Promise<void> => {
+    if (!canEdit || provisioningNotifications) return;
+    setProvisioningNotifications(true);
+    setNotificationProvisionResult("");
+    try {
+      await NotificationLogService.ensureList();
+      setNotificationProvisionResult(
+        "OK - smartbid-notification-log is ready: unique indexed Title, Event, BidNumber, Source, Actor, DeliveryStatus (Received, Sent, Skipped, Failed; default Received), Recipients, Payload and Notes (plain text). Configure the notification flow before using Send test.",
+      );
+    } catch (err) {
+      setNotificationProvisionResult(
+        `Failed: ${err instanceof Error ? err.message : String(err)}. Requires SharePoint Manage Lists permission. Fix the issue and run again to finish any missing columns.`,
+      );
+    } finally {
+      setProvisioningNotifications(false);
+    }
+  };
+
   const handleProvisionColumns = async (): Promise<void> => {
     setProvisioning(true);
     setProvisionResult("");
@@ -2799,6 +2826,40 @@ const SystemConfiguration: React.FC = () => {
         </p>
       </div>
       <EntraTokenTest />
+
+      <div className={styles.sectionHeader} style={{ marginTop: 24 }}>
+        <h3>Provision notification log</h3>
+        <p>
+          Creates smartbid-notification-log and all columns required by the
+          notification flow, including a unique indexed Title to prevent
+          duplicate events. Safe to run again; existing records are kept.
+          Requires SharePoint Manage Lists permission. This does not create the
+          Power Automate flow or its Teams and email actions.
+        </p>
+      </div>
+      <button
+        type="button"
+        className={`${styles.actionBtn} ${styles.primary}`}
+        onClick={() => void handleProvisionNotifications()}
+        disabled={provisioningNotifications || !canEdit}
+      >
+        {provisioningNotifications
+          ? "Creating notification list..."
+          : "Create notification list and columns"}
+      </button>
+      {notificationProvisionResult && (
+        <div
+          role="status"
+          className={`${styles.messageBar} ${
+            notificationProvisionResult.indexOf("OK") === 0
+              ? styles.success
+              : styles.error
+          }`}
+          style={{ marginTop: 12 }}
+        >
+          {notificationProvisionResult}
+        </div>
+      )}
 
       <div className={styles.sectionHeader} style={{ marginTop: 24 }}>
         <h3>Provision AI Search columns (one-off)</h3>

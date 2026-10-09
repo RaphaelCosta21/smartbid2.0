@@ -134,8 +134,18 @@ Use a mesma conta de serviço como dona dos fluxos e das conexões.
 
 ### 2.2 Lista `smartbid-notification-log`
 
-Crie a lista no site do SmartBID (`Site contents` > **New** > **List** > **Blank list**), com o nome
-`smartbid-notification-log`. Depois crie as colunas (**+ Add column**) exatamente com estes nomes:
+**Criação automática pelo app (recomendado):** depois de publicar a versão com o provisionamento,
+abra **System Configuration > AI Assistant & API > Provision notification log** e clique em
+**Create notification list and columns**. Aguarde a mensagem **OK**. O app cria a lista no site do
+SmartBID, as oito colunas adicionais e configura o `Title` como obrigatório, indexado e único.
+É necessário ter **Edit** na página e permissão **Manage Lists** no SharePoint. Pode executar de
+novo: registros existentes são preservados e colunas faltantes são criadas. Se houver erro, a
+mensagem identifica a etapa; corrija a permissão, tipo incompatível ou títulos duplicados e tente
+novamente. O botão não cria o fluxo nem as conexões do Power Automate.
+
+**Alternativa manual:** crie a lista no site do SmartBID (`Site contents` > **New** > **List** >
+**Blank list**), com o nome `smartbid-notification-log`. Depois crie as colunas (**+ Add column**)
+exatamente com estes nomes:
 
 | Coluna           | Tipo                   | Configuração                                                                   |
 | ---------------- | ---------------------- | ------------------------------------------------------------------------------ |
@@ -156,14 +166,43 @@ A conta dona do fluxo precisa de permissão de edição nesta lista.
 
 ### 2.3 Configuração no SmartBID
 
-Depois de salvar o fluxo do passo 3 e copiar a URL do gatilho:
+**Antes de Send test:** crie a lista (seção 2.2) e monte **todos os passos 1 a 16 da seção 3**,
+incluindo as ações de envio do Teams e do Mail. Salvar apenas o gatilho HTTP gera uma URL, mas
+não envia mensagens. Um fluxo com somente o gatilho e **Terminate / Terminar** também não envia
+nada. Se o Terminate estiver configurado com Status **Failed**, a execução aparece como falha,
+mesmo quando o gatilho e o próprio Terminate exibem marca verde.
+
+Depois de montar e salvar o fluxo completo e copiar a URL do gatilho:
 
 1. SmartBID > **System Configuration** > **Notifications**.
 2. Cole a URL em **Flow URL (HTTP POST)**.
-3. Clique em **Send test**. O teste chega só para você, no Teams e no e-mail.
-4. Ajuste os eventos e os times na matriz e clique em **Save Changes**.
+3. Ajuste os eventos e os times na matriz e clique em **Save Changes**. Isso garante que
+   `SYSTEM_CONFIG` e as regras que o fluxo lê estejam gravados.
+4. Clique em **Send test**. Com o fluxo completo, o teste chega só para você, no Teams e no e-mail.
+5. Confira o histórico do fluxo e a lista: `Event = TEST`, `DeliveryStatus = Sent` e seu e-mail em
+   `Recipients`. O aviso de requisição aceita no app **não confirma a entrega**: sem Response, o
+   gatilho responde `202 Accepted` antes de terminar as ações. Uma falha posterior aparece no
+   histórico e, quando o fluxo chega à atualização do log, em `DeliveryStatus = Failed`.
 
 Enquanto a URL não for salva, o app não envia nada.
+
+#### 2.3.1 Teste rápido da conexão do Teams (opcional, antes do fluxo completo)
+
+Para verificar somente o gatilho e a conexão do Teams, sem precisar montar todo o fluxo primeiro:
+
+1. Configure o gatilho conforme seção 3, passo 1 (Anyone, POST, schema).
+2. Remova o **Terminar** do fluxo mínimo, caso exista.
+3. Logo após o gatilho, adicione Microsoft Teams > **Post message in a chat or channel**.
+4. Escolha **Post as = Flow bot**, **Post in = Chat with Flow bot**.
+5. Em **Recipient**, insira pelo **fx**: `triggerBody()?['actor']?['email']`.
+6. Em **Message**, digite `Teste de conexão SmartBID recebido.`.
+7. Salve, cole a URL em Notifications e clique em **Send test**. O texto deve chegar apenas no
+   seu chat com o Flow bot. Abra a ação de envio no histórico se ela falhar.
+
+Este é um fluxo **temporário, exclusivo para TEST**: não tem card, e-mail, regras, log nem proteção
+de confidencialidade. Não use para eventos reais e não deixe esta ação no fluxo definitivo.
+Depois, remova a ação temporária e monte os passos 2 a 16 da seção 3. O teste completo de card e
+e-mail usa o próprio evento `TEST`; não precisa de um fluxo separado de teste.
 
 ### 2.4 Contrato do payload
 
@@ -1187,9 +1226,9 @@ Fluxo 1 envia só uma vez.
 
 ## 8. Implantação
 
-1. Criar a lista `smartbid-notification-log` (seção 2.2).
-2. Criar o Fluxo 1, salvar e copiar a URL do gatilho.
-3. Colar a URL na página Notifications, clicar **Send test**, ajustar as regras e **Save Changes**.
+1. Criar a lista `smartbid-notification-log` pelo botão em **AI Assistant & API** (seção 2.2).
+2. Criar o Fluxo 1 **completo (passos 1 a 16)**, salvar e copiar a URL do gatilho.
+3. Colar a URL na página Notifications, ajustar as regras, **Save Changes** e então **Send test**.
 4. Criar o Fluxo 2 (Deadline Monitor) com a mesma `varAppUrl`.
 5. Aplicar a seção 5 no fluxo de aprovação (variável + duas ações HTTP, e excluir o e-mail final antigo).
 6. Rodar os testes da seção 7 com um BID de teste.
@@ -1198,6 +1237,8 @@ Fluxo 1 envia só uma vez.
 
 | Sintoma                                                      | Causa provável / ação                                                                                                                                                |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Só existem o gatilho e **Terminar**; nada chega ao Teams     | Faltam as ações de envio. Monte a seção 3 completa ou use o teste temporário da seção 2.3.1. Confira o Status do Terminar: **Failed** encerra a execução como falha. |
+| App mostra requisição aceita, mas nada chega                 | Aceite HTTP não é confirmação de entrega. Abra o histórico do fluxo, confira as ações de envio e o log `TEST`; o fluxo pode ter falhado depois do aceite.            |
 | **Send test** mostra "Test failed" e o console cita **CORS** | **Verificar** se o ambiente permite chamada do navegador. Confirme que a URL é a do gatilho e que **Who can trigger** é **Anyone**.                                  |
 | Toda execução termina `Cancelled` em `Condition_duplicate`   | `Create_log` está falhando por outro motivo (coluna com nome errado, permissão). Abra `Create_log` no histórico e veja o erro.                                       |
 | Execução `Succeeded`, log `Skipped`                          | Evento desligado, regra ainda não salva (salve a página Notifications uma vez) ou BID não encontrado.                                                                |
