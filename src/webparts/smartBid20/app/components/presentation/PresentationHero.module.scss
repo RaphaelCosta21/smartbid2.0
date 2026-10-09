@@ -1,0 +1,74 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--primary-accent);
+}
+
+.title {
+  margin: 6px 0 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.value {
+  margin-top: 4px;
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.big {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--primary-accent);
+}
+
+.sub {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.good {
+  color: var(--success);
+}
+
+.warn {
+  color: var(--warning);
+}
+
+.bad {
+  color: var(--danger);
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}

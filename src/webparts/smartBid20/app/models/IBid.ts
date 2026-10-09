@@ -8,6 +8,7 @@ import {
   ApprovalStatus,
   BidResultOutcome,
 } from "./IBidStatus";
+import { IQuotationLink } from "./IQuotationLink";
 
 export interface IOpportunityInfo {
   client: string;
@@ -221,6 +222,8 @@ export interface IAssetBreakdownItem {
   quotationReference?: string | null;
   /** Server-relative URL of the quotation's uploaded file, if any — lets the user open it directly */
   quotationFileUrl?: string | null;
+  /** Every quotation requested/received for this item; the selected one drives the cost */
+  quotationLinks?: IQuotationLink[];
   statusIndicator: string | null;
   notes: string;
   subCosts?: IAssetSubCost[];

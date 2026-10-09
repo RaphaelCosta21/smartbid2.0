@@ -1,0 +1,207 @@
+.highlighted {
+  border-color: var(--primary-accent) !important;
+  box-shadow: var(--shadow-glow);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.headMain {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+}
+
+.title {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mode {
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.headValue {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.total {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.caption {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.warning {
+  padding: 8px 12px;
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.partsLine {
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip,
+.priorChip {
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.quotes {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.quoteLine {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.historyRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.delta {
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.deltaWorse {
+  color: var(--danger);
+}
+
+.deltaBetter {
+  color: var(--success);
+}
+
+.deltaNone {
+  color: var(--text-muted);
+}
+
+.linkBtn {
+  margin-left: auto;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms;
+
+  &:hover {
+    border-color: var(--primary-accent);
+    color: var(--primary-accent);
+  }
+}
+
+.history {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  margin-top: 8px;
+  overflow-y: auto;
+}
+
+.historyItem {
+  display: grid;
+  grid-template-columns: minmax(96px, 36%) 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.historyName {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.historyMode {
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.historyValue {
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.why {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.rationale {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  color: var(--text-primary);
+}
+
+.prior .chips {
+  margin-top: 4px;
+}

@@ -1,0 +1,258 @@
+.card {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 12px;
+  background: var(--card-bg);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.headMain {
+  min-width: 0;
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0 6px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
+.meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.good {
+  color: var(--success);
+}
+
+.muted {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.linkBtn {
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--primary-accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.blockTitle {
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.mix {
+  display: flex;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--card-bg-elevated);
+}
+
+.mixSegment {
+  height: 100%;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 11px;
+  color: var(--text-secondary);
+
+  i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 6px;
+    border-radius: 3px;
+    vertical-align: -1px;
+  }
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.stat {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg-elevated);
+}
+
+.statLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.statValue {
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.statHint {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.note {
+  padding: 10px 12px;
+  border-left: 4px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg-elevated);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.noteGood {
+  border-left-color: var(--success);
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.barRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.barName {
+  flex-shrink: 0;
+  width: 190px;
+  min-width: 0;
+}
+
+.barTitle,
+.barCurrent,
+.barDesc,
+.barMode {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barTitle {
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+.barCurrent {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-accent);
+}
+
+.barDesc {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.barMode {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.track {
+  position: relative;
+  display: flex;
+  flex: 1;
+  height: 18px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--card-bg-elevated);
+}
+
+.segment {
+  height: 100%;
+}
+
+.marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+}
+
+.barValue {
+  flex-shrink: 0;
+  width: 110px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text-primary);
+}

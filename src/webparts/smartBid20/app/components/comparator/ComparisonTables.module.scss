@@ -1,0 +1,82 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.twoCols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.item {
+  min-width: 200px;
+}
+
+.itemName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.itemMeta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.muted {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.worse {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.better {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.neutral {
+  color: var(--text-secondary);
+}
+
+.good {
+  margin: 0;
+  padding: 16px;
+  font-size: 13px;
+  color: var(--success);
+}
+
+.status {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.statusMatched {
+  color: var(--success);
+}
+
+.statusNew {
+  color: var(--info);
+}
+
+.statusRemoved {
+  color: var(--warning);
+}

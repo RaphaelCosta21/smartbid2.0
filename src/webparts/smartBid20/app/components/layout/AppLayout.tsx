@@ -64,9 +64,8 @@ import { ToolingReportPage } from "../../pages/ToolingReportPage";
 import { QueryConsultingPage } from "../../pages/QueryConsultingPage";
 import { PatchNotesPage } from "../../pages/PatchNotesPage";
 import { FaqPage } from "../../pages/FaqPage";
-import { EasiPriceHistoryPage } from "../../pages/EasiPriceHistoryPage";
-import { EasiBidPresentationPage } from "../../pages/EasiBidPresentationPage";
-import { EasiBidComparatorPage } from "../../pages/EasiBidComparatorPage";
+import { PriceHistoryPage } from "../../pages/PriceHistoryPage";
+import { BidComparatorPage } from "../../pages/BidComparatorPage";
 import { EasiSuppliersPage } from "../../pages/EasiSuppliersPage";
 import { CommandPalette } from "./CommandPalette";
 import { ToastContainer } from "../common/ToastContainer";
@@ -347,17 +346,10 @@ const AppLayoutInner: React.FC<{
               path={ROUTES.queryConsulting}
               element={<QueryConsultingPage />}
             />
+            <Route path={ROUTES.priceHistory} element={<PriceHistoryPage />} />
             <Route
-              path={ROUTES.easiPriceHistory}
-              element={<EasiPriceHistoryPage />}
-            />
-            <Route
-              path={ROUTES.easiBidPresentation}
-              element={<EasiBidPresentationPage />}
-            />
-            <Route
-              path={ROUTES.easiBidComparator}
-              element={<EasiBidComparatorPage />}
+              path={ROUTES.bidComparator}
+              element={<BidComparatorPage />}
             />
             <Route
               path={ROUTES.easiSuppliers}

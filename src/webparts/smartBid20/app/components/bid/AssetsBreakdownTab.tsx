@@ -12,20 +12,45 @@ import { useConfigStore } from "../../stores/useConfigStore";
 import { makeId } from "../../utils/idGenerator";
 import { CostSearchModal, CostSearchImportItem } from "./CostSearchModal";
 import { AddQuotationModal } from "./AddQuotationModal";
-import { IQuotationItem } from "../../models";
+import {
+  LinkedQuotationsPanel,
+  QuotationLinkPatch,
+  QuotationRespondBanner,
+  IQuotationRequestInput,
+} from "./LinkedQuotationsPanel";
+import { QuotationControlPanel } from "./QuotationControlPanel";
+import { IQuotationItem, IQuotationLink } from "../../models";
 import { useQuotationStore } from "../../stores/useQuotationStore";
+import { useUIStore } from "../../stores/useUIStore";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { QuotationService } from "../../services/QuotationService";
 import { ROUTES } from "../../config/routes.config";
 import {
   getAssetCostBreakdown,
   getSubItemNode,
   getSubCostAmount,
+  isNoCostAvailability,
+  isRentalAcq,
+  isWorkshopAcq,
   TRANSIT_DEFAULT_DISCOUNT,
   getSplitNode,
   IAssetCostBreakdown,
   IContingencyOpts,
   ICostNode,
 } from "../../utils/costCalculations";
+import {
+  buildReceivedLink,
+  buildRequestLink,
+  getAdoptBlockReason,
+  getEffectiveLinks,
+  getPriceLockReason,
+  getQuoteUnitUSD,
+  indexQuotations,
+  isLinkOverdue,
+  removeLink,
+  selectLink,
+  todayIso,
+} from "../../utils/quotationLinks";
 import styles from "./AssetsBreakdownTab.module.scss";
 
 interface AssetsBreakdownTabProps {
@@ -33,6 +58,8 @@ interface AssetsBreakdownTabProps {
   assetBreakdown: IAssetBreakdownItem[];
   onSave: (items: IAssetBreakdownItem[]) => void;
   readOnly?: boolean;
+  /** Currency the BID is presented in (USD, or BRL via the BID's PTAX) — used to show quotation prices */
+  displayCurrency?: { currency: "USD" | "BRL"; rate: number };
   /** Called when user wants to create a BOM from Search Costs modal (triggers navigation to BOM Costs) */
   onCreateBom?: (partNumber: string, description: string) => void;
   /** Persisted contingency rate (% per year) */
@@ -120,6 +147,17 @@ const syncTransitFees = (
 
 /** The three sections of an asset's detail drawer */
 type DrawerTab = "splits" | "items" | "fees";
+
+/** A cost reset detaches the item's price from whichever quotation was in use */
+const releaseQuotationPrice = (a: IAssetBreakdownItem): IAssetBreakdownItem => {
+  if (!a.quotationLinks) return a;
+  return {
+    ...a,
+    quotationLinks: a.quotationLinks.map((l) => ({ ...l, isSelected: false })),
+    quotationReference: null,
+    quotationFileUrl: null,
+  };
+};
 
 /** Format cost number with 2 decimal places and thousands separator */
 const fmtCost = (n: number): string =>
@@ -223,6 +261,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   assetBreakdown,
   onSave,
   readOnly = false,
+  displayCurrency = { currency: "USD", rate: 1 },
   onCreateBom,
   contingencyPerYearSaved,
   contingencyAppliedSaved,
@@ -338,7 +377,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     });
   };
   const noteBtnClass = (key: string, notes?: string): string => {
-    if (expandedNotesIds.has(key)) return `${styles.noteBtn} ${styles.noteBtnActive}`;
+    if (expandedNotesIds.has(key))
+      return `${styles.noteBtn} ${styles.noteBtnActive}`;
     if (notes) return `${styles.noteBtn} ${styles.noteBtnFilled}`;
     return styles.noteBtn;
   };
@@ -374,20 +414,30 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     };
   }, [contingencyPerYear]);
 
-  // ─── Add Quotation modal state ───
-  const [addQuotationTarget, setAddQuotationTarget] = React.useState<{
+  // ─── Quotations drawer state ───
+  /** "control" swaps the cost table for the quotation request/response tracker */
+  const [view, setView] = React.useState<"items" | "control">("items");
+  const [quotationDrawer, setQuotationDrawer] = React.useState<{
     assetId: string;
-    subItemCostId?: string;
-    partNumber: string;
-    description: string;
-  } | null>(null);
-  // After quotation saved, show picker to import
-  const [quotationPickerTarget, setQuotationPickerTarget] = React.useState<{
-    assetId: string;
-    subItemCostId?: string;
-    partNumber: string;
+    /** Pending request the next saved quotation answers */
+    respondLinkId?: string;
+    respondSupplier?: string;
   } | null>(null);
   const quotationItems = useQuotationStore((s) => s.items);
+  const quotationIndex = React.useMemo(
+    () => indexQuotations(quotationItems),
+    [quotationItems],
+  );
+  const quotationsLoaded = useQuotationStore((s) => s.isLoaded);
+  const loadQuotations = useQuotationStore((s) => s.loadQuotations);
+  const addToast = useUIStore((s) => s.addToast);
+  const currentUser = useCurrentUser();
+
+  React.useEffect(() => {
+    if ((quotationDrawer || view === "control") && !quotationsLoaded) {
+      void loadQuotations();
+    }
+  }, [quotationDrawer, view, quotationsLoaded, loadQuotations]);
 
   // ─── Auto-sync: ensure every non-section scope item has an asset entry ───
   const syncedAssets = React.useMemo(() => {
@@ -587,6 +637,12 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           patched.totalCostUSD = (patched.unitCostUSD || 0) * qty;
         }
       }
+      if (
+        (field === "availabilityStatus" || field === "acquisitionType") &&
+        patched.unitCostUSD !== a.unitCostUSD
+      ) {
+        return releaseQuotationPrice(patched);
+      }
       return patched;
     });
     persist(updated);
@@ -670,6 +726,12 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         }
       }
 
+      if (
+        (field === "availabilityStatus" || field === "acquisitionType") &&
+        patched.unitCostUSD !== a.unitCostUSD
+      ) {
+        return releaseQuotationPrice(patched);
+      }
       return patched;
     });
     persist(updated);
@@ -1642,7 +1704,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     breakdownOf(a).subItemsTotal;
 
   /** Get the total of all PCF costs for an asset (reuses sub-item cost logic) */
-  const getPCFTotal = (a: IAssetBreakdownItem): number => breakdownOf(a).pcfTotal;
+  const getPCFTotal = (a: IAssetBreakdownItem): number =>
+    breakdownOf(a).pcfTotal;
 
   /**
    * Shared renderer for a sub-item / PCF cost row (incl. splits, contingency,
@@ -3213,6 +3276,15 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           costCalcMethod: "auto" as const,
           quotationReference: mainMatch.quotationReference || null,
           quotationFileUrl: mainMatch.quotationFileUrl || null,
+          // Price now comes from this import, not from a linked quotation
+          ...(a.quotationLinks
+            ? {
+                quotationLinks: a.quotationLinks.map((l) => ({
+                  ...l,
+                  isSelected: false,
+                })),
+              }
+            : {}),
           ...(mainMatch.supplier ? { supplier: mainMatch.supplier } : {}),
         };
       }
@@ -3277,51 +3349,273 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     persist(updated);
   };
 
-  // ─── Add Quotation handlers ───
-  const handleAddQuotation = (
-    assetId: string,
-    partNumber: string,
-    description: string,
-    subItemCostId?: string,
-  ): void => {
-    setAddQuotationTarget({ assetId, subItemCostId, partNumber, description });
+  // ─── Quotations drawer handlers ───
+  // The form's Save awaits SharePoint, so its callbacks must read fresh state through refs.
+  const localAssetsRef = React.useRef(localAssets);
+  localAssetsRef.current = localAssets;
+  const quotationDrawerRef = React.useRef(quotationDrawer);
+  quotationDrawerRef.current = quotationDrawer;
+
+  const scopeQtyOf = (a: IAssetBreakdownItem): number => {
+    const si = getScopeItem(a.scopeItemId);
+    return (si?.qtyOperational || 0) + (si?.qtySpare || 0) || 1;
   };
 
+  const linksOf = (a: IAssetBreakdownItem): IQuotationLink[] =>
+    getEffectiveLinks(
+      a,
+      getScopeItem(a.scopeItemId)?.partNumber || "",
+      indexQuotations(useQuotationStore.getState().items),
+    );
+
+  const quotationCountOf = (a: IAssetBreakdownItem): number =>
+    a.quotationLinks && a.quotationLinks.length > 0
+      ? a.quotationLinks.length
+      : a.quotationReference
+        ? 1
+        : 0;
+
+  const overdueQuotationCount = React.useMemo(
+    () =>
+      localAssets.reduce(
+        (n, a) => n + (a.quotationLinks || []).filter(isLinkOverdue).length,
+        0,
+      ),
+    [localAssets],
+  );
+
+  /** Items-only blocks stay mounted (keeping scroll and open rows) but hidden in the control view */
+  const itemsViewClass = (cls: string): string =>
+    view === "items" ? cls : `${cls} ${styles.viewHidden}`;
+
+  /** Copies a quotation's price onto the item and marks its link as the one in use */
+  const applyQuotationPrice = (
+    a: IAssetBreakdownItem,
+    quote: IQuotationItem,
+    links: IQuotationLink[],
+    linkId: string,
+  ): IAssetBreakdownItem => {
+    const unitUSD = getQuoteUnitUSD(quote);
+    const qty = scopeQtyOf(a);
+    const patched: IAssetBreakdownItem = {
+      ...a,
+      unitCostUSD: unitUSD,
+      totalCostUSD: unitUSD * qty,
+      costReference: quote.supplier || "Quote",
+      dateReference: quote.quotationDate || "",
+      leadTimeDays: quote.leadTimeDays || 0,
+      originalCost: quote.cost,
+      originalCurrency: quote.currency || "USD",
+      costDate: quote.quotationDate || "",
+      costCalcMethod: "auto",
+      supplier: quote.supplier || a.supplier,
+      quotationReference: quote.reference || "Quote",
+      quotationFileUrl: quote.fileUrl || null,
+      quotationLinks: selectLink(links, linkId),
+    };
+    if (quote.type === "rental") {
+      patched.dailyRate = unitUSD;
+      patched.totalCostUSD = unitUSD * (a.rentalDays || 0) * qty;
+      patched.subCosts = syncTransitFees(a.subCosts, unitUSD);
+    }
+    return patched;
+  };
+
+  /**
+   * Stores the links and, when the item has no price yet and nothing is in use, applies the
+   * cheapest new quotation right away. Anything else is left for the user to choose.
+   */
+  const withLinks = (
+    a: IAssetBreakdownItem,
+    links: IQuotationLink[],
+    added: { link: IQuotationLink; quote: IQuotationItem }[],
+  ): { asset: IAssetBreakdownItem; applied: boolean } => {
+    const stored = { ...a, quotationLinks: links };
+    const eligible =
+      !links.some((l) => l.isSelected) &&
+      (a.unitCostUSD || 0) <= 0 &&
+      (a.dailyRate || 0) <= 0 &&
+      !isNoCostAvailability(a.availabilityStatus) &&
+      !isWorkshopAcq(a.acquisitionType) &&
+      !getPriceLockReason(a);
+    if (!eligible) return { asset: stored, applied: false };
+    const itemIsRental = isRentalAcq(a.acquisitionType);
+    const usable = added
+      .filter((x) => !getAdoptBlockReason(x.quote, itemIsRental))
+      .sort((x, y) => getQuoteUnitUSD(x.quote) - getQuoteUnitUSD(y.quote));
+    if (usable.length === 0) return { asset: stored, applied: false };
+    return {
+      asset: applyQuotationPrice(
+        stored,
+        usable[0].quote,
+        links,
+        usable[0].link.id,
+      ),
+      applied: true,
+    };
+  };
+
+  const announceLinked = (applied: boolean): void => {
+    addToast(
+      applied
+        ? { type: "success", title: "Price applied to the item" }
+        : {
+            type: "info",
+            title: "Quotation linked",
+            message: "Use “Use this price” to apply it to the item.",
+          },
+    );
+  };
+
+  const patchAsset = (
+    assetId: string,
+    fn: (a: IAssetBreakdownItem) => IAssetBreakdownItem,
+  ): void => {
+    persist(localAssetsRef.current.map((a) => (a.id === assetId ? fn(a) : a)));
+  };
+
+  const handleAddQuotation = (assetId: string): void => {
+    setQuotationDrawer({ assetId });
+  };
+
+  /** Links every quotation saved from the drawer's form to the open item */
   const handleQuotationSaved = (newItems: IQuotationItem[]): void => {
-    setAddQuotationTarget(null);
-    // Open the picker to let user choose which quotation(s) to import
-    if (newItems.length > 0) {
-      const first = newItems[0];
-      setQuotationPickerTarget({
-        assetId: addQuotationTarget?.assetId || "",
-        subItemCostId: addQuotationTarget?.subItemCostId,
-        partNumber: first.partNumber,
+    const drawer = quotationDrawerRef.current;
+    if (!drawer || newItems.length === 0) return;
+    const asset = localAssetsRef.current.find((a) => a.id === drawer.assetId);
+    if (!asset) return;
+
+    let links = linksOf(asset);
+    const queue = newItems.slice();
+    const added: { link: IQuotationLink; quote: IQuotationItem }[] = [];
+
+    // The request may have been removed or answered meanwhile — then every quote is a new link
+    const respondTarget = drawer.respondLinkId
+      ? links.find(
+          (l) => l.id === drawer.respondLinkId && l.status === "requested",
+        )
+      : undefined;
+    if (respondTarget) {
+      const first = queue.shift();
+      if (first) {
+        links = links.map((l) =>
+          l.id === respondTarget.id
+            ? {
+                ...l,
+                quotationId: first.id,
+                supplier: first.supplier,
+                status: "received" as const,
+                responseDate: first.quotationDate || todayIso(),
+              }
+            : l,
+        );
+        const answered = links.find((l) => l.id === respondTarget.id);
+        if (answered) added.push({ link: answered, quote: first });
+      }
+    }
+    queue.forEach((q) => {
+      const link = buildReceivedLink(q, currentUser?.displayName);
+      links = links.concat([link]);
+      added.push({ link, quote: q });
+    });
+
+    const result = withLinks(asset, links, added);
+    patchAsset(asset.id, () => result.asset);
+    setQuotationDrawer({ assetId: asset.id });
+    announceLinked(result.applied);
+  };
+
+  const handleLinkExisting = (assetId: string, quote: IQuotationItem): void => {
+    const asset = localAssetsRef.current.find((a) => a.id === assetId);
+    if (!asset) return;
+    const link = buildReceivedLink(quote, currentUser?.displayName);
+    const result = withLinks(asset, linksOf(asset).concat([link]), [
+      { link, quote },
+    ]);
+    patchAsset(assetId, () => result.asset);
+    announceLinked(result.applied);
+  };
+
+  const handleSelectLink = (assetId: string, linkId: string): void => {
+    const asset = localAssetsRef.current.find((a) => a.id === assetId);
+    if (!asset) return;
+    const links = linksOf(asset);
+    const link = links.find((l) => l.id === linkId);
+    const quote =
+      link && link.quotationId
+        ? indexQuotations(useQuotationStore.getState().items).get(
+            link.quotationId,
+          ) || null
+        : null;
+    const reason =
+      getPriceLockReason(asset) ||
+      getAdoptBlockReason(quote, isRentalAcq(asset.acquisitionType));
+    if (reason || !quote) {
+      addToast({
+        type: "warning",
+        title: "Can't use this quotation",
+        message: reason || undefined,
+      });
+      return;
+    }
+    patchAsset(assetId, (a) => applyQuotationPrice(a, quote, links, linkId));
+  };
+
+  const handleRemoveLink = (assetId: string, linkId: string): void => {
+    const asset = localAssetsRef.current.find((a) => a.id === assetId);
+    if (!asset) return;
+    const links = linksOf(asset);
+    const removed = links.find((l) => l.id === linkId);
+    if (!removed) return;
+    patchAsset(assetId, (a) => ({
+      ...a,
+      quotationLinks: removeLink(links, linkId),
+      ...(removed.isSelected
+        ? { quotationReference: null, quotationFileUrl: null }
+        : {}),
+    }));
+    if (removed.isSelected) {
+      addToast({
+        type: "info",
+        title: "Quotation removed from the item",
+        message:
+          "The item keeps its current price — pick another quotation or edit the cost.",
       });
     }
   };
 
-  const handleQuotationPickerImport = (item: IQuotationItem): void => {
-    if (!quotationPickerTarget) return;
-    const { assetId, subItemCostId } = quotationPickerTarget;
+  const handleRegisterRequest = (
+    assetId: string,
+    input: IQuotationRequestInput,
+  ): void => {
+    patchAsset(assetId, (a) => ({
+      ...a,
+      quotationLinks: linksOf(a).concat([
+        buildRequestLink({ ...input, createdBy: currentUser?.displayName }),
+      ]),
+    }));
+    addToast({ type: "success", title: "Quotation request registered" });
+  };
 
-    const importItems: CostSearchImportItem[] = [
-      {
-        assetId,
-        subItemCostId,
-        unitCostUSD: item.costUSD || item.cost,
-        costReference: item.supplier || "Quote",
-        dateReference: item.quotationDate || "",
-        leadTimeDays: item.leadTimeDays || 0,
-        originalCost: item.cost,
-        originalCurrency: item.currency || "USD",
-        costDate: item.quotationDate || "",
-        supplier: item.supplier || "",
-        quotationReference: item.reference || "Quote",
-        quotationFileUrl: item.fileUrl,
-      },
-    ];
-    handleCostSearchImport(importItems);
-    setQuotationPickerTarget(null);
+  const handleUpdateLink = (
+    assetId: string,
+    linkId: string,
+    patch: QuotationLinkPatch,
+  ): void => {
+    patchAsset(assetId, (a) => ({
+      ...a,
+      quotationLinks: linksOf(a).map((l) =>
+        l.id === linkId ? { ...l, ...patch } : l,
+      ),
+    }));
+  };
+
+  const handleRespond = (assetId: string, link: IQuotationLink): void => {
+    setQuotationDrawer({
+      assetId,
+      respondLinkId: link.id,
+      respondSupplier: link.supplier,
+    });
   };
 
   // ─── Tooltip position helper (above/below viewport detection) ───
@@ -4248,12 +4542,42 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       )}
 
       <div className={styles.toolbar}>
-        {sections.length > 0 && (
+        <div
+          className={styles.viewToggle}
+          role="tablist"
+          aria-label="Assets Breakdown view"
+        >
+          <button
+            role="tab"
+            aria-selected={view === "items"}
+            className={`${styles.viewBtn} ${view === "items" ? styles.viewBtnActive : ""}`}
+            onClick={() => setView("items")}
+          >
+            Items
+          </button>
+          <button
+            role="tab"
+            aria-selected={view === "control"}
+            className={`${styles.viewBtn} ${view === "control" ? styles.viewBtnActive : ""}`}
+            onClick={() => setView("control")}
+          >
+            Quotation Control
+            {overdueQuotationCount > 0 && (
+              <span
+                className={styles.viewBadge}
+                title={`${overdueQuotationCount} overdue quotation request(s)`}
+              >
+                {overdueQuotationCount}
+              </span>
+            )}
+          </button>
+        </div>
+        {view === "items" && sections.length > 0 && (
           <button className={styles.toolbarBtn} onClick={toggleAllSections}>
             {allSectionsCollapsed ? "▶ Expand All" : "▼ Collapse All"}
           </button>
         )}
-        {!readOnly && (
+        {view === "items" && !readOnly && (
           <button
             className={styles.toolbarBtn}
             onClick={() => setShowCostSearch(true)}
@@ -4264,7 +4588,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       </div>
 
       {/* Contingency Bar */}
-      <div className={styles.contingencyBar}>
+      <div className={itemsViewClass(styles.contingencyBar)}>
         <span className={styles.contingencyLabel}>Contingency per year:</span>
         {!readOnly && isContingencyEditing ? (
           <>
@@ -4323,7 +4647,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
 
       {/* Resource Type Sub-Tabs */}
       {showResourceTypeFilter && (
-        <div className={styles.subTabBar}>
+        <div className={itemsViewClass(styles.subTabBar)}>
           <button
             className={`${styles.subTab} ${resourceTypeFilter === "all" ? styles.subTabActive : ""}`}
             onClick={() => setResourceTypeFilter("all")}
@@ -4343,11 +4667,11 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       )}
 
       {localAssets.length === 0 ? (
-        <div className={styles.empty}>
+        <div className={itemsViewClass(styles.empty)}>
           No scope items to cost. Add items in the Scope of Supply tab first.
         </div>
       ) : (
-        <div className={styles.tableWrapper}>
+        <div className={itemsViewClass(styles.tableWrapper)}>
           <table className={styles.table}>
             <thead>
               <tr>
@@ -5298,9 +5622,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                     gap: 2,
                                   }}
                                 >
-                                  <span>
-                                    $ {fmtCost(assetBd.main.total)}
-                                  </span>
+                                  <span>$ {fmtCost(assetBd.main.total)}</span>
                                   {rate > 0 && days > 0 && (
                                     <span
                                       style={{
@@ -5815,15 +6137,10 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           <div className={styles.notesRow}>
                             {(!readOnly || !!asset.notes) && (
                               <button
-                                className={noteBtnClass(
-                                  asset.id,
-                                  asset.notes,
-                                )}
+                                className={noteBtnClass(asset.id, asset.notes)}
                                 onClick={() => toggleNotesExpand(asset.id)}
                                 title={
-                                  asset.notes
-                                    ? "View/edit notes"
-                                    : "Add notes"
+                                  asset.notes ? "View/edit notes" : "Add notes"
                                 }
                               >
                                 💬
@@ -5846,19 +6163,19 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   : "+💲"}
                               </button>
                             )}
-                            {!readOnly && (
+                            {(!readOnly || quotationCountOf(asset) > 0) && (
                               <button
-                                className={styles.subCostToggle}
-                                onClick={() =>
-                                  handleAddQuotation(
-                                    asset.id,
-                                    si?.partNumber || "",
-                                    si?.equipmentOffer || si?.description || "",
-                                  )
+                                className={`${styles.subCostToggle} ${quotationCountOf(asset) > 0 ? styles.hasSubCosts : ""}`}
+                                onClick={() => handleAddQuotation(asset.id)}
+                                title={
+                                  readOnly
+                                    ? "View quotations"
+                                    : "Add / manage quotations"
                                 }
-                                title="Add Quotation"
                               >
-                                📝
+                                {quotationCountOf(asset) > 0
+                                  ? `📝${quotationCountOf(asset)}`
+                                  : "📝"}
                               </button>
                             )}
                             <button
@@ -6270,6 +6587,17 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         </div>
       )}
 
+      {view === "control" && (
+        <QuotationControlPanel
+          assets={localAssets}
+          scopeItems={scopeItems}
+          index={quotationIndex}
+          loading={!quotationsLoaded}
+          displayCurrency={displayCurrency}
+          onOpenItem={handleAddQuotation}
+        />
+      )}
+
       {showCostSearch && (
         <CostSearchModal
           scopeItems={scopeItems}
@@ -6348,104 +6676,85 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           );
         })()}
 
-      {/* Add Quotation Modal */}
-      {addQuotationTarget && (
-        <AddQuotationModal
-          onClose={() => setAddQuotationTarget(null)}
-          onSaved={handleQuotationSaved}
-          defaultPartNumber={addQuotationTarget.partNumber}
-          defaultDescription={addQuotationTarget.description}
-        />
-      )}
-
-      {/* Quotation Picker — after saving a new quotation, let user pick which to import */}
-      {quotationPickerTarget && (
-        <div
-          className={styles.pickerOverlay}
-          onClick={() => setQuotationPickerTarget(null)}
-        >
-          <div
-            className={styles.pickerModal}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className={styles.pickerHeader}>
-              <h3>Import from Quotation</h3>
-              <button
-                className={styles.pickerClose}
-                onClick={() => setQuotationPickerTarget(null)}
-              >
-                ✕
-              </button>
-            </div>
-            <p className={styles.pickerSubtitle}>
-              Select a quotation to import cost data for{" "}
-              <strong>{quotationPickerTarget.partNumber || "this item"}</strong>
-            </p>
-            <div className={styles.pickerList}>
-              {quotationItems
-                .filter((q) => {
-                  const pn = quotationPickerTarget.partNumber
-                    .trim()
-                    .toUpperCase();
-                  if (!pn || pn === "TBD" || pn === "TBC") return false;
-                  return q.partNumber.trim().toUpperCase().indexOf(pn) >= 0;
-                })
-                .map((q) => (
-                  <div
-                    key={q.id}
-                    className={styles.pickerItem}
-                    onClick={() => handleQuotationPickerImport(q)}
-                  >
-                    <div className={styles.pickerItemMain}>
-                      <span className={styles.pickerItemPN}>
-                        {q.partNumber}
-                      </span>
-                      <span className={styles.pickerItemDesc}>
-                        {q.description}
-                      </span>
-                    </div>
-                    <div className={styles.pickerItemMeta}>
-                      <span>
-                        ${" "}
-                        {(q.costUSD || q.cost).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
-                      <span className={styles.pickerItemSupplier}>
-                        {q.supplier}
-                      </span>
-                      <span className={styles.pickerItemDate}>
-                        {q.quotationDate
-                          ? new Date(q.quotationDate).toLocaleDateString()
-                          : ""}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              {quotationItems.filter((q) => {
-                const pn = quotationPickerTarget.partNumber
-                  .trim()
-                  .toUpperCase();
-                if (!pn) return true;
-                return q.partNumber.trim().toUpperCase().indexOf(pn) >= 0;
-              }).length === 0 && (
-                <div className={styles.pickerEmpty}>
-                  No matching quotations found.
-                </div>
-              )}
-            </div>
-            <div className={styles.pickerFooter}>
-              <button
-                className={styles.pickerCancelBtn}
-                onClick={() => setQuotationPickerTarget(null)}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Quotations drawer — every quotation requested/received for the item */}
+      {quotationDrawer &&
+        (() => {
+          const asset = localAssets.find(
+            (a) => a.id === quotationDrawer.assetId,
+          );
+          if (!asset) return null;
+          const si = getScopeItem(asset.scopeItemId);
+          const pn = si?.partNumber || "";
+          const desc = si?.equipmentOffer || si?.description || "";
+          const itemIsRental = isRentalAcq(asset.acquisitionType);
+          const links = getEffectiveLinks(asset, pn, quotationIndex);
+          const respondingTo = quotationDrawer.respondLinkId
+            ? links.find(
+                (l) =>
+                  l.id === quotationDrawer.respondLinkId &&
+                  l.status === "requested",
+              )
+            : undefined;
+          return (
+            <AddQuotationModal
+              key={asset.id}
+              variant="drawer"
+              title="Quotations"
+              subtitle={[pn, desc].filter(Boolean).join(" · ")}
+              defaultPartNumber={pn}
+              defaultDescription={desc}
+              defaultSupplier={quotationDrawer.respondSupplier}
+              formHidden={readOnly}
+              itemsHint="Every item saved here is linked to this BID item — remove the lines that belong to other items."
+              onClose={() => setQuotationDrawer(null)}
+              onSaved={handleQuotationSaved}
+              formBanner={
+                respondingTo ? (
+                  <QuotationRespondBanner
+                    supplier={respondingTo.supplier}
+                    onCancel={() => setQuotationDrawer({ assetId: asset.id })}
+                  />
+                ) : undefined
+              }
+              topSlot={
+                <LinkedQuotationsPanel
+                  links={links}
+                  index={quotationIndex}
+                  catalog={quotationItems}
+                  partNumber={pn}
+                  qty={scopeQtyOf(asset)}
+                  rentalDays={asset.rentalDays || 0}
+                  itemIsRental={itemIsRental}
+                  priceLockReason={getPriceLockReason(asset)}
+                  itemRateUSD={
+                    itemIsRental ? asset.dailyRate || 0 : asset.unitCostUSD || 0
+                  }
+                  displayCurrency={displayCurrency}
+                  readOnly={readOnly}
+                  loading={!quotationsLoaded}
+                  legacyReference={
+                    asset.quotationReference
+                      ? {
+                          reference: asset.quotationReference,
+                          fileUrl: asset.quotationFileUrl,
+                        }
+                      : null
+                  }
+                  onSelect={(linkId) => handleSelectLink(asset.id, linkId)}
+                  onRemove={(linkId) => handleRemoveLink(asset.id, linkId)}
+                  onLinkExisting={(q) => handleLinkExisting(asset.id, q)}
+                  onRegisterRequest={(input) =>
+                    handleRegisterRequest(asset.id, input)
+                  }
+                  onUpdateLink={(linkId, patch) =>
+                    handleUpdateLink(asset.id, linkId, patch)
+                  }
+                  onRespond={(link) => handleRespond(asset.id, link)}
+                />
+              }
+            />
+          );
+        })()}
     </div>
   );
 };

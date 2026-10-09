@@ -1,0 +1,93 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.control {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-accent);
+  }
+}
+
+.search {
+  flex: 1;
+  min-width: 220px;
+}
+
+.tableCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card-bg);
+  overflow: hidden;
+
+  table th {
+    padding: 10px 12px;
+  }
+
+  table td {
+    padding: 8px 12px;
+    font-size: 12.5px;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+}
+
+.itemCell {
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  max-width: 280px;
+  white-space: normal;
+}
+
+.itemName {
+  font-weight: 600;
+}
+
+.itemPn {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.inUse {
+  color: var(--success);
+}
+
+.fileLink {
+  display: inline-flex;
+  color: var(--primary-accent);
+
+  &:hover {
+    opacity: 0.8;
+  }
+}

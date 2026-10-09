@@ -26,6 +26,66 @@
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
 }
 
+/* Drawer variant: same form, docked to the right edge */
+.overlayDrawer {
+  justify-content: flex-end;
+  align-items: stretch;
+  padding: 0;
+}
+
+@keyframes drawerSlideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.drawer {
+  max-width: 580px;
+  max-height: none;
+  height: 100%;
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+  box-shadow: var(--elevation-4);
+  animation: drawerSlideIn 250ms ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer {
+    animation: none;
+  }
+}
+
+.headerText {
+  min-width: 0;
+}
+
+.headerSubtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.formSectionTitle {
+  margin: 20px 0 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.itemsHint {
+  margin: -4px 0 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .modalHeader {
   display: flex;
   align-items: center;

@@ -261,13 +261,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     section: "tools",
   },
   {
-    key: "easi-bid-presentation",
-    label: "BID Presentation",
-    icon: "PieChart",
-    route: "/tools/bid-presentation",
-    section: "tools",
-  },
-  {
     key: "easi-bid-comparator",
     label: "Bid Comparator",
     icon: "LayoutGrid",

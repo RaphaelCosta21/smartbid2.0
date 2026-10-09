@@ -202,6 +202,10 @@ export {
 } from "./IBomCostAnalysis";
 export { type IQuotationItem, type QuotationType } from "./IQuotationItem";
 export {
+  type IQuotationLink,
+  type QuotationLinkStatus,
+} from "./IQuotationLink";
+export {
   type IErn,
   type IErnCreateData,
   type IErnCreateResult,

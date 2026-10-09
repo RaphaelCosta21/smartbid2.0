@@ -1,0 +1,398 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.headRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+}
+
+.count {
+  min-width: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--primary-accent);
+  border-radius: 6px;
+  color: var(--primary-accent);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.chart {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card-bg-elevated);
+}
+
+.empty,
+.legacy {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card-bg-elevated);
+}
+
+.cardSelected {
+  border-left: 3px solid var(--primary-accent);
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.supplier {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.inUse {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--success);
+}
+
+.cardTools {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+  }
+}
+
+.iconBtnDanger:hover {
+  color: var(--danger);
+}
+
+.cardMeta,
+.cardDates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.cardDates {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.price {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.approx {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.typeTag {
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.fileLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--primary-accent);
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.warnText {
+  color: var(--warning);
+}
+
+.notes {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
+
+.diffRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  font-size: 11.5px;
+  color: var(--warning);
+}
+
+.linkBtn {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--primary-accent);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.primaryBtn,
+.ghostBtn {
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.primaryBtn {
+  border: 1px solid var(--primary-accent);
+  background: var(--primary-accent);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+}
+
+.ghostBtn {
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary-accent);
+    color: var(--primary-accent);
+  }
+}
+
+.editGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  input,
+  textarea {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card-bg);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 400;
+
+    &:focus {
+      outline: none;
+      border-color: var(--primary-accent);
+    }
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 40px;
+  }
+}
+
+.editFull {
+  grid-column: 1 / -1;
+}
+
+.respondBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--primary-accent);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.section {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.sectionToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+
+  span {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+}
+
+.sectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.sectionHint {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.searchInput {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-accent);
+  }
+}
+
+.pickList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pickRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg-elevated);
+}
+
+.pickMain {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pickPn {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pickDesc,
+.pickMeta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.pickMeta {
+  color: var(--text-muted);
+}

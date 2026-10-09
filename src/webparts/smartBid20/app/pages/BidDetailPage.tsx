@@ -16,6 +16,7 @@ import { ApprovalTab } from "../components/bid/ApprovalTab";
 import { BidActivityLog } from "../components/bid/BidActivityLog";
 import { BidExportButton } from "../components/bid/BidExportButton";
 import { BidTimeline } from "../components/bid/BidTimeline";
+import { BidPresentationTab } from "../components/presentation/BidPresentationTab";
 import { OverviewTab } from "../components/bid/OverviewTab";
 import { DocumentsTab } from "../components/bid/DocumentsTab";
 import { NotesTab } from "../components/bid/NotesTab";
@@ -60,6 +61,7 @@ import { formatDate, formatDaysLeft } from "../utils/formatters";
 import { isTerminalStatus } from "../utils/statusHelpers";
 import { getErnLinks } from "../utils/ernHelpers";
 import { makeId } from "../utils/idGenerator";
+import { getBidDisplayCurrency } from "../utils/quotationLinks";
 import { useAccessLevel } from "../hooks/useAccessLevel";
 import { useConfigPhases } from "../hooks/useConfigPhases";
 import { EditControlService } from "../services/EditControlService";
@@ -81,6 +83,7 @@ type BidTab =
   | "costs"
   | "tasks"
   | "timeline"
+  | "presentation"
   | "approval"
   | "documents"
   | "notes"
@@ -109,6 +112,7 @@ const NAV_GROUPS: INavGroup[] = [
     items: [
       { key: "overview", label: "Overview", icon: "📊" },
       { key: "timeline", label: "Timeline", icon: "📅" },
+      { key: "presentation", label: "BID Presentation", icon: "📽️" },
     ],
   },
   {
@@ -1026,6 +1030,7 @@ export const BidDetailPage: React.FC = () => {
                         scopeItems={filteredScope}
                         assetBreakdown={filteredAssets}
                         readOnly={!isEditing}
+                        displayCurrency={getBidDisplayCurrency(bid)}
                         contingencyPerYearSaved={bid.assetsContingencyPerYear}
                         contingencyAppliedSaved={bid.assetsContingencyApplied}
                         onContingencyChange={(perYear, applied) => {
@@ -1634,6 +1639,7 @@ export const BidDetailPage: React.FC = () => {
           {activeTab === "timeline" && (
             <BidTimeline bid={bid} currentPhaseIndex={currentPhaseIndex} />
           )}
+          {activeTab === "presentation" && <BidPresentationTab bid={bid} />}
           {activeTab === "approval" && (
             <ApprovalTab
               bid={bid}

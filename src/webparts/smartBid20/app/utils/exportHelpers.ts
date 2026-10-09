@@ -78,3 +78,16 @@ export function getExportFilename(prefix: string, extension: string): string {
   const dateStr = `${now.getFullYear()}-${zeroPad(now.getMonth() + 1)}-${zeroPad(now.getDate())}`;
   return `${prefix}-${dateStr}.${extension}`;
 }
+
+/** Writes rows to an .xlsx download; the xlsx library is loaded only when an export is requested */
+export async function downloadXlsx(
+  rows: Array<Record<string, string | number>>,
+  sheetName: string,
+  filename: string,
+): Promise<void> {
+  const XLSX = await import("xlsx");
+  const sheet = XLSX.utils.json_to_sheet(rows);
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, sheet, sheetName);
+  XLSX.writeFile(book, filename);
+}
