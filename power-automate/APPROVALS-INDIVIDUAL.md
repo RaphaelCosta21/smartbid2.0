@@ -856,6 +856,8 @@ Tokens de `02-status.json` (estado inicial):
 | ---------------------- | ------------------------------------------------------------------------------ |
 | `[[BID_NUMBER]]`       | `@{variables('varBidNumber')}`                                                 |
 | `[[CLIENT]]`           | `@{variables('varClient')}`                                                    |
+| `[[PROJECT_NAME]]`     | `@{variables('varProjectName')}`                                               |
+| `[[CRM_NUMBER]]`       | `@{variables('varCrmNumber')}`                                                 |
 | `[[STATUS_BADGE]]`     | `⏳ Em andamento`                                                              |
 | `[[PROGRESS_BAR]]`     | `░░░░░░░░░░`                                                                   |
 | `[[APPROVED_COUNT]]`   | `0`                                                                            |
@@ -970,28 +972,30 @@ d. **Compose `comPersonSectors`** — Inputs (fx): `join(body('selPersonSectors'
 
 **Ação:** Approvals → **Create an approval**. **Nome:** `Create_person_approval`.
 
-| Campo                 | Como preencher | Valor                                                                                                     |
-| --------------------- | -------------- | --------------------------------------------------------------------------------------------------------- |
-| Approval type         | Lista          | **Approve/Reject - First to respond**                                                                     |
-| Title                 | Texto + fx     | `SmartBid — @{variables('varBidNumber')} — Rodada @{variables('varRound')} — @{outputs('comPersonName')}` |
-| Assigned to           | fx             | `items('Apply_to_each_person')`                                                                           |
-| Details               | Texto + fx     | bloco abaixo                                                                                              |
-| Item link             | fx             | `variables('varDeepLink')`                                                                                |
-| Item link description | Texto          | `Abrir BID no SmartBid`                                                                                   |
-| Requestor             | fx             | `body('Parse_JSON')?['requestedBy']?['email']` (se o campo existir na sua versão)                         |
-| Enable notifications  | Lista          | **Yes** — a pessoa recebe a notificação no Teams (Approvals) e por e-mail                                 |
-| Enable reassignment   | Lista          | **No**                                                                                                    |
+| Campo                 | Como preencher | Valor                                                                                                                                   |
+| --------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Approval type         | Lista          | **Approve/Reject - First to respond**                                                                                                   |
+| Title                 | Texto + fx     | `SmartBid — @{variables('varProjectName')} · @{variables('varClient')} — Rodada @{variables('varRound')} — @{outputs('comPersonName')}` |
+| Assigned to           | fx             | `items('Apply_to_each_person')`                                                                                                         |
+| Details               | Texto + fx     | bloco abaixo                                                                                                                            |
+| Item link             | fx             | `variables('varDeepLink')`                                                                                                              |
+| Item link description | Texto          | `Abrir BID no SmartBid`                                                                                                                 |
+| Requestor             | fx             | `body('Parse_JSON')?['requestedBy']?['email']` (se o campo existir na sua versão)                                                       |
+| Enable notifications  | Lista          | **Yes** — a pessoa recebe a notificação no Teams (Approvals) e por e-mail                                                               |
+| Enable reassignment   | Lista          | **No**                                                                                                                                  |
 
 Details:
 
 ```text
-**BID:** @{variables('varBidNumber')}
+**Projeto:** @{variables('varProjectName')}
 **Cliente:** @{variables('varClient')}
+**CRM:** @{variables('varCrmNumber')}
 **Divisão:** @{variables('varDivision')}
 **Service line:** @{variables('varServiceLine')}
 **Rodada:** @{variables('varRound')}
 **Solicitado por:** @{variables('varRequestedBy')}
 **Seu(s) setor(es):** @{outputs('comPersonSectors')}
+**BID:** @{variables('varBidNumber')}
 
 Sua resposta vale para todos os seus setores nesta rodada. Inclua um comentário quando necessário.
 ```
@@ -1394,6 +1398,8 @@ j. **Update an adaptive card in a chat or channel `Update_StatusCard`**
 | ---------------------- | --------------------------------------------------------------------------------------- |
 | `[[BID_NUMBER]]`       | `@{variables('varBidNumber')}`                                                          |
 | `[[CLIENT]]`           | `@{variables('varClient')}`                                                             |
+| `[[PROJECT_NAME]]`     | `@{variables('varProjectName')}`                                                        |
+| `[[CRM_NUMBER]]`       | `@{variables('varCrmNumber')}`                                                          |
 | `[[STATUS_BADGE]]`     | `@{if(greater(length(body('filRejectedRows')), 0), '❌ Rejeitado', '⏳ Em andamento')}` |
 | `[[PROGRESS_BAR]]`     | `@{outputs('comProgressBar')}`                                                          |
 | `[[APPROVED_COUNT]]`   | `@{outputs('comApprovedPeople')}`                                                       |
@@ -1763,7 +1769,7 @@ Post as **Flow bot**, Post in **Group chat**, Group chat (Enter custom value →
 `variables('varChatId')`, Message (Texto + fx):
 
 ```text
-⌛ A rodada @{variables('varRound')} do BID @{variables('varBidNumber')} expirou sem todas as respostas. Nenhuma decisão foi registrada no lugar de quem não respondeu. Para continuar, inicie uma nova rodada pelo SmartBid.
+⌛ A rodada @{variables('varRound')} do SmartBID @{variables('varProjectName')} · @{variables('varClient')} (CRM @{variables('varCrmNumber')}) expirou sem todas as respostas. Nenhuma decisão foi registrada no lugar de quem não respondeu. Para continuar, inicie uma nova rodada pelo SmartBid.
 ```
 
 #### 17) Status card final
@@ -1799,6 +1805,8 @@ g. **Update an adaptive card in a chat or channel `Update_StatusCard_final`** �
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `[[BID_NUMBER]]`       | `@{variables('varBidNumber')}`                                                                                                                             |
 | `[[CLIENT]]`           | `@{variables('varClient')}`                                                                                                                                |
+| `[[PROJECT_NAME]]`     | `@{variables('varProjectName')}`                                                                                                                           |
+| `[[CRM_NUMBER]]`       | `@{variables('varCrmNumber')}`                                                                                                                             |
 | `[[STATUS_BADGE]]`     | `@{if(equals(outputs('comFinalOutcome'), 'approved'), '✅ Concluído', if(equals(outputs('comFinalOutcome'), 'rejected'), '❌ Rejeitado', '⌛ Expirado'))}` |
 | `[[PROGRESS_BAR]]`     | `@{outputs('comProgressBar_final')}`                                                                                                                       |
 | `[[APPROVED_COUNT]]`   | `@{outputs('comApprovedPeople_final')}`                                                                                                                    |
@@ -1827,6 +1835,7 @@ g. **Update an adaptive card in a chat or channel `Update_StatusCard_final`** �
 | `[[BID_NUMBER]]`       | `@{variables('varBidNumber')}`                                                                                                   |
 | `[[CLIENT]]`           | `@{variables('varClient')}`                                                                                                      |
 | `[[PROJECT_NAME]]`     | `@{variables('varProjectName')}`                                                                                                 |
+| `[[CRM_NUMBER]]`       | `@{variables('varCrmNumber')}`                                                                                                   |
 | `[[TOTAL_COUNT]]`      | `@{length(outputs('comUniqueApproverEmails'))}`                                                                                  |
 | `[[COMPLETED_AT]]`     | `@{convertFromUtc(outputs('comCompletionDate'), 'E. South America Standard Time', 'dd/MM/yyyy HH:mm')}`                          |
 | `[[DURATION]]`         | `@{concat(div(sub(ticks(outputs('comCompletionDate')), ticks(body('Parse_JSON')?['requestedDate'])), 864000000000), ' dia(s)')}` |

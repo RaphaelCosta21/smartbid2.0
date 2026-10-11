@@ -2524,6 +2524,7 @@ const SystemConfiguration: React.FC = () => {
         <NotificationDeliveryCard
           flowUrl={settings.flowUrl}
           filterByBusinessLine={settings.filterByBusinessLine}
+          notifyActor={settings.notifyActor}
           deadlineWarningDays={settings.deadlineWarningDays}
           readOnly={!canEdit}
           testing={testingNotification}

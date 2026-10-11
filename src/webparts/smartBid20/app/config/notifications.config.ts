@@ -271,6 +271,7 @@ export function buildDefaultNotificationRules(): Record<
 export const DEFAULT_NOTIFICATION_SETTINGS: INotificationSettings = {
   flowUrl: "",
   filterByBusinessLine: true,
+  notifyActor: false,
   deadlineWarningDays: DEFAULT_DEADLINE_WARNING_DAYS,
   rules: buildDefaultNotificationRules(),
 };
@@ -327,6 +328,7 @@ export function normalizeNotificationSettings(
   return {
     flowUrl: typeof src.flowUrl === "string" ? src.flowUrl.trim() : "",
     filterByBusinessLine: src.filterByBusinessLine !== false,
+    notifyActor: src.notifyActor === true,
     deadlineWarningDays:
       src.deadlineWarningDays === undefined
         ? DEFAULT_DEADLINE_WARNING_DAYS

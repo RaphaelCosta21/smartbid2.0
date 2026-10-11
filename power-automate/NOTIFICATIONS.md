@@ -12,7 +12,8 @@ Regras principais:
 - O time de Engineering decide, por evento e por time, quem recebe: **Off**, **Whole team** ou
   **Custom** (BID Roles específicas e/ou **Key People** do BID).
 - Se um time estiver **Off** para um evento, ninguém desse time recebe. Se estiver ativo, recebe.
-- Quem disparou o evento **não** recebe a própria notificação.
+- Quem disparou o evento **não** recebe a própria notificação, a menos que **Notify who triggered**
+  esteja ligado na página.
 - Em BID confidencial, só recebe quem tem acesso ao BID.
 - Cada evento é registrado na lista `smartbid-notification-log`, que também impede envios repetidos.
 
@@ -103,7 +104,8 @@ Para cada evento (linha) e time (coluna) da página **Notifications**:
 - **Business Line** (chave na página): quando ligada, Whole team e BID Roles só incluem membros da
   Business Line do BID (ROV, SURVEY, OPG). Membros sem Business Line e Key People sempre recebem.
 - **BID confidencial:** só recebem BID Responsible, Analyst e as pessoas liberadas no cadeado do BID.
-- **Quem disparou** o evento nunca recebe.
+- **Quem disparou** o evento não recebe, a menos que **Notify who triggered** esteja ligado. Ligado,
+  ele recebe só se a regra do evento já o incluir (time, BID Role ou Key People).
 - Evento desligado (chave da linha) não é enviado para ninguém.
 
 ### 1.4 Limitações aceitas
@@ -217,7 +219,7 @@ Todo envio (app, fluxo de aprovação e Deadline Monitor) usa este JSON:
 | `occurredAt`    | texto  | Data/hora UTC ISO 8601                                                                   |
 | `bidNumber`     | texto  | Número do BID (`Title` da `smartbid-tracker`); vazio no `TEST`                           |
 | `deepLink`      | texto  | Link do BID no SmartBID                                                                  |
-| `actor`         | objeto | `{ "name", "email" }` de quem disparou; não recebe a notificação                         |
+| `actor`         | objeto | `{ "name", "email" }` de quem disparou; só recebe com `notifyActor` ligado               |
 | `channels`      | lista  | `["teams"]` ou `["email", "teams"]`                                                      |
 | `presentation`  | objeto | `{ "title", "emoji", "tone" }`; `tone` = `brand`, `info`, `success`, `warning`, `danger` |
 | `headline`      | texto  | Frase principal do card e do e-mail (PT-BR, texto puro)                                  |
@@ -296,11 +298,11 @@ Crie um **Instant cloud flow**, escolha **When an HTTP request is received** e s
 [10]  filRecipients → selRecipientEmails → filFinalRecipients
 [11]  Condition_has_recipients
       └─ False: Update_log_norecipients → Terminate_norecipients
-[12]  comTone → comToneMap → comSubtitle → comFooter → comDueRaw → comDueLabel → comBidFacts → comFacts
+[12]  comTone → comToneMap → comProject → comClient → comCrm → comSubtitle → comFooter → comDueRaw → comDueLabel → comBidFacts → comFacts
 [13]  comCardParts → comCard
 [14]  Scope_deliver
       ├─ Condition_send_email
-      │  └─ True: selEmailRows → joinEmailRows → comSafe → Send_email
+      │  └─ True: selEmailRows → joinEmailRows → comSafe → comEmailHtml → Send_email
       └─ Condition_send_teams        (run after Condition_send_email: is successful + has failed)
          └─ True: Apply_to_each_recipient (Concurrency On, 5)
                   └─ Post_card_recipient
@@ -546,16 +548,21 @@ Em palavras: membro ativo, com e-mail, e
 | From             | fx             | `body('filRecipients')`     |
 | Map (modo **T**) | fx             | `toLower(item()?['email'])` |
 
-**10.3) Filter array `filFinalRecipients`** — tira repetidos, quem disparou e, em BID confidencial, quem
-não tem acesso. No `TEST`, a lista é só quem clicou em **Send test**.
+**10.3) Filter array `filFinalRecipients`** — tira repetidos, quem disparou (se **Notify who triggered**
+estiver desligado) e, em BID confidencial, quem não tem acesso. No `TEST`, a lista é só quem clicou em
+**Send test**.
 
 | Campo | Como preencher | Valor                                                                                                                                |
 | ----- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | From  | fx             | `if(variables('varIsTest'), createArray(variables('varActorEmail')), union(body('selRecipientEmails'), body('selRecipientEmails')))` |
 
-| Esquerda (fx)                                                                                                                                                   | Operador    | Direita   |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | --------- |
-| `or(variables('varIsTest'), and(not(equals(item(), variables('varActorEmail'))), or(not(outputs('comIsConfidential')), contains(body('selAllowed'), item()))))` | is equal to | fx `true` |
+| Esquerda (fx)    | Operador    | Direita   |
+| ---------------- | ----------- | --------- |
+| expressão abaixo | is equal to | fx `true` |
+
+```text
+or(variables('varIsTest'), and(or(equals(outputs('comSettings')?['notifyActor'], true), not(equals(item(), variables('varActorEmail')))), or(not(outputs('comIsConfidential')), contains(body('selAllowed'), item()))))
+```
 
 #### 11) Condition `Condition_has_recipients`
 
@@ -591,7 +598,10 @@ Um **Compose** por linha, nesta ordem.
 | -------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `comTone`      | fx                    | `coalesce(triggerBody()?['presentation']?['tone'], 'brand')`                                                                                                                                                                                             |
 | `comToneMap`   | JSON                  | bloco abaixo                                                                                                                                                                                                                                             |
-| `comSubtitle`  | fx                    | `if(variables('varIsTest'), 'Teste do fluxo de notificações', concat(variables('varBidNumber'), ' · ', coalesce(outputs('comBid')?['opportunityInfo']?['client'], '-'), ' · ', coalesce(outputs('comBid')?['opportunityInfo']?['projectName'], '-')))`   |
+| `comProject`   | fx                    | `if(variables('varIsTest'), 'SmartBID', if(empty(coalesce(outputs('comBid')?['opportunityInfo']?['projectName'], '')), '-', outputs('comBid')?['opportunityInfo']?['projectName']))`                                                                     |
+| `comClient`    | fx                    | `if(variables('varIsTest'), 'Teste do fluxo de notificações', if(empty(coalesce(outputs('comBid')?['opportunityInfo']?['client'], '')), '-', outputs('comBid')?['opportunityInfo']?['client']))`                                                         |
+| `comCrm`       | fx                    | `if(empty(coalesce(outputs('comBid')?['crmNumber'], '')), '-', outputs('comBid')?['crmNumber'])`                                                                                                                                                         |
+| `comSubtitle`  | fx                    | `if(variables('varIsTest'), 'Sem BID vinculado', concat('CRM ', outputs('comCrm'), ' · BID ', variables('varBidNumber')))`                                                                                                                               |
 | `comFooter`    | fx                    | `concat('Por ', if(empty(coalesce(triggerBody()?['actor']?['name'], '')), 'SmartBID', triggerBody()?['actor']?['name']), ' · ', convertFromUtc(coalesce(triggerBody()?['occurredAt'], utcNow()), 'E. South America Standard Time', 'dd/MM/yyyy HH:mm'))` |
 | `comDueRaw`    | fx                    | `if(empty(coalesce(outputs('comBid')?['dueDate'], '')), coalesce(outputs('comBid')?['desiredDueDate'], ''), outputs('comBid')?['dueDate'])`                                                                                                              |
 | `comDueLabel`  | fx                    | expressão abaixo                                                                                                                                                                                                                                         |
@@ -616,23 +626,16 @@ Um **Compose** por linha, nesta ordem.
 if(empty(outputs('comDueRaw')), '-', convertFromUtc(if(empty(outputs('comDueRaw')), '2000-01-01T12:00:00Z', if(equals(length(outputs('comDueRaw')), 10), concat(outputs('comDueRaw'), 'T12:00:00Z'), outputs('comDueRaw'))), 'E. South America Standard Time', 'dd/MM/yyyy'))
 ```
 
-`comBidFacts` — os dados do BID que entram no fim de todo card e e-mail:
+Projeto e Cliente são o destaque do card e do e-mail; CRM e número do BID ficam na linha secundária
+(`comSubtitle`). No `TEST`, não há BID: o destaque mostra `SmartBID` e o texto do teste.
+
+`comBidFacts` — os dados do BID que entram no fim de todo card e e-mail (o número do BID por último):
 
 ```json
 [
-  { "title": "BID", "value": "@{variables('varBidNumber')}" },
-  {
-    "title": "Cliente",
-    "value": "@{coalesce(outputs('comBid')?['opportunityInfo']?['client'], '-')}"
-  },
-  {
-    "title": "Projeto",
-    "value": "@{coalesce(outputs('comBid')?['opportunityInfo']?['projectName'], '-')}"
-  },
-  {
-    "title": "CRM",
-    "value": "@{coalesce(outputs('comBid')?['crmNumber'], '-')}"
-  },
+  { "title": "Projeto", "value": "@{outputs('comProject')}" },
+  { "title": "Cliente", "value": "@{outputs('comClient')}" },
+  { "title": "CRM", "value": "@{outputs('comCrm')}" },
   {
     "title": "Divisão / Service Line",
     "value": "@{coalesce(outputs('comBid')?['division'], '-')} / @{coalesce(outputs('comBid')?['serviceLine'], '-')}"
@@ -645,7 +648,8 @@ if(empty(outputs('comDueRaw')), '-', convertFromUtc(if(empty(outputs('comDueRaw'
     "title": "Status",
     "value": "@{coalesce(outputs('comBid')?['currentStatus'], '-')}"
   },
-  { "title": "Prazo", "value": "@{outputs('comDueLabel')}" }
+  { "title": "Prazo", "value": "@{outputs('comDueLabel')}" },
+  { "title": "BID", "value": "@{variables('varBidNumber')}" }
 ]
 ```
 
@@ -660,7 +664,8 @@ if(empty(outputs('comDueRaw')), '-', convertFromUtc(if(empty(outputs('comDueRaw'
 | Inputs | JSON           | conteúdo de [`notifications/card-parts.json`](./notifications/card-parts.json), sem alterar |
 
 O arquivo tem três partes: `shell` (versão e botão **Abrir no SmartBID**), `top` (faixa colorida com
-marca, emoji, título e subtítulo + a frase principal) e `bottom` (rodapé com quem disparou e quando).
+marca, emoji e título do evento, **Projeto** e **Cliente** em destaque, CRM e BID em texto menor + a
+frase principal) e `bottom` (rodapé com quem disparou e quando).
 
 **13.2) Compose `comCard`** — monta o card final: `top`, os fatos e `bottom`. Inputs (fx):
 
@@ -687,7 +692,7 @@ em https://adaptivecards.io/designer (Host app: **Microsoft Teams**).
 | --------------------------------------------------------------------- | ----------- | --------- |
 | `contains(coalesce(triggerBody()?['channels'], json('[]')), 'email')` | is equal to | fx `true` |
 
-- **True:** ações a a d.
+- **True:** ações a a e.
 - **False:** deixe vazio.
 
 a. **Select `selEmailRows`** — uma linha `<tr>` por fato, com o texto escapado.
@@ -713,34 +718,47 @@ c. **Compose `comSafe`** — textos do e-mail com `& < >` escapados. Inputs (JSO
 ```json
 {
   "title": "@{replace(replace(replace(concat(coalesce(triggerBody()?['presentation']?['emoji'], ''), ' ', coalesce(triggerBody()?['presentation']?['title'], 'SmartBID')), '&', '&amp;'), '<', '&lt;'), '>', '&gt;')}",
+  "project": "@{replace(replace(replace(outputs('comProject'), '&', '&amp;'), '<', '&lt;'), '>', '&gt;')}",
+  "client": "@{replace(replace(replace(outputs('comClient'), '&', '&amp;'), '<', '&lt;'), '>', '&gt;')}",
   "subtitle": "@{replace(replace(replace(outputs('comSubtitle'), '&', '&amp;'), '<', '&lt;'), '>', '&gt;')}",
   "headline": "@{replace(replace(replace(coalesce(triggerBody()?['headline'], ''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;')}",
   "footer": "@{replace(replace(replace(outputs('comFooter'), '&', '&amp;'), '<', '&lt;'), '>', '&gt;')}"
 }
 ```
 
-d. **Send an email notification (V3) `Send_email`**
-**Ação:** Mail → **Send an email notification (V3)**. **Nome:** `Send_email`.
+d. **Compose `comEmailHtml`** — o HTML completo do e-mail.
 
-| Campo   | Como preencher | Valor                                                                                                                                                                                                       |
-| ------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| To      | fx             | `join(body('filFinalRecipients'), ';')`                                                                                                                                                                     |
-| Subject | Texto + fx     | `[SmartBID] @{triggerBody()?['presentation']?['title']}@{if(variables('varIsTest'), '', concat(' · ', variables('varBidNumber'), ' · ', coalesce(outputs('comBid')?['opportunityInfo']?['client'], '-')))}` |
-| Body    | Texto + fx     | HTML de [`notifications/email-template.html`](./notifications/email-template.html), colado no modo código (`</>`), com os tokens abaixo                                                                     |
+| Campo  | Como preencher | Valor                                                                                                    |
+| ------ | -------------- | -------------------------------------------------------------------------------------------------------- |
+| Inputs | Texto + fx     | HTML de [`notifications/email-template.html`](./notifications/email-template.html), com os tokens abaixo |
 
-Antes de colar, apague o comentário `<!-- ... -->` do topo do HTML e troque cada token:
+Apague os dois comentários `<!-- ... -->` do topo e troque cada token (cada um aparece uma vez):
 
 | Token                | Substituir por                                            |
 | -------------------- | --------------------------------------------------------- |
 | `[[TONE_COLOR]]`     | `@{outputs('comToneMap')?[outputs('comTone')]?['color']}` |
 | `[[TITLE]]`          | `@{outputs('comSafe')?['title']}`                         |
+| `[[PROJECT]]`        | `@{outputs('comSafe')?['project']}`                       |
+| `[[CLIENT]]`         | `@{outputs('comSafe')?['client']}`                        |
 | `[[SUBTITLE]]`       | `@{outputs('comSafe')?['subtitle']}`                      |
 | `[[HEADLINE]]`       | `@{outputs('comSafe')?['headline']}`                      |
 | `[[FACT_ROWS_HTML]]` | `@{body('joinEmailRows')}`                                |
 | `[[DEEP_LINK]]`      | `@{variables('varDeepLink')}`                             |
 | `[[FOOTER]]`         | `@{outputs('comSafe')?['footer']}`                        |
 
-`[[TONE_COLOR]]` aparece duas vezes no HTML: troque as duas.
+> **Não cole o HTML direto no Body do e-mail.** O editor do Body reescreve tabelas e estilos, e o
+> e-mail chega estreito e desalinhado. No Compose o HTML fica intacto e o Body recebe só a saída.
+
+e. **Send an email notification (V3) `Send_email`**
+**Ação:** Mail → **Send an email notification (V3)**. **Nome:** `Send_email`.
+
+| Campo   | Como preencher | Valor                                                                                                                                                                                      |
+| ------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| To      | fx             | `join(body('filFinalRecipients'), ';')`                                                                                                                                                    |
+| Subject | Texto + fx     | `[SmartBID] @{triggerBody()?['presentation']?['title']}@{if(variables('varIsTest'), '', concat(' · ', outputs('comProject'), ' · ', outputs('comClient'), ' · CRM ', outputs('comCrm')))}` |
+| Body    | fx             | `outputs('comEmailHtml')` — abra o modo código (`</>`), apague todo o conteúdo e insira só esta expressão                                                                                  |
+
+Assunto de exemplo: `[SmartBID] Status alterado · Búzios 10 ROV Support · Petrobras · CRM 123456`.
 
 **14.2) Condition `Condition_send_teams`** — dentro do Scope, abaixo de `Condition_send_email`.
 
@@ -1184,7 +1202,8 @@ Fluxo 1 envia só uma vez.
 | ------------- | ---------------------------------------- | ----------------------------------------------------- |
 | Marca         | Faixa `SMARTBID · OCEANEERING` no topo   | Barra teal `#00c9a7` + cabeçalho navy `#0f1b2d`       |
 | Título        | Emoji + título do evento                 | Emoji + título do evento                              |
-| Subtítulo     | `BID · Cliente · Projeto`                | `BID · Cliente · Projeto`                             |
+| Destaque      | **Projeto** (grande) + **Cliente**       | **Projeto** (grande) + **Cliente**                    |
+| Subtítulo     | `CRM {crm} · BID {número}` (menor)       | `CRM {crm} · BID {número}` (menor)                    |
 | Cor do evento | Estilo do container (`comToneMap.card`)  | Barra lateral da frase principal (`comToneMap.color`) |
 | Detalhes      | FactSet: fatos do evento + dados do BID  | Tabela "Detalhes": fatos do evento + dados do BID     |
 | Ação          | Botão **Abrir no SmartBID**              | Botão teal `#0d9488` **Abrir no SmartBID**            |
@@ -1235,18 +1254,20 @@ Fluxo 1 envia só uma vez.
 
 ## 9. Solução de problemas
 
-| Sintoma                                                      | Causa provável / ação                                                                                                                                                |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Só existem o gatilho e **Terminar**; nada chega ao Teams     | Faltam as ações de envio. Monte a seção 3 completa ou use o teste temporário da seção 2.3.1. Confira o Status do Terminar: **Failed** encerra a execução como falha. |
-| App mostra requisição aceita, mas nada chega                 | Aceite HTTP não é confirmação de entrega. Abra o histórico do fluxo, confira as ações de envio e o log `TEST`; o fluxo pode ter falhado depois do aceite.            |
-| **Send test** mostra "Test failed" e o console cita **CORS** | **Verificar** se o ambiente permite chamada do navegador. Confirme que a URL é a do gatilho e que **Who can trigger** é **Anyone**.                                  |
-| Toda execução termina `Cancelled` em `Condition_duplicate`   | `Create_log` está falhando por outro motivo (coluna com nome errado, permissão). Abra `Create_log` no histórico e veja o erro.                                       |
-| Execução `Succeeded`, log `Skipped`                          | Evento desligado, regra ainda não salva (salve a página Notifications uma vez) ou BID não encontrado.                                                                |
-| Log `Skipped` com "Nenhum destinatário"                      | Nenhum membro ativo atende à regra. Confira time, BID Role e Business Line do membro em Members Management, e lembre que quem disparou não recebe.                   |
-| `Post_card_recipient` falha para uma pessoa                  | Usuário sem Teams ou e-mail diferente do UPN. Corrija o e-mail em Members Management.                                                                                |
-| `Send_email` falha com 429                                   | Limite do Mail V3 (5 e-mails a cada 5 minutos, 100 por dia). Aguarde; se for frequente, troque por Office 365 Outlook → **Send an email (V2)** com os mesmos campos. |
-| Card não aparece / erro "invalid adaptive card"              | `comCardParts` colado com alteração, ou `Adaptive Card` sem `string(...)`. Cole o arquivo de novo e use `string(outputs('comCard'))`.                                |
-| Prazo aparece um dia antes                                   | `comDueLabel` / `comDueDay` sem a regra de data curta (`T12:00:00Z`). Cole a expressão inteira de novo.                                                              |
+| Sintoma                                                      | Causa provável / ação                                                                                                                                                                 |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Só existem o gatilho e **Terminar**; nada chega ao Teams     | Faltam as ações de envio. Monte a seção 3 completa ou use o teste temporário da seção 2.3.1. Confira o Status do Terminar: **Failed** encerra a execução como falha.                  |
+| Execução **Failed**, todas as ações verdes e log `Sent`      | Há um **Terminate** abaixo de `Condition_delivery_failed`, fora dela (sobra do fluxo mínimo), que roda sempre. Apague-o; só o `Terminate_failed` no ramo **True** fica.               |
+| App mostra requisição aceita, mas nada chega                 | Aceite HTTP não é confirmação de entrega. Abra o histórico do fluxo, confira as ações de envio e o log `TEST`; o fluxo pode ter falhado depois do aceite.                             |
+| **Send test** mostra "Test failed" e o console cita **CORS** | **Verificar** se o ambiente permite chamada do navegador. Confirme que a URL é a do gatilho e que **Who can trigger** é **Anyone**.                                                   |
+| Toda execução termina `Cancelled` em `Condition_duplicate`   | `Create_log` está falhando por outro motivo (coluna com nome errado, permissão). Abra `Create_log` no histórico e veja o erro.                                                        |
+| Execução `Succeeded`, log `Skipped`                          | Evento desligado, regra ainda não salva (salve a página Notifications uma vez) ou BID não encontrado.                                                                                 |
+| Log `Skipped` com "Nenhum destinatário"                      | Nenhum membro ativo atende à regra. Confira time, BID Role e Business Line do membro em Members Management, e lembre que quem disparou só recebe com **Notify who triggered** ligado. |
+| `Post_card_recipient` falha para uma pessoa                  | Usuário sem Teams ou e-mail diferente do UPN. Corrija o e-mail em Members Management.                                                                                                 |
+| `Send_email` falha com 429                                   | Limite do Mail V3 (5 e-mails a cada 5 minutos, 100 por dia). Aguarde; se for frequente, troque por Office 365 Outlook → **Send an email (V2)** com os mesmos campos.                  |
+| E-mail estreito, desalinhado ou botão fora do cartão         | HTML colado direto no Body: o editor reescreve tabelas. Cole o template no `comEmailHtml` (14.1 d) e deixe no Body só `outputs('comEmailHtml')`.                                      |
+| Card não aparece / erro "invalid adaptive card"              | `comCardParts` colado com alteração, ou `Adaptive Card` sem `string(...)`. Cole o arquivo de novo e use `string(outputs('comCard'))`.                                                 |
+| Prazo aparece um dia antes                                   | `comDueLabel` / `comDueDay` sem a regra de data curta (`T12:00:00Z`). Cole a expressão inteira de novo.                                                                               |
 
 ## 10. SPFx — onde o app dispara
 
@@ -1258,7 +1279,7 @@ Fluxo 1 envia só uma vez.
 | Envio (POST)                  | `services/NotificationDispatchService.ts`; não envia sem URL válida ou com o evento desligado; erro só no console                   |
 | Catálogo de eventos e padrões | `config/notifications.config.ts`                                                                                                    |
 | Página Notifications          | `components/settings/NotificationMatrix.tsx`                                                                                        |
-| Regras salvas                 | `SYSTEM_CONFIG` → `notifications` (`flowUrl`, `filterByBusinessLine`, `deadlineWarningDays`, `rules`)                               |
+| Regras salvas                 | `SYSTEM_CONFIG` → `notifications` (`flowUrl`, `filterByBusinessLine`, `notifyActor`, `deadlineWarningDays`, `rules`)                |
 
 O app grava também a coluna `Status` da `smartbid-tracker` a cada alteração do BID, usada no filtro do
 Deadline Monitor.

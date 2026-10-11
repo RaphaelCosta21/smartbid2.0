@@ -20,6 +20,13 @@
         {
           "type": "TextBlock",
           "text": "✅ SmartBID concluído",
+          "weight": "Bolder",
+          "wrap": true,
+          "spacing": "Small"
+        },
+        {
+          "type": "TextBlock",
+          "text": "Búzios 10 ROV Support",
           "size": "Large",
           "weight": "Bolder",
           "wrap": true,
@@ -27,10 +34,19 @@
         },
         {
           "type": "TextBlock",
-          "text": "REQ-2026-0010 · Petrobras · Búzios 10 ROV Support",
-          "isSubtle": true,
+          "text": "Petrobras",
+          "size": "Medium",
+          "weight": "Bolder",
           "wrap": true,
           "spacing": "None"
+        },
+        {
+          "type": "TextBlock",
+          "text": "CRM CRM-123456 · BID REQ-2026-0010",
+          "size": "Small",
+          "isSubtle": true,
+          "wrap": true,
+          "spacing": "Small"
         }
       ]
     },
@@ -47,14 +63,14 @@
       "facts": [
         { "title": "Concluído em", "value": "09/10/2026" },
         { "title": "Concluído por", "value": "Raphael Costa" },
-        { "title": "BID", "value": "REQ-2026-0010" },
-        { "title": "Cliente", "value": "Petrobras" },
         { "title": "Projeto", "value": "Búzios 10 ROV Support" },
+        { "title": "Cliente", "value": "Petrobras" },
         { "title": "CRM", "value": "CRM-123456" },
         { "title": "Divisão / Service Line", "value": "SSR / ROV" },
         { "title": "Fase", "value": "Close Out" },
         { "title": "Status", "value": "Completed" },
-        { "title": "Prazo", "value": "15/10/2026" }
+        { "title": "Prazo", "value": "15/10/2026" },
+        { "title": "BID", "value": "REQ-2026-0010" }
       ]
     },
     {

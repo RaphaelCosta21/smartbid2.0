@@ -12,13 +12,29 @@
           "type": "TextBlock",
           "text": "🚀 Fluxo de Aprovação Iniciado",
           "weight": "Bolder",
-          "size": "Large",
           "wrap": true
         },
         {
           "type": "TextBlock",
-          "text": "[[BID_NUMBER]] · [[CLIENT]] · [[PROJECT_NAME]]",
+          "text": "[[PROJECT_NAME]]",
+          "weight": "Bolder",
+          "size": "Large",
+          "spacing": "Small",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "[[CLIENT]]",
+          "weight": "Bolder",
+          "size": "Medium",
           "spacing": "None",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "CRM [[CRM_NUMBER]] · BID [[BID_NUMBER]]",
+          "size": "Small",
+          "spacing": "Small",
           "isSubtle": true,
           "wrap": true
         }
@@ -32,14 +48,14 @@
     {
       "type": "FactSet",
       "facts": [
-        { "title": "BID", "value": "[[BID_NUMBER]]" },
-        { "title": "CRM", "value": "[[CRM_NUMBER]]" },
-        { "title": "Cliente", "value": "[[CLIENT]]" },
         { "title": "Projeto", "value": "[[PROJECT_NAME]]" },
+        { "title": "Cliente", "value": "[[CLIENT]]" },
+        { "title": "CRM", "value": "[[CRM_NUMBER]]" },
         { "title": "Divisão", "value": "[[DIVISION]]" },
         { "title": "Service Line", "value": "[[SERVICE_LINE]]" },
         { "title": "Solicitado por", "value": "[[REQUESTED_BY]]" },
-        { "title": "Aprovadores", "value": "[[TOTAL_COUNT]]" }
+        { "title": "Aprovadores", "value": "[[TOTAL_COUNT]]" },
+        { "title": "BID", "value": "[[BID_NUMBER]]" }
       ]
     },
     {

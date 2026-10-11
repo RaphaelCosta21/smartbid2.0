@@ -13,12 +13,27 @@
             {
               "type": "TextBlock",
               "text": "📊 Status da Aprovação",
-              "weight": "Bolder",
-              "size": "Large"
+              "weight": "Bolder"
             },
             {
               "type": "TextBlock",
-              "text": "[[BID_NUMBER]] · [[CLIENT]]",
+              "text": "[[PROJECT_NAME]]",
+              "weight": "Bolder",
+              "size": "Large",
+              "spacing": "Small",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "[[CLIENT]]",
+              "weight": "Bolder",
+              "spacing": "None",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "CRM [[CRM_NUMBER]] · BID [[BID_NUMBER]]",
+              "size": "Small",
               "isSubtle": true,
               "spacing": "None",
               "wrap": true

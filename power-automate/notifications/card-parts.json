@@ -30,6 +30,13 @@
         {
           "type": "TextBlock",
           "text": "@{triggerBody()?['presentation']?['emoji']} @{triggerBody()?['presentation']?['title']}",
+          "weight": "Bolder",
+          "wrap": true,
+          "spacing": "Small"
+        },
+        {
+          "type": "TextBlock",
+          "text": "@{outputs('comProject')}",
           "size": "Large",
           "weight": "Bolder",
           "wrap": true,
@@ -37,10 +44,19 @@
         },
         {
           "type": "TextBlock",
-          "text": "@{outputs('comSubtitle')}",
-          "isSubtle": true,
+          "text": "@{outputs('comClient')}",
+          "size": "Medium",
+          "weight": "Bolder",
           "wrap": true,
           "spacing": "None"
+        },
+        {
+          "type": "TextBlock",
+          "text": "@{outputs('comSubtitle')}",
+          "size": "Small",
+          "isSubtle": true,
+          "wrap": true,
+          "spacing": "Small"
         }
       ]
     },

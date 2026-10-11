@@ -18,8 +18,26 @@
         },
         {
           "type": "TextBlock",
-          "text": "[[BID_NUMBER]] · [[CLIENT]] · [[PROJECT_NAME]]",
+          "text": "[[PROJECT_NAME]]",
           "horizontalAlignment": "Center",
+          "weight": "Bolder",
+          "size": "Large",
+          "spacing": "Small",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "[[CLIENT]]",
+          "horizontalAlignment": "Center",
+          "weight": "Bolder",
+          "spacing": "None",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "CRM [[CRM_NUMBER]] · BID [[BID_NUMBER]]",
+          "horizontalAlignment": "Center",
+          "size": "Small",
           "isSubtle": true,
           "spacing": "None",
           "wrap": true
@@ -34,7 +52,6 @@
     {
       "type": "FactSet",
       "facts": [
-        { "title": "Projeto", "value": "[[PROJECT_NAME]]" },
         { "title": "Total de aprovadores", "value": "[[TOTAL_COUNT]]" },
         { "title": "Concluído em", "value": "[[COMPLETED_AT]]" },
         { "title": "Duração total", "value": "[[DURATION]]" }

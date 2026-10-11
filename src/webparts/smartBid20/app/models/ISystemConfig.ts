@@ -107,6 +107,8 @@ export interface INotificationEventRule {
 export interface INotificationSettings {
   flowUrl: string;
   filterByBusinessLine: boolean;
+  /** When false, the person who triggered the event never receives it. */
+  notifyActor: boolean;
   deadlineWarningDays: number;
   rules: Record<NotificationEventKey, INotificationEventRule>;
 }

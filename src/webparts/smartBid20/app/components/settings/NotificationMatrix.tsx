@@ -252,13 +252,14 @@ export const NotificationLegend: React.FC = () => (
 type DeliveryPatch = Partial<
   Pick<
     INotificationSettings,
-    "flowUrl" | "filterByBusinessLine" | "deadlineWarningDays"
+    "flowUrl" | "filterByBusinessLine" | "notifyActor" | "deadlineWarningDays"
   >
 >;
 
 interface NotificationDeliveryCardProps {
   flowUrl: string;
   filterByBusinessLine: boolean;
+  notifyActor: boolean;
   deadlineWarningDays: number;
   readOnly: boolean;
   testing: boolean;
@@ -271,6 +272,7 @@ export const NotificationDeliveryCard: React.FC<
 > = ({
   flowUrl,
   filterByBusinessLine,
+  notifyActor,
   deadlineWarningDays,
   readOnly,
   testing,
@@ -366,6 +368,27 @@ export const NotificationDeliveryCard: React.FC<
             Whole team and BID role audiences only include members of the BID
             Business Line (ROV, SURVEY, OPG). Members without a Business Line
             and Key People always receive.
+          </span>
+        </div>
+
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>
+            <UserCheck size={12} />
+            Notify who triggered
+          </span>
+          <div className={styles.switchRow}>
+            <Switch
+              checked={notifyActor}
+              disabled={readOnly}
+              label="Send the notification to the person who triggered the event"
+              onChange={(checked) => onChange({ notifyActor: checked })}
+            />
+            <span>{notifyActor ? "On" : "Off"}</span>
+          </div>
+          <span className={styles.fieldHint}>
+            {notifyActor
+              ? "The person who triggered the event also receives it, when the event rules include them."
+              : "The person who triggered the event never receives their own notification."}
           </span>
         </div>
 
