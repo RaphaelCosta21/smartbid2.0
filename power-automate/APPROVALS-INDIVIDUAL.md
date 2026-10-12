@@ -1897,18 +1897,29 @@ Se desejar o PDF da aprovação (§7), ele entra no ramo True, abaixo de `Post_n
 
 ## 4. Fluxo de lembrete diário — `SmartBid – Approval Reminders`
 
-Um lembrete **por dia e por rodada**, no **chat em grupo**, mencionando **somente** quem ainda não
-respondeu. Crie um **Scheduled cloud flow** separado.
+Um lembrete **por dia e por rodada, somente de segunda a sexta**, às **9 h de Brasília**, no
+**chat em grupo**, mencionando **somente** quem ainda não respondeu. Crie um **Scheduled cloud flow**
+separado. Não há envio agendado aos sábados e domingos; feriados de segunda a sexta continuam incluídos.
 
 **1) Recurrence** — o gatilho.
 
 | Campo                                  | Como preencher | Valor                                                     |
 | -------------------------------------- | -------------- | --------------------------------------------------------- |
 | Interval                               | Texto          | `1`                                                       |
-| Frequency                              | Lista          | **Day**                                                   |
+| Frequency                              | Lista          | **Week**                                                  |
 | Time zone (Advanced parameters)        | Lista          | **(UTC-03:00) Brasilia** (E. South America Standard Time) |
+| On these days (Advanced parameters)    | Lista          | **Monday, Tuesday, Wednesday, Thursday, Friday**          |
 | At these hours (Advanced parameters)   | Lista          | `9`                                                       |
 | At these minutes (Advanced parameters) | Texto          | `0`                                                       |
+
+**Fluxo já criado:** abra `SmartBid – Approval Reminders` → **Edit** → **Recurrence**. Troque
+**Frequency** de **Day** para **Week**, mantenha **Interval = 1** e selecione apenas os cinco dias
+acima em **On these days** (não selecione **Saturday** nem **Sunday**). Confira o fuso e o horário e
+clique em **Save**. Não é necessário alterar as ações seguintes nem recriar o chat.
+
+**Week + os cinco dias selecionados** executa uma vez em cada um desses dias, não apenas uma vez por
+semana. As pendências que continuarem abertas no fim de semana serão verificadas na segunda-feira
+às 9 h, mantendo as condições de idade da rodada e de último lembrete do passo 4.1.
 
 **2) Initialize variable** — Name `varMentions`, Type **Array**, Value (fx) `json('[]')`.
 
@@ -2182,10 +2193,14 @@ Ainda não tratado no app:
    outros ramos encerram em até 24 h, sem card/e-mail de sucesso.
 10. Todos aprovam → BID `Completed` / `Close Out`, Status card `✅ Concluído`, card final no chat e um
     único **SmartBID Completed** (card + e-mail) pelo fluxo de notificações.
-11. Pendentes há mais de 20 h → **um** lembrete por dia no grupo, mencionando só quem falta.
+11. Pendentes há mais de 20 h → **um** lembrete por dia, de segunda a sexta às 9 h de Brasília,
+    no mesmo grupo da rodada, mencionando só quem falta.
 12. Override durante a espera → nenhuma escrita depois do override, nenhuma mensagem de sucesso.
 13. Comentário com aspas, acentos, quebras de linha e `<script>` → gravado como texto, sem executar.
 14. Usuário editando o BID no SmartBid enquanto alguém aprova → nenhuma das duas alterações se perde.
+15. Rodada pendente durante sábado e domingo → nenhuma execução agendada nem lembrete nesses dias.
+16. Pendência continua aberta após o fim de semana → lembrete na segunda-feira às 9 h de Brasília,
+    se as condições do passo 4.1 forem atendidas; quem respondeu no fim de semana não é mencionado.
 
 ---
 
