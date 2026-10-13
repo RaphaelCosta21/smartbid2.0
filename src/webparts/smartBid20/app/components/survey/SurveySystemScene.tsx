@@ -100,9 +100,14 @@ const SWATCHES: Record<SurveyLinkKind, string> = {
   timing: styles.swatchTiming,
 };
 
-const zoneForAnchor = (zones: SceneZone[], anchor: SurveySceneAnchor): SceneZone | undefined =>
+const zoneForAnchor = (
+  zones: SceneZone[],
+  anchor: SurveySceneAnchor,
+): SceneZone | undefined =>
   zones.find((z) => z.anchor === anchor) ||
-  (ANCHOR_FALLBACK[anchor] ? zones.find((z) => z.anchor === ANCHOR_FALLBACK[anchor]) : undefined);
+  (ANCHOR_FALLBACK[anchor]
+    ? zones.find((z) => z.anchor === ANCHOR_FALLBACK[anchor])
+    : undefined);
 
 const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   const {
@@ -170,7 +175,9 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
       onInteract: () => latest.current.onInteract(),
     });
     apiRef.current = api;
-    Object.keys(labelEls.current).forEach((k) => api.setLabel(k, labelEls.current[k]));
+    Object.keys(labelEls.current).forEach((k) =>
+      api.setLabel(k, labelEls.current[k]),
+    );
     api.setViewInset(latest.current.topInset);
     api.setZones(latest.current.zones);
     api.setTrunks(latest.current.trunks);
@@ -216,7 +223,9 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     );
   }
 
-  const activeZone = focus ? zones.find((z) => z.id === focus.zoneId) : undefined;
+  const activeZone = focus
+    ? zones.find((z) => z.id === focus.zoneId)
+    : undefined;
   const clusters: { key: string; count: number }[] = [];
   if (focus) {
     focus.nodes.forEach((n) => {
@@ -235,19 +244,26 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     nodeStates.selectedNodeId === id ||
     nodeStates.traceNodeIds.indexOf(id) >= 0;
   // Overview arcs are monochrome, so the colour legend only applies inside a room.
-  const legendKinds = focus && linesOn
-    ? LINK_KINDS.filter((k) => focus.links.some((l) => l.kind === k))
-    : [];
+  const legendKinds =
+    focus && linesOn
+      ? LINK_KINDS.filter((k) => focus.links.some((l) => l.kind === k))
+      : [];
 
   return (
     <div
       className={styles.root}
-      style={{ ["--scene-top" as string]: `${topInset}px` } as React.CSSProperties}
+      style={
+        { ["--scene-top" as string]: `${topInset}px` } as React.CSSProperties
+      }
     >
       <div ref={hostRef} className={styles.canvasHost} />
       <div className={styles.labels}>
         {zones.map((zone) => (
-          <div key={zone.id} ref={registerLabel(`zone:${zone.id}`)} className={styles.anchor}>
+          <div
+            key={zone.id}
+            ref={registerLabel(`zone:${zone.id}`)}
+            className={styles.anchor}
+          >
             <button
               className={`${styles.zoneLabel} ${STEM_TIERS[zone.anchor] || ""} ${
                 hotZoneId === zone.id ? styles.zoneHot : ""
@@ -263,8 +279,14 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
 
         {focus &&
           clusters.map((c, i) => (
-            <div key={c.key} ref={registerLabel(`cluster:${c.key}`)} className={styles.anchor}>
-              <span className={`${styles.clusterLabel} ${i % 2 ? styles.clusterAlt : ""}`}>
+            <div
+              key={c.key}
+              ref={registerLabel(`cluster:${c.key}`)}
+              className={styles.anchor}
+            >
+              <span
+                className={`${styles.clusterLabel} ${i % 2 ? styles.clusterAlt : ""}`}
+              >
                 {focus.clusterTitles[c.key] || c.key} · {c.count}
               </span>
             </div>
@@ -274,7 +296,11 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
           focus.nodes
             .filter((n) => nodeLabelVisible(n.id, n.role === "portal"))
             .map((n) => (
-              <div key={n.id} ref={registerLabel(`node:${n.id}`)} className={styles.anchor}>
+              <div
+                key={n.id}
+                ref={registerLabel(`node:${n.id}`)}
+                className={styles.anchor}
+              >
                 <button
                   className={`${styles.nodeLabel} ${compact ? styles.nodeCompact : ""} ${
                     n.role === "portal" ? styles.nodePortal : ""
@@ -290,11 +316,17 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
                   }
                   onClick={() => onNodeSelect(n.id)}
                 >
-                  {n.role === "portal" && <ArrowUpRight size={10} className={styles.portalArrow} />}
+                  {n.role === "portal" && (
+                    <ArrowUpRight size={10} className={styles.portalArrow} />
+                  )}
                   {n.label}
-                  {n.vesselSupplied && <span className={styles.nodeTag}>VESSEL</span>}
+                  {n.vesselSupplied && (
+                    <span className={styles.nodeTag}>VESSEL</span>
+                  )}
                   {n.role === "catalog" && (
-                    <span className={styles.nodeTag}>{n.bidState === "in" ? "IN BID" : "CATALOG"}</span>
+                    <span className={styles.nodeTag}>
+                      {n.bidState === "in" ? "IN BID" : "CATALOG"}
+                    </span>
                   )}
                 </button>
               </div>
@@ -303,7 +335,10 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
 
       {focus && (
         <div className={styles.breadcrumb}>
-          <button className={styles.crumbBack} onClick={() => onZoneSelect(null)}>
+          <button
+            className={styles.crumbBack}
+            onClick={() => onZoneSelect(null)}
+          >
             <ArrowLeft size={11} /> Overview
           </button>
           <span>{spreadTitle}</span>
@@ -337,7 +372,11 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
                 STEP {tour.step + 1}/{tour.total}
               </span>
               <strong>{tour.title}</strong>
-              <button className={styles.tourIcon} onClick={onTourStop} aria-label="Stop tour">
+              <button
+                className={styles.tourIcon}
+                onClick={onTourStop}
+                aria-label="Stop tour"
+              >
                 <X size={12} />
               </button>
             </div>
@@ -347,7 +386,8 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
                 <ChevronLeft size={12} /> Back
               </button>
               <button onClick={() => onTourStep(1)}>
-                {tour.step + 1 === tour.total ? "Finish" : "Next"} <ChevronRight size={12} />
+                {tour.step + 1 === tour.total ? "Finish" : "Next"}{" "}
+                <ChevronRight size={12} />
               </button>
             </div>
           </div>
@@ -360,14 +400,19 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
               <React.Fragment key={step.id}>
                 {i > 0 && (
                   <span className={styles.traceHop}>
-                    {step.cable && <span className={styles.traceCable}>{step.cable}</span>}
+                    {step.cable && (
+                      <span className={styles.traceCable}>{step.cable}</span>
+                    )}
                     <ChevronRight size={10} className={styles.traceArrow} />
                   </span>
                 )}
                 {step.logical ? (
                   <span className={styles.traceLogical}>{step.label}</span>
                 ) : (
-                  <button className={styles.traceChip} onClick={() => onNodeSelect(step.id)}>
+                  <button
+                    className={styles.traceChip}
+                    onClick={() => onNodeSelect(step.id)}
+                  >
                     {step.label}
                   </button>
                 )}
@@ -379,7 +424,9 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
         {cableInfo && linesOn && (
           <div className={styles.cableInfo} role="status">
             <Cable size={12} className={styles.cableIcon} />
-            <span className={`${styles.legendSwatch} ${SWATCHES[cableInfo.kind]}`} />
+            <span
+              className={`${styles.legendSwatch} ${SWATCHES[cableInfo.kind]}`}
+            />
             <strong>{cableInfo.title}</strong>
             <span className={styles.cableDetail}>{cableInfo.detail}</span>
           </div>
@@ -397,28 +444,51 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
         )}
       </div>
 
-      <div className={styles.hint} tabIndex={0} aria-label="Navigation controls">
+      <div
+        className={styles.hint}
+        tabIndex={0}
+        aria-label="Navigation controls"
+      >
         <span className={styles.hintTip}>
           <Keyboard size={12} /> Hold <kbd>Space</kbd> + drag to move
         </span>
         <dl className={styles.hintList}>
-          <dt><kbd>Drag</kbd></dt>
+          <dt>
+            <kbd>Drag</kbd>
+          </dt>
           <dd>Orbit</dd>
-          <dt><kbd>Space</kbd> + <kbd>Drag</kbd> / right-drag</dt>
+          <dt>
+            <kbd>Space</kbd> + <kbd>Drag</kbd> / right-drag
+          </dt>
           <dd>Move</dd>
-          <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows</dt>
+          <dt>
+            <kbd>W</kbd>
+            <kbd>A</kbd>
+            <kbd>S</kbd>
+            <kbd>D</kbd> / arrows
+          </dt>
           <dd>Glide</dd>
-          <dt><kbd>Q</kbd> / <kbd>E</kbd></dt>
+          <dt>
+            <kbd>Q</kbd> / <kbd>E</kbd>
+          </dt>
           <dd>Down / up</dd>
-          <dt><kbd>Shift</kbd></dt>
+          <dt>
+            <kbd>Shift</kbd>
+          </dt>
           <dd>Faster</dd>
-          <dt><kbd>Scroll</kbd></dt>
+          <dt>
+            <kbd>Scroll</kbd>
+          </dt>
           <dd>Zoom</dd>
-          <dt><kbd>R</kbd></dt>
+          <dt>
+            <kbd>R</kbd>
+          </dt>
           <dd>Reset view</dd>
           {focus && (
             <>
-              <dt><kbd>Esc</kbd></dt>
+              <dt>
+                <kbd>Esc</kbd>
+              </dt>
               <dd>Back to overview</dd>
             </>
           )}

@@ -159,7 +159,7 @@ export const PresentationItemCard: React.FC<PresentationItemCardProps> = ({
         {extrasOnly && (
           <div className={styles.warning}>
             This value is for <strong>services or sub-items</strong>, not the
-              equipment - the equipment itself is listed as{" "}
+            equipment - the equipment itself is listed as{" "}
             <strong>{item.acquisition}</strong>.
           </div>
         )}

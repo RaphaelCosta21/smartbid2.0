@@ -34,7 +34,12 @@ import {
   useSurveyBidComparison,
   useSurveyBidIntel,
 } from "../hooks/useSurveyPortal";
-import { ISurveyEquipment, ISurveySpreadZone, SurveyLinkKind, SurveySceneAnchor } from "../models";
+import {
+  ISurveyEquipment,
+  ISurveySpreadZone,
+  SurveyLinkKind,
+  SurveySceneAnchor,
+} from "../models";
 import {
   IDataLineage,
   ISpreadLinkRef,
@@ -87,7 +92,12 @@ const dominantKind = (links: ISpreadLinkRef[]): SurveyLinkKind => {
 
 const SEARCH_HITS_MAX = 8;
 /** Logical stages appended to the 3D signal path after the wiring hops. */
-const TRACE_LOGICAL_STAGES: LineageStageKey[] = ["acquisition", "storage", "processing", "deliverable"];
+const TRACE_LOGICAL_STAGES: LineageStageKey[] = [
+  "acquisition",
+  "storage",
+  "processing",
+  "deliverable",
+];
 const FINAL_DELIVERABLE_ID = "dlv-final";
 
 export const SurveySystemPage: React.FC = () => {
@@ -111,7 +121,9 @@ export const SurveySystemPage: React.FC = () => {
   const [addingId, setAddingId] = React.useState<string | null>(null);
   const [packageOpen, setPackageOpen] = React.useState(false);
   const [activeZoneId, setActiveZoneId] = React.useState<string | null>(null);
-  const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(
+    null,
+  );
   const [hoverNodeId, setHoverNodeId] = React.useState<string | null>(null);
   const [hoverCableKey, setHoverCableKey] = React.useState<string | null>(null);
   const [tourStep, setTourStep] = React.useState<number | null>(null);
@@ -164,7 +176,8 @@ export const SurveySystemPage: React.FC = () => {
   const catalogByZone = React.useMemo(() => {
     const result: Record<string, string[]> = {};
     nodes.forEach((n) => {
-      if (n.source === "catalog") (result[n.zoneId] || (result[n.zoneId] = [])).push(n.equipmentId);
+      if (n.source === "catalog")
+        (result[n.zoneId] || (result[n.zoneId] = [])).push(n.equipmentId);
     });
     return result;
   }, [nodes]);
@@ -188,7 +201,9 @@ export const SurveySystemPage: React.FC = () => {
       rooms.map((z) => {
         // Vessel-supplied lines are not priced, so they never count against the BID.
         const priced = z.lines.filter((l) => !l.vesselSupplied);
-        const inBid = considered ? priced.filter((l) => considered[l.equipmentId]).length : 0;
+        const inBid = considered
+          ? priced.filter((l) => considered[l.equipmentId]).length
+          : 0;
         return {
           id: z.id,
           title: z.title,
@@ -219,12 +234,21 @@ export const SurveySystemPage: React.FC = () => {
       const hits: { eq: ISurveyEquipment; score: number }[] = [];
       catalog.equipment.forEach((eq) => {
         const title = eq.title.toLowerCase();
-        const haystack = [title, eq.technology, eq.partNumber, eq.manufacturer, eq.model]
+        const haystack = [
+          title,
+          eq.technology,
+          eq.partNumber,
+          eq.manufacturer,
+          eq.model,
+        ]
           .concat(eq.aliases || [])
           .join(" ")
           .toLowerCase();
         if (haystack.indexOf(q) < 0) return;
-        hits.push({ eq, score: title.indexOf(q) === 0 ? 0 : title.indexOf(q) > 0 ? 1 : 2 });
+        hits.push({
+          eq,
+          score: title.indexOf(q) === 0 ? 0 : title.indexOf(q) > 0 ? 1 : 2,
+        });
       });
       return hits
         .sort((a, b) => a.score - b.score)
@@ -242,12 +266,21 @@ export const SurveySystemPage: React.FC = () => {
       const eq = catalog.equipment.find((e) => e.id === n.equipmentId);
       if (!eq) return;
       const title = n.label.toLowerCase();
-      const haystack = [title, eq.technology, eq.partNumber, eq.manufacturer, eq.model]
+      const haystack = [
+        title,
+        eq.technology,
+        eq.partNumber,
+        eq.manufacturer,
+        eq.model,
+      ]
         .concat(eq.aliases)
         .join(" ")
         .toLowerCase();
       if (haystack.indexOf(q) < 0) return;
-      scored.push({ node: n, score: title.indexOf(q) === 0 ? 0 : title.indexOf(q) > 0 ? 1 : 2 });
+      scored.push({
+        node: n,
+        score: title.indexOf(q) === 0 ? 0 : title.indexOf(q) > 0 ? 1 : 2,
+      });
     });
     return scored
       .sort((a, b) => a.score - b.score)
@@ -317,7 +350,11 @@ export const SurveySystemPage: React.FC = () => {
         };
       });
     const rank = (n: SceneNode): number =>
-      n.role === "catalog" ? 999 : familyOrder[n.cluster] !== undefined ? familyOrder[n.cluster] : 998;
+      n.role === "catalog"
+        ? 999
+        : familyOrder[n.cluster] !== undefined
+          ? familyOrder[n.cluster]
+          : 998;
     sceneNodes.sort((a, b) => rank(a) - rank(b));
 
     // Cables leaving the room end on a portal node that stands for the other room.
@@ -327,11 +364,19 @@ export const SurveySystemPage: React.FC = () => {
       const fromIn = !!inZone[l.from];
       const toIn = !!inZone[l.to];
       if (fromIn && toIn) {
-        sceneLinks.push({ key: l.key, from: l.from, to: l.to, kind: l.kind, cable: l.cable });
+        sceneLinks.push({
+          key: l.key,
+          from: l.from,
+          to: l.to,
+          kind: l.kind,
+          cable: l.cable,
+        });
         return;
       }
       if (!fromIn && !toIn) return;
-      const other = rooms.find((z) => z.id === nodeById[fromIn ? l.to : l.from]?.zoneId);
+      const other = rooms.find(
+        (z) => z.id === nodeById[fromIn ? l.to : l.from]?.zoneId,
+      );
       if (!other) return;
       const portalId = `${PORTAL_PREFIX}${other.id}`;
       if (!portals.some((p) => p.id === portalId)) {
@@ -379,10 +424,15 @@ export const SurveySystemPage: React.FC = () => {
   const pipeline = React.useMemo(() => spread?.pipeline || [], [spread]);
   const lineageOf = React.useCallback(
     (nodeId: string | null | undefined): IDataLineage | null =>
-      nodeId ? traceDataLineage(nodeId, nodes, links, equipmentById, pipeline) : null,
+      nodeId
+        ? traceDataLineage(nodeId, nodes, links, equipmentById, pipeline)
+        : null,
     [nodes, links, equipmentById, pipeline],
   );
-  const nodeLineage = React.useMemo(() => lineageOf(selectedNodeId), [lineageOf, selectedNodeId]);
+  const nodeLineage = React.useMemo(
+    () => lineageOf(selectedNodeId),
+    [lineageOf, selectedNodeId],
+  );
 
   const trace = React.useMemo(
     () =>
@@ -400,7 +450,14 @@ export const SurveySystemPage: React.FC = () => {
   // Free composition: blank vessel that fills up as equipment is added to the package.
   const freeScene = React.useMemo(
     () =>
-      isFree ? buildFreeScene(locationSpread, catalog, packageEquipmentIds, activeZoneId) : null,
+      isFree
+        ? buildFreeScene(
+            locationSpread,
+            catalog,
+            packageEquipmentIds,
+            activeZoneId,
+          )
+        : null,
     [isFree, locationSpread, catalog, packageEquipmentIds, activeZoneId],
   );
   const activeZones = isFree && freeScene ? freeScene.zones : sceneZones;
@@ -412,7 +469,8 @@ export const SurveySystemPage: React.FC = () => {
     if (trace && activeZoneId) {
       trace.nodeIds.forEach((id) => {
         const zoneId = nodeById[id]?.zoneId;
-        if (zoneId && zoneId !== activeZoneId) traceNodeIds.push(`${PORTAL_PREFIX}${zoneId}`);
+        if (zoneId && zoneId !== activeZoneId)
+          traceNodeIds.push(`${PORTAL_PREFIX}${zoneId}`);
       });
     }
     const hoverLinkKeys =
@@ -429,7 +487,15 @@ export const SurveySystemPage: React.FC = () => {
       traceLinkKeys: trace ? trace.linkKeys : [],
       hoverLinkKeys,
     };
-  }, [selectedNodeId, hoverNodeId, packageEquipmentIds, trace, activeZoneId, nodeById, activeFocus]);
+  }, [
+    selectedNodeId,
+    hoverNodeId,
+    packageEquipmentIds,
+    trace,
+    activeZoneId,
+    nodeById,
+    activeFocus,
+  ]);
   const tracePath = React.useMemo<SurveyTraceStep[] | null>(() => {
     if (!trace) return null;
     const steps: SurveyTraceStep[] = trace.nodeIds.map((id, i) => ({
@@ -443,8 +509,13 @@ export const SurveySystemPage: React.FC = () => {
         const stage = nodeLineage.stages.find((s) => s.key === key);
         if (!stage) return;
         const item =
-          stage.items.find((it) => it.key === FINAL_DELIVERABLE_ID) || stage.items[0];
-        steps.push({ id: `logical:${item.key}`, label: item.label, logical: true });
+          stage.items.find((it) => it.key === FINAL_DELIVERABLE_ID) ||
+          stage.items[0];
+        steps.push({
+          id: `logical:${item.key}`,
+          label: item.label,
+          logical: true,
+        });
       });
     }
     return steps;
@@ -478,11 +549,20 @@ export const SurveySystemPage: React.FC = () => {
       .slice()
       .sort(
         (a, b) =>
-          depth(a.sceneAnchor as SurveySceneAnchor) - depth(b.sceneAnchor as SurveySceneAnchor),
+          depth(a.sceneAnchor as SurveySceneAnchor) -
+          depth(b.sceneAnchor as SurveySceneAnchor),
       );
     return [
-      { zoneId: null as string | null, title: spread.title, caption: spread.description },
-      ...ordered.map((z) => ({ zoneId: z.id as string | null, title: z.title, caption: z.description })),
+      {
+        zoneId: null as string | null,
+        title: spread.title,
+        caption: spread.description,
+      },
+      ...ordered.map((z) => ({
+        zoneId: z.id as string | null,
+        title: z.title,
+        caption: z.description,
+      })),
     ];
   }, [spread, rooms]);
   const tour: SurveySceneTour | null =
@@ -498,8 +578,11 @@ export const SurveySystemPage: React.FC = () => {
   const selected = catalog?.equipment.find((e) => e.id === selectedId);
   const detailLineage = React.useMemo(() => {
     if (!selected) return null;
-    if (selectedNodeId && nodeById[selectedNodeId]?.equipmentId === selected.id) return nodeLineage;
-    const node = nodes.find((n) => n.equipmentId === selected.id && n.source !== "catalog");
+    if (selectedNodeId && nodeById[selectedNodeId]?.equipmentId === selected.id)
+      return nodeLineage;
+    const node = nodes.find(
+      (n) => n.equipmentId === selected.id && n.source !== "catalog",
+    );
     return node ? lineageOf(node.id) : null;
   }, [selected, selectedNodeId, nodeById, nodeLineage, nodes, lineageOf]);
   const intel = useSurveyBidIntel(detailOpen ? selected : undefined);
@@ -571,12 +654,18 @@ export const SurveySystemPage: React.FC = () => {
     }
     addToPackage(id, 1);
     const eq = catalog?.equipment.find((e) => e.id === id);
-    addToast({ type: "success", title: "Added to package", message: eq ? eq.title : id });
+    addToast({
+      type: "success",
+      title: "Added to package",
+      message: eq ? eq.title : id,
+    });
     setFilters({ search: "" });
   };
 
   const handleSelectLine = (zoneId: string, equipmentId: string): void => {
-    const node = nodes.find((n) => n.zoneId === zoneId && n.equipmentId === equipmentId);
+    const node = nodes.find(
+      (n) => n.zoneId === zoneId && n.equipmentId === equipmentId,
+    );
     if (node) handleNodeSelect(node.id);
     else handleSelect(equipmentId);
   };
@@ -641,11 +730,18 @@ export const SurveySystemPage: React.FC = () => {
 
   /** Adds the spread (or one zone) to the package, skipping what the compared BID already has. */
   const addLines = (zoneId?: string): void => {
-    const zone = zoneId ? spread?.zones.find((z) => z.id === zoneId) : undefined;
+    const zone = zoneId
+      ? spread?.zones.find((z) => z.id === zoneId)
+      : undefined;
     if (!spread || (zoneId && !zone)) return;
     const count = addSpreadToPackage(spread, zoneId, considered || undefined);
-    const lines = (zone ? [zone] : spread.zones).reduce((n, z) => n + z.lines.length, 0);
-    const target = comparison ? `${comparison.bid.bidNumber} package` : "bid package";
+    const lines = (zone ? [zone] : spread.zones).reduce(
+      (n, z) => n + z.lines.length,
+      0,
+    );
+    const target = comparison
+      ? `${comparison.bid.bidNumber} package`
+      : "bid package";
     addToast({
       type: "success",
       title: `${zone ? zone.title : spread.title} added to the ${target}`,
@@ -731,7 +827,10 @@ export const SurveySystemPage: React.FC = () => {
             }}
           >
             <Radar size={16} />
-            <span>Blank vessel - search above to add any equipment. Rooms appear as you build.</span>
+            <span>
+              Blank vessel - search above to add any equipment. Rooms appear as
+              you build.
+            </span>
           </div>
         )}
 
@@ -773,7 +872,9 @@ export const SurveySystemPage: React.FC = () => {
               zones={activeZones}
               trunks={activeTrunks}
               focus={activeFocus}
-              spreadTitle={isFree ? "Free composition" : spread ? spread.title : ""}
+              spreadTitle={
+                isFree ? "Free composition" : spread ? spread.title : ""
+              }
               nodeStates={nodeStates}
               tracePath={isFree ? null : tracePath}
               cableInfo={isFree ? null : cableInfo}
@@ -804,7 +905,9 @@ export const SurveySystemPage: React.FC = () => {
           <div className={styles.stage}>{renderStage()}</div>
         </div>
       </div>
-      {packageOpen && <SurveyPackageDrawer onClose={() => setPackageOpen(false)} />}
+      {packageOpen && (
+        <SurveyPackageDrawer onClose={() => setPackageOpen(false)} />
+      )}
     </div>
   );
 };

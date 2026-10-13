@@ -1944,9 +1944,7 @@ export const BidDetailPage: React.FC = () => {
                   currentPhaseIndex={currentPhaseIndex}
                 />
               )}
-              {activeTab === "presentation" && (
-                <BidPresentationTab bid={bid} />
-              )}
+              {activeTab === "presentation" && <BidPresentationTab bid={bid} />}
               {activeTab === "approval" && (
                 <ApprovalTab
                   bid={bid}

@@ -178,10 +178,7 @@ export const BidPresentationTab: React.FC<BidPresentationTabProps> = ({
             stats={stats}
             displayCurrency={display}
           />
-          <PresentationAcquisitionMix
-            items={items}
-            displayCurrency={display}
-          />
+          <PresentationAcquisitionMix items={items} displayCurrency={display} />
         </>
       )}
 

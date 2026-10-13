@@ -56,8 +56,7 @@ export const BidComparatorPage: React.FC = () => {
 
   // A BID with no items has nothing to compare; confidential BIDs need access
   const candidates = React.useMemo(
-    () =>
-      bids.filter((b) => (b.assetBreakdown || []).length > 0 && canOpen(b)),
+    () => bids.filter((b) => (b.assetBreakdown || []).length > 0 && canOpen(b)),
     [bids, canOpen],
   );
   const options = React.useMemo(
