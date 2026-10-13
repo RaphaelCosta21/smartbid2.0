@@ -11,6 +11,7 @@ export type BidTab =
   | "costs"
   | "tasks"
   | "timeline"
+  | "presentation"
   | "approval"
   | "documents"
   | "notes"
@@ -39,6 +40,7 @@ export const BID_TAB_GROUPS: IBidTabGroupDef[] = [
     items: [
       { key: "overview", label: "Overview", icon: "📊" },
       { key: "timeline", label: "Timeline", icon: "📅" },
+      { key: "presentation", label: "BID Presentation", icon: "📽️" },
     ],
   },
   {

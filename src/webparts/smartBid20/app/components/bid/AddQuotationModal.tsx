@@ -44,14 +44,18 @@ interface ILineItem extends IQuotationLineDraft {
   _key: string;
 }
 
-function blankLineItem(partNumber?: string, description?: string): ILineItem {
+function blankLineItem(
+  partNumber?: string,
+  description?: string,
+  supplier?: string,
+): ILineItem {
   return {
     _key: genId(),
     groupId: "",
     subGroupId: "",
     partNumber: partNumber || "",
     description: description || "",
-    supplier: "",
+    supplier: supplier || "",
     reference: "",
     leadTimeDays: 0,
     quotationDate: new Date().toISOString().slice(0, 10),
@@ -74,6 +78,22 @@ export interface AddQuotationModalProps {
   initialFile?: File;
   /** When true and a file is provided, run AI extraction automatically on open */
   autoExtract?: boolean;
+  /** "drawer" docks the same form to the right edge and keeps it open after saving */
+  variant?: "modal" | "drawer";
+  /** Header title (defaults to "Add Quotation") */
+  title?: string;
+  /** Line under the title, e.g. the item the quotations belong to */
+  subtitle?: string;
+  /** Rendered above the form (drawer only) */
+  topSlot?: React.ReactNode;
+  /** Rendered right above the form fields (drawer only) */
+  formBanner?: React.ReactNode;
+  /** Hint under the "Items" heading */
+  itemsHint?: string;
+  /** Pre-fill the supplier of the first line; changing it re-fills and scrolls to the form */
+  defaultSupplier?: string;
+  /** Hide the form and footer - view-only drawer */
+  formHidden?: boolean;
 }
 
 export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
@@ -83,7 +103,16 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
   defaultDescription,
   initialFile,
   autoExtract,
+  variant = "modal",
+  title = "Add Quotation",
+  subtitle,
+  topSlot,
+  formBanner,
+  itemsHint,
+  defaultSupplier,
+  formHidden = false,
 }) => {
+  const isDrawer = variant === "drawer";
   const config = useConfigStore((s) => s.config);
   const currentUser = useCurrentUser();
   const { addItems } = useQuotationStore();
@@ -107,19 +136,44 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
   const [extracting, setExtracting] = React.useState(false);
   const aiUsedRef = React.useRef(false);
   const supplierAboutRef = React.useRef("");
+  // Drawer only: stops a stray backdrop click from discarding a half-filled form
+  const [dirty, setDirty] = React.useState(false);
+  const [fileInputKey, setFileInputKey] = React.useState(0);
+  const formSectionRef = React.useRef<HTMLDivElement | null>(null);
   const [lines, setLines] = React.useState<ILineItem[]>([
-    blankLineItem(searchablePartNumber(defaultPartNumber), defaultDescription),
+    blankLineItem(
+      searchablePartNumber(defaultPartNumber),
+      defaultDescription,
+      defaultSupplier,
+    ),
   ]);
 
-  const addLine = (): void =>
+  React.useEffect(() => {
+    if (!defaultSupplier) return;
+    setLines((prev) =>
+      prev.map((l, i) => (i === 0 ? { ...l, supplier: defaultSupplier } : l)),
+    );
+    if (formSectionRef.current) {
+      formSectionRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [defaultSupplier]);
+
+  const addLine = (): void => {
+    setDirty(true);
     setLines((prev) => prev.concat([blankLineItem()]));
+  };
 
   const removeLine = (key: string): void => {
     if (lines.length <= 1) return;
+    setDirty(true);
     setLines((prev) => prev.filter((l) => l._key !== key));
   };
 
   const updateLine = (key: string, field: string, value: any): void => {
+    setDirty(true);
     setLines((prev) =>
       prev.map((l) => {
         if (l._key !== key) return l;
@@ -177,6 +231,7 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
       );
       if (drafts.length > 0) {
         setLines(drafts.map(draftToLine));
+        setDirty(true);
         aiUsedRef.current = true;
         const withAbout = (result.items || []).find((i) => !!i.supplierAbout);
         supplierAboutRef.current = withAbout
@@ -349,7 +404,22 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
       }
 
       if (onSaved) onSaved(newItems);
-      onClose();
+      if (isDrawer) {
+        // Stay open so the user sees the new quotation next to the others
+        setLines([
+          blankLineItem(
+            searchablePartNumber(defaultPartNumber),
+            defaultDescription,
+          ),
+        ]);
+        setFile(null);
+        setFileInputKey((k) => k + 1);
+        setDirty(false);
+        aiUsedRef.current = false;
+        supplierAboutRef.current = "";
+      } else {
+        onClose();
+      }
     } catch (err) {
       console.error("Failed to save quotation", err);
       addToast({
@@ -362,308 +432,343 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
     }
   };
 
+  const handleOverlayClick = (): void => {
+    if (isDrawer && dirty) return;
+    onClose();
+  };
+
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+    <div
+      className={
+        isDrawer ? `${styles.overlay} ${styles.overlayDrawer}` : styles.overlay
+      }
+      onClick={handleOverlayClick}
+    >
+      <div
+        className={isDrawer ? `${styles.modal} ${styles.drawer}` : styles.modal}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={styles.modalHeader}>
-          <h2>Add Quotation</h2>
-          <button className={styles.closeBtn} onClick={onClose}>
+          <div className={styles.headerText}>
+            <h2>{title}</h2>
+            {subtitle && <p className={styles.headerSubtitle}>{subtitle}</p>}
+          </div>
+          <button
+            className={styles.closeBtn}
+            onClick={onClose}
+            aria-label="Close"
+          >
             &times;
           </button>
         </div>
 
         <div className={styles.modalBody}>
-          {/* File Upload */}
-          <div className={styles.fileSection}>
-            <label className={styles.fieldLabel}>
-              Quotation File (optional)
-            </label>
-            <div className={styles.fileUploadRow}>
-              <label className={styles.fileBtn}>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                <span>{file ? file.name : "Choose file..."}</span>
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.msg,.eml"
-                  onChange={(e) =>
-                    setFile(e.target.files ? e.target.files[0] : null)
-                  }
-                  style={{ display: "none" }}
-                />
+          {isDrawer && topSlot}
+
+          <div ref={formSectionRef} hidden={formHidden}>
+            {isDrawer && topSlot && (
+              <h3 className={styles.formSectionTitle}>New quotation</h3>
+            )}
+            {isDrawer && formBanner}
+            {/* File Upload */}
+            <div className={styles.fileSection}>
+              <label className={styles.fieldLabel}>
+                Quotation File (optional)
               </label>
-              <button
-                type="button"
-                className={styles.aiExtractBtn}
-                onClick={handleExtract}
-                disabled={!file || extracting}
-                title={
-                  file
-                    ? "Extract line items from this document with AI"
-                    : "Select a file first"
-                }
-              >
-                {extracting ? (
-                  <span>Extracting…</span>
-                ) : (
-                  <>
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M12 3v3m0 12v3M5.6 5.6l2.1 2.1m8.6 8.6l2.1 2.1M3 12h3m12 0h3M5.6 18.4l2.1-2.1m8.6-8.6l2.1-2.1" />
-                    </svg>
-                    <span>Extract with AI</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Line Items */}
-          <div className={styles.linesSection}>
-            <div className={styles.linesSectionHeader}>
-              <h3>Items</h3>
-              <button className={styles.addLineBtn} onClick={addLine}>
-                + Add Item
-              </button>
-            </div>
-
-            {lines.map((line, idx) => (
-              <div key={line._key} className={styles.lineItem}>
-                <div className={styles.lineHeader}>
-                  <span className={styles.lineNumber}>Item {idx + 1}</span>
-                  {lines.length > 1 && (
-                    <button
-                      className={styles.removeLineBtn}
-                      onClick={() => removeLine(line._key)}
-                    >
-                      ✕
-                    </button>
+              <div className={styles.fileUploadRow}>
+                <label className={styles.fileBtn}>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <span>{file ? file.name : "Choose file..."}</span>
+                  <input
+                    key={fileInputKey}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.msg,.eml"
+                    onChange={(e) => {
+                      setDirty(true);
+                      setFile(e.target.files ? e.target.files[0] : null);
+                    }}
+                    style={{ display: "none" }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className={styles.aiExtractBtn}
+                  onClick={handleExtract}
+                  disabled={!file || extracting}
+                  title={
+                    file
+                      ? "Extract line items from this document with AI"
+                      : "Select a file first"
+                  }
+                >
+                  {extracting ? (
+                    <span>Extracting…</span>
+                  ) : (
+                    <>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M12 3v3m0 12v3M5.6 5.6l2.1 2.1m8.6 8.6l2.1 2.1M3 12h3m12 0h3M5.6 18.4l2.1-2.1m8.6-8.6l2.1-2.1" />
+                      </svg>
+                      <span>Extract with AI</span>
+                    </>
                   )}
-                </div>
+                </button>
+              </div>
+            </div>
 
-                <div className={styles.formGrid}>
-                  {/* Group + SubGroup */}
-                  <div className={styles.formField}>
-                    <label>Group *</label>
-                    <select
-                      value={line.groupId}
-                      onChange={(e) =>
-                        updateLine(line._key, "groupId", e.target.value)
-                      }
-                    >
-                      <option value="">Select group...</option>
-                      {groups.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className={styles.formField}>
-                    <label>SubGroup *</label>
-                    <select
-                      value={line.subGroupId}
-                      onChange={(e) =>
-                        updateLine(line._key, "subGroupId", e.target.value)
-                      }
-                      disabled={!line.groupId}
-                    >
-                      <option value="">Select sub-group...</option>
-                      {getSubGroupsForLine(line.groupId).map((sg) => (
-                        <option key={sg.id} value={sg.id}>
-                          {sg.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+            {/* Line Items */}
+            <div className={styles.linesSection}>
+              <div className={styles.linesSectionHeader}>
+                <h3>Items</h3>
+                <button className={styles.addLineBtn} onClick={addLine}>
+                  + Add Item
+                </button>
+              </div>
+              {itemsHint && <p className={styles.itemsHint}>{itemsHint}</p>}
 
-                  {/* PN + Description */}
-                  <div className={styles.formField}>
-                    <label>OII/MFG PN *</label>
-                    <input
-                      type="text"
-                      value={line.partNumber}
-                      onChange={(e) =>
-                        updateLine(line._key, "partNumber", e.target.value)
-                      }
-                      placeholder="Part number..."
-                    />
-                  </div>
-                  <div className={styles.formField}>
-                    <label>Description *</label>
-                    <input
-                      type="text"
-                      value={line.description}
-                      onChange={(e) =>
-                        updateLine(line._key, "description", e.target.value)
-                      }
-                      placeholder="Item description..."
-                    />
-                  </div>
-
-                  {/* Supplier + Lead Time + Date */}
-                  <div className={styles.formField}>
-                    <label>Supplier *</label>
-                    <SupplierCombobox
-                      value={line.supplier}
-                      onChange={(v) => updateLine(line._key, "supplier", v)}
-                      placeholder="Vendor name..."
-                    />
-                  </div>
-                  <div className={styles.formFieldSmall}>
-                    <label>Lead Time (days)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={line.leadTimeDays}
-                      onChange={(e) =>
-                        updateLine(
-                          line._key,
-                          "leadTimeDays",
-                          parseInt(e.target.value, 10) || 0,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className={styles.formFieldSmall}>
-                    <label>Quotation Date</label>
-                    <input
-                      type="date"
-                      value={line.quotationDate}
-                      onChange={(e) =>
-                        updateLine(line._key, "quotationDate", e.target.value)
-                      }
-                    />
-                  </div>
-                  <div className={styles.formFieldSmall}>
-                    <label>Quotation REF</label>
-                    <input
-                      type="text"
-                      value={line.reference}
-                      onChange={(e) =>
-                        updateLine(line._key, "reference", e.target.value)
-                      }
-                      placeholder="Quote number..."
-                    />
-                  </div>
-
-                  {/* Type toggle */}
-                  <div className={styles.formFieldFull}>
-                    <label>Type</label>
-                    <div className={styles.typeToggle}>
+              {lines.map((line, idx) => (
+                <div key={line._key} className={styles.lineItem}>
+                  <div className={styles.lineHeader}>
+                    <span className={styles.lineNumber}>Item {idx + 1}</span>
+                    {lines.length > 1 && (
                       <button
-                        className={`${styles.typeBtn} ${line.type === "acquisition" ? styles.typeBtnActive : ""}`}
-                        onClick={() =>
-                          updateLine(line._key, "type", "acquisition")
-                        }
+                        className={styles.removeLineBtn}
+                        onClick={() => removeLine(line._key)}
                       >
-                        Acquisition
+                        ✕
                       </button>
-                      <button
-                        className={`${styles.typeBtn} ${line.type === "rental" ? styles.typeBtnActive : ""}`}
-                        onClick={() => updateLine(line._key, "type", "rental")}
-                      >
-                        Rental (Day Rate)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Cost + Currency */}
-                  <div className={styles.formField}>
-                    <label>
-                      {line.type === "rental" ? "Day Rate *" : "Unit Cost *"}
-                    </label>
-                    <div className={styles.costInputRow}>
-                      <select
-                        className={styles.currencySelect}
-                        value={line.currency}
-                        onChange={(e) =>
-                          updateLine(line._key, "currency", e.target.value)
-                        }
-                      >
-                        {currencyOptions.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={line.cost || ""}
-                        onChange={(e) =>
-                          updateLine(
-                            line._key,
-                            "cost",
-                            parseFloat(e.target.value) || 0,
-                          )
-                        }
-                        placeholder="0.00"
-                        className={styles.costInput}
-                      />
-                    </div>
-                    {line.cost > 0 && line.currency !== "USD" && (
-                      <div className={styles.conversionHint}>
-                        ≈{" "}
-                        {formatCurrency(
-                          getConversion(line.cost, line.currency).costUSD,
-                          "USD",
-                        )}{" "}
-                        (rate:{" "}
-                        {getConversion(line.cost, line.currency).rate.toFixed(
-                          4,
-                        )}
-                        )
-                      </div>
                     )}
                   </div>
 
-                  {/* Notes */}
-                  <div className={styles.formFieldFull}>
-                    <label>Notes</label>
-                    <textarea
-                      value={line.notes}
-                      onChange={(e) =>
-                        updateLine(line._key, "notes", e.target.value)
-                      }
-                      placeholder="Additional notes..."
-                      rows={2}
-                    />
+                  <div className={styles.formGrid}>
+                    {/* Group + SubGroup */}
+                    <div className={styles.formField}>
+                      <label>Group *</label>
+                      <select
+                        value={line.groupId}
+                        onChange={(e) =>
+                          updateLine(line._key, "groupId", e.target.value)
+                        }
+                      >
+                        <option value="">Select group...</option>
+                        {groups.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className={styles.formField}>
+                      <label>SubGroup *</label>
+                      <select
+                        value={line.subGroupId}
+                        onChange={(e) =>
+                          updateLine(line._key, "subGroupId", e.target.value)
+                        }
+                        disabled={!line.groupId}
+                      >
+                        <option value="">Select sub-group...</option>
+                        {getSubGroupsForLine(line.groupId).map((sg) => (
+                          <option key={sg.id} value={sg.id}>
+                            {sg.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* PN + Description */}
+                    <div className={styles.formField}>
+                      <label>OII/MFG PN *</label>
+                      <input
+                        type="text"
+                        value={line.partNumber}
+                        onChange={(e) =>
+                          updateLine(line._key, "partNumber", e.target.value)
+                        }
+                        placeholder="Part number..."
+                      />
+                    </div>
+                    <div className={styles.formField}>
+                      <label>Description *</label>
+                      <input
+                        type="text"
+                        value={line.description}
+                        onChange={(e) =>
+                          updateLine(line._key, "description", e.target.value)
+                        }
+                        placeholder="Item description..."
+                      />
+                    </div>
+
+                    {/* Supplier + Lead Time + Date */}
+                    <div className={styles.formField}>
+                      <label>Supplier *</label>
+                      <SupplierCombobox
+                        value={line.supplier}
+                        onChange={(v) => updateLine(line._key, "supplier", v)}
+                        placeholder="Vendor name..."
+                      />
+                    </div>
+                    <div className={styles.formFieldSmall}>
+                      <label>Lead Time (days)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={line.leadTimeDays}
+                        onChange={(e) =>
+                          updateLine(
+                            line._key,
+                            "leadTimeDays",
+                            parseInt(e.target.value, 10) || 0,
+                          )
+                        }
+                      />
+                    </div>
+                    <div className={styles.formFieldSmall}>
+                      <label>Quotation Date</label>
+                      <input
+                        type="date"
+                        value={line.quotationDate}
+                        onChange={(e) =>
+                          updateLine(line._key, "quotationDate", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className={styles.formFieldSmall}>
+                      <label>Quotation REF</label>
+                      <input
+                        type="text"
+                        value={line.reference}
+                        onChange={(e) =>
+                          updateLine(line._key, "reference", e.target.value)
+                        }
+                        placeholder="Quote number..."
+                      />
+                    </div>
+
+                    {/* Type toggle */}
+                    <div className={styles.formFieldFull}>
+                      <label>Type</label>
+                      <div className={styles.typeToggle}>
+                        <button
+                          className={`${styles.typeBtn} ${line.type === "acquisition" ? styles.typeBtnActive : ""}`}
+                          onClick={() =>
+                            updateLine(line._key, "type", "acquisition")
+                          }
+                        >
+                          Acquisition
+                        </button>
+                        <button
+                          className={`${styles.typeBtn} ${line.type === "rental" ? styles.typeBtnActive : ""}`}
+                          onClick={() =>
+                            updateLine(line._key, "type", "rental")
+                          }
+                        >
+                          Rental (Day Rate)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Cost + Currency */}
+                    <div className={styles.formField}>
+                      <label>
+                        {line.type === "rental" ? "Day Rate *" : "Unit Cost *"}
+                      </label>
+                      <div className={styles.costInputRow}>
+                        <select
+                          className={styles.currencySelect}
+                          value={line.currency}
+                          onChange={(e) =>
+                            updateLine(line._key, "currency", e.target.value)
+                          }
+                        >
+                          {currencyOptions.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={line.cost || ""}
+                          onChange={(e) =>
+                            updateLine(
+                              line._key,
+                              "cost",
+                              parseFloat(e.target.value) || 0,
+                            )
+                          }
+                          placeholder="0.00"
+                          className={styles.costInput}
+                        />
+                      </div>
+                      {line.cost > 0 && line.currency !== "USD" && (
+                        <div className={styles.conversionHint}>
+                          ≈{" "}
+                          {formatCurrency(
+                            getConversion(line.cost, line.currency).costUSD,
+                            "USD",
+                          )}{" "}
+                          (rate:{" "}
+                          {getConversion(line.cost, line.currency).rate.toFixed(
+                            4,
+                          )}
+                          )
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Notes */}
+                    <div className={styles.formFieldFull}>
+                      <label>Notes</label>
+                      <textarea
+                        value={line.notes}
+                        onChange={(e) =>
+                          updateLine(line._key, "notes", e.target.value)
+                        }
+                        placeholder="Additional notes..."
+                        rows={2}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
         <div className={styles.modalFooter}>
           <button className={styles.cancelBtn} onClick={onClose}>
-            Cancel
+            {isDrawer ? "Close" : "Cancel"}
           </button>
-          <button
-            className={styles.saveBtn}
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
+          {!formHidden && (
+            <button
+              className={styles.saveBtn}
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -82,7 +82,7 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     key: "survey-portal",
     label: "Survey Portal",
     icon: "Radar",
-    route: "/knowledge/survey/equipment",
+    route: "/knowledge/survey/system",
     section: "knowledge",
   },
   {
@@ -255,13 +255,6 @@ export const NAVIGATION_ITEMS: INavItem[] = [
     label: "Price History",
     icon: "TrendingUp",
     route: "/tools/price-history",
-    section: "tools",
-  },
-  {
-    key: "easi-bid-presentation",
-    label: "BID Presentation",
-    icon: "PieChart",
-    route: "/tools/bid-presentation",
     section: "tools",
   },
   {

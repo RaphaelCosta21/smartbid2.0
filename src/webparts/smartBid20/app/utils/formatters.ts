@@ -14,6 +14,13 @@ export function formatCurrency(
   return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/** Like formatCurrency, but any currency other than USD/BRL is shown with its ISO code instead of a wrong "$" */
+export function formatAmount(value: number, currency: string = "USD"): string {
+  const code = (currency || "USD").toUpperCase();
+  if (code === "USD" || code === "BRL") return formatCurrency(value, code);
+  return `${code} ${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export function formatCurrencyCompact(
   value: number,
   currency: string = "USD",
@@ -103,6 +110,23 @@ export function formatDaysLeft(
 
 export function formatPercentage(value: number, decimals: number = 0): string {
   return `${value.toFixed(decimals)}%`;
+}
+
+/** "+12.5%" / "-3.0%" - for changes, where the direction matters */
+export function formatSignedPercent(
+  value: number,
+  decimals: number = 1,
+): string {
+  return `${value > 0 ? "+" : ""}${value.toFixed(decimals)}%`;
+}
+
+/** "+$1,200.00" / "-$80.00" */
+export function formatSignedCurrency(
+  value: number,
+  currency: string = "USD",
+): string {
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${sign}${formatCurrency(Math.abs(value), currency)}`;
 }
 
 export function formatHours(hours: number): string {

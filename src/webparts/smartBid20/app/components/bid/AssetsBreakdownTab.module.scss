@@ -28,6 +28,56 @@
   }
 }
 
+/* Items | Quotation Control switch */
+.viewToggle {
+  display: inline-flex;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.viewBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+
+.viewBtnActive {
+  background: var(--primary-accent);
+  color: var(--primary-accent-contrast);
+  font-weight: 600;
+
+  &:hover {
+    color: var(--primary-accent-contrast);
+  }
+}
+
+.viewBadge {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.viewHidden {
+  display: none !important;
+}
+
 /* ─── Resource Type Sub-Tabs ─── */
 .subTabBar {
   display: flex;

@@ -105,4 +105,46 @@
   --header-text-muted: #64748b;
   --header-border: rgba(255, 255, 255, 0.08);
   --header-input-bg: rgba(255, 255, 255, 0.06);
+
+  /* Color theme: Oceaneering (OII brand palette) */
+  &[data-color-theme="oceaneering"] {
+    --accent-brand: #0097a9;
+    --accent-500: #00a9bc;
+    --accent-600: #007f8f;
+    --accent-700: #006575;
+
+    --sidebar-bg: #00263e;
+    --main-bg: #001a2d;
+    --card-bg: #002e49;
+    --card-bg-elevated: #003b5c;
+    --secondary-accent: #5b7f95;
+    --tertiary-accent: #ffc72c;
+    --success: #009b77;
+    --warning: #dc4405;
+    --danger: #c8102e;
+    --info: #7a99ac;
+    --text-primary: #eaf2f8;
+    --text-secondary: #9fb4c4;
+    --text-muted: #6b8296;
+    --border: #0b405f;
+    --border-subtle: #06324c;
+    --glass-bg: rgba(0, 38, 62, 0.7);
+    --gradient-header: linear-gradient(135deg, #00263e 0%, #003b5c 100%);
+    --gradient-hero:
+      radial-gradient(
+        circle at 0% 0%,
+        color-mix(in srgb, var(--accent-brand) 10%, transparent) 0%,
+        transparent 40%
+      ),
+      linear-gradient(135deg, #003b5c 0%, #002e49 100%);
+    --gradient-accent: linear-gradient(135deg, #0097a9 0%, #ffc72c 100%);
+    --shadow-card: 0 4px 16px rgba(0, 10, 20, 0.35);
+    --shadow-card-hover: 0 8px 24px rgba(0, 10, 20, 0.45);
+    --overlay-bg: rgba(0, 12, 20, 0.62);
+    --scrollbar-thumb: #0b405f;
+    --scrollbar-track: #00263e;
+    --input-bg: #003b5c;
+    --hover-bg: rgba(255, 255, 255, 0.05);
+    --sidebar-border: #06324c;
+  }
 }

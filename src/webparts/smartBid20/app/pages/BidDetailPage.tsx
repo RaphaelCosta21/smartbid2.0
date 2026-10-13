@@ -17,6 +17,7 @@ import { ApprovalTab } from "../components/bid/ApprovalTab";
 import { BidActivityLog } from "../components/bid/BidActivityLog";
 import { BidExportTab } from "../components/bid/BidExportTab";
 import { BidTimeline } from "../components/bid/BidTimeline";
+import { BidPresentationTab } from "../components/presentation/BidPresentationTab";
 import { BidFavoriteButton } from "../components/bid/BidFavoriteButton";
 import { BidConfidentialButton } from "../components/bid/BidConfidentialButton";
 import { ConfidentialLock } from "../components/bid/ConfidentialLock";
@@ -74,6 +75,7 @@ import { getDueFreezeDate } from "../utils/bidHelpers";
 import { isTerminalStatus } from "../utils/statusHelpers";
 import { getErnLinks } from "../utils/ernHelpers";
 import { makeId } from "../utils/idGenerator";
+import { getBidDisplayCurrency } from "../utils/quotationLinks";
 import { getBidFx, withCostSummary } from "../utils/costCalculations";
 import {
   canOpenBid,
@@ -1281,6 +1283,7 @@ export const BidDetailPage: React.FC = () => {
                             scopeItems={filteredScope}
                             assetBreakdown={filteredAssets}
                             readOnly={!isEditing}
+                            displayCurrency={getBidDisplayCurrency(bid)}
                             contingencyPerYearSaved={
                               bid.assetsContingencyPerYear
                             }
@@ -1940,6 +1943,9 @@ export const BidDetailPage: React.FC = () => {
                   bid={{ ...bid, ...getMissingApprovalHistoryPatch(bid) }}
                   currentPhaseIndex={currentPhaseIndex}
                 />
+              )}
+              {activeTab === "presentation" && (
+                <BidPresentationTab bid={bid} />
               )}
               {activeTab === "approval" && (
                 <ApprovalTab

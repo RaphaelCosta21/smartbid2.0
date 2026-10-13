@@ -20,8 +20,9 @@ export const ROUTES = {
   pastBids: "/knowledge/past-bids",
   clarificationsDb: "/knowledge/clarifications",
   linksRecommendations: "/knowledge/links",
-  surveyEquipment: "/knowledge/survey/equipment",
   surveySystem: "/knowledge/survey/system",
+  // Former 2D equipment explorer, redirected to the 3D system view
+  surveyEquipmentLegacy: "/knowledge/survey/equipment",
   analytics: "/analytics",
   reports: "/reports",
   periodPerformance: "/reports/period",
@@ -36,9 +37,8 @@ export const ROUTES = {
   // Pre-rename links (Query Consulting), redirected to the routes above
   queryConsultingLegacy: "/tools/query-consulting",
   queryConsultingExternalLegacy: "/tools/query-consulting-external",
-  easiPriceHistory: "/tools/price-history",
-  easiBidPresentation: "/tools/bid-presentation",
-  easiBidComparator: "/tools/bid-comparator",
+  priceHistory: "/tools/price-history",
+  bidComparator: "/tools/bid-comparator",
   easiSuppliers: "/tools/suppliers",
   systemConfig: "/settings/config",
   members: "/settings/members",

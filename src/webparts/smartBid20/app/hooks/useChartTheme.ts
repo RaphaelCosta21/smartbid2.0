@@ -51,6 +51,7 @@ const CATEGORICAL_REST = [
 ];
 
 function buildCategorical(theme: IColorThemeDef): string[] {
+  if (theme.chart && theme.chart.categorical) return theme.chart.categorical;
   return [theme.accents.brand]
     .concat(CATEGORICAL_REST)
     .concat([theme.accents.a500]);
@@ -101,6 +102,7 @@ export function useChartTheme(): ChartTheme {
     const base = theme === "dark" ? DARK_BASE : LIGHT_BASE;
     return {
       ...base,
+      ...(colorTheme.chart && colorTheme.chart[base.mode]),
       accent: colorTheme.primaryAccent[base.mode],
       categorical: buildCategorical(colorTheme),
     };

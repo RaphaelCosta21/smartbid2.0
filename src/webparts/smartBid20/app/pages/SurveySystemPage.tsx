@@ -34,17 +34,20 @@ import {
   useSurveyBidComparison,
   useSurveyBidIntel,
 } from "../hooks/useSurveyPortal";
-import { ISurveySpreadZone, SurveyLinkKind, SurveySceneAnchor } from "../models";
+import { ISurveyEquipment, ISurveySpreadZone, SurveyLinkKind, SurveySceneAnchor } from "../models";
 import {
+  IDataLineage,
   ISpreadLinkRef,
   ISpreadNode,
-  catalogNodes,
+  LineageStageKey,
   directLinks,
   expandSpreadNodes,
   resolveSceneShape,
   resolveSpreadLinks,
+  traceDataLineage,
   traceSignalPath,
 } from "../utils/surveySpreadGraph";
+import { buildFreeScene, FREE_SPREAD_ID } from "../utils/surveyFreeScene";
 import styles from "./SurveySystemPage.module.scss";
 
 const SurveySystemScene = React.lazy(
@@ -83,6 +86,9 @@ const dominantKind = (links: ISpreadLinkRef[]): SurveyLinkKind => {
 };
 
 const SEARCH_HITS_MAX = 8;
+/** Logical stages appended to the 3D signal path after the wiring hops. */
+const TRACE_LOGICAL_STAGES: LineageStageKey[] = ["acquisition", "storage", "processing", "deliverable"];
+const FINAL_DELIVERABLE_ID = "dlv-final";
 
 export const SurveySystemPage: React.FC = () => {
   const catalog = useSurveyStore((s) => s.catalog);
@@ -132,18 +138,25 @@ export const SurveySystemPage: React.FC = () => {
 
   const spreads = catalog?.spreads || [];
   const spread = spreads.find((s) => s.id === spreadId) || spreads[0];
+  // "Free composition" starts from a blank vessel; the package drives which rooms appear.
+  const isFree = spreadId === FREE_SPREAD_ID;
+  // Richest spread (most physical rooms) is the location template for free placement.
+  const locationSpread = React.useMemo(() => {
+    const list = catalog?.spreads || [];
+    if (!list.length) return undefined;
+    return list.reduce((best, s) => {
+      const rc = (s.zones || []).filter((z) => z.sceneAnchor).length;
+      const bc = (best.zones || []).filter((z) => z.sceneAnchor).length;
+      return rc > bc ? s : best;
+    }, list[0]);
+  }, [catalog]);
 
   const spreadNodes = React.useMemo(
     () => (spread && catalog ? expandSpreadNodes(spread, catalog) : []),
     [spread, catalog],
   );
-  const nodes = React.useMemo(
-    () =>
-      spread && catalog
-        ? spreadNodes.concat(catalogNodes(spread, catalog, spreadNodes))
-        : spreadNodes,
-    [spread, catalog, spreadNodes],
-  );
+  // One-line diagram shows only equipment wired into the spread; catalog-only items are hidden.
+  const nodes = spreadNodes;
   const links = React.useMemo(
     () => (spread ? resolveSpreadLinks(spread, spreadNodes) : []),
     [spread, spreadNodes],
@@ -199,6 +212,29 @@ export const SurveySystemPage: React.FC = () => {
   const searchHits = React.useMemo<SurveySearchHit[]>(() => {
     const q = search.trim().toLowerCase();
     if (!q || !catalog) return [];
+    if (isFree) {
+      // Free mode searches the whole catalog; a hit adds the equipment to the package.
+      const familyTitle: Record<string, string> = {};
+      catalog.families.forEach((f) => (familyTitle[f.id] = f.title));
+      const hits: { eq: ISurveyEquipment; score: number }[] = [];
+      catalog.equipment.forEach((eq) => {
+        const title = eq.title.toLowerCase();
+        const haystack = [title, eq.technology, eq.partNumber, eq.manufacturer, eq.model]
+          .concat(eq.aliases || [])
+          .join(" ")
+          .toLowerCase();
+        if (haystack.indexOf(q) < 0) return;
+        hits.push({ eq, score: title.indexOf(q) === 0 ? 0 : title.indexOf(q) > 0 ? 1 : 2 });
+      });
+      return hits
+        .sort((a, b) => a.score - b.score)
+        .slice(0, SEARCH_HITS_MAX)
+        .map(({ eq }) => ({
+          id: eq.id,
+          title: eq.title,
+          meta: familyTitle[eq.familyId] || eq.technology || "",
+        }));
+    }
     const zoneTitle: Record<string, string> = {};
     (spread?.zones || []).forEach((z) => (zoneTitle[z.id] = z.title));
     const scored: { node: ISpreadNode; score: number }[] = [];
@@ -221,7 +257,7 @@ export const SurveySystemPage: React.FC = () => {
         title: node.label,
         meta: zoneTitle[node.zoneId] || "",
       }));
-  }, [search, catalog, spread, nodes]);
+  }, [search, catalog, spread, nodes, isFree]);
 
   // Cables between rooms, aggregated per room pair for the overview arcs.
   const trunkDetails = React.useMemo(() => {
@@ -335,17 +371,41 @@ export const SurveySystemPage: React.FC = () => {
     };
   }, [rooms, activeZoneId, catalog, nodes, links, nodeById, bidStateOf]);
 
+  const equipmentById = React.useMemo(() => {
+    const result: Record<string, ISurveyEquipment> = {};
+    (catalog?.equipment || []).forEach((e) => (result[e.id] = e));
+    return result;
+  }, [catalog]);
+  const pipeline = React.useMemo(() => spread?.pipeline || [], [spread]);
+  const lineageOf = React.useCallback(
+    (nodeId: string | null | undefined): IDataLineage | null =>
+      nodeId ? traceDataLineage(nodeId, nodes, links, equipmentById, pipeline) : null,
+    [nodes, links, equipmentById, pipeline],
+  );
+  const nodeLineage = React.useMemo(() => lineageOf(selectedNodeId), [lineageOf, selectedNodeId]);
+
   const trace = React.useMemo(
     () =>
       selectedNodeId
-        ? traceSignalPath(links, selectedNodeId) || directLinks(links, selectedNodeId)
+        ? (nodeLineage && nodeLineage.path) ||
+          traceSignalPath(links, selectedNodeId) ||
+          directLinks(links, selectedNodeId)
         : null,
-    [links, selectedNodeId],
+    [links, selectedNodeId, nodeLineage],
   );
   const packageEquipmentIds = React.useMemo(
     () => packageLines.map((l) => l.equipmentId),
     [packageLines],
   );
+  // Free composition: blank vessel that fills up as equipment is added to the package.
+  const freeScene = React.useMemo(
+    () =>
+      isFree ? buildFreeScene(locationSpread, catalog, packageEquipmentIds, activeZoneId) : null,
+    [isFree, locationSpread, catalog, packageEquipmentIds, activeZoneId],
+  );
+  const activeZones = isFree && freeScene ? freeScene.zones : sceneZones;
+  const activeTrunks = isFree ? [] : trunks;
+  const activeFocus = isFree ? (freeScene ? freeScene.focus : null) : focus;
   const nodeStates = React.useMemo<SceneNodeStates>(() => {
     const traceNodeIds = trace ? trace.nodeIds.slice() : [];
     // Steps in other rooms light the portal that leads there.
@@ -356,8 +416,8 @@ export const SurveySystemPage: React.FC = () => {
       });
     }
     const hoverLinkKeys =
-      !selectedNodeId && hoverNodeId && focus
-        ? focus.links
+      !selectedNodeId && hoverNodeId && activeFocus
+        ? activeFocus.links
             .filter((l) => l.from === hoverNodeId || l.to === hoverNodeId)
             .map((l) => l.key)
         : [];
@@ -369,18 +429,26 @@ export const SurveySystemPage: React.FC = () => {
       traceLinkKeys: trace ? trace.linkKeys : [],
       hoverLinkKeys,
     };
-  }, [selectedNodeId, hoverNodeId, packageEquipmentIds, trace, activeZoneId, nodeById, focus]);
-  const tracePath = React.useMemo<SurveyTraceStep[] | null>(
-    () =>
-      trace
-        ? trace.nodeIds.map((id, i) => ({
-            id,
-            label: nodeById[id]?.label || id,
-            cable: i > 0 ? linkByKey[trace.linkKeys[i - 1]]?.cable : undefined,
-          }))
-        : null,
-    [trace, nodeById, linkByKey],
-  );
+  }, [selectedNodeId, hoverNodeId, packageEquipmentIds, trace, activeZoneId, nodeById, activeFocus]);
+  const tracePath = React.useMemo<SurveyTraceStep[] | null>(() => {
+    if (!trace) return null;
+    const steps: SurveyTraceStep[] = trace.nodeIds.map((id, i) => ({
+      id,
+      label: nodeById[id]?.label || id,
+      cable: i > 0 ? linkByKey[trace.linkKeys[i - 1]]?.cable : undefined,
+    }));
+    // Only a single source has one readable route to continue past the wiring.
+    if (nodeLineage && nodeLineage.path) {
+      TRACE_LOGICAL_STAGES.forEach((key) => {
+        const stage = nodeLineage.stages.find((s) => s.key === key);
+        if (!stage) return;
+        const item =
+          stage.items.find((it) => it.key === FINAL_DELIVERABLE_ID) || stage.items[0];
+        steps.push({ id: `logical:${item.key}`, label: item.label, logical: true });
+      });
+    }
+    return steps;
+  }, [trace, nodeById, linkByKey, nodeLineage]);
   const cableInfo = React.useMemo<SurveyCableInfo | null>(() => {
     if (!hoverCableKey) return null;
     const trunk = trunkDetails[hoverCableKey];
@@ -428,6 +496,12 @@ export const SurveySystemPage: React.FC = () => {
       : null;
 
   const selected = catalog?.equipment.find((e) => e.id === selectedId);
+  const detailLineage = React.useMemo(() => {
+    if (!selected) return null;
+    if (selectedNodeId && nodeById[selectedNodeId]?.equipmentId === selected.id) return nodeLineage;
+    const node = nodes.find((n) => n.equipmentId === selected.id && n.source !== "catalog");
+    return node ? lineageOf(node.id) : null;
+  }, [selected, selectedNodeId, nodeById, nodeLineage, nodes, lineageOf]);
   const intel = useSurveyBidIntel(detailOpen ? selected : undefined);
   const adding = catalog?.equipment.find((e) => e.id === addingId);
   const closeAdd = React.useCallback(() => setAddingId(null), []);
@@ -473,6 +547,32 @@ export const SurveySystemPage: React.FC = () => {
     if (node.zoneId !== activeZoneId) setActiveZoneId(node.zoneId);
     setSelectedNodeId(nodeId);
     handleSelect(node.equipmentId);
+  };
+
+  // Free scene nodes carry the equipment id directly (no spread wiring behind them).
+  const handleSceneNodeSelect = (id: string): void => {
+    if (!isFree) {
+      handleNodeSelect(id);
+      return;
+    }
+    if (id.indexOf(PORTAL_PREFIX) === 0) {
+      handleZoneSelect(id.slice(PORTAL_PREFIX.length));
+      return;
+    }
+    stopTour();
+    setSelectedNodeId(id);
+    handleSelect(id);
+  };
+
+  const handleSearchHit = (id: string): void => {
+    if (!isFree) {
+      handleNodeSelect(id);
+      return;
+    }
+    addToPackage(id, 1);
+    const eq = catalog?.equipment.find((e) => e.id === id);
+    addToast({ type: "success", title: "Added to package", message: eq ? eq.title : id });
+    setFilters({ search: "" });
   };
 
   const handleSelectLine = (zoneId: string, equipmentId: string): void => {
@@ -525,7 +625,7 @@ export const SurveySystemPage: React.FC = () => {
   React.useEffect(() => {
     openZone(null);
     setTourStep(null);
-  }, [spread?.id]);
+  }, [spreadId]);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -586,7 +686,7 @@ export const SurveySystemPage: React.FC = () => {
     }
     return (
       <>
-        {spread && (
+        {spread && !isFree && (
           <div
             className={`${styles.spreadPanel} ${activeZoneId ? styles.spreadPanelOpen : ""}`}
             key={spread.id}
@@ -609,6 +709,32 @@ export const SurveySystemPage: React.FC = () => {
           </div>
         )}
 
+        {isFree && packageLines.length === 0 && (
+          <div
+            style={{
+              position: "absolute",
+              top: 20,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 3,
+              pointerEvents: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 16px",
+              borderRadius: 10,
+              background: "var(--card-bg)",
+              border: "1px solid var(--border)",
+              color: "var(--text-secondary)",
+              fontSize: 13,
+              maxWidth: "min(540px, 90%)",
+            }}
+          >
+            <Radar size={16} />
+            <span>Blank vessel - search above to add any equipment. Rooms appear as you build.</span>
+          </div>
+        )}
+
         {detailOpen && selected && intel && (
           <div className={styles.detailDrawer}>
             <SurveyEquipmentDetail
@@ -616,6 +742,7 @@ export const SurveySystemPage: React.FC = () => {
               catalog={catalog}
               intel={intel}
               packageQty={qtyOf(selected.id)}
+              lineage={detailLineage}
               onAdd={() => setAddingId(selected.id)}
               onSelectEquipment={handleSelectLinked}
               onClose={() => setDetailOpen(false)}
@@ -643,20 +770,22 @@ export const SurveySystemPage: React.FC = () => {
           <React.Suspense fallback={null}>
             <SurveySystemScene
               topInset={headerHeight}
-              zones={sceneZones}
-              trunks={trunks}
-              focus={focus}
-              spreadTitle={spread ? spread.title : ""}
+              zones={activeZones}
+              trunks={activeTrunks}
+              focus={activeFocus}
+              spreadTitle={isFree ? "Free composition" : spread ? spread.title : ""}
               nodeStates={nodeStates}
-              tracePath={tracePath}
-              cableInfo={cableInfo}
-              tour={tour}
+              tracePath={isFree ? null : tracePath}
+              cableInfo={isFree ? null : cableInfo}
+              tour={isFree ? null : tour}
               onZoneSelect={handleZoneSelect}
-              onNodeSelect={handleNodeSelect}
+              onNodeSelect={handleSceneNodeSelect}
               onNodeHover={setHoverNodeId}
               onCableHover={setHoverCableKey}
               onInteract={stopTour}
-              onTourStart={() => setTourStep(0)}
+              onTourStart={() => {
+                if (!isFree) setTourStep(0);
+              }}
               onTourStep={stepTour}
               onTourStop={stopTour}
             />
@@ -666,10 +795,9 @@ export const SurveySystemPage: React.FC = () => {
       <div className={styles.overlay}>
         <div ref={headerRef} className={styles.headerLayer}>
           <SurveyPortalHeader
-            view="system"
             onOpenPackage={() => setPackageOpen(true)}
             searchHits={searchHits}
-            onSearchHit={handleNodeSelect}
+            onSearchHit={handleSearchHit}
           />
         </div>
         <div className={styles.body}>

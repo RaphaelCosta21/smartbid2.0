@@ -46,6 +46,8 @@ export interface SurveyTraceStep {
   label: string;
   /** Cable code of the link that reaches this step. */
   cable?: string;
+  /** Software / storage / processing / deliverable step: no 3D object behind it. */
+  logical?: boolean;
 }
 
 interface SurveySystemSceneProps {
@@ -362,9 +364,13 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
                     <ChevronRight size={10} className={styles.traceArrow} />
                   </span>
                 )}
-                <button className={styles.traceChip} onClick={() => onNodeSelect(step.id)}>
-                  {step.label}
-                </button>
+                {step.logical ? (
+                  <span className={styles.traceLogical}>{step.label}</span>
+                ) : (
+                  <button className={styles.traceChip} onClick={() => onNodeSelect(step.id)}>
+                    {step.label}
+                  </button>
+                )}
               </React.Fragment>
             ))}
           </div>

@@ -49,7 +49,6 @@ import { TechnicalProposalsPage } from "../../pages/TechnicalProposalsPage";
 import { PastBidsPage } from "../../pages/PastBidsPage";
 import { ClarificationsDbPage } from "../../pages/ClarificationsDbPage";
 import { LinksRecommendationsPage } from "../../pages/LinksRecommendationsPage";
-import { SurveyEquipmentPage } from "../../pages/SurveyEquipmentPage";
 import { SurveySystemPage } from "../../pages/SurveySystemPage";
 import { AnalyticsPage } from "../../pages/AnalyticsPage";
 import { PerformanceTrendsPage } from "../../pages/PerformanceTrendsPage";
@@ -66,9 +65,8 @@ import { ToolingReportPage } from "../../pages/ToolingReportPage";
 import { QueryConsultingPage } from "../../pages/QueryConsultingPage";
 import { PatchNotesPage } from "../../pages/PatchNotesPage";
 import { FaqPage } from "../../pages/FaqPage";
-import { EasiPriceHistoryPage } from "../../pages/EasiPriceHistoryPage";
-import { EasiBidPresentationPage } from "../../pages/EasiBidPresentationPage";
-import { EasiBidComparatorPage } from "../../pages/EasiBidComparatorPage";
+import { PriceHistoryPage } from "../../pages/PriceHistoryPage";
+import { BidComparatorPage } from "../../pages/BidComparatorPage";
 import { EasiSuppliersPage } from "../../pages/EasiSuppliersPage";
 import { CommandPalette } from "./CommandPalette";
 import { ToastContainer } from "../common/ToastContainer";
@@ -337,12 +335,12 @@ const AppLayoutInner: React.FC<{
               )}
             />
             <Route
-              path={ROUTES.surveyEquipment}
-              element={guard("survey-portal", <SurveyEquipmentPage />)}
-            />
-            <Route
               path={ROUTES.surveySystem}
               element={guard("survey-portal", <SurveySystemPage />)}
+            />
+            <Route
+              path={ROUTES.surveyEquipmentLegacy}
+              element={<Navigate to={ROUTES.surveySystem} replace />}
             />
             <Route
               path={ROUTES.analytics}
@@ -417,19 +415,12 @@ const AppLayoutInner: React.FC<{
               element={<Navigate to={ROUTES.queryConsulting} replace />}
             />
             <Route
-              path={ROUTES.easiPriceHistory}
-              element={guard("easi-price-history", <EasiPriceHistoryPage />)}
+              path={ROUTES.priceHistory}
+              element={guard("easi-price-history", <PriceHistoryPage />)}
             />
             <Route
-              path={ROUTES.easiBidPresentation}
-              element={guard(
-                "easi-bid-presentation",
-                <EasiBidPresentationPage />,
-              )}
-            />
-            <Route
-              path={ROUTES.easiBidComparator}
-              element={guard("easi-bid-comparator", <EasiBidComparatorPage />)}
+              path={ROUTES.bidComparator}
+              element={guard("easi-bid-comparator", <BidComparatorPage />)}
             />
             <Route
               path={ROUTES.easiSuppliers}

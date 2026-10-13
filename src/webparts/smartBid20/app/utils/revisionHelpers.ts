@@ -220,6 +220,15 @@ export function detectRevisionChanges(
                 `availability: ${oldItem.availabilityStatus || "-"} → ${newItem.availabilityStatus || "-"}`,
               );
             }
+            const oldLinks = oldItem.quotationLinks || [];
+            const newLinks = newItem.quotationLinks || [];
+            if (JSON.stringify(oldLinks) !== JSON.stringify(newLinks)) {
+              fieldChanges.push(
+                oldLinks.length !== newLinks.length
+                  ? `quotations: ${oldLinks.length} → ${newLinks.length}`
+                  : "quotation tracking updated",
+              );
+            }
             const detail =
               fieldChanges.length > 0 ? ` (${fieldChanges.join(", ")})` : "";
             changes.push({

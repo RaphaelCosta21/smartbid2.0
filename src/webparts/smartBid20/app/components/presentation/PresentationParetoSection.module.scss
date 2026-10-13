@@ -1,0 +1,86 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms;
+
+  &:hover {
+    border-color: var(--primary-accent);
+    color: var(--primary-accent);
+  }
+}
+
+.chipActive {
+  border-color: var(--primary-accent);
+  background: var(--primary-accent);
+  color: var(--primary-accent-contrast);
+
+  &:hover {
+    color: var(--primary-accent-contrast);
+  }
+}
+
+.minField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 220px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+
+  input {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+
+    &:focus {
+      outline: none;
+      border-color: var(--primary-accent);
+    }
+  }
+}
+
+.empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.note {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--primary-accent);
+  border-radius: 6px;
+  background: var(--card-bg-elevated);
+  font-size: 12px;
+  color: var(--text-primary);
+}

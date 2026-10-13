@@ -1,6 +1,14 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Minus, Plus, Trash2, FilePlus2, FolderInput } from "lucide-react";
+import {
+  X,
+  Minus,
+  Plus,
+  Trash2,
+  FilePlus2,
+  FolderInput,
+  Box,
+} from "lucide-react";
 import { ROUTES } from "../../config/routes.config";
 import { useSurveyStore } from "../../stores/useSurveyStore";
 import { useBidStore } from "../../stores/useBidStore";
@@ -13,6 +21,7 @@ import { EmptyState } from "../common/EmptyState";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { IBid } from "../../models";
 import { SurveyEquipmentPhoto } from "./SurveyEquipmentCard";
+import { SurveyComposition3D } from "./SurveyComposition3D";
 import styles from "./SurveyPackageDrawer.module.scss";
 
 interface SurveyPackageDrawerProps {
@@ -39,6 +48,7 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
   const { openBid, canOpen } = useOpenBid();
 
   const [pickerOpen, setPickerOpen] = React.useState(false);
+  const [show3D, setShow3D] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [target, setTarget] = React.useState<IBid | null>(null);
   const [saving, setSaving] = React.useState(false);
@@ -242,6 +252,12 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
 
           {lines.length > 0 && (
             <div className={styles.actions}>
+              <button
+                className={styles.secondary}
+                onClick={() => setShow3D(true)}
+              >
+                <Box size={14} /> View in 3D
+              </button>
               {canEditBids && linkedBid && (
                 <button
                   className={styles.primary}
@@ -291,6 +307,7 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
           onCancel={() => setTarget(null)}
         />
       )}
+      {show3D && <SurveyComposition3D onClose={() => setShow3D(false)} />}
     </>
   );
 };

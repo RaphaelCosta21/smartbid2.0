@@ -11,7 +11,14 @@ import { usePageAccess } from "../../hooks/usePageAccess";
 import { useSurveyStore } from "../../stores/useSurveyStore";
 import { useUIStore } from "../../stores/useUIStore";
 import { SurveyEquipmentPhoto } from "./SurveyEquipmentCard";
+import { SurveyEquipment3DThumb } from "./SurveyEquipment3DThumb";
+import { SceneShape } from "./survey3d/sceneTypes";
 import { SURVEY_FIT_ICONS } from "./surveyAssets";
+import {
+  IDataLineage,
+  ILineageItem,
+  ILineageStage,
+} from "../../utils/surveySpreadGraph";
 import styles from "./SurveyEquipmentDetail.module.scss";
 
 interface SurveyEquipmentDetailProps {
@@ -19,10 +26,16 @@ interface SurveyEquipmentDetailProps {
   catalog: ISurveyCatalog;
   intel: ISurveyBidIntel;
   packageQty: number;
+  /** Data path derived from the spread; falls back to the static whereItFits when null. */
+  lineage?: IDataLineage | null;
   onAdd: () => void;
   onSelectEquipment: (id: string) => void;
   onClose?: () => void;
 }
+
+/** Items shown per stage before "+N more" (transport collapses to "via N hops"). */
+const STAGE_ITEMS_MAX = 5;
+const TRANSPORT_INLINE_MAX = 2;
 
 /** Only http(s) or site-relative links from catalog JSON are rendered. */
 const safeUrl = (url: string | null): string | null =>
@@ -50,10 +63,15 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
   catalog,
   intel,
   packageQty,
+  lineage,
   onAdd,
   onSelectEquipment,
   onClose,
 }) => {
+  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+  const toggleStage = (key: string): void =>
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  React.useEffect(() => setExpanded({}), [equipment.id]);
   const datasheet = safeUrl(equipment.datasheetUrl);
   const status = (equipment.status || "Active").toUpperCase();
   const { canEdit: canEditPhoto } = usePageAccess();
@@ -90,9 +108,14 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
     }
   };
 
+  const shape = (equipment.sceneShape || "") as SceneShape | "";
   const photo = (
     <>
-      <SurveyEquipmentPhoto equipment={equipment} size={140} />
+      {shape ? (
+        <SurveyEquipment3DThumb shape={shape as SceneShape} size={140} />
+      ) : (
+        <SurveyEquipmentPhoto equipment={equipment} size={140} />
+      )}
       <span className={styles.photoLabel}>
         {(equipment.manufacturer || "PHOTO").toUpperCase()}
       </span>
@@ -179,6 +202,82 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
       </span>
     );
   };
+
+  const renderLineageItem = (
+    stage: ILineageStage,
+    item: ILineageItem,
+  ): React.ReactNode => {
+    const cls = [
+      styles.flowItem,
+      item.current ? styles.flowCurrent : "",
+      stage.key === "deliverable" ? styles.flowDeliverable : "",
+      item.inferred ? styles.flowInferred : "",
+    ].join(" ");
+    const body = (
+      <>
+        <span className={styles.flowItemLabel}>{item.label}</span>
+        {item.sublabel && (
+          <span className={styles.flowItemSub}>{item.sublabel}</span>
+        )}
+      </>
+    );
+    return item.equipmentId &&
+      !item.current &&
+      item.equipmentId !== equipment.id ? (
+      <button
+        key={item.key}
+        type="button"
+        className={`${cls} ${styles.flowLink}`}
+        title={item.hint}
+        onClick={() => onSelectEquipment(item.equipmentId!)}
+      >
+        {body}
+      </button>
+    ) : (
+      <span key={item.key} className={cls} title={item.hint}>
+        {body}
+      </span>
+    );
+  };
+
+  const renderLineageStage = (stage: ILineageStage): React.ReactNode => {
+    const open = !!expanded[stage.key];
+    const hops =
+      stage.key === "transport" && stage.items.length > TRANSPORT_INLINE_MAX;
+    const capped = !hops && stage.items.length > STAGE_ITEMS_MAX;
+    const visible = open
+      ? stage.items
+      : hops
+        ? []
+        : capped
+          ? stage.items.slice(0, STAGE_ITEMS_MAX)
+          : stage.items;
+    return (
+      <div key={stage.key} className={styles.flowStage}>
+        <span className={styles.flowLabel}>{stage.title}</span>
+        <div className={styles.flowItems}>
+          {visible.map((item) => renderLineageItem(stage, item))}
+          {(hops || capped) && (
+            <button
+              type="button"
+              className={styles.flowMore}
+              onClick={() => toggleStage(stage.key)}
+              aria-expanded={open}
+            >
+              {open
+                ? "Show less"
+                : hops
+                  ? `via ${stage.items.length} hops`
+                  : `+${stage.items.length - STAGE_ITEMS_MAX} more`}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const hasInferred =
+    !!lineage && lineage.stages.some((s) => s.items.some((it) => it.inferred));
 
   return (
     <div className={styles.panel} key={equipment.id}>
@@ -278,45 +377,66 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
           </div>
         )}
 
-        {equipment.whereItFits.length > 0 && (
+        {lineage ? (
           <div className={styles.fitBox}>
             <div className={styles.fitHead}>
-              <span className={styles.fitTitle}>WHERE DOES IT FIT?</span>
+              <span className={styles.fitTitle}>
+                WHERE DOES IT FIT? · DATA PATH
+              </span>
               <span className={styles.fitLive}>
-                <span className={styles.liveDot} /> LIVE RELATIONSHIP MAP
+                <span className={styles.liveDot} /> LIVE FROM THE SPREAD
               </span>
             </div>
-            <div className={styles.fitChain}>
-              {equipment.whereItFits.map((node, i) => (
-                <React.Fragment key={`${node.label}-${i}`}>
-                  {i > 0 && <span className={styles.connector} />}
-                  {node.stack && node.stack.length > 0 ? (
-                    <span className={styles.stack}>
-                      {node.stack.map((s, j) => (
-                        <span key={j} className={styles.stackRow}>
-                          <FitIcon label={s} />
-                          <span className={styles.node}>{s}</span>
-                        </span>
-                      ))}
-                    </span>
-                  ) : (
-                    <span className={styles.fitNode}>
-                      {!isCurrent(node) && <FitIcon label={node.label} />}
-                      {isCurrent(node) ? (
-                        <span className={styles.nodeCurrent}>{node.label}</span>
-                      ) : (
-                        <span
-                          className={`${styles.node} ${i === 0 || i === equipment.whereItFits.length - 1 ? styles.nodeEnd : ""}`}
-                        >
-                          {node.label}
-                        </span>
-                      )}
-                    </span>
-                  )}
-                </React.Fragment>
-              ))}
+            <div className={styles.flowList}>
+              {lineage.stages.map(renderLineageStage)}
             </div>
+            {hasInferred && (
+              <span className={styles.flowNote}>
+                Dashed steps are standard practice, pending survey SME
+                validation.
+              </span>
+            )}
           </div>
+        ) : (
+          equipment.whereItFits.length > 0 && (
+            <div className={styles.fitBox}>
+              <div className={styles.fitHead}>
+                <span className={styles.fitTitle}>WHERE DOES IT FIT?</span>
+              </div>
+              <div className={styles.fitChain}>
+                {equipment.whereItFits.map((node, i) => (
+                  <React.Fragment key={`${node.label}-${i}`}>
+                    {i > 0 && <span className={styles.connector} />}
+                    {node.stack && node.stack.length > 0 ? (
+                      <span className={styles.stack}>
+                        {node.stack.map((s, j) => (
+                          <span key={j} className={styles.stackRow}>
+                            <FitIcon label={s} />
+                            <span className={styles.node}>{s}</span>
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      <span className={styles.fitNode}>
+                        {!isCurrent(node) && <FitIcon label={node.label} />}
+                        {isCurrent(node) ? (
+                          <span className={styles.nodeCurrent}>
+                            {node.label}
+                          </span>
+                        ) : (
+                          <span
+                            className={`${styles.node} ${i === 0 || i === equipment.whereItFits.length - 1 ? styles.nodeEnd : ""}`}
+                          >
+                            {node.label}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+          )
         )}
 
         {equipment.bidConsiderations.length > 0 && (

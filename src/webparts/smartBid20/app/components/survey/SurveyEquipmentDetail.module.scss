@@ -319,6 +319,151 @@
   padding: 4px 2px;
 }
 
+.flowList {
+  display: flex;
+  flex-direction: column;
+}
+
+.flowStage {
+  position: relative;
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 10px;
+  padding: 0 0 10px 14px;
+
+  // Dashed rail with a dot per stage: reads top → bottom like the data.
+  &::before {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 10px;
+    bottom: -2px;
+    width: 1px;
+    background-image: linear-gradient(180deg, var(--survey-teal) 50%, transparent 50%);
+    background-size: 1px 6px;
+    animation: flowDown 900ms linear infinite;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--survey-teal);
+  }
+
+  &:last-child {
+    padding-bottom: 0;
+
+    &::before {
+      display: none;
+    }
+  }
+}
+
+@keyframes flowDown {
+  to {
+    background-position: 0 6px;
+  }
+}
+
+.flowLabel {
+  padding-top: 5px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--survey-slate);
+}
+
+.flowItems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.flowItem {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 4px 9px;
+  border-radius: 4px;
+  border: 1px solid var(--survey-line);
+  background: var(--survey-glass-strong);
+  color: var(--survey-navy);
+  font-family: inherit;
+  font-size: 9px;
+  text-align: left;
+}
+
+.flowItemLabel {
+  font-weight: 600;
+}
+
+.flowItemSub {
+  font-size: 8px;
+  color: var(--survey-slate);
+}
+
+.flowLink {
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--survey-teal);
+  }
+}
+
+.flowInferred {
+  border-style: dashed;
+  border-color: var(--survey-slate);
+}
+
+.flowCurrent {
+  border: 1px solid var(--package-accent);
+  background: var(--package-accent);
+  color: var(--package-accent-contrast);
+
+  .flowItemSub {
+    color: var(--package-accent-contrast);
+  }
+}
+
+.flowDeliverable {
+  border-color: var(--survey-navy);
+  background: var(--survey-navy);
+  color: var(--survey-ice);
+
+  .flowItemSub {
+    color: var(--survey-ice);
+  }
+
+  &.flowInferred {
+    border-style: dashed;
+    border-color: var(--survey-ice);
+  }
+}
+
+.flowMore {
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px dashed var(--survey-teal);
+  background: transparent;
+  color: var(--survey-teal);
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.flowNote {
+  font-size: 8px;
+  color: var(--survey-slate);
+}
+
 .connector {
   flex: 1 0 16px;
   min-width: 16px;

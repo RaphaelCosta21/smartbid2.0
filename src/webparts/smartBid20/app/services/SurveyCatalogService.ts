@@ -171,6 +171,7 @@ export class SurveyCatalogService {
           })),
           links: base.links || [],
           categories: base.categories || [],
+          pipeline: base.pipeline || [],
           order: base.order,
         });
       } else if (type === "equipment") {
@@ -254,6 +255,8 @@ export class SurveyCatalogService {
       sceneAnchor: d.sceneAnchor || "",
       sceneShape: d.sceneShape || "",
       modelUrl: d.modelUrl || null,
+      dataRole: d.dataRole || undefined,
+      dataTypes: d.dataTypes || [],
       imageUrl,
       datasheetUrl: d.datasheetUrl || null,
       order: d.order,
