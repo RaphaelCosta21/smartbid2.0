@@ -7,12 +7,11 @@
       "name": "section-chunk-skill",
       "description": "Section-aware Markdown chunking (Function App: POST /api/skills/chunk).",
       "context": "/document",
-      "uri": "https://fa-opgb-bes-prd-fa.azurewebsites.net/api/skills/chunk",
+      "uri": "https://fa-opgb-bes-prd-fa.azurewebsites.net/api/skills/chunk?code=<SKILL_CHUNK_FUNCTION_KEY>",
       "httpMethod": "POST",
       "timeout": "PT3M50S",
       "batchSize": 1,
       "degreeOfParallelism": 2,
-      "authResourceId": "api://opgbbes-prd-fa-aadapp.oceaneering.com",
       "inputs": [
         {
           "name": "content",

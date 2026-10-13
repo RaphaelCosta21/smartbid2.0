@@ -1264,7 +1264,8 @@ def suggest_clarifications(req: func.HttpRequest) -> func.HttpResponse:
 # ---------------------------------------------------------------------------
 
 
-@app.route(route="skills/chunk", methods=["POST"], auth_level=ANONYMOUS)
+# Excluded from EasyAuth, so the function key is this route's only protection.
+@app.route(route="skills/chunk", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def skill_chunk(req: func.HttpRequest) -> func.HttpResponse:
     try:
         records = req.get_json()["values"]

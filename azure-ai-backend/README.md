@@ -106,35 +106,27 @@ SharePoint indexer never exposes `/document/file_data`, so the built-in **Docume
 skill cannot run against this data source. `smartbid-docs-skillset.json` therefore calls
 `POST /skills/chunk` on the Function App, which rebuilds each document's outline as Markdown,
 drops the header/footer that repeats on every page, and emits one chunk per section plus a
-per-document outline chunk. Before deploying the skillset:
+per-document outline chunk.
 
-1. **Search identity** — `srch-opgbbes-prd` → Settings → **Identity** → System assigned → **Status On**
-   (confirmed On, Object (principal) ID `262d2518-0b86-4315-ae37-a7f825b581ed`). Its **Application ID** is
-   shown in Entra ID → Enterprise applications (Application type = Managed Identities).
-2. **Only if** Enterprise applications → `opgbbes-prd-fa-aadapp` → Properties → **Assignment required? = Yes**:
-   the search identity must be assigned too. Create an app role for applications — App registrations →
-   `opgbbes-prd-fa-aadapp` → **App roles** → Create app role: Display name `SmartBid Indexer`, Allowed
-   member types **Applications**, Value `SmartBid.Indexer`, enabled. (Access to SmartBid is restricted on
-   the SharePoint client app registration, so this is normally not needed.)
-3. **Only with step 2** — assign it to the search identity. The portal cannot assign a managed identity,
-   so use Cloud Shell (PowerShell) as an Entra admin:
-   ```powershell
-   Connect-MgGraph -Scopes "AppRoleAssignment.ReadWrite.All","Application.Read.All"
-   $mi   = Get-MgServicePrincipal -Filter "displayName eq 'srch-opgbbes-prd'"
-   $api  = Get-MgServicePrincipal -Filter "displayName eq 'opgbbes-prd-fa-aadapp'"
-   $role = $api.AppRoles | Where-Object { $_.Value -eq "SmartBid.Indexer" }
-   New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $mi.Id -PrincipalId $mi.Id -ResourceId $api.Id -AppRoleId $role.Id
+The skill authenticates with a **function key**, not a managed identity (the portal would not save a
+working `authResourceId`). `/api/skills/chunk` is excluded from EasyAuth and its route uses
+`AuthLevel.FUNCTION`, so the key is required; every other route stays behind EasyAuth. Before deploying
+the skillset:
+
+1. **EasyAuth excluded path** — `fa-opgb-bes-prd-fa` → add `/api/skills/chunk` to
+   `globalValidation.excludedPaths` (not shown in the portal blade; Cloud Shell, with the Function App's
+   resource group):
+   ```bash
+   az webapp auth update -g <resource-group> -n fa-opgb-bes-prd-fa --excluded-paths "[\"/api/skills/chunk\"]"
    ```
-   It then shows under Enterprise applications → `opgbbes-prd-fa-aadapp` → **Users and groups**.
-4. **EasyAuth** — `fa-opgb-bes-prd-fa` (provider `opgbbes-prd-fa-aadapp`, client ID
-   `5b292f7a-b8a5-4346-b809-568481fe514c`) → Settings → **Authentication** → Microsoft provider → **Edit**:
-   under **Additional checks**, a _specific client applications_ list needs the search **Application ID**
-   and a _specific identities_ list needs its **Object (principal) ID**. The audience needs no change:
-   the skill requests the same `api://opgbbes-prd-fa-aadapp.oceaneering.com` the web part uses.
+2. **Function key** — after deploying the Function App, Functions → `skill_chunk` → **Function Keys** →
+   copy `default` (a key for this function only, not the host key).
+3. **Skillset** — replace `<SKILL_CHUNK_FUNCTION_KEY>` in the skill `uri`. A GET returns the key as
+   `?code=<redacted>`; to update the skillset later without re-entering it, send `"uri": "<unchanged>"`.
 
-The skill's `authResourceId` is already set to `api://opgbbes-prd-fa-aadapp.oceaneering.com`.
-After the first run, Indexers → `smartbid-docs-indexer` → Execution history: `AADSTS501051`
-(not assigned) points to steps 2–3, `403` to step 4, `401` to the audience.
+After the first run, Indexers → `smartbid-docs-indexer` → Execution history: `401` on
+`section-chunk-skill` means a wrong/missing key if the path is excluded, or that the excluded path did
+not apply (EasyAuth answered); `404` means the Function App was not redeployed or the URL is wrong.
 
 **Deploy order** (REST, `api-version=2026-05-01-preview`, `Content-Type: application/json`, `api-key: <search-admin-key>`):
 
