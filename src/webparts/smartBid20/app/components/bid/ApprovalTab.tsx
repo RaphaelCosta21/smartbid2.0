@@ -10,6 +10,7 @@ import {
   Ban,
   Undo2,
   Users,
+  CircleX,
 } from "lucide-react";
 import {
   IActivityLogEntry,
@@ -31,9 +32,12 @@ import { ApprovalService } from "../../services/ApprovalService";
 import { useUIStore } from "../../stores/useUIStore";
 import {
   APPROVAL_FLOW_ACTOR,
+  buildApprovalCancellation,
+  buildCancelledRoundsPatch,
   computeRoundSectorDurations,
   computeApprovalCycleTime,
   getActiveApprovalOverride,
+  getCancellableRounds,
   getMissingApprovalActivityEntries,
 } from "../../utils/approvalHelpers";
 import { buildHistoryTransition } from "../../utils/phaseHelpers";
@@ -55,6 +59,7 @@ import {
   getTrackStatus,
   isSplitApprovalComplete,
   memberMatchesTrack,
+  needsNewApprovalRound,
   projectManagersForTrack,
   syncTrackStatuses,
 } from "../../utils/approvalTracks";
@@ -315,24 +320,11 @@ const ApprovalTrackPanel: React.FC<ApprovalTrackPanelProps> = ({
     ? latestTrackRound?.override
     : getActiveApprovalOverride(bid);
 
-  // A new approval round is needed when:
-  // - Gate is open AND approvalStatus was reset to "not-started" (after revision)
-  // - OR gate is open AND there's an active revision that hasn't been re-approved
-  const hasActiveRevisionPending = React.useMemo(() => {
-    const revisions = bid.revisions || [];
-    if (revisions.length === 0) return false;
-    const lastRevision = revisions[revisions.length - 1];
-    // If the last revision is open (no closedDate) and we're back at Close Out/Pending Approval
-    return !lastRevision.closedDate && isGateOpen;
-  }, [bid.revisions, isGateOpen]);
-
-  // A team that already approved keeps its approval through a Rework
-  const needsNewRound = track
-    ? isGateOpen &&
-      (approvalStatus === "not-started" ||
-        (hasActiveRevisionPending && approvalStatus === "rejected"))
-    : isGateOpen &&
-      (approvalStatus === "not-started" || hasActiveRevisionPending);
+  const needsNewRound = needsNewApprovalRound(
+    bid,
+    track,
+    isTerminalStatus(bid.currentStatus),
+  );
   const isTrackingMode = approvalStatus !== "not-started" && !needsNewRound;
   const hasRunningRound = isTrackingMode && approvalStatus !== "approved";
   const showOverride =
@@ -400,6 +392,9 @@ const ApprovalTrackPanel: React.FC<ApprovalTrackPanelProps> = ({
   const [showOverrideConfirm, setShowOverrideConfirm] = React.useState(false);
   const [overrideReason, setOverrideReason] = React.useState("");
   const [overriding, setOverriding] = React.useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
+  const [cancelReason, setCancelReason] = React.useState("");
+  const [cancelling, setCancelling] = React.useState(false);
   const [waiverTarget, setWaiverTarget] = React.useState<SectorConfig | null>(
     null,
   );
@@ -1041,6 +1036,196 @@ const ApprovalTrackPanel: React.FC<ApprovalTrackPanelProps> = ({
     }
   };
 
+  // ── Cancel the running round (wrong or missing approver) ──
+  const cancellableRounds = getCancellableRounds(bid, track);
+  const cancelRound =
+    cancellableRounds.length > 0
+      ? cancellableRounds[cancellableRounds.length - 1]
+      : undefined;
+  const canCancelRound =
+    canManageApproval &&
+    isTrackingMode &&
+    approvalStatus === "pending" &&
+    !activeOverride &&
+    !!cancelRound &&
+    !isTerminalStatus(bid.currentStatus);
+  const cancelApproved = runningApprovals.filter(
+    (a) => a.status === "approved",
+  );
+
+  const closeCancelDialog = (): void => {
+    setShowCancelConfirm(false);
+    setCancelReason("");
+  };
+
+  const handleCancelRound = async (): Promise<void> => {
+    const reason = cancelReason.trim();
+    if (!reason || !canCancelRound || !cancelRound) return;
+    setCancelling(true);
+    try {
+      const nowIso = new Date().toISOString();
+      const actor: IPersonRef = {
+        name: currentUser.name,
+        email: currentUser.email,
+        role: currentUser.role,
+      };
+      const roundNumbers = cancellableRounds.map((r) => r.round);
+      const written = await ApprovalService.markRoundsCancelled(
+        bid.bidNumber,
+        roundNumbers,
+        buildApprovalCancellation(runningApprovals, actor, nowIso, reason),
+      );
+      if (!written) {
+        closeCancelDialog();
+        addToast({
+          type: "warning",
+          title: "Round already closed",
+          message:
+            "The approval flow has just closed this round. The latest answers will show up in a few seconds.",
+        });
+        return;
+      }
+
+      const scope = track
+        ? `${trackLabel}, Round ${cancelRound.round}`
+        : `Round ${cancelRound.round}`;
+      const stale = roundNumbers.filter((n) => n !== cancelRound.round);
+      const description =
+        `Approval cancelled (${scope}) - ${cancelApproved.length} of ${runningApprovals.length} approvers had approved` +
+        (cancelApproved.length > 0
+          ? ` (${cancelApproved.map((a) => a.stakeholder.name).join(", ")})`
+          : "") +
+        (stale.length > 0
+          ? `. Stale pending rounds also closed: ${stale.join(", ")}`
+          : "") +
+        `. Reason: "${reason}"`;
+      const logEntry = createActivityLogEntry(
+        "APPROVAL_CANCELLED",
+        description,
+        actor.email,
+        actor.name,
+        {
+          round: cancelRound.round,
+          ...(track ? { track, trackLabel } : {}),
+          cancelledRounds: roundNumbers,
+          approvedCount: cancelApproved.length,
+          totalApprovers: runningApprovals.length,
+          approvers: runningApprovals.map((a) => ({
+            name: a.stakeholder.name,
+            email: a.stakeholder.email,
+            sector: a.stakeholderRole,
+            status: a.status,
+          })),
+          reason,
+        },
+      );
+
+      onPatchBid({
+        ...buildCancelledRoundsPatch(bid, track, actor, nowIso, reason),
+        activityLog: [...(bid.activityLog || []), logEntry],
+      });
+      closeCancelDialog();
+      addToast({
+        type: "success",
+        title: "Approval round cancelled",
+        message: "Review the approvers and start a new round.",
+      });
+    } catch (err) {
+      console.error("Failed to cancel approval round:", err);
+      addToast({
+        type: "error",
+        title: "Approval round not cancelled",
+        message:
+          "The round could not be flagged as Cancelled in SharePoint, so nothing was changed. Try again.",
+      });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const cancelRoundButton = canCancelRound ? (
+    <button
+      className={styles.cancelRoundBtn}
+      disabled={cancelling}
+      title="Stop this round to fix the approvers and start a new one"
+      onClick={() => setShowCancelConfirm(true)}
+    >
+      <CircleX size={14} /> Cancel Round
+    </button>
+  ) : null;
+
+  const cancelDialog =
+    showCancelConfirm && cancelRound ? (
+      <div className={styles.confirmOverlay}>
+        <div className={`${styles.confirmBox} ${styles.overrideBox}`}>
+          <div className={styles.confirmTitle}>
+            {track
+              ? `Cancel ${trackLabel}, round ${cancelRound.round}?`
+              : `Cancel approval round ${cancelRound.round}?`}
+          </div>
+          <div className={styles.confirmText}>
+            The approval flow of this round stops and the round stays in the
+            history as <strong>Cancelled</strong>. Answers already given are
+            discarded: every approver answers again in the new round. The
+            approvers of this round are kept selected so you can fix them and
+            start a new round.
+          </div>
+          <div className={styles.overrideSummary}>
+            <span>
+              <strong>
+                {cancelApproved.length} of {runningApprovals.length}
+              </strong>{" "}
+              approvers have already approved.
+            </span>
+            {cancelApproved.length > 0 && (
+              <span>
+                <span className={styles.overrideListLabel}>
+                  Will be discarded:
+                </span>{" "}
+                {cancelApproved.map((a) => a.stakeholder.name).join(", ")}
+              </span>
+            )}
+            <span>
+              The Teams chat of the round is notified. Approval requests
+              already in Teams no longer count.
+            </span>
+          </div>
+          <label
+            className={styles.overrideLabel}
+            htmlFor="approval-cancel-reason"
+          >
+            Reason for cancelling <span className={styles.requiredMark}>*</span>
+          </label>
+          <textarea
+            id="approval-cancel-reason"
+            className={`${styles.overrideReason} ${styles.cancelReason}`}
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="E.g. wrong approver selected, approver missing..."
+            maxLength={1000}
+            rows={4}
+            disabled={cancelling}
+          />
+          <div className={styles.confirmActions}>
+            <button
+              className={styles.confirmBtnCancel}
+              onClick={closeCancelDialog}
+              disabled={cancelling}
+            >
+              Keep Round
+            </button>
+            <button
+              className={styles.confirmBtnDanger}
+              onClick={handleCancelRound}
+              disabled={!cancelReason.trim() || cancelling}
+            >
+              {cancelling ? "Cancelling..." : "Cancel Round"}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
   const overrideButton = showOverride ? (
     <button
       className={styles.overrideBtn}
@@ -1298,7 +1483,12 @@ const ApprovalTrackPanel: React.FC<ApprovalTrackPanelProps> = ({
               </span>
             </div>
           )}
-          {overrideButton}
+          {(cancelRoundButton || overrideButton) && (
+            <div className={styles.headerActions}>
+              {cancelRoundButton}
+              {overrideButton}
+            </div>
+          )}
         </div>
 
         {activeOverride && <ApprovalOverrideBanner override={activeOverride} />}
@@ -1422,6 +1612,7 @@ const ApprovalTrackPanel: React.FC<ApprovalTrackPanelProps> = ({
         </div>
 
         {overrideDialog}
+        {cancelDialog}
       </div>
     );
   }

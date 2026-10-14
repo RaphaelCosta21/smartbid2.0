@@ -171,6 +171,17 @@ export const NOTIFICATION_EVENTS: INotificationEventDef[] = [
     tone: "warning",
   },
   {
+    key: "APPROVAL_CANCELLED",
+    label: "Approval Round Cancelled",
+    group: "approvals",
+    channels: ["teams"],
+    trigger: "Approval > Cancel Round",
+    source: "app",
+    title: "Rodada de aprovação cancelada",
+    emoji: "🚫",
+    tone: "warning",
+  },
+  {
     key: "DUE_DATE_CHANGED",
     label: "Due Date Changed",
     group: "deadlines",

@@ -20,6 +20,7 @@ export const ApprovalBadge: React.FC<ApprovalBadgeProps> = ({
       color: "var(--warning)",
     },
     "not-started": { label: "Not Started", color: "var(--text-muted)" },
+    cancelled: { label: "Cancelled", color: "var(--text-secondary)" },
   };
 
   const { label, color } = config[status] || config["not-started"];

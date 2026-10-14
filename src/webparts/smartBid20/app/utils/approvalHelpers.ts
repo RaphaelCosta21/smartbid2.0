@@ -8,11 +8,14 @@
  */
 import {
   ApprovalStatus,
+  BusinessLine,
   IActivityLogEntry,
+  IApprovalCancellation,
   IBid,
   IBidApproval,
   IApprovalRound,
   IApprovalOverride,
+  IPersonRef,
   ISectorApprovalDuration,
 } from "../models";
 import { Sector } from "../models/IUser";
@@ -26,6 +29,7 @@ import { buildHistoryTransition } from "./phaseHelpers";
 import { getDaysUntil, isPastDue, parseDate } from "./formatters";
 import { getDueDateAt } from "./bidHelpers";
 import {
+  buildTrackRoundPatch,
   getApprovalTracks,
   getLatestTrackRound,
   hasPendingApprovalRound,
@@ -94,6 +98,7 @@ export function computeRoundSectorDurations(
 }
 
 function roundIsClosed(r: IApprovalRound): boolean {
+  if (r.status === "cancelled") return false;
   return (
     !!r.completedDate || r.status === "approved" || r.status === "rejected"
   );
@@ -428,6 +433,100 @@ export function getActiveApprovalOverride(
 ): IApprovalOverride | undefined {
   const rounds = bid.approvalRounds || [];
   return rounds.length > 0 ? rounds[rounds.length - 1].override : undefined;
+}
+
+/** Pending rounds a cancel closes: the running round plus stale pending ones of the same approval. */
+export function getCancellableRounds(
+  bid: IBid,
+  track: BusinessLine | null,
+): IApprovalRound[] {
+  return (bid.approvalRounds || []).filter(
+    (r) => r.status === "pending" && (track ? r.track === track : !r.track),
+  );
+}
+
+export function buildApprovalCancellation(
+  approvals: IBidApproval[],
+  cancelledBy: IPersonRef,
+  cancelledDate: string,
+  reason: string,
+): IApprovalCancellation {
+  return {
+    cancelledBy,
+    cancelledDate,
+    reason,
+    totalApprovers: approvals.length,
+    approvedCount: approvals.filter((a) => a.status === "approved").length,
+    approvalsAtCancel: approvals.map((a) => ({
+      stakeholder: {
+        name: a.stakeholder.name,
+        email: a.stakeholder.email,
+        role: a.stakeholder.role,
+      },
+      stakeholderRole: a.stakeholderRole,
+      sector: a.sector,
+      status: a.status,
+      respondedDate: a.respondedDate,
+    })),
+  };
+}
+
+/**
+ * Approval fields after cancelling the running round(s): they stay in the history as
+ * "cancelled", the approval goes back to not started and the approvers of the latest
+ * cancelled round are pre-filled for the next one.
+ */
+export function buildCancelledRoundsPatch(
+  bid: IBid,
+  track: BusinessLine | null,
+  cancelledBy: IPersonRef,
+  cancelledDate: string,
+  reason: string,
+): Partial<IBid> {
+  const targets = getCancellableRounds(bid, track);
+  if (targets.length === 0) return {};
+  const ids = targets.map((r) => r.round);
+  const latest = targets[targets.length - 1];
+  const approvalRounds = (bid.approvalRounds || []).map((r) =>
+    ids.indexOf(r.round) >= 0
+      ? {
+          ...r,
+          status: "cancelled" as ApprovalStatus,
+          completedDate: null,
+          cancellation: buildApprovalCancellation(
+            r.approvals || [],
+            cancelledBy,
+            cancelledDate,
+            reason,
+          ),
+        }
+      : r,
+  );
+
+  const draft: Partial<Record<Sector, IPersonRef[]>> = {};
+  (latest.approvals || []).forEach((a) => {
+    const sector = getApprovalSector(a);
+    if (!sector) return;
+    const list = draft[sector] || [];
+    const email = a.stakeholder.email.toLowerCase();
+    if (!list.some((p) => p.email.toLowerCase() === email)) {
+      list.push(a.stakeholder);
+    }
+    draft[sector] = list;
+  });
+
+  if (track) {
+    const cancelled = approvalRounds.filter((r) => r.round === latest.round)[0];
+    return buildTrackRoundPatch({ ...bid, approvalRounds }, cancelled, {
+      draftSelections: draft,
+    });
+  }
+  return {
+    approvalRounds,
+    approvals: [],
+    approvalStatus: "not-started",
+    approvalDraftSelections: draft,
+  };
 }
 
 /** Overall approval cycle time (days) for a bid — earliest request to latest completion. */

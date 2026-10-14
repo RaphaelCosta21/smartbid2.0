@@ -68,6 +68,7 @@ flowchart TD
 | New Approval Flow Started   | `APPROVAL_STARTED`            | Teams         | BID Details > **Approval** > **Request Approvals**                                                        | App                      |
 | Approval Response           | `APPROVAL_RESPONSE`           | Teams         | Aprovador responde no Approvals do Teams (fluxo `SmartBid – Approval Round`, passo 14.11)                 | Fluxo de aprovação       |
 | Approval Override           | `APPROVAL_OVERRIDE`           | Teams         | BID Details > **Approval** > **Override Approval**                                                        | App                      |
+| Approval Round Cancelled    | `APPROVAL_CANCELLED`          | Teams         | BID Details > **Approval** > **Cancel Round**                                                             | App                      |
 | Due Date Changed            | `DUE_DATE_CHANGED`            | Teams         | BID Details > **Overview** > Key Dates > **Change**                                                       | App                      |
 | Deadline Warning            | `DEADLINE_WARNING`            | Teams         | Verificação diária, seg a sex às 08:00 (Brasília)                                                         | Deadline Monitor         |
 | SmartBID Overdue            | `BID_OVERDUE`                 | Teams         | Mesma verificação: 1x quando atrasa e depois 1x por semana. Ignora On Hold e status encerrados            | Deadline Monitor         |
@@ -85,12 +86,13 @@ flowchart TD
 | Request Approvals (vai para Pending Approval)   | `APPROVAL_STARTED`                                                 |
 | Override Approval                               | `APPROVAL_OVERRIDE` **e** `BID_COMPLETED`                          |
 | Override de um time (approval secundário)       | `APPROVAL_OVERRIDE`; `BID_COMPLETED` só se o outro time já aprovou |
+| Cancel Round (rodada única ou de um time)       | `APPROVAL_CANCELLED`                                               |
 | Fase mudou (e o status também)                  | `PHASE_CHANGED`                                                    |
 | Só o status mudou                               | `STATUS_CHANGED`                                                   |
 
 `BID_COMPLETED` e `BID_CANCELED` usam a chave `EVENTO|BID|rev{quantidade de revisões}`. O app e o fluxo
 de aprovação geram a mesma chave, então a conclusão nunca é enviada duas vezes. Em BIDs com approval
-secundário, `APPROVAL_STARTED`, `APPROVAL_RESPONSE` e `APPROVAL_OVERRIDE` trazem o fato **Time**.
+secundário, `APPROVAL_STARTED`, `APPROVAL_RESPONSE`, `APPROVAL_OVERRIDE` e `APPROVAL_CANCELLED` trazem o fato **Time**.
 
 ### 1.3 Quem recebe
 

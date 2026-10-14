@@ -1020,6 +1020,9 @@ do app: a **Phase** do BID precisa estar em **Close Out** e a **justificativa é
 
 ### 10.2 Fluxo novo — aviso de override no chat
 
+> O cancelamento de rodada pelo app (**Cancel Round**) tem um fluxo de aviso equivalente:
+> [APPROVALS-INDIVIDUAL.md §8.6.1](./APPROVALS-INDIVIDUAL.md).
+
 Crie um fluxo separado (ex.: `SmartBid – Approval Override`):
 
 1. **Gatilho** — SharePoint **When an item is created or modified**, lista `smartbid-approvals`.

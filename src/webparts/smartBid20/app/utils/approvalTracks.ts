@@ -70,7 +70,7 @@ export function getApprovalTrackLabel(bid: IBid, track: BusinessLine): string {
 /** Index after which track rounds count: a later single round supersedes earlier tracks. */
 function lastSingleRoundIndex(rounds: IApprovalRound[]): number {
   for (let i = rounds.length - 1; i >= 0; i--) {
-    if (!rounds[i].track) return i;
+    if (!rounds[i].track && rounds[i].status !== "cancelled") return i;
   }
   return -1;
 }
@@ -109,7 +109,12 @@ export function getTrackRounds(
   const since = supersededBefore(bid);
   return rounds
     .slice(from)
-    .filter((r) => r.track === track && !(toTime(r.startedDate) <= since));
+    .filter(
+      (r) =>
+        r.track === track &&
+        r.status !== "cancelled" &&
+        !(toTime(r.startedDate) <= since),
+    );
 }
 
 export function getLatestTrackRound(
@@ -181,16 +186,41 @@ export function hasPendingApprovalRound(bid: IBid): boolean {
   );
 }
 
-/** Rounds started in the current cycle (after the last revision was opened). */
+/** Rounds started in the current cycle (after the last revision was opened); cancelled rounds excluded. */
 export function getCurrentCycleRounds(bid: IBid): IApprovalRound[] {
   const revisions = bid.revisions || [];
   const last = revisions.length > 0 ? revisions[revisions.length - 1] : null;
   const since =
     last && last.openedDate ? new Date(last.openedDate).getTime() : 0;
   return (bid.approvalRounds || []).filter((r) => {
+    if (r.status === "cancelled") return false;
     const t = new Date(r.startedDate).getTime();
     return isNaN(t) || t >= since;
   });
+}
+
+/**
+ * The Approval tab offers a new round (approver selection) instead of tracking the latest one.
+ * `isTerminal` is resolved by the caller (terminal statuses are config-driven).
+ */
+export function needsNewApprovalRound(
+  bid: IBid,
+  track: BusinessLine | null,
+  isTerminal: boolean,
+): boolean {
+  const gateOpen =
+    bid.currentPhase === "Close Out" &&
+    bid.currentStatus === "Pending Approval";
+  const revisions = bid.revisions || [];
+  const revisionOpen =
+    revisions.length > 0 && !revisions[revisions.length - 1].closedDate;
+  const status = track ? getTrackStatus(bid, track) : bid.approvalStatus;
+  if (status === "not-started") return gateOpen;
+  if (!revisionOpen) return false;
+  if (gateOpen && status === "rejected") return true;
+  // A team approved before the Rework keeps its approval; a reopened completion already resets tracks.
+  if (track) return false;
+  return !isTerminal && !getCurrentCycleRounds(bid).some((r) => !r.track);
 }
 
 /** The secondary approval can be created/removed only before any round of the current cycle. */

@@ -57,7 +57,7 @@ flowchart TD
     F --> G[Wait for an approval, revisando a rodada a cada 24h]
     G -->|Approve ou Reject| H[Approver rows + BID com ETag, com comentario]
     H --> I[Atualiza o Status card + mensagem no grupo]
-    G -->|Rodada rejeitada ou override| X[Sai da espera]
+    G -->|Rodada rejeitada, override ou cancelada| X[Sai da espera]
     I --> K{Todos os ramos terminaram}
     X --> K
     K -->|Todos aprovaram| L[BID Completed + card final + notificação de conclusão]
@@ -87,6 +87,7 @@ flowchart TD
   esperá-los em até 24 h, avisa no chat que podem ser ignorados e, se desejado, o dono do fluxo os
   cancela manualmente (§8.3).
 - **Override** (Engineering) também não cancela os pedidos abertos automaticamente (§8.4).
+- **Cancelamento da rodada** pelo app também não cancela os pedidos abertos (§8.6).
 - **Prazo:** uma execução de fluxo dura no máximo 30 dias. A rodada expira em 28 dias (§8.5).
 - **Status card com respostas simultâneas:** se duas pessoas respondem no mesmo segundo, o card pode
   mostrar por instantes uma contagem desatualizada. A atualização final, depois do loop, sempre
@@ -107,6 +108,7 @@ Sem ela, nada muda: uma rodada única com todos os aprovadores, como antes. Com 
 | Conclusão do BID  | Só quando todos os times de `tracks` estão `approved` em `approvalTracks`. O time que termina primeiro recebe uma mensagem no chat e o BID continua Pending Approval. |
 | Recusa            | O BID fica `rejected`. Depois do Rework, só o time recusado inicia uma nova rodada; o time que aprovou continua aprovado.                                             |
 | Override          | Por time. O app marca só a Round row daquele time como `Overridden`.                                                                                                  |
+| Cancelamento      | Por time. O app marca só a Round row daquele time como `Cancelled`; o outro time continua (§8.6).                                                                     |
 
 Rodadas sem `track` (aprovação única) seguem exatamente o comportamento anterior.
 
@@ -140,11 +142,12 @@ As colunas abaixo já são criadas pelo app em `ApprovalService.ensureApprovalCo
 | `BidNumber`, `RoundNumber`                         | Filtros                                                          |
 | `ApproverEmail`, `ApproverName`                    | Aprovador da responsabilidade                                    |
 | `Sector`, `SectorLabel`                            | Setor da responsabilidade                                        |
-| `ApprovalStatus`                                   | Pending / Approved / Overridden (+ novas abaixo)                 |
+| `ApprovalStatus`                                   | Pending / Approved / Overridden / Cancelled (+ novas abaixo)     |
 | `RespondedDate`                                    | Data da resposta                                                 |
 | `ChatId`, `StatusCardMessageId`                    | Chat em grupo e mensagem do Status card                          |
 | `ExpectedApproverCount`                            | Total de responsabilidades da rodada                             |
 | `OverriddenBy`, `OverriddenDate`, `OverrideReason` | Override feito pelo app                                          |
+| `CancelledBy`, `CancelledDate`, `CancelReason`     | Cancelamento da rodada feito pelo app (§8.6)                     |
 | `ApprovalTrack`                                    | Time da rodada (`OPG`, `ROV`, `SURVEY`); vazio = aprovação única |
 
 Ajustes manuais (ou incluir em `ensureApprovalColumns()`):
@@ -397,7 +400,7 @@ loops e ramos.
                           └─ False: Post_msg_approved
                           Post_notify_response (HTTP, abaixo da Condition)
 [15]    Get_Round_final → Get_rows_final → filRejected_final → filApproved_final → comFinalOutcome
-[15.6]  Condition_overridden
+[15.6]  Condition_overridden   (override ou cancelamento)
         └─ True: Terminate_overridden
 [15.7]  Condition_incomplete
         └─ True: Update_Round_incomplete → Send_fail_incomplete → Terminate_fail_incomplete
@@ -1155,7 +1158,7 @@ Loop until (preencha depois de criar b e c), numa linha:
 | expressão abaixo, colada inteira | is equal to | fx `true` |
 
 ```text
-or(not(empty(body('Wait_person_approval')?['outcome'])), contains(toLower(string(body('Get_Round_chk')?['ApprovalStatus'])), 'rejected'), contains(toLower(string(body('Get_Round_chk')?['ApprovalStatus'])), 'overridden'))
+or(not(empty(body('Wait_person_approval')?['outcome'])), contains(toLower(string(body('Get_Round_chk')?['ApprovalStatus'])), 'rejected'), contains(toLower(string(body('Get_Round_chk')?['ApprovalStatus'])), 'overridden'), contains(toLower(string(body('Get_Round_chk')?['ApprovalStatus'])), 'cancelled'))
 ```
 
 | Limite  | Como preencher | Valor  |
@@ -1186,8 +1189,9 @@ c. **Get item `Get_Round_chk`** — dentro do Do until, abaixo da b. Relê a Rou
 | Id                                            | fx             | `variables('varRoundItemId')`         |
 | Settings → Run after (`Wait_person_approval`) | marcar         | **is successful** e **has timed out** |
 
-O loop termina quando a pessoa responde, quando outra pessoa recusou (Round row `Rejected`) ou quando
-houve override (Round row `Overridden`). Após cada timeout de 24 h o loop volta a esperar **o mesmo
+O loop termina quando a pessoa responde, quando outra pessoa recusou (Round row `Rejected`), quando
+houve override (Round row `Overridden`) ou quando a rodada foi cancelada no app (Round row
+`Cancelled`). Após cada timeout de 24 h o loop volta a esperar **o mesmo
 pedido**: nenhum pedido novo é criado. Os lembretes ficam no fluxo diário (§4).
 
 **14.6) Houve resposta? Ela é desta pessoa?**
@@ -1201,7 +1205,8 @@ a. **Condition `Condition_person_responded`**
 | `empty(body('Wait_person_approval')?['outcome'])` | is equal to | fx `false` |
 
 - **True:** ações b a f.
-- **False:** deixe vazio — a espera acabou sem resposta (recusa de outra pessoa, override ou prazo).
+- **False:** deixe vazio — a espera acabou sem resposta (recusa de outra pessoa, override,
+  cancelamento ou prazo).
 
 b–e. **Composes da resposta** — no ramo **True**, um Compose por linha, nesta ordem
 (**Verificar** os nomes dos campos na primeira execução):
@@ -1306,10 +1311,10 @@ first(body('filThisRound_inc'))
 Inputs.
 
 e. **Compose `comCanWrite_inc`** — a guarda: a rodada existe, não há rodada mais nova do mesmo time,
-sem override e ainda não aprovada. Inputs (fx):
+sem override, não cancelada e ainda não aprovada. Inputs (fx):
 
 ```text
-and(equals(string(outputs('comLastRound_inc')?['round']), string(variables('varRound'))), equals(length(body('filNewerRound_inc')), 0), empty(outputs('comLastRound_inc')?['override']), not(equals(string(outputs('comLastRound_inc')?['status']), 'approved')))
+and(equals(string(outputs('comLastRound_inc')?['round']), string(variables('varRound'))), equals(length(body('filNewerRound_inc')), 0), empty(outputs('comLastRound_inc')?['override']), not(equals(string(outputs('comLastRound_inc')?['status']), 'approved')), not(equals(string(outputs('comLastRound_inc')?['status']), 'cancelled')))
 ```
 
 f. **Condition `Condition_can_write_inc`**
@@ -1420,10 +1425,11 @@ l. **Compose `comContinue_inc`** — absorve o `412` para o Do until tentar de n
 | Campo   | Como preencher | Valor                                                                                                                                                                                                                                                       |
 | ------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Subject | Texto + fx     | `SmartBid – resposta não gravada no BID @{variables('varBidNumber')}, rodada @{variables('varRound')}`                                                                                                                                                      |
-| Body    | Texto + fx     | `Resposta de @{outputs('comPersonName')}: @{outputs('comDecision')}. Guarda: @{outputs('comCanWrite_inc')} (false = rodada mudou ou houve override). Último status HTTP: @{outputs('Send_HTTP_inc')?['statusCode']}. Comentário: @{outputs('comComments')}` |
+| Body    | Texto + fx     | `Resposta de @{outputs('comPersonName')}: @{outputs('comDecision')}. Guarda: @{outputs('comCanWrite_inc')} (false = rodada mudou, override ou rodada cancelada). Último status HTTP: @{outputs('Send_HTTP_inc')?['statusCode']}. Comentário: @{outputs('comComments')}` |
 
 Se a gravação no BID não aconteceu, o fluxo também **não** altera as Approver rows, a Round row nem o
-chat. Assim, uma resposta que chega depois de um override não troca `Overridden` por `Rejected`.
+chat. Assim, uma resposta que chega depois de um override ou de um cancelamento não troca
+`Overridden`/`Cancelled` por `Rejected`.
 
 **14.9) Atualizar as Approver rows da pessoa** — no ramo True de `Condition_written_inc`.
 
@@ -1620,7 +1626,7 @@ O aprovador vai como `actor`, então ele não recebe a notificação da própria
 ### Fase 4 — Fechamento (depois do `Apply_to_each_person`)
 
 O loop termina quando todas as pessoas saíram da espera: cada uma respondeu, alguém recusou, houve
-override ou o prazo acabou. Todas as ações desta fase ficam **abaixo** de `Apply_to_each_person`,
+override, a rodada foi cancelada ou o prazo acabou. Todas as ações desta fase ficam **abaixo** de `Apply_to_each_person`,
 fora dele, no nível principal.
 
 #### 15) Estado final da rodada
@@ -1665,11 +1671,12 @@ RecordType eq 'Approver' and BidNumber eq '@{replace(variables('varBidNumber'), 
 **15.5) Compose `comFinalOutcome`** — o resultado da rodada numa palavra. Inputs (fx):
 
 ```text
-if(contains(toLower(string(body('Get_Round_final')?['ApprovalStatus'])), 'overridden'), 'overridden', if(greater(length(body('filRejected_final')), 0), 'rejected', if(equals(length(body('filApproved_final')), length(body('Get_rows_final')?['value'])), 'approved', if(greater(ticks(utcNow()), ticks(addDays(triggerOutputs()?['body/Created'], 27))), 'expired', 'incomplete'))))
+if(contains(toLower(string(body('Get_Round_final')?['ApprovalStatus'])), 'cancelled'), 'cancelled', if(contains(toLower(string(body('Get_Round_final')?['ApprovalStatus'])), 'overridden'), 'overridden', if(greater(length(body('filRejected_final')), 0), 'rejected', if(equals(length(body('filApproved_final')), length(body('Get_rows_final')?['value'])), 'approved', if(greater(ticks(utcNow()), ticks(addDays(triggerOutputs()?['body/Created'], 27))), 'expired', 'incomplete')))))
 ```
 
 | Resultado    | Quando                                                                                                      |
 | ------------ | ----------------------------------------------------------------------------------------------------------- |
+| `cancelled`  | a Round row está `Cancelled` (rodada cancelada no app, §8.6)                                                |
 | `overridden` | a Round row está `Overridden` (override no app)                                                             |
 | `rejected`   | pelo menos uma Approver row está `Rejected`                                                                 |
 | `approved`   | todas as Approver rows estão `Approved`                                                                     |
@@ -1679,14 +1686,15 @@ if(contains(toLower(string(body('Get_Round_final')?['ApprovalStatus'])), 'overri
 `incomplete` separa uma falha técnica de um prazo esgotado. Sem essa distinção, uma gravação que falha
 faria o fluxo anunciar no chat, minutos depois, que a rodada "expirou".
 
-**15.6) Condition `Condition_overridden`**
+**15.6) Condition `Condition_overridden`** — override ou cancelamento (o nome antigo foi mantido).
 
-| Esquerda (fx)                | Operador    | Direita            |
-| ---------------------------- | ----------- | ------------------ |
-| `outputs('comFinalOutcome')` | is equal to | texto `overridden` |
+| Esquerda (fx)                                                                                         | Operador    | Direita   |
+| ----------------------------------------------------------------------------------------------------- | ----------- | --------- |
+| `or(equals(outputs('comFinalOutcome'), 'overridden'), equals(outputs('comFinalOutcome'), 'cancelled'))` | is equal to | fx `true` |
 
 - **True:** Control → **Terminate** `Terminate_overridden`, Status **Cancelled**. O aviso de override
-  no chat é do fluxo da [README §10.2](./README.md); nada de mensagens de sucesso aqui.
+  no chat é do fluxo da [README §10.2](./README.md) e o de cancelamento, do fluxo da §8.6.1; nada de
+  mensagens de sucesso aqui.
 - **False:** deixe vazio. O passo 15.7 fica abaixo desta Condition.
 
 **15.7) Condition `Condition_incomplete`** — respostas não gravadas antes do prazo.
@@ -1739,7 +1747,7 @@ Com o Terminate **Failed**, a execução aparece como falha no histórico, e nã
 | `outputs('comFinalOutcome')` | is not equal to | texto `expired` |
 
 - **True** (`approved` ou `rejected`): ações 16.2 a 16.4.
-- **False** (`expired`; `overridden` e `incomplete` já terminaram antes): ações 16.5 e 16.6.
+- **False** (`expired`; `cancelled`, `overridden` e `incomplete` já terminaram antes): ações 16.5 e 16.6.
 
 **16.2) Compose `comCompletionDate`** — no ramo **True**. Inputs (fx):
 
@@ -1807,10 +1815,10 @@ e. **Filter array `filNotApprovedJson_final`** — entradas da rodada atual que 
 f. **Compose `comCanWrite_final`** — a guarda. Inputs (fx):
 
 ```text
-and(equals(string(outputs('comLastRound_final')?['round']), string(variables('varRound'))), equals(length(body('filNewerRound_final')), 0), empty(outputs('comLastRound_final')?['override']), or(equals(outputs('comFinalOutcome'), 'rejected'), equals(length(body('filNotApprovedJson_final')), 0)))
+and(equals(string(outputs('comLastRound_final')?['round']), string(variables('varRound'))), equals(length(body('filNewerRound_final')), 0), empty(outputs('comLastRound_final')?['override']), not(equals(string(outputs('comLastRound_final')?['status']), 'cancelled')), or(equals(outputs('comFinalOutcome'), 'rejected'), equals(length(body('filNotApprovedJson_final')), 0)))
 ```
 
-A rodada existe, não há rodada mais nova do mesmo time, sem override e, para fechar como aprovada,
+A rodada existe, não há rodada mais nova do mesmo time, sem override, não cancelada e, para fechar como aprovada,
 **todas** as entradas da rodada `approved` no JSON. Se faltar alguma, a guarda fica `false`, o BID não
 é fechado e o passo 16.4 notifica.
 
@@ -2223,7 +2231,7 @@ Responda pela notificação do **Approvals** no Teams ou pelo e-mail de aprovaç
 | Title            | fx             | `items('Apply_to_each_round')?['BidNumber']` |
 | LastReminderDate | fx             | `utcNow()`                                   |
 
-Quando a rodada fica `Approved`, `Rejected`, `Overridden` ou `Expired`, ela deixa de aparecer em
+Quando a rodada fica `Approved`, `Rejected`, `Overridden`, `Cancelled` ou `Expired`, ela deixa de aparecer em
 `Get_open_rounds` e os lembretes param automaticamente.
 
 ---
@@ -2321,7 +2329,7 @@ abaixo de `Post_notify_completed`. Este item opcional ainda não está detalhado
 
 ---
 
-## 8. Recusa, override e expiração
+## 8. Recusa, override, cancelamento e expiração
 
 ### 8.1 Recusa
 
@@ -2337,7 +2345,7 @@ pessoa. A rodada continua `rejected`.
 
 ### 8.3 Pedidos que ficaram abertos
 
-O conector Standard não cancela pedidos. Após recusa, override ou expiração, os pedidos sem resposta
+O conector Standard não cancela pedidos. Após recusa, override, cancelamento ou expiração, os pedidos sem resposta
 continuam visíveis no Approvals de quem não respondeu. Para limpá-los:
 
 1. Liste as Approver rows da rodada com `ApprovalStatus = Pending`; cada uma tem `NativeApprovalId`.
@@ -2364,6 +2372,105 @@ Se todas as esperas terminam **antes** do prazo e ainda há linhas `Pending`, al
 gravada (falha técnica, não expiração). O fluxo não avisa o grupo: envia `Send_fail_incomplete` ao
 administrador e termina como **Failed** (passo 15.7).
 
+### 8.6 Cancelamento da rodada (app)
+
+Quem tem permissão de editar a aba **Approval** (a mesma do Start e do Override) pode cancelar uma
+rodada em andamento em **Approval → Cancel Round**, com justificativa obrigatória. Uso típico:
+aprovador errado ou faltando. Só rodadas `pending` podem ser canceladas. Com approval secundário, o
+cancelamento é **por time**: o outro time continua.
+
+**O que o app grava, nesta ordem:**
+
+1. **Round row (`smartbid-approvals`):** `ApprovalStatus = Cancelled`, `CancelledBy`, `CancelledDate`
+   e `CancelReason`. Rodadas `pending` mais antigas do mesmo approval (sobras de falhas) também são
+   marcadas. Se a Round row da rodada atual já estiver `Approved`, `Rejected` ou `Overridden`, o app
+   não cancela nada e avisa o usuário. Uma rodada `Expired` pode ser cancelada.
+2. **BID (`smartbid-tracker/jsondata`):** a rodada fica no histórico com `status = cancelled`,
+   `completedDate = null` e o objeto `cancellation` (quem, quando, motivo e a foto dos aprovadores).
+   Numa aprovação única, `approvalStatus = not-started` e `approvals = []`; numa rodada de um time,
+   `approvalTracks[time].status` é recalculado. Os aprovadores da rodada ficam pré-selecionados para
+   a próxima. Entrada `APPROVAL_CANCELLED` no `activityLog`. Fase e status do BID não mudam.
+3. As **Approver rows** não são alteradas.
+
+A próxima rodada recebe um **número novo**. O número da rodada cancelada nunca é reutilizado.
+
+**Neste fluxo** (ajustes da §11.2):
+
+- Os ramos saem da espera na próxima revisão (até 24 h), porque `Do_until_person_done` termina com a
+  Round row `Cancelled` (passo 14.5).
+- Se alguém responder nesse intervalo, a guarda (passo 14.7 e) vê a rodada `cancelled` no JSON e não
+  grava. O passo 14.8 não altera Approver rows, Round row nem chat, e o administrador recebe o
+  `Send_fail_write_inc` (esperado).
+- O fechamento (passo 15.6) termina com Terminate **Cancelled**, sem mensagens.
+- Cancelada antes do passo 6, a rodada não passa na linha 2 de `Condition_round_ready` (`pending`) e a
+  execução termina em `BID_NOT_READY`, sem chat nem pedidos.
+- Os lembretes param sozinhos: o fluxo da §4 lê só rodadas `Pending`.
+- Pedidos abertos: continuam no Approvals de quem não respondeu (§8.3). O aviso no chat orienta a
+  ignorá-los.
+
+> **Implante os ajustes da §11.2 antes de usar o Cancel Round.** Sem a guarda, uma resposta que chega
+> depois do cancelamento ainda grava a decisão (e `rejected`) na rodada cancelada.
+
+#### 8.6.1 Fluxo novo — `SmartBid – Approval Cancelled` (aviso no chat)
+
+Crie um **Automated cloud flow** separado, com as ações abaixo.
+
+**1) Gatilho**
+
+**Ação:** SharePoint → **When an item is created or modified**.
+
+| Campo        | Como preencher | Valor                |
+| ------------ | -------------- | -------------------- |
+| Site Address | Lista          | site do SmartBid     |
+| List Name    | Lista          | `smartbid-approvals` |
+
+**2) Trigger conditions**
+
+**Onde:** no gatilho → **Settings** → **Trigger conditions** → **+ Add**, uma condição por linha.
+
+| Linha | Como preencher | Valor                                                                  |
+| ----- | -------------- | ---------------------------------------------------------------------- |
+| 1     | Texto          | `@equals(triggerOutputs()?['body/RecordType/Value'], 'Round')`         |
+| 2     | Texto          | `@equals(triggerOutputs()?['body/ApprovalStatus/Value'], 'Cancelled')` |
+
+As duas precisam ser verdadeiras. As gravações do fluxo principal numa Round row `Pending` não passam
+na linha 2. Se o cancelamento chegar antes de o chat existir, este fluxo roda de novo quando o fluxo
+principal gravar o `ChatId` (passo 12), e o aviso sai nesse momento.
+
+**3) Condition `Condition_has_chat`**
+
+**Onde:** abaixo do gatilho.
+**Ação:** Control → **Condition**. **Nome:** `Condition_has_chat`.
+
+| Esquerda (fx)                             | Operador    | Direita    |
+| ----------------------------------------- | ----------- | ---------- |
+| `empty(triggerOutputs()?['body/ChatId'])` | is equal to | fx `false` |
+
+- **True:** ação 4.
+- **False:** deixe vazio (sem chat, não há onde avisar).
+
+**4) Post message in a chat or channel `Post_msg_cancelled`**
+
+**Onde:** ramo **True** de `Condition_has_chat`.
+**Ação:** Microsoft Teams → **Post message in a chat or channel**. **Nome:** `Post_msg_cancelled`.
+
+| Campo      | Como preencher          | Valor                              |
+| ---------- | ----------------------- | ---------------------------------- |
+| Post as    | Lista                   | **Flow bot**                       |
+| Post in    | Lista                   | **Group chat**                     |
+| Group chat | Enter custom value → fx | `triggerOutputs()?['body/ChatId']` |
+| Message    | Texto + fx              | bloco abaixo                       |
+
+```text
+🚫 **Rodada cancelada** — BID **@{triggerOutputs()?['body/BidNumber']}** (rodada @{triggerOutputs()?['body/RoundNumber']}@{if(empty(triggerOutputs()?['body/ApprovalTrack']), '', concat(', time ', triggerOutputs()?['body/ApprovalTrack']))})
+Por: @{triggerOutputs()?['body/CancelledBy']} em @{convertFromUtc(triggerOutputs()?['body/CancelledDate'], 'E. South America Standard Time', 'dd/MM/yyyy HH:mm')}
+Motivo: @{triggerOutputs()?['body/CancelReason']}
+Os pedidos de aprovação desta rodada não valem mais e podem ser ignorados. Uma nova rodada será iniciada com os aprovadores corrigidos.
+```
+
+A coluna `CancelledDate` é criada pelo app já com hora (**Date & Time**), então o `convertFromUtc`
+funciona sem ajuste manual.
+
 ---
 
 ## 9. SPFx — como o app acompanha a rodada
@@ -2375,12 +2482,13 @@ administrador e termina como **Failed** (passo 15.7).
 | Approval secundário    | `components/bid/ApprovalTab.tsx`, `utils/approvalTracks.ts` | Só para BIDs com dois times. Cada time tem a sua aba, os seus aprovadores (Project e Operation filtrados pela tag do Members Management), o seu Start e o seu override. Ao iniciar, o app grava `approvalTracks` com o status de cada time e `approvals` com as entradas atuais dos dois times.                |
 | Saves do app           | `BidService.patchByBidNumber()`                             | Grava com `If-Match` (ETag) e tenta de novo em `412`, como o fluxo. Um save do app não apaga uma decisão gravada pelo fluxo no mesmo instante (teste 14).                                                                                                                                                      |
 | Comentários            | aba Approval e card _Approval Status_ do Overview           | Texto puro (nunca HTML), com quebras de linha preservadas.                                                                                                                                                                                                                                                     |
-| Colunas                | `ApprovalService.ensureApprovalColumns()`                   | Cria `NativeApprovalId`, `ApproverComments` (texto simples), `LastReminderDate`, `ApprovalTrack` e as opções `Rejected` / `Expired`, se faltarem.                                                                                                                                                              |
+| Cancelamento           | `components/bid/ApprovalTab.tsx` (**Cancel Round**)         | `ApprovalService.markRoundsCancelled()` marca a Round row `Cancelled` antes de gravar o BID; `buildCancelledRoundsPatch()` (`utils/approvalHelpers.ts`) deixa a rodada `cancelled` no histórico e pré-seleciona os aprovadores para a próxima (§8.6).                                                         |
+| Colunas                | `ApprovalService.ensureApprovalColumns()`                   | Cria `NativeApprovalId`, `ApproverComments` (texto simples), `LastReminderDate`, `ApprovalTrack`, `CancelledBy`, `CancelledDate`, `CancelReason` e as opções `Rejected` / `Expired` / `Cancelled`, se faltarem.                                                                                               |
 
 Ainda não tratado no app:
 
 - **Rodada expirada:** o fluxo só marca a Round row `Expired`. O JSON do BID continua `pending`, e o
-  app segue mostrando a rodada em andamento.
+  app segue mostrando a rodada em andamento. Use **Cancel Round** para encerrá-la e iniciar outra.
 - **BID concluído pelo fluxo:** a publicação automática em Past Bids e da Technical Proposal só roda
   quando o próprio app conclui o BID. Quando o fluxo conclui, publique pela página Past Bids.
 
@@ -2427,6 +2535,21 @@ Approval secundário (BID Integrated OPG + SSR, lead OPG):
     `Cancelled`, o BID só é concluído quando o OPG aprovar.
 23. Aprovação única (sem secundário) → comportamento idêntico aos testes 1 a 16.
 
+Cancelamento (§8.6):
+
+24. Rodada única com 1 de 3 aprovados → **Cancel Round** com motivo → Round row `Cancelled` com
+    `CancelledBy`, `CancelledDate` e `CancelReason`; no BID a rodada fica `cancelled` e
+    `approvalStatus = not-started`; a aba Approval volta para a seleção ("Round n+1") com os
+    aprovadores pré-selecionados; mensagem `🚫 Rodada cancelada` no chat; nenhum lembrete depois.
+25. Aprovador responde depois do cancelamento → nada gravado no BID, Approver rows e Status card sem
+    mudança, `Send_fail_write_inc` para o administrador; a execução termina **Cancelled** em até 24 h.
+26. Nova rodada depois do cancelamento → número n+1, chat novo, pedidos só para os aprovadores
+    corrigidos.
+27. Cancelar só o SSR com o OPG pendente → só a Round row do SSR fica `Cancelled`; o OPG continua e o
+    BID só é concluído quando o SSR aprovar numa nova rodada.
+28. Round row já `Approved` ou `Rejected` (o fluxo acabou de fechar) → o app avisa "Round already
+    closed" e nada é alterado.
+
 ---
 
 ## 11. Implantação
@@ -2460,6 +2583,25 @@ Ações novas ou alteradas, na ordem do designer. Cada uma está detalhada no se
 
 No fluxo `SmartBid – Notifications`, troque o Inputs de `comBusinessLines`
 ([NOTIFICATIONS.md](./NOTIFICATIONS.md), passo 9.3).
+
+### 11.2 Fluxos já criados: mudanças para o cancelamento
+
+A choice `Cancelled` e as colunas `CancelledBy`, `CancelledDate` e `CancelReason` são criadas pelo app
+(`ensureApprovalColumns()`) no próximo Start ou Cancel Round. Faça as mudanças abaixo **antes** de
+usar o Cancel Round. Cada uma está detalhada no seu passo.
+
+| Passo  | O que mudar                                                                    |
+| ------ | ------------------------------------------------------------------------------ |
+| 14.5 a | Loop until do `Do_until_person_done` (nova condição `cancelled`)               |
+| 14.7 e | Inputs do `comCanWrite_inc`                                                    |
+| 14.8   | Body do `Send_fail_write_inc` (só o texto da guarda)                           |
+| 15.5   | Inputs do `comFinalOutcome`                                                    |
+| 15.6   | Linha da `Condition_overridden` (expressão com `or`, Direita fx `true`)        |
+| 16.3 f | Inputs do `comCanWrite_final`                                                  |
+| 8.6.1  | Criar o fluxo `SmartBid – Approval Cancelled`                                  |
+
+Execuções que já estão rodando continuam com a versão antiga do fluxo. Para uma rodada antiga
+cancelada no app, cancele a execução manualmente no histórico do fluxo.
 
 ---
 

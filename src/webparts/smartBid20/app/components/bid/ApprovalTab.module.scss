@@ -630,6 +630,55 @@
   color: var(--tertiary-accent);
 }
 
+/* ── Cancel round ── */
+.cancelRoundBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+  background: transparent;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 200ms ease;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--danger) 10%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.cancelReason:focus {
+  border-color: var(--danger);
+}
+
+.confirmBtnDanger {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--danger);
+  color: var(--primary-accent-contrast);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
 /* ── Sector waiver (required sector not required for this BID) ── */
 .sectorCardWaived {
   border-style: dashed;

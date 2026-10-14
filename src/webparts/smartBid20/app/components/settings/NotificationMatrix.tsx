@@ -77,6 +77,7 @@ const EVENT_ICONS: Record<NotificationEventKey, React.ReactNode> = {
   APPROVAL_STARTED: <Rocket size={14} />,
   APPROVAL_RESPONSE: <MessageSquareReply size={14} />,
   APPROVAL_OVERRIDE: <ShieldAlert size={14} />,
+  APPROVAL_CANCELLED: <X size={14} />,
   DUE_DATE_CHANGED: <CalendarClock size={14} />,
   DEADLINE_WARNING: <AlarmClock size={14} />,
   BID_OVERDUE: <CalendarX size={14} />,

@@ -186,7 +186,7 @@ const FAILED_APPROVAL = ["rejected", "revision-requested"];
  */
 export function isFirstPassApproved(bid: IBid): boolean | null {
   const rounds = (bid.approvalRounds || [])
-    .slice()
+    .filter((r) => r.status !== "cancelled")
     .sort((a, b) => a.round - b.round);
   if (rounds.length > 0) {
     for (const r of rounds) {

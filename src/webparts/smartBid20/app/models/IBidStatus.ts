@@ -97,7 +97,9 @@ export type ApprovalStatus =
   | "approved"
   | "rejected"
   | "revision-requested"
-  | "not-started";
+  | "not-started"
+  /** Round withdrawn by the requester (rounds only, never the BID/track status). */
+  | "cancelled";
 export type BidResultOutcome =
   | "Won"
   | "Loss"

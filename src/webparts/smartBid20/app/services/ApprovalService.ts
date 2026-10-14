@@ -12,7 +12,7 @@ import {
   IApprovalSectorGroup,
 } from "../models/IBidApproval";
 import { BusinessLine, IPersonRef } from "../models";
-import { IBid, IApprovalOverride } from "../models/IBid";
+import { IBid, IApprovalCancellation, IApprovalOverride } from "../models/IBid";
 
 /** Team of a primary/secondary approval round, sent to the Teams flow. */
 export interface IApprovalRoundTrack {
@@ -144,11 +144,13 @@ export class ApprovalService {
       "Overridden",
       "Rejected",
       "Expired",
+      "Cancelled",
     ]);
     await ensureChoiceOptions(F.approvalStatus, [
       "Overridden",
       "Rejected",
       "Expired",
+      "Cancelled",
     ]);
     await addDateTime(F.respondedDate);
     await addText(F.chatId);
@@ -157,6 +159,9 @@ export class ApprovalService {
     await addText(F.overriddenBy);
     await addDateTime(F.overriddenDate);
     await addNote(F.overrideReason);
+    await addText(F.cancelledBy);
+    await addDateTime(F.cancelledDate);
+    await addNote(F.cancelReason, false);
     // Written by the Teams flow in power-automate/APPROVALS-INDIVIDUAL.md.
     await addText(F.nativeApprovalId);
     await addNote(F.approverComments, false);
@@ -355,5 +360,55 @@ export class ApprovalService {
       [F.overriddenDate]: override.overriddenDate,
       [F.overrideReason]: override.reason,
     });
+  }
+
+  /**
+   * Flag the rounds' "Round" rows as Cancelled so the Teams flow stops waiting,
+   * stops the reminders and ignores late answers. Returns false (nothing written)
+   * when the flow already closed the latest round.
+   */
+  public static async markRoundsCancelled(
+    bidNumber: string,
+    rounds: number[],
+    cancellation: IApprovalCancellation,
+  ): Promise<boolean> {
+    if (rounds.length === 0) return true;
+    await ApprovalService.ensureApprovalColumns();
+    const F = SHAREPOINT_CONFIG.approvalFields;
+    const safeBid = bidNumber.replace(/'/g, "''");
+    const roundFilter = rounds
+      .map((r) => `${F.roundNumber} eq ${Number(r)}`)
+      .join(" or ");
+    const rows = (await ApprovalService._approvalsList.items
+      .filter(
+        `${F.recordType} eq 'Round' and ${F.bidNumber} eq '${safeBid}' and (${roundFilter})`,
+      )
+      .select("Id", F.roundNumber, F.approvalStatus)()) as Record<
+      string,
+      unknown
+    >[];
+    // Expired rounds stay pending in the BID JSON, so they can still be cancelled.
+    const isOpen = (row: Record<string, unknown>): boolean => {
+      const status = String(row[F.approvalStatus] || "");
+      return !status || status === "Pending" || status === "Expired";
+    };
+    const latest = rounds[rounds.length - 1];
+    const latestRow = rows.filter(
+      (row) => Number(row[F.roundNumber]) === latest,
+    )[0];
+    if (latestRow && !isOpen(latestRow)) return false;
+    for (const row of rows) {
+      if (!isOpen(row)) continue;
+      await ApprovalService._approvalsList.items
+        .getById(Number(row.Id))
+        .update({
+          Title: bidNumber,
+          [F.approvalStatus]: "Cancelled",
+          [F.cancelledBy]: `${cancellation.cancelledBy.name} <${cancellation.cancelledBy.email}>`,
+          [F.cancelledDate]: cancellation.cancelledDate,
+          [F.cancelReason]: cancellation.reason,
+        });
+    }
+    return true;
   }
 }

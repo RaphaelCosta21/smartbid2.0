@@ -194,6 +194,40 @@ export function deriveBidNotifications(
     });
   }
 
+  const cancelLog = findLog("APPROVAL_CANCELLED");
+  if (cancelLog) {
+    const round = meta(cancelLog, "round") || "-";
+    const team = meta(cancelLog, "trackLabel");
+    const approvers = (cancelLog.metadata?.approvers || []) as {
+      name: string;
+      sector: string;
+    }[];
+    events.push({
+      event: "APPROVAL_CANCELLED",
+      bidNumber,
+      eventKey: uniqueKey("APPROVAL_CANCELLED", bidNumber),
+      headline: team
+        ? `A rodada ${round} de aprovação (${team}) foi cancelada. Uma nova rodada será iniciada com os aprovadores corrigidos.`
+        : `A rodada ${round} de aprovação foi cancelada. Uma nova rodada será iniciada com os aprovadores corrigidos.`,
+      facts: [
+        ...(team ? [{ title: "Time", value: team }] : []),
+        { title: "Rodada", value: round },
+        {
+          title: "Aprovadores",
+          value: orDash(
+            approvers.map((a) => `${a.name} (${a.sector})`).join(", "),
+          ),
+        },
+        {
+          title: "Já tinham aprovado",
+          value: `${meta(cancelLog, "approvedCount") || "0"} de ${meta(cancelLog, "totalApprovers") || "0"}`,
+        },
+        { title: "Motivo", value: orDash(meta(cancelLog, "reason")) },
+        { title: "Cancelada por", value: by },
+      ],
+    });
+  }
+
   if (statusChanged && toStatus === COMPLETED) {
     const closedRevision = revisionsAfter.filter(
       (r) =>

@@ -93,6 +93,11 @@ const ACTIVITY_META: Record<string, IActivityMeta> = {
     category: "approvals",
     colorVar: "var(--tertiary-accent)",
   },
+  APPROVAL_CANCELLED: {
+    label: "Approval round cancelled",
+    category: "approvals",
+    colorVar: "var(--danger)",
+  },
   APPROVAL_SECTOR_WAIVED: {
     label: "Approval waived",
     category: "approvals",

@@ -710,6 +710,16 @@ export interface IApprovalOverride {
   approvalsAtOverride: IApprovalOverrideParticipant[];
 }
 
+/** Round withdrawn while running (e.g. wrong or missing approver) so a new one can start. */
+export interface IApprovalCancellation {
+  cancelledBy: IPersonRef;
+  cancelledDate: string;
+  reason: string;
+  totalApprovers: number;
+  approvedCount: number;
+  approvalsAtCancel: IApprovalOverrideParticipant[];
+}
+
 /** Required approval sector marked as not required for a specific BID. */
 export interface IApprovalSectorWaiver {
   sector: Sector;
@@ -729,6 +739,7 @@ export interface IApprovalRound {
   /** Per-sector durations computed & persisted when the round completes. */
   sectorDurations?: ISectorApprovalDuration[];
   override?: IApprovalOverride;
+  cancellation?: IApprovalCancellation;
   /** Required sectors excluded from this round (snapshot at round start). */
   waivedSectors?: IApprovalSectorWaiver[];
   /** Team of a primary/secondary approval; absent = single approval for the whole BID. */

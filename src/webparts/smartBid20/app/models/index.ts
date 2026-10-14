@@ -59,6 +59,7 @@ export {
   type IIntegratedLines,
   type IApprovalOverride,
   type IApprovalOverrideParticipant,
+  type IApprovalCancellation,
   type IBidAttachment,
   type IBidComment,
   type IBidResult,
