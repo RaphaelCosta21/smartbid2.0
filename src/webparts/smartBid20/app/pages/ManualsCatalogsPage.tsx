@@ -15,6 +15,7 @@ export const ManualsCatalogsPage: React.FC = () => {
       docTypeOptions={["Manual", "Catalog"]}
       defaultDocType="Manual"
       canManage={canManage}
+      documentNotice="Documents and OMMs available in this library may not be the latest revision. Before use, consult the Engineering system or the supplier to confirm and obtain the most up-to-date version."
       icon={
         <svg
           width="28"

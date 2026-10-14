@@ -4,6 +4,7 @@
 import * as React from "react";
 import { IBid } from "../models";
 import { countFacets } from "../utils/facetHelpers";
+import { getBidServiceLines } from "../utils/divisionHelpers";
 
 export type DatePreset =
   | "30d"
@@ -41,11 +42,12 @@ export type AnalyticsFacetCounts = Record<
   Record<string, number>
 >;
 
-const FACET_VALUES: Record<AnalyticsFacetKey, (b: IBid) => string> = {
-  divisions: (b) => b.division,
-  serviceLines: (b) => b.serviceLine,
-  bidTypes: (b) => b.bidType,
-};
+const FACET_VALUES: Record<AnalyticsFacetKey, (b: IBid) => string | string[]> =
+  {
+    divisions: (b) => b.division,
+    serviceLines: (b) => getBidServiceLines(b),
+    bidTypes: (b) => b.bidType,
+  };
 
 function isoDaysAgo(days: number): string {
   const d = new Date();
@@ -117,10 +119,12 @@ export function useAnalyticsFilters(
   const matches = React.useCallback(
     (b: IBid, dateField: keyof IBid, skip?: AnalyticsFacetKey): boolean => {
       const facetsOk = (Object.keys(FACET_VALUES) as AnalyticsFacetKey[]).every(
-        (key) =>
-          key === skip ||
-          filters[key].length === 0 ||
-          filters[key].indexOf(FACET_VALUES[key](b)) >= 0,
+        (key) => {
+          if (key === skip || filters[key].length === 0) return true;
+          const v = FACET_VALUES[key](b);
+          const values = Array.isArray(v) ? v : [v];
+          return values.some((x) => filters[key].indexOf(x) >= 0);
+        },
       );
       if (!facetsOk) return false;
       const dv = ((b[dateField] as unknown as string) || "").slice(0, 10);

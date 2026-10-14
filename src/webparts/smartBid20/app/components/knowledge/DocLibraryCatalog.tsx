@@ -2,6 +2,7 @@ import * as React from "react";
 import {
   ArrowDownAZ,
   ArrowDownZA,
+  Info,
   LayoutGrid,
   LayoutList,
   LoaderCircle,
@@ -78,6 +79,7 @@ export interface DocLibraryCatalogProps {
   docTypeOptions: DocCatalogType[];
   defaultDocType: DocCatalogType;
   canManage: boolean;
+  documentNotice?: string;
   fieldLabels?: Partial<IDocLibraryFieldLabels>;
   /** Pins every document to this Group; the sub-group stays free for the AI to fill. */
   lockedGroupName?: string;
@@ -458,6 +460,7 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
   docTypeOptions,
   defaultDocType,
   canManage,
+  documentNotice,
   fieldLabels,
   lockedGroupName,
 }) => {
@@ -1329,6 +1332,19 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
           ) : undefined
         }
       />
+
+      {documentNotice && (
+        <div
+          className={styles.documentNotice}
+          role="note"
+          aria-label="Document version notice"
+        >
+          <Info size={20} aria-hidden="true" />
+          <span>
+            <strong>Document version notice:</strong> {documentNotice}
+          </span>
+        </div>
+      )}
 
       <div className={styles.filterBar}>
         <div className={styles.filterSearch}>

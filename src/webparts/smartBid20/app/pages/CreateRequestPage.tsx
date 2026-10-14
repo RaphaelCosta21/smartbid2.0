@@ -21,9 +21,18 @@ import {
 } from "../utils/businessDays";
 import { parseDate } from "../utils/formatters";
 import { PRIORITY_COLORS } from "../utils/constants";
-import { IPersonRef } from "../models/IUser";
+import { BusinessLine, IPersonRef } from "../models/IUser";
 import { ITeamMember } from "../models/ITeamMember";
-import { BidPriority } from "../models/IBidStatus";
+import { BaseDivision, BidPriority } from "../models/IBidStatus";
+import {
+  buildDivisionFields,
+  divisionBusinessLines,
+  getBusinessLineLabel,
+  integratedLineOptions,
+  isIntegratedDivision,
+  memberMatchesBusinessLines,
+  otherBaseDivision,
+} from "../utils/divisionHelpers";
 import { MembersService } from "../services/MembersService";
 import { RequestService } from "../services/RequestService";
 import { AttachmentService } from "../services/AttachmentService";
@@ -40,8 +49,11 @@ interface FormData {
   projectDescription: string;
   division: string;
   serviceLine: string;
+  /** INTEGRATED only: "OPG" | "SSR". */
+  leadDivision: string;
+  opgServiceLine: string;
+  ssrServiceLine: string;
   projectManagers: IPersonRef[];
-  projectManagerSearch: string;
   commercialRequester: IPersonRef | null;
   commercialRequesterSearch: string;
   commercialRequesterIsCreator: boolean;
@@ -65,8 +77,10 @@ const INITIAL_FORM: FormData = {
   projectDescription: "",
   division: "",
   serviceLine: "",
+  leadDivision: "",
+  opgServiceLine: "",
+  ssrServiceLine: "",
   projectManagers: [],
-  projectManagerSearch: "",
   commercialRequester: null,
   commercialRequesterSearch: "",
   commercialRequesterIsCreator: false,
@@ -89,6 +103,18 @@ const STEPS = [
   { number: 4, title: "Review & Submit", icon: "✅" },
 ];
 
+/** One Project Manager picker (two for INTEGRATED BIDs, one per division). */
+interface PmGroup {
+  key: string;
+  label: string;
+  /** Saved on the picked person so Key People and approvals know their team. */
+  businessLine?: BusinessLine;
+  matches: (m: ITeamMember) => boolean;
+}
+
+const isActiveProjectManager = (m: ITeamMember): boolean =>
+  m.sector === "project" && m.bidRole === "manager" && m.isActive;
+
 export const CreateRequestPage: React.FC = () => {
   const navigate = useNavigate();
   const currentUser = useCurrentUser();
@@ -106,7 +132,8 @@ export const CreateRequestPage: React.FC = () => {
   const [errors, setErrors] = React.useState<string[]>([]);
   const [showConfirm, setShowConfirm] = React.useState(false);
   const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([]);
-  const [showPeoplePicker, setShowPeoplePicker] = React.useState(false);
+  const [openPmPicker, setOpenPmPicker] = React.useState<string | null>(null);
+  const [pmSearch, setPmSearch] = React.useState<Record<string, string>>({});
   const [showCommercialPicker, setShowCommercialPicker] = React.useState(false);
   const [showClientPicker, setShowClientPicker] = React.useState(false);
   // Only filter after the user types, so focusing a filled field still lists all clients
@@ -147,6 +174,11 @@ export const CreateRequestPage: React.FC = () => {
       : clientOptions;
   const divisionOptions = config?.divisions?.filter((d) => d.isActive) || [];
   const bidTypeOptions = config?.bidTypes?.filter((b) => b.isActive) || [];
+  const isIntegrated = isIntegratedDivision(form.division);
+  const divisionLabel = (value: string): string =>
+    (config?.divisions || []).find((d) => d.value === value)?.label || value;
+  const opgLineOptions = integratedLineOptions(config?.serviceLines, "OPG");
+  const ssrLineOptions = integratedLineOptions(config?.serviceLines, "SSR");
 
   // Service lines filtered by selected division (using category field)
   const serviceLineOptions = React.useMemo(() => {
@@ -183,34 +215,73 @@ export const CreateRequestPage: React.FC = () => {
 
   React.useEffect(() => () => clearSurveyPrefill(), [clearSurveyPrefill]);
 
-  // Project managers: sector=project, bidRole=manager, filtered by division
-  const projectManagerOptions = React.useMemo(() => {
-    if (!form.division || teamMembers.length === 0) return [];
-    return teamMembers.filter((m) => {
-      if (m.sector !== "project" || m.bidRole !== "manager" || !m.isActive)
-        return false;
-      if (form.division === "SSR") {
-        return (
-          m.businessLines.includes("ROV") || m.businessLines.includes("SURVEY")
-        );
-      }
-      // OPG or other divisions
-      return (
-        m.businessLines.includes(form.division as any) ||
-        m.businessLines.length === 0
-      );
-    });
-  }, [form.division, teamMembers]);
+  // Project managers: sector=project, bidRole=manager, filtered by division tags
+  const pmGroups = React.useMemo<PmGroup[]>(() => {
+    if (!form.division) return [];
+    if (isIntegratedDivision(form.division)) {
+      const ssrLines = divisionBusinessLines("SSR", form.ssrServiceLine);
+      const ssrMatch = ssrLines.length > 0 ? ssrLines : ["ROV", "SURVEY"];
+      const byDivision: Record<BaseDivision, PmGroup> = {
+        OPG: {
+          key: "OPG",
+          label: "Project Manager - OPG",
+          businessLine: "OPG",
+          matches: (m) => memberMatchesBusinessLines(m, ["OPG"]),
+        },
+        SSR: {
+          key: "SSR",
+          label: ssrLines[0]
+            ? `Project Manager - SSR (${getBusinessLineLabel(ssrLines[0])})`
+            : "Project Manager - SSR",
+          businessLine: ssrLines[0],
+          matches: (m) =>
+            memberMatchesBusinessLines(m, ssrMatch as BusinessLine[]),
+        },
+      };
+      const lead: BaseDivision = form.leadDivision === "SSR" ? "SSR" : "OPG";
+      return [byDivision[lead], byDivision[otherBaseDivision(lead)]];
+    }
+    return [
+      {
+        key: "ALL",
+        label: "Project Manager",
+        matches: (m) => {
+          if (form.division === "SSR") {
+            return (
+              m.businessLines.includes("ROV") ||
+              m.businessLines.includes("SURVEY")
+            );
+          }
+          return (
+            m.businessLines.includes(form.division as BusinessLine) ||
+            m.businessLines.length === 0
+          );
+        },
+      },
+    ];
+  }, [form.division, form.leadDivision, form.ssrServiceLine]);
 
-  // Filtered PM list for search input
-  const filteredPeople = React.useMemo(() => {
-    if (!form.projectManagerSearch) return projectManagerOptions;
-    const q = form.projectManagerSearch.toLowerCase();
-    return projectManagerOptions.filter(
+  const pmOptionsFor = (group: PmGroup): ITeamMember[] => {
+    const q = (pmSearch[group.key] || "").toLowerCase();
+    return teamMembers.filter(
       (m) =>
-        m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q),
+        isActiveProjectManager(m) &&
+        group.matches(m) &&
+        !form.projectManagers.some((pm) => pm.email === m.email) &&
+        (!q ||
+          m.name.toLowerCase().includes(q) ||
+          m.email.toLowerCase().includes(q)),
     );
-  }, [projectManagerOptions, form.projectManagerSearch]);
+  };
+
+  const pickedPmsFor = (group: PmGroup): IPersonRef[] =>
+    group.key === "ALL"
+      ? form.projectManagers
+      : form.projectManagers.filter((pm) =>
+          group.key === "OPG"
+            ? pm.businessLine === "OPG"
+            : pm.businessLine !== "OPG",
+        );
 
   // Commercial team members for Commercial Requester picker
   const commercialTeamOptions = React.useMemo(() => {
@@ -302,7 +373,7 @@ export const CreateRequestPage: React.FC = () => {
         peoplePickerRef.current &&
         !peoplePickerRef.current.contains(e.target as Node)
       ) {
-        setShowPeoplePicker(false);
+        setOpenPmPicker(null);
       }
       if (
         commercialPickerRef.current &&
@@ -321,8 +392,16 @@ export const CreateRequestPage: React.FC = () => {
       // Reset dependent fields when division changes
       if (field === "division" && value !== prev.division) {
         updated.serviceLine = "";
+        updated.leadDivision = "";
+        updated.opgServiceLine = "";
+        updated.ssrServiceLine = "";
         updated.projectManagers = [];
-        updated.projectManagerSearch = "";
+      }
+      // SSR PMs were filtered by the previous SSR service line
+      if (field === "ssrServiceLine" && value !== prev.ssrServiceLine) {
+        updated.projectManagers = prev.projectManagers.filter(
+          (pm) => pm.businessLine === "OPG",
+        );
       }
       return updated;
     });
@@ -375,7 +454,15 @@ export const CreateRequestPage: React.FC = () => {
       if (!form.client.trim()) stepErrors.push("Client is required.");
       if (!form.projectName) stepErrors.push("Project Name is required.");
       if (!form.division) stepErrors.push("Division is required.");
-      if (!form.serviceLine) stepErrors.push("Service Line is required.");
+      if (isIntegrated) {
+        if (!form.leadDivision) stepErrors.push("Lead Division is required.");
+        if (!form.opgServiceLine)
+          stepErrors.push("OPG Service Line is required.");
+        if (!form.ssrServiceLine)
+          stepErrors.push("SSR Service Line is required.");
+      } else if (!form.serviceLine) {
+        stepErrors.push("Service Line is required.");
+      }
       if (!form.projectDescription) stepErrors.push("Description is required.");
       setErrors(stepErrors);
       return stepErrors.length === 0;
@@ -422,6 +509,13 @@ export const CreateRequestPage: React.FC = () => {
         size: f.size,
       }));
 
+      const divisionFields = buildDivisionFields(
+        form.division,
+        form.serviceLine,
+        form.leadDivision as BaseDivision,
+        { OPG: form.opgServiceLine, SSR: form.ssrServiceLine },
+      );
+
       const newReq = {
         id: tempNumber,
         requestNumber: tempNumber,
@@ -437,8 +531,10 @@ export const CreateRequestPage: React.FC = () => {
         crmNumber: form.crmNumber,
         projectName: form.projectName,
         projectDescription: form.projectDescription,
-        division: form.division as any,
-        serviceLine: form.serviceLine,
+        division: divisionFields.division,
+        serviceLine: divisionFields.serviceLine,
+        leadDivision: divisionFields.leadDivision,
+        integratedLines: divisionFields.integratedLines,
         projectManager:
           form.projectManagers.length > 0
             ? form.projectManagers.map((pm) => ({
@@ -446,6 +542,7 @@ export const CreateRequestPage: React.FC = () => {
                 email: pm.email,
                 role: pm.role,
                 photoUrl: pm.photoUrl,
+                ...(pm.businessLine ? { businessLine: pm.businessLine } : {}),
               }))
             : null,
         bidType: form.bidType as any,
@@ -802,27 +899,94 @@ export const CreateRequestPage: React.FC = () => {
                       </option>
                     ))}
                   </select>
+                  {isIntegrated && (
+                    <span className={styles.fieldNote}>
+                      Combines one OPG and one SSR service line.
+                    </span>
+                  )}
                 </label>
-                <label className={styles.formGroup}>
-                  <span className={styles.formLabel}>Service Line *</span>
-                  <select
-                    className={styles.formInput}
-                    value={form.serviceLine}
-                    onChange={(e) => updateField("serviceLine", e.target.value)}
-                    disabled={!form.division}
-                  >
-                    <option value="">
-                      {form.division
-                        ? "Select service line..."
-                        : "Select division first"}
-                    </option>
-                    {serviceLineOptions.map((sl) => (
-                      <option key={sl.id} value={sl.value}>
-                        {sl.label}
+                {isIntegrated ? (
+                  <>
+                    <label className={styles.formGroup}>
+                      <span className={styles.formLabel}>Lead Division *</span>
+                      <select
+                        className={styles.formInput}
+                        value={form.leadDivision}
+                        onChange={(e) =>
+                          updateField("leadDivision", e.target.value)
+                        }
+                      >
+                        <option value="">Select lead division...</option>
+                        {(["OPG", "SSR"] as BaseDivision[]).map((d) => (
+                          <option key={d} value={d}>
+                            {divisionLabel(d)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className={styles.formGroup}>
+                      <span className={styles.formLabel}>
+                        OPG Service Line *
+                      </span>
+                      <select
+                        className={styles.formInput}
+                        value={form.opgServiceLine}
+                        onChange={(e) =>
+                          updateField("opgServiceLine", e.target.value)
+                        }
+                      >
+                        <option value="">Select OPG service line...</option>
+                        {opgLineOptions.map((sl) => (
+                          <option key={sl.id} value={sl.value}>
+                            {sl.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className={styles.formGroup}>
+                      <span className={styles.formLabel}>
+                        SSR Service Line *
+                      </span>
+                      <select
+                        className={styles.formInput}
+                        value={form.ssrServiceLine}
+                        onChange={(e) =>
+                          updateField("ssrServiceLine", e.target.value)
+                        }
+                      >
+                        <option value="">Select SSR service line...</option>
+                        {ssrLineOptions.map((sl) => (
+                          <option key={sl.id} value={sl.value}>
+                            {sl.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                ) : (
+                  <label className={styles.formGroup}>
+                    <span className={styles.formLabel}>Service Line *</span>
+                    <select
+                      className={styles.formInput}
+                      value={form.serviceLine}
+                      onChange={(e) =>
+                        updateField("serviceLine", e.target.value)
+                      }
+                      disabled={!form.division}
+                    >
+                      <option value="">
+                        {form.division
+                          ? "Select service line..."
+                          : "Select division first"}
                       </option>
-                    ))}
-                  </select>
-                </label>
+                      {serviceLineOptions.map((sl) => (
+                        <option key={sl.id} value={sl.value}>
+                          {sl.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <label className={styles.formGroupFull}>
                   <span className={styles.formLabel}>Description *</span>
                   <RichTextEditor
@@ -867,104 +1031,131 @@ export const CreateRequestPage: React.FC = () => {
             <>
               <div className={styles.stepLabel}>🔧 BID Internal Details</div>
               <div className={styles.formGrid}>
-                {/* Project Manager multi-select picker */}
-                <div className={styles.formGroupFull} ref={peoplePickerRef}>
-                  <span className={styles.formLabel}>Project Manager</span>
-                  {form.projectManagers.length > 0 && (
-                    <div className={styles.selectedPersonaList}>
-                      {form.projectManagers.map((pm) => (
-                        <div key={pm.email} className={styles.selectedPersona}>
-                          <PersonaCard
-                            name={pm.name}
-                            email={pm.email}
-                            role={pm.role}
-                            photoUrl={pm.photoUrl}
-                            size="small"
-                          />
-                          <button
-                            className={styles.removePersona}
-                            onClick={() =>
-                              setForm((prev) => ({
-                                ...prev,
-                                projectManagers: prev.projectManagers.filter(
-                                  (p) => p.email !== pm.email,
-                                ),
-                              }))
-                            }
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className={styles.peoplePickerWrapper}>
-                    <input
-                      className={styles.formInput}
-                      value={form.projectManagerSearch}
-                      onChange={(e) => {
-                        setForm((prev) => ({
-                          ...prev,
-                          projectManagerSearch: e.target.value,
-                        }));
-                        setShowPeoplePicker(true);
-                      }}
-                      onFocus={() => setShowPeoplePicker(true)}
-                      placeholder={
-                        form.division
-                          ? "Search by name or email..."
-                          : "Select division first on Step 1"
-                      }
-                      disabled={!form.division}
-                    />
-                    {showPeoplePicker && form.division && (
-                      <div className={styles.peopleDropdown}>
-                        {filteredPeople.length === 0 ? (
-                          <div className={styles.peopleDropdownEmpty}>
-                            No project managers found for {form.division}
-                          </div>
-                        ) : (
-                          filteredPeople
-                            .filter(
-                              (m) =>
-                                !form.projectManagers.some(
-                                  (pm) => pm.email === m.email,
-                                ),
-                            )
-                            .map((member) => (
+                {/* Project Manager multi-select picker(s) */}
+                <div className={styles.pmGroups} ref={peoplePickerRef}>
+                  {(pmGroups.length > 0
+                    ? pmGroups
+                    : [
+                        {
+                          key: "ALL",
+                          label: "Project Manager",
+                          matches: () => false,
+                        } as PmGroup,
+                      ]
+                  ).map((group) => {
+                    const picked = pickedPmsFor(group);
+                    const options = pmOptionsFor(group);
+                    return (
+                      <div key={group.key} className={styles.formGroup}>
+                        <span className={styles.formLabel}>{group.label}</span>
+                        {picked.length > 0 && (
+                          <div className={styles.selectedPersonaList}>
+                            {picked.map((pm) => (
                               <div
-                                key={member.id}
-                                className={styles.peopleDropdownItem}
-                                onClick={() => {
-                                  setForm((prev) => ({
-                                    ...prev,
-                                    projectManagers: [
-                                      ...prev.projectManagers,
-                                      {
-                                        name: member.name,
-                                        email: member.email,
-                                        role: member.jobTitle,
-                                        photoUrl: member.photoUrl,
-                                      },
-                                    ],
-                                    projectManagerSearch: "",
-                                  }));
-                                  setShowPeoplePicker(false);
-                                }}
+                                key={pm.email}
+                                className={styles.selectedPersona}
                               >
                                 <PersonaCard
-                                  name={member.name}
-                                  email={member.email}
-                                  role={member.jobTitle}
-                                  photoUrl={member.photoUrl}
+                                  name={pm.name}
+                                  email={pm.email}
+                                  role={pm.role}
+                                  photoUrl={pm.photoUrl}
                                   size="small"
                                 />
+                                <button
+                                  className={styles.removePersona}
+                                  onClick={() =>
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      projectManagers:
+                                        prev.projectManagers.filter(
+                                          (p) => p.email !== pm.email,
+                                        ),
+                                    }))
+                                  }
+                                >
+                                  ✕
+                                </button>
                               </div>
-                            ))
+                            ))}
+                          </div>
                         )}
+                        <div className={styles.peoplePickerWrapper}>
+                          <input
+                            className={styles.formInput}
+                            value={pmSearch[group.key] || ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setPmSearch((prev) => ({
+                                ...prev,
+                                [group.key]: value,
+                              }));
+                              setOpenPmPicker(group.key);
+                            }}
+                            onFocus={() => setOpenPmPicker(group.key)}
+                            placeholder={
+                              form.division
+                                ? "Search by name or email..."
+                                : "Select division first on Step 1"
+                            }
+                            disabled={!form.division}
+                          />
+                          {openPmPicker === group.key && form.division && (
+                            <div className={styles.peopleDropdown}>
+                              {options.length === 0 ? (
+                                <div className={styles.peopleDropdownEmpty}>
+                                  No project managers found for{" "}
+                                  {group.key === "ALL"
+                                    ? divisionLabel(form.division)
+                                    : group.key}
+                                </div>
+                              ) : (
+                                options.map((member) => (
+                                  <div
+                                    key={member.id}
+                                    className={styles.peopleDropdownItem}
+                                    onClick={() => {
+                                      setForm((prev) => ({
+                                        ...prev,
+                                        projectManagers: [
+                                          ...prev.projectManagers,
+                                          {
+                                            name: member.name,
+                                            email: member.email,
+                                            role: member.jobTitle,
+                                            photoUrl: member.photoUrl,
+                                            ...(group.businessLine
+                                              ? {
+                                                  businessLine:
+                                                    group.businessLine,
+                                                }
+                                              : {}),
+                                          },
+                                        ],
+                                      }));
+                                      setPmSearch((prev) => ({
+                                        ...prev,
+                                        [group.key]: "",
+                                      }));
+                                      setOpenPmPicker(null);
+                                    }}
+                                  >
+                                    <PersonaCard
+                                      name={member.name}
+                                      email={member.email}
+                                      role={member.jobTitle}
+                                      photoUrl={member.photoUrl}
+                                      size="small"
+                                    />
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
+                    );
+                  })}
                 </div>
 
                 <label className={styles.formGroup}>
@@ -1375,15 +1566,46 @@ export const CreateRequestPage: React.FC = () => {
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Division</span>
                   <span className={styles.reviewCellValue}>
-                    {form.division || "-"}
+                    {form.division ? divisionLabel(form.division) : "-"}
                   </span>
                 </div>
-                <div className={styles.reviewCell}>
-                  <span className={styles.reviewCellLabel}>Service Line</span>
-                  <span className={styles.reviewCellValue}>
-                    {form.serviceLine || "-"}
-                  </span>
-                </div>
+                {isIntegrated ? (
+                  <>
+                    <div className={styles.reviewCell}>
+                      <span className={styles.reviewCellLabel}>
+                        Lead Division
+                      </span>
+                      <span className={styles.reviewCellValue}>
+                        {form.leadDivision || "-"}
+                      </span>
+                    </div>
+                    <div className={styles.reviewCell}>
+                      <span className={styles.reviewCellLabel}>
+                        OPG Service Line
+                      </span>
+                      <span className={styles.reviewCellValue}>
+                        {form.opgServiceLine || "-"}
+                      </span>
+                    </div>
+                    <div className={styles.reviewCell}>
+                      <span className={styles.reviewCellLabel}>
+                        SSR Service Line
+                      </span>
+                      <span className={styles.reviewCellValue}>
+                        {form.ssrServiceLine || "-"}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className={styles.reviewCell}>
+                    <span className={styles.reviewCellLabel}>
+                      Service Line
+                    </span>
+                    <span className={styles.reviewCellValue}>
+                      {form.serviceLine || "-"}
+                    </span>
+                  </div>
+                )}
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Project Name</span>
                   <span className={styles.reviewCellValue}>
@@ -1427,25 +1649,30 @@ export const CreateRequestPage: React.FC = () => {
                   <span className={styles.reviewCellLabel}>BID Type</span>
                   <span className={styles.reviewCellValue}>{form.bidType}</span>
                 </div>
-                <div className={styles.reviewCell}>
-                  <span className={styles.reviewCellLabel}>
-                    Project Manager
-                  </span>
-                  <span className={styles.reviewCellValue}>
-                    {form.projectManagers.length > 0
-                      ? form.projectManagers.map((pm) => (
-                          <PersonaCard
-                            key={pm.email}
-                            name={pm.name}
-                            email={pm.email}
-                            role={pm.role}
-                            photoUrl={pm.photoUrl}
-                            size="small"
-                          />
-                        ))
-                      : "-"}
-                  </span>
-                </div>
+                {pmGroups.map((group) => {
+                  const picked = pickedPmsFor(group);
+                  return (
+                    <div key={group.key} className={styles.reviewCell}>
+                      <span className={styles.reviewCellLabel}>
+                        {group.label}
+                      </span>
+                      <span className={styles.reviewCellValue}>
+                        {picked.length > 0
+                          ? picked.map((pm) => (
+                              <PersonaCard
+                                key={pm.email}
+                                name={pm.name}
+                                email={pm.email}
+                                role={pm.role}
+                                photoUrl={pm.photoUrl}
+                                size="small"
+                              />
+                            ))
+                          : "-"}
+                      </span>
+                    </div>
+                  );
+                })}
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Created By</span>
                   <span className={styles.reviewCellValue}>

@@ -84,11 +84,13 @@ flowchart TD
 | Start New Revision (vai para Rework)            | `REVISION_STARTED`                        |
 | Request Approvals (vai para Pending Approval)   | `APPROVAL_STARTED`                        |
 | Override Approval                               | `APPROVAL_OVERRIDE` **e** `BID_COMPLETED` |
+| Override de um time (approval secundário)       | `APPROVAL_OVERRIDE`; `BID_COMPLETED` só se o outro time já aprovou |
 | Fase mudou (e o status também)                  | `PHASE_CHANGED`                           |
 | Só o status mudou                               | `STATUS_CHANGED`                          |
 
 `BID_COMPLETED` e `BID_CANCELED` usam a chave `EVENTO|BID|rev{quantidade de revisões}`. O app e o fluxo
-de aprovação geram a mesma chave, então a conclusão nunca é enviada duas vezes.
+de aprovação geram a mesma chave, então a conclusão nunca é enviada duas vezes. Em BIDs com approval
+secundário, `APPROVAL_STARTED`, `APPROVAL_RESPONSE` e `APPROVAL_OVERRIDE` trazem o fato **Time**.
 
 ### 1.3 Quem recebe
 
@@ -493,19 +495,26 @@ qualquer membro uma vez: o app regrava no formato atual.
 
 **9.2) Compose `comKeyPeople`** — Inputs (fx): `union(body('selKeyPeople'), body('selKeyPeople'))`
 
-**9.3) Compose `comBusinessLines`** — Business Lines do BID, a mesma regra do app. Inputs (fx):
+**9.3) Compose `comBusinessLines`** — Business Lines do BID. O app grava `businessLines` no JSON do BID
+a cada save (lead primeiro); a regra antiga só vale para BIDs que ainda não têm esse campo. Inputs (fx):
 
 ```text
-if(equals(toLower(coalesce(outputs('comBid')?['serviceLine'], '')), 'integrated'), createArray('ROV', 'SURVEY'), if(equals(toLower(coalesce(outputs('comBid')?['serviceLine'], '')), 'rov'), createArray('ROV'), if(equals(toLower(coalesce(outputs('comBid')?['serviceLine'], '')), 'survey'), createArray('SURVEY'), if(startsWith(toUpper(coalesce(outputs('comBid')?['division'], '')), 'OPG'), createArray('OPG'), createArray('ROV', 'SURVEY')))))
+if(greater(length(coalesce(outputs('comBid')?['businessLines'], json('[]'))), 0), outputs('comBid')?['businessLines'], if(equals(toLower(coalesce(outputs('comBid')?['serviceLine'], '')), 'integrated'), createArray('ROV', 'SURVEY'), if(equals(toLower(coalesce(outputs('comBid')?['serviceLine'], '')), 'rov'), createArray('ROV'), if(equals(toLower(coalesce(outputs('comBid')?['serviceLine'], '')), 'survey'), createArray('SURVEY'), if(startsWith(toUpper(coalesce(outputs('comBid')?['division'], '')), 'OPG'), createArray('OPG'), createArray('ROV', 'SURVEY'))))))
 ```
 
-| Service Line / Divisão do BID | Business Lines |
-| ----------------------------- | -------------- |
-| `Integrated`                  | ROV e SURVEY   |
-| `ROV`                         | ROV            |
-| `Survey`                      | SURVEY         |
-| Divisão `OPG`                 | OPG            |
-| Outros casos (SSR)            | ROV e SURVEY   |
+| Service Line / Divisão do BID                     | Business Lines                    |
+| ------------------------------------------------- | --------------------------------- |
+| Campo `businessLines` no BID                      | Usado como está                   |
+| Divisão `INTEGRATED` (ex.: UWILD + ROV)           | OPG e ROV (vem de `businessLines`) |
+| `Integrated` (SSR)                                | ROV e SURVEY                      |
+| `ROV`                                             | ROV                               |
+| `Survey`                                          | SURVEY                            |
+| Divisão `OPG`                                     | OPG                               |
+| Outros casos (SSR)                                | ROV e SURVEY                      |
+
+**Fluxo já criado:** troque o Inputs de `comBusinessLines` pela expressão acima. Um BID Integrated
+salvo pelo app sempre tem `businessLines`; sem a troca, ele cairia em "Outros casos" e o time OPG
+ficaria de fora.
 
 **9.4) Select `selAllowed`** — quem pode ver um BID confidencial.
 
@@ -1123,10 +1132,14 @@ Se a URL do Fluxo 1 mudar, atualize esta variável também.
     "emoji": "@{if(equals(outputs('comDecision'), 'approved'), '✅', '❌')}",
     "tone": "@{if(equals(outputs('comDecision'), 'approved'), 'success', 'danger')}"
   },
-  "headline": "@{outputs('comPersonName')} @{if(equals(outputs('comDecision'), 'approved'), 'aprovou', 'recusou')} a rodada @{variables('varRound')} de aprovação.",
+  "headline": "@{outputs('comPersonName')} @{if(equals(outputs('comDecision'), 'approved'), 'aprovou', 'recusou')} a rodada @{variables('varRound')} de aprovação@{if(empty(variables('varTrackLabel')), '', concat(' (', variables('varTrackLabel'), ')'))}.",
   "facts": [
     { "title": "Aprovador", "value": "@{outputs('comPersonName')}" },
     { "title": "Setor(es)", "value": "@{outputs('comPersonSectors')}" },
+    {
+      "title": "Time",
+      "value": "@{if(empty(variables('varTrackLabel')), 'Aprovação única', variables('varTrackLabel'))}"
+    },
     {
       "title": "Decisão",
       "value": "@{if(equals(outputs('comDecision'), 'approved'), 'Aprovado', 'Recusado')}"
@@ -1144,13 +1157,15 @@ Se a URL do Fluxo 1 mudar, atualize esta variável também.
 }
 ```
 
-O aprovador é o `actor`, então ele não recebe a notificação da própria resposta.
+O aprovador é o `actor`, então ele não recebe a notificação da própria resposta. `varTrackLabel` é a
+variável do passo 4 do fluxo de aprovação (vazia numa aprovação única).
 
 #### 5.3) HTTP `Post_notify_completed` — SmartBID Completed
 
 **Onde:** passo 18 do fluxo de aprovação, no ramo **True** de `Condition_final_approved`, abaixo de
-`Post_card_Final`. As ações antigas `selEmailRows`, `joinEmailRows`, `filEmailCc` e `Send_email_V3`
-devem ser **excluídas** (menu `...` → **Delete**).
+`Post_card_Final`. Essa Condition testa `comBidCompleted`: com approval secundário, o evento sai uma
+vez só, na execução do time que conclui o BID. As ações antigas `selEmailRows`, `joinEmailRows`,
+`filEmailCc` e `Send_email_V3` devem ser **excluídas** (menu `...` → **Delete**).
 **Ação:** HTTP → **HTTP**. **Nome:** `Post_notify_completed`.
 
 | Campo             | Como preencher | Valor                               |
@@ -1176,7 +1191,7 @@ devem ser **excluídas** (menu `...` → **Delete**).
     "emoji": "✅",
     "tone": "success"
   },
-  "headline": "Todos os aprovadores aprovaram a rodada @{variables('varRound')} e o SmartBID foi concluído.",
+  "headline": "@{if(empty(variables('varTrack')), concat('Todos os aprovadores aprovaram a rodada ', string(variables('varRound')), ' e o SmartBID foi concluído.'), 'O approval principal e o secundário foram aprovados e o SmartBID foi concluído.')}",
   "facts": [
     { "title": "Rodada", "value": "@{variables('varRound')}" },
     {

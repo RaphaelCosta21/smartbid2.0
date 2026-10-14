@@ -31,7 +31,11 @@ import { PRIORITY_COLORS } from "../utils/constants";
 import { useStatusColors } from "../hooks/useStatusColors";
 import { useSlidingIndicator } from "../hooks/useSlidingIndicator";
 import { ErnCreateModal } from "../components/bid/ErnCreateModal";
-import { isIntegratedBid } from "../utils/ernHelpers";
+import { getErnSlots } from "../utils/ernHelpers";
+import {
+  getBidServiceLines,
+  serviceLineOptionsForDivision,
+} from "../utils/divisionHelpers";
 import { formatDate } from "../utils/formatters";
 import { countFacets, withCounts } from "../utils/facetHelpers";
 import { format } from "date-fns";
@@ -84,11 +88,11 @@ type RequestFacetKey = "priority" | "division" | "serviceLine" | "creator";
 
 const REQUEST_FACET_VALUES: Record<
   RequestFacetKey,
-  (r: IBidRequest) => string
+  (r: IBidRequest) => string | string[]
 > = {
   priority: (r) => r.priority,
   division: (r) => r.division,
-  serviceLine: (r) => r.serviceLine,
+  serviceLine: (r) => getBidServiceLines(r),
   creator: getCreatorKey,
 };
 
@@ -204,12 +208,12 @@ export const UnassignedRequestsPage: React.FC = () => {
         serviceLine: serviceLineFilter,
         creator: creatorFilter,
       };
-      return (Object.keys(selected) as RequestFacetKey[]).every(
-        (key) =>
-          key === skip ||
-          selected[key].length === 0 ||
-          selected[key].indexOf(REQUEST_FACET_VALUES[key](r)) >= 0,
-      );
+      return (Object.keys(selected) as RequestFacetKey[]).every((key) => {
+        if (key === skip || selected[key].length === 0) return true;
+        const v = REQUEST_FACET_VALUES[key](r);
+        const values = Array.isArray(v) ? v : [v];
+        return values.some((x) => selected[key].indexOf(x) >= 0);
+      });
     },
     [search, priorityFilter, divisionFilter, serviceLineFilter, creatorFilter],
   );
@@ -255,7 +259,9 @@ export const UnassignedRequestsPage: React.FC = () => {
       .filter(
         (s) =>
           divisionFilter.length === 0 ||
-          divisionFilter.indexOf(String(s.category)) >= 0,
+          divisionFilter.some(
+            (d) => serviceLineOptionsForDivision([s], d).length > 0,
+          ),
       )
       .sort((a, b) => (a.order || 0) - (b.order || 0))
       .map((s) => ({
@@ -293,7 +299,10 @@ export const UnassignedRequestsPage: React.FC = () => {
     setServiceLineFilter((prev) =>
       prev.filter((value) => {
         const sl = configured.find((s) => s.value === value);
-        return !sl || divisions.indexOf(String(sl.category)) >= 0;
+        return (
+          !sl ||
+          divisions.some((d) => serviceLineOptionsForDivision([sl], d).length > 0)
+        );
       }),
     );
   };
@@ -1727,7 +1736,7 @@ export const UnassignedRequestsPage: React.FC = () => {
         <ErnCreateModal
           bid={ernModalBid}
           isOpen={!!ernModalBid}
-          division={isIntegratedBid(ernModalBid) ? "ROV" : null}
+          division={getErnSlots(ernModalBid)[0].division}
           onDismiss={() => setErnModalBid(null)}
           onCreated={() => setErnModalBid(null)}
         />

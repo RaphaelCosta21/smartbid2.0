@@ -6,6 +6,7 @@
  */
 import { IBid } from "../models/IBid";
 import { IAIAnalysisContext } from "../models/IAIAnalysis";
+import { getLeadDivision, isIntegratedDivision } from "./divisionHelpers";
 
 /** Build a richer AI context from a BID for grounding backend retrieval. */
 export function buildAiContext(
@@ -16,6 +17,9 @@ export function buildAiContext(
   const parts: string[] = [];
   if (bid.bidNumber) parts.push(`BID: ${bid.bidNumber}`);
   if (bid.division) parts.push(`Division: ${bid.division}`);
+  if (isIntegratedDivision(bid.division)) {
+    parts.push(`Lead division: ${getLeadDivision(bid)}`);
+  }
   if (bid.serviceLine) parts.push(`Service line: ${bid.serviceLine}`);
   if (opp?.client) parts.push(`Client: ${opp.client}`);
   if (opp?.projectName) parts.push(`Project: ${opp.projectName}`);

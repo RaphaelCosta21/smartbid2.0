@@ -13,8 +13,11 @@ import {
 } from "lucide-react";
 import {
   IBid,
+  IBidApproval,
+  IApprovalOverride,
   IExchangeRateSnapshot,
   ITeamMember,
+  BaseDivision,
   BusinessLine,
   Division,
   BidType,
@@ -22,6 +25,7 @@ import {
   BidPhase,
 } from "../../models";
 import { StatusBadge } from "../common/StatusBadge";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import { EditLockBanner } from "../common/EditLockBanner";
 import { ApprovalOverrideBanner } from "../approval/ApprovalOverrideBanner";
 import { useConfigStore } from "../../stores/useConfigStore";
@@ -36,6 +40,12 @@ import { isTerminalStatus } from "../../utils/statusHelpers";
 import { PRIORITY_COLORS } from "../../utils/constants";
 import { createActivityLogEntry } from "../../utils/activityLogHelpers";
 import { getActiveApprovalOverride } from "../../utils/approvalHelpers";
+import {
+  getApprovalTrackLabel,
+  getApprovalTracks,
+  getLatestTrackRound,
+  getTrackStatus,
+} from "../../utils/approvalTracks";
 import {
   buildDueDateChangePatch,
   DUE_DATE_CHANGED,
@@ -58,6 +68,18 @@ import { getTechnicalProposalState } from "../../utils/technicalProposalHelpers"
 import { getPhaseLabelForBid } from "../../utils/phaseHelpers";
 import { calcElapsedDays } from "../../utils/durationHelpers";
 import { withCurrentOption } from "../../utils/clarificationHelpers";
+import {
+  buildDivisionFields,
+  getBidBusinessLines,
+  getBidServiceLines,
+  getBusinessLineLabel,
+  getLeadDivision,
+  getTrackLabel,
+  integratedLineOptions,
+  isIntegratedDivision,
+  retagBusinessLineItems,
+  serviceLineOptionsForDivision,
+} from "../../utils/divisionHelpers";
 import { getCurrentRevisionLetter, hasActiveRevision } from "./RevisionsTab";
 import { ErnCreateModal } from "./ErnCreateModal";
 import { ErnDetailsModal } from "./ErnDetailsModal";
@@ -162,15 +184,39 @@ const APPROVAL_STATUS_DISPLAY: Record<
 const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
   const approvals = bid.approvals || [];
   const status = bid.approvalStatus || "not-started";
-  const override = getActiveApprovalOverride(bid);
+  const tracks = getApprovalTracks(bid);
+  const trackRounds = tracks.map((t) => ({
+    track: t,
+    label: getApprovalTrackLabel(bid, t),
+    status: getTrackStatus(bid, t),
+    round: getLatestTrackRound(bid, t),
+  }));
+  const teamOf: Record<string, string> = {};
+  trackRounds.forEach((tr) =>
+    ((tr.round && tr.round.approvals) || []).forEach((a) => {
+      teamOf[a.id] = getTrackLabel(bid, tr.track);
+    }),
+  );
+  const groupKey = (a: IBidApproval): string =>
+    teamOf[a.id] ? `${teamOf[a.id]} · ${a.stakeholderRole}` : a.stakeholderRole;
+  const override = tracks.length > 0 ? undefined : getActiveApprovalOverride(bid);
+  const overrides = override
+    ? [override]
+    : trackRounds
+        .map((tr) => tr.round && tr.round.override)
+        .filter((o): o is IApprovalOverride => !!o);
   const display = override
     ? APPROVAL_STATUS_DISPLAY["overridden"]
     : APPROVAL_STATUS_DISPLAY[status] || APPROVAL_STATUS_DISPLAY["not-started"];
-  const bypassedEmails = override
-    ? override.approvalsAtOverride
-        .filter((p) => p.status !== "approved")
-        .map((p) => p.stakeholder.email.toLowerCase())
-    : [];
+  const bypassedEmails = overrides.reduce<string[]>(
+    (all, o) =>
+      all.concat(
+        o.approvalsAtOverride
+          .filter((p) => p.status !== "approved")
+          .map((p) => p.stakeholder.email.toLowerCase()),
+      ),
+    [],
+  );
   const isBypassed = (email: string): boolean =>
     bypassedEmails.indexOf(email.toLowerCase()) >= 0;
   const totalCount = approvals.length;
@@ -189,20 +235,26 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
 
   // Determine approval round number from persisted rounds
   const rounds = bid.approvalRounds || [];
-  const roundLabel = rounds.length > 0 ? `Round ${rounds.length}` : "Round 1";
+  const roundLabel =
+    tracks.length > 0
+      ? "Separate approvals"
+      : rounds.length > 0
+        ? `Round ${rounds.length}`
+        : "Round 1";
 
-  // Group by stakeholderRole for sector summary
+  // Group by stakeholderRole (and team for split approvals) for sector summary
   const sectorGroups: Record<
     string,
     { total: number; approved: number; rejected: number }
   > = {};
   approvals.forEach((a) => {
-    if (!sectorGroups[a.stakeholderRole]) {
-      sectorGroups[a.stakeholderRole] = { total: 0, approved: 0, rejected: 0 };
+    const key = groupKey(a);
+    if (!sectorGroups[key]) {
+      sectorGroups[key] = { total: 0, approved: 0, rejected: 0 };
     }
-    sectorGroups[a.stakeholderRole].total++;
-    if (a.status === "approved") sectorGroups[a.stakeholderRole].approved++;
-    if (a.status === "rejected") sectorGroups[a.stakeholderRole].rejected++;
+    sectorGroups[key].total++;
+    if (a.status === "approved") sectorGroups[key].approved++;
+    if (a.status === "rejected") sectorGroups[key].rejected++;
   });
 
   return (
@@ -227,7 +279,7 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
         </span>
       </h4>
 
-      {totalCount === 0 ? (
+      {totalCount === 0 && trackRounds.length === 0 ? (
         override ? (
           <ApprovalOverrideBanner override={override} compact />
         ) : (
@@ -291,6 +343,41 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
 
           {override && <ApprovalOverrideBanner override={override} compact />}
 
+          {trackRounds.map((tr) => {
+            const d =
+              tr.round && tr.round.override
+                ? APPROVAL_STATUS_DISPLAY["overridden"]
+                : APPROVAL_STATUS_DISPLAY[tr.status] ||
+                  APPROVAL_STATUS_DISPLAY["not-started"];
+            return (
+              <div key={tr.track}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 12,
+                  }}
+                >
+                  <span style={{ color: d.color }}>{d.icon}</span>
+                  <span
+                    style={{ fontWeight: 600, color: "var(--text-primary)" }}
+                  >
+                    {tr.label}
+                  </span>
+                  <span
+                    style={{ color: d.color, marginLeft: "auto", fontWeight: 500 }}
+                  >
+                    {d.label}
+                  </span>
+                </div>
+                {tr.round && tr.round.override && (
+                  <ApprovalOverrideBanner override={tr.round.override} compact />
+                )}
+              </div>
+            );
+          })}
+
           {/* Sector Breakdown with approver names + photos */}
           <div
             style={{
@@ -303,7 +390,7 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
             {Object.keys(sectorGroups).map((sector) => {
               const g = sectorGroups[sector];
               const sectorApprovals = approvals.filter(
-                (a) => a.stakeholderRole === sector,
+                (a) => groupKey(a) === sector,
               );
               const sectorDone = g.approved === g.total;
               const sectorRejected = g.rejected > 0;
@@ -607,13 +694,23 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
   // Edit mode state for General Info
   const [editingGeneral, setEditingGeneral] = React.useState(false);
-  const [genDraft, setGenDraft] = React.useState({
-    crmNumber: bid.crmNumber,
-    division: bid.division,
-    serviceLine: bid.serviceLine,
-    bidType: bid.bidType,
-    bidSize: bid.bidSize,
+  const generalDraftFrom = (b: IBid) => ({
+    crmNumber: b.crmNumber,
+    division: b.division,
+    serviceLine: b.serviceLine,
+    leadDivision: (b.leadDivision || "") as BaseDivision | "",
+    opgLine: (b.integratedLines || {}).OPG || "",
+    ssrLine: (b.integratedLines || {}).SSR || "",
+    bidType: b.bidType,
+    bidSize: b.bidSize,
   });
+  const [genDraft, setGenDraft] = React.useState(() => generalDraftFrom(bid));
+  /** Save waiting for the user to confirm moving items of a removed team. */
+  const [retagPrompt, setRetagPrompt] = React.useState<{
+    patch: Partial<IBid>;
+    description: string;
+    message: string;
+  } | null>(null);
 
   // Edit mode state for Operational Summary
   const [editingOps, setEditingOps] = React.useState(false);
@@ -667,29 +764,77 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   };
 
   const saveGeneral = (): void => {
+    const draftIntegrated = isIntegratedDivision(genDraft.division);
+    if (
+      draftIntegrated &&
+      (!genDraft.leadDivision || !genDraft.opgLine || !genDraft.ssrLine)
+    ) {
+      addToast({
+        type: "warning",
+        title: "Missing information",
+        message:
+          "Integrated BIDs need the Lead Division, an OPG and an SSR service line.",
+      });
+      return;
+    }
+    const divisionFields = buildDivisionFields(
+      genDraft.division,
+      genDraft.serviceLine,
+      genDraft.leadDivision || undefined,
+      { OPG: genDraft.opgLine, SSR: genDraft.ssrLine },
+    );
     const changes: string[] = [];
     if (genDraft.crmNumber !== bid.crmNumber)
       changes.push(`CRM Number → "${genDraft.crmNumber}"`);
-    if (genDraft.division !== bid.division)
-      changes.push(`Division → "${genDraft.division}"`);
-    if (genDraft.serviceLine !== bid.serviceLine)
-      changes.push(`Service Line → "${genDraft.serviceLine}"`);
+    if (divisionFields.division !== bid.division)
+      changes.push(`Division → "${divisionFields.division}"`);
+    if (draftIntegrated && divisionFields.leadDivision !== bid.leadDivision)
+      changes.push(`Lead Division → "${divisionFields.leadDivision}"`);
+    if (divisionFields.serviceLine !== bid.serviceLine)
+      changes.push(`Service Line → "${divisionFields.serviceLine}"`);
     if (genDraft.bidType !== bid.bidType)
       changes.push(`Type → "${genDraft.bidType}"`);
     if (genDraft.bidSize !== bid.bidSize)
       changes.push(`Size → "${genDraft.bidSize}"`);
-    if (changes.length > 0) {
-      logAndSave(
-        {
-          crmNumber: genDraft.crmNumber,
-          division: genDraft.division as IBid["division"],
-          serviceLine: genDraft.serviceLine,
-          bidType: genDraft.bidType as IBid["bidType"],
-          bidSize: genDraft.bidSize as IBid["bidSize"],
-        },
-        `General Information updated: ${changes.join("; ")}`,
-      );
+    if (changes.length === 0) {
+      setEditingGeneral(false);
+      generalLock.stopEditing();
+      return;
     }
+    const patch: Partial<IBid> = {
+      crmNumber: genDraft.crmNumber,
+      ...divisionFields,
+      bidType: genDraft.bidType as IBid["bidType"],
+      bidSize: genDraft.bidSize as IBid["bidSize"],
+    };
+    const description = `General Information updated: ${changes.join("; ")}`;
+    const newLines = divisionFields.businessLines || [];
+    const removed = getBidBusinessLines(bid).filter(
+      (l) => newLines.indexOf(l) < 0,
+    );
+    const retag =
+      newLines.length > 0
+        ? retagBusinessLineItems(bid, removed, newLines[0])
+        : { patch: {}, count: 0 };
+    if (retag.count > 0) {
+      const from = removed.map(getBusinessLineLabel).join(", ");
+      const to = getBusinessLineLabel(newLines[0]);
+      setRetagPrompt({
+        patch: { ...patch, ...retag.patch },
+        description: `${description}; ${retag.count} item(s) moved from ${from} to ${to}`,
+        message: `${retag.count} item(s) in Scope, Hours or Costs belong to ${from}, which this BID no longer has. They will be moved to ${to}.`,
+      });
+      return;
+    }
+    logAndSave(patch, description);
+    setEditingGeneral(false);
+    generalLock.stopEditing();
+  };
+
+  const confirmRetag = (): void => {
+    if (!retagPrompt) return;
+    logAndSave(retagPrompt.patch, retagPrompt.description);
+    setRetagPrompt(null);
     setEditingGeneral(false);
     generalLock.stopEditing();
   };
@@ -841,6 +986,18 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const slColor = (config?.serviceLines || []).find(
     (sl) => sl.value === bid.serviceLine,
   )?.color;
+  const generalSelectStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "4px 8px",
+    border: "1px solid var(--border)",
+    borderRadius: 6,
+    background: "var(--card-bg-elevated)",
+    color: "var(--text-primary)",
+    fontSize: 13,
+  };
+  const bidIsIntegrated = isIntegratedDivision(bid.division);
+  const divisionOption = (value: string) =>
+    (config?.divisions || []).find((d) => d.value === value);
 
   return (
     <div className={styles.overviewGrid}>
@@ -873,13 +1030,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 onClick={async () => {
                   const ok = await generalLock.startEditing();
                   if (ok) {
-                    setGenDraft({
-                      crmNumber: bid.crmNumber,
-                      division: bid.division,
-                      serviceLine: bid.serviceLine,
-                      bidType: bid.bidType,
-                      bidSize: bid.bidSize,
-                    });
+                    setGenDraft(generalDraftFrom(bid));
                     setEditingGeneral(true);
                   }
                 }}
@@ -929,17 +1080,45 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       value={genDraft.division}
                       onChange={(e) => {
                         const newDiv = e.target.value as Division;
-                        const matchingSL = (config?.serviceLines || []).filter(
-                          (sl) =>
-                            sl.isActive !== false && sl.category === newDiv,
-                        );
-                        const firstSL =
-                          matchingSL.length > 0 ? matchingSL[0].value : "";
-                        setGenDraft((d) => ({
-                          ...d,
-                          division: newDiv,
-                          serviceLine: firstSL,
-                        }));
+                        setGenDraft((d) => {
+                          if (isIntegratedDivision(newDiv)) {
+                            const ssrValid = integratedLineOptions(
+                              config?.serviceLines,
+                              "SSR",
+                            ).some((o) => o.value === d.serviceLine);
+                            return {
+                              ...d,
+                              division: newDiv,
+                              leadDivision:
+                                d.leadDivision ||
+                                (d.division === "SSR" ? "SSR" : "OPG"),
+                              opgLine:
+                                d.opgLine ||
+                                (d.division === "OPG" ? d.serviceLine : ""),
+                              ssrLine:
+                                d.ssrLine ||
+                                (d.division === "SSR" && ssrValid
+                                  ? d.serviceLine
+                                  : ""),
+                            };
+                          }
+                          const kept = isIntegratedDivision(d.division)
+                            ? newDiv === "OPG"
+                              ? d.opgLine
+                              : newDiv === "SSR"
+                                ? d.ssrLine
+                                : ""
+                            : "";
+                          const firstSL = serviceLineOptionsForDivision(
+                            config?.serviceLines,
+                            newDiv,
+                          )[0];
+                          return {
+                            ...d,
+                            division: newDiv,
+                            serviceLine: kept || (firstSL ? firstSL.value : ""),
+                          };
+                        });
                       }}
                       style={{
                         width: "100%",
@@ -965,6 +1144,59 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     </select>
                   }
                 />
+                {isIntegratedDivision(genDraft.division) ? (
+                  <>
+                    <InfoRow
+                      label="Lead Division"
+                      value={
+                        <select
+                          value={genDraft.leadDivision}
+                          onChange={(e) => {
+                            const leadDivision = e.target.value as BaseDivision;
+                            setGenDraft((d) => ({ ...d, leadDivision }));
+                          }}
+                          style={generalSelectStyle}
+                        >
+                          <option value="">- Select -</option>
+                          {(["OPG", "SSR"] as BaseDivision[]).map((d) => (
+                            <option key={d} value={d}>
+                              {d}
+                            </option>
+                          ))}
+                        </select>
+                      }
+                    />
+                    {(["OPG", "SSR"] as BaseDivision[]).map((div) => {
+                      const key = div === "OPG" ? "opgLine" : "ssrLine";
+                      return (
+                        <InfoRow
+                          key={div}
+                          label={`${div} Service Line`}
+                          value={
+                            <select
+                              value={genDraft[key]}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setGenDraft((d) => ({ ...d, [key]: value }));
+                              }}
+                              style={generalSelectStyle}
+                            >
+                              <option value="">- Select -</option>
+                              {withCurrentOption(
+                                integratedLineOptions(config?.serviceLines, div),
+                                genDraft[key],
+                              ).map((sl) => (
+                                <option key={sl.value} value={sl.value}>
+                                  {sl.label}
+                                </option>
+                              ))}
+                            </select>
+                          }
+                        />
+                      );
+                    })}
+                  </>
+                ) : (
                 <InfoRow
                   label="Service Line"
                   value={
@@ -977,15 +1209,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           serviceLine,
                         }));
                       }}
-                      style={{
-                        width: "100%",
-                        padding: "4px 8px",
-                        border: "1px solid var(--border)",
-                        borderRadius: 6,
-                        background: "var(--card-bg-elevated)",
-                        color: "var(--text-primary)",
-                        fontSize: 13,
-                      }}
+                      style={generalSelectStyle}
                     >
                       <option value="">- Select -</option>
                       {withCurrentOption(
@@ -1004,7 +1228,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     </select>
                   }
                 />
-                <InfoRow
+                )}                <InfoRow
                   label="Type"
                   value={
                     <select
@@ -1064,19 +1288,48 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   label="Division"
                   value={
                     <StatusBadge
-                      status={bid.division}
-                      color={
-                        (config?.divisions || []).find(
-                          (d) => d.value === bid.division,
-                        )?.color
+                      status={
+                        bidIsIntegrated
+                          ? divisionOption(bid.division)?.label || bid.division
+                          : bid.division
                       }
+                      color={divisionOption(bid.division)?.color}
                     />
                   }
                 />
+                {bidIsIntegrated && (
+                  <InfoRow
+                    label="Lead Division"
+                    value={
+                      <StatusBadge
+                        status={getLeadDivision(bid)}
+                        color={divisionOption(getLeadDivision(bid))?.color}
+                      />
+                    }
+                  />
+                )}
                 <InfoRow
                   label="Service Line"
                   value={
-                    <StatusBadge status={bid.serviceLine} color={slColor} />
+                    bidIsIntegrated ? (
+                      <span
+                        style={{ display: "inline-flex", gap: 6, flexWrap: "wrap" }}
+                      >
+                        {getBidServiceLines(bid).map((sl) => (
+                          <StatusBadge
+                            key={sl}
+                            status={sl}
+                            color={
+                              (config?.serviceLines || []).find(
+                                (o) => o.value === sl,
+                              )?.color
+                            }
+                          />
+                        ))}
+                      </span>
+                    ) : (
+                      <StatusBadge status={bid.serviceLine} color={slColor} />
+                    )
                   }
                 />
                 <InfoRow label="Type" value={bid.bidType} />
@@ -1660,7 +1913,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               OPG: [],
             };
             const pmUnassigned: Person[] = [];
+            const bidLines = getBidBusinessLines(bid);
+            const pmLineOrder = bidLines.concat(
+              PM_BUSINESS_LINES.filter((bl) => bidLines.indexOf(bl) < 0),
+            );
             (bid.projectManager || []).forEach((pm) => {
+              if (pm.businessLine && pmByLine[pm.businessLine]) {
+                pmByLine[pm.businessLine].push(pm);
+                return;
+              }
               const lines =
                 membersMap[(pm.email || "").toLowerCase()]?.businessLines || [];
               const matched = PM_BUSINESS_LINES.filter(
@@ -1700,13 +1961,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     <Briefcase size={14} /> Project Manager
                   </div>
                   <div className={styles.kpDivisionGrid}>
-                    {PM_BUSINESS_LINES.filter(
-                      (bl) => pmByLine[bl].length > 0,
-                    ).map((bl) => (
-                      <React.Fragment key={bl}>
-                        {renderRole(bl, pmByLine[bl])}
-                      </React.Fragment>
-                    ))}
+                    {pmLineOrder
+                      .filter((bl) => pmByLine[bl].length > 0)
+                      .map((bl) => (
+                        <React.Fragment key={bl}>
+                          {renderRole(bl, pmByLine[bl])}
+                        </React.Fragment>
+                      ))}
                     {pmUnassigned.length > 0 &&
                       renderRole("No business line", pmUnassigned)}
                     {(bid.projectManager || []).length === 0 &&
@@ -1920,6 +2181,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               isOpen={dueDateModalOpen}
               onDismiss={() => setDueDateModalOpen(false)}
               onConfirm={changeDueDate}
+            />
+            <ConfirmDialog
+              isOpen={!!retagPrompt}
+              title="Move items to the remaining team?"
+              message={retagPrompt ? retagPrompt.message : ""}
+              confirmLabel="Move and save"
+              variant="warning"
+              onConfirm={confirmRetag}
+              onCancel={() => setRetagPrompt(null)}
             />
             <InfoRow
               label="Completed"

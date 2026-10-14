@@ -235,6 +235,13 @@
   grid-column: 1 / -1;
 }
 
+.pmGroups {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
 .formLabel {
   font-size: 12px;
   font-weight: 600;

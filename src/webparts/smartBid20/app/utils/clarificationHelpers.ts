@@ -5,6 +5,10 @@
 import { IBid } from "../models/IBid";
 import { IClarificationDbItem } from "../models/IClarificationDb";
 import { IConfigOption, ISystemConfig } from "../models/ISystemConfig";
+import {
+  isIntegratedDivision,
+  serviceLineOptionsForDivision,
+} from "./divisionHelpers";
 
 /** Values the legacy list stored in its mandatory Title column when there was no reference. */
 const REF_PLACEHOLDERS = ["N/A", "NA", "-", "--", "---", "TBD", "TBC", "NONE"];
@@ -74,15 +78,16 @@ export function withCurrentOption(
   return list;
 }
 
-/** Active service lines that belong to a division (`category` holds the division value). */
+/** Active service lines that belong to a division (`category` holds the division value); INTEGRATED lists both divisions' lines. */
 export function serviceLinesForDivision(
   config: ISystemConfig | null | undefined,
   division: string,
 ): IConfigOption[] {
   if (!config || !division) return [];
-  return activeConfigOptions(config.serviceLines).filter(
-    (sl) => sl.category === division,
-  );
+  const active = activeConfigOptions(config.serviceLines);
+  return isIntegratedDivision(division)
+    ? serviceLineOptionsForDivision(active, division)
+    : active.filter((sl) => sl.category === division);
 }
 
 /**

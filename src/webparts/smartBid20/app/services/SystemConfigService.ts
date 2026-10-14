@@ -7,6 +7,7 @@ import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import { normalizeAccessConfig } from "../config/accessControl.config";
 import { normalizeNotificationSettings } from "../config/notifications.config";
 import { ISystemConfig } from "../models";
+import { withIntegratedDivision } from "../utils/divisionHelpers";
 
 export class SystemConfigService {
   private static _cache: ISystemConfig | null = null;
@@ -43,6 +44,7 @@ export class SystemConfigService {
       config.notifications = normalizeNotificationSettings(
         config.notifications,
       );
+      config.divisions = withIntegratedDivision(config.divisions);
     } catch {
       throw new Error("System configuration has invalid JSON");
     }

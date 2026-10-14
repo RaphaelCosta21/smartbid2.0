@@ -1,5 +1,6 @@
-﻿import { IPersonRef, Sector } from "./IUser";
+﻿import { BusinessLine, IPersonRef, Sector } from "./IUser";
 import {
+  BaseDivision,
   BidPhase,
   BidPriority,
   BidType,
@@ -730,7 +731,21 @@ export interface IApprovalRound {
   override?: IApprovalOverride;
   /** Required sectors excluded from this round (snapshot at round start). */
   waivedSectors?: IApprovalSectorWaiver[];
+  /** Team of a primary/secondary approval; absent = single approval for the whole BID. */
+  track?: BusinessLine;
+  trackLabel?: string;
 }
+
+/** Per-team state of a BID running a primary + secondary approval. */
+export interface IApprovalTrackState {
+  /** Status of the team's latest round (written by the app and the approval flow). */
+  status?: ApprovalStatus;
+  draftSelections?: Partial<Record<Sector, IPersonRef[]>>;
+  sectorWaivers?: Partial<Record<Sector, IApprovalSectorWaiver>>;
+}
+
+/** Service line of each division of an INTEGRATED BID. */
+export type IIntegratedLines = Partial<Record<BaseDivision, string>>;
 
 export interface IBidAttachment {
   id: string;
@@ -925,7 +940,14 @@ export interface IBid {
   bidNumber: string;
   crmNumber: string;
   division: Division;
+  /** INTEGRATED BIDs: "<lead line> + <other line>". */
   serviceLine: string;
+  /** INTEGRATED BIDs only. */
+  leadDivision?: BaseDivision;
+  /** INTEGRATED BIDs only. */
+  integratedLines?: IIntegratedLines;
+  /** Teams of the BID (lead first), kept in the JSON for the Power Automate flows. */
+  businessLines?: BusinessLine[];
   bidType: BidType;
   bidSize: BidSize;
   priority: BidPriority;
@@ -980,6 +1002,10 @@ export interface IBid {
   approvalDraftSelections?: Partial<Record<Sector, IPersonRef[]>>;
   /** Required approval sectors marked as not required for this BID. */
   approvalSectorWaivers?: Partial<Record<Sector, IApprovalSectorWaiver>>;
+  /** Team approved separately (secondary approval); absent = single approval. */
+  approvalSecondaryLine?: BusinessLine;
+  /** Primary/secondary approval state, keyed by team. */
+  approvalTracks?: Partial<Record<BusinessLine, IApprovalTrackState>>;
   attachments: IBidAttachment[];
   comments: IBidComment[];
   activityLog: IActivityLogEntry[];
@@ -1033,8 +1059,8 @@ export interface IBid {
 
 /** A single ERN linked to a BID (supports one-per-division for Integrated). */
 export interface IBidErnLink {
-  /** Division this ERN covers (Integrated BIDs). null = single ERN. */
-  division: "ROV" | "SURVEY" | null;
+  /** Team this ERN covers (BIDs with two teams). null = single ERN. */
+  division: BusinessLine | null;
   ernNumber: string;
   ernId: number;
   ernStatus: string;

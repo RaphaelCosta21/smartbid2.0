@@ -168,6 +168,8 @@ export const SHAREPOINT_CONFIG = {
     nativeApprovalId: "NativeApprovalId",
     approverComments: "ApproverComments",
     lastReminderDate: "LastReminderDate",
+    /** Team of a primary/secondary approval (empty for a single approval). */
+    approvalTrack: "ApprovalTrack",
   },
 
   /** Internal field names for the "Clarifications Database" list */

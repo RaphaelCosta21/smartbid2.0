@@ -7,8 +7,15 @@ import "@pnp/sp/fields";
 import { IBid } from "../models";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import { withCostSummary } from "../utils/costCalculations";
+import { getBidBusinessLines } from "../utils/divisionHelpers";
 
 const F = SHAREPOINT_CONFIG.bidTrackerFields;
+
+/** JSON written to SharePoint; businessLines is read by the Power Automate flows. */
+function prepareForSave(bid: IBid): IBid {
+  const withCosts = withCostSummary(bid);
+  return { ...withCosts, businessLines: getBidBusinessLines(withCosts) };
+}
 
 /** Re-reads after a 412 (the Teams approval flow wrote the same item). */
 const MAX_PATCH_ATTEMPTS = 3;
@@ -127,7 +134,7 @@ export class BidService {
     await BidService.ensureColumns();
     const result = await BidService._list.items.add({
       Title: bid.bidNumber,
-      jsondata: JSON.stringify(withCostSummary(bid)),
+      jsondata: JSON.stringify(prepareForSave(bid)),
       Status: bid.currentStatus,
       DueDate: bid.desiredDueDate || bid.dueDate,
       ...BidService._searchColumns(bid),
@@ -139,7 +146,7 @@ export class BidService {
     await BidService.ensureColumns();
     await BidService._list.items.getById(id).update({
       Title: bid.bidNumber,
-      jsondata: JSON.stringify(withCostSummary(bid)),
+      jsondata: JSON.stringify(prepareForSave(bid)),
       Status: bid.currentStatus,
       DueDate: bid.desiredDueDate || bid.dueDate,
       ...BidService._searchColumns(bid),
@@ -291,7 +298,7 @@ export class BidService {
         "odata.etag"?: string;
       };
       const bid = JSON.parse(row.jsondata) as IBid;
-      const merged = withCostSummary({ ...bid, ...patch });
+      const merged = prepareForSave({ ...bid, ...patch });
       const dueDateChanged =
         patch.dueDate !== undefined || patch.desiredDueDate !== undefined;
       try {

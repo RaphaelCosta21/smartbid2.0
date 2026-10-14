@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Ban,
   Undo2,
+  Users,
 } from "lucide-react";
 import {
   IActivityLogEntry,
@@ -16,11 +17,12 @@ import {
   IApprovalRound,
   IApprovalOverride,
   IApprovalSectorWaiver,
+  IApprovalTrackState,
 } from "../../models/IBid";
 import { IBidApproval } from "../../models/IBid";
 import { IApprovalSectorGroup } from "../../models/IBidApproval";
 import { ITeamMember } from "../../models/ITeamMember";
-import { IPersonRef, Sector } from "../../models/IUser";
+import { BusinessLine, IPersonRef, Sector } from "../../models/IUser";
 import { ApprovalStatus } from "../../models/IBidStatus";
 import { PersonaCard } from "../common/PersonaCard";
 import { AssetCostsBlockDialog } from "./BidStatusPhasePanel";
@@ -40,6 +42,32 @@ import { createActivityLogEntry } from "../../utils/activityLogHelpers";
 import { canOpenBid } from "../../utils/bidConfidentiality";
 import { formatDate } from "../../utils/formatters";
 import { getAssetsCostCompleteness } from "../../utils/costCalculations";
+import {
+  buildTrackRoundPatch,
+  canChangeSecondaryApproval,
+  getApprovalTrackLabel,
+  getApprovalTracks,
+  getCurrentTrackApprovals,
+  getLatestTrackRound,
+  getPrimaryTrack,
+  getSecondaryCandidates,
+  getSplitApprovalStatus,
+  getTrackStatus,
+  isSplitApprovalComplete,
+  memberMatchesTrack,
+  projectManagersForTrack,
+  syncTrackStatuses,
+} from "../../utils/approvalTracks";
+import {
+  businessLineDivision,
+  getBidBusinessLines,
+  getBusinessLineLabel,
+  getBusinessLineServiceLine,
+  getLeadDivision,
+  getTrackLabel,
+  isIntegratedDivision,
+  memberMatchesBusinessLines,
+} from "../../utils/divisionHelpers";
 import styles from "./ApprovalTab.module.scss";
 
 interface ApprovalTabProps {
@@ -50,43 +78,48 @@ interface ApprovalTabProps {
   onPatchBid: (patch: Partial<IBid>) => void;
 }
 
+interface ApprovalTrackPanelProps extends ApprovalTabProps {
+  /** Team of a primary/secondary approval; null = single approval. */
+  track: BusinessLine | null;
+}
+
 interface SectorConfig {
   sector: Sector;
   label: string;
   icon: string;
   required: boolean;
   minCount: number;
-  filterFn: (m: ITeamMember, bid: IBid) => boolean;
-  preSelectFn: (bid: IBid) => IPersonRef[];
-  autoLockFn: (bid: IBid, members: ITeamMember[]) => IPersonRef[];
-  isVisible: (bid: IBid) => boolean;
+  filterFn: (m: ITeamMember, bid: IBid, track: BusinessLine | null) => boolean;
+  preSelectFn: (
+    bid: IBid,
+    track: BusinessLine | null,
+    members: ITeamMember[],
+  ) => IPersonRef[];
+  autoLockFn: (
+    bid: IBid,
+    members: ITeamMember[],
+    track: BusinessLine | null,
+  ) => IPersonRef[];
+  isVisible: (bid: IBid, track: BusinessLine | null) => boolean;
 }
 
 const CAPEX_THRESHOLD_USD = 200000;
 
-function matchesDivision(member: ITeamMember, bid: IBid): boolean {
+/** Project / Operation candidates: the team's tag, or any team of the BID for a single approval. */
+function matchesDivision(
+  member: ITeamMember,
+  bid: IBid,
+  track: BusinessLine | null,
+): boolean {
+  if (track) return memberMatchesTrack(member, track);
+  const lines = getBidBusinessLines(bid);
+  if (lines.length > 0) return memberMatchesBusinessLines(member, lines);
+
   const bl = member.businessLines;
   const div: string = bid.division || "";
-  const sl = (bid.serviceLine || "").toLowerCase();
-
-  if (div === "SSR") {
-    if (sl === "rov") return bl.includes("ROV");
-    if (sl === "survey") return bl.includes("SURVEY");
-    if (sl === "integrated") return bl.includes("ROV") || bl.includes("SURVEY");
-    // unknown SSR service line — accept any SSR member
-    return bl.includes("ROV") || bl.includes("SURVEY");
-  }
-  if (div === "OPG") {
-    return bl.includes("OPG") || bl.length === 0;
-  }
-
-  // Legacy division values saved before the SSR/serviceLine split
-  if (div === "SSR-ROV") return bl.includes("ROV");
-  if (div === "SSR-Survey") return bl.includes("SURVEY");
-  if (div === "SSR-Integrated")
-    return bl.includes("ROV") || bl.includes("SURVEY");
-
-  return bl.includes(div as any) || bl.length === 0;
+  // unknown SSR service line: accept any SSR member
+  if (div === "SSR") return bl.includes("ROV") || bl.includes("SURVEY");
+  return bl.includes(div as BusinessLine) || bl.length === 0;
 }
 
 const SECTOR_CONFIGS: SectorConfig[] = [
@@ -115,7 +148,9 @@ const SECTOR_CONFIGS: SectorConfig[] = [
         m.bidRole === "manager" ||
         m.bidRole === "sr-manager"),
     preSelectFn: () => [],
-    autoLockFn: (bid, members) => {
+    autoLockFn: (bid, members, track) => {
+      // The CAPEX rule applies once: to the primary approval when split
+      if (track && track !== getPrimaryTrack(bid)) return [];
       if (bid.costSummary.assetsCapexUSD > CAPEX_THRESHOLD_USD) {
         return members
           .filter(
@@ -141,9 +176,12 @@ const SECTOR_CONFIGS: SectorConfig[] = [
     icon: "📋",
     required: true,
     minCount: 1,
-    filterFn: (m, bid) =>
-      m.sector === "project" && m.isActive && matchesDivision(m, bid),
-    preSelectFn: (bid) => bid.projectManager || [],
+    filterFn: (m, bid, track) =>
+      m.sector === "project" && m.isActive && matchesDivision(m, bid, track),
+    preSelectFn: (bid, track, members) =>
+      track
+        ? projectManagersForTrack(bid, track, members)
+        : bid.projectManager || [],
     autoLockFn: () => [],
     isVisible: () => true,
   },
@@ -153,8 +191,8 @@ const SECTOR_CONFIGS: SectorConfig[] = [
     icon: "⚙️",
     required: true,
     minCount: 1,
-    filterFn: (m, bid) =>
-      m.sector === "operation" && m.isActive && matchesDivision(m, bid),
+    filterFn: (m, bid, track) =>
+      m.sector === "operation" && m.isActive && matchesDivision(m, bid, track),
     preSelectFn: () => [],
     autoLockFn: () => [],
     isVisible: () => true,
@@ -168,7 +206,9 @@ const SECTOR_CONFIGS: SectorConfig[] = [
     filterFn: (m) => m.sector === "dataCenter" && m.isActive,
     preSelectFn: () => [],
     autoLockFn: () => [],
-    isVisible: (bid) => {
+    isVisible: (bid, track) => {
+      if (track) return track === "SURVEY";
+      if (getBidBusinessLines(bid).indexOf("SURVEY") >= 0) return true;
       const sl = (bid.serviceLine || "").toLowerCase();
       return sl === "survey" || sl === "integrated";
     },
@@ -243,12 +283,13 @@ const STATUS_DISPLAY: Record<
   },
 };
 
-export const ApprovalTab: React.FC<ApprovalTabProps> = ({
+const ApprovalTrackPanel: React.FC<ApprovalTrackPanelProps> = ({
   bid,
   teamMembers,
   currentUser,
   canEdit,
   onPatchBid,
+  track,
 }) => {
   const isGateOpen =
     bid.currentPhase === "Close Out" &&
@@ -258,11 +299,21 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   const canManageApproval = canEdit;
   const canOverride = canEdit;
   const isCloseOutPhase = bid.currentPhase === "Close Out";
-  const activeOverride = getActiveApprovalOverride(bid);
 
-  // Current round number (based on existing rounds history)
+  // Round numbers are unique per BID across teams (the flow keys rounds by BID + round)
   const existingRounds = bid.approvalRounds || [];
   const currentRoundNumber = existingRounds.length + 1;
+  const latestTrackRound = track ? getLatestTrackRound(bid, track) : undefined;
+  const trackState: IApprovalTrackState = track
+    ? (bid.approvalTracks || {})[track] || {}
+    : {};
+  const trackLabel = track ? getApprovalTrackLabel(bid, track) : "";
+  const approvalStatus: ApprovalStatus = track
+    ? getTrackStatus(bid, track)
+    : bid.approvalStatus;
+  const activeOverride = track
+    ? latestTrackRound?.override
+    : getActiveApprovalOverride(bid);
 
   // A new approval round is needed when:
   // - Gate is open AND approvalStatus was reset to "not-started" (after revision)
@@ -275,66 +326,54 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     return !lastRevision.closedDate && isGateOpen;
   }, [bid.revisions, isGateOpen]);
 
-  const needsNewRound =
-    isGateOpen &&
-    (bid.approvalStatus === "not-started" || hasActiveRevisionPending);
-  const isTrackingMode = bid.approvalStatus !== "not-started" && !needsNewRound;
-  const hasRunningRound = isTrackingMode && bid.approvalStatus !== "approved";
+  // A team that already approved keeps its approval through a Rework
+  const needsNewRound = track
+    ? isGateOpen &&
+      (approvalStatus === "not-started" ||
+        (hasActiveRevisionPending && approvalStatus === "rejected"))
+    : isGateOpen &&
+      (approvalStatus === "not-started" || hasActiveRevisionPending);
+  const isTrackingMode = approvalStatus !== "not-started" && !needsNewRound;
+  const hasRunningRound = isTrackingMode && approvalStatus !== "approved";
   const showOverride =
     canOverride &&
     !isTerminalStatus(bid.currentStatus) &&
     (hasRunningRound || !isTrackingMode);
+  // Overriding this team completes the BID only when every other team already approved
+  const overrideCompletesBid =
+    !track ||
+    getApprovalTracks(bid).every(
+      (t) => t === track || getTrackStatus(bid, t) === "approved",
+    );
 
-  // ── Auto-complete: when all approvals are approved, transition to "Completed" ──
-  React.useEffect(() => {
-    if (bid.approvalStatus !== "approved") return;
-    if (bid.currentStatus === "Completed") return;
-    const approvals = bid.approvals || [];
-    if (approvals.length === 0) return;
-    const allApproved = approvals.every((a) => a.status === "approved");
-    if (allApproved) {
-      const nowIso = new Date().toISOString();
-      // Persist per-sector approval durations for the closing round + cycle time.
-      const rounds = bid.approvalRounds || [];
-      let updatedRounds = rounds;
-      if (rounds.length > 0) {
-        const last = rounds[rounds.length - 1];
-        const enriched: IApprovalRound = {
-          ...last,
-          approvals: approvals.length ? approvals : last.approvals,
-          status: "approved",
-          completedDate: last.completedDate || nowIso,
-        };
-        enriched.sectorDurations = computeRoundSectorDurations(enriched);
-        updatedRounds = [...rounds.slice(0, -1), enriched];
-      }
-      const cycle = computeApprovalCycleTime({
-        ...bid,
-        approvalRounds: updatedRounds,
-      });
-      const missingLogs = getMissingApprovalActivityEntries({
-        ...bid,
-        approvalRounds: updatedRounds,
-        currentStatus: "Completed",
-        completedDate: nowIso,
-      });
+  const draftSelections = track
+    ? trackState.draftSelections
+    : bid.approvalDraftSelections;
+  const saveDraftSelections = (
+    next: Partial<Record<Sector, IPersonRef[]>>,
+  ): void => {
+    if (track) {
       onPatchBid({
-        currentStatus: "Completed",
-        currentPhase: "Close Out" as any,
-        completedDate: nowIso,
-        ...buildHistoryTransition(
-          bid,
-          "Close Out" as any,
-          "Completed",
-          APPROVAL_FLOW_ACTOR,
-          nowIso,
-        ),
-        approvalRounds: updatedRounds,
-        kpis: { ...bid.kpis, approvalCycleTime: cycle },
-        activityLog: [...(bid.activityLog || []), ...missingLogs],
+        approvalTracks: {
+          ...(bid.approvalTracks || {}),
+          [track]: { ...trackState, draftSelections: next },
+        },
       });
+    } else {
+      onPatchBid({ approvalDraftSelections: next });
     }
-  }, [bid.approvalStatus, bid.approvals, bid.currentStatus]);
+  };
+  const waiverPatch = (
+    next: Partial<Record<Sector, IApprovalSectorWaiver>>,
+  ): Partial<IBid> =>
+    track
+      ? {
+          approvalTracks: {
+            ...(bid.approvalTracks || {}),
+            [track]: { ...trackState, sectorWaivers: next },
+          },
+        }
+      : { approvalSectorWaivers: next };
 
   // ── State ──
   const [sectorSelections, setSectorSelections] = React.useState<
@@ -375,10 +414,11 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     const locks: Record<string, IPersonRef[]> = {};
 
     SECTOR_CONFIGS.forEach((cfg) => {
-      if (!cfg.isVisible(bid)) return;
-      const saved = bid.approvalDraftSelections?.[cfg.sector];
-      const preSelected = saved !== undefined ? saved : cfg.preSelectFn(bid);
-      const autoLocked = cfg.autoLockFn(bid, teamMembers);
+      if (!cfg.isVisible(bid, track)) return;
+      const saved = draftSelections?.[cfg.sector];
+      const preSelected =
+        saved !== undefined ? saved : cfg.preSelectFn(bid, track, teamMembers);
+      const autoLocked = cfg.autoLockFn(bid, teamMembers, track);
       // Merge auto-locked into selections (no duplicates)
       const combined = [...autoLocked];
       preSelected.forEach((p) => {
@@ -395,11 +435,13 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     setLockedApprovers(locks as any);
   }, [
     bid.bidNumber,
-    bid.approvalDraftSelections,
+    draftSelections,
     bid.commercialRequester,
     bid.projectManager,
     bid.costSummary.assetsCapexUSD,
     bid.serviceLine,
+    bid.approvalSecondaryLine,
+    track,
     teamMembers,
   ]);
 
@@ -420,7 +462,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   // ── Helpers ──
   const getFilteredMembers = (cfg: SectorConfig): ITeamMember[] => {
     const available = teamMembers.filter(
-      (m) => cfg.filterFn(m, bid) && canOpenBid(bid, m.email),
+      (m) => cfg.filterFn(m, bid, track) && canOpenBid(bid, m.email),
     );
     const selected = sectorSelections[cfg.sector] || [];
     return available.filter((m) => !selected.some((s) => s.email === m.email));
@@ -452,7 +494,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     };
     selectionsRef.current = next;
     setSectorSelections(next);
-    onPatchBid({ approvalDraftSelections: next });
+    saveDraftSelections(next);
     setSearchTerms((prev) => ({ ...prev, [sector]: "" }));
     setOpenPicker(null);
   };
@@ -469,7 +511,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     };
     selectionsRef.current = next;
     setSectorSelections(next);
-    onPatchBid({ approvalDraftSelections: next });
+    saveDraftSelections(next);
   };
 
   const isLocked = (sector: Sector, email: string): boolean => {
@@ -477,7 +519,8 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   };
 
   // ── Sector waivers (required sector marked as not required for this BID) ──
-  const sectorWaivers = bid.approvalSectorWaivers || {};
+  const sectorWaivers =
+    (track ? trackState.sectorWaivers : bid.approvalSectorWaivers) || {};
   // Auto-locked sectors (e.g. CAPEX rule) can't be waived
   const getWaiver = (cfg: SectorConfig): IApprovalSectorWaiver | null =>
     cfg.required && (lockedApprovers[cfg.sector] || []).length === 0
@@ -506,18 +549,19 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     };
     const logEntry = createActivityLogEntry(
       "APPROVAL_SECTOR_WAIVED",
-      `${waiver.sectorLabel} approval marked as not required for this BID. Justification: "${reason}"`,
+      `${waiver.sectorLabel} approval marked as not required for this BID${track ? ` (${trackLabel})` : ""}. Justification: "${reason}"`,
       actor.email,
       actor.name,
       {
         sector: waiver.sector,
         sectorLabel: waiver.sectorLabel,
         round: currentRoundNumber,
+        ...(track ? { track } : {}),
         reason,
       },
     );
     onPatchBid({
-      approvalSectorWaivers: { ...sectorWaivers, [waiver.sector]: waiver },
+      ...waiverPatch({ ...sectorWaivers, [waiver.sector]: waiver }),
       activityLog: [...(bid.activityLog || []), logEntry],
     });
     closeWaiverDialog();
@@ -532,20 +576,21 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     delete next[cfg.sector];
     const logEntry = createActivityLogEntry(
       "APPROVAL_SECTOR_REINSTATED",
-      `${cfg.label} approval marked as required again for this BID (previous justification: "${waiver.reason}")`,
+      `${cfg.label} approval marked as required again for this BID${track ? ` (${trackLabel})` : ""} (previous justification: "${waiver.reason}")`,
       currentUser.email,
       currentUser.name,
       {
         sector: cfg.sector,
         sectorLabel: cfg.label,
         round: currentRoundNumber,
+        ...(track ? { track } : {}),
         previousReason: waiver.reason,
         previousWaivedBy: waiver.waivedBy,
         previousWaivedDate: waiver.waivedDate,
       },
     );
     onPatchBid({
-      approvalSectorWaivers: next,
+      ...waiverPatch(next),
       activityLog: [...(bid.activityLog || []), logEntry],
     });
   };
@@ -562,7 +607,9 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
 
   // ── Validation ──
   const validationErrors: string[] = [];
-  const visibleSectors = SECTOR_CONFIGS.filter((cfg) => cfg.isVisible(bid));
+  const visibleSectors = SECTOR_CONFIGS.filter((cfg) =>
+    cfg.isVisible(bid, track),
+  );
   const activeSectors = visibleSectors.filter((cfg) => !getWaiver(cfg));
   const activeWaivers: IApprovalSectorWaiver[] = [];
   visibleSectors.forEach((cfg) => {
@@ -690,9 +737,11 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
         sectorLabel: cfg.label,
         approvers: sectorSelections[cfg.sector] || [],
         isAutoLocked: (lockedApprovers[cfg.sector] || []).length > 0,
-        isPreSelected: cfg.preSelectFn(bid).length > 0,
+        isPreSelected:
+          cfg.preSelectFn(bid, track, teamMembers).length > 0,
       }));
 
+      const tracks = getApprovalTracks(bid);
       // Write to smartbid-approvals SP list
       await ApprovalService.startApprovalRound(
         bid.bidNumber,
@@ -700,6 +749,17 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
         currentUser,
         bid,
         roundNumber,
+        track
+          ? {
+              track,
+              trackLabel,
+              trackDivision: isIntegratedDivision(bid.division)
+                ? businessLineDivision(track)
+                : bid.division,
+              trackServiceLine: getBusinessLineServiceLine(bid, track),
+              tracks,
+            }
+          : undefined,
       );
 
       // Build new round record for history
@@ -711,10 +771,8 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
         completedDate: null,
         approvals,
         ...(activeWaivers.length > 0 ? { waivedSectors: activeWaivers } : {}),
+        ...(track ? { track, trackLabel } : {}),
       };
-
-      // Append to rounds history (preserve all previous rounds)
-      const updatedRounds = [...existingRounds, newRound];
 
       const approverList = approvals
         .map((a) => `${a.stakeholder.name} (${a.stakeholderRole})`)
@@ -723,12 +781,13 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       logs.push(
         createActivityLogEntry(
           "APPROVAL_REQUESTED",
-          `Approval round ${roundNumber} started with ${approvals.length} approver${approvals.length === 1 ? "" : "s"}: ${approverList}` +
+          `Approval round ${roundNumber}${track ? ` (${trackLabel})` : ""} started with ${approvals.length} approver${approvals.length === 1 ? "" : "s"}: ${approverList}` +
             (waivedList ? `. Not required: ${waivedList}` : ""),
           currentUser.email,
           currentUser.name,
           {
             round: roundNumber,
+            ...(track ? { track, trackLabel } : {}),
             approvers: approvals.map((a) => ({
               name: a.stakeholder.name,
               email: a.stakeholder.email,
@@ -742,10 +801,18 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       // Save to BID JSON
       onPatchBid({
         ...transition,
-        approvals,
-        approvalStatus: "pending",
-        approvalRounds: updatedRounds,
-        approvalDraftSelections: {},
+        ...(track
+          ? buildTrackRoundPatch(bid, newRound, {
+              status: "pending",
+              draftSelections: {},
+            })
+          : {
+              approvals,
+              approvalStatus: "pending" as ApprovalStatus,
+              // Append to rounds history (preserve all previous rounds)
+              approvalRounds: [...existingRounds, newRound],
+              approvalDraftSelections: {},
+            }),
         activityLog: [...(bid.activityLog || []), ...logs],
       });
       setShowConfirm(false);
@@ -757,7 +824,10 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   };
 
   // ── Override Approval (phase must already be Close Out) ──
-  const overrideApprovals = hasRunningRound ? bid.approvals || [] : [];
+  const runningApprovals = track
+    ? (latestTrackRound && latestTrackRound.approvals) || []
+    : bid.approvals || [];
+  const overrideApprovals = hasRunningRound ? runningApprovals : [];
   const overrideApproved = overrideApprovals.filter(
     (a) => a.status === "approved",
   );
@@ -789,7 +859,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
         overriddenBy: actor,
         overriddenDate: nowIso,
         reason,
-        previousApprovalStatus: bid.approvalStatus || "not-started",
+        previousApprovalStatus: approvalStatus || "not-started",
         totalApprovers: overrideApprovals.length,
         approvedCount: overrideApproved.length,
         approvalsAtOverride: overrideApprovals.map((a) => ({
@@ -810,16 +880,18 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       if (hasRunningRound) {
         // Legacy BIDs may carry approvals without a rounds history
         const base: IApprovalRound =
-          rounds.length > 0
-            ? rounds[rounds.length - 1]
-            : {
-                round: overrideApprovals[0]?.round || 1,
-                startedDate: overrideApprovals[0]?.requestedDate || nowIso,
-                startedBy: { name: "", email: "" },
-                status: "pending",
-                completedDate: null,
-                approvals: overrideApprovals,
-              };
+          track && latestTrackRound
+            ? latestTrackRound
+            : rounds.length > 0
+              ? rounds[rounds.length - 1]
+              : {
+                  round: overrideApprovals[0]?.round || 1,
+                  startedDate: overrideApprovals[0]?.requestedDate || nowIso,
+                  startedBy: { name: "", email: "" },
+                  status: "pending",
+                  completedDate: null,
+                  approvals: overrideApprovals,
+                };
         closedRound = {
           ...base,
           approvals: overrideApprovals,
@@ -828,8 +900,9 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
           override,
         };
         closedRound.sectorDurations = computeRoundSectorDurations(closedRound);
-        updatedRounds =
-          rounds.length > 0
+        updatedRounds = track
+          ? rounds.map((r) => (r.round === closedRound.round ? closedRound : r))
+          : rounds.length > 0
             ? [...rounds.slice(0, -1), closedRound]
             : [closedRound];
       } else {
@@ -841,21 +914,37 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
           completedDate: nowIso,
           approvals: [],
           override,
+          ...(track ? { track, trackLabel } : {}),
         };
         updatedRounds = [...rounds, closedRound];
       }
+
+      const trackFields = track
+        ? buildTrackRoundPatch(bid, closedRound, {
+            status: "approved",
+            draftSelections: {},
+          })
+        : null;
+      const completesBid =
+        !trackFields || trackFields.approvalStatus === "approved";
 
       const cycle = computeApprovalCycleTime({
         ...bid,
         approvalRounds: updatedRounds,
       });
 
+      const scope = track
+        ? `${trackLabel}, Round ${closedRound.round}`
+        : `Round ${closedRound.round}`;
+      const outcome = completesBid
+        ? "BID set to Completed."
+        : "The BID is completed when the other approval is approved.";
       const description =
         overrideApprovals.length === 0
-          ? `Approval overridden (Round ${closedRound.round}) before the approval flow was started. BID set to Completed. Reason: "${reason}"`
-          : `Approval overridden (Round ${closedRound.round}) - ${overrideApproved.length} of ${overrideApprovals.length} approvers had approved` +
+          ? `Approval overridden (${scope}) before the approval flow was started. ${outcome} Reason: "${reason}"`
+          : `Approval overridden (${scope}) - ${overrideApproved.length} of ${overrideApprovals.length} approvers had approved` +
             (bypassedText ? `; bypassed: ${bypassedText}` : "") +
-            `. BID set to Completed. Reason: "${reason}"`;
+            `. ${outcome} Reason: "${reason}"`;
       const logEntry = createActivityLogEntry(
         "APPROVAL_OVERRIDE",
         description,
@@ -863,6 +952,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
         actor.name,
         {
           round: closedRound.round,
+          ...(track ? { track, trackLabel } : {}),
           previousApprovalStatus: override.previousApprovalStatus,
           previousStatus: bid.currentStatus,
           approvedCount: override.approvedCount,
@@ -884,40 +974,52 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       );
       const statusLog = createActivityLogEntry(
         "STATUS_CHANGED",
-        `Status changed from "${bid.currentStatus}" to "Completed" - approval overridden (Round ${closedRound.round})`,
+        `Status changed from "${bid.currentStatus}" to "Completed" - approval overridden (${scope})`,
         actor.email,
         actor.name,
         {
           fromStatus: bid.currentStatus,
           toStatus: "Completed",
           round: closedRound.round,
-          note: `Approval overridden (Round ${closedRound.round})`,
+          note: `Approval overridden (${scope})`,
         },
       );
 
       onPatchBid({
-        approvals: overrideApprovals,
-        approvalStatus: "approved",
-        approvalRounds: updatedRounds,
-        approvalDraftSelections: {},
-        currentStatus: "Completed",
-        currentPhase: "Close Out" as any,
-        completedDate: nowIso,
-        ...buildHistoryTransition(
-          bid,
-          "Close Out" as any,
-          "Completed",
-          actor.name,
-          nowIso,
-        ),
-        kpis: { ...bid.kpis, approvalCycleTime: cycle },
-        activityLog: [...(bid.activityLog || []), logEntry, statusLog],
+        ...(trackFields || {
+          approvals: overrideApprovals,
+          approvalStatus: "approved" as ApprovalStatus,
+          approvalRounds: updatedRounds,
+          approvalDraftSelections: {},
+        }),
+        ...(completesBid
+          ? {
+              currentStatus: "Completed",
+              currentPhase: "Close Out" as any,
+              completedDate: nowIso,
+              ...buildHistoryTransition(
+                bid,
+                "Close Out" as any,
+                "Completed",
+                actor.name,
+                nowIso,
+              ),
+              kpis: { ...bid.kpis, approvalCycleTime: cycle },
+            }
+          : {}),
+        activityLog: [
+          ...(bid.activityLog || []),
+          logEntry,
+          ...(completesBid ? [statusLog] : []),
+        ],
       });
       closeOverrideDialog();
       addToast({
         type: "success",
         title: "Approval overridden",
-        message: `BID ${bid.bidNumber} was set to Completed.`,
+        message: completesBid
+          ? `BID ${bid.bidNumber} was set to Completed.`
+          : `${trackLabel} was closed as approved.`,
       });
 
       if (hasRunningRound) {
@@ -958,17 +1060,32 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   const overrideDialog = showOverrideConfirm ? (
     <div className={styles.confirmOverlay}>
       <div className={`${styles.confirmBox} ${styles.overrideBox}`}>
-        <div className={styles.confirmTitle}>Override Approval?</div>
+        <div className={styles.confirmTitle}>
+          {track ? `Override ${trackLabel}?` : "Override Approval?"}
+        </div>
         <div className={styles.confirmText}>
-          The approval will be closed as <strong>Approved</strong> and the BID
-          status set to <strong>Completed</strong>. The override is recorded
-          with your name, the date and the reason below.
+          {overrideCompletesBid ? (
+            <>
+              The approval will be closed as <strong>Approved</strong> and the
+              BID status set to <strong>Completed</strong>.
+            </>
+          ) : (
+            <>
+              This team&apos;s approval will be closed as{" "}
+              <strong>Approved</strong>. The BID is set to{" "}
+              <strong>Completed</strong> only when the other approval is also
+              approved.
+            </>
+          )}{" "}
+          The override is recorded with your name, the date and the reason
+          below.
         </div>
         <div className={styles.overrideSummary}>
           {overrideApprovals.length === 0 ? (
             <span>
-              The approval flow has not been started - the BID will be approved
-              without approver responses.
+              The approval flow has not been started - the{" "}
+              {track ? "team" : "BID"} will be approved without approver
+              responses.
             </span>
           ) : (
             <>
@@ -1113,7 +1230,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   // RENDER: Tracking Mode (approval already started)
   // ═══════════════════════════════════════════════════════
   if (isTrackingMode) {
-    const approvals = bid.approvals || [];
+    const approvals = runningApprovals;
     const totalCount = approvals.length;
     const approvedCount = approvals.filter(
       (a) => a.status === "approved",
@@ -1123,7 +1240,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     ).length;
     const overallStatus = activeOverride
       ? STATUS_DISPLAY["overridden"]
-      : STATUS_DISPLAY[bid.approvalStatus] || STATUS_DISPLAY["pending"];
+      : STATUS_DISPLAY[approvalStatus] || STATUS_DISPLAY["pending"];
     const progressPct = totalCount > 0 ? (approvedCount / totalCount) * 100 : 0;
 
     // Bypassed = not approved at the moment of the override (snapshot, not live status)
@@ -1135,10 +1252,10 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     const isBypassed = (a: IBidApproval): boolean =>
       bypassedEmails.indexOf(a.stakeholder.email.toLowerCase()) >= 0;
 
-    const roundWaivers =
-      existingRounds.length > 0
-        ? existingRounds[existingRounds.length - 1].waivedSectors || []
-        : [];
+    const shownRound = track
+      ? latestTrackRound
+      : existingRounds[existingRounds.length - 1];
+    const roundWaivers = (shownRound && shownRound.waivedSectors) || [];
     const waivedDisplay = STATUS_DISPLAY["waived"];
 
     // Group approvals by stakeholderRole
@@ -1319,7 +1436,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       <div className={styles.sectionHeader}>
         <h3 className={styles.sectionTitle}>
           Select Approvers by Sector
-          {currentRoundNumber > 1 && (
+          {(currentRoundNumber > 1 || track) && (
             <span
               style={{
                 fontSize: 12,
@@ -1359,7 +1476,8 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       </div>
 
       {/* CAPEX Warning */}
-      {bid.costSummary.assetsCapexUSD > CAPEX_THRESHOLD_USD && (
+      {bid.costSummary.assetsCapexUSD > CAPEX_THRESHOLD_USD &&
+        (!track || track === getPrimaryTrack(bid)) && (
         <div className={styles.validationWarning}>
           ⚠️ CAPEX exceeds $200k USD - Engineering Sr. Manager is automatically
           required and locked.
@@ -1602,7 +1720,9 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       {showConfirm && (
         <div className={styles.confirmOverlay}>
           <div className={styles.confirmBox}>
-            <div className={styles.confirmTitle}>Start Approval Round?</div>
+            <div className={styles.confirmTitle}>
+              {track ? `Start ${trackLabel}?` : "Start Approval Round?"}
+            </div>
             <div className={styles.confirmText}>
               This will notify all selected approvers and start the approval
               flow. You won't be able to modify approvers after starting.
@@ -1647,6 +1767,276 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
 
       {overrideDialog}
       {waiverDialog}
+    </div>
+  );
+};
+
+/**
+ * Approval tab. BIDs with two teams may add a secondary approval: each team
+ * then runs its own rounds and the BID completes when both are approved.
+ */
+export const ApprovalTab: React.FC<ApprovalTabProps> = (props) => {
+  const { bid, canEdit, currentUser, onPatchBid } = props;
+  const tracks = getApprovalTracks(bid);
+  const tracksKey = tracks.join("|");
+  const [activeTrack, setActiveTrack] = React.useState<BusinessLine | null>(
+    tracks[0] || null,
+  );
+  React.useEffect(() => {
+    if (tracks.length > 0 && (!activeTrack || tracks.indexOf(activeTrack) < 0))
+      setActiveTrack(tracks[0]);
+  }, [tracksKey]);
+  const shownTrack =
+    activeTrack && tracks.indexOf(activeTrack) >= 0 ? activeTrack : tracks[0];
+
+  const candidates = getSecondaryCandidates(bid);
+  const [secondaryChoice, setSecondaryChoice] =
+    React.useState<BusinessLine | null>(null);
+  const chosenSecondary =
+    candidates.length === 1
+      ? candidates[0]
+      : secondaryChoice && candidates.indexOf(secondaryChoice) >= 0
+        ? secondaryChoice
+        : null;
+  const canChangeSplit = canEdit && canChangeSecondaryApproval(bid);
+
+  // ── Auto-complete: when every approval is approved, transition to "Completed" ──
+  React.useEffect(() => {
+    if (bid.currentStatus === "Completed") return;
+    const nowIso = new Date().toISOString();
+    let updatedRounds = bid.approvalRounds || [];
+
+    if (getApprovalTracks(bid).length > 0) {
+      if (!isSplitApprovalComplete(bid)) return;
+      // Persist per-sector durations of each team's closing round
+      getApprovalTracks(bid).forEach((t) => {
+        const r = getLatestTrackRound(
+          { ...bid, approvalRounds: updatedRounds },
+          t,
+        );
+        if (!r || (r.sectorDurations && r.completedDate)) return;
+        const enriched: IApprovalRound = {
+          ...r,
+          completedDate: r.completedDate || nowIso,
+        };
+        enriched.sectorDurations = computeRoundSectorDurations(enriched);
+        updatedRounds = updatedRounds.map((x) =>
+          x.round === r.round ? enriched : x,
+        );
+      });
+    } else {
+      if (bid.approvalStatus !== "approved") return;
+      const approvals = bid.approvals || [];
+      if (approvals.length === 0) return;
+      if (!approvals.every((a) => a.status === "approved")) return;
+      // Persist per-sector approval durations for the closing round + cycle time.
+      if (updatedRounds.length > 0) {
+        const last = updatedRounds[updatedRounds.length - 1];
+        const enriched: IApprovalRound = {
+          ...last,
+          approvals: approvals.length ? approvals : last.approvals,
+          status: "approved",
+          completedDate: last.completedDate || nowIso,
+        };
+        enriched.sectorDurations = computeRoundSectorDurations(enriched);
+        updatedRounds = [...updatedRounds.slice(0, -1), enriched];
+      }
+    }
+
+    const cycle = computeApprovalCycleTime({
+      ...bid,
+      approvalRounds: updatedRounds,
+    });
+    const missingLogs = getMissingApprovalActivityEntries({
+      ...bid,
+      approvalRounds: updatedRounds,
+      currentStatus: "Completed",
+      completedDate: nowIso,
+    });
+    onPatchBid({
+      currentStatus: "Completed",
+      currentPhase: "Close Out" as any,
+      completedDate: nowIso,
+      ...buildHistoryTransition(
+        bid,
+        "Close Out" as any,
+        "Completed",
+        APPROVAL_FLOW_ACTOR,
+        nowIso,
+      ),
+      approvalRounds: updatedRounds,
+      approvalStatus: "approved",
+      kpis: { ...bid.kpis, approvalCycleTime: cycle },
+      activityLog: [...(bid.activityLog || []), ...missingLogs],
+    });
+  }, [bid.approvalStatus, bid.approvals, bid.currentStatus, bid.approvalRounds]);
+
+  const splitLog = (
+    description: string,
+    metadata: Record<string, unknown>,
+  ): IActivityLogEntry =>
+    createActivityLogEntry(
+      "APPROVAL_SPLIT_CHANGED",
+      description,
+      currentUser.email,
+      currentUser.name,
+      metadata,
+    );
+
+  const createSecondary = (): void => {
+    if (!chosenSecondary || !canChangeSplit) return;
+    const next: IBid = {
+      ...bid,
+      approvalSecondaryLine: chosenSecondary,
+      approvalTracks: {},
+    };
+    const withTracks: IBid = { ...next, approvalTracks: syncTrackStatuses(next) };
+    const [primary] = getApprovalTracks(withTracks);
+    onPatchBid({
+      approvalSecondaryLine: chosenSecondary,
+      approvalTracks: withTracks.approvalTracks,
+      approvals: getCurrentTrackApprovals(withTracks),
+      approvalStatus: getSplitApprovalStatus(withTracks),
+      activityLog: [
+        ...(bid.activityLog || []),
+        splitLog(
+          `Secondary approval created for ${getTrackLabel(bid, chosenSecondary)}. ${getTrackLabel(bid, primary)} keeps the primary approval.`,
+          { primary, secondary: chosenSecondary },
+        ),
+      ],
+    });
+    setActiveTrack(primary);
+  };
+
+  const removeSecondary = (): void => {
+    if (!canChangeSplit || tracks.length === 0) return;
+    onPatchBid({
+      approvalSecondaryLine: undefined,
+      approvalTracks: undefined,
+      approvals: [],
+      approvalStatus: "not-started",
+      activityLog: [
+        ...(bid.activityLog || []),
+        splitLog(
+          `Secondary approval for ${getTrackLabel(bid, tracks[1])} removed. One approval covers both teams.`,
+          { secondary: tracks[1] },
+        ),
+      ],
+    });
+  };
+
+  const integrated = isIntegratedDivision(bid.division);
+  const callout =
+    tracks.length === 0 && canChangeSplit && candidates.length > 0 ? (
+      <div className={styles.secondaryCallout}>
+        <Users size={20} className={styles.calloutIcon} />
+        <div className={styles.calloutBody}>
+          <span className={styles.calloutTitle}>
+            Separate approval available
+          </span>
+          <span className={styles.calloutText}>
+            {integrated
+              ? `This BID is Integrated (lead ${getLeadDivision(bid)}). One approval covers both teams by default. Create a secondary approval to let ${getTrackLabel(bid, candidates[0])} approve separately, with Project and Operation approvers from that team.`
+              : "This BID covers ROV and Survey. One approval covers both teams by default. Create a secondary approval to let one team approve separately, with Project and Operation approvers from that team."}
+          </span>
+          <div className={styles.calloutActions}>
+            {candidates.length > 1 && (
+              <>
+                <span className={styles.calloutChoiceLabel}>
+                  Secondary team:
+                </span>
+                {candidates.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`${styles.calloutChoice} ${chosenSecondary === c ? styles.calloutChoiceActive : ""}`}
+                    onClick={() => setSecondaryChoice(c)}
+                  >
+                    {getBusinessLineLabel(c)}
+                  </button>
+                ))}
+              </>
+            )}
+            <button
+              type="button"
+              className={styles.calloutBtn}
+              disabled={!chosenSecondary}
+              onClick={createSecondary}
+            >
+              Create secondary approval
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  if (tracks.length === 0 || !shownTrack) {
+    return (
+      <div className={styles.container}>
+        {callout}
+        <ApprovalTrackPanel {...props} track={null} />
+      </div>
+    );
+  }
+
+  const approvedTracks = tracks.filter(
+    (t) => getTrackStatus(bid, t) === "approved",
+  ).length;
+  return (
+    <div className={styles.container}>
+      <div className={styles.trackBar}>
+        <div className={styles.trackBarHeading}>
+          <span className={styles.trackBarTitle}>
+            <Users size={15} /> Separate approvals
+          </span>
+          <span className={styles.trackBarMeta}>
+            {approvedTracks} of {tracks.length} approved
+          </span>
+        </div>
+        <div className={styles.trackChips} role="tablist">
+          {tracks.map((t, i) => {
+            const round = getLatestTrackRound(bid, t);
+            const status = getTrackStatus(bid, t);
+            const display =
+              round && round.override
+                ? STATUS_DISPLAY["overridden"]
+                : STATUS_DISPLAY[status] || STATUS_DISPLAY["not-started"];
+            return (
+              <button
+                key={t}
+                type="button"
+                role="tab"
+                aria-selected={shownTrack === t}
+                className={`${styles.trackChip} ${shownTrack === t ? styles.trackChipActive : ""}`}
+                onClick={() => setActiveTrack(t)}
+              >
+                <span className={styles.trackChipRole}>
+                  {i === 0 ? "Primary approval" : "Secondary approval"}
+                </span>
+                <span className={styles.trackChipLabel}>
+                  {getTrackLabel(bid, t)}
+                </span>
+                <span
+                  className={styles.trackChipStatus}
+                  style={{ color: display.color }}
+                >
+                  {display.icon} {display.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {canChangeSplit && (
+          <button
+            type="button"
+            className={styles.waiverToggleBtn}
+            onClick={removeSecondary}
+          >
+            <Undo2 size={13} /> Remove secondary approval
+          </button>
+        )}
+      </div>
+      <ApprovalTrackPanel key={shownTrack} {...props} track={shownTrack} />
     </div>
   );
 };

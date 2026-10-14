@@ -18,6 +18,7 @@ export {
   type BidType,
   type BidSize,
   type Division,
+  type BaseDivision,
   type ApprovalStatus,
   type BidResultOutcome,
 } from "./IBidStatus";
@@ -54,6 +55,8 @@ export {
   type IBidApproval,
   type ISectorApprovalDuration,
   type IApprovalRound,
+  type IApprovalTrackState,
+  type IIntegratedLines,
   type IApprovalOverride,
   type IApprovalOverrideParticipant,
   type IBidAttachment,

@@ -1,9 +1,9 @@
 /**
  * IBidRequest — Solicitação do comercial para novo BID.
  */
-import { Division, BidType, BidPriority } from "./IBidStatus";
+import { BaseDivision, Division, BidType, BidPriority } from "./IBidStatus";
 import { IPersonRef } from "./IUser";
-import { IScopeItem } from "./IBid";
+import { IIntegratedLines, IScopeItem } from "./IBid";
 
 export interface IRequestAttachment {
   fileName: string;
@@ -34,6 +34,8 @@ export interface IBidRequest {
   projectDescription: string;
   division: Division;
   serviceLine: string;
+  leadDivision?: BaseDivision;
+  integratedLines?: IIntegratedLines;
   projectManager: IPersonRef[] | null;
   bidType: BidType;
   priority: BidPriority;

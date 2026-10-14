@@ -82,7 +82,16 @@ export interface ISubStatusDef {
 export type BidPriority = "Urgent" | "Normal" | "Low";
 export type BidType = "Firm" | "Budgetary" | "RFI" | "Extension" | "Amendment";
 export type BidSize = "Small" | "Standard" | "Epic";
-export type Division = "OPG" | "SSR-Survey" | "SSR-ROV" | "SSR-Integrated";
+/** SSR-* values are legacy (saved before the division/service line split). */
+export type Division =
+  | "OPG"
+  | "SSR"
+  | "INTEGRATED"
+  | "SSR-Survey"
+  | "SSR-ROV"
+  | "SSR-Integrated";
+/** Divisions an INTEGRATED BID combines. */
+export type BaseDivision = "OPG" | "SSR";
 export type ApprovalStatus =
   | "pending"
   | "approved"

@@ -14,6 +14,7 @@ import { useUIStore } from "../../stores/useUIStore";
 import { SurveyCatalogService } from "../../services/SurveyCatalogService";
 import { IBid, ISurveyCatalog } from "../../models";
 import { FREE_SPREAD_ID } from "../../utils/surveyFreeScene";
+import { getBidBusinessLines } from "../../utils/divisionHelpers";
 import styles from "./SurveyPortalHeader.module.scss";
 
 export interface SurveySearchHit {
@@ -30,9 +31,12 @@ interface SurveyPortalHeaderProps {
 }
 
 const BID_LIST_MAX = 40;
-/** Survey BIDs first, then integrated ones, then the rest. */
-const surveyRank = (b: IBid): number =>
-  b.division === "SSR-Survey" ? 0 : b.division === "SSR-Integrated" ? 1 : 2;
+/** Survey BIDs first, then BIDs with a Survey team among others, then the rest. */
+const surveyRank = (b: IBid): number => {
+  const lines = getBidBusinessLines(b);
+  if (lines.indexOf("SURVEY") < 0) return 2;
+  return lines.length === 1 ? 0 : 1;
+};
 
 export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
   onOpenPackage,

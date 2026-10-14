@@ -1,16 +1,18 @@
 /**
  * IntegratedDivisionTabs — Sub-tab wrapper for division-aware BIDs.
  *
- * Tab logic based on serviceLine:
- *  - "Integrated" → ROV + SURVEY tabs
+ * BIDs with two teams (Division INTEGRATED, or SSR service line "Integrated")
+ * get one tab per team, lead first. Single-team BIDs keep the service-line rule:
  *  - "ROV"        → ROV tab only
  *  - "Survey"     → SURVEY tab only
  *  - Any OPG line → OPG tab only
  *  - Otherwise    → renders children directly (null division)
- *
- * OPG service lines: IMR, UWILD, Controls, Decommissioning, Installation, Engineer Solutions
  */
 import * as React from "react";
+import {
+  BidDivisionFields,
+  getBidBusinessLines,
+} from "../../utils/divisionHelpers";
 
 export type IntegratedDivision = "ROV" | "SURVEY" | "OPG";
 
@@ -25,7 +27,7 @@ const OPG_SERVICE_LINES = [
 ];
 
 interface IntegratedDivisionTabsProps {
-  serviceLine: string;
+  bid: BidDivisionFields;
   children: (activeDivision: IntegratedDivision | null) => React.ReactNode;
 }
 
@@ -40,9 +42,11 @@ export const DivisionContext = React.createContext<IDivisionContext | null>(
   null,
 );
 
-/** Resolve which division tabs to show for a given serviceLine */
-export function resolveDivisions(serviceLine: string): IntegratedDivision[] {
-  if (serviceLine === "Integrated") return ["ROV", "SURVEY"];
+/** Resolve which division tabs to show for a BID */
+export function resolveDivisions(bid: BidDivisionFields): IntegratedDivision[] {
+  const lines = getBidBusinessLines(bid);
+  if (lines.length > 1) return lines;
+  const serviceLine = bid.serviceLine;
   if (serviceLine === "ROV") return ["ROV"];
   if (serviceLine === "Survey") return ["SURVEY"];
   if (OPG_SERVICE_LINES.some((sl) => sl === serviceLine)) return ["OPG"];
@@ -50,20 +54,20 @@ export function resolveDivisions(serviceLine: string): IntegratedDivision[] {
 }
 
 export const IntegratedDivisionTabs: React.FC<IntegratedDivisionTabsProps> = ({
-  serviceLine,
+  bid,
   children,
 }) => {
-  const tabs = resolveDivisions(serviceLine);
+  const tabs = resolveDivisions(bid);
+  const tabsKey = tabs.join("|");
   const [activeDivision, setActiveDivision] =
     React.useState<IntegratedDivision>(tabs[0] || "ROV");
 
-  // Sync active tab when serviceLine changes
+  // Sync active tab when the BID's teams change
   React.useEffect(() => {
-    const newTabs = resolveDivisions(serviceLine);
-    if (newTabs.length > 0 && !newTabs.includes(activeDivision)) {
-      setActiveDivision(newTabs[0]);
+    if (tabs.length > 0 && !tabs.includes(activeDivision)) {
+      setActiveDivision(tabs[0]);
     }
-  }, [serviceLine]);
+  }, [tabsKey]);
 
   // No tabs needed → pass null
   if (tabs.length === 0) {

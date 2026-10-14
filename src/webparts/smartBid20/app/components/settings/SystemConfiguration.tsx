@@ -90,6 +90,7 @@ import {
   NotificationMatrix,
 } from "./NotificationMatrix";
 import { isSuperAdminMaster } from "../../utils/accessControl";
+import { isIntegratedDivision } from "../../utils/divisionHelpers";
 import {
   BookOpen,
   FileChartColumn,
@@ -593,7 +594,7 @@ const SystemConfiguration: React.FC = () => {
       "Client budget constraint",
       "Competitor relationship",
     ],
-    divisions: ["OPG", "SSR"],
+    divisions: ["OPG", "SSR", "INTEGRATED"],
     serviceLines: [
       "IMR",
       "UWILD",
@@ -1566,7 +1567,7 @@ const SystemConfiguration: React.FC = () => {
                 )}
               </div>
 
-              {canEdit && (
+              {canEdit && !isIntegratedDivision(div.value) && (
                 <div className={styles.addBtnRow}>
                   <button
                     className={`${styles.actionBtn} ${styles.primary}`}
@@ -1578,7 +1579,13 @@ const SystemConfiguration: React.FC = () => {
               )}
 
               <div className={styles.optionsList}>
-                {lines.length === 0 && (
+                {isIntegratedDivision(div.value) && (
+                  <div className={styles.emptyHint}>
+                    Integrated BIDs pick one OPG and one SSR service line
+                    (ROV or Survey) and choose the lead division.
+                  </div>
+                )}
+                {lines.length === 0 && !isIntegratedDivision(div.value) && (
                   <div className={styles.emptyHint}>
                     No service lines for this division yet.
                   </div>
@@ -4233,7 +4240,9 @@ const SystemConfiguration: React.FC = () => {
                     >
                       <option value="">- Select -</option>
                       {config.divisions
-                        .filter((d) => d.isActive)
+                        .filter(
+                          (d) => d.isActive && !isIntegratedDivision(d.value),
+                        )
                         .map((d) => (
                           <option key={d.id} value={d.value}>
                             {d.label}

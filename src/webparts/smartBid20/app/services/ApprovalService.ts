@@ -11,8 +11,18 @@ import {
   IApprovalChain,
   IApprovalSectorGroup,
 } from "../models/IBidApproval";
-import { IPersonRef } from "../models";
+import { BusinessLine, IPersonRef } from "../models";
 import { IBid, IApprovalOverride } from "../models/IBid";
+
+/** Team of a primary/secondary approval round, sent to the Teams flow. */
+export interface IApprovalRoundTrack {
+  track: BusinessLine;
+  trackLabel: string;
+  trackDivision: string;
+  trackServiceLine: string;
+  /** Every team of the BID approval; the flow completes the BID when all approved. */
+  tracks: BusinessLine[];
+}
 
 export class ApprovalService {
   private static get _approvalsList() {
@@ -151,6 +161,7 @@ export class ApprovalService {
     await addText(F.nativeApprovalId);
     await addNote(F.approverComments, false);
     await addDateTime(F.lastReminderDate);
+    await addText(F.approvalTrack);
   }
 
   public static async requestApproval(
@@ -259,6 +270,7 @@ export class ApprovalService {
     requestedBy: IPersonRef,
     bid: IBid,
     round: number,
+    track?: IApprovalRoundTrack,
   ): Promise<void> {
     await ApprovalService.ensureApprovalColumns();
     const F = SHAREPOINT_CONFIG.approvalFields;
@@ -274,6 +286,7 @@ export class ApprovalService {
       [F.roundNumber]: round,
       [F.approvalStatus]: "Pending",
       [F.expectedApproverCount]: expectedApproverCount,
+      [F.approvalTrack]: track ? track.track : "",
       jsondata: JSON.stringify({
         bidNumber,
         round,
@@ -304,8 +317,14 @@ export class ApprovalService {
         deepLink,
         status: "pending",
         capexUSD: bid.costSummary.assetsCapexUSD,
-        division: bid.division,
-        serviceLine: bid.serviceLine,
+        // A team round shows its own division / service line on the cards
+        division: track ? track.trackDivision : bid.division,
+        serviceLine: track ? track.trackServiceLine : bid.serviceLine,
+        bidDivision: bid.division,
+        bidServiceLine: bid.serviceLine,
+        track: track ? track.track : "",
+        trackLabel: track ? track.trackLabel : "",
+        tracks: track ? track.tracks : [],
       }),
     });
   }

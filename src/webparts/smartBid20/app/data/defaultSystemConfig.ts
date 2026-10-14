@@ -71,6 +71,14 @@ export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
       order: 2,
       color: "#10b981",
     },
+    {
+      id: "div-integrated",
+      label: "Integrated (OPG + SSR)",
+      value: "INTEGRATED",
+      isActive: true,
+      order: 3,
+      color: "#8b5cf6",
+    },
   ],
   serviceLines: [
     {

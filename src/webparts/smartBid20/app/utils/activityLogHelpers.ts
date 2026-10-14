@@ -103,6 +103,16 @@ const ACTIVITY_META: Record<string, IActivityMeta> = {
     category: "approvals",
     colorVar: "var(--primary-accent)",
   },
+  APPROVAL_TRACK_APPROVED: {
+    label: "Team approval completed",
+    category: "approvals",
+    colorVar: "var(--success)",
+  },
+  APPROVAL_SPLIT_CHANGED: {
+    label: "Secondary approval",
+    category: "approvals",
+    colorVar: "var(--secondary-accent)",
+  },
   DOCUMENT_CHANGE: {
     label: "Documents updated",
     category: "documents",

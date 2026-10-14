@@ -20,6 +20,10 @@ import {
   ErnDivision,
 } from "../../utils/ernHelpers";
 import { linkErnToBid } from "../../utils/ernLink";
+import {
+  getBusinessLineLabel,
+  getBusinessLineServiceLine,
+} from "../../utils/divisionHelpers";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import styles from "./ErnCreateModal.module.scss";
 
@@ -54,8 +58,9 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
   const addToast = useUIStore((s) => s.addToast);
 
   // Service line value that drives this slot's Project Number / ServiceLine
-  const slotServiceLine =
-    division === "ROV" ? "ROV" : division === "SURVEY" ? "Survey" : "";
+  const slotServiceLine = division
+    ? getBusinessLineServiceLine(bid, division)
+    : "";
 
   const [page, setPage] = React.useState(1);
   const [saving, setSaving] = React.useState(false);
@@ -123,7 +128,12 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
     setContentAction("Create");
     setRevisionReason("");
     setProjectNumber(
-      resolveErnProjectNumber(bid, config, slotServiceLine || undefined),
+      resolveErnProjectNumber(
+        bid,
+        config,
+        slotServiceLine || undefined,
+        division,
+      ),
     );
     setProjectName(bid.opportunityInfo?.projectName || "");
     setProjectTitle(bid.opportunityInfo?.projectName || "");
@@ -272,9 +282,7 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
           <div>
             <div className={styles.title}>
               Create Engineering Request (ERN)
-              {division
-                ? ` - ${division === "SURVEY" ? "Survey" : division}`
-                : ""}
+              {division ? ` - ${getBusinessLineLabel(division)}` : ""}
             </div>
             <div className={styles.subtitle}>
               {bid.bidNumber} · {bid.opportunityInfo?.client || "-"}

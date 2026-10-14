@@ -28,6 +28,8 @@ export interface IPersonRef {
   email: string;
   role?: string;
   photoUrl?: string;
+  /** Team the person was picked for (Project Managers of INTEGRATED BIDs). */
+  businessLine?: BusinessLine;
 }
 
 export interface IUser {

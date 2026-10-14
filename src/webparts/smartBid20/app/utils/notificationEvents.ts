@@ -163,6 +163,7 @@ export function deriveBidNotifications(
   const overrideLog = findLog("APPROVAL_OVERRIDE");
   if (overrideLog) {
     const round = meta(overrideLog, "round") || "-";
+    const team = meta(overrideLog, "trackLabel");
     const bypassed = (overrideLog.metadata?.bypassed || []) as {
       name: string;
       sector: string;
@@ -171,8 +172,11 @@ export function deriveBidNotifications(
       event: "APPROVAL_OVERRIDE",
       bidNumber,
       eventKey: uniqueKey("APPROVAL_OVERRIDE", bidNumber),
-      headline: `A aprovação da rodada ${round} foi concluída por override, sem aguardar todos os aprovadores.`,
+      headline: team
+        ? `A aprovação de ${team} (rodada ${round}) foi concluída por override, sem aguardar todos os aprovadores.`
+        : `A aprovação da rodada ${round} foi concluída por override, sem aguardar todos os aprovadores.`,
       facts: [
+        ...(team ? [{ title: "Time", value: team }] : []),
         { title: "Rodada", value: round },
         {
           title: "Aprovados",
@@ -271,6 +275,9 @@ export function deriveBidNotifications(
     );
     const waived = (newRound.waivedSectors || []).map((w) => w.sectorLabel);
     const facts: INotificationFact[] = [
+      ...(newRound.trackLabel
+        ? [{ title: "Time", value: newRound.trackLabel }]
+        : []),
       { title: "Rodada", value: String(newRound.round) },
       { title: "Aprovadores", value: orDash(approvers.join(", ")) },
     ];
@@ -282,7 +289,9 @@ export function deriveBidNotifications(
       event: "APPROVAL_STARTED",
       bidNumber,
       eventKey: uniqueKey("APPROVAL_STARTED", bidNumber),
-      headline: `A rodada ${newRound.round} de aprovação foi iniciada com ${approvers.length} aprovador(es).`,
+      headline: newRound.trackLabel
+        ? `A rodada ${newRound.round} de aprovação (${newRound.trackLabel}) foi iniciada com ${approvers.length} aprovador(es).`
+        : `A rodada ${newRound.round} de aprovação foi iniciada com ${approvers.length} aprovador(es).`,
       facts,
     });
   } else if (phaseChanged) {

@@ -52,6 +52,7 @@ import {
 import { EquipmentImportModal, IImportPick } from "./EquipmentImportModal";
 import { ImportSourceModal } from "../common/ImportSourceModal";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { DivisionContext } from "../common/IntegratedDivisionTabs";
 import { AttachmentService } from "../../services/AttachmentService";
 import { formatCurrency, formatNumber } from "../../utils/formatters";
 import {
@@ -229,6 +230,11 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   onClearEngineeringHours,
   embedded,
 }) => {
+  const divisionTabs = React.useContext(DivisionContext);
+  const otherDivision =
+    (divisionTabs ? divisionTabs.divisions : []).find(
+      (d) => d !== currentDivision,
+    ) || "";
   // Helper: append fieldEmpty class when value is empty/falsy
   const emptyIf = (base: string, value: unknown): string =>
     value ? base : `${base} ${styles.fieldEmpty}`;
@@ -1908,8 +1914,6 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                   const sectionAttachCount = (item.attachments || []).length;
                   const colorMenuKey = `color:${item.id}`;
                   const moreMenuKey = `more:${item.id}`;
-                  const otherDivision =
-                    currentDivision === "ROV" ? "SURVEY" : "ROV";
                   return (
                     <React.Fragment key={item.id}>
                       <tr className={styles.sectionRow} style={sectionStyle}>
@@ -2282,6 +2286,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                             <Copy size={14} /> Duplicate section
                                           </button>
                                           {currentDivision &&
+                                            otherDivision &&
                                             onMoveSectionToDivision && (
                                               <button
                                                 type="button"
@@ -2305,6 +2310,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                               </button>
                                             )}
                                           {currentDivision &&
+                                            otherDivision &&
                                             onCopySectionToDivision && (
                                               <button
                                                 type="button"

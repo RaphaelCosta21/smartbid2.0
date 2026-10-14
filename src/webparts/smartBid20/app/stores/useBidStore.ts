@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { IBid, IQuickNote, Division, BidPriority } from "../models";
 import { BidService } from "../services/BidService";
+import { getBidServiceLines } from "../utils/divisionHelpers";
 
 export type ViewMode = "kanban" | "list" | "table";
 
@@ -37,10 +38,13 @@ export type BidFacetKey =
   | "clients"
   | "creators";
 
-/** BID value each multi-select facet matches against. */
-export const BID_FACET_VALUES: Record<BidFacetKey, (b: IBid) => string> = {
+/** BID value(s) each multi-select facet matches against. */
+export const BID_FACET_VALUES: Record<
+  BidFacetKey,
+  (b: IBid) => string | string[]
+> = {
   divisions: (b) => b.division,
-  serviceLines: (b) => b.serviceLine,
+  serviceLines: (b) => getBidServiceLines(b),
   phases: (b) => b.currentPhase,
   statuses: (b) => b.currentStatus,
   priorities: (b) => b.priority,
@@ -66,11 +70,10 @@ export function bidMatchesFilters(
   }
   return (Object.keys(BID_FACET_VALUES) as BidFacetKey[]).every((key) => {
     const selected = filters[key] as string[];
-    return (
-      key === skip ||
-      selected.length === 0 ||
-      selected.indexOf(BID_FACET_VALUES[key](b)) >= 0
-    );
+    if (key === skip || selected.length === 0) return true;
+    const value = BID_FACET_VALUES[key](b);
+    const values = Array.isArray(value) ? value : [value];
+    return values.some((v) => selected.indexOf(v) >= 0);
   });
 }
 

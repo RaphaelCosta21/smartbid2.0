@@ -7,6 +7,7 @@ import * as React from "react";
 import { format } from "date-fns";
 import { IBid } from "../models";
 import { countFacets } from "../utils/facetHelpers";
+import { getBidServiceLines } from "../utils/divisionHelpers";
 import { parseDate } from "../utils/formatters";
 import { DatePreset, presetRange } from "./useAnalyticsFilters";
 
@@ -45,7 +46,7 @@ const SCOPE_FACETS: Record<
   (b: IBid) => string | string[]
 > = {
   divisions: (b) => b.division || "",
-  serviceLines: (b) => b.serviceLine || "",
+  serviceLines: (b) => getBidServiceLines(b),
   engineers: (b) =>
     (b.engineerResponsible || []).map((p) => (p.email || "").toLowerCase()),
   clients: (b) => b.opportunityInfo?.client || "",

@@ -15,6 +15,7 @@ const FLOW_FIELDS: (keyof IBid)[] = [
   "approvals",
   "approvalRounds",
   "approvalStatus",
+  "approvalTracks",
   "currentStatus",
   "currentPhase",
   "completedDate",

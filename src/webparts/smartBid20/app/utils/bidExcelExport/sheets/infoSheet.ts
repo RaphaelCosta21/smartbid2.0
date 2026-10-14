@@ -1,5 +1,6 @@
 import { IPersonRef } from "../../../models";
 import { getPhaseDef, getStatusDef } from "../../../config/status.config";
+import { getLeadDivision, isIntegratedDivision } from "../../divisionHelpers";
 import { BID_EXCEL_SHEETS, IBidExcelContext, newSheet } from "../context";
 import {
   IXlColumn,
@@ -84,6 +85,9 @@ export function buildInfoSheet(ctx: IBidExcelContext): void {
     .filter(Boolean);
   kv("ERN", erns.length ? erns.join("; ") : bid.ernNumber || "");
   kv("Division", bid.division);
+  if (isIntegratedDivision(bid.division)) {
+    kv("Lead Division", getLeadDivision(bid));
+  }
   kv("Service Line", bid.serviceLine);
   kv("Type / Size", [bid.bidType, bid.bidSize].filter(Boolean).join(" / "));
   kv("Priority", bid.priority);

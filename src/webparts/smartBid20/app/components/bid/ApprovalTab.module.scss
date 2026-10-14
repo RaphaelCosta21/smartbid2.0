@@ -707,3 +707,189 @@
   font-size: 13px;
   color: #ef4444;
 }
+
+/* ── Secondary approval (BIDs with two teams) ── */
+.secondaryCallout {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--secondary-accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--secondary-accent) 35%, transparent);
+}
+
+.calloutIcon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--secondary-accent);
+}
+
+.calloutBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.calloutTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.calloutText {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.calloutActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.calloutChoiceLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.calloutChoice {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card-bg-elevated);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    border-color 200ms ease,
+    background 200ms ease;
+
+  &:hover {
+    border-color: var(--secondary-accent);
+  }
+}
+
+.calloutChoiceActive {
+  border-color: var(--secondary-accent);
+  background: color-mix(in srgb, var(--secondary-accent) 14%, transparent);
+  color: var(--secondary-accent);
+  font-weight: 600;
+}
+
+.calloutBtn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--secondary-accent);
+  color: var(--primary-accent-contrast);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 200ms ease;
+
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.trackBar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-subtle);
+}
+
+.trackBarHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trackBarTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.trackBarMeta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.trackChips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.trackChip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 180px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg-elevated);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 200ms ease,
+    background 200ms ease;
+
+  &:hover {
+    border-color: var(--border);
+  }
+}
+
+.trackChipActive {
+  border-color: var(--primary-accent);
+  background: color-mix(in srgb, var(--accent-brand) 8%, transparent);
+
+  &:hover {
+    border-color: var(--primary-accent);
+  }
+}
+
+.trackChipRole {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.trackChipLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.trackChipStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}

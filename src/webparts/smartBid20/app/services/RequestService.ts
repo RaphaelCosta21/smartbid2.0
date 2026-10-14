@@ -38,6 +38,8 @@ export class RequestService {
       projectDescription: opp.projectDescription || "",
       division: bid.division,
       serviceLine: bid.serviceLine || "",
+      leadDivision: bid.leadDivision,
+      integratedLines: bid.integratedLines,
       projectManager:
         bid.projectManager && bid.projectManager.length > 0
           ? bid.projectManager
@@ -119,6 +121,10 @@ export class RequestService {
       crmNumber: request.crmNumber || "",
       division: request.division,
       serviceLine: request.serviceLine,
+      ...(request.leadDivision ? { leadDivision: request.leadDivision } : {}),
+      ...(request.integratedLines
+        ? { integratedLines: request.integratedLines }
+        : {}),
       bidType: request.bidType,
       bidSize: "Standard",
       priority: request.priority,

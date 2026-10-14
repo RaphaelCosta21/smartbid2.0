@@ -74,6 +74,12 @@ import { formatDate, formatDaysLeft } from "../utils/formatters";
 import { getDueFreezeDate } from "../utils/bidHelpers";
 import { isTerminalStatus } from "../utils/statusHelpers";
 import { getErnLinks } from "../utils/ernHelpers";
+import {
+  getBidServiceLines,
+  getLeadDivision,
+  isIntegratedDivision,
+} from "../utils/divisionHelpers";
+import { hasPendingApprovalRound } from "../utils/approvalTracks";
 import { makeId } from "../utils/idGenerator";
 import { getBidDisplayCurrency } from "../utils/quotationLinks";
 import { getBidFx, withCostSummary } from "../utils/costCalculations";
@@ -466,7 +472,7 @@ export const BidDetailPage: React.FC = () => {
   const authResolved = useAuthStore((s) => s.isResolved);
   // Confidential BIDs: extra gate on top of the access matrix.
   const hasBidAccess = !!bid && canOpenBid(bid, currentUser.email);
-  useApprovalSync(id, bid?.approvalStatus === "pending" && hasBidAccess);
+  useApprovalSync(id, !!bid && hasPendingApprovalRound(bid) && hasBidAccess);
 
   // The Teams approval flow writes decisions and completion straight into the BID
   // JSON; editors persist the matching activity/history entries (each tried once).
@@ -828,21 +834,59 @@ export const BidDetailPage: React.FC = () => {
         </div>
         <div className={styles.bidHeaderRight}>
           <div className={styles.bidHeaderActions}>
-            <StatusBadge
-              status={bid.division}
-              color={
-                (config?.divisions || []).find((d) => d.value === bid.division)
-                  ?.color
-              }
-            />
-            <StatusBadge
-              status={bid.serviceLine}
-              color={
-                (config?.serviceLines || []).find(
-                  (sl) => sl.value === bid.serviceLine,
-                )?.color
-              }
-            />
+            {isIntegratedDivision(bid.division) ? (
+              <>
+                <StatusBadge
+                  status={
+                    (config?.divisions || []).find(
+                      (d) => d.value === bid.division,
+                    )?.label || bid.division
+                  }
+                  color={
+                    (config?.divisions || []).find(
+                      (d) => d.value === bid.division,
+                    )?.color
+                  }
+                />
+                <StatusBadge
+                  status={`Lead: ${getLeadDivision(bid)}`}
+                  color={
+                    (config?.divisions || []).find(
+                      (d) => d.value === getLeadDivision(bid),
+                    )?.color
+                  }
+                />
+                {getBidServiceLines(bid).map((sl) => (
+                  <StatusBadge
+                    key={sl}
+                    status={sl}
+                    color={
+                      (config?.serviceLines || []).find((o) => o.value === sl)
+                        ?.color
+                    }
+                  />
+                ))}
+              </>
+            ) : (
+              <>
+                <StatusBadge
+                  status={bid.division}
+                  color={
+                    (config?.divisions || []).find(
+                      (d) => d.value === bid.division,
+                    )?.color
+                  }
+                />
+                <StatusBadge
+                  status={bid.serviceLine}
+                  color={
+                    (config?.serviceLines || []).find(
+                      (sl) => sl.value === bid.serviceLine,
+                    )?.color
+                  }
+                />
+              </>
+            )}
             <StatusBadge
               status={bid.priority}
               color={PRIORITY_COLORS[bid.priority] || PRIORITY_COLORS.Normal}
@@ -988,7 +1032,7 @@ export const BidDetailPage: React.FC = () => {
                 />
               )}
               {activeTab === "scope" && (
-                <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
+                <IntegratedDivisionTabs bid={bid}>
                   {(div) => (
                     <DivisionEditWrap
                       bidNumber={bid.bidNumber}
@@ -1254,7 +1298,7 @@ export const BidDetailPage: React.FC = () => {
                 </IntegratedDivisionTabs>
               )}
               {activeTab === "assets" && (
-                <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
+                <IntegratedDivisionTabs bid={bid}>
                   {(div) => (
                     <DivisionEditWrap
                       bidNumber={bid.bidNumber}
@@ -1340,7 +1384,7 @@ export const BidDetailPage: React.FC = () => {
                 </IntegratedDivisionTabs>
               )}
               {activeTab === "logistics" && (
-                <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
+                <IntegratedDivisionTabs bid={bid}>
                   {(div) => (
                     <DivisionEditWrap
                       bidNumber={bid.bidNumber}
@@ -1393,7 +1437,7 @@ export const BidDetailPage: React.FC = () => {
                 </IntegratedDivisionTabs>
               )}
               {activeTab === "certifications" && (
-                <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
+                <IntegratedDivisionTabs bid={bid}>
                   {(div) => (
                     <DivisionEditWrap
                       bidNumber={bid.bidNumber}
@@ -1453,7 +1497,7 @@ export const BidDetailPage: React.FC = () => {
                 </IntegratedDivisionTabs>
               )}
               {activeTab === "preparation" && (
-                <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
+                <IntegratedDivisionTabs bid={bid}>
                   {(div) => (
                     <DivisionEditWrap
                       bidNumber={bid.bidNumber}
@@ -1582,7 +1626,7 @@ export const BidDetailPage: React.FC = () => {
                 </IntegratedDivisionTabs>
               )}
               {activeTab === "hours" && (
-                <IntegratedDivisionTabs serviceLine={bid.serviceLine}>
+                <IntegratedDivisionTabs bid={bid}>
                   {(_div) => (
                     <DivisionEditWrap
                       key={_div || "default"}
@@ -1906,9 +1950,7 @@ export const BidDetailPage: React.FC = () => {
                               }
                             }}
                             integratedDivision={_div}
-                            availableDivisions={resolveDivisions(
-                              bid.serviceLine,
-                            )}
+                            availableDivisions={resolveDivisions(bid)}
                             scopeItems={filteredScope}
                             fx={bidFx}
                             tabNotes={

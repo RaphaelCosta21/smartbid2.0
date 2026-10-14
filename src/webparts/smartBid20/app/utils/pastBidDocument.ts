@@ -28,6 +28,7 @@ import {
   getBidFx,
 } from "./costCalculations";
 import { formatDate } from "./formatters";
+import { getApprovalTracks, getLatestTrackRound } from "./approvalTracks";
 
 export const PAST_BID_DOC_TYPE = "Past Bid";
 export const PAST_BID_FILE_EXTENSION = ".md";
@@ -919,23 +920,31 @@ function revisionsAndApproval(bid: IBid, num: number): string[] {
     ]),
   );
   const rounds = bid.approvalRounds || [];
-  const last = rounds[rounds.length - 1];
-  if (last) {
+  const tracks = getApprovalTracks(bid);
+  const lastRounds = (
+    tracks.length > 0
+      ? tracks.map((t) => getLatestTrackRound(bid, t))
+      : [rounds[rounds.length - 1]]
+  ).filter((r): r is NonNullable<typeof r> => !!r);
+  lastRounds.forEach((last) => {
     rows.push(
-      record(`Approval round ${last.round}`, [
-        ["Status", last.status],
-        ["Started", day(last.startedDate)],
-        ["Completed", day(last.completedDate)],
+      record(
+        `Approval round ${last.round}${last.trackLabel ? ` (${last.trackLabel})` : ""}`,
         [
-          "Approvers",
-          (last.approvals || [])
-            .map(
-              (a) =>
-                `${a.stakeholder?.name || ""} (${a.stakeholderRole}, ${a.status})`,
-            )
-            .join("; "),
+          ["Status", last.status],
+          ["Started", day(last.startedDate)],
+          ["Completed", day(last.completedDate)],
+          [
+            "Approvers",
+            (last.approvals || [])
+              .map(
+                (a) =>
+                  `${a.stakeholder?.name || ""} (${a.stakeholderRole}, ${a.status})`,
+              )
+              .join("; "),
+          ],
         ],
-      ]),
+      ),
     );
     if (last.override) {
       rows.push(
@@ -946,7 +955,7 @@ function revisionsAndApproval(bid: IBid, num: number): string[] {
         ]),
       );
     }
-  }
+  });
   if (bid.kpis?.approvalCycleTime) {
     rows.push(
       record("", [["Approval cycle time", `${bid.kpis.approvalCycleTime} h`]]),

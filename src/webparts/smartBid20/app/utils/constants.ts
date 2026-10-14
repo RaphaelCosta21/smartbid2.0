@@ -1,5 +1,7 @@
 export const DIVISION_COLORS: Record<string, string> = {
   OPG: "#3b82f6",
+  SSR: "#10b981",
+  INTEGRATED: "#8b5cf6",
   "SSR-ROV": "#f59e0b",
   "SSR-Survey": "#10b981",
   "SSR-Integrated": "#8b5cf6",

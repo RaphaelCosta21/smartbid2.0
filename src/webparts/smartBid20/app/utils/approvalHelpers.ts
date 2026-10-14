@@ -25,6 +25,13 @@ import {
 import { buildHistoryTransition } from "./phaseHelpers";
 import { getDaysUntil, isPastDue, parseDate } from "./formatters";
 import { getDueDateAt } from "./bidHelpers";
+import {
+  getApprovalTracks,
+  getLatestTrackRound,
+  hasPendingApprovalRound,
+  isSplitApproval,
+  isSplitApprovalComplete,
+} from "./approvalTracks";
 
 const MS_PER_HOUR = 3600000;
 const MS_PER_DAY = 86400000;
@@ -193,9 +200,45 @@ export function avgApprovalDaysBySector(
     .sort((a, b) => b.avgDays - a.avgDays);
 }
 
+/** Latest round of each team once all of them approved (split approvals). */
+function finalTrackRounds(bid: IBid): IApprovalRound[] {
+  if (!isSplitApprovalComplete(bid)) return [];
+  return getApprovalTracks(bid)
+    .map((t) => getLatestTrackRound(bid, t))
+    .filter((r): r is IApprovalRound => !!r);
+}
+
+/** Rounds that approved the BID: one per team for split approvals, else the final round. */
+export function getFinalApprovedRounds(bid: IBid): IApprovalRound[] {
+  if (isSplitApproval(bid)) return finalTrackRounds(bid);
+  const round = getFinalApprovedRound(bid);
+  return round ? [round] : [];
+}
+
 /** Last round when it closed approved (the one that completed the BID); legacy flat approvals as fallback. */
 export function getFinalApprovedRound(bid: IBid): IApprovalRound | null {
   const rounds = bid.approvalRounds || [];
+  if (isSplitApproval(bid)) {
+    const finals = finalTrackRounds(bid);
+    if (finals.length === 0) return null;
+    // One window from the first team's start to the last team's sign-off
+    const starts = finals.map((r) => r.startedDate).filter(Boolean).sort();
+    const ends = finals
+      .map((r) => r.completedDate || "")
+      .filter(Boolean)
+      .sort();
+    return {
+      round: finals[finals.length - 1].round,
+      startedDate: starts[0] || "",
+      startedBy: finals[0].startedBy,
+      status: "approved",
+      completedDate: ends.length > 0 ? ends[ends.length - 1] : null,
+      approvals: finals.reduce<IBidApproval[]>(
+        (all, r) => all.concat(r.approvals || []),
+        [],
+      ),
+    };
+  }
   if (rounds.length > 0) {
     const last = rounds[rounds.length - 1];
     return last.status === "approved" ? last : null;
@@ -241,10 +284,10 @@ export function avgApprovalHoursBySector(
 ): SectorApprovalHoursStat[] {
   const buckets: { [sector: string]: number[] } = {};
   bids.forEach((b) => {
-    const round = getFinalApprovedRound(b);
-    if (!round) return;
-    approvedSectorDurations(round).forEach((d) => {
-      (buckets[d.sector] = buckets[d.sector] || []).push(d.durationHours);
+    getFinalApprovedRounds(b).forEach((round) => {
+      approvedSectorDurations(round).forEach((d) => {
+        (buckets[d.sector] = buckets[d.sector] || []).push(d.durationHours);
+      });
     });
   });
 
@@ -353,13 +396,19 @@ export function summarizeApprovalDueImpact(bids: IBid[]): ApprovalDueSummary {
 export function getPendingApprovalDueRisk(
   bid: IBid,
 ): PendingApprovalDueRisk | null {
-  if (bid.approvalStatus !== "pending") return null;
+  if (!hasPendingApprovalRound(bid)) return null;
   const rounds = bid.approvalRounds || [];
-  const last = rounds[rounds.length - 1];
-  if (!last || last.status !== "pending") return null;
+  const pendingRounds = isSplitApproval(bid)
+    ? getApprovalTracks(bid)
+        .map((t) => getLatestTrackRound(bid, t))
+        .filter((r): r is IApprovalRound => !!r && r.status === "pending")
+    : rounds.slice(-1).filter((r) => r.status === "pending");
+  if (pendingRounds.length === 0) return null;
   const dueDate = bid.desiredDueDate || bid.dueDate;
   if (!dueDate || !isPastDue(dueDate)) return null;
-  const started = parseDate(last.startedDate);
+  const started = parseDate(
+    pendingRounds.map((r) => r.startedDate).filter(Boolean).sort()[0],
+  );
   return {
     bid,
     dueDate,
@@ -408,6 +457,31 @@ function completionEntry(round: number, timestamp: string): IActivityLogEntry {
       note: `BID fully approved by all approvers (Round ${round})`,
     },
   };
+}
+
+function trackApprovedEntry(
+  round: IApprovalRound,
+  timestamp: string,
+): IActivityLogEntry {
+  const label = round.trackLabel || round.track || "Team";
+  return {
+    id: `log-apr-r${round.round}-track-approved`,
+    type: "APPROVAL_TRACK_APPROVED",
+    timestamp,
+    actor: "",
+    actorName: APPROVAL_FLOW_ACTOR,
+    description: `${label} approved by all approvers (Round ${round.round})`,
+    metadata: { round: round.round, track: round.track || "" },
+  };
+}
+
+/** Final team round that completed a split approval (latest sign-off). */
+function completingTrackRound(bid: IBid): IApprovalRound | null {
+  const finals = finalTrackRounds(bid);
+  if (finals.length === 0) return null;
+  return finals.reduce((m, r) =>
+    (r.completedDate || "") > (m.completedDate || "") ? r : m,
+  );
 }
 
 /**
@@ -462,8 +536,16 @@ export function getMissingApprovalActivityEntries(
   rounds.forEach((r) => {
     if (r.status !== "approved" || r.override) return;
     const when = r.completedDate || bid.completedDate;
-    if (when) add(completionEntry(r.round, when));
+    if (!when) return;
+    if (r.track) add(trackApprovedEntry(r, when));
+    else add(completionEntry(r.round, when));
   });
+
+  if (isSplitApproval(bid) && bid.currentStatus === "Completed") {
+    const last = completingTrackRound(bid);
+    const when = last && (last.completedDate || bid.completedDate);
+    if (last && !last.override && when) add(completionEntry(last.round, when));
+  }
 
   // Legacy BIDs approved before rounds history existed.
   const approvals = bid.approvals || [];
@@ -488,7 +570,11 @@ export function getMissingApprovalHistoryPatch(
   bid: IBid,
 ): Pick<IBid, "phaseHistory" | "statusHistory"> | null {
   const rounds = bid.approvalRounds || [];
-  const latest = rounds.length > 0 ? rounds[rounds.length - 1] : null;
+  const latest = isSplitApproval(bid)
+    ? completingTrackRound(bid)
+    : rounds.length > 0
+      ? rounds[rounds.length - 1]
+      : null;
   if (!latest || latest.status !== "approved") return null;
   if (bid.currentStatus !== "Completed") return null;
   const statusHistory = bid.statusHistory || [];
@@ -551,8 +637,14 @@ const PERSON_STATUS_RANK: Record<string, number> = {
 function buildPendingApprovalRow(bid: IBid): IPendingApprovalRow {
   const approvals = bid.approvals || [];
   const rounds = bid.approvalRounds || [];
-  const last = rounds.length > 0 ? rounds[rounds.length - 1] : undefined;
-  let started = parseDate(last?.startedDate);
+  const startRounds = isSplitApproval(bid)
+    ? getApprovalTracks(bid)
+        .map((t) => getLatestTrackRound(bid, t))
+        .filter((r): r is IApprovalRound => !!r && r.status === "pending")
+    : rounds.slice(-1);
+  let started = parseDate(
+    startRounds.map((r) => r.startedDate).filter(Boolean).sort()[0],
+  );
   if (!started) {
     approvals.forEach((a) => {
       const d = parseDate(a.requestedDate);
@@ -612,7 +704,7 @@ function buildPendingApprovalRow(bid: IBid): IPendingApprovalRow {
 /** BIDs waiting for approval, longest waiting first. */
 export function buildPendingApprovalRows(bids: IBid[]): IPendingApprovalRow[] {
   return bids
-    .filter((b) => b.approvalStatus === "pending")
+    .filter((b) => hasPendingApprovalRound(b))
     .map(buildPendingApprovalRow)
     .sort((a, b) => (b.days ?? -1) - (a.days ?? -1));
 }

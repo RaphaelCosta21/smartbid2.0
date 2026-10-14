@@ -17,6 +17,7 @@ import {
 } from "../utils/bidHelpers";
 import { getPhaseProgressByIndex } from "../utils/phaseHelpers";
 import { getErnLinks } from "../utils/ernHelpers";
+import { serviceLineOptionsForDivision } from "../utils/divisionHelpers";
 import { useConfigStore } from "../stores/useConfigStore";
 import { BID_PHASES, getPhaseDef } from "../config/status.config";
 import { PageHeader } from "../components/common/PageHeader";
@@ -28,7 +29,13 @@ import {
   MultiSelectDropdown,
   MultiSelectOption,
 } from "../components/insights/MultiSelectDropdown";
-import { BidPriority, Division, IBid, IQuickNote } from "../models";
+import {
+  BidPriority,
+  Division,
+  IBid,
+  IConfigOption,
+  IQuickNote,
+} from "../models";
 import { BidService } from "../services/BidService";
 import { useErnStore } from "../stores/useErnStore";
 import { useDebounce } from "../hooks/useDebounce";
@@ -161,12 +168,13 @@ export const BidTrackerPage: React.FC = () => {
         label: v,
       }));
     }
+    const inSelectedDivision = (s: IConfigOption): boolean =>
+      filters.divisions.length === 0 ||
+      filters.divisions.some(
+        (d) => serviceLineOptionsForDivision([s], d).length > 0,
+      );
     return configured
-      .filter(
-        (s) =>
-          filters.divisions.length === 0 ||
-          filters.divisions.indexOf(s.category as Division) >= 0,
-      )
+      .filter(inSelectedDivision)
       .sort((a, b) => (a.order || 0) - (b.order || 0))
       .map((s) => ({
         value: s.value,
@@ -235,7 +243,10 @@ export const BidTrackerPage: React.FC = () => {
     const configured = config?.serviceLines || [];
     const keepServiceLine = (value: string): boolean => {
       const sl = configured.find((s) => s.value === value);
-      return !sl || divisions.indexOf(String(sl.category)) >= 0;
+      return (
+        !sl ||
+        divisions.some((d) => serviceLineOptionsForDivision([sl], d).length > 0)
+      );
     };
     setFilters({
       divisions: divisions as Division[],

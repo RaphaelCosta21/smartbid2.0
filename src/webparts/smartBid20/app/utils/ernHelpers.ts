@@ -2,6 +2,7 @@
  * ERN helpers — pure functions for the Engineering Request Number integration.
  */
 import {
+  BusinessLine,
   IBid,
   IBidErnLink,
   IErn,
@@ -10,6 +11,13 @@ import {
 } from "../models";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import { getDaysUntil } from "./formatters";
+import {
+  businessLineDivision,
+  getBidBusinessLines,
+  getBusinessLineLabel,
+  getBusinessLineServiceLine,
+  hasMultipleBusinessLines,
+} from "./divisionHelpers";
 
 /** Revision Reason dropdown options (used when Content Action = "Revise"). */
 export const ERN_REVISION_REASONS: string[] = [
@@ -64,35 +72,33 @@ export function resolveErnServiceLineChoice(
   );
 }
 
-/** The service line value that means a BID spans both ROV and Survey. */
-export const INTEGRATED_SERVICE_LINE = "Integrated";
-
-export type ErnDivision = "ROV" | "SURVEY" | null;
+export type ErnDivision = BusinessLine | null;
 
 export interface IErnSlot {
-  /** Division tag for this ERN slot (null = single ERN). */
+  /** Team tag for this ERN slot (null = single ERN). */
   division: ErnDivision;
-  /** Short label shown in the UI (e.g. "ROV", "Survey", ""). */
+  /** Short label shown in the UI (e.g. "OPG", "ROV", "Survey", ""). */
   label: string;
   /** Service line value used to resolve the ERN's ServiceLine / Project Number. */
   serviceLine: string;
 }
 
-/** True when the BID is an Integrated (ROV + Survey) service line. */
+/** True when the BID has two teams (INTEGRATED division or SSR "Integrated"), one ERN each. */
 export function isIntegratedBid(bid: IBid): boolean {
-  return (bid.serviceLine || "") === INTEGRATED_SERVICE_LINE;
+  return hasMultipleBusinessLines(bid);
 }
 
 /**
- * ERN slots for a BID. Integrated BIDs need two ERNs (ROV + Survey); every
- * other BID needs a single ERN (division = null).
+ * ERN slots for a BID. BIDs with two teams need one ERN per team (lead
+ * first); every other BID needs a single ERN (division = null).
  */
 export function getErnSlots(bid: IBid): IErnSlot[] {
   if (isIntegratedBid(bid)) {
-    return [
-      { division: "ROV", label: "ROV", serviceLine: "ROV" },
-      { division: "SURVEY", label: "Survey", serviceLine: "Survey" },
-    ];
+    return getBidBusinessLines(bid).map((line) => ({
+      division: line,
+      label: getBusinessLineLabel(line),
+      serviceLine: getBusinessLineServiceLine(bid, line),
+    }));
   }
   return [{ division: null, label: "", serviceLine: bid.serviceLine }];
 }
@@ -133,18 +139,23 @@ export function getLinkedErnTitles(bid: IBid): string[] {
 /**
  * Resolve the ERN Project Number for a BID from the System Configuration.
  * Priority: (override service line || bid service line) projectNumber →
- * Division projectNumber → "". Always editable by the user in the modal.
+ * Division projectNumber (the slot's division on two-team BIDs) → "".
+ * Always editable by the user in the modal.
  */
 export function resolveErnProjectNumber(
   bid: IBid,
   config: ISystemConfig | null | undefined,
   serviceLineOverride?: string,
+  slotDivision?: ErnDivision,
 ): string {
   if (!config) return "";
   const slValue = serviceLineOverride || bid.serviceLine;
   const sl = (config.serviceLines || []).find((o) => o.value === slValue);
   if (sl && sl.projectNumber) return sl.projectNumber;
-  const div = (config.divisions || []).find((o) => o.value === bid.division);
+  const divValue = slotDivision
+    ? businessLineDivision(slotDivision)
+    : bid.division;
+  const div = (config.divisions || []).find((o) => o.value === divValue);
   if (div && div.projectNumber) return div.projectNumber;
   return "";
 }

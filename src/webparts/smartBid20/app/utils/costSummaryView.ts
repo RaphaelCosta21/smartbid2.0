@@ -1,4 +1,5 @@
 import { IBid, ICostSummary, IHoursItem } from "../models";
+import { getBidBusinessLines } from "./divisionHelpers";
 import {
   IAssetResourceTypeCost,
   IBidFx,
@@ -57,8 +58,6 @@ export interface ICostSummaryView {
 }
 
 export const SERVICES_SEGMENT_LABEL = "Services & Others";
-
-const INTEGRATED_DIVISIONS = ["ROV", "SURVEY"];
 
 interface IDivisionHours {
   engBRL: number;
@@ -121,8 +120,9 @@ export function buildCostSummaryView(bid: IBid): ICostSummaryView {
     bid.scopeItems || [],
     getBidContingency(bid),
   );
-  const isIntegrated = (bid.serviceLine || "").toLowerCase() === "integrated";
-  const divisions = isIntegrated ? INTEGRATED_DIVISIONS : [];
+  const teams = getBidBusinessLines(bid);
+  const isIntegrated = teams.length > 1;
+  const divisions: string[] = isIntegrated ? teams : [];
 
   const itemCurrencies = [
     ...(bid.logisticsBreakdown || []),
