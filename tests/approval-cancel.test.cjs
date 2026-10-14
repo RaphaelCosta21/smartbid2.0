@@ -85,9 +85,7 @@ const reopened = (extra = {}) => ({
   currentStatus: "Rework",
   approvalStatus: "approved",
   approvals: [approval(4, "p4@x.com", "pending")],
-  approvalRounds: [
-    round(4, "approved", "2026-10-02T00:00:00Z", { override }),
-  ],
+  approvalRounds: [round(4, "approved", "2026-10-02T00:00:00Z", { override })],
   revisions: [
     {
       revisionLetter: "B",

@@ -1186,8 +1186,8 @@ const ApprovalTrackPanel: React.FC<ApprovalTrackPanelProps> = ({
               </span>
             )}
             <span>
-              The Teams chat of the round is notified. Approval requests
-              already in Teams no longer count.
+              The Teams chat of the round is notified. Approval requests already
+              in Teams no longer count.
             </span>
           </div>
           <label

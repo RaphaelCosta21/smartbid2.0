@@ -1422,9 +1422,9 @@ l. **Compose `comContinue_inc`** — absorve o `412` para o Do until tentar de n
 - **False:** e-mail de aviso para o administrador. **Ação:** Mail → **Send an email notification (V3)**.
   **Nome:** `Send_fail_write_inc`. **To** (fx): `variables('varAdminEmail')`. Subject e Body:
 
-| Campo   | Como preencher | Valor                                                                                                                                                                                                                                                       |
-| ------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Subject | Texto + fx     | `SmartBid – resposta não gravada no BID @{variables('varBidNumber')}, rodada @{variables('varRound')}`                                                                                                                                                      |
+| Campo   | Como preencher | Valor                                                                                                                                                                                                                                                                   |
+| ------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Subject | Texto + fx     | `SmartBid – resposta não gravada no BID @{variables('varBidNumber')}, rodada @{variables('varRound')}`                                                                                                                                                                  |
 | Body    | Texto + fx     | `Resposta de @{outputs('comPersonName')}: @{outputs('comDecision')}. Guarda: @{outputs('comCanWrite_inc')} (false = rodada mudou, override ou rodada cancelada). Último status HTTP: @{outputs('Send_HTTP_inc')?['statusCode']}. Comentário: @{outputs('comComments')}` |
 
 Se a gravação no BID não aconteceu, o fluxo também **não** altera as Approver rows, a Round row nem o
@@ -1688,8 +1688,8 @@ faria o fluxo anunciar no chat, minutos depois, que a rodada "expirou".
 
 **15.6) Condition `Condition_overridden`** — override ou cancelamento (o nome antigo foi mantido).
 
-| Esquerda (fx)                                                                                         | Operador    | Direita   |
-| ----------------------------------------------------------------------------------------------------- | ----------- | --------- |
+| Esquerda (fx)                                                                                           | Operador    | Direita   |
+| ------------------------------------------------------------------------------------------------------- | ----------- | --------- |
 | `or(equals(outputs('comFinalOutcome'), 'overridden'), equals(outputs('comFinalOutcome'), 'cancelled'))` | is equal to | fx `true` |
 
 - **True:** Control → **Terminate** `Terminate_overridden`, Status **Cancelled**. O aviso de override
@@ -2482,8 +2482,8 @@ funciona sem ajuste manual.
 | Approval secundário    | `components/bid/ApprovalTab.tsx`, `utils/approvalTracks.ts` | Só para BIDs com dois times. Cada time tem a sua aba, os seus aprovadores (Project e Operation filtrados pela tag do Members Management), o seu Start e o seu override. Ao iniciar, o app grava `approvalTracks` com o status de cada time e `approvals` com as entradas atuais dos dois times.                |
 | Saves do app           | `BidService.patchByBidNumber()`                             | Grava com `If-Match` (ETag) e tenta de novo em `412`, como o fluxo. Um save do app não apaga uma decisão gravada pelo fluxo no mesmo instante (teste 14).                                                                                                                                                      |
 | Comentários            | aba Approval e card _Approval Status_ do Overview           | Texto puro (nunca HTML), com quebras de linha preservadas.                                                                                                                                                                                                                                                     |
-| Cancelamento           | `components/bid/ApprovalTab.tsx` (**Cancel Round**)         | `ApprovalService.markRoundsCancelled()` marca a Round row `Cancelled` antes de gravar o BID; `buildCancelledRoundsPatch()` (`utils/approvalHelpers.ts`) deixa a rodada `cancelled` no histórico e pré-seleciona os aprovadores para a próxima (§8.6).                                                         |
-| Colunas                | `ApprovalService.ensureApprovalColumns()`                   | Cria `NativeApprovalId`, `ApproverComments` (texto simples), `LastReminderDate`, `ApprovalTrack`, `CancelledBy`, `CancelledDate`, `CancelReason` e as opções `Rejected` / `Expired` / `Cancelled`, se faltarem.                                                                                               |
+| Cancelamento           | `components/bid/ApprovalTab.tsx` (**Cancel Round**)         | `ApprovalService.markRoundsCancelled()` marca a Round row `Cancelled` antes de gravar o BID; `buildCancelledRoundsPatch()` (`utils/approvalHelpers.ts`) deixa a rodada `cancelled` no histórico e pré-seleciona os aprovadores para a próxima (§8.6).                                                          |
+| Colunas                | `ApprovalService.ensureApprovalColumns()`                   | Cria `NativeApprovalId`, `ApproverComments` (texto simples), `LastReminderDate`, `ApprovalTrack`, `CancelledBy`, `CancelledDate`, `CancelReason` e as opções `Rejected` / `Expired` / `Cancelled`, se faltarem.                                                                                                |
 
 Ainda não tratado no app:
 
@@ -2590,15 +2590,15 @@ A choice `Cancelled` e as colunas `CancelledBy`, `CancelledDate` e `CancelReason
 (`ensureApprovalColumns()`) no próximo Start ou Cancel Round. Faça as mudanças abaixo **antes** de
 usar o Cancel Round. Cada uma está detalhada no seu passo.
 
-| Passo  | O que mudar                                                                    |
-| ------ | ------------------------------------------------------------------------------ |
-| 14.5 a | Loop until do `Do_until_person_done` (nova condição `cancelled`)               |
-| 14.7 e | Inputs do `comCanWrite_inc`                                                    |
-| 14.8   | Body do `Send_fail_write_inc` (só o texto da guarda)                           |
-| 15.5   | Inputs do `comFinalOutcome`                                                    |
-| 15.6   | Linha da `Condition_overridden` (expressão com `or`, Direita fx `true`)        |
-| 16.3 f | Inputs do `comCanWrite_final`                                                  |
-| 8.6.1  | Criar o fluxo `SmartBid – Approval Cancelled`                                  |
+| Passo  | O que mudar                                                             |
+| ------ | ----------------------------------------------------------------------- |
+| 14.5 a | Loop until do `Do_until_person_done` (nova condição `cancelled`)        |
+| 14.7 e | Inputs do `comCanWrite_inc`                                             |
+| 14.8   | Body do `Send_fail_write_inc` (só o texto da guarda)                    |
+| 15.5   | Inputs do `comFinalOutcome`                                             |
+| 15.6   | Linha da `Condition_overridden` (expressão com `or`, Direita fx `true`) |
+| 16.3 f | Inputs do `comCanWrite_final`                                           |
+| 8.6.1  | Criar o fluxo `SmartBid – Approval Cancelled`                           |
 
 Execuções que já estão rodando continuam com a versão antiga do fluxo. Para uma rodada antiga
 cancelada no app, cancele a execução manualmente no histórico do fluxo.
