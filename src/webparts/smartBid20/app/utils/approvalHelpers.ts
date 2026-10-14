@@ -222,7 +222,10 @@ export function getFinalApprovedRound(bid: IBid): IApprovalRound | null {
     const finals = finalTrackRounds(bid);
     if (finals.length === 0) return null;
     // One window from the first team's start to the last team's sign-off
-    const starts = finals.map((r) => r.startedDate).filter(Boolean).sort();
+    const starts = finals
+      .map((r) => r.startedDate)
+      .filter(Boolean)
+      .sort();
     const ends = finals
       .map((r) => r.completedDate || "")
       .filter(Boolean)
@@ -407,7 +410,10 @@ export function getPendingApprovalDueRisk(
   const dueDate = bid.desiredDueDate || bid.dueDate;
   if (!dueDate || !isPastDue(dueDate)) return null;
   const started = parseDate(
-    pendingRounds.map((r) => r.startedDate).filter(Boolean).sort()[0],
+    pendingRounds
+      .map((r) => r.startedDate)
+      .filter(Boolean)
+      .sort()[0],
   );
   return {
     bid,
@@ -643,7 +649,10 @@ function buildPendingApprovalRow(bid: IBid): IPendingApprovalRow {
         .filter((r): r is IApprovalRound => !!r && r.status === "pending")
     : rounds.slice(-1);
   let started = parseDate(
-    startRounds.map((r) => r.startedDate).filter(Boolean).sort()[0],
+    startRounds
+      .map((r) => r.startedDate)
+      .filter(Boolean)
+      .sort()[0],
   );
   if (!started) {
     approvals.forEach((a) => {

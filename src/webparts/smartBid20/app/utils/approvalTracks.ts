@@ -109,11 +109,7 @@ export function getTrackRounds(
   const since = supersededBefore(bid);
   return rounds
     .slice(from)
-    .filter(
-      (r) =>
-        r.track === track &&
-        !(toTime(r.startedDate) <= since),
-    );
+    .filter((r) => r.track === track && !(toTime(r.startedDate) <= since));
 }
 
 export function getLatestTrackRound(
@@ -125,10 +121,7 @@ export function getLatestTrackRound(
 }
 
 /** Status of the track's latest round ("not-started" when it never ran). */
-export function getTrackStatus(
-  bid: IBid,
-  track: BusinessLine,
-): ApprovalStatus {
+export function getTrackStatus(bid: IBid, track: BusinessLine): ApprovalStatus {
   const round = getLatestTrackRound(bid, track);
   if (!round) return "not-started";
   if (round.status === "approved" || round.status === "rejected") {
@@ -192,7 +185,8 @@ export function hasPendingApprovalRound(bid: IBid): boolean {
 export function getCurrentCycleRounds(bid: IBid): IApprovalRound[] {
   const revisions = bid.revisions || [];
   const last = revisions.length > 0 ? revisions[revisions.length - 1] : null;
-  const since = last && last.openedDate ? new Date(last.openedDate).getTime() : 0;
+  const since =
+    last && last.openedDate ? new Date(last.openedDate).getTime() : 0;
   return (bid.approvalRounds || []).filter((r) => {
     const t = new Date(r.startedDate).getTime();
     return isNaN(t) || t >= since;

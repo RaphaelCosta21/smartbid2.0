@@ -737,8 +737,7 @@ const ApprovalTrackPanel: React.FC<ApprovalTrackPanelProps> = ({
         sectorLabel: cfg.label,
         approvers: sectorSelections[cfg.sector] || [],
         isAutoLocked: (lockedApprovers[cfg.sector] || []).length > 0,
-        isPreSelected:
-          cfg.preSelectFn(bid, track, teamMembers).length > 0,
+        isPreSelected: cfg.preSelectFn(bid, track, teamMembers).length > 0,
       }));
 
       const tracks = getApprovalTracks(bid);
@@ -1478,11 +1477,11 @@ const ApprovalTrackPanel: React.FC<ApprovalTrackPanelProps> = ({
       {/* CAPEX Warning */}
       {bid.costSummary.assetsCapexUSD > CAPEX_THRESHOLD_USD &&
         (!track || track === getPrimaryTrack(bid)) && (
-        <div className={styles.validationWarning}>
-          ⚠️ CAPEX exceeds $200k USD - Engineering Sr. Manager is automatically
-          required and locked.
-        </div>
-      )}
+          <div className={styles.validationWarning}>
+            ⚠️ CAPEX exceeds $200k USD - Engineering Sr. Manager is
+            automatically required and locked.
+          </div>
+        )}
 
       {/* Validation Errors */}
       {validationErrors.length > 0 && !canStart && canManageApproval && (
@@ -1869,7 +1868,12 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = (props) => {
       kpis: { ...bid.kpis, approvalCycleTime: cycle },
       activityLog: [...(bid.activityLog || []), ...missingLogs],
     });
-  }, [bid.approvalStatus, bid.approvals, bid.currentStatus, bid.approvalRounds]);
+  }, [
+    bid.approvalStatus,
+    bid.approvals,
+    bid.currentStatus,
+    bid.approvalRounds,
+  ]);
 
   const splitLog = (
     description: string,
@@ -1890,7 +1894,10 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = (props) => {
       approvalSecondaryLine: chosenSecondary,
       approvalTracks: {},
     };
-    const withTracks: IBid = { ...next, approvalTracks: syncTrackStatuses(next) };
+    const withTracks: IBid = {
+      ...next,
+      approvalTracks: syncTrackStatuses(next),
+    };
     const [primary] = getApprovalTracks(withTracks);
     onPatchBid({
       approvalSecondaryLine: chosenSecondary,

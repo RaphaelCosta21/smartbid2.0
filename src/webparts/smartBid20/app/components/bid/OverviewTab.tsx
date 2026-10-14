@@ -199,7 +199,8 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
   );
   const groupKey = (a: IBidApproval): string =>
     teamOf[a.id] ? `${teamOf[a.id]} · ${a.stakeholderRole}` : a.stakeholderRole;
-  const override = tracks.length > 0 ? undefined : getActiveApprovalOverride(bid);
+  const override =
+    tracks.length > 0 ? undefined : getActiveApprovalOverride(bid);
   const overrides = override
     ? [override]
     : trackRounds
@@ -366,13 +367,20 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
                     {tr.label}
                   </span>
                   <span
-                    style={{ color: d.color, marginLeft: "auto", fontWeight: 500 }}
+                    style={{
+                      color: d.color,
+                      marginLeft: "auto",
+                      fontWeight: 500,
+                    }}
                   >
                     {d.label}
                   </span>
                 </div>
                 {tr.round && tr.round.override && (
-                  <ApprovalOverrideBanner override={tr.round.override} compact />
+                  <ApprovalOverrideBanner
+                    override={tr.round.override}
+                    compact
+                  />
                 )}
               </div>
             );
@@ -1183,7 +1191,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                             >
                               <option value="">- Select -</option>
                               {withCurrentOption(
-                                integratedLineOptions(config?.serviceLines, div),
+                                integratedLineOptions(
+                                  config?.serviceLines,
+                                  div,
+                                ),
                                 genDraft[key],
                               ).map((sl) => (
                                 <option key={sl.value} value={sl.value}>
@@ -1197,38 +1208,39 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     })}
                   </>
                 ) : (
+                  <InfoRow
+                    label="Service Line"
+                    value={
+                      <select
+                        value={genDraft.serviceLine}
+                        onChange={(e) => {
+                          const serviceLine = e.target.value;
+                          setGenDraft((d) => ({
+                            ...d,
+                            serviceLine,
+                          }));
+                        }}
+                        style={generalSelectStyle}
+                      >
+                        <option value="">- Select -</option>
+                        {withCurrentOption(
+                          (config?.serviceLines || []).filter(
+                            (sl) =>
+                              sl.isActive !== false &&
+                              (!genDraft.division ||
+                                sl.category === genDraft.division),
+                          ),
+                          genDraft.serviceLine,
+                        ).map((sl) => (
+                          <option key={sl.value} value={sl.value}>
+                            {sl.label}
+                          </option>
+                        ))}
+                      </select>
+                    }
+                  />
+                )}{" "}
                 <InfoRow
-                  label="Service Line"
-                  value={
-                    <select
-                      value={genDraft.serviceLine}
-                      onChange={(e) => {
-                        const serviceLine = e.target.value;
-                        setGenDraft((d) => ({
-                          ...d,
-                          serviceLine,
-                        }));
-                      }}
-                      style={generalSelectStyle}
-                    >
-                      <option value="">- Select -</option>
-                      {withCurrentOption(
-                        (config?.serviceLines || []).filter(
-                          (sl) =>
-                            sl.isActive !== false &&
-                            (!genDraft.division ||
-                              sl.category === genDraft.division),
-                        ),
-                        genDraft.serviceLine,
-                      ).map((sl) => (
-                        <option key={sl.value} value={sl.value}>
-                          {sl.label}
-                        </option>
-                      ))}
-                    </select>
-                  }
-                />
-                )}                <InfoRow
                   label="Type"
                   value={
                     <select
@@ -1313,7 +1325,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   value={
                     bidIsIntegrated ? (
                       <span
-                        style={{ display: "inline-flex", gap: 6, flexWrap: "wrap" }}
+                        style={{
+                          display: "inline-flex",
+                          gap: 6,
+                          flexWrap: "wrap",
+                        }}
                       >
                         {getBidServiceLines(bid).map((sl) => (
                           <StatusBadge

@@ -301,7 +301,9 @@ export const UnassignedRequestsPage: React.FC = () => {
         const sl = configured.find((s) => s.value === value);
         return (
           !sl ||
-          divisions.some((d) => serviceLineOptionsForDivision([sl], d).length > 0)
+          divisions.some(
+            (d) => serviceLineOptionsForDivision([sl], d).length > 0,
+          )
         );
       }),
     );

@@ -97,16 +97,16 @@ flowchart TD
 No SmartBid, a aba Approval de um BID com dois times mostra a opção **Create secondary approval**.
 Sem ela, nada muda: uma rodada única com todos os aprovadores, como antes. Com ela:
 
-| Item                    | Comportamento                                                                                                                                                        |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Times                   | `OPG`, `ROV` ou `SURVEY`. O principal é o time lead; o secundário é o outro.                                                                                         |
-| Rodadas                 | Cada time inicia a sua rodada quando quiser. O número da rodada continua único no BID (ex.: rodada 1 = OPG, rodada 2 = ROV).                                        |
-| Round row               | Uma por rodada, com `ApprovalTrack` = time. O `jsondata` traz `track`, `trackLabel` e `tracks` (§2.3).                                                              |
-| Execução do fluxo       | Uma por Round row, independente. Cada execução cria o **seu** chat e os pedidos do **seu** time. A mesma pessoa nos dois times recebe um pedido em cada execução.   |
-| Status por time         | O fluxo grava `approvalTracks[time].status` no BID: `rejected` na recusa, o resultado da rodada no fechamento.                                                     |
-| Conclusão do BID        | Só quando todos os times de `tracks` estão `approved` em `approvalTracks`. O time que termina primeiro recebe uma mensagem no chat e o BID continua Pending Approval. |
-| Recusa                  | O BID fica `rejected`. Depois do Rework, só o time recusado inicia uma nova rodada; o time que aprovou continua aprovado.                                             |
-| Override                | Por time. O app marca só a Round row daquele time como `Overridden`.                                                                                                |
+| Item              | Comportamento                                                                                                                                                         |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Times             | `OPG`, `ROV` ou `SURVEY`. O principal é o time lead; o secundário é o outro.                                                                                          |
+| Rodadas           | Cada time inicia a sua rodada quando quiser. O número da rodada continua único no BID (ex.: rodada 1 = OPG, rodada 2 = ROV).                                          |
+| Round row         | Uma por rodada, com `ApprovalTrack` = time. O `jsondata` traz `track`, `trackLabel` e `tracks` (§2.3).                                                                |
+| Execução do fluxo | Uma por Round row, independente. Cada execução cria o **seu** chat e os pedidos do **seu** time. A mesma pessoa nos dois times recebe um pedido em cada execução.     |
+| Status por time   | O fluxo grava `approvalTracks[time].status` no BID: `rejected` na recusa, o resultado da rodada no fechamento.                                                        |
+| Conclusão do BID  | Só quando todos os times de `tracks` estão `approved` em `approvalTracks`. O time que termina primeiro recebe uma mensagem no chat e o BID continua Pending Approval. |
+| Recusa            | O BID fica `rejected`. Depois do Rework, só o time recusado inicia uma nova rodada; o time que aprovou continua aprovado.                                             |
+| Override          | Por time. O app marca só a Round row daquele time como `Overridden`.                                                                                                  |
 
 Rodadas sem `track` (aprovação única) seguem exatamente o comportamento anterior.
 
@@ -133,18 +133,18 @@ criadora dos pedidos no Approvals.
 
 As colunas abaixo já são criadas pelo app em `ApprovalService.ensureApprovalColumns()`:
 
-| Coluna                                             | Uso neste fluxo                                     |
-| -------------------------------------------------- | --------------------------------------------------- |
-| `Title`, `jsondata`                                | Título (BID) e payload da Round row                 |
-| `RecordType`                                       | `Round` (criada pelo app) / `Approver` (pelo fluxo) |
-| `BidNumber`, `RoundNumber`                         | Filtros                                             |
-| `ApproverEmail`, `ApproverName`                    | Aprovador da responsabilidade                       |
-| `Sector`, `SectorLabel`                            | Setor da responsabilidade                           |
-| `ApprovalStatus`                                   | Pending / Approved / Overridden (+ novas abaixo)    |
-| `RespondedDate`                                    | Data da resposta                                    |
-| `ChatId`, `StatusCardMessageId`                    | Chat em grupo e mensagem do Status card             |
-| `ExpectedApproverCount`                            | Total de responsabilidades da rodada                |
-| `OverriddenBy`, `OverriddenDate`, `OverrideReason` | Override feito pelo app                             |
+| Coluna                                             | Uso neste fluxo                                                  |
+| -------------------------------------------------- | ---------------------------------------------------------------- |
+| `Title`, `jsondata`                                | Título (BID) e payload da Round row                              |
+| `RecordType`                                       | `Round` (criada pelo app) / `Approver` (pelo fluxo)              |
+| `BidNumber`, `RoundNumber`                         | Filtros                                                          |
+| `ApproverEmail`, `ApproverName`                    | Aprovador da responsabilidade                                    |
+| `Sector`, `SectorLabel`                            | Setor da responsabilidade                                        |
+| `ApprovalStatus`                                   | Pending / Approved / Overridden (+ novas abaixo)                 |
+| `RespondedDate`                                    | Data da resposta                                                 |
+| `ChatId`, `StatusCardMessageId`                    | Chat em grupo e mensagem do Status card                          |
+| `ExpectedApproverCount`                            | Total de responsabilidades da rodada                             |
+| `OverriddenBy`, `OverriddenDate`, `OverrideReason` | Override feito pelo app                                          |
 | `ApprovalTrack`                                    | Time da rodada (`OPG`, `ROV`, `SURVEY`); vazio = aprovação única |
 
 Ajustes manuais (ou incluir em `ensureApprovalColumns()`):
@@ -212,13 +212,13 @@ O app grava o `jsondata` abaixo em `ApprovalService.startApprovalRound()`:
 
 Exemplo só para gerar o schema; em execução, use os dados do gatilho.
 
-| Campo                              | Aprovação única                    | Rodada de um time (approval principal/secundário)        |
-| ---------------------------------- | ---------------------------------- | -------------------------------------------------------- |
-| `division` / `serviceLine`         | Do BID (ex.: `OPG` / `UWILD`)       | Do time (ex.: `SSR` / `ROV`); é o que os cards mostram    |
-| `bidDivision` / `bidServiceLine`   | Iguais a `division` / `serviceLine` | Do BID (ex.: `INTEGRATED` / `UWILD + ROV`)               |
-| `track`                            | `""`                               | `OPG`, `ROV` ou `SURVEY`                                  |
-| `trackLabel`                       | `""`                               | Ex.: `Primary approval - OPG - UWILD`                    |
-| `tracks`                           | `[]`                               | Todos os times do approval, principal primeiro           |
+| Campo                            | Aprovação única                     | Rodada de um time (approval principal/secundário)      |
+| -------------------------------- | ----------------------------------- | ------------------------------------------------------ |
+| `division` / `serviceLine`       | Do BID (ex.: `OPG` / `UWILD`)       | Do time (ex.: `SSR` / `ROV`); é o que os cards mostram |
+| `bidDivision` / `bidServiceLine` | Iguais a `division` / `serviceLine` | Do BID (ex.: `INTEGRATED` / `UWILD + ROV`)             |
+| `track`                          | `""`                                | `OPG`, `ROV` ou `SURVEY`                               |
+| `trackLabel`                     | `""`                                | Ex.: `Primary approval - OPG - UWILD`                  |
+| `tracks`                         | `[]`                                | Todos os times do approval, principal primeiro         |
 
 ### 2.4 O que o fluxo grava no BID (`smartbid-tracker/jsondata`)
 
@@ -226,19 +226,19 @@ As entradas são localizadas por `approvals[].round` **e** `approvals[].stakehol
 A rodada atual é o item de `approvalRounds[]` com `round` = número da rodada (não o último item: com
 approval secundário, duas rodadas podem estar abertas ao mesmo tempo). Todo o resto do JSON é preservado.
 
-| Campo                                 | Valor                                                 | Quando                 |
-| ------------------------------------- | ----------------------------------------------------- | ---------------------- |
-| `approvals[].status` / `decision`     | `approved` ou `rejected`                              | Cada resposta          |
-| `approvals[].comments`                | Comentário original, ou `null`                        | Cada resposta          |
-| `approvals[].respondedDate`           | Data da resposta, UTC ISO 8601                        | Cada resposta          |
-| `approvals[].approvedVia`             | `Approvals`                                           | Cada resposta          |
-| `approvalRounds[atual].approvals`     | Cópia das entradas da rodada atual                    | Cada resposta          |
-| `approvalRounds[atual].status`        | `rejected` na recusa; `approved` no fechamento        | Recusa / fechamento    |
-| `approvalRounds[atual].completedDate` | Data de encerramento                                  | Fechamento             |
-| `approvalTracks[time].status`         | `rejected` na recusa; resultado no fechamento         | Só rodadas de um time  |
-| `approvalStatus`                      | `rejected` na recusa; `approved` **só quando o BID é concluído** | Recusa / conclusão |
-| `currentStatus` / `currentPhase`      | `Completed` / `Close Out`                             | Só quando o BID é concluído |
-| `completedDate`                       | Data de encerramento                                  | Só quando o BID é concluído |
+| Campo                                 | Valor                                                            | Quando                      |
+| ------------------------------------- | ---------------------------------------------------------------- | --------------------------- |
+| `approvals[].status` / `decision`     | `approved` ou `rejected`                                         | Cada resposta               |
+| `approvals[].comments`                | Comentário original, ou `null`                                   | Cada resposta               |
+| `approvals[].respondedDate`           | Data da resposta, UTC ISO 8601                                   | Cada resposta               |
+| `approvals[].approvedVia`             | `Approvals`                                                      | Cada resposta               |
+| `approvalRounds[atual].approvals`     | Cópia das entradas da rodada atual                               | Cada resposta               |
+| `approvalRounds[atual].status`        | `rejected` na recusa; `approved` no fechamento                   | Recusa / fechamento         |
+| `approvalRounds[atual].completedDate` | Data de encerramento                                             | Fechamento                  |
+| `approvalTracks[time].status`         | `rejected` na recusa; resultado no fechamento                    | Só rodadas de um time       |
+| `approvalStatus`                      | `rejected` na recusa; `approved` **só quando o BID é concluído** | Recusa / conclusão          |
+| `currentStatus` / `currentPhase`      | `Completed` / `Close Out`                                        | Só quando o BID é concluído |
+| `completedDate`                       | Data de encerramento                                             | Só quando o BID é concluído |
 
 O BID é concluído quando a rodada fecha aprovada e, se ela for de um time, todos os times de `tracks`
 estão `approved` em `approvalTracks` (passo 16.3).
@@ -675,8 +675,8 @@ o fluxo procura a rodada pelo número, e não pela posição na lista.
 a. **Filter array `filBidRound`** — a rodada com o número desta execução.
 **Ação:** Data Operation → **Filter array**. **Nome:** `filBidRound`.
 
-| Campo | Como preencher | Valor                                                       |
-| ----- | -------------- | ----------------------------------------------------------- |
+| Campo | Como preencher | Valor                                                        |
+| ----- | -------------- | ------------------------------------------------------------ |
 | From  | fx             | `coalesce(body('Parse_BID')?['approvalRounds'], json('[]'))` |
 
 | Esquerda (fx)              | Operador    | Direita                            |
@@ -687,20 +687,20 @@ b. **Filter array `filNewerTrackRound`** — rodadas mais novas do mesmo time (n
 aprovações únicas mais novas).
 **Ação:** Data Operation → **Filter array**. **Nome:** `filNewerTrackRound`.
 
-| Campo | Como preencher | Valor                                                       |
-| ----- | -------------- | ----------------------------------------------------------- |
+| Campo | Como preencher | Valor                                                        |
+| ----- | -------------- | ------------------------------------------------------------ |
 | From  | fx             | `coalesce(body('Parse_BID')?['approvalRounds'], json('[]'))` |
 
-| Esquerda (fx)                                                                                                    | Operador    | Direita   |
-| ---------------------------------------------------------------------------------------------------------------- | ----------- | --------- |
+| Esquerda (fx)                                                                                                               | Operador    | Direita   |
+| --------------------------------------------------------------------------------------------------------------------------- | ----------- | --------- |
 | `and(equals(coalesce(item()?['track'], ''), variables('varTrack')), greater(int(item()?['round']), variables('varRound')))` | is equal to | fx `true` |
 
 c. **Compose `comLastBidRound`** — a rodada desta execução (o nome antigo foi mantido para não mudar
 os passos 6.7 e 6.11).
 **Ação:** Data Operation → **Compose**. **Nome:** `comLastBidRound`.
 
-| Campo  | Como preencher | Valor                       |
-| ------ | -------------- | --------------------------- |
+| Campo  | Como preencher | Valor                        |
+| ------ | -------------- | ---------------------------- |
 | Inputs | fx             | `first(body('filBidRound'))` |
 
 **Fluxo já criado:** o `comLastBidRound` antigo usava `last(...)`. Crie `filBidRound` e
@@ -759,9 +759,9 @@ os passos 6.7 e 6.11).
 **Ação:** Mail → **Send an email notification (V3)**. **Nome:** `Send_fail_bid`.
 **To** (fx): `variables('varAdminEmail')`. Subject e Body:
 
-| Campo   | Como preencher | Valor                                                                                                                                                                                                                                                                                                                                                                                      |
-| ------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Subject | Texto + fx     | `SmartBid – rodada não iniciada: BID @{variables('varBidNumber')}, rodada @{variables('varRound')}`                                                                                                                                                                                                                                                                                        |
+| Campo   | Como preencher | Valor                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Subject | Texto + fx     | `SmartBid – rodada não iniciada: BID @{variables('varBidNumber')}, rodada @{variables('varRound')}`                                                                                                                                                                                                                                                                                                                       |
 | Body    | Texto + fx     | `Após 5 tentativas o BID não ficou pronto. Itens na smartbid-tracker com Title = @{variables('varBidNumber')}: @{length(body('Get_items')?['value'])} (esperado: 1). Rodada @{variables('varRound')} no BID: status @{outputs('comLastBidRound')?['status']} (esperado: pending, sem override). Rodadas mais novas do mesmo time: @{length(body('filNewerTrackRound'))} (esperado: 0). Nenhum chat ou pedido foi criado.` |
 
 **6.12) `Terminate_fail_bid`** — no ramo **False**, abaixo da 6.11.
@@ -851,9 +851,9 @@ Membros = aprovadores + engenheiros responsáveis + analistas, sem repetição e
 
 **Ação:** Microsoft Teams → **Create a chat**. **Nome:** `Create_a_chat`.
 
-| Campo          | Como preencher | Valor                                                                            |
-| -------------- | -------------- | -------------------------------------------------------------------------------- |
-| Members to add | fx             | `join(body('filChatMembers'), ';')`                                              |
+| Campo          | Como preencher | Valor                                                                                                                                                                   |
+| -------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Members to add | fx             | `join(body('filChatMembers'), ';')`                                                                                                                                     |
 | Title          | Texto + fx     | `SmartBid Approval - @{variables('varClient')} - @{variables('varProjectName')}@{if(empty(variables('varTrackLabel')), '', concat(' - ', variables('varTrackLabel')))}` |
 
 Com approval secundário, cada time tem o seu chat; o título termina com o time (ex.:
@@ -1056,17 +1056,17 @@ d. **Compose `comPersonSectors`** — Inputs (fx): `join(body('selPersonSectors'
 
 **Ação:** Approvals → **Create an approval**. **Nome:** `Create_person_approval`.
 
-| Campo                 | Como preencher | Valor                                                                                                                                   |
-| --------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Approval type         | Lista          | **Approve/Reject - First to respond**                                                                                                   |
+| Campo                 | Como preencher | Valor                                                                                                                                                                                                                              |
+| --------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Approval type         | Lista          | **Approve/Reject - First to respond**                                                                                                                                                                                              |
 | Title                 | Texto + fx     | `SmartBid — @{variables('varProjectName')} · @{variables('varClient')} — Rodada @{variables('varRound')}@{if(empty(variables('varTrackLabel')), '', concat(' (', variables('varTrackLabel'), ')'))} — @{outputs('comPersonName')}` |
-| Assigned to           | fx             | `items('Apply_to_each_person')`                                                                                                         |
-| Details               | Texto + fx     | bloco abaixo                                                                                                                            |
-| Item link             | fx             | `variables('varDeepLink')`                                                                                                              |
-| Item link description | Texto          | `Abrir BID no SmartBid`                                                                                                                 |
-| Requestor             | fx             | `body('Parse_JSON')?['requestedBy']?['email']` (se o campo existir na sua versão)                                                       |
-| Enable notifications  | Lista          | **Yes** — a pessoa recebe a notificação no Teams (Approvals) e por e-mail                                                               |
-| Enable reassignment   | Lista          | **No**                                                                                                                                  |
+| Assigned to           | fx             | `items('Apply_to_each_person')`                                                                                                                                                                                                    |
+| Details               | Texto + fx     | bloco abaixo                                                                                                                                                                                                                       |
+| Item link             | fx             | `variables('varDeepLink')`                                                                                                                                                                                                         |
+| Item link description | Texto          | `Abrir BID no SmartBid`                                                                                                                                                                                                            |
+| Requestor             | fx             | `body('Parse_JSON')?['requestedBy']?['email']` (se o campo existir na sua versão)                                                                                                                                                  |
+| Enable notifications  | Lista          | **Yes** — a pessoa recebe a notificação no Teams (Approvals) e por e-mail                                                                                                                                                          |
+| Enable reassignment   | Lista          | **No**                                                                                                                                                                                                                             |
 
 Details:
 
@@ -1292,8 +1292,8 @@ d1. **Filter array `filThisRound_inc`** — From (fx)
 d2. **Filter array `filNewerRound_inc`** — From (fx)
 `coalesce(body('Parse_BID_inc')?['approvalRounds'], json('[]'))`:
 
-| Esquerda (fx)                                                                                                    | Operador    | Direita   |
-| ---------------------------------------------------------------------------------------------------------------- | ----------- | --------- |
+| Esquerda (fx)                                                                                                               | Operador    | Direita   |
+| --------------------------------------------------------------------------------------------------------------------------- | ----------- | --------- |
 | `and(equals(coalesce(item()?['track'], ''), variables('varTrack')), greater(int(item()?['round']), variables('varRound')))` | is equal to | fx `true` |
 
 d3. **Compose `comLastRound_inc`** — Inputs (fx):
@@ -1784,8 +1784,8 @@ d1. **Filter array `filThisRound_final`** — From (fx)
 d2. **Filter array `filNewerRound_final`** — From (fx)
 `coalesce(body('Parse_BID_final')?['approvalRounds'], json('[]'))`:
 
-| Esquerda (fx)                                                                                                    | Operador    | Direita   |
-| ---------------------------------------------------------------------------------------------------------------- | ----------- | --------- |
+| Esquerda (fx)                                                                                                               | Operador    | Direita   |
+| --------------------------------------------------------------------------------------------------------------------------- | ----------- | --------- |
 | `and(equals(coalesce(item()?['track'], ''), variables('varTrack')), greater(int(item()?['round']), variables('varRound')))` | is equal to | fx `true` |
 
 d3. **Compose `comLastRound_final`** — Inputs (fx): `first(body('filThisRound_final'))`
@@ -1843,12 +1843,12 @@ não é gravado (h4).
 h2. **Filter array `filOpenTracks_final`** — abaixo de h1. Os times de `varTracks` que ainda não
 aprovaram, já contando esta rodada.
 
-| Campo | Como preencher | Valor                     |
-| ----- | -------------- | ------------------------- |
-| From  | fx             | `variables('varTracks')`  |
+| Campo | Como preencher | Valor                    |
+| ----- | -------------- | ------------------------ |
+| From  | fx             | `variables('varTracks')` |
 
-| Esquerda (fx)                                                              | Operador    | Direita    |
-| -------------------------------------------------------------------------- | ----------- | ---------- |
+| Esquerda (fx)                                                               | Operador    | Direita    |
+| --------------------------------------------------------------------------- | ----------- | ---------- |
 | `equals(string(outputs('comTracksFinal')?[item()]?['status']), 'approved')` | is equal to | fx `false` |
 
 h3. **Compose `comBidCompleted`** — abaixo de h2. `true` quando esta rodada conclui o BID. Inputs (fx):
@@ -1857,11 +1857,11 @@ h3. **Compose `comBidCompleted`** — abaixo de h2. `true` quando esta rodada co
 and(equals(outputs('comFinalOutcome'), 'approved'), or(empty(variables('varTrack')), equals(length(body('filOpenTracks_final')), 0)))
 ```
 
-| Rodada            | Resultado  | `comBidCompleted`                                   |
-| ----------------- | ---------- | --------------------------------------------------- |
-| Aprovação única   | `approved` | `true` (como antes)                                 |
-| De um time        | `approved` | `true` só se os outros times já estão `approved`    |
-| Qualquer          | `rejected` | `false`                                             |
+| Rodada          | Resultado  | `comBidCompleted`                                |
+| --------------- | ---------- | ------------------------------------------------ |
+| Aprovação única | `approved` | `true` (como antes)                              |
+| De um time      | `approved` | `true` só se os outros times já estão `approved` |
+| Qualquer        | `rejected` | `false`                                          |
 
 h4. **Compose `comBidBase_final`** — abaixo de h3. Rodadas atualizadas e, numa rodada de um time, os
 status dos times. Inputs (fx):
@@ -1877,7 +1877,7 @@ if(outputs('comBidCompleted'), setProperty(setProperty(setProperty(setProperty(o
 ```
 
 - **BID concluído** (`comBidCompleted`): rodada `approved` + `completedDate`; BID `approvalStatus =
-  approved`, `currentStatus = Completed`, `currentPhase = Close Out`, `completedDate`.
+approved`, `currentStatus = Completed`, `currentPhase = Close Out`, `completedDate`.
 - **Time aprovado, outro time pendente:** só a rodada e o status do time. `approvalStatus`,
   `currentStatus`, `currentPhase` e `completedDate` do BID não mudam.
 - **Rejeitada:** rodada `rejected` + `completedDate` da rodada; no BID só `approvalStatus = rejected`
@@ -1979,26 +1979,26 @@ f. **Join `joinStatusMD_final`** — From (fx) `body('selStatusMD_final')`; Join
 g. **Update an adaptive card in a chat or channel `Update_StatusCard_final`** — mesmos campos do
 `Update_StatusCard` (passo 14.10 j), com estes tokens:
 
-| Token                  | Substituir por                                                                                                                                             |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `[[BID_NUMBER]]`       | `@{variables('varBidNumber')}`                                                                                                                             |
-| `[[CLIENT]]`           | `@{variables('varClient')}`                                                                                                                                |
-| `[[PROJECT_NAME]]`     | `@{variables('varProjectName')}`                                                                                                                           |
-| `[[CRM_NUMBER]]`       | `@{variables('varCrmNumber')}`                                                                                                                             |
+| Token                  | Substituir por                                                                                                                                                                                                               |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[[BID_NUMBER]]`       | `@{variables('varBidNumber')}`                                                                                                                                                                                               |
+| `[[CLIENT]]`           | `@{variables('varClient')}`                                                                                                                                                                                                  |
+| `[[PROJECT_NAME]]`     | `@{variables('varProjectName')}`                                                                                                                                                                                             |
+| `[[CRM_NUMBER]]`       | `@{variables('varCrmNumber')}`                                                                                                                                                                                               |
 | `[[STATUS_BADGE]]`     | `@{if(equals(outputs('comFinalOutcome'), 'approved'), if(equals(outputs('comBidCompleted'), true), '✅ Concluído', '✅ Time aprovado'), if(equals(outputs('comFinalOutcome'), 'rejected'), '❌ Rejeitado', '⌛ Expirado'))}` |
-| `[[PROGRESS_BAR]]`     | `@{outputs('comProgressBar_final')}`                                                                                                                       |
-| `[[APPROVED_COUNT]]`   | `@{outputs('comApprovedPeople_final')}`                                                                                                                    |
-| `[[TOTAL_COUNT]]`      | `@{length(outputs('comUniqueApproverEmails'))}`                                                                                                            |
-| `[[APPROVER_LIST_MD]]` | `@{body('joinStatusMD_final')}`                                                                                                                            |
-| `[[UPDATED_AT]]`       | `@{convertFromUtc(utcNow(), 'E. South America Standard Time', 'dd/MM HH:mm')}`                                                                             |
+| `[[PROGRESS_BAR]]`     | `@{outputs('comProgressBar_final')}`                                                                                                                                                                                         |
+| `[[APPROVED_COUNT]]`   | `@{outputs('comApprovedPeople_final')}`                                                                                                                                                                                      |
+| `[[TOTAL_COUNT]]`      | `@{length(outputs('comUniqueApproverEmails'))}`                                                                                                                                                                              |
+| `[[APPROVER_LIST_MD]]` | `@{body('joinStatusMD_final')}`                                                                                                                                                                                              |
+| `[[UPDATED_AT]]`       | `@{convertFromUtc(utcNow(), 'E. South America Standard Time', 'dd/MM HH:mm')}`                                                                                                                                               |
 
 #### 18) Card final e notificação de conclusão (somente quando o BID é concluído)
 
 **Condition `Condition_final_approved`** — abaixo de `Update_StatusCard_final`.
 
-| Esquerda (fx)                                      | Operador    | Direita   |
-| -------------------------------------------------- | ----------- | --------- |
-| `equals(outputs('comBidCompleted'), true)`         | is equal to | fx `true` |
+| Esquerda (fx)                              | Operador    | Direita   |
+| ------------------------------------------ | ----------- | --------- |
+| `equals(outputs('comBidCompleted'), true)` | is equal to | fx `true` |
 
 `comBidCompleted` (passo 16.3 h3) só é `true` quando esta rodada conclui o BID: numa aprovação única,
 quando todos aprovam; com approval secundário, quando o outro time também já aprovou.
@@ -2368,14 +2368,14 @@ administrador e termina como **Failed** (passo 15.7).
 
 ## 9. SPFx — como o app acompanha a rodada
 
-| O quê                  | Onde no código                                         | Comportamento                                                                                                                                                                                                                                                                |
-| ---------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Decisões e comentários | `IBid.approvals`, `approvalRounds`, `approvalStatus`   | O app só lê o que o fluxo grava no JSON do BID. O comentário fica em `IBidApproval.comments`.                                                                                                                                                                                |
-| Atualização sem F5     | `hooks/useApprovalSync.ts`, chamado na `BidDetailPage` | Enquanto houver rodada `pending` (de qualquer time), relê o BID aberto a cada 15 s e pausa com a aba do navegador oculta. Aplica só `approvals`, `approvalRounds`, `approvalStatus`, `approvalTracks`, `currentStatus`, `currentPhase` e `completedDate`. Descarta a leitura se um save local começou no meio. |
-| Approval secundário   | `components/bid/ApprovalTab.tsx`, `utils/approvalTracks.ts` | Só para BIDs com dois times. Cada time tem a sua aba, os seus aprovadores (Project e Operation filtrados pela tag do Members Management), o seu Start e o seu override. Ao iniciar, o app grava `approvalTracks` com o status de cada time e `approvals` com as entradas atuais dos dois times. |
-| Saves do app           | `BidService.patchByBidNumber()`                        | Grava com `If-Match` (ETag) e tenta de novo em `412`, como o fluxo. Um save do app não apaga uma decisão gravada pelo fluxo no mesmo instante (teste 14).                                                                                                                    |
-| Comentários            | aba Approval e card _Approval Status_ do Overview      | Texto puro (nunca HTML), com quebras de linha preservadas.                                                                                                                                                                                                                   |
-| Colunas                | `ApprovalService.ensureApprovalColumns()`              | Cria `NativeApprovalId`, `ApproverComments` (texto simples), `LastReminderDate`, `ApprovalTrack` e as opções `Rejected` / `Expired`, se faltarem.                                                                                                                             |
+| O quê                  | Onde no código                                              | Comportamento                                                                                                                                                                                                                                                                                                  |
+| ---------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Decisões e comentários | `IBid.approvals`, `approvalRounds`, `approvalStatus`        | O app só lê o que o fluxo grava no JSON do BID. O comentário fica em `IBidApproval.comments`.                                                                                                                                                                                                                  |
+| Atualização sem F5     | `hooks/useApprovalSync.ts`, chamado na `BidDetailPage`      | Enquanto houver rodada `pending` (de qualquer time), relê o BID aberto a cada 15 s e pausa com a aba do navegador oculta. Aplica só `approvals`, `approvalRounds`, `approvalStatus`, `approvalTracks`, `currentStatus`, `currentPhase` e `completedDate`. Descarta a leitura se um save local começou no meio. |
+| Approval secundário    | `components/bid/ApprovalTab.tsx`, `utils/approvalTracks.ts` | Só para BIDs com dois times. Cada time tem a sua aba, os seus aprovadores (Project e Operation filtrados pela tag do Members Management), o seu Start e o seu override. Ao iniciar, o app grava `approvalTracks` com o status de cada time e `approvals` com as entradas atuais dos dois times.                |
+| Saves do app           | `BidService.patchByBidNumber()`                             | Grava com `If-Match` (ETag) e tenta de novo em `412`, como o fluxo. Um save do app não apaga uma decisão gravada pelo fluxo no mesmo instante (teste 14).                                                                                                                                                      |
+| Comentários            | aba Approval e card _Approval Status_ do Overview           | Texto puro (nunca HTML), com quebras de linha preservadas.                                                                                                                                                                                                                                                     |
+| Colunas                | `ApprovalService.ensureApprovalColumns()`                   | Cria `NativeApprovalId`, `ApproverComments` (texto simples), `LastReminderDate`, `ApprovalTrack` e as opções `Rejected` / `Expired`, se faltarem.                                                                                                                                                              |
 
 Ainda não tratado no app:
 
@@ -2442,21 +2442,21 @@ Approval secundário (BID Integrated OPG + SSR, lead OPG):
 
 Ações novas ou alteradas, na ordem do designer. Cada uma está detalhada no seu passo.
 
-| Passo     | O que mudar                                                                                                   |
-| --------- | ------------------------------------------------------------------------------------------------------------- |
-| 4         | Três Initialize variable novas: `varTrack`, `varTrackLabel`, `varTracks`                                      |
-| 6.6       | Criar `filBidRound` e `filNewerTrackRound`; trocar o Inputs de `comLastBidRound`                              |
-| 6.7       | Nova linha 4 em `Condition_round_ready`                                                                       |
-| 6.11      | Body do `Send_fail_bid`                                                                                       |
-| 9.1       | Title do `Create_a_chat`                                                                                      |
-| 13.2      | Campo `ApprovalTrack` no `Create_ApproverRow`                                                                 |
-| 14.2      | Title e Details do `Create_person_approval`                                                                   |
-| 14.7      | Criar `filThisRound_inc` e `filNewerRound_inc`; trocar `comLastRound_inc` e `comCanWrite_inc`; criar `comBidInc_track`; Body do `Send_HTTP_inc` |
-| 14.11 d   | Body do `Post_notify_response`                                                                                |
-| 16.3      | Criar `filThisRound_final` e `filNewerRound_final`; trocar `comLastRound_final` e `comCanWrite_final`; criar `comTracksFinal`, `filOpenTracks_final`, `comBidCompleted`, `comBidBase_final`; trocar `comBidFinal` |
-| 17 g      | Token `[[STATUS_BADGE]]` do `Update_StatusCard_final`                                                         |
-| 18        | Esquerda de `Condition_final_approved`; headline do `Post_notify_completed`; criar `Condition_team_approved` e `Post_msg_team_approved` |
-| §4 4.8    | Message do `Post_msg_reminder`                                                                                |
+| Passo   | O que mudar                                                                                                                                                                                                       |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4       | Três Initialize variable novas: `varTrack`, `varTrackLabel`, `varTracks`                                                                                                                                          |
+| 6.6     | Criar `filBidRound` e `filNewerTrackRound`; trocar o Inputs de `comLastBidRound`                                                                                                                                  |
+| 6.7     | Nova linha 4 em `Condition_round_ready`                                                                                                                                                                           |
+| 6.11    | Body do `Send_fail_bid`                                                                                                                                                                                           |
+| 9.1     | Title do `Create_a_chat`                                                                                                                                                                                          |
+| 13.2    | Campo `ApprovalTrack` no `Create_ApproverRow`                                                                                                                                                                     |
+| 14.2    | Title e Details do `Create_person_approval`                                                                                                                                                                       |
+| 14.7    | Criar `filThisRound_inc` e `filNewerRound_inc`; trocar `comLastRound_inc` e `comCanWrite_inc`; criar `comBidInc_track`; Body do `Send_HTTP_inc`                                                                   |
+| 14.11 d | Body do `Post_notify_response`                                                                                                                                                                                    |
+| 16.3    | Criar `filThisRound_final` e `filNewerRound_final`; trocar `comLastRound_final` e `comCanWrite_final`; criar `comTracksFinal`, `filOpenTracks_final`, `comBidCompleted`, `comBidBase_final`; trocar `comBidFinal` |
+| 17 g    | Token `[[STATUS_BADGE]]` do `Update_StatusCard_final`                                                                                                                                                             |
+| 18      | Esquerda de `Condition_final_approved`; headline do `Post_notify_completed`; criar `Condition_team_approved` e `Post_msg_team_approved`                                                                           |
+| §4 4.8  | Message do `Post_msg_reminder`                                                                                                                                                                                    |
 
 No fluxo `SmartBid – Notifications`, troque o Inputs de `comBusinessLines`
 ([NOTIFICATIONS.md](./NOTIFICATIONS.md), passo 9.3).

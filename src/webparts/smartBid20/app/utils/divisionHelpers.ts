@@ -40,7 +40,8 @@ function ssrLines(serviceLine: string | null | undefined): BusinessLine[] {
   const sl = (serviceLine || "").trim().toLowerCase();
   if (sl === "rov") return ["ROV"];
   if (sl === "survey") return ["SURVEY"];
-  if (sl === SSR_INTEGRATED_SERVICE_LINE.toLowerCase()) return ["ROV", "SURVEY"];
+  if (sl === SSR_INTEGRATED_SERVICE_LINE.toLowerCase())
+    return ["ROV", "SURVEY"];
   return [];
 }
 
@@ -138,7 +139,11 @@ export function buildDivisionFields(
   integratedLines?: IIntegratedLines,
 ): Pick<
   IBid,
-  "division" | "serviceLine" | "leadDivision" | "integratedLines" | "businessLines"
+  | "division"
+  | "serviceLine"
+  | "leadDivision"
+  | "integratedLines"
+  | "businessLines"
 > {
   if (isIntegratedDivision(division)) {
     const lead: BaseDivision = leadDivision === "SSR" ? "SSR" : "OPG";

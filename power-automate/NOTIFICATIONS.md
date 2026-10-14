@@ -75,18 +75,18 @@ flowchart TD
 
 **Um evento por ação.** Quando uma ação muda várias coisas, o app envia só o evento mais específico:
 
-| Ação                                            | Evento enviado                            |
-| ----------------------------------------------- | ----------------------------------------- |
-| Assign (muda fase e status)                     | `BID_ASSIGNED`                            |
-| Status → Completed (com ou sem mudança de fase) | `BID_COMPLETED`                           |
-| Status → Canceled / Client Canceled             | `BID_CANCELED`                            |
-| Entrar ou sair de On Hold                       | `BID_ON_HOLD`                             |
-| Start New Revision (vai para Rework)            | `REVISION_STARTED`                        |
-| Request Approvals (vai para Pending Approval)   | `APPROVAL_STARTED`                        |
-| Override Approval                               | `APPROVAL_OVERRIDE` **e** `BID_COMPLETED` |
+| Ação                                            | Evento enviado                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------ |
+| Assign (muda fase e status)                     | `BID_ASSIGNED`                                                     |
+| Status → Completed (com ou sem mudança de fase) | `BID_COMPLETED`                                                    |
+| Status → Canceled / Client Canceled             | `BID_CANCELED`                                                     |
+| Entrar ou sair de On Hold                       | `BID_ON_HOLD`                                                      |
+| Start New Revision (vai para Rework)            | `REVISION_STARTED`                                                 |
+| Request Approvals (vai para Pending Approval)   | `APPROVAL_STARTED`                                                 |
+| Override Approval                               | `APPROVAL_OVERRIDE` **e** `BID_COMPLETED`                          |
 | Override de um time (approval secundário)       | `APPROVAL_OVERRIDE`; `BID_COMPLETED` só se o outro time já aprovou |
-| Fase mudou (e o status também)                  | `PHASE_CHANGED`                           |
-| Só o status mudou                               | `STATUS_CHANGED`                          |
+| Fase mudou (e o status também)                  | `PHASE_CHANGED`                                                    |
+| Só o status mudou                               | `STATUS_CHANGED`                                                   |
 
 `BID_COMPLETED` e `BID_CANCELED` usam a chave `EVENTO|BID|rev{quantidade de revisões}`. O app e o fluxo
 de aprovação geram a mesma chave, então a conclusão nunca é enviada duas vezes. Em BIDs com approval
@@ -502,15 +502,15 @@ a cada save (lead primeiro); a regra antiga só vale para BIDs que ainda não t�
 if(greater(length(coalesce(outputs('comBid')?['businessLines'], json('[]'))), 0), outputs('comBid')?['businessLines'], if(equals(toLower(coalesce(outputs('comBid')?['serviceLine'], '')), 'integrated'), createArray('ROV', 'SURVEY'), if(equals(toLower(coalesce(outputs('comBid')?['serviceLine'], '')), 'rov'), createArray('ROV'), if(equals(toLower(coalesce(outputs('comBid')?['serviceLine'], '')), 'survey'), createArray('SURVEY'), if(startsWith(toUpper(coalesce(outputs('comBid')?['division'], '')), 'OPG'), createArray('OPG'), createArray('ROV', 'SURVEY'))))))
 ```
 
-| Service Line / Divisão do BID                     | Business Lines                    |
-| ------------------------------------------------- | --------------------------------- |
-| Campo `businessLines` no BID                      | Usado como está                   |
-| Divisão `INTEGRATED` (ex.: UWILD + ROV)           | OPG e ROV (vem de `businessLines`) |
-| `Integrated` (SSR)                                | ROV e SURVEY                      |
-| `ROV`                                             | ROV                               |
-| `Survey`                                          | SURVEY                            |
-| Divisão `OPG`                                     | OPG                               |
-| Outros casos (SSR)                                | ROV e SURVEY                      |
+| Service Line / Divisão do BID           | Business Lines                     |
+| --------------------------------------- | ---------------------------------- |
+| Campo `businessLines` no BID            | Usado como está                    |
+| Divisão `INTEGRATED` (ex.: UWILD + ROV) | OPG e ROV (vem de `businessLines`) |
+| `Integrated` (SSR)                      | ROV e SURVEY                       |
+| `ROV`                                   | ROV                                |
+| `Survey`                                | SURVEY                             |
+| Divisão `OPG`                           | OPG                                |
+| Outros casos (SSR)                      | ROV e SURVEY                       |
 
 **Fluxo já criado:** troque o Inputs de `comBusinessLines` pela expressão acima. Um BID Integrated
 salvo pelo app sempre tem `businessLines`; sem a troca, ele cairia em "Outros casos" e o time OPG

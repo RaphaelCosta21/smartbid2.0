@@ -1598,9 +1598,7 @@ export const CreateRequestPage: React.FC = () => {
                   </>
                 ) : (
                   <div className={styles.reviewCell}>
-                    <span className={styles.reviewCellLabel}>
-                      Service Line
-                    </span>
+                    <span className={styles.reviewCellLabel}>Service Line</span>
                     <span className={styles.reviewCellValue}>
                       {form.serviceLine || "-"}
                     </span>

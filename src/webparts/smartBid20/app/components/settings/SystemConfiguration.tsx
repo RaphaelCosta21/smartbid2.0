@@ -1581,8 +1581,8 @@ const SystemConfiguration: React.FC = () => {
               <div className={styles.optionsList}>
                 {isIntegratedDivision(div.value) && (
                   <div className={styles.emptyHint}>
-                    Integrated BIDs pick one OPG and one SSR service line
-                    (ROV or Survey) and choose the lead division.
+                    Integrated BIDs pick one OPG and one SSR service line (ROV
+                    or Survey) and choose the lead division.
                   </div>
                 )}
                 {lines.length === 0 && !isIntegratedDivision(div.value) && (

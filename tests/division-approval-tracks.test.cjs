@@ -79,7 +79,9 @@ test("business lines per division and service line", () => {
   const lines = (b) => Array.from(div.getBidBusinessLines(b));
   assert.deepEqual(lines({ division: "OPG", serviceLine: "UWILD" }), ["OPG"]);
   assert.deepEqual(lines({ division: "SSR", serviceLine: "ROV" }), ["ROV"]);
-  assert.deepEqual(lines({ division: "SSR", serviceLine: "Survey" }), ["SURVEY"]);
+  assert.deepEqual(lines({ division: "SSR", serviceLine: "Survey" }), [
+    "SURVEY",
+  ]);
   assert.deepEqual(lines({ division: "SSR", serviceLine: "Integrated" }), [
     "ROV",
     "SURVEY",
@@ -116,16 +118,28 @@ test("division fields compose the INTEGRATED service line and clear it otherwise
 
 test("INTEGRATED service line options exclude the SSR Integrated line", () => {
   const lines = [
-    { id: "1", label: "UWILD", value: "UWILD", category: "OPG", isActive: true },
+    {
+      id: "1",
+      label: "UWILD",
+      value: "UWILD",
+      category: "OPG",
+      isActive: true,
+    },
     { id: "2", label: "ROV", value: "ROV", category: "SSR", isActive: true },
-    { id: "3", label: "Integrated", value: "Integrated", category: "SSR", isActive: true },
+    {
+      id: "3",
+      label: "Integrated",
+      value: "Integrated",
+      category: "SSR",
+      isActive: true,
+    },
   ];
   const values = (list) => list.map((o) => o.value);
   assert.deepEqual(values(div.integratedLineOptions(lines, "SSR")), ["ROV"]);
-  assert.deepEqual(values(div.serviceLineOptionsForDivision(lines, "INTEGRATED")), [
-    "UWILD",
-    "ROV",
-  ]);
+  assert.deepEqual(
+    values(div.serviceLineOptionsForDivision(lines, "INTEGRATED")),
+    ["UWILD", "ROV"],
+  );
   assert.deepEqual(values(div.serviceLineOptionsForDivision(lines, "SSR")), [
     "ROV",
     "Integrated",
@@ -153,7 +167,10 @@ test("retag moves items of a removed team to the remaining one", () => {
       { id: "b", integratedDivision: "OPG" },
     ],
     hoursSummary: {
-      engineeringHours: { items: [{ integratedDivision: "ROV" }], engineeringItems: [] },
+      engineeringHours: {
+        items: [{ integratedDivision: "ROV" }],
+        engineeringItems: [],
+      },
       onshoreHours: { items: [] },
       offshoreHours: { items: [] },
     },
@@ -164,7 +181,10 @@ test("retag moves items of a removed team to the remaining one", () => {
     patch.scopeItems.map((i) => i.integratedDivision),
     ["OPG", "OPG"],
   );
-  assert.equal(patch.hoursSummary.engineeringHours.items[0].integratedDivision, "OPG");
+  assert.equal(
+    patch.hoursSummary.engineeringHours.items[0].integratedDivision,
+    "OPG",
+  );
   assert.equal(patch.assetBreakdown, undefined);
 });
 
@@ -177,26 +197,37 @@ test("secondary approval candidates and tracks", () => {
     "SURVEY",
   ]);
   assert.deepEqual(
-    Array.from(tracks.getSecondaryCandidates({ division: "OPG", serviceLine: "IMR" })),
+    Array.from(
+      tracks.getSecondaryCandidates({ division: "OPG", serviceLine: "IMR" }),
+    ),
     [],
   );
   assert.deepEqual(
-    Array.from(tracks.getApprovalTracks({ ...opgLead, approvalSecondaryLine: "ROV" })),
+    Array.from(
+      tracks.getApprovalTracks({ ...opgLead, approvalSecondaryLine: "ROV" }),
+    ),
     ["OPG", "ROV"],
   );
   assert.deepEqual(
-    Array.from(tracks.getApprovalTracks({ ...ssrInt, approvalSecondaryLine: "ROV" })),
+    Array.from(
+      tracks.getApprovalTracks({ ...ssrInt, approvalSecondaryLine: "ROV" }),
+    ),
     ["SURVEY", "ROV"],
   );
   assert.equal(tracks.isSplitApproval(opgLead), false);
 });
 
 test("split status: each team keeps its own latest round", () => {
-  const base = { ...integrated("OPG", "UWILD", "ROV"), approvalSecondaryLine: "ROV" };
+  const base = {
+    ...integrated("OPG", "UWILD", "ROV"),
+    approvalSecondaryLine: "ROV",
+  };
   const at = (rounds) => ({ ...base, approvalRounds: rounds });
 
   assert.equal(tracks.getSplitApprovalStatus(at([])), "not-started");
-  const primaryPending = at([round(1, "OPG", "pending", "2026-10-01T00:00:00Z")]);
+  const primaryPending = at([
+    round(1, "OPG", "pending", "2026-10-01T00:00:00Z"),
+  ]);
   assert.equal(tracks.getSplitApprovalStatus(primaryPending), "pending");
   assert.equal(tracks.hasPendingApprovalRound(primaryPending), true);
 
@@ -221,7 +252,10 @@ test("split status: each team keeps its own latest round", () => {
 });
 
 test("a later single round or a reopened completed BID supersedes team rounds", () => {
-  const base = { ...integrated("OPG", "UWILD", "ROV"), approvalSecondaryLine: "ROV" };
+  const base = {
+    ...integrated("OPG", "UWILD", "ROV"),
+    approvalSecondaryLine: "ROV",
+  };
   const withSingle = {
     ...base,
     approvalRounds: [
@@ -248,7 +282,9 @@ test("a later single round or a reopened completed BID supersedes team rounds", 
       round(1, "OPG", "approved", "2026-10-01T00:00:00Z"),
       round(2, "ROV", "rejected", "2026-10-02T00:00:00Z"),
     ],
-    statusHistory: [{ status: "Pending Approval", start: "2026-10-01T00:00:00Z" }],
+    statusHistory: [
+      { status: "Pending Approval", start: "2026-10-01T00:00:00Z" },
+    ],
     revisions: [{ openedDate: "2026-10-04T00:00:00Z", closedDate: null }],
   };
   assert.equal(tracks.getTrackStatus(reworkAfterRejection, "OPG"), "approved");
@@ -302,8 +338,14 @@ test("split completion logs each team once and the BID completion once", () => {
     currentStatus: "Completed",
     completedDate: "2026-10-06T00:00:00Z",
     approvalRounds: [
-      { ...round(1, "OPG", "approved", "2026-10-01T00:00:00Z"), completedDate: "2026-10-02T00:00:00Z" },
-      { ...round(2, "ROV", "approved", "2026-10-03T00:00:00Z"), completedDate: "2026-10-05T00:00:00Z" },
+      {
+        ...round(1, "OPG", "approved", "2026-10-01T00:00:00Z"),
+        completedDate: "2026-10-02T00:00:00Z",
+      },
+      {
+        ...round(2, "ROV", "approved", "2026-10-03T00:00:00Z"),
+        completedDate: "2026-10-05T00:00:00Z",
+      },
     ],
     activityLog: [],
   };
