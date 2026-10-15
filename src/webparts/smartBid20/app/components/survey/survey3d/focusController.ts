@@ -35,6 +35,12 @@ const PLINTH = {
   portal: 0x009b77,
   trace: 0xdc4405,
   selected: 0xffffff,
+  // Analysis overlays (OII palette): failure cascade and BID gap.
+  fault: 0xc8102e,
+  offline: 0x394855,
+  gapCovered: 0x009b77,
+  gapMissing: 0xc8102e,
+  gapExtra: 0xffc72c,
 };
 
 const EMERGE_SECONDS = 0.9;
@@ -55,6 +61,9 @@ const EMPTY_STATES: SceneNodeStates = {
   traceNodeIds: [],
   traceLinkKeys: [],
   hoverLinkKeys: [],
+  overlay: "none",
+  faultNodeId: null,
+  offlineNodeIds: [],
 };
 
 export class FocusController {
@@ -198,9 +207,12 @@ export class FocusController {
         .lerpVectors(e.origin, e.target, k)
         .addScaledVector(up, Math.sin(Math.PI * k) * 1.4);
 
+      const s = this.states;
       let stateScale = 1;
-      if (this.states.selectedNodeId === id) stateScale = 1.2 + Math.sin(time * 4) * 0.05;
-      else if (this.states.hoverNodeId === id) stateScale = 1.12;
+      if (s.overlay === "fault" && s.faultNodeId === id) stateScale = 1.2 + Math.sin(time * 6) * 0.08;
+      else if (s.overlay === "fault" && s.offlineNodeIds.indexOf(id) >= 0) stateScale = 0.72;
+      else if (s.selectedNodeId === id) stateScale = 1.2 + Math.sin(time * 4) * 0.05;
+      else if (s.hoverNodeId === id) stateScale = 1.12;
       else if (trace.length > 0 && trace.indexOf(id) < 0) stateScale = 0.8;
       e.group.scale.setScalar(Math.max(0.001, easeOutBack(local)) * stateScale);
       if (!this.reducedMotion) e.model.rotation.y = Math.sin(time * 0.6 + e.phase) * 0.35;
@@ -257,7 +269,18 @@ export class FocusController {
     Object.keys(this.entries).forEach((id) => {
       const e = this.entries[id];
       let color = PLINTH.normal;
-      if (s.selectedNodeId === id) color = PLINTH.selected;
+      if (s.overlay === "fault") {
+        if (s.faultNodeId === id) color = PLINTH.fault;
+        else if (s.offlineNodeIds.indexOf(id) >= 0) color = PLINTH.offline;
+        else if (e.node.role === "portal") color = PLINTH.portal;
+      } else if (s.overlay === "gap") {
+        if (s.selectedNodeId === id) color = PLINTH.selected;
+        else if (e.node.role === "portal") color = PLINTH.portal;
+        else if (e.node.role === "catalog" && e.node.bidState === "in") color = PLINTH.gapExtra;
+        else if (e.node.bidState === "in") color = PLINTH.gapCovered;
+        else if (e.node.bidState === "out") color = PLINTH.gapMissing;
+        else color = PLINTH.catalog;
+      } else if (s.selectedNodeId === id) color = PLINTH.selected;
       else if (s.traceNodeIds.indexOf(id) >= 0) color = PLINTH.trace;
       else if (e.node.role === "portal") color = PLINTH.portal;
       else if (e.node.vesselSupplied || e.node.bidState === "out") color = PLINTH.vessel;

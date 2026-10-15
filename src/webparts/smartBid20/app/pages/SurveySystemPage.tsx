@@ -8,6 +8,10 @@ import { SurveyEquipmentDetail } from "../components/survey/SurveyEquipmentDetai
 import { SurveyAddToPackageDialog } from "../components/survey/SurveyAddToPackageDialog";
 import { SurveyPackageDrawer } from "../components/survey/SurveyPackageDrawer";
 import { SurveySpreadPanel } from "../components/survey/SurveySpreadPanel";
+import { SurveyFailurePanel } from "../components/survey/SurveyFailurePanel";
+import { SurveyGapPanel } from "../components/survey/SurveyGapPanel";
+import { SurveyMissions } from "../components/survey/SurveyMissions";
+import { SurveyAsk } from "../components/survey/SurveyAsk";
 import type {
   SurveyCableInfo,
   SurveySceneTour,
@@ -23,6 +27,7 @@ import {
   SceneLink,
   SceneNode,
   SceneNodeStates,
+  SceneOverlay,
   SceneTrunk,
   SceneZone,
 } from "../components/survey/survey3d/sceneTypes";
@@ -40,6 +45,7 @@ import {
   ISpreadLinkRef,
   ISpreadNode,
   LineageStageKey,
+  catalogNodes,
   directLinks,
   expandSpreadNodes,
   resolveSceneShape,
@@ -48,6 +54,11 @@ import {
   traceSignalPath,
 } from "../utils/surveySpreadGraph";
 import { buildFreeScene, FREE_SPREAD_ID } from "../utils/surveyFreeScene";
+import { computeFailureImpact, IFailureImpact } from "../utils/surveyFailure";
+import { answerSurveyQuery, ISurveyAnswer } from "../utils/surveyQuery";
+import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useChatStore } from "../stores/useChatStore";
+import { isAiConfigured } from "../config/ai.config";
 import styles from "./SurveySystemPage.module.scss";
 
 const SurveySystemScene = React.lazy(
@@ -86,6 +97,7 @@ const dominantKind = (links: ISpreadLinkRef[]): SurveyLinkKind => {
 };
 
 const SEARCH_HITS_MAX = 8;
+const SOFTWARE_FAMILY_ID = "softwares";
 /** Logical stages appended to the 3D signal path after the wiring hops. */
 const TRACE_LOGICAL_STAGES: LineageStageKey[] = ["acquisition", "storage", "processing", "deliverable"];
 const FINAL_DELIVERABLE_ID = "dlv-final";
@@ -115,6 +127,15 @@ export const SurveySystemPage: React.FC = () => {
   const [hoverNodeId, setHoverNodeId] = React.useState<string | null>(null);
   const [hoverCableKey, setHoverCableKey] = React.useState<string | null>(null);
   const [tourStep, setTourStep] = React.useState<number | null>(null);
+  const [addedSoftware, setAddedSoftware] = React.useState<string[]>([]);
+  const [sceneMode, setSceneMode] = React.useState<SceneOverlay>("none");
+  const [faultNodeId, setFaultNodeId] = React.useState<string | null>(null);
+  const [missionsOpen, setMissionsOpen] = React.useState(false);
+  const [askOpen, setAskOpen] = React.useState(false);
+  const currentUser = useCurrentUser();
+  const openChat = useChatStore((s) => s.open);
+  const sendChat = useChatStore((s) => s.send);
+  const aiAvailable = React.useMemo(() => isAiConfigured(), []);
   const reducedMotion = React.useMemo(
     () =>
       !!window.matchMedia &&
@@ -155,8 +176,23 @@ export const SurveySystemPage: React.FC = () => {
     () => (spread && catalog ? expandSpreadNodes(spread, catalog) : []),
     [spread, catalog],
   );
-  // One-line diagram shows only equipment wired into the spread; catalog-only items are hidden.
-  const nodes = spreadNodes;
+  // Software licenses outside the spread stay listed in the panel until the user adds them.
+  const softwareNodes = React.useMemo(
+    () =>
+      spread && catalog
+        ? catalogNodes(spread, catalog, spreadNodes).filter(
+            (n) =>
+              catalog.equipment.find((e) => e.id === n.equipmentId)?.familyId === SOFTWARE_FAMILY_ID,
+          )
+        : [],
+    [spread, catalog, spreadNodes],
+  );
+  // One-line diagram shows equipment wired into the spread plus the software the user added.
+  const nodes = React.useMemo(
+    () =>
+      spreadNodes.concat(softwareNodes.filter((n) => addedSoftware.indexOf(n.equipmentId) >= 0)),
+    [spreadNodes, softwareNodes, addedSoftware],
+  );
   const links = React.useMemo(
     () => (spread ? resolveSpreadLinks(spread, spreadNodes) : []),
     [spread, spreadNodes],
@@ -406,6 +442,36 @@ export const SurveySystemPage: React.FC = () => {
   const activeZones = isFree && freeScene ? freeScene.zones : sceneZones;
   const activeTrunks = isFree ? [] : trunks;
   const activeFocus = isFree ? (freeScene ? freeScene.focus : null) : focus;
+  // "What if it fails?": the cascade of the node the user clicked while in failure mode.
+  const failureImpact = React.useMemo<IFailureImpact | null>(
+    () =>
+      !isFree && sceneMode === "fault" && faultNodeId
+        ? computeFailureImpact(faultNodeId, nodes, links, pipeline, equipmentById)
+        : null,
+    [isFree, sceneMode, faultNodeId, nodes, links, pipeline, equipmentById],
+  );
+  // BID gap: priced spread lines covered / missing, plus BID items outside this spread.
+  const gapSummary = React.useMemo(() => {
+    if (!considered || !spread || isFree || !comparison) return null;
+    const titleOf = (id: string): string => equipmentById[id]?.title || id;
+    const seen: Record<string, boolean> = {};
+    const missing: string[] = [];
+    let covered = 0;
+    spread.zones.forEach((z) =>
+      z.lines.forEach((l) => {
+        if (seen[l.equipmentId]) return;
+        seen[l.equipmentId] = true;
+        if (l.vesselSupplied) return;
+        if (considered[l.equipmentId]) covered++;
+        else missing.push(titleOf(l.equipmentId));
+      }),
+    );
+    const extras: string[] = [];
+    Object.keys(considered).forEach((id) => {
+      if (considered[id] && !seen[id] && equipmentById[id]) extras.push(titleOf(id));
+    });
+    return { bidNumber: comparison.bid.bidNumber, covered, missing, extras };
+  }, [considered, spread, isFree, comparison, equipmentById]);
   const nodeStates = React.useMemo<SceneNodeStates>(() => {
     const traceNodeIds = trace ? trace.nodeIds.slice() : [];
     // Steps in other rooms light the portal that leads there.
@@ -428,8 +494,23 @@ export const SurveySystemPage: React.FC = () => {
       traceNodeIds,
       traceLinkKeys: trace ? trace.linkKeys : [],
       hoverLinkKeys,
+      overlay: isFree ? "none" : sceneMode,
+      faultNodeId: sceneMode === "fault" ? faultNodeId : null,
+      offlineNodeIds: failureImpact ? failureImpact.offlineNodeIds : [],
     };
-  }, [selectedNodeId, hoverNodeId, packageEquipmentIds, trace, activeZoneId, nodeById, activeFocus]);
+  }, [
+    selectedNodeId,
+    hoverNodeId,
+    packageEquipmentIds,
+    trace,
+    activeZoneId,
+    nodeById,
+    activeFocus,
+    isFree,
+    sceneMode,
+    faultNodeId,
+    failureImpact,
+  ]);
   const tracePath = React.useMemo<SurveyTraceStep[] | null>(() => {
     if (!trace) return null;
     const steps: SurveyTraceStep[] = trace.nodeIds.map((id, i) => ({
@@ -511,6 +592,7 @@ export const SurveySystemPage: React.FC = () => {
   const handleSelect = (id: string): void => {
     selectEquipment(id);
     setDetailOpen(true);
+    setAskOpen(false);
   };
 
   const firstNodeOf = (equipmentId: string): ISpreadNode | undefined =>
@@ -551,6 +633,21 @@ export const SurveySystemPage: React.FC = () => {
 
   // Free scene nodes carry the equipment id directly (no spread wiring behind them).
   const handleSceneNodeSelect = (id: string): void => {
+    // Failure mode: a click sets the fault instead of opening the detail drawer.
+    if (!isFree && sceneMode === "fault") {
+      if (id.indexOf(PORTAL_PREFIX) === 0) {
+        handleZoneSelect(id.slice(PORTAL_PREFIX.length));
+        return;
+      }
+      const node = nodeById[id];
+      if (!node) return;
+      stopTour();
+      if (node.zoneId !== activeZoneId) setActiveZoneId(node.zoneId);
+      setFaultNodeId(id);
+      setSelectedNodeId(null);
+      setDetailOpen(false);
+      return;
+    }
     if (!isFree) {
       handleNodeSelect(id);
       return;
@@ -562,6 +659,70 @@ export const SurveySystemPage: React.FC = () => {
     stopTour();
     setSelectedNodeId(id);
     handleSelect(id);
+  };
+
+  const handleModeChange = (mode: SceneOverlay): void => {
+    setSceneMode(mode);
+    setFaultNodeId(null);
+    if (mode !== "none") {
+      setSelectedNodeId(null);
+      setDetailOpen(false);
+      setAskOpen(false);
+    }
+  };
+
+  // Learning missions and the ask panel share the right drawer with detail/mode panels.
+  const openMissions = (): void => {
+    setMissionsOpen(true);
+    setAskOpen(false);
+  };
+
+  const openAsk = (): void => {
+    setAskOpen(true);
+    setMissionsOpen(false);
+    setSceneMode("none");
+    setFaultNodeId(null);
+    setDetailOpen(false);
+  };
+
+  const handleAsk = (question: string): ISurveyAnswer => {
+    if (!catalog) {
+      return { kind: "empty", intent: "none", title: "Not ready", text: "The catalog is still loading." };
+    }
+    return answerSurveyQuery(question, {
+      catalog,
+      spread: spread || null,
+      nodes,
+      links,
+      pipeline,
+      equipmentById,
+      considered,
+      bidNumber: comparison ? comparison.bid.bidNumber : null,
+    });
+  };
+
+  // An answer chip highlights the node in the 3D scene without swapping the ask panel for a drawer.
+  const handlePickFromAsk = (equipmentId: string, focusNodeId?: string | null): void => {
+    const node = focusNodeId
+      ? nodeById[focusNodeId]
+      : nodes.find((n) => n.equipmentId === equipmentId && n.source !== "catalog");
+    if (node) {
+      stopTour();
+      setSceneMode("none");
+      setFaultNodeId(null);
+      setActiveZoneId(node.zoneId);
+      setSelectedNodeId(node.id);
+      selectEquipment(equipmentId);
+      return;
+    }
+    // Catalog-only item has nothing to highlight: fall back to the detail drawer.
+    setFilters({ search: "" });
+    handleSelect(equipmentId);
+  };
+
+  const handleEscalateAI = (question: string): void => {
+    openChat();
+    sendChat(question).catch(() => undefined);
   };
 
   const handleSearchHit = (id: string): void => {
@@ -579,6 +740,21 @@ export const SurveySystemPage: React.FC = () => {
     const node = nodes.find((n) => n.zoneId === zoneId && n.equipmentId === equipmentId);
     if (node) handleNodeSelect(node.id);
     else handleSelect(equipmentId);
+  };
+
+  const handleToggleSoftware = (equipmentId: string): void => {
+    if (addedSoftware.indexOf(equipmentId) >= 0) {
+      setAddedSoftware((prev) => prev.filter((id) => id !== equipmentId));
+      if (selectedNodeId === equipmentId) setSelectedNodeId(null);
+      return;
+    }
+    const node = softwareNodes.find((n) => n.equipmentId === equipmentId);
+    if (!node) return;
+    stopTour();
+    setAddedSoftware((prev) => prev.concat(equipmentId));
+    setActiveZoneId(node.zoneId);
+    setSelectedNodeId(node.id);
+    handleSelect(equipmentId);
   };
 
   const handleHoverLine = (equipmentId: string | null): void => {
@@ -625,19 +801,25 @@ export const SurveySystemPage: React.FC = () => {
   React.useEffect(() => {
     openZone(null);
     setTourStep(null);
+    setAddedSoftware([]);
+    setSceneMode("none");
+    setFaultNodeId(null);
+    setAskOpen(false);
   }, [spreadId]);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key !== "Escape") return;
-      if (tourStep !== null) setTourStep(null);
+      if (missionsOpen) setMissionsOpen(false);
+      else if (askOpen) setAskOpen(false);
+      else if (tourStep !== null) setTourStep(null);
       else if (detailOpen) setDetailOpen(false);
       else if (selectedNodeId) setSelectedNodeId(null);
       else if (activeZoneId) openZone(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [tourStep, detailOpen, selectedNodeId, activeZoneId]);
+  }, [tourStep, detailOpen, selectedNodeId, activeZoneId, missionsOpen, askOpen]);
 
   /** Adds the spread (or one zone) to the package, skipping what the compared BID already has. */
   const addLines = (zoneId?: string): void => {
@@ -698,6 +880,9 @@ export const SurveySystemPage: React.FC = () => {
               selectedEquipmentId={detailOpen ? selectedId : null}
               packageEquipmentIds={packageEquipmentIds}
               catalogByZone={catalogByZone}
+              softwareIds={softwareNodes.map((n) => n.equipmentId)}
+              addedSoftwareIds={addedSoftware}
+              onToggleSoftware={handleToggleSoftware}
               considered={considered}
               bidNumber={comparison ? comparison.bid.bidNumber : null}
               onZoneToggle={handleZoneToggle}
@@ -750,6 +935,41 @@ export const SurveySystemPage: React.FC = () => {
           </div>
         )}
 
+        {!isFree && sceneMode === "fault" && (
+          <div className={styles.detailDrawer}>
+            <SurveyFailurePanel
+              impact={failureImpact}
+              onClose={() => handleModeChange("none")}
+              onReset={faultNodeId ? () => setFaultNodeId(null) : undefined}
+            />
+          </div>
+        )}
+
+        {!isFree && sceneMode === "gap" && gapSummary && !detailOpen && (
+          <div className={styles.detailDrawer}>
+            <SurveyGapPanel
+              bidNumber={gapSummary.bidNumber}
+              covered={gapSummary.covered}
+              missing={gapSummary.missing}
+              extras={gapSummary.extras}
+              onClose={() => handleModeChange("none")}
+              onAddMissing={handleAddSpread}
+            />
+          </div>
+        )}
+
+        {askOpen && !detailOpen && (
+          <div className={styles.detailDrawer}>
+            <SurveyAsk
+              onAsk={handleAsk}
+              onPickEquipment={handlePickFromAsk}
+              onClose={() => setAskOpen(false)}
+              aiAvailable={aiAvailable}
+              onEscalateAI={aiAvailable ? handleEscalateAI : undefined}
+            />
+          </div>
+        )}
+
         {adding && (
           <SurveyAddToPackageDialog
             key={adding.id}
@@ -778,6 +998,12 @@ export const SurveySystemPage: React.FC = () => {
               tracePath={isFree ? null : tracePath}
               cableInfo={isFree ? null : cableInfo}
               tour={isFree ? null : tour}
+              modesEnabled={!isFree}
+              mode={isFree ? "none" : sceneMode}
+              gapAvailable={!!considered}
+              onModeChange={handleModeChange}
+              onOpenMissions={openMissions}
+              onOpenAsk={openAsk}
               onZoneSelect={handleZoneSelect}
               onNodeSelect={handleSceneNodeSelect}
               onNodeHover={setHoverNodeId}
@@ -805,6 +1031,12 @@ export const SurveySystemPage: React.FC = () => {
         </div>
       </div>
       {packageOpen && <SurveyPackageDrawer onClose={() => setPackageOpen(false)} />}
+      {missionsOpen && (
+        <SurveyMissions
+          user={currentUser ? currentUser.email || currentUser.id : null}
+          onClose={() => setMissionsOpen(false)}
+        />
+      )}
     </div>
   );
 };

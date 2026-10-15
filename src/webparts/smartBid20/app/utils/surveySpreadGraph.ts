@@ -289,6 +289,49 @@ export function directLinks(links: ISpreadLinkRef[], id: string): ISignalPath | 
   return linkKeys.length ? { nodeIds, linkKeys } : null;
 }
 
+/**
+ * Spread nodes that still reach the online hub over the wiring. Pass excludeNodeId to simulate
+ * that node failing (its cables are dropped); any node that loses every path is no longer in the
+ * result. Used by the "what if it fails?" cascade.
+ */
+export function reachableToHub(
+  links: ISpreadLinkRef[],
+  excludeNodeId?: string,
+): Record<string, boolean> {
+  const live = excludeNodeId
+    ? links.filter((l) => l.from !== excludeNodeId && l.to !== excludeNodeId)
+    : links;
+  const adjacency = buildAdjacency(live);
+  // Reverse the signal edges so we can walk outward from the hub to everything that feeds it.
+  const reverse: Record<string, string[]> = {};
+  Object.keys(adjacency).forEach((from) =>
+    adjacency[from].forEach((e) => (reverse[e.to] || (reverse[e.to] = [])).push(from)),
+  );
+  const targets = [SIGNAL_HUB_ID].concat(SIGNAL_FALLBACK_IDS);
+  const endpoints: Record<string, boolean> = {};
+  live.forEach((l) => {
+    endpoints[l.from] = true;
+    endpoints[l.to] = true;
+  });
+  const reached: Record<string, boolean> = {};
+  const queue: string[] = [];
+  Object.keys(endpoints).forEach((id) => {
+    if (targets.indexOf(baseId(id)) >= 0 && !reached[id]) {
+      reached[id] = true;
+      queue.push(id);
+    }
+  });
+  while (queue.length) {
+    const current = queue.shift()!;
+    (reverse[current] || []).forEach((prev) => {
+      if (reached[prev]) return;
+      reached[prev] = true;
+      queue.push(prev);
+    });
+  }
+  return reached;
+}
+
 export type LineageStageKey =
   | "capture"
   | "transport"
@@ -547,6 +590,7 @@ const SHAPE_RULES: [RegExp, SurveySceneShape][] = [
   [/antenna/i, "whip-antenna"],
   [/ups\b/i, "ups"],
   [/printer/i, "printer"],
+  [/sprint|subsea heading|subsea.*inertial/i, "subsea-ins"],
   [/gyro|octans|mru|\bins\b|heading/i, "gyro"],
   [/sonar|mbes|multibeam|echosounder|r2sonic/i, "sonar-head"],
   [/camera|video/i, "camera"],

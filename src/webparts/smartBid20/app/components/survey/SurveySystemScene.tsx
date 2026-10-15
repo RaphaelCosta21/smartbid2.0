@@ -9,6 +9,11 @@ import {
   ArrowUpRight,
   Cable,
   Unplug,
+  AlertTriangle,
+  Scale,
+  Compass,
+  GraduationCap,
+  Sparkles,
 } from "lucide-react";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import { SurveyLinkKind, SurveySceneAnchor } from "../../models";
@@ -22,6 +27,7 @@ import {
   LINK_LABELS,
   SceneFocus,
   SceneNodeStates,
+  SceneOverlay,
   ScenePick,
   SceneTrunk,
   SceneZone,
@@ -61,6 +67,16 @@ interface SurveySystemSceneProps {
   tracePath: SurveyTraceStep[] | null;
   cableInfo: SurveyCableInfo | null;
   tour: SurveySceneTour | null;
+  /** Analysis overlay toolbar (hidden in free composition). */
+  modesEnabled: boolean;
+  mode: SceneOverlay;
+  /** BID gap mode is only usable once a BID is selected. */
+  gapAvailable: boolean;
+  onModeChange: (mode: SceneOverlay) => void;
+  /** Learning missions launcher (hidden when omitted). */
+  onOpenMissions?: () => void;
+  /** Natural-language ask launcher (hidden when omitted). */
+  onOpenAsk?: () => void;
   onZoneSelect: (zoneId: string | null) => void;
   onNodeSelect: (nodeId: string) => void;
   onNodeHover: (nodeId: string | null) => void;
@@ -115,6 +131,12 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     tracePath,
     cableInfo,
     tour,
+    modesEnabled,
+    mode,
+    gapAvailable,
+    onModeChange,
+    onOpenMissions,
+    onOpenAsk,
     onZoneSelect,
     onNodeSelect,
     onTourStart,
@@ -313,6 +335,44 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
       )}
 
       <div className={styles.sceneTools}>
+        {modesEnabled && !tour && (
+          <div className={styles.modeGroup} role="group" aria-label="Scene analysis mode">
+            <button
+              type="button"
+              className={`${styles.modeBtn} ${mode === "none" ? styles.modeBtnActive : ""}`}
+              onClick={() => onModeChange("none")}
+              aria-pressed={mode === "none"}
+            >
+              <Compass size={11} /> Explore
+            </button>
+            <button
+              type="button"
+              className={`${styles.modeBtn} ${styles.modeFault} ${
+                mode === "fault" ? styles.modeBtnActive : ""
+              }`}
+              onClick={() => onModeChange(mode === "fault" ? "none" : "fault")}
+              aria-pressed={mode === "fault"}
+            >
+              <AlertTriangle size={11} /> What if it fails?
+            </button>
+            <button
+              type="button"
+              className={`${styles.modeBtn} ${styles.modeGap} ${
+                mode === "gap" ? styles.modeBtnActive : ""
+              }`}
+              onClick={() => onModeChange(mode === "gap" ? "none" : "gap")}
+              aria-pressed={mode === "gap"}
+              disabled={!gapAvailable}
+              title={
+                gapAvailable
+                  ? "Compare the spread against the selected BID"
+                  : "Select a BID in the header to compare"
+              }
+            >
+              <Scale size={11} /> BID gap
+            </button>
+          </div>
+        )}
         <button
           className={`${styles.linesToggle} ${linesOn ? "" : styles.linesOff}`}
           onClick={() => setLinesOn(!linesOn)}
@@ -325,6 +385,20 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
         {zones.length > 0 && !tour && (
           <button className={styles.tourButton} onClick={onTourStart}>
             <Play size={11} /> Guided tour
+          </button>
+        )}
+        {onOpenAsk && !tour && (
+          <button className={styles.auxButton} onClick={onOpenAsk} title="Ask about this spread">
+            <Sparkles size={11} /> Ask
+          </button>
+        )}
+        {onOpenMissions && !tour && (
+          <button
+            className={styles.auxButton}
+            onClick={onOpenMissions}
+            title="Guided learning missions"
+          >
+            <GraduationCap size={11} /> Learn
           </button>
         )}
       </div>
