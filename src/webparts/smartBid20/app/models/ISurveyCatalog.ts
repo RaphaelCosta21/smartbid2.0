@@ -43,6 +43,7 @@ export type SurveySceneShape =
   | "fibre-reel"
   | "network-cloud"
   | "software"
+  | "subsea-ins"
   | "system-core";
 
 export interface ISurveyFamily {
