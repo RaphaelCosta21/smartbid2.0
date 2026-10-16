@@ -63,8 +63,15 @@ export const TeamAnalyticsPage: React.FC = () => {
   const chart = useChartTheme();
   const config = useConfigStore((s) => s.config);
   const { members, loading } = useTeamMembers();
-  const { filters, patch, setPreset, reset, applyFilters, hasActive } =
-    useAnalyticsFilters();
+  const {
+    filters,
+    patch,
+    setPreset,
+    reset,
+    applyFilters,
+    getFacetCounts,
+    hasActive,
+  } = useAnalyticsFilters();
 
   const [bidRoleFilter, setBidRoleFilter] =
     React.useState<BidRoleFilter>("all");
@@ -92,6 +99,11 @@ export const TeamAnalyticsPage: React.FC = () => {
   const filtered = React.useMemo(
     () => applyFilters(bids, "createdDate"),
     [bids, applyFilters],
+  );
+
+  const facetCounts = React.useMemo(
+    () => getFacetCounts(bids, "createdDate"),
+    [bids, getFacetCounts],
   );
 
   // Roster limited to the Engineering team (Contributor + Analyst bid roles)
@@ -212,6 +224,7 @@ export const TeamAnalyticsPage: React.FC = () => {
         onReset={reset}
         hasActive={hasActive}
         divisions={divisions}
+        facetCounts={facetCounts}
         rightSlot={
           <div className={styles.controlsRow}>
             <SegmentedControl<BidRoleFilter>
@@ -269,7 +282,7 @@ export const TeamAnalyticsPage: React.FC = () => {
               value={stats.mostLoaded ? stats.mostLoaded.active : 0}
               variant="glass"
               accentColor={chart.warning}
-              subtitle={stats.mostLoaded ? stats.mostLoaded.member.name : "—"}
+              subtitle={stats.mostLoaded ? stats.mostLoaded.member.name : "-"}
             />
           </div>
 
@@ -396,7 +409,7 @@ export const TeamAnalyticsPage: React.FC = () => {
 
                 <GlassCard
                   title="Throughput × Workload"
-                  subtitle="Completed (Y) vs. active (X) — bubble size = average cycle"
+                  subtitle="Completed (Y) vs. active (X) - bubble size = average cycle"
                   accentColor={chart.accent}
                 >
                   <ResponsiveContainer width="100%" height={300}>

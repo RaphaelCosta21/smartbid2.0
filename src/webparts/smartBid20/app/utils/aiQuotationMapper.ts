@@ -7,8 +7,10 @@
 import {
   IExtractedQuotationLine,
   IFavoriteGroup,
+  ISupplier,
   QuotationType,
 } from "../models";
+import { findSupplierMatch } from "./supplierMatching";
 
 /** A quotation line ready to prefill the Add Quotation modal. */
 export interface IQuotationLineDraft {
@@ -17,6 +19,8 @@ export interface IQuotationLineDraft {
   partNumber: string;
   description: string;
   supplier: string;
+  /** Supplier name as written on the document; learned as an alias on save. */
+  supplierSourceName?: string;
   reference: string;
   leadTimeDays: number;
   quotationDate: string;
@@ -93,6 +97,7 @@ export function resolveQuotationGroup(
 export function mapExtractedQuotationLine(
   ai: IExtractedQuotationLine,
   groups: IFavoriteGroup[],
+  suppliers: ISupplier[] = [],
 ): IQuotationLineDraft {
   const { groupId, subGroupId } = resolveQuotationGroup(
     ai.suggestedGroupName,
@@ -106,15 +111,24 @@ export function mapExtractedQuotationLine(
         .filter(Boolean)
         .join("\n")
     : ai.notes || "";
+  const asWritten = (ai.supplierNameAsWritten || "").trim();
+  // The model may still return a variant; the register decides the final name.
+  const registered =
+    findSupplierMatch(ai.supplier || "", suppliers) ||
+    (asWritten ? findSupplierMatch(asWritten, suppliers) : undefined);
   return {
     groupId,
     subGroupId,
     partNumber: ai.partNumber || "",
     description: ai.description || "",
-    supplier: ai.supplier || "",
+    supplier: registered ? registered.name : ai.supplier || asWritten,
+    supplierSourceName: asWritten || ai.supplier || "",
     reference: ai.reference || "",
     leadTimeDays: ai.leadTimeDays || 0,
-    quotationDate: ai.quotationDate ? ai.quotationDate.slice(0, 10) : today,
+    // SharePoint rejects the row if the DateTime column gets a non-ISO value.
+    quotationDate: /^\d{4}-\d{2}-\d{2}/.test(ai.quotationDate || "")
+      ? ai.quotationDate.slice(0, 10)
+      : today,
     type: ai.type === "rental" ? "rental" : "acquisition",
     cost: ai.cost || 0,
     currency: (ai.currency || "USD").toUpperCase(),
@@ -126,6 +140,9 @@ export function mapExtractedQuotationLine(
 export function mapExtractedQuotationLines(
   lines: IExtractedQuotationLine[],
   groups: IFavoriteGroup[],
+  suppliers: ISupplier[] = [],
 ): IQuotationLineDraft[] {
-  return (lines || []).map((line) => mapExtractedQuotationLine(line, groups));
+  return (lines || []).map((line) =>
+    mapExtractedQuotationLine(line, groups, suppliers),
+  );
 }

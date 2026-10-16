@@ -34,8 +34,13 @@ export interface IOpportunityInfo {
 /** Exchange rate snapshot saved at BID creation */
 export interface IExchangeRateSnapshot {
   currency: string;
+  /** Units of this currency per 1 USD */
   rate: number;
+  /** When the rate was registered on the BID */
   capturedDate: string;
+  /** Quote date of the rate at its source (BCB PTAX timestamp / config lastUpdate) */
+  rateDate?: string;
+  source?: "BCB PTAX" | "System Config";
 }
 
 /** Tracks time spent in each phase independently */
@@ -426,6 +431,8 @@ export interface IQualificationTable {
   id: string;
   title: string;
   items: IQualificationItem[];
+  /** Value from systemConfig.clarificationCategories, applied to every row */
+  category?: string;
 }
 
 export interface IQualificationItem {
@@ -445,12 +452,24 @@ export interface IClarificationItem {
   isAutoImported: boolean;
   /** Classification of this row: a Clarification or a Qualification */
   baseType?: "Clarification" | "Qualification";
-  /** True once this row has been pushed to the Clarifications Database (anti-duplication) */
+  /** Legacy push / library import flag: rows with it set are never synced to the library */
   exportedToDatabase?: boolean;
   /** Date when the clarification was created/added */
   createdDate?: string;
   /** Date when the client response was provided */
   responseDate?: string;
+  /** Value from systemConfig.clarificationCategories */
+  category?: string;
+  /** Library (Clarifications Database) item this row was imported from */
+  libraryRefId?: number;
+}
+
+/** Result of the last push of the BID's clarifications/qualifications to the library */
+export interface IClarificationLibrarySync {
+  syncedAt: string;
+  created: number;
+  updated: number;
+  failed: number;
 }
 
 export interface IHoursItem {
@@ -622,6 +641,8 @@ export interface ICostSummary {
   totalCostBRL: number;
   currency: string;
   ptaxUsed: number;
+  /** Item currencies with no rate registered on the BID (excluded from totals) */
+  missingRateCurrencies?: string[];
   notes: string;
 }
 
@@ -652,6 +673,35 @@ export interface ISectorApprovalDuration {
   approverCount: number;
 }
 
+/** Snapshot of one approver at the moment an approval override was performed. */
+export interface IApprovalOverrideParticipant {
+  stakeholder: IPersonRef;
+  stakeholderRole: string;
+  sector?: Sector;
+  status: ApprovalStatus;
+  respondedDate: string | null;
+}
+
+/** Engineering override that force-closes an approval round as approved. */
+export interface IApprovalOverride {
+  overriddenBy: IPersonRef;
+  overriddenDate: string;
+  reason: string;
+  previousApprovalStatus: ApprovalStatus;
+  totalApprovers: number;
+  approvedCount: number;
+  approvalsAtOverride: IApprovalOverrideParticipant[];
+}
+
+/** Required approval sector marked as not required for a specific BID. */
+export interface IApprovalSectorWaiver {
+  sector: Sector;
+  sectorLabel: string;
+  reason: string;
+  waivedBy: IPersonRef;
+  waivedDate: string;
+}
+
 export interface IApprovalRound {
   round: number;
   startedDate: string;
@@ -661,6 +711,9 @@ export interface IApprovalRound {
   approvals: IBidApproval[];
   /** Per-sector durations computed & persisted when the round completes. */
   sectorDurations?: ISectorApprovalDuration[];
+  override?: IApprovalOverride;
+  /** Required sectors excluded from this round (snapshot at round start). */
+  waivedSectors?: IApprovalSectorWaiver[];
 }
 
 export interface IBidAttachment {
@@ -705,6 +758,8 @@ export interface IBidResult {
   followUpDate: string | null;
   lastUpdatedBy: string | null;
   lastUpdatedDate: string | null;
+  /** Commercial's win chance (0-100) while undecided; null/absent = use history. */
+  winProbability?: number | null;
 }
 
 export interface IActivityLogEntry {
@@ -806,6 +861,39 @@ export interface IBidAIAnalysis {
   status: AIAnalysisReviewStatus;
 }
 
+/** Knowledge Base document generated for a completed BID (smartBidDocs/Past Bids). */
+export interface IBidKnowledgeDoc {
+  status: "published" | "failed";
+  fileName: string;
+  serverRelativeUrl: string;
+  publishedDate: string | null;
+  publishedBy: IPersonRef | null;
+  error?: string | null;
+}
+
+/** Classification of a completed BID for the Past Bids page and AI Search. */
+export interface IBidKnowledgeProfile {
+  /** Values from systemConfig.scopeCategories */
+  scopeCategories: string[];
+  tags: string[];
+  summary: string;
+  aiStatus: "ok" | "failed" | "skipped";
+  aiSuggestedDate?: string | null;
+  editedBy?: IPersonRef | null;
+  editedDate?: string | null;
+  doc: IBidKnowledgeDoc;
+}
+
+/** Whether the client asked for a Technical Proposal, and its Knowledge Base copy. */
+export interface IBidTechnicalProposal {
+  requested: boolean;
+  requestedBy?: IPersonRef | null;
+  requestedDate?: string | null;
+  /** Copy in smartBidDocs/Datasheets/Technical Proposals, published on completion. */
+  doc?: IBidKnowledgeDoc;
+  aiStatus?: "ok" | "failed" | "skipped";
+}
+
 export interface IBid {
   bidNumber: string;
   crmNumber: string;
@@ -857,6 +945,10 @@ export interface IBid {
   approvals: IBidApproval[];
   approvalStatus: ApprovalStatus;
   approvalRounds?: IApprovalRound[];
+  /** Approvers selected for the next round, saved before the round starts. */
+  approvalDraftSelections?: Partial<Record<Sector, IPersonRef[]>>;
+  /** Required approval sectors marked as not required for this BID. */
+  approvalSectorWaivers?: Partial<Record<Sector, IApprovalSectorWaiver>>;
   attachments: IBidAttachment[];
   comments: IBidComment[];
   activityLog: IActivityLogEntry[];
@@ -880,6 +972,10 @@ export interface IBid {
   kpis: IBidKPIs;
   qualificationTables: IQualificationTable[];
   clarifications: IClarificationItem[];
+  clarificationLibrarySync?: IClarificationLibrarySync;
+  /** Past Bids / AI Search projection — set once the BID is Completed and published. */
+  knowledgeProfile?: IBidKnowledgeProfile;
+  technicalProposal?: IBidTechnicalProposal;
   /* ── ERN (Engineering Request Number) — one ERN per BID ── */
   /** ERN Number, e.g. "ERN-42" (null = TBD, not yet created) */
   ernNumber?: string | null;

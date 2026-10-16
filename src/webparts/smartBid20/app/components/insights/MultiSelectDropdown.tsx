@@ -5,6 +5,8 @@ export interface MultiSelectOption {
   value: string;
   label: string;
   color?: string;
+  /** Optional item count shown as a pill at the end of the option */
+  count?: number;
 }
 
 interface MultiSelectDropdownProps {
@@ -13,6 +15,8 @@ interface MultiSelectDropdownProps {
   selected: string[];
   onChange: (values: string[]) => void;
   icon?: React.ReactNode;
+  /** Shows a filter box above the options (long lists). */
+  searchable?: boolean;
 }
 
 /**
@@ -24,6 +28,7 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   selected,
   onChange,
   icon,
+  searchable,
 }) => {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
@@ -38,14 +43,6 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
-
-  const toggle = (v: string): void => {
-    if (selected.indexOf(v) >= 0) {
-      onChange(selected.filter((s) => s !== v));
-    } else {
-      onChange(selected.concat(v));
-    }
-  };
 
   return (
     <div className={styles.wrap} ref={ref}>
@@ -75,42 +72,105 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
       </button>
 
       {open && (
-        <div className={styles.panel} role="listbox">
-          <div className={styles.panelHead}>
-            <span>{label}</span>
-            {selected.length > 0 && (
-              <button
-                type="button"
-                className={styles.clearBtn}
-                onClick={() => onChange([])}
-              >
-                Clear
-              </button>
-            )}
-          </div>
-          <div className={styles.options}>
-            {options.map((o) => (
-              <label className={styles.option} key={o.value}>
-                <input
-                  type="checkbox"
-                  checked={selected.indexOf(o.value) >= 0}
-                  onChange={() => toggle(o.value)}
-                />
-                {o.color && (
-                  <span
-                    className={styles.swatch}
-                    style={{ background: o.color }}
-                  />
-                )}
-                <span className={styles.optLabel}>{o.label}</span>
-              </label>
-            ))}
-            {options.length === 0 && (
-              <div className={styles.empty}>No options</div>
-            )}
-          </div>
+        <MultiSelectPanel
+          label={label}
+          options={options}
+          selected={selected}
+          onChange={onChange}
+          searchable={searchable}
+        />
+      )}
+    </div>
+  );
+};
+
+interface MultiSelectPanelProps {
+  label: string;
+  options: MultiSelectOption[];
+  selected: string[];
+  onChange: (values: string[]) => void;
+  searchable?: boolean;
+  /** Overrides the default absolute placement (e.g. fixed, for portals). */
+  style?: React.CSSProperties;
+}
+
+/** The checkbox list panel, shared by MultiSelectDropdown and ColumnFilter. */
+export const MultiSelectPanel: React.FC<MultiSelectPanelProps> = ({
+  label,
+  options,
+  selected,
+  onChange,
+  searchable,
+  style,
+}) => {
+  const [query, setQuery] = React.useState("");
+
+  const toggle = (v: string): void => {
+    if (selected.indexOf(v) >= 0) {
+      onChange(selected.filter((s) => s !== v));
+    } else {
+      onChange(selected.concat(v));
+    }
+  };
+
+  const q = query.trim().toLowerCase();
+  const visible = q
+    ? options.filter((o) => o.label.toLowerCase().indexOf(q) >= 0)
+    : options;
+
+  return (
+    <div className={styles.panel} role="listbox" style={style}>
+      <div className={styles.panelHead}>
+        <span>{label}</span>
+        {selected.length > 0 && (
+          <button
+            type="button"
+            className={styles.clearBtn}
+            onClick={() => onChange([])}
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      {searchable && (
+        <div className={styles.searchRow}>
+          <input
+            className={styles.searchInput}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={`Search ${label.toLowerCase()}...`}
+            aria-label={`Search ${label}`}
+            autoFocus
+          />
         </div>
       )}
+      <div className={styles.options}>
+        {visible.map((o) => (
+          <label className={styles.option} key={o.value}>
+            <input
+              type="checkbox"
+              checked={selected.indexOf(o.value) >= 0}
+              onChange={() => toggle(o.value)}
+            />
+            {o.color && (
+              <span className={styles.swatch} style={{ background: o.color }} />
+            )}
+            <span className={styles.optLabel}>{o.label}</span>
+            {o.count !== undefined && (
+              <span
+                className={`${styles.optCount} ${o.count === 0 ? styles.optCountZero : ""}`}
+              >
+                {o.count}
+              </span>
+            )}
+          </label>
+        ))}
+        {visible.length === 0 && (
+          <div className={styles.empty}>
+            {options.length === 0 ? "No options" : "No matches"}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -80,7 +80,7 @@ export const SurveyEquipmentCard: React.FC<SurveyEquipmentCardProps> = ({
     </div>
     <button
       className={`${styles.addBtn} ${inPackage ? styles.addBtnIn : ""}`}
-      title={inPackage ? "In bid package — add more" : "Add to bid package"}
+      title={inPackage ? "In bid package - add more" : "Add to bid package"}
       aria-label={`Add ${equipment.title} to bid package`}
       onClick={(e) => {
         e.stopPropagation();

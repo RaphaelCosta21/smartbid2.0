@@ -1,14 +1,15 @@
 import * as React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { Lock } from "lucide-react";
 import { useUIStore } from "../../stores/useUIStore";
 import {
   NAVIGATION_ITEMS,
   SECTION_LABELS,
   INavItem,
 } from "../../config/navigation.config";
-import { RequestService } from "../../services/RequestService";
-import { useAuthStore } from "../../stores/useAuthStore";
-import { canAccessKnowledge } from "../../utils/accessControl";
+import { useBidStore } from "../../stores/useBidStore";
+import { isUnassignedBid } from "../../utils/bidHelpers";
+import { useAccessLevel } from "../../hooks/useAccessLevel";
 import styles from "./Sidebar.module.scss";
 import { SidebarItem } from "./SidebarItem";
 import { SidebarSubmenu } from "./SidebarSubmenu";
@@ -184,6 +185,20 @@ const Icon: React.FC<{ name: string; size?: number }> = ({
         <path d="M14 2v6h6" />
         <path d="M8 9h4" />
         <path d="M8 17c1.5-3 3-3 4.5 0S15.5 17 17 15" />
+      </svg>
+    ),
+    History: (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8" />
+        <path d="M3 3v5h5" />
+        <path d="M12 7v5l4 2" />
       </svg>
     ),
     Wrench: (
@@ -566,22 +581,19 @@ export const Sidebar: React.FC = () => {
 
   const currentPath = location.pathname;
 
-  const currentUser = useAuthStore((s) => s.currentUser);
-  const canKnowledge = canAccessKnowledge(currentUser);
+  const access = useAccessLevel();
+  // Until the user/config settle, keep items neutral instead of flashing them disabled.
+  const isLocked = (key: string): boolean =>
+    access.isResolved && !access.canViewPage(key);
 
-  // Fetch real unassigned request count
-  const [unassignedCount, setUnassignedCount] = React.useState<number>(0);
-  React.useEffect(() => {
-    RequestService.getUnassignedFromSP()
-      .then((data) => setUnassignedCount(data.length))
-      .catch(() => setUnassignedCount(0));
-  }, []);
+  // Derived from the store so assign/create actions update the badge immediately
+  const unassignedCount = useBidStore(
+    (s) => s.bids.filter(isUnassignedBid).length,
+  );
 
   const groupedItems = React.useMemo(() => {
     const grouped: Record<string, INavItem[]> = {};
     NAVIGATION_ITEMS.forEach((item) => {
-      // Engineering-only items (Knowledge Base section) are hidden for others
-      if (item.requiredAccess === "engineering" && !canKnowledge) return;
       const navItem = { ...item };
       // Override hardcoded badge for unassigned requests
       if (navItem.key === "unassigned") {
@@ -592,7 +604,7 @@ export const Sidebar: React.FC = () => {
       grouped[navItem.section].push(navItem);
     });
     return grouped;
-  }, [unassignedCount, canKnowledge]);
+  }, [unassignedCount]);
 
   return (
     <nav className={styles.sidebar}>
@@ -628,8 +640,9 @@ export const Sidebar: React.FC = () => {
         {groupedItems["action"]?.map((item) => (
           <button
             key={item.key}
-            className={styles.createBtn}
+            className={`${styles.createBtn} ${!sidebarExpanded ? styles.createBtnCollapsed : ""}`}
             onClick={() => navigate(item.route)}
+            aria-label={item.label}
             title={!sidebarExpanded ? item.label : undefined}
           >
             <Icon name={item.icon} size={sidebarExpanded ? 16 : 20} />
@@ -654,16 +667,31 @@ export const Sidebar: React.FC = () => {
                       label={item.label}
                       icon={<Icon name={item.icon} />}
                       isCollapsed={!sidebarExpanded}
+                      disabled={item.children.every((c) => isLocked(c.key))}
                     >
-                      {item.children.map((child) => (
-                        <div
-                          key={child.key}
-                          className={`${styles.submenuItem} ${currentPath === child.route ? styles.active : ""}`}
-                          onClick={() => navigate(child.route)}
-                        >
-                          {child.label}
-                        </div>
-                      ))}
+                      {item.children.map((child) => {
+                        const locked = isLocked(child.key);
+                        return (
+                          <div
+                            key={child.key}
+                            className={`${styles.submenuItem} ${currentPath === child.route ? styles.active : ""} ${locked ? styles.disabled : ""}`}
+                            onClick={
+                              locked ? undefined : () => navigate(child.route)
+                            }
+                            title={
+                              locked ? `${child.label} - no access` : undefined
+                            }
+                            aria-disabled={locked || undefined}
+                          >
+                            {child.label}
+                            {locked && (
+                              <span className={styles.lockIcon}>
+                                <Lock />
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </SidebarSubmenu>
                   ) : (
                     <SidebarItem
@@ -673,6 +701,7 @@ export const Sidebar: React.FC = () => {
                       badge={item.badge}
                       badgePulsing={item.badgePulsing}
                       isCollapsed={!sidebarExpanded}
+                      disabled={isLocked(item.key)}
                       onClick={() => navigate(item.route)}
                       onExternalClick={
                         item.externalRoute

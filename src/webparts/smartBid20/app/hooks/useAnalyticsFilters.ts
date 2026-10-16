@@ -3,6 +3,7 @@
  */
 import * as React from "react";
 import { IBid } from "../models";
+import { countFacets } from "../utils/facetHelpers";
 
 export type DatePreset =
   | "30d"
@@ -31,6 +32,19 @@ const DEFAULT: AnalyticsFilters = {
   serviceLines: [],
   bidTypes: [],
   search: "",
+};
+
+export type AnalyticsFacetKey = "divisions" | "serviceLines" | "bidTypes";
+
+export type AnalyticsFacetCounts = Record<
+  AnalyticsFacetKey,
+  Record<string, number>
+>;
+
+const FACET_VALUES: Record<AnalyticsFacetKey, (b: IBid) => string> = {
+  divisions: (b) => b.division,
+  serviceLines: (b) => b.serviceLine,
+  bidTypes: (b) => b.bidType,
 };
 
 function isoDaysAgo(days: number): string {
@@ -67,6 +81,11 @@ export interface UseAnalyticsFilters {
   setPreset: (preset: DatePreset) => void;
   reset: () => void;
   applyFilters: (bids: IBid[], dateField?: keyof IBid) => IBid[];
+  /** Per-dropdown counts over `bids`, each ignoring its own selection. */
+  getFacetCounts: (
+    bids: IBid[],
+    dateField?: keyof IBid,
+  ) => AnalyticsFacetCounts;
   hasActive: boolean;
 }
 
@@ -95,41 +114,43 @@ export function useAnalyticsFilters(
     setFilters({ ...DEFAULT, ...initial });
   }, [initial]);
 
-  const applyFilters = React.useCallback(
-    (bids: IBid[], dateField: keyof IBid = "createdDate"): IBid[] => {
-      return bids.filter((b) => {
-        if (
-          filters.divisions.length &&
-          filters.divisions.indexOf(b.division) < 0
-        ) {
-          return false;
-        }
-        if (
-          filters.serviceLines.length &&
-          filters.serviceLines.indexOf(b.serviceLine) < 0
-        ) {
-          return false;
-        }
-        if (
-          filters.bidTypes.length &&
-          filters.bidTypes.indexOf(b.bidType) < 0
-        ) {
-          return false;
-        }
-        const dv = ((b[dateField] as unknown as string) || "").slice(0, 10);
-        if (filters.from && dv && dv < filters.from) return false;
-        if (filters.to && dv && dv > filters.to) return false;
-        if (filters.search) {
-          const q = filters.search.toLowerCase();
-          const hay = `${b.bidNumber} ${b.crmNumber} ${
-            b.opportunityInfo?.client || ""
-          } ${b.opportunityInfo?.projectName || ""}`.toLowerCase();
-          if (hay.indexOf(q) < 0) return false;
-        }
-        return true;
-      });
+  const matches = React.useCallback(
+    (b: IBid, dateField: keyof IBid, skip?: AnalyticsFacetKey): boolean => {
+      const facetsOk = (Object.keys(FACET_VALUES) as AnalyticsFacetKey[]).every(
+        (key) =>
+          key === skip ||
+          filters[key].length === 0 ||
+          filters[key].indexOf(FACET_VALUES[key](b)) >= 0,
+      );
+      if (!facetsOk) return false;
+      const dv = ((b[dateField] as unknown as string) || "").slice(0, 10);
+      if (filters.from && dv && dv < filters.from) return false;
+      if (filters.to && dv && dv > filters.to) return false;
+      if (filters.search) {
+        const q = filters.search.toLowerCase();
+        const hay = `${b.bidNumber} ${b.crmNumber} ${
+          b.opportunityInfo?.client || ""
+        } ${b.opportunityInfo?.projectName || ""}`.toLowerCase();
+        if (hay.indexOf(q) < 0) return false;
+      }
+      return true;
     },
     [filters],
+  );
+
+  const applyFilters = React.useCallback(
+    (bids: IBid[], dateField: keyof IBid = "createdDate"): IBid[] =>
+      bids.filter((b) => matches(b, dateField)),
+    [matches],
+  );
+
+  const getFacetCounts = React.useCallback(
+    (
+      bids: IBid[],
+      dateField: keyof IBid = "createdDate",
+    ): AnalyticsFacetCounts =>
+      countFacets(bids, FACET_VALUES, (b, skip) => matches(b, dateField, skip)),
+    [matches],
   );
 
   const hasActive =
@@ -140,5 +161,13 @@ export function useAnalyticsFilters(
     !!filters.from ||
     !!filters.to;
 
-  return { filters, patch, setPreset, reset, applyFilters, hasActive };
+  return {
+    filters,
+    patch,
+    setPreset,
+    reset,
+    applyFilters,
+    getFacetCounts,
+    hasActive,
+  };
 }

@@ -21,7 +21,11 @@ export const APP_CONFIG = {
     quotationDatabase: "QUOTATION_DATABASE",
     patchNotes: "PATCH_NOTES",
   },
-  superAdminEmails: ["rcosta1@oceaneering.com"],
+  superAdminEmails: [
+    "rcosta1@oceaneering.com",
+    "lcampanati@oceaneering.com",
+    "wcastrojunior@oceaneering.com",
+  ],
   defaults: {
     pageSize: 25,
     debounceMs: 300,

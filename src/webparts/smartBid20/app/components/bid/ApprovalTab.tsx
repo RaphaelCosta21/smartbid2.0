@@ -1,17 +1,41 @@
 import * as React from "react";
-import { Check, X, Clock, Circle, RefreshCw } from "lucide-react";
-import { IBid, IApprovalRound } from "../../models/IBid";
+import {
+  Check,
+  X,
+  Clock,
+  Circle,
+  RefreshCw,
+  FastForward,
+  ShieldCheck,
+  Ban,
+  Undo2,
+} from "lucide-react";
+import {
+  IActivityLogEntry,
+  IBid,
+  IApprovalRound,
+  IApprovalOverride,
+  IApprovalSectorWaiver,
+} from "../../models/IBid";
 import { IBidApproval } from "../../models/IBid";
 import { IApprovalSectorGroup } from "../../models/IBidApproval";
 import { ITeamMember } from "../../models/ITeamMember";
 import { IPersonRef, Sector } from "../../models/IUser";
 import { ApprovalStatus } from "../../models/IBidStatus";
 import { PersonaCard } from "../common/PersonaCard";
+import { ApprovalOverrideBanner } from "../approval/ApprovalOverrideBanner";
 import { ApprovalService } from "../../services/ApprovalService";
+import { useUIStore } from "../../stores/useUIStore";
 import {
+  APPROVAL_FLOW_ACTOR,
   computeRoundSectorDurations,
   computeApprovalCycleTime,
+  getActiveApprovalOverride,
+  getMissingApprovalActivityEntries,
 } from "../../utils/approvalHelpers";
+import { buildHistoryTransition } from "../../utils/phaseHelpers";
+import { isTerminalStatus } from "../../utils/statusHelpers";
+import { createActivityLogEntry } from "../../utils/activityLogHelpers";
 import { formatDate } from "../../utils/formatters";
 import styles from "./ApprovalTab.module.scss";
 
@@ -20,11 +44,6 @@ interface ApprovalTabProps {
   teamMembers: ITeamMember[];
   currentUser: IPersonRef;
   canEdit: boolean;
-  onSave: (
-    approvals: IBidApproval[],
-    approvalStatus: ApprovalStatus,
-    approvalRounds: IApprovalRound[],
-  ) => void;
   onPatchBid: (patch: Partial<IBid>) => void;
 }
 
@@ -204,6 +223,21 @@ const STATUS_DISPLAY: Record<
     color: "var(--warning)",
     label: "Revision Requested",
   },
+  overridden: {
+    icon: <ShieldCheck size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--tertiary-accent)",
+    label: "Approved (Override)",
+  },
+  bypassed: {
+    icon: <FastForward size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--tertiary-accent)",
+    label: "Bypassed by override",
+  },
+  waived: {
+    icon: <Ban size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--text-secondary)",
+    label: "Not required",
+  },
 };
 
 export const ApprovalTab: React.FC<ApprovalTabProps> = ({
@@ -211,31 +245,17 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   teamMembers,
   currentUser,
   canEdit,
-  onSave,
   onPatchBid,
 }) => {
   const isGateOpen =
     bid.currentPhase === "Close Out" &&
     bid.currentStatus === "Pending Approval";
 
-  // Engineering members can start/manage approval rounds
-  const isEngineeringUser = React.useMemo(() => {
-    return teamMembers.some(
-      (m) =>
-        m.email.toLowerCase() === currentUser.email.toLowerCase() &&
-        m.sector === "engineering" &&
-        m.isActive,
-    );
-  }, [teamMembers, currentUser.email]);
-
-  // The BID's assigned analyst may also start/manage approval rounds
-  const isBidAnalyst = React.useMemo(() => {
-    return (bid.analyst || []).some(
-      (p) => p.email.toLowerCase() === currentUser.email.toLowerCase(),
-    );
-  }, [bid.analyst, currentUser.email]);
-
-  const canManageApproval = canEdit && (isEngineeringUser || isBidAnalyst);
+  // Starting/managing rounds and override follow the BID Approval tab permission.
+  const canManageApproval = canEdit;
+  const canOverride = canEdit;
+  const isCloseOutPhase = bid.currentPhase === "Close Out";
+  const activeOverride = getActiveApprovalOverride(bid);
 
   // Current round number (based on existing rounds history)
   const existingRounds = bid.approvalRounds || [];
@@ -256,6 +276,11 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     isGateOpen &&
     (bid.approvalStatus === "not-started" || hasActiveRevisionPending);
   const isTrackingMode = bid.approvalStatus !== "not-started" && !needsNewRound;
+  const hasRunningRound = isTrackingMode && bid.approvalStatus !== "approved";
+  const showOverride =
+    canOverride &&
+    !isTerminalStatus(bid.currentStatus) &&
+    (hasRunningRound || !isTrackingMode);
 
   // ── Auto-complete: when all approvals are approved, transition to "Completed" ──
   React.useEffect(() => {
@@ -284,12 +309,26 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
         ...bid,
         approvalRounds: updatedRounds,
       });
+      const missingLogs = getMissingApprovalActivityEntries({
+        ...bid,
+        approvalRounds: updatedRounds,
+        currentStatus: "Completed",
+        completedDate: nowIso,
+      });
       onPatchBid({
         currentStatus: "Completed",
         currentPhase: "Close Out" as any,
         completedDate: nowIso,
+        ...buildHistoryTransition(
+          bid,
+          "Close Out" as any,
+          "Completed",
+          APPROVAL_FLOW_ACTOR,
+          nowIso,
+        ),
         approvalRounds: updatedRounds,
         kpis: { ...bid.kpis, approvalCycleTime: cycle },
+        activityLog: [...(bid.activityLog || []), ...missingLogs],
       });
     }
   }, [bid.approvalStatus, bid.approvals, bid.currentStatus]);
@@ -298,6 +337,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   const [sectorSelections, setSectorSelections] = React.useState<
     Record<Sector, IPersonRef[]>
   >({} as any);
+  const selectionsRef = React.useRef<Record<Sector, IPersonRef[]>>({} as any);
   const [lockedApprovers, setLockedApprovers] = React.useState<
     Record<Sector, IPersonRef[]>
   >({} as any);
@@ -309,6 +349,14 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   const [showPhaseTransitionConfirm, setShowPhaseTransitionConfirm] =
     React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [showOverrideConfirm, setShowOverrideConfirm] = React.useState(false);
+  const [overrideReason, setOverrideReason] = React.useState("");
+  const [overriding, setOverriding] = React.useState(false);
+  const [waiverTarget, setWaiverTarget] = React.useState<SectorConfig | null>(
+    null,
+  );
+  const [waiverReason, setWaiverReason] = React.useState("");
+  const addToast = useUIStore((s) => s.addToast);
 
   const pickerRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -319,7 +367,8 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
 
     SECTOR_CONFIGS.forEach((cfg) => {
       if (!cfg.isVisible(bid)) return;
-      const preSelected = cfg.preSelectFn(bid);
+      const saved = bid.approvalDraftSelections?.[cfg.sector];
+      const preSelected = saved !== undefined ? saved : cfg.preSelectFn(bid);
       const autoLocked = cfg.autoLockFn(bid, teamMembers);
       // Merge auto-locked into selections (no duplicates)
       const combined = [...autoLocked];
@@ -332,9 +381,18 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       locks[cfg.sector] = autoLocked;
     });
 
+    selectionsRef.current = selections as Record<Sector, IPersonRef[]>;
     setSectorSelections(selections as any);
     setLockedApprovers(locks as any);
-  }, [bid.bidNumber]);
+  }, [
+    bid.bidNumber,
+    bid.approvalDraftSelections,
+    bid.commercialRequester,
+    bid.projectManager,
+    bid.costSummary.assetsCapexUSD,
+    bid.serviceLine,
+    teamMembers,
+  ]);
 
   // ── Close picker on outside click ──
   React.useEffect(() => {
@@ -368,10 +426,11 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
   };
 
   const addApprover = (sector: Sector, member: ITeamMember): void => {
-    setSectorSelections((prev) => ({
-      ...prev,
+    if (!canManageApproval) return;
+    const next = {
+      ...selectionsRef.current,
       [sector]: [
-        ...(prev[sector] || []),
+        ...(selectionsRef.current[sector] || []),
         {
           name: member.name,
           email: member.email,
@@ -379,29 +438,128 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
           photoUrl: member.photoUrl,
         },
       ],
-    }));
+    };
+    selectionsRef.current = next;
+    setSectorSelections(next);
+    onPatchBid({ approvalDraftSelections: next });
     setSearchTerms((prev) => ({ ...prev, [sector]: "" }));
     setOpenPicker(null);
   };
 
   const removeApprover = (sector: Sector, email: string): void => {
+    if (!canManageApproval) return;
     const locked = lockedApprovers[sector] || [];
     if (locked.some((l) => l.email === email)) return; // Can't remove locked
-    setSectorSelections((prev) => ({
-      ...prev,
-      [sector]: (prev[sector] || []).filter((p) => p.email !== email),
-    }));
+    const next = {
+      ...selectionsRef.current,
+      [sector]: (selectionsRef.current[sector] || []).filter(
+        (p) => p.email !== email,
+      ),
+    };
+    selectionsRef.current = next;
+    setSectorSelections(next);
+    onPatchBid({ approvalDraftSelections: next });
   };
 
   const isLocked = (sector: Sector, email: string): boolean => {
     return (lockedApprovers[sector] || []).some((l) => l.email === email);
   };
 
+  // ── Sector waivers (required sector marked as not required for this BID) ──
+  const sectorWaivers = bid.approvalSectorWaivers || {};
+  // Auto-locked sectors (e.g. CAPEX rule) can't be waived
+  const getWaiver = (cfg: SectorConfig): IApprovalSectorWaiver | null =>
+    cfg.required && (lockedApprovers[cfg.sector] || []).length === 0
+      ? sectorWaivers[cfg.sector] || null
+      : null;
+
+  const closeWaiverDialog = (): void => {
+    setWaiverTarget(null);
+    setWaiverReason("");
+  };
+
+  const handleWaiveSector = (): void => {
+    const reason = waiverReason.trim();
+    if (!waiverTarget || !reason || !canManageApproval) return;
+    const actor: IPersonRef = {
+      name: currentUser.name,
+      email: currentUser.email,
+      role: currentUser.role,
+    };
+    const waiver: IApprovalSectorWaiver = {
+      sector: waiverTarget.sector,
+      sectorLabel: waiverTarget.label,
+      reason,
+      waivedBy: actor,
+      waivedDate: new Date().toISOString(),
+    };
+    const logEntry = createActivityLogEntry(
+      "APPROVAL_SECTOR_WAIVED",
+      `${waiver.sectorLabel} approval marked as not required for this BID. Justification: "${reason}"`,
+      actor.email,
+      actor.name,
+      {
+        sector: waiver.sector,
+        sectorLabel: waiver.sectorLabel,
+        round: currentRoundNumber,
+        reason,
+      },
+    );
+    onPatchBid({
+      approvalSectorWaivers: { ...sectorWaivers, [waiver.sector]: waiver },
+      activityLog: [...(bid.activityLog || []), logEntry],
+    });
+    closeWaiverDialog();
+  };
+
+  const handleReinstateSector = (
+    cfg: SectorConfig,
+    waiver: IApprovalSectorWaiver,
+  ): void => {
+    if (!canManageApproval) return;
+    const next = { ...sectorWaivers };
+    delete next[cfg.sector];
+    const logEntry = createActivityLogEntry(
+      "APPROVAL_SECTOR_REINSTATED",
+      `${cfg.label} approval marked as required again for this BID (previous justification: "${waiver.reason}")`,
+      currentUser.email,
+      currentUser.name,
+      {
+        sector: cfg.sector,
+        sectorLabel: cfg.label,
+        round: currentRoundNumber,
+        previousReason: waiver.reason,
+        previousWaivedBy: waiver.waivedBy,
+        previousWaivedDate: waiver.waivedDate,
+      },
+    );
+    onPatchBid({
+      approvalSectorWaivers: next,
+      activityLog: [...(bid.activityLog || []), logEntry],
+    });
+  };
+
+  const renderWaiverNote = (waiver: IApprovalSectorWaiver): JSX.Element => (
+    <div className={styles.waiverNote}>
+      <span className={styles.waiverLabel}>Not required for this BID</span>
+      <span className={styles.waiverReason}>{waiver.reason}</span>
+      <span className={styles.waiverMeta}>
+        by {waiver.waivedBy.name} · {formatDate(waiver.waivedDate)}
+      </span>
+    </div>
+  );
+
   // ── Validation ──
   const validationErrors: string[] = [];
   const visibleSectors = SECTOR_CONFIGS.filter((cfg) => cfg.isVisible(bid));
-
+  const activeSectors = visibleSectors.filter((cfg) => !getWaiver(cfg));
+  const activeWaivers: IApprovalSectorWaiver[] = [];
   visibleSectors.forEach((cfg) => {
+    const w = getWaiver(cfg);
+    if (w) activeWaivers.push(w);
+  });
+
+  activeSectors.forEach((cfg) => {
     if (cfg.required) {
       const count = (sectorSelections[cfg.sector] || []).length;
       if (count < Math.max(cfg.minCount, 1)) {
@@ -412,6 +570,14 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     }
   });
 
+  const totalSelectedApprovers = activeSectors.reduce(
+    (sum, cfg) => sum + (sectorSelections[cfg.sector] || []).length,
+    0,
+  );
+  if (validationErrors.length === 0 && totalSelectedApprovers === 0) {
+    validationErrors.push("Select at least one approver");
+  }
+
   const canStart = validationErrors.length === 0 && canManageApproval;
 
   // ── Start Approval ──
@@ -420,22 +586,57 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     try {
       const now = new Date().toISOString();
       const roundNumber = currentRoundNumber;
+      const logs: IActivityLogEntry[] = [];
 
       // If BID is not in Close Out / Pending Approval, transition it first
+      const transition: Partial<IBid> = {};
       if (
         bid.currentPhase !== "Close Out" ||
         bid.currentStatus !== "Pending Approval"
       ) {
-        onPatchBid({
-          currentPhase: "Close Out" as any,
-          currentStatus: "Pending Approval",
-        });
+        transition.currentPhase = "Close Out" as any;
+        transition.currentStatus = "Pending Approval";
+        Object.assign(
+          transition,
+          buildHistoryTransition(
+            bid,
+            "Close Out" as any,
+            "Pending Approval",
+            currentUser.name,
+            now,
+          ),
+        );
+        if (bid.currentPhase !== "Close Out") {
+          logs.push(
+            createActivityLogEntry(
+              "PHASE_CHANGED",
+              `Phase changed from "${bid.currentPhase}" to "Close Out"`,
+              currentUser.email,
+              currentUser.name,
+              { fromPhase: bid.currentPhase, toPhase: "Close Out" },
+            ),
+          );
+        }
+        if (bid.currentStatus !== "Pending Approval") {
+          logs.push(
+            createActivityLogEntry(
+              "STATUS_CHANGED",
+              `Status changed from "${bid.currentStatus}" to "Pending Approval"`,
+              currentUser.email,
+              currentUser.name,
+              {
+                fromStatus: bid.currentStatus,
+                toStatus: "Pending Approval",
+              },
+            ),
+          );
+        }
       }
 
       // Build IBidApproval[] from selections
       const approvals: IBidApproval[] = [];
       let stepOrder = 1;
-      visibleSectors.forEach((cfg) => {
+      activeSectors.forEach((cfg) => {
         const selected = sectorSelections[cfg.sector] || [];
         selected.forEach((person) => {
           approvals.push({
@@ -458,15 +659,13 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       });
 
       // Build sector groups for SP list
-      const sectorGroups: IApprovalSectorGroup[] = visibleSectors.map(
-        (cfg) => ({
-          sector: cfg.sector,
-          sectorLabel: cfg.label,
-          approvers: sectorSelections[cfg.sector] || [],
-          isAutoLocked: (lockedApprovers[cfg.sector] || []).length > 0,
-          isPreSelected: cfg.preSelectFn(bid).length > 0,
-        }),
-      );
+      const sectorGroups: IApprovalSectorGroup[] = activeSectors.map((cfg) => ({
+        sector: cfg.sector,
+        sectorLabel: cfg.label,
+        approvers: sectorSelections[cfg.sector] || [],
+        isAutoLocked: (lockedApprovers[cfg.sector] || []).length > 0,
+        isPreSelected: cfg.preSelectFn(bid).length > 0,
+      }));
 
       // Write to smartbid-approvals SP list
       await ApprovalService.startApprovalRound(
@@ -485,13 +684,44 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
         status: "pending",
         completedDate: null,
         approvals,
+        ...(activeWaivers.length > 0 ? { waivedSectors: activeWaivers } : {}),
       };
 
       // Append to rounds history (preserve all previous rounds)
       const updatedRounds = [...existingRounds, newRound];
 
+      const approverList = approvals
+        .map((a) => `${a.stakeholder.name} (${a.stakeholderRole})`)
+        .join(", ");
+      const waivedList = activeWaivers.map((w) => w.sectorLabel).join(", ");
+      logs.push(
+        createActivityLogEntry(
+          "APPROVAL_REQUESTED",
+          `Approval round ${roundNumber} started with ${approvals.length} approver${approvals.length === 1 ? "" : "s"}: ${approverList}` +
+            (waivedList ? `. Not required: ${waivedList}` : ""),
+          currentUser.email,
+          currentUser.name,
+          {
+            round: roundNumber,
+            approvers: approvals.map((a) => ({
+              name: a.stakeholder.name,
+              email: a.stakeholder.email,
+              sector: a.stakeholderRole,
+            })),
+            waivedSectors: activeWaivers.map((w) => w.sector),
+          },
+        ),
+      );
+
       // Save to BID JSON
-      onSave(approvals, "pending", updatedRounds);
+      onPatchBid({
+        ...transition,
+        approvals,
+        approvalStatus: "pending",
+        approvalRounds: updatedRounds,
+        approvalDraftSelections: {},
+        activityLog: [...(bid.activityLog || []), ...logs],
+      });
       setShowConfirm(false);
     } catch (err) {
       console.error("Failed to start approval:", err);
@@ -499,6 +729,326 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
       setSubmitting(false);
     }
   };
+
+  // ── Override Approval (phase must already be Close Out) ──
+  const overrideApprovals = hasRunningRound ? bid.approvals || [] : [];
+  const overrideApproved = overrideApprovals.filter(
+    (a) => a.status === "approved",
+  );
+  const overridePending = overrideApprovals.filter(
+    (a) => a.status !== "approved",
+  );
+  const bypassedText = overridePending
+    .map((a) => `${a.stakeholder.name} (${a.stakeholderRole})`)
+    .join(", ");
+
+  const closeOverrideDialog = (): void => {
+    setShowOverrideConfirm(false);
+    setOverrideReason("");
+  };
+
+  const handleOverride = async (): Promise<void> => {
+    const reason = overrideReason.trim();
+    if (!reason || !showOverride || !isCloseOutPhase) return;
+    setOverriding(true);
+    try {
+      const nowIso = new Date().toISOString();
+      const rounds = bid.approvalRounds || [];
+      const actor: IPersonRef = {
+        name: currentUser.name,
+        email: currentUser.email,
+        role: currentUser.role,
+      };
+      const override: IApprovalOverride = {
+        overriddenBy: actor,
+        overriddenDate: nowIso,
+        reason,
+        previousApprovalStatus: bid.approvalStatus || "not-started",
+        totalApprovers: overrideApprovals.length,
+        approvedCount: overrideApproved.length,
+        approvalsAtOverride: overrideApprovals.map((a) => ({
+          stakeholder: {
+            name: a.stakeholder.name,
+            email: a.stakeholder.email,
+            role: a.stakeholder.role,
+          },
+          stakeholderRole: a.stakeholderRole,
+          sector: a.sector,
+          status: a.status,
+          respondedDate: a.respondedDate,
+        })),
+      };
+
+      let closedRound: IApprovalRound;
+      let updatedRounds: IApprovalRound[];
+      if (hasRunningRound) {
+        // Legacy BIDs may carry approvals without a rounds history
+        const base: IApprovalRound =
+          rounds.length > 0
+            ? rounds[rounds.length - 1]
+            : {
+                round: overrideApprovals[0]?.round || 1,
+                startedDate: overrideApprovals[0]?.requestedDate || nowIso,
+                startedBy: { name: "", email: "" },
+                status: "pending",
+                completedDate: null,
+                approvals: overrideApprovals,
+              };
+        closedRound = {
+          ...base,
+          approvals: overrideApprovals,
+          status: "approved",
+          completedDate: nowIso,
+          override,
+        };
+        closedRound.sectorDurations = computeRoundSectorDurations(closedRound);
+        updatedRounds =
+          rounds.length > 0
+            ? [...rounds.slice(0, -1), closedRound]
+            : [closedRound];
+      } else {
+        closedRound = {
+          round: currentRoundNumber,
+          startedDate: nowIso,
+          startedBy: actor,
+          status: "approved",
+          completedDate: nowIso,
+          approvals: [],
+          override,
+        };
+        updatedRounds = [...rounds, closedRound];
+      }
+
+      const cycle = computeApprovalCycleTime({
+        ...bid,
+        approvalRounds: updatedRounds,
+      });
+
+      const description =
+        overrideApprovals.length === 0
+          ? `Approval overridden (Round ${closedRound.round}) before the approval flow was started. BID set to Completed. Reason: "${reason}"`
+          : `Approval overridden (Round ${closedRound.round}) - ${overrideApproved.length} of ${overrideApprovals.length} approvers had approved` +
+            (bypassedText ? `; bypassed: ${bypassedText}` : "") +
+            `. BID set to Completed. Reason: "${reason}"`;
+      const logEntry = createActivityLogEntry(
+        "APPROVAL_OVERRIDE",
+        description,
+        actor.email,
+        actor.name,
+        {
+          round: closedRound.round,
+          previousApprovalStatus: override.previousApprovalStatus,
+          previousStatus: bid.currentStatus,
+          approvedCount: override.approvedCount,
+          totalApprovers: override.totalApprovers,
+          approved: overrideApproved.map((a) => ({
+            name: a.stakeholder.name,
+            email: a.stakeholder.email,
+            sector: a.stakeholderRole,
+            respondedDate: a.respondedDate,
+          })),
+          bypassed: overridePending.map((a) => ({
+            name: a.stakeholder.name,
+            email: a.stakeholder.email,
+            sector: a.stakeholderRole,
+            status: a.status,
+          })),
+          reason,
+        },
+      );
+      const statusLog = createActivityLogEntry(
+        "STATUS_CHANGED",
+        `Status changed from "${bid.currentStatus}" to "Completed" - approval overridden (Round ${closedRound.round})`,
+        actor.email,
+        actor.name,
+        {
+          fromStatus: bid.currentStatus,
+          toStatus: "Completed",
+          round: closedRound.round,
+          note: `Approval overridden (Round ${closedRound.round})`,
+        },
+      );
+
+      onPatchBid({
+        approvals: overrideApprovals,
+        approvalStatus: "approved",
+        approvalRounds: updatedRounds,
+        approvalDraftSelections: {},
+        currentStatus: "Completed",
+        currentPhase: "Close Out" as any,
+        completedDate: nowIso,
+        ...buildHistoryTransition(
+          bid,
+          "Close Out" as any,
+          "Completed",
+          actor.name,
+          nowIso,
+        ),
+        kpis: { ...bid.kpis, approvalCycleTime: cycle },
+        activityLog: [...(bid.activityLog || []), logEntry, statusLog],
+      });
+      closeOverrideDialog();
+      addToast({
+        type: "success",
+        title: "Approval overridden",
+        message: `BID ${bid.bidNumber} was set to Completed.`,
+      });
+
+      if (hasRunningRound) {
+        ApprovalService.markRoundOverridden(
+          bid.bidNumber,
+          closedRound.round,
+          override,
+        ).catch((err) => {
+          console.error("Failed to flag approval round as Overridden:", err);
+          addToast({
+            type: "warning",
+            title: "Teams approval flow not updated",
+            message:
+              "The override was saved, but the approval round in SharePoint could not be flagged as Overridden.",
+          });
+        });
+      }
+    } finally {
+      setOverriding(false);
+    }
+  };
+
+  const overrideButton = showOverride ? (
+    <button
+      className={styles.overrideBtn}
+      disabled={!isCloseOutPhase || overriding}
+      title={
+        isCloseOutPhase
+          ? "Force-close this approval as approved"
+          : "Override is only available when the BID phase is Close Out"
+      }
+      onClick={() => setShowOverrideConfirm(true)}
+    >
+      <ShieldCheck size={14} /> Override Approval
+    </button>
+  ) : null;
+
+  const overrideDialog = showOverrideConfirm ? (
+    <div className={styles.confirmOverlay}>
+      <div className={`${styles.confirmBox} ${styles.overrideBox}`}>
+        <div className={styles.confirmTitle}>Override Approval?</div>
+        <div className={styles.confirmText}>
+          The approval will be closed as <strong>Approved</strong> and the BID
+          status set to <strong>Completed</strong>. The override is recorded
+          with your name, the date and the reason below.
+        </div>
+        <div className={styles.overrideSummary}>
+          {overrideApprovals.length === 0 ? (
+            <span>
+              The approval flow has not been started - the BID will be approved
+              without approver responses.
+            </span>
+          ) : (
+            <>
+              <span>
+                <strong>
+                  {overrideApproved.length} of {overrideApprovals.length}
+                </strong>{" "}
+                approvers have already approved.
+              </span>
+              {overrideApproved.length > 0 && (
+                <span>
+                  <span className={styles.overrideListLabel}>Approved:</span>{" "}
+                  {overrideApproved.map((a) => a.stakeholder.name).join(", ")}
+                </span>
+              )}
+              {overridePending.length > 0 && (
+                <span>
+                  <span className={styles.overrideListLabel}>
+                    Will be bypassed:
+                  </span>{" "}
+                  {bypassedText}
+                </span>
+              )}
+            </>
+          )}
+        </div>
+        <label
+          className={styles.overrideLabel}
+          htmlFor="approval-override-reason"
+        >
+          Reason for override <span className={styles.requiredMark}>*</span>
+        </label>
+        <textarea
+          id="approval-override-reason"
+          className={styles.overrideReason}
+          value={overrideReason}
+          onChange={(e) => setOverrideReason(e.target.value)}
+          placeholder="Explain why the approval is being overridden..."
+          maxLength={1000}
+          rows={4}
+          disabled={overriding}
+        />
+        <div className={styles.confirmActions}>
+          <button
+            className={styles.confirmBtnCancel}
+            onClick={closeOverrideDialog}
+            disabled={overriding}
+          >
+            Cancel
+          </button>
+          <button
+            className={styles.confirmBtnOverride}
+            onClick={handleOverride}
+            disabled={!overrideReason.trim() || overriding}
+          >
+            {overriding ? "Overriding..." : "Confirm Override"}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const waiverDialog = waiverTarget ? (
+    <div className={styles.confirmOverlay}>
+      <div className={`${styles.confirmBox} ${styles.overrideBox}`}>
+        <div className={styles.confirmTitle}>
+          Mark {waiverTarget.label} as not required?
+        </div>
+        <div className={styles.confirmText}>
+          The <strong>{waiverTarget.label}</strong> team will not be included in
+          the approval flow for this BID. The justification is saved on the
+          Approvals tab and in the activity log.
+        </div>
+        <label
+          className={styles.overrideLabel}
+          htmlFor="approval-waiver-reason"
+        >
+          Justification <span className={styles.requiredMark}>*</span>
+        </label>
+        <textarea
+          id="approval-waiver-reason"
+          className={styles.overrideReason}
+          value={waiverReason}
+          onChange={(e) => setWaiverReason(e.target.value)}
+          placeholder={`Explain why ${waiverTarget.label} is not involved in this BID...`}
+          maxLength={1000}
+          rows={4}
+        />
+        <div className={styles.confirmActions}>
+          <button
+            className={styles.confirmBtnCancel}
+            onClick={closeWaiverDialog}
+          >
+            Cancel
+          </button>
+          <button
+            className={styles.confirmBtnStart}
+            onClick={handleWaiveSector}
+            disabled={!waiverReason.trim()}
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   // ═══════════════════════════════════════════════════════
   // RENDER: Gate Banner (not in Close Out / Pending Approval)
@@ -545,9 +1095,25 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
     const rejectedCount = approvals.filter(
       (a) => a.status === "rejected",
     ).length;
-    const overallStatus =
-      STATUS_DISPLAY[bid.approvalStatus] || STATUS_DISPLAY["pending"];
+    const overallStatus = activeOverride
+      ? STATUS_DISPLAY["overridden"]
+      : STATUS_DISPLAY[bid.approvalStatus] || STATUS_DISPLAY["pending"];
     const progressPct = totalCount > 0 ? (approvedCount / totalCount) * 100 : 0;
+
+    // Bypassed = not approved at the moment of the override (snapshot, not live status)
+    const bypassedEmails = activeOverride
+      ? activeOverride.approvalsAtOverride
+          .filter((p) => p.status !== "approved")
+          .map((p) => p.stakeholder.email.toLowerCase())
+      : [];
+    const isBypassed = (a: IBidApproval): boolean =>
+      bypassedEmails.indexOf(a.stakeholder.email.toLowerCase()) >= 0;
+
+    const roundWaivers =
+      existingRounds.length > 0
+        ? existingRounds[existingRounds.length - 1].waivedSectors || []
+        : [];
+    const waivedDisplay = STATUS_DISPLAY["waived"];
 
     // Group approvals by stakeholderRole
     const grouped: Record<string, IBidApproval[]> = {};
@@ -570,22 +1136,30 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
           >
             {overallStatus.icon} {overallStatus.label}
           </div>
-          <div className={styles.summaryProgress}>
-            <div className={styles.progressBarTrack}>
-              <div
-                className={styles.progressBarFill}
-                style={{
-                  width: `${progressPct}%`,
-                  background: overallStatus.color,
-                }}
-              />
+          {totalCount > 0 && (
+            <div className={styles.summaryProgress}>
+              <div className={styles.progressBarTrack}>
+                <div
+                  className={styles.progressBarFill}
+                  style={{
+                    width: `${progressPct}%`,
+                    background: overallStatus.color,
+                  }}
+                />
+              </div>
+              <span className={styles.progressLabel}>
+                {approvedCount} of {totalCount} approved
+                {rejectedCount > 0 ? ` · ${rejectedCount} rejected` : ""}
+                {bypassedEmails.length > 0
+                  ? ` · ${bypassedEmails.length} bypassed by override`
+                  : ""}
+              </span>
             </div>
-            <span className={styles.progressLabel}>
-              {approvedCount} of {totalCount} approved
-              {rejectedCount > 0 ? ` · ${rejectedCount} rejected` : ""}
-            </span>
-          </div>
+          )}
+          {overrideButton}
         </div>
+
+        {activeOverride && <ApprovalOverrideBanner override={activeOverride} />}
 
         {/* Tracking Cards by Sector */}
         <div className={styles.trackingGrid}>
@@ -600,11 +1174,14 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
             const anyRejected = sectorApprovals.some(
               (a) => a.status === "rejected",
             );
-            const sectorStatus = allApproved
-              ? STATUS_DISPLAY["approved"]
-              : anyRejected
-                ? STATUS_DISPLAY["rejected"]
-                : STATUS_DISPLAY["pending"];
+            const anyBypassed = sectorApprovals.some(isBypassed);
+            const sectorStatus = anyBypassed
+              ? STATUS_DISPLAY["bypassed"]
+              : allApproved
+                ? STATUS_DISPLAY["approved"]
+                : anyRejected
+                  ? STATUS_DISPLAY["rejected"]
+                  : STATUS_DISPLAY["pending"];
 
             return (
               <div key={sectorLabel} className={styles.trackingCard}>
@@ -624,9 +1201,11 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
                   </span>
                 </div>
                 {sectorApprovals.map((approval) => {
-                  const display =
-                    STATUS_DISPLAY[approval.status] ||
-                    STATUS_DISPLAY["pending"];
+                  const bypassed = isBypassed(approval);
+                  const display = bypassed
+                    ? STATUS_DISPLAY["bypassed"]
+                    : STATUS_DISPLAY[approval.status] ||
+                      STATUS_DISPLAY["pending"];
                   return (
                     <div
                       key={approval.id}
@@ -642,13 +1221,25 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
                         />
                       </div>
                       <div className={styles.trackingApproverDecision}>
-                        <span className={styles.trackingDecisionIcon}>
+                        <span
+                          className={styles.trackingDecisionIcon}
+                          title={display.label}
+                          style={
+                            bypassed ? { color: display.color } : undefined
+                          }
+                        >
                           {display.icon}
                         </span>
-                        {approval.respondedDate && (
-                          <span className={styles.trackingDecisionDate}>
-                            {formatDate(approval.respondedDate)}
+                        {bypassed ? (
+                          <span className={styles.trackingBypassedTag}>
+                            Bypassed
                           </span>
+                        ) : (
+                          approval.respondedDate && (
+                            <span className={styles.trackingDecisionDate}>
+                              {formatDate(approval.respondedDate)}
+                            </span>
+                          )
                         )}
                       </div>
                       {approval.comments && (
@@ -662,7 +1253,33 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
               </div>
             );
           })}
+          {roundWaivers.map((waiver) => (
+            <div
+              key={`waived-${waiver.sector}`}
+              className={`${styles.trackingCard} ${styles.sectorCardWaived}`}
+            >
+              <div className={styles.trackingCardHeader}>
+                <span className={styles.sectorIcon}>
+                  {SECTOR_CONFIGS.find((c) => c.sector === waiver.sector)
+                    ?.icon || "📌"}
+                </span>
+                <span className={styles.sectorName}>{waiver.sectorLabel}</span>
+                <span
+                  className={styles.trackingSectorStatus}
+                  style={{
+                    background: `color-mix(in srgb, ${waivedDisplay.color} 12%, transparent)`,
+                    color: waivedDisplay.color,
+                  }}
+                >
+                  {waivedDisplay.icon} {waivedDisplay.label}
+                </span>
+              </div>
+              {renderWaiverNote(waiver)}
+            </div>
+          ))}
         </div>
+
+        {overrideDialog}
       </div>
     );
   }
@@ -689,42 +1306,38 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
             </span>
           )}
         </h3>
-        <button
-          className={styles.startBtn}
-          disabled={!canStart || submitting}
-          onClick={() => {
-            // If not already in Close Out / Pending Approval, show phase transition confirmation first
-            if (
-              bid.currentPhase !== "Close Out" ||
-              bid.currentStatus !== "Pending Approval"
-            ) {
-              setShowPhaseTransitionConfirm(true);
-            } else {
-              setShowConfirm(true);
-            }
-          }}
-        >
-          {submitting ? "Starting..." : "🚀 Start Approval"}
-        </button>
-      </div>
-
-      {/* Non-engineering user warning */}
-      {!isEngineeringUser && (
-        <div className={styles.validationWarning}>
-          🔒 Only Engineering team members can start and manage approval rounds.
+        <div className={styles.headerActions}>
+          {overrideButton}
+          <button
+            className={styles.startBtn}
+            disabled={!canStart || submitting}
+            onClick={() => {
+              // If not already in Close Out / Pending Approval, show phase transition confirmation first
+              if (
+                bid.currentPhase !== "Close Out" ||
+                bid.currentStatus !== "Pending Approval"
+              ) {
+                setShowPhaseTransitionConfirm(true);
+              } else {
+                setShowConfirm(true);
+              }
+            }}
+          >
+            {submitting ? "Starting..." : "🚀 Start Approval"}
+          </button>
         </div>
-      )}
+      </div>
 
       {/* CAPEX Warning */}
       {bid.costSummary.assetsCapexUSD > CAPEX_THRESHOLD_USD && (
         <div className={styles.validationWarning}>
-          ⚠️ CAPEX exceeds $200k USD — Engineering Sr. Manager is automatically
+          ⚠️ CAPEX exceeds $200k USD - Engineering Sr. Manager is automatically
           required and locked.
         </div>
       )}
 
       {/* Validation Errors */}
-      {validationErrors.length > 0 && !canStart && isEngineeringUser && (
+      {validationErrors.length > 0 && !canStart && canManageApproval && (
         <div className={styles.validationWarning}>
           ⚠️ {validationErrors[0]}
           {validationErrors.length > 1 &&
@@ -739,11 +1352,13 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
           const sectorLocks = lockedApprovers[cfg.sector] || [];
           const hasAutoLock = sectorLocks.length > 0;
           const filteredMembers = getSearchFiltered(cfg);
+          const waiver = getWaiver(cfg);
+          const canWaive = canManageApproval && cfg.required && !hasAutoLock;
 
           return (
             <div
               key={cfg.sector}
-              className={`${styles.sectorCard} ${hasAutoLock ? styles.sectorCardLocked : ""}`}
+              className={`${styles.sectorCard} ${hasAutoLock ? styles.sectorCardLocked : ""} ${waiver ? styles.sectorCardWaived : ""}`}
               ref={(el) => {
                 pickerRefs.current[cfg.sector] = el;
               }}
@@ -757,6 +1372,12 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
                     className={`${styles.sectorBadge} ${styles.badgeLocked}`}
                   >
                     🔒 Auto-locked
+                  </span>
+                ) : waiver ? (
+                  <span
+                    className={`${styles.sectorBadge} ${styles.badgeWaived}`}
+                  >
+                    Not required
                   </span>
                 ) : cfg.required ? (
                   <span
@@ -773,8 +1394,22 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
                 )}
               </div>
 
+              {waiver && (
+                <>
+                  {renderWaiverNote(waiver)}
+                  {canManageApproval && (
+                    <button
+                      className={styles.waiverToggleBtn}
+                      onClick={() => handleReinstateSector(cfg, waiver)}
+                    >
+                      <Undo2 size={13} /> Mark as required
+                    </button>
+                  )}
+                </>
+              )}
+
               {/* Selected Approvers */}
-              {selected.length > 0 && (
+              {!waiver && selected.length > 0 && (
                 <div className={styles.selectedList}>
                   {selected.map((person) => {
                     const locked = isLocked(cfg.sector, person.email);
@@ -792,7 +1427,7 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
                             size="small"
                           />
                         </div>
-                        {locked ? (
+                        {locked || !canManageApproval ? (
                           <span className={styles.lockIcon}>🔒</span>
                         ) : (
                           <button
@@ -811,46 +1446,60 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
               )}
 
               {/* Picker Input */}
-              <div className={styles.pickerWrapper}>
-                <input
-                  className={styles.pickerInput}
-                  value={searchTerms[cfg.sector] || ""}
-                  onChange={(e) => {
-                    setSearchTerms((prev) => ({
-                      ...prev,
-                      [cfg.sector]: e.target.value,
-                    }));
-                    setOpenPicker(cfg.sector);
-                  }}
-                  onFocus={() => setOpenPicker(cfg.sector)}
-                  placeholder={`Search ${cfg.label} team...`}
-                />
-                {openPicker === cfg.sector && (
-                  <div className={styles.pickerDropdown}>
-                    {filteredMembers.length === 0 ? (
-                      <div className={styles.pickerDropdownEmpty}>
-                        No available members found
-                      </div>
-                    ) : (
-                      filteredMembers.map((member) => (
-                        <div
-                          key={member.id}
-                          className={styles.pickerDropdownItem}
-                          onClick={() => addApprover(cfg.sector, member)}
-                        >
-                          <PersonaCard
-                            name={member.name}
-                            email={member.email}
-                            role={member.jobTitle}
-                            photoUrl={member.photoUrl}
-                            size="small"
-                          />
+              {!waiver && canManageApproval && (
+                <div className={styles.pickerWrapper}>
+                  <input
+                    className={styles.pickerInput}
+                    value={searchTerms[cfg.sector] || ""}
+                    onChange={(e) => {
+                      setSearchTerms((prev) => ({
+                        ...prev,
+                        [cfg.sector]: e.target.value,
+                      }));
+                      setOpenPicker(cfg.sector);
+                    }}
+                    onFocus={() => setOpenPicker(cfg.sector)}
+                    placeholder={`Search ${cfg.label} team...`}
+                  />
+                  {openPicker === cfg.sector && (
+                    <div className={styles.pickerDropdown}>
+                      {filteredMembers.length === 0 ? (
+                        <div className={styles.pickerDropdownEmpty}>
+                          No available members found
                         </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
+                      ) : (
+                        filteredMembers.map((member) => (
+                          <div
+                            key={member.id}
+                            className={styles.pickerDropdownItem}
+                            onClick={() => addApprover(cfg.sector, member)}
+                          >
+                            <PersonaCard
+                              name={member.name}
+                              email={member.email}
+                              role={member.jobTitle}
+                              photoUrl={member.photoUrl}
+                              size="small"
+                            />
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!waiver && canWaive && (
+                <button
+                  className={styles.waiverToggleBtn}
+                  onClick={() => {
+                    setOpenPicker(null);
+                    setWaiverTarget(cfg);
+                  }}
+                >
+                  <Ban size={13} /> Not required for this BID
+                </button>
+              )}
             </div>
           );
         })}
@@ -908,23 +1557,23 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
               flow. You won't be able to modify approvers after starting.
               <br />
               <br />
-              <strong>
-                {visibleSectors.reduce(
-                  (sum, cfg) =>
-                    sum + (sectorSelections[cfg.sector] || []).length,
-                  0,
-                )}{" "}
-                approvers
-              </strong>{" "}
-              across{" "}
+              <strong>{totalSelectedApprovers} approvers</strong> across{" "}
               <strong>
                 {
-                  visibleSectors.filter(
+                  activeSectors.filter(
                     (cfg) => (sectorSelections[cfg.sector] || []).length > 0,
                   ).length
                 }
               </strong>{" "}
               sectors will be included.
+              {activeWaivers.length > 0 && (
+                <>
+                  <br />
+                  <br />
+                  <strong>Not required for this BID:</strong>{" "}
+                  {activeWaivers.map((w) => w.sectorLabel).join(", ")}
+                </>
+              )}
             </div>
             <div className={styles.confirmActions}>
               <button
@@ -944,6 +1593,9 @@ export const ApprovalTab: React.FC<ApprovalTabProps> = ({
           </div>
         </div>
       )}
+
+      {overrideDialog}
+      {waiverDialog}
     </div>
   );
 };

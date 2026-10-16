@@ -14,7 +14,8 @@ export interface ITeamMember {
   phone?: string;
   joinedDate: string;
   themePreference?: "dark" | "light";
-  palettePreference?: "default" | "oceaneering";
+  /** Id from config/colorThemes.config (validated on load). */
+  colorTheme?: string;
 }
 
 export interface IMembersData {

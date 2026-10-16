@@ -1,5 +1,5 @@
 import * as React from "react";
-import { TriangleAlert } from "lucide-react";
+import { Lock, TriangleAlert } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   IBid,
@@ -7,20 +7,19 @@ import {
   IPhaseHistoryEntry,
   IStatusHistoryEntry,
   IBidRevision,
-  IClarificationItem,
   BidPhase,
 } from "../../models";
-import { IClarificationDbItem } from "../../models/IClarificationDb";
 import { BID_STATUSES, BID_PHASES } from "../../config/status.config";
 import { ROUTES } from "../../config/routes.config";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
-import { ClarificationDbService } from "../../services/ClarificationDbService";
+import { resolveSemanticColor } from "../../hooks/useColorTheme";
 import { StatusBadge } from "../common/StatusBadge";
 import { GlassCard } from "../common/GlassCard";
 import { BidTaskChecklist } from "./BidTaskChecklist";
 import { getRevisionLetter } from "./RevisionsTab";
 import { formatDateTime } from "../../utils/formatters";
+import { getAssetsCostCompleteness } from "../../utils/costCalculations";
 import {
   formatDurationHours,
   calcDurationHours,
@@ -68,6 +67,31 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
     (Array.isArray(bid.engineerResponsible) &&
       bid.engineerResponsible.length === 0);
 
+  /** Close Out requires every Assets Breakdown item to have its cost mapped */
+  const [assetCostsBlock, setAssetCostsBlock] = React.useState(false);
+  const assetsCostCompleteness = React.useMemo(
+    () =>
+      getAssetsCostCompleteness(bid.scopeItems || [], bid.assetBreakdown || []),
+    [bid.scopeItems, bid.assetBreakdown],
+  );
+  /** Canceled / No Bid close the BID without a priced scope, so they are not gated */
+  const COST_EXEMPT_STATUSES = ["Canceled", "No Bid"];
+  const isBlockedByAssetCosts = (
+    targetPhase: BidPhase,
+    targetStatus?: string,
+  ): boolean =>
+    targetPhase === ("Close Out" as BidPhase) &&
+    bid.currentPhase !== ("Close Out" as BidPhase) &&
+    assetsCostCompleteness.totalMissing > 0 &&
+    COST_EXEMPT_STATUSES.indexOf(targetStatus || "") < 0;
+
+  /** Reachable only via the Approval tab (all approvals finalized or override) */
+  const APPROVAL_GATED_STATUSES = ["Completed"];
+  const isApprovalGated = (status: string): boolean =>
+    APPROVAL_GATED_STATUSES.indexOf(status) >= 0;
+  const APPROVAL_GATED_HINT =
+    "Completed is set automatically once all approvals are finalized or an approval override is applied.";
+
   /** Phase-change picker: choose a status before confirming */
   const [phasePickerTarget, setPhasePickerTarget] = React.useState<{
     phase: BidPhase;
@@ -110,7 +134,11 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
           id: s.id,
           label: s.label,
           value: s.value,
-          color: s.color || "#94A3B8",
+          color: resolveSemanticColor(
+            "statuses",
+            s.value,
+            s.color || "#94A3B8",
+          ),
           order: s.order || 0,
           isTerminal: false,
           phase: null as BidPhase | null,
@@ -165,7 +193,11 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
           id: s.id,
           label: s.label,
           value: s.value,
-          color: s.color || "#94A3B8",
+          color: resolveSemanticColor(
+            "statuses",
+            s.value,
+            s.color || "#94A3B8",
+          ),
           order: s.order || 0,
           isTerminal: true,
           phase: "Close Out" as BidPhase,
@@ -318,44 +350,6 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
 
       if (isTerminal) {
         patch.completedDate = now;
-
-        // Push the BID's Clarifications to the Clarifications Database
-        // (only rows with content that have not been exported yet)
-        const clars = bid.clarifications || [];
-        const toExport = clars.filter(
-          (c) =>
-            !c.exportedToDatabase &&
-            ((c.clarification || "").trim() !== "" ||
-              (c.description || "").trim() !== ""),
-        );
-        if (toExport.length > 0) {
-          const clientName = bid.opportunityInfo
-            ? bid.opportunityInfo.client || ""
-            : "";
-          const dbItems: IClarificationDbItem[] = toExport.map((c) => ({
-            id: 0,
-            baseType: c.baseType || "Clarification",
-            clientDocRef: c.item || "",
-            etTopic: c.description || "",
-            clarification: c.clarification || "",
-            clientReply: c.clientResponse || "",
-            approved: false,
-            date: c.responseDate || "",
-            keyword: "",
-            client: clientName,
-          }));
-          ClarificationDbService.addMany(dbItems).catch((err) =>
-            console.error("Failed to export clarifications to database:", err),
-          );
-          const exportedIds: Record<string, boolean> = {};
-          toExport.forEach((c) => {
-            exportedIds[c.id] = true;
-          });
-          patch.clarifications = clars.map(
-            (c): IClarificationItem =>
-              exportedIds[c.id] ? { ...c, exportedToDatabase: true } : c,
-          );
-        }
       }
 
       // If leaving Rework with a terminal status, close the active revision
@@ -409,6 +403,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
   }) => {
     if (readOnly) return;
     if (statusDef.value === bid.currentStatus) return;
+    if (isApprovalGated(statusDef.value)) return;
 
     // Block status changes when BID is already in a terminal status
     const alreadyTerminal = terminalStatuses.some(
@@ -427,6 +422,11 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
     // Block restricted phases when no engineer assigned
     if (isUnassigned && RESTRICTED_PHASES.indexOf(targetPhase) >= 0) {
       setUnassignedBlock(true);
+      return;
+    }
+
+    if (isBlockedByAssetCosts(targetPhase, statusDef.value)) {
+      setAssetCostsBlock(true);
       return;
     }
 
@@ -477,6 +477,11 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
       return;
     }
 
+    if (isBlockedByAssetCosts(phase.value)) {
+      setAssetCostsBlock(true);
+      return;
+    }
+
     // Open status picker for target phase
     setPhasePickerTarget({ phase: phase.value, phaseLabel: phase.label });
     setPhasePickerStatus("");
@@ -498,7 +503,12 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
 
   /** Confirm phase change after status is selected in the picker */
   const handlePhasePickerConfirm = () => {
-    if (!phasePickerTarget || !phasePickerStatus) return;
+    if (
+      !phasePickerTarget ||
+      !phasePickerStatus ||
+      isApprovalGated(phasePickerStatus)
+    )
+      return;
     executeChange(phasePickerTarget.phase, phasePickerStatus);
     setPhasePickerTarget(null);
     setPhasePickerStatus("");
@@ -924,7 +934,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
               {lastStatusEntry && (
                 <div className={styles.lastChangeInfo}>
                   Last changed by{" "}
-                  <strong>{lastStatusEntry.actor || "—"}</strong> on{" "}
+                  <strong>{lastStatusEntry.actor || "-"}</strong> on{" "}
                   {formatDateTime(lastStatusEntry.start)}
                 </div>
               )}
@@ -1061,6 +1071,8 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                 statuses={terminalStatuses}
                 currentStatus={bid.currentStatus}
                 onSelect={handleStatusClick}
+                isLocked={isApprovalGated}
+                lockedHint={APPROVAL_GATED_HINT}
               />
             </div>
           )}
@@ -1070,7 +1082,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
       {/* ─── Phase Tasks ─── */}
       {currentPhaseTasks.length > 0 && (
         <GlassCard
-          title={`Phase Tasks — ${phases.find((p) => p.value === bid.currentPhase)?.label || ""}`}
+          title={`Phase Tasks - ${phases.find((p) => p.value === bid.currentPhase)?.label || ""}`}
         >
           <BidTaskChecklist
             tasks={currentPhaseTasks}
@@ -1106,7 +1118,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                         </span>
                       </div>
                       <div className={styles.recentStepMeta}>
-                        {entry.actor || "—"} · {formatDateTime(entry.start)}
+                        {entry.actor || "-"} · {formatDateTime(entry.start)}
                         {entry.durationHours !== null && (
                           <span className={styles.recentStepDuration}>
                             {" "}
@@ -1167,6 +1179,52 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                 }}
               >
                 Go to Unassigned Requests
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Asset Costs Block Dialog ─── */}
+      {assetCostsBlock && (
+        <div
+          className={styles.overlay}
+          onClick={() => setAssetCostsBlock(false)}
+        >
+          <div
+            className={styles.confirmDialog}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.confirmIcon}>
+              <TriangleAlert size={32} color="var(--warning)" />
+            </div>
+            <h3 className={styles.confirmTitle}>Asset Costs Not Mapped</h3>
+            <div className={styles.confirmMeta} style={{ textAlign: "center" }}>
+              <strong>
+                {assetsCostCompleteness.totalMissing} of{" "}
+                {assetsCostCompleteness.totalItems} item
+                {assetsCostCompleteness.totalItems !== 1 ? "s" : ""} still
+                missing cost
+              </strong>{" "}
+              in the Assets Breakdown
+              {assetsCostCompleteness.itemsMissing > 0 &&
+                ` · ${assetsCostCompleteness.itemsMissing} main item${assetsCostCompleteness.itemsMissing !== 1 ? "s" : ""}`}
+              {assetsCostCompleteness.subItemsMissing > 0 &&
+                ` · ${assetsCostCompleteness.subItemsMissing} sub-item${assetsCostCompleteness.subItemsMissing !== 1 ? "s" : ""}`}
+              {assetsCostCompleteness.pcfItemsMissing > 0 &&
+                ` · ${assetsCostCompleteness.pcfItemsMissing} PCF item${assetsCostCompleteness.pcfItemsMissing !== 1 ? "s" : ""}`}
+              .
+              <br />
+              <br />
+              All items must have costs mapped before advancing to{" "}
+              <strong>Close Out</strong>.
+            </div>
+            <div className={styles.confirmActions}>
+              <button
+                className={styles.confirmCancel}
+                onClick={() => setAssetCostsBlock(false)}
+              >
+                Close
               </button>
             </div>
           </div>
@@ -1458,10 +1516,11 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                   });
                   return deduped.map((s) => {
                     const isSelected = phasePickerStatus === s.value;
+                    const isLocked = isApprovalGated(s.value);
                     return (
                       <button
                         key={s.id}
-                        className={`${styles.statusCard} ${isSelected ? styles.statusCardActive : ""}`}
+                        className={`${styles.statusCard} ${isSelected ? styles.statusCardActive : ""} ${isLocked ? styles.statusCardLocked : ""}`}
                         style={
                           isSelected
                             ? {
@@ -1470,6 +1529,8 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                               }
                             : {}
                         }
+                        disabled={isLocked}
+                        title={isLocked ? APPROVAL_GATED_HINT : undefined}
                         onClick={() => setPhasePickerStatus(s.value)}
                       >
                         <span
@@ -1479,6 +1540,12 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                         <span className={styles.statusCardLabel}>
                           {s.label}
                         </span>
+                        {isLocked && (
+                          <Lock
+                            size={12}
+                            className={styles.statusCardLockIcon}
+                          />
+                        )}
                         {isSelected && (
                           <svg
                             width="14"
@@ -1496,6 +1563,12 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
                     );
                   });
                 })()}
+              </div>
+            )}
+            {phasePickerTarget.phase === ("Close Out" as BidPhase) && (
+              <div className={styles.lockedHint}>
+                <Lock size={12} />
+                {APPROVAL_GATED_HINT}
               </div>
             )}
             <div className={styles.confirmActions}>
@@ -1575,7 +1648,7 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
               </svg>
             </div>
             <h3 className={styles.confirmTitle}>
-              Terminal Status — BID Will Be Locked
+              Terminal Status - BID Will Be Locked
             </h3>
             <div className={styles.confirmChanges}>
               <div className={styles.confirmChangeRow}>
@@ -1647,7 +1720,9 @@ const TerminalStatusSection: React.FC<{
     phase: BidPhase | null;
     isTerminal?: boolean;
   }) => void;
-}> = ({ statuses, currentStatus, onSelect }) => {
+  isLocked: (value: string) => boolean;
+  lockedHint: string;
+}> = ({ statuses, currentStatus, onSelect, isLocked, lockedHint }) => {
   const [expanded, setExpanded] = React.useState(false);
 
   if (statuses.length === 0) return null;
@@ -1681,10 +1756,12 @@ const TerminalStatusSection: React.FC<{
         <div className={styles.statusGrid}>
           {statuses.map((s) => {
             const isActive = s.value === currentStatus;
+            const locked = isLocked(s.value);
             return (
               <button
                 key={s.id}
-                className={`${styles.statusCard} ${isActive ? styles.statusCardActive : ""} ${styles.statusCardTerminal}`}
+                className={`${styles.statusCard} ${isActive ? styles.statusCardActive : ""} ${styles.statusCardTerminal} ${locked ? styles.statusCardLocked : ""}`}
+                title={locked ? lockedHint : undefined}
                 style={
                   isActive
                     ? {
@@ -1701,13 +1778,16 @@ const TerminalStatusSection: React.FC<{
                     isTerminal: true,
                   })
                 }
-                disabled={isActive}
+                disabled={isActive || locked}
               >
                 <span
                   className={styles.statusCardDot}
                   style={{ background: s.color }}
                 />
                 <span className={styles.statusCardLabel}>{s.label}</span>
+                {locked && (
+                  <Lock size={12} className={styles.statusCardLockIcon} />
+                )}
               </button>
             );
           })}

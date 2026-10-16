@@ -23,6 +23,8 @@ interface FavoritesState {
 
   // Equipment CRUD
   addEquipment: (item: IFavoriteEquipment) => Promise<void>;
+  /** Adds several items with a single SharePoint write (rolls back on failure) */
+  addEquipmentMany: (items: IFavoriteEquipment[]) => Promise<void>;
   removeEquipment: (id: string) => Promise<void>;
   updateEquipment: (item: IFavoriteEquipment) => Promise<void>;
 
@@ -81,15 +83,23 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
     }
   },
 
-  addEquipment: async (item: IFavoriteEquipment) => {
+  addEquipment: async (item: IFavoriteEquipment) =>
+    get().addEquipmentMany([item]),
+
+  addEquipmentMany: async (items: IFavoriteEquipment[]) => {
     const data = get().data;
-    if (!data) return;
+    if (!data || items.length === 0) return;
     const updated: IFavoritesData = {
       ...data,
-      equipment: [...data.equipment, item],
+      equipment: data.equipment.concat(items),
     };
     set({ data: updated });
-    await FavoritesService.save(updated);
+    try {
+      await FavoritesService.save(updated);
+    } catch (err) {
+      if (get().data === updated) set({ data });
+      throw err;
+    }
   },
 
   removeEquipment: async (id: string) => {
@@ -127,7 +137,12 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
     }
     const updated: IFavoritesData = { ...data, bids: updatedBids };
     set({ data: updated });
-    await FavoritesService.save(updated);
+    try {
+      await FavoritesService.save(updated);
+    } catch (err) {
+      if (get().data === updated) set({ data });
+      throw err;
+    }
   },
 
   isBidFavorite: (bidNumber: string): boolean => {
@@ -180,7 +195,7 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
     ).length;
     if (itemCount > 0) {
       throw new Error(
-        `Cannot delete group — ${itemCount} item(s) are assigned to it. Remove items first.`,
+        `Cannot delete group - ${itemCount} item(s) are assigned to it. Remove items first.`,
       );
     }
     const updated: IFavoritesData = {
@@ -200,7 +215,7 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
     ).length;
     if (itemCount > 0) {
       throw new Error(
-        `Cannot delete sub-group — ${itemCount} item(s) are assigned to it. Remove items first.`,
+        `Cannot delete sub-group - ${itemCount} item(s) are assigned to it. Remove items first.`,
       );
     }
     const groups = data.groups.map((g) => {

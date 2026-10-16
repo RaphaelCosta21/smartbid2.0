@@ -3,8 +3,11 @@
  */
 
 import * as React from "react";
+import { IBid } from "../models";
 import { useBidStore } from "../stores/useBidStore";
 import { useConfigStore } from "../stores/useConfigStore";
+import { isPastDue } from "../utils/formatters";
+import { getDueFreezeDate } from "../utils/bidHelpers";
 
 export interface BidKPIs {
   totalBids: number;
@@ -16,11 +19,24 @@ export interface BidKPIs {
   avgCycleTimeDays: number;
   overdueBids: number;
   overdueRate: number;
+  /** Cost of open BIDs + completed BIDs still awaiting the client result. */
   totalPipelineValueUSD: number;
 }
 
-export function useKPIs(): BidKPIs {
-  const bids = useBidStore((s) => s.bids);
+const UNDECIDED_RESULTS = ["Pending", "Renegotiation"];
+
+function isAwaitingResult(bid: IBid): boolean {
+  const outcome = bid.bidResult?.outcome;
+  return (
+    bid.currentStatus === "Completed" &&
+    (!outcome || UNDECIDED_RESULTS.indexOf(outcome) >= 0)
+  );
+}
+
+/** KPIs over `source` (e.g. a filtered list) or, by default, every BID in the store. */
+export function useKPIs(source?: IBid[]): BidKPIs {
+  const storeBids = useBidStore((s) => s.bids);
+  const bids = source || storeBids;
   const config = useConfigStore((s) => s.config);
 
   return React.useMemo(() => {
@@ -55,11 +71,11 @@ export function useKPIs(): BidKPIs {
       ? (wonBids / completedWithResult.length) * 100
       : 0;
 
-    const now = new Date();
-    const overdueBids = bids.filter((b) => {
-      if (isTerminal(b.currentStatus)) return false;
-      return b.dueDate ? new Date(b.dueDate) < now : false;
-    }).length;
+    const overdueBids = bids.filter(
+      (b) =>
+        !isTerminal(b.currentStatus) &&
+        isPastDue(b.dueDate, getDueFreezeDate(b)),
+    ).length;
     const overdueRate = activeBids ? (overdueBids / activeBids) * 100 : 0;
 
     const completedBids = bids.filter(
@@ -75,7 +91,7 @@ export function useKPIs(): BidKPIs {
       : 0;
 
     const totalPipelineValueUSD = bids
-      .filter((b) => !isTerminal(b.currentStatus))
+      .filter((b) => !isTerminal(b.currentStatus) || isAwaitingResult(b))
       .reduce((sum, b) => sum + (b.costSummary?.totalCostUSD || 0), 0);
 
     return {

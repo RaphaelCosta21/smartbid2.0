@@ -516,7 +516,7 @@ export const BidTimeline: React.FC<BidTimelineProps> = ({
                         {phase.label}
                       </span>
                       <span className={styles.flowPhaseMeta}>
-                        {phaseEntry ? formatDateTime(phaseEntry.start) : "—"}
+                        {phaseEntry ? formatDateTime(phaseEntry.start) : "-"}
                         {phaseEntry?.end && (
                           <span> → {formatDateTime(phaseEntry.end)}</span>
                         )}
@@ -606,7 +606,7 @@ export const BidTimeline: React.FC<BidTimelineProps> = ({
                                 ) : null}
                               </div>
                               <div className={styles.flowStatusMeta}>
-                                {sh.actor || "—"} · {formatDateTime(sh.start)}
+                                {sh.actor || "-"} · {formatDateTime(sh.start)}
                                 {sh.end && (
                                   <span> → {formatDateTime(sh.end)}</span>
                                 )}

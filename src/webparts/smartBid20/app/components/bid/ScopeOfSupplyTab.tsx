@@ -1,5 +1,29 @@
 import * as React from "react";
-import { StickyNote } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  ClipboardList,
+  Copy,
+  CopyPlus,
+  CornerDownRight,
+  FolderInput,
+  FolderPlus,
+  Import,
+  MoreHorizontal,
+  PackageSearch,
+  Palette,
+  Paperclip,
+  Pencil,
+  Plus,
+  Sparkles,
+  Star,
+  StickyNote,
+  Trash2,
+} from "lucide-react";
 import {
   IScopeItem,
   IScopeSubItem,
@@ -13,13 +37,24 @@ import {
 } from "../../models";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
+import { useBidStore } from "../../stores/useBidStore";
+import { useUIStore } from "../../stores/useUIStore";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { makeId } from "../../utils/idGenerator";
-import { AIDocumentAnalyzer } from "../common/AIDocumentAnalyzer";
+import { buildAiContext } from "../../utils/aiContext";
+import { AIAnalyzerModal } from "../common/AIAnalyzerModal";
 import { PartNumberAutocomplete } from "../common/PartNumberAutocomplete";
 import { EquipmentImportModal, IImportPick } from "./EquipmentImportModal";
 import { ImportSourceModal } from "../common/ImportSourceModal";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import { AttachmentService } from "../../services/AttachmentService";
+import { formatNumber } from "../../utils/formatters";
+import {
+  BidTabHeader,
+  IHeaderStat,
+  IShareSegment,
+  ShareBar,
+} from "./BidTabHeader";
 import styles from "./ScopeOfSupplyTab.module.scss";
 
 interface ScopeOfSupplyTabProps {
@@ -64,10 +99,18 @@ interface ScopeOfSupplyTabProps {
   engineeringItems?: IEngineeringHoursItem[];
   /** Callback to remove engineering hours for a scope item */
   onClearEngineeringHours?: (scopeItemId: string) => void;
+  /** Rendered outside BID Details (template editor, AI preview): header shows metrics only */
+  embedded?: boolean;
 }
 
 /** Duration of the drawer/section collapse exit animation — keep in sync with the CSS keyframes */
 const DRAWER_ANIM_MS = 180;
+
+/** Favorites are matched by PN when present, otherwise by description */
+const favoriteKey = (partNumber: string, description: string): string => {
+  const pn = (partNumber || "").trim().toLowerCase();
+  return pn ? `pn:${pn}` : `desc:${(description || "").trim().toLowerCase()}`;
+};
 
 const blankItem = (
   sectionId: string | null,
@@ -147,6 +190,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   onResetSubItemCost,
   engineeringItems,
   onClearEngineeringHours,
+  embedded,
 }) => {
   // Helper: append fieldEmpty class when value is empty/falsy
   const emptyIf = (base: string, value: unknown): string =>
@@ -198,33 +242,122 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
 
   const config = useConfigStore((s) => s.config);
   const resourceTypes = config?.resourceTypes || [];
+  // Division / client context steers the AI retrieval towards similar past BIDs.
+  const aiBid = useBidStore((s) =>
+    bidNumber ? s.bids.find((b) => b.bidNumber === bidNumber) : undefined,
+  );
+  const aiContext = React.useMemo(
+    () => (aiBid ? buildAiContext(aiBid) : undefined),
+    [aiBid],
+  );
 
   const addFavEquipment = useFavoritesStore((s) => s.addEquipment);
   const favIsLoaded = useFavoritesStore((s) => s.isLoaded);
   const loadFavorites = useFavoritesStore((s) => s.loadFavorites);
+  const favEquipment = useFavoritesStore((s) => s.data?.equipment);
+  const addToast = useUIStore((s) => s.addToast);
   const currentUser = useCurrentUser();
 
   React.useEffect(() => {
-    if (!favIsLoaded) loadFavorites();
+    if (!favIsLoaded) loadFavorites().catch(() => undefined);
   }, []);
 
-  const handleAddToFavorites = (item: IScopeItem): void => {
-    if (!item.partNumber && !item.equipmentOffer) return;
-    const fav: IFavoriteEquipment = {
-      id: makeId("fav"),
-      groupId: "",
-      subGroupId: "",
-      partNumber: item.partNumber || "",
-      description: item.equipmentOffer || "",
-      pictureUrl: "",
-      notes: "",
-      dataSource: "bid",
-      createdBy: currentUser?.displayName || "",
-      createdDate: new Date().toISOString(),
-      lastModified: new Date().toISOString(),
-    };
-    addFavEquipment(fav);
+  const favoriteKeys = React.useMemo(() => {
+    const keys = new Set<string>();
+    (favEquipment || []).forEach((e) =>
+      keys.add(favoriteKey(e.partNumber, e.description)),
+    );
+    return keys;
+  }, [favEquipment]);
+
+  const isItemFavorite = (item: IScopeItem): boolean =>
+    !!(item.partNumber || item.equipmentOffer) &&
+    favoriteKeys.has(favoriteKey(item.partNumber, item.equipmentOffer));
+
+  const [favBusyId, setFavBusyId] = React.useState<string | null>(null);
+
+  const handleAddToFavorites = async (item: IScopeItem): Promise<void> => {
+    if (favBusyId) return;
+    const label = item.partNumber || item.equipmentOffer;
+    if (!label) {
+      addToast({
+        type: "warning",
+        title: "Nothing to add yet",
+        message: "Fill in the Equipment Offer or Part Number first.",
+      });
+      return;
+    }
+    if (isItemFavorite(item)) {
+      addToast({
+        type: "info",
+        title: "Already in Favorites",
+        message: label,
+      });
+      return;
+    }
+    setFavBusyId(item.id);
+    try {
+      if (!useFavoritesStore.getState().data) await loadFavorites();
+      if (!useFavoritesStore.getState().data) {
+        throw new Error("The favorites catalog could not be loaded.");
+      }
+      const now = new Date().toISOString();
+      const fav: IFavoriteEquipment = {
+        id: makeId("fav"),
+        groupId: "",
+        subGroupId: "",
+        partNumber: item.partNumber || "",
+        description: item.equipmentOffer || "",
+        pictureUrl: "",
+        notes: "",
+        dataSource: "bid",
+        createdBy: currentUser?.displayName || "",
+        createdDate: now,
+        lastModified: now,
+      };
+      await addFavEquipment(fav);
+      addToast({
+        type: "success",
+        title: "Added to Favorites",
+        message: `${label} - assign a group in Favorites › Equipment Catalog.`,
+      });
+    } catch (err) {
+      addToast({
+        type: "error",
+        title: "Could not add to Favorites",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setFavBusyId(null);
+    }
   };
+
+  // ─── Popover menus (section color / section more / row move) ───
+  const [openMenu, setOpenMenu] = React.useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(
+    null,
+  );
+  const toggleMenu = (key: string): void =>
+    setOpenMenu((cur) => (cur === key ? null : key));
+
+  React.useEffect(() => {
+    if (!openMenu) return undefined;
+    const onPointerDown = (e: MouseEvent): void => {
+      const target = e.target as Element | null;
+      if (!target || !target.closest || !target.closest("[data-sos-menu]")) {
+        setOpenMenu(null);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") setOpenMenu(null);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [openMenu]);
 
   const [items, setItems] = React.useState<IScopeItem[]>(scopeItems || []);
 
@@ -399,6 +532,35 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     });
     return counts;
   }, [dataItems]);
+
+  const headerStats = React.useMemo(() => {
+    let needCert = 0;
+    let needEng = 0;
+    let untyped = 0;
+    dataItems.forEach((i) => {
+      if (i.needsCertification) needCert++;
+      if (i.needsEngineering) needEng++;
+      (i.subItems || []).forEach((s) => {
+        if (s.needsEngineering) needEng++;
+      });
+      if (!i.resourceType) untyped++;
+    });
+    const stats: IHeaderStat[] = [
+      { label: "Need certification", value: formatNumber(needCert) },
+      {
+        label: "Need engineering",
+        value: formatNumber(needEng),
+        sub: "items and sub-items",
+      },
+    ];
+    const byResourceType: IShareSegment[] = Object.keys(resourceTypeCounts)
+      .map((rt) => ({ label: rt, value: resourceTypeCounts[rt] }))
+      .sort((a, b) => b.value - a.value);
+    if (untyped > 0) {
+      byResourceType.push({ label: "No type", value: untyped, neutral: true });
+    }
+    return { stats, byResourceType };
+  }, [dataItems, resourceTypeCounts]);
 
   // Resource type sub-tab filter (e.g. "All" / "ROV Asset" / "Tooling")
   const [resourceTypeFilter, setResourceTypeFilter] =
@@ -1342,6 +1504,27 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     "Comments",
   ];
 
+  const moveTargets = [{ id: "", title: "No section" }].concat(
+    sections.map((s) => ({ id: s.id, title: s.sectionTitle || "Untitled" })),
+  );
+
+  const pendingDelete = pendingDeleteId
+    ? items.find((i) => i.id === pendingDeleteId)
+    : undefined;
+  let pendingDeleteMessage = "";
+  if (pendingDelete) {
+    if (pendingDelete.isSection) {
+      const n = itemsBySectionCount[pendingDelete.id] || 0;
+      pendingDeleteMessage = `Section "${pendingDelete.sectionTitle || "Untitled"}" will be deleted${n > 0 ? ` together with its ${n} item${n !== 1 ? "s" : ""}` : ""}.`;
+    } else {
+      const raw =
+        pendingDelete.equipmentOffer || pendingDelete.description || "";
+      const label = raw.length > 80 ? `${raw.slice(0, 80)}…` : raw;
+      const n = (pendingDelete.subItems || []).length;
+      pendingDeleteMessage = `Item #${pendingDelete.lineNumber}${label ? ` "${label}"` : ""} will be deleted${n > 0 ? ` together with its ${n} sub-item${n !== 1 ? "s" : ""}` : ""}.`;
+    }
+  }
+
   return (
     <div className={styles.container}>
       {/* Hidden file input for attachments */}
@@ -1352,6 +1535,26 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
         onChange={handleFileSelected}
       />
 
+      <BidTabHeader
+        title="Scope of Supply"
+        subtitle="Items and sections offered to the client"
+        icon={<ClipboardList size={18} />}
+        compact={embedded}
+        hero={{
+          label: "Scope items",
+          value: formatNumber(dataItems.length),
+          sub: `in ${sections.length} section${sections.length !== 1 ? "s" : ""}`,
+        }}
+        stats={headerStats.stats}
+      >
+        <ShareBar
+          title="By resource type"
+          segments={headerStats.byResourceType}
+          format={formatNumber}
+          emptyLabel="No items yet"
+        />
+      </BidTabHeader>
+
       {/* Tab-level notes */}
       <div className={styles.tabNotesContainer}>
         <label className={styles.tabNotesLabel}>
@@ -1359,7 +1562,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
           Comments
         </label>
         {readOnly && !onSaveTabNotes ? (
-          <p className={styles.tabNotesText}>{tabNotes || "—"}</p>
+          <p className={styles.tabNotesText}>{tabNotes || "-"}</p>
         ) : (
           <textarea
             className={styles.tabNotesInput}
@@ -1372,64 +1575,60 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
         )}
       </div>
 
-      {/* Summary Cards */}
-      <div className={styles.summaryRow}>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Total Items</span>
-          <span className={styles.summaryValue}>{dataItems.length}</span>
-        </div>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Sections</span>
-          <span className={styles.summaryValue}>{sections.length}</span>
-        </div>
-        {Object.entries(resourceTypeCounts).map(([type, count]) => (
-          <div key={type} className={styles.summaryCard}>
-            <span className={styles.summaryLabel}>{type}</span>
-            <span className={styles.summaryValue}>{count}</span>
-          </div>
-        ))}
-      </div>
-
       {/* Toolbar */}
-      {!readOnly && (
+      {(!readOnly || sections.length > 0) && (
         <div className={styles.toolbar}>
-          <button
-            className={`${styles.toolbarBtn} ${styles.primary}`}
-            onClick={() => addItem(null)}
-          >
-            + Add Item
-          </button>
-          <button className={styles.toolbarBtn} onClick={addSection}>
-            + Add Section
-          </button>
+          {!readOnly && (
+            <>
+              <button
+                type="button"
+                className={`${styles.toolbarBtn} ${styles.primary}`}
+                onClick={() => addItem(null)}
+              >
+                <Plus size={15} /> Add Item
+              </button>
+              <button
+                type="button"
+                className={styles.toolbarBtn}
+                onClick={addSection}
+              >
+                <FolderPlus size={15} /> Add Section
+              </button>
+              <span className={styles.toolbarDivider} aria-hidden="true" />
+              <button
+                type="button"
+                className={styles.toolbarBtn}
+                onClick={() => setShowImportModal(true)}
+                title="Import scope items from a completed BID or template"
+              >
+                <Import size={15} /> Import BID / Template
+              </button>
+              {bidNumber && (
+                <button
+                  type="button"
+                  className={`${styles.toolbarBtn} ${styles.aiBtn}`}
+                  onClick={() => setShowAIModal(true)}
+                  title="Generate scope items from a client document using AI"
+                >
+                  <Sparkles size={15} /> Generate from AI
+                </button>
+              )}
+            </>
+          )}
           {sections.length > 0 && (
-            <button className={styles.toolbarBtn} onClick={toggleAllSections}>
-              {allSectionsCollapsed ? "▶ Expand All" : "▼ Collapse All"}
-            </button>
-          )}
-          <button
-            className={`${styles.toolbarBtn} ${styles.importBidBtn}`}
-            onClick={() => setShowImportModal(true)}
-            title="Import scope items from a completed BID or template"
-          >
-            📥 Import BID / Template
-          </button>
-          {bidNumber && (
             <button
-              className={`${styles.toolbarBtn} ${styles.aiBtn}`}
-              onClick={() => setShowAIModal(true)}
-              title="Generate scope items from a client document using AI"
+              type="button"
+              className={`${styles.toolbarBtn} ${styles.toolbarEnd}`}
+              onClick={toggleAllSections}
             >
-              🤖 Generate from AI
+              {allSectionsCollapsed ? (
+                <ChevronsUpDown size={15} />
+              ) : (
+                <ChevronsDownUp size={15} />
+              )}
+              {allSectionsCollapsed ? "Expand all" : "Collapse all"}
             </button>
           )}
-        </div>
-      )}
-      {readOnly && sections.length > 0 && (
-        <div className={styles.toolbar}>
-          <button className={styles.toolbarBtn} onClick={toggleAllSections}>
-            {allSectionsCollapsed ? "▶ Expand All" : "▼ Collapse All"}
-          </button>
         </div>
       )}
 
@@ -1461,7 +1660,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
           <div>No scope items yet</div>
           {!readOnly && (
             <p>
-              Click &quot;+ Add Item&quot; or &quot;+ Add Section&quot; to start
+              Click &quot;Add Item&quot; or &quot;Add Section&quot; to start
               building the scope of supply.
             </p>
           )}
@@ -1477,15 +1676,21 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                       <span className={styles.thWithAction}>
                         {h}
                         <button
+                          type="button"
                           className={styles.thExpandBtn}
                           onClick={toggleAllComments}
+                          aria-expanded={allCommentsExpanded}
                           title={
                             allCommentsExpanded
                               ? "Collapse all comments"
                               : "Expand all comments"
                           }
                         >
-                          {allCommentsExpanded ? "▼" : "▶"}
+                          {allCommentsExpanded ? (
+                            <ChevronDown size={13} />
+                          ) : (
+                            <ChevronRight size={13} />
+                          )}
                         </button>
                       </span>
                     ) : (
@@ -1513,6 +1718,11 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                   const isSectionSpecsOpen = expandedSpecs.has(item.id);
                   const sectionHasSpecs = hasSpecs(item);
                   const totalColsSection = columns.length + (!readOnly ? 1 : 0);
+                  const sectionAttachCount = (item.attachments || []).length;
+                  const colorMenuKey = `color:${item.id}`;
+                  const moreMenuKey = `more:${item.id}`;
+                  const otherDivision =
+                    currentDivision === "ROV" ? "SURVEY" : "ROV";
                   return (
                     <React.Fragment key={item.id}>
                       <tr className={styles.sectionRow} style={sectionStyle}>
@@ -1572,7 +1782,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                             <span
                               className={`${styles.chevron} ${isCollapsed ? styles.collapsed : ""}`}
                             >
-                              ▼
+                              <ChevronDown size={15} />
                             </span>
                             {editingCell?.id === item.id &&
                             editingCell?.field === "sectionTitle" &&
@@ -1609,6 +1819,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                             )}
                             {!readOnly && editingCell?.id !== item.id && (
                               <button
+                                type="button"
                                 className={styles.sectionEditBtn}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1619,17 +1830,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                 }}
                                 title="Edit section title"
                               >
-                                <svg
-                                  viewBox="0 0 24 24"
-                                  width="12"
-                                  height="12"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                >
-                                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-                                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                </svg>
+                                <Pencil size={12} />
                               </button>
                             )}
                             <span
@@ -1654,249 +1855,307 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                               })()}
                               )
                             </span>
-                            {!readOnly && (
+                            {(!readOnly || sectionHasSpecs) && (
                               <div
                                 className={styles.sectionActions}
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <button
-                                  className={`${styles.actionBtn} ${styles.edit}`}
-                                  onClick={() => addItem(item.id)}
-                                >
-                                  + Item
-                                </button>
-                                <button
-                                  className={`${styles.actionBtn} ${styles.edit}`}
-                                  onClick={() =>
-                                    setCatalogImportSectionId(item.id)
-                                  }
-                                  title="Add Items from Catalog"
-                                >
-                                  + From Catalog
-                                </button>
-                                <select
-                                  className={styles.setAllSelect}
-                                  value=""
-                                  onChange={(e) => {
-                                    if (e.target.value)
-                                      bulkUpdateSectionField(
-                                        item.id,
-                                        "resourceType",
-                                        e.target.value,
-                                      );
-                                    e.target.value = "";
-                                  }}
-                                  title="Set Resource Type for all items in section"
-                                >
-                                  <option value="">Set All Res. Type</option>
-                                  {resourceTypes
-                                    .filter((r) => r.isActive)
-                                    .map((r) => (
-                                      <option key={r.id} value={r.label}>
-                                        {r.label}
-                                      </option>
-                                    ))}
-                                </select>
-                                <select
-                                  className={styles.setAllSelect}
-                                  value=""
-                                  onChange={(e) => {
-                                    if (e.target.value)
-                                      bulkUpdateSectionField(
-                                        item.id,
-                                        "resourceSubType",
-                                        e.target.value,
-                                      );
-                                    e.target.value = "";
-                                  }}
-                                  title="Set Sub-Type for all items in section"
-                                >
-                                  <option value="">Set All Sub-Type</option>
-                                  {resourceTypes
-                                    .filter((r) => r.isActive)
-                                    .reduce(
-                                      (
-                                        acc: { label: string; value: string }[],
-                                        rt,
-                                      ) => {
-                                        (rt.subTypes || [])
-                                          .filter((s) => s.isActive !== false)
-                                          .forEach((s) => {
-                                            if (
-                                              !acc.find(
-                                                (a) => a.value === s.value,
-                                              )
-                                            )
-                                              acc.push({
-                                                label: s.label,
-                                                value: s.value,
-                                              });
-                                          });
-                                        return acc;
-                                      },
-                                      [],
-                                    )
-                                    .map((s) => (
-                                      <option key={s.value} value={s.value}>
-                                        {s.label}
-                                      </option>
-                                    ))}
-                                </select>
-                                <div className={styles.colorPicker}>
-                                  <button
-                                    className={styles.colorPickerBtn}
-                                    title="Section color"
-                                    style={
-                                      sColor
-                                        ? { background: sColor }
-                                        : undefined
-                                    }
-                                  >
-                                    🎨
-                                  </button>
-                                  <div className={styles.colorPickerDropdown}>
-                                    {SECTION_COLORS.map((c) => (
-                                      <button
-                                        key={c || "default"}
-                                        className={`${styles.colorSwatch} ${(c || "") === (sColor || "") ? styles.colorSwatchActive : ""}`}
-                                        style={
-                                          c
-                                            ? { background: c }
-                                            : {
-                                                background:
-                                                  "var(--accent-color)",
-                                              }
-                                        }
-                                        onClick={() =>
-                                          updateField(
-                                            item.id,
-                                            "sectionColor",
-                                            c,
-                                          )
-                                        }
-                                        title={c || "Default"}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                                <button
-                                  className={`${styles.actionBtn} ${styles.edit}`}
-                                  onClick={() => handleAttachClick(item.id)}
-                                  title={`Attach file to section${(item.attachments || []).length > 0 ? ` (${(item.attachments || []).length})` : ""}`}
-                                >
-                                  📎
-                                  {(item.attachments || []).length > 0 && (
-                                    <span className={styles.attachBadge}>
-                                      {(item.attachments || []).length}
-                                    </span>
-                                  )}
-                                </button>
-                                <button
-                                  className={`${styles.actionBtn} ${styles.delete}`}
-                                  onClick={() => {
-                                    if (
-                                      window.confirm(
-                                        `Delete section "${item.sectionTitle || "Untitled"}"? Items in this section will also be removed.`,
-                                      )
-                                    )
-                                      deleteItem(item.id);
-                                  }}
-                                >
-                                  ✕
-                                </button>
-                                <div className={styles.sectionMenu}>
-                                  <button
-                                    className={`${styles.actionBtn} ${styles.edit}`}
-                                    title="Section actions"
-                                  >
-                                    ⋯
-                                  </button>
-                                  <div className={styles.sectionMenuDropdown}>
+                                {!readOnly && (
+                                  <>
                                     <button
-                                      className={styles.sectionMenuItem}
-                                      onClick={() => duplicateSection(item.id)}
+                                      type="button"
+                                      className={styles.sectionBtn}
+                                      onClick={() => addItem(item.id)}
+                                      title="Add a blank item to this section"
                                     >
-                                      📋 Duplicate Section
+                                      <Plus size={13} /> Item
                                     </button>
-                                    {currentDivision &&
-                                      onMoveSectionToDivision && (
-                                        <button
-                                          className={styles.sectionMenuItem}
-                                          onClick={() => {
-                                            const target =
-                                              currentDivision === "ROV"
-                                                ? "SURVEY"
-                                                : "ROV";
-                                            if (
-                                              window.confirm(
-                                                `Move section "${item.sectionTitle || "Untitled"}" to ${target}?`,
+                                    <button
+                                      type="button"
+                                      className={styles.sectionBtn}
+                                      onClick={() =>
+                                        setCatalogImportSectionId(item.id)
+                                      }
+                                      title="Add items from the equipment catalog"
+                                    >
+                                      <PackageSearch size={13} /> From catalog
+                                    </button>
+                                    <span
+                                      className={styles.actionDivider}
+                                      aria-hidden="true"
+                                    />
+                                    <select
+                                      className={styles.setAllSelect}
+                                      value=""
+                                      onChange={(e) => {
+                                        if (e.target.value)
+                                          bulkUpdateSectionField(
+                                            item.id,
+                                            "resourceType",
+                                            e.target.value,
+                                          );
+                                        e.target.value = "";
+                                      }}
+                                      title="Set the Resource Type of every item in this section"
+                                    >
+                                      <option value="">
+                                        Set type for all…
+                                      </option>
+                                      {resourceTypes
+                                        .filter((r) => r.isActive)
+                                        .map((r) => (
+                                          <option key={r.id} value={r.label}>
+                                            {r.label}
+                                          </option>
+                                        ))}
+                                    </select>
+                                    <select
+                                      className={styles.setAllSelect}
+                                      value=""
+                                      onChange={(e) => {
+                                        if (e.target.value)
+                                          bulkUpdateSectionField(
+                                            item.id,
+                                            "resourceSubType",
+                                            e.target.value,
+                                          );
+                                        e.target.value = "";
+                                      }}
+                                      title="Set the Sub-Type of every item in this section"
+                                    >
+                                      <option value="">
+                                        Set sub-type for all…
+                                      </option>
+                                      {resourceTypes
+                                        .filter((r) => r.isActive)
+                                        .reduce(
+                                          (
+                                            acc: {
+                                              label: string;
+                                              value: string;
+                                            }[],
+                                            rt,
+                                          ) => {
+                                            (rt.subTypes || [])
+                                              .filter(
+                                                (s) => s.isActive !== false,
                                               )
-                                            )
-                                              onMoveSectionToDivision(
-                                                item.id,
-                                                target,
-                                              );
-                                          }}
-                                        >
-                                          ➡ Move to{" "}
-                                          {currentDivision === "ROV"
-                                            ? "SURVEY"
-                                            : "ROV"}
-                                        </button>
+                                              .forEach((s) => {
+                                                if (
+                                                  !acc.find(
+                                                    (a) => a.value === s.value,
+                                                  )
+                                                )
+                                                  acc.push({
+                                                    label: s.label,
+                                                    value: s.value,
+                                                  });
+                                              });
+                                            return acc;
+                                          },
+                                          [],
+                                        )
+                                        .map((s) => (
+                                          <option key={s.value} value={s.value}>
+                                            {s.label}
+                                          </option>
+                                        ))}
+                                    </select>
+                                    <span
+                                      className={styles.actionDivider}
+                                      aria-hidden="true"
+                                    />
+                                  </>
+                                )}
+                                <button
+                                  type="button"
+                                  className={`${styles.iconBtn}${sectionHasSpecs ? ` ${styles.iconBtnOn}` : ""}`}
+                                  onClick={() => toggleSpecsExpand(item.id)}
+                                  aria-pressed={isSectionSpecsOpen}
+                                  title={
+                                    isSectionSpecsOpen
+                                      ? "Hide client technical specs"
+                                      : sectionHasSpecs
+                                        ? "Client technical specs"
+                                        : "Add client technical specs"
+                                  }
+                                >
+                                  <ClipboardList size={14} />
+                                </button>
+                                {!readOnly && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className={`${styles.iconBtn}${sectionAttachCount > 0 ? ` ${styles.iconBtnOn} ${styles.iconBtnCount}` : ""}`}
+                                      onClick={() => handleAttachClick(item.id)}
+                                      title={
+                                        sectionAttachCount > 0
+                                          ? `Attach file to section (${sectionAttachCount} attached)`
+                                          : "Attach file to section"
+                                      }
+                                    >
+                                      <Paperclip size={14} />
+                                      {sectionAttachCount > 0 && (
+                                        <span className={styles.btnCount}>
+                                          {sectionAttachCount}
+                                        </span>
                                       )}
-                                    {currentDivision &&
-                                      onCopySectionToDivision && (
-                                        <button
-                                          className={styles.sectionMenuItem}
-                                          onClick={() => {
-                                            const target =
-                                              currentDivision === "ROV"
-                                                ? "SURVEY"
-                                                : "ROV";
-                                            onCopySectionToDivision(
-                                              item.id,
-                                              target,
-                                            );
-                                          }}
+                                    </button>
+                                    <div
+                                      className={styles.menuAnchor}
+                                      data-sos-menu="true"
+                                    >
+                                      <button
+                                        type="button"
+                                        className={styles.iconBtn}
+                                        onClick={() => toggleMenu(colorMenuKey)}
+                                        aria-haspopup="true"
+                                        aria-expanded={
+                                          openMenu === colorMenuKey
+                                        }
+                                        title="Section color"
+                                      >
+                                        <Palette size={14} />
+                                        {sColor && (
+                                          <span
+                                            className={styles.colorDot}
+                                            style={{ background: sColor }}
+                                          />
+                                        )}
+                                      </button>
+                                      {openMenu === colorMenuKey && (
+                                        <div
+                                          className={`${styles.menu} ${styles.colorMenu}`}
+                                          role="menu"
                                         >
-                                          📄 Copy to{" "}
-                                          {currentDivision === "ROV"
-                                            ? "SURVEY"
-                                            : "ROV"}
-                                        </button>
+                                          <span className={styles.menuLabel}>
+                                            Section color
+                                          </span>
+                                          <div className={styles.swatchGrid}>
+                                            {SECTION_COLORS.map((c) => (
+                                              <button
+                                                key={c || "default"}
+                                                type="button"
+                                                role="menuitemradio"
+                                                aria-checked={c === sColor}
+                                                aria-label={
+                                                  c
+                                                    ? `Color ${c}`
+                                                    : "Default color"
+                                                }
+                                                className={`${styles.colorSwatch}${c ? "" : ` ${styles.colorSwatchNone}`}${c === sColor ? ` ${styles.colorSwatchActive}` : ""}`}
+                                                style={
+                                                  c
+                                                    ? { background: c }
+                                                    : undefined
+                                                }
+                                                onClick={() => {
+                                                  updateField(
+                                                    item.id,
+                                                    "sectionColor",
+                                                    c,
+                                                  );
+                                                  setOpenMenu(null);
+                                                }}
+                                                title={c || "Default"}
+                                              />
+                                            ))}
+                                          </div>
+                                        </div>
                                       )}
-                                  </div>
-                                </div>
+                                    </div>
+                                    <div
+                                      className={styles.menuAnchor}
+                                      data-sos-menu="true"
+                                    >
+                                      <button
+                                        type="button"
+                                        className={styles.iconBtn}
+                                        onClick={() => toggleMenu(moreMenuKey)}
+                                        aria-haspopup="true"
+                                        aria-expanded={openMenu === moreMenuKey}
+                                        title="More section actions"
+                                      >
+                                        <MoreHorizontal size={15} />
+                                      </button>
+                                      {openMenu === moreMenuKey && (
+                                        <div
+                                          className={styles.menu}
+                                          role="menu"
+                                        >
+                                          <button
+                                            type="button"
+                                            role="menuitem"
+                                            className={styles.menuItem}
+                                            onClick={() => {
+                                              setOpenMenu(null);
+                                              duplicateSection(item.id);
+                                            }}
+                                          >
+                                            <Copy size={14} /> Duplicate section
+                                          </button>
+                                          {currentDivision &&
+                                            onMoveSectionToDivision && (
+                                              <button
+                                                type="button"
+                                                role="menuitem"
+                                                className={styles.menuItem}
+                                                onClick={() => {
+                                                  setOpenMenu(null);
+                                                  if (
+                                                    window.confirm(
+                                                      `Move section "${item.sectionTitle || "Untitled"}" to ${otherDivision}?`,
+                                                    )
+                                                  )
+                                                    onMoveSectionToDivision(
+                                                      item.id,
+                                                      otherDivision,
+                                                    );
+                                                }}
+                                              >
+                                                <ArrowRightLeft size={14} />{" "}
+                                                Move to {otherDivision}
+                                              </button>
+                                            )}
+                                          {currentDivision &&
+                                            onCopySectionToDivision && (
+                                              <button
+                                                type="button"
+                                                role="menuitem"
+                                                className={styles.menuItem}
+                                                onClick={() => {
+                                                  setOpenMenu(null);
+                                                  onCopySectionToDivision(
+                                                    item.id,
+                                                    otherDivision,
+                                                  );
+                                                }}
+                                              >
+                                                <CopyPlus size={14} /> Copy to{" "}
+                                                {otherDivision}
+                                              </button>
+                                            )}
+                                          <div
+                                            className={styles.menuSeparator}
+                                            role="separator"
+                                          />
+                                          <button
+                                            type="button"
+                                            role="menuitem"
+                                            className={`${styles.menuItem} ${styles.menuItemDanger}`}
+                                            onClick={() => {
+                                              setOpenMenu(null);
+                                              setPendingDeleteId(item.id);
+                                            }}
+                                          >
+                                            <Trash2 size={14} /> Delete section
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </>
+                                )}
                               </div>
-                            )}
-                            {/* Specs toggle — always visible (view & edit mode) */}
-                            {sectionHasSpecs && (
-                              <button
-                                className={`${styles.actionBtn} ${styles.specsToggle} ${styles.hasSpecs}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleSpecsExpand(item.id);
-                                }}
-                                title={
-                                  isSectionSpecsOpen
-                                    ? "Collapse section specs"
-                                    : "Section technical specs"
-                                }
-                              >
-                                {isSectionSpecsOpen ? "▼" : "▶"} 📋
-                              </button>
-                            )}
-                            {!readOnly && !sectionHasSpecs && (
-                              <button
-                                className={`${styles.actionBtn} ${styles.specsToggle}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleSpecsExpand(item.id);
-                                }}
-                                title="Section technical specs"
-                              >
-                                ▶ 📋
-                              </button>
                             )}
                           </div>
                         </td>
@@ -1915,7 +2174,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                     Client Technical Specifications
                                   </span>
                                   <span className={styles.specsPanelSubtitle}>
-                                    Optional — fill in when the client provides
+                                    Optional - fill in when the client provides
                                     detailed requirements in the ET for this
                                     section
                                   </span>
@@ -2150,6 +2409,9 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                 const totalCols = columns.length + (!readOnly ? 1 : 0);
                 const isDragged = draggedId === item.id;
                 const isDragOver = dragOverId === item.id;
+                const moveMenuKey = `move:${item.id}`;
+                const canFavorite = !!(item.partNumber || item.equipmentOffer);
+                const isFavorite = isItemFavorite(item);
                 return (
                   <React.Fragment key={item.id}>
                     <tr
@@ -2200,7 +2462,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                           onClick={() => toggleDrawer(item.id)}
                           title={
                             itemHasSubItems
-                              ? `${(item.subItems || []).length} sub-item(s) — click to expand`
+                              ? `${(item.subItems || []).length} sub-item(s) - click to expand`
                               : "Expand / Collapse details"
                           }
                         >
@@ -2255,7 +2517,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                             }
                             title={item.clientDocRef || undefined}
                           >
-                            {item.clientDocRef || "—"}
+                            {item.clientDocRef || "-"}
                           </div>
                         )}
                       </td>
@@ -2286,7 +2548,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                               ? "Yes"
                               : item.compliance === "no"
                                 ? "No"
-                                : "—"}
+                                : "-"}
                           </span>
                         ) : (
                           <div className={styles.complianceToggle}>
@@ -2317,7 +2579,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                             {item.compliance === "no" && (
                               <span
                                 className={styles.clarIndicator}
-                                title="Clarification/Qualification required — click to view"
+                                title="Clarification/Qualification required - click to view"
                                 onClick={(e) => {
                                   const rect = (
                                     e.target as HTMLElement
@@ -2337,7 +2599,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                       </td>
                       <td>
                         {readOnly ? (
-                          item.resourceType || "—"
+                          item.resourceType || "-"
                         ) : (
                           <select
                             className={emptyIf(
@@ -2368,7 +2630,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                       </td>
                       <td className={styles.subTypeCell}>
                         {readOnly ? (
-                          item.resourceSubType || "—"
+                          item.resourceSubType || "-"
                         ) : (
                           <select
                             className={emptyIf(
@@ -2541,14 +2803,17 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                             }
                             title={item.comments || undefined}
                           >
-                            {item.comments || "—"}
+                            {item.comments || "-"}
                           </div>
                         )}
                       </td>
                       {!readOnly && (
                         <td>
-                          <div className={styles.rowActions}>
+                          <div
+                            className={`${styles.rowActions}${openMenu === moveMenuKey ? ` ${styles.rowActionsPinned}` : ""}`}
+                          >
                             <button
+                              type="button"
                               className={styles.rowActionBtn}
                               onClick={() => {
                                 if (!openDrawers.has(item.id))
@@ -2558,103 +2823,104 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                               }}
                               title="Add sub-item"
                             >
-                              <svg
-                                viewBox="0 0 24 24"
-                                width="11"
-                                height="11"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <polyline points="9 17 4 12 9 7" />
-                                <path d="M20 18v-2a4 4 0 00-4-4H4" />
-                              </svg>
+                              <CornerDownRight size={14} />
                             </button>
-                            {sections.length > 0 && (
-                              <select
-                                className={styles.moveSectionSelect}
-                                value={item.sectionId || ""}
-                                onChange={(e) =>
-                                  moveItemToSection(
-                                    item.id,
-                                    e.target.value || null,
-                                  )
-                                }
-                                title="Move to section"
-                              >
-                                <option value="">— No Section —</option>
-                                {sections.map((s) => (
-                                  <option key={s.id} value={s.id}>
-                                    {s.sectionTitle || "Untitled"}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
                             <button
+                              type="button"
                               className={styles.rowActionBtn}
                               onClick={() => setImportTargetId(item.id)}
-                              title="Import Equipment"
+                              title="Pick equipment from catalog"
                             >
-                              <svg
-                                viewBox="0 0 24 24"
-                                width="11"
-                                height="11"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                                <polyline points="7 10 12 15 17 10" />
-                                <line x1="12" y1="15" x2="12" y2="3" />
-                              </svg>
+                              <PackageSearch size={14} />
                             </button>
                             <button
-                              className={styles.rowActionBtn}
+                              type="button"
+                              className={`${styles.rowActionBtn}${isFavorite ? ` ${styles.rowActionFav}` : ""}${canFavorite ? "" : ` ${styles.rowActionMuted}`}`}
                               onClick={() => handleAddToFavorites(item)}
-                              title="Add to Favorites"
+                              disabled={favBusyId === item.id}
+                              aria-pressed={isFavorite}
+                              title={
+                                isFavorite
+                                  ? "Already in Favorites"
+                                  : canFavorite
+                                    ? "Add to Favorites"
+                                    : "Fill in Equipment Offer or PN to add to Favorites"
+                              }
                             >
-                              ⭐
+                              <Star
+                                size={14}
+                                fill={isFavorite ? "currentColor" : "none"}
+                              />
                             </button>
+                            {sections.length > 0 && (
+                              <div
+                                className={styles.menuAnchor}
+                                data-sos-menu="true"
+                              >
+                                <button
+                                  type="button"
+                                  className={styles.rowActionBtn}
+                                  onClick={() => toggleMenu(moveMenuKey)}
+                                  aria-haspopup="true"
+                                  aria-expanded={openMenu === moveMenuKey}
+                                  title="Move to section"
+                                >
+                                  <FolderInput size={14} />
+                                </button>
+                                {openMenu === moveMenuKey && (
+                                  <div className={styles.menu} role="menu">
+                                    <span className={styles.menuLabel}>
+                                      Move to section
+                                    </span>
+                                    {moveTargets.map((s) => {
+                                      const isCurrent =
+                                        (item.sectionId || "") === s.id;
+                                      return (
+                                        <button
+                                          key={s.id || "none"}
+                                          type="button"
+                                          role="menuitemradio"
+                                          aria-checked={isCurrent}
+                                          className={`${styles.menuItem}${isCurrent ? ` ${styles.menuItemCurrent}` : ""}`}
+                                          onClick={() => {
+                                            setOpenMenu(null);
+                                            if (!isCurrent)
+                                              moveItemToSection(
+                                                item.id,
+                                                s.id || null,
+                                              );
+                                          }}
+                                        >
+                                          <span className={styles.menuItemText}>
+                                            {s.title}
+                                          </span>
+                                          {isCurrent && <Check size={14} />}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             <button
+                              type="button"
                               className={styles.rowActionBtn}
                               onClick={() => duplicateItem(item.id)}
                               title="Duplicate item (with sub-items and specs)"
                             >
-                              <svg
-                                viewBox="0 0 24 24"
-                                width="11"
-                                height="11"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <rect
-                                  x="9"
-                                  y="9"
-                                  width="13"
-                                  height="13"
-                                  rx="2"
-                                  ry="2"
-                                />
-                                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                              </svg>
+                              <Copy size={14} />
                             </button>
+                            <span
+                              className={styles.actionDivider}
+                              aria-hidden="true"
+                            />
                             <button
+                              type="button"
                               className={`${styles.rowActionBtn} ${styles.rowActionDanger}`}
-                              onClick={() => deleteItem(item.id)}
-                              title="Delete"
+                              onClick={() => setPendingDeleteId(item.id)}
+                              title="Delete item"
                             >
-                              <svg
-                                viewBox="0 0 24 24"
-                                width="11"
-                                height="11"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                              </svg>
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         </td>
@@ -2879,7 +3145,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </div>
                                           <div className={styles.subCell}>
                                             {readOnly ? (
-                                              sub.description || "—"
+                                              sub.description || "-"
                                             ) : (
                                               <input
                                                 className={styles.subInp}
@@ -2898,7 +3164,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </div>
                                           <div className={styles.subCell}>
                                             {readOnly ? (
-                                              sub.subType || "—"
+                                              sub.subType || "-"
                                             ) : (
                                               <select
                                                 className={styles.subSel}
@@ -2936,7 +3202,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                             className={`${styles.subCell} ${styles.subEquipmentCell}`}
                                           >
                                             {readOnly ? (
-                                              sub.equipmentOffer || "—"
+                                              sub.equipmentOffer || "-"
                                             ) : (
                                               <PartNumberAutocomplete
                                                 value={sub.equipmentOffer}
@@ -2966,7 +3232,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           <div className={styles.subCell}>
                                             {readOnly ? (
                                               <span className={styles.cellMono}>
-                                                {sub.partNumber || "—"}
+                                                {sub.partNumber || "-"}
                                               </span>
                                             ) : (
                                               <PartNumberAutocomplete
@@ -3017,7 +3283,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </div>
                                           <div className={styles.subCell}>
                                             {readOnly ? (
-                                              sub.comments || "—"
+                                              sub.comments || "-"
                                             ) : (
                                               <input
                                                 className={styles.subInp}
@@ -3269,7 +3535,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                       <textarea
                                         className={styles.reqTextarea}
                                         value={item.clientRequirement || ""}
-                                        placeholder="Optional — fill in when the client provides detailed requirements in the ET…"
+                                        placeholder="Optional - fill in when the client provides detailed requirements in the ET…"
                                         rows={4}
                                         onChange={(e) =>
                                           updateSpecs(
@@ -3614,7 +3880,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </div>
                                           <div className={styles.subCell}>
                                             {readOnly ? (
-                                              pcf.description || "—"
+                                              pcf.description || "-"
                                             ) : (
                                               <input
                                                 className={styles.subInp}
@@ -3633,7 +3899,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </div>
                                           <div className={styles.subCell}>
                                             {readOnly ? (
-                                              pcf.subType || "—"
+                                              pcf.subType || "-"
                                             ) : (
                                               <select
                                                 className={styles.subSel}
@@ -3647,7 +3913,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                                   )
                                                 }
                                               >
-                                                <option value="">—</option>
+                                                <option value="">-</option>
                                                 <option value="Structural">
                                                   Structural
                                                 </option>
@@ -3673,7 +3939,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                             className={`${styles.subCell} ${styles.subEquipmentCell}`}
                                           >
                                             {readOnly ? (
-                                              pcf.equipmentOffer || "—"
+                                              pcf.equipmentOffer || "-"
                                             ) : (
                                               <PartNumberAutocomplete
                                                 value={pcf.equipmentOffer}
@@ -3703,7 +3969,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           <div className={styles.subCell}>
                                             {readOnly ? (
                                               <span className={styles.cellMono}>
-                                                {pcf.partNumber || "—"}
+                                                {pcf.partNumber || "-"}
                                               </span>
                                             ) : (
                                               <PartNumberAutocomplete
@@ -3754,7 +4020,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
                                           </div>
                                           <div className={styles.subCell}>
                                             {readOnly ? (
-                                              pcf.comments || "—"
+                                              pcf.comments || "-"
                                             ) : (
                                               <input
                                                 className={styles.subInp}
@@ -4026,34 +4292,27 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
 
       {/* AI Analyzer Modal */}
       {showAIModal && bidNumber && (
-        <div className={styles.aiOverlay}>
-          <div className={styles.aiModal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.aiModalHeader}>
-              <h3>🤖 AI Document Analysis</h3>
-              <button
-                className={styles.aiModalClose}
-                onClick={() => setShowAIModal(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <AIDocumentAnalyzer
-              bidNumber={bidNumber}
-              onImport={(aiItems: IScopeItem[], meta: IAIImportMeta) => {
-                if (onAiImport) {
-                  onAiImport(aiItems, meta);
-                } else {
-                  const merged = [...items, ...aiItems];
-                  setItems(merged);
-                  persist(merged);
-                }
-                setShowAIModal(false);
-              }}
-              importLabel="Import AI Items to Scope"
-              compact
-            />
-          </div>
-        </div>
+        <AIAnalyzerModal
+          title="Generate Scope of Supply with AI"
+          subtitle="Upload the client's technical specification - the AI extracts sections, items and clarifications for your review."
+          badge={bidNumber}
+          onClose={() => setShowAIModal(false)}
+          bidNumber={bidNumber}
+          division={aiContext?.division}
+          serviceLine={aiContext?.serviceLine}
+          contextSummary={aiContext?.contextSummary}
+          onImport={(aiItems: IScopeItem[], meta: IAIImportMeta) => {
+            if (onAiImport) {
+              onAiImport(aiItems, meta);
+            } else {
+              const merged = [...items, ...aiItems];
+              setItems(merged);
+              persist(merged);
+            }
+            setShowAIModal(false);
+          }}
+          importLabel="Import to Scope"
+        />
       )}
 
       {/* Equipment Import Modal */}
@@ -4160,11 +4419,30 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
             result.engineeringItems.length > 0
           ) {
             onImportEngHours(
-              result.engineeringItems,
+              currentDivision
+                ? result.engineeringItems.map((e) => ({
+                    ...e,
+                    integratedDivision:
+                      currentDivision as IScopeItem["integratedDivision"],
+                  }))
+                : result.engineeringItems,
               result.resourceAllocations,
             );
           }
         }}
+      />
+
+      <ConfirmDialog
+        isOpen={!!pendingDelete}
+        title={pendingDelete?.isSection ? "Delete section?" : "Delete item?"}
+        message={pendingDeleteMessage}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => {
+          if (pendingDelete) deleteItem(pendingDelete.id);
+          setPendingDeleteId(null);
+        }}
+        onCancel={() => setPendingDeleteId(null)}
       />
     </div>
   );
@@ -4192,7 +4470,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
 }) => {
   if (readOnly)
     return (
-      <span className={mono ? styles.cellMono : undefined}>{value || "—"}</span>
+      <span className={mono ? styles.cellMono : undefined}>{value || "-"}</span>
     );
 
   if (isEditing) {
@@ -4216,7 +4494,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
       onDoubleClick={onStartEdit}
       style={{ cursor: "text", minHeight: 20, display: "block" }}
     >
-      {value || "—"}
+      {value || "-"}
     </span>
   );
 };

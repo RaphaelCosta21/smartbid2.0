@@ -1,7 +1,13 @@
 import { create } from "zustand";
+import {
+  ColorThemeId,
+  DEFAULT_COLOR_THEME,
+} from "../config/colorThemes.config";
 
 export type ThemeMode = "dark" | "light";
-export type ThemePalette = "default" | "oceaneering";
+
+/** Engineering Dashboard tabs */
+export type DashboardView = "live" | "engineering";
 
 export interface Toast {
   id: string;
@@ -12,16 +18,17 @@ export interface Toast {
 
 interface UIState {
   theme: ThemeMode;
-  palette: ThemePalette;
+  colorTheme: ColorThemeId;
   sidebarExpanded: boolean;
   sidebarMobileOpen: boolean;
   commandPaletteOpen: boolean;
   activeRoute: string;
   toasts: Toast[];
+  dashboardView: DashboardView;
 
   setTheme: (theme: ThemeMode) => void;
   toggleTheme: () => void;
-  setPalette: (palette: ThemePalette) => void;
+  setColorTheme: (colorTheme: ColorThemeId) => void;
   setSidebarExpanded: (expanded: boolean) => void;
   toggleSidebar: () => void;
   setSidebarMobileOpen: (open: boolean) => void;
@@ -29,21 +36,23 @@ interface UIState {
   setActiveRoute: (route: string) => void;
   addToast: (toast: Omit<Toast, "id">) => void;
   dismissToast: (id: string) => void;
+  setDashboardView: (view: DashboardView) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
   theme: "light",
-  palette: "default",
+  colorTheme: DEFAULT_COLOR_THEME,
   sidebarExpanded: true,
   sidebarMobileOpen: false,
   commandPaletteOpen: false,
   activeRoute: "/",
   toasts: [],
+  dashboardView: "live",
 
   setTheme: (theme) => set({ theme }),
   toggleTheme: () =>
     set((state) => ({ theme: state.theme === "dark" ? "light" : "dark" })),
-  setPalette: (palette) => set({ palette }),
+  setColorTheme: (colorTheme) => set({ colorTheme }),
   setSidebarExpanded: (expanded) => set({ sidebarExpanded: expanded }),
   toggleSidebar: () =>
     set((state) => ({ sidebarExpanded: !state.sidebarExpanded })),
@@ -52,10 +61,17 @@ export const useUIStore = create<UIState>((set) => ({
   setActiveRoute: (route) => set({ activeRoute: route }),
   addToast: (toast) =>
     set((state) => ({
-      toasts: [...state.toasts, { ...toast, id: Date.now().toString() }],
+      toasts: [
+        ...state.toasts,
+        {
+          ...toast,
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        },
+      ],
     })),
   dismissToast: (id) =>
     set((state) => ({
       toasts: state.toasts.filter((t) => t.id !== id),
     })),
+  setDashboardView: (dashboardView) => set({ dashboardView }),
 }));

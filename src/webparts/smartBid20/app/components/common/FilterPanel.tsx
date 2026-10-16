@@ -20,9 +20,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
         onClick={onToggle}
         className={styles.toggleBtn}
         style={{
-          background: isOpen
-            ? "var(--accent-color, #3B82F6)"
-            : "var(--card-bg)",
+          background: isOpen ? "var(--primary-accent)" : "var(--card-bg)",
           color: isOpen ? "#fff" : "var(--text-primary)",
         }}
       >

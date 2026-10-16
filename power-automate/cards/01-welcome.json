@@ -17,7 +17,7 @@
         },
         {
           "type": "TextBlock",
-          "text": "[[BID_NUMBER]] · [[CLIENT]]",
+          "text": "[[BID_NUMBER]] · [[CLIENT]] · [[PROJECT_NAME]]",
           "spacing": "None",
           "isSubtle": true,
           "wrap": true
@@ -33,7 +33,9 @@
       "type": "FactSet",
       "facts": [
         { "title": "BID", "value": "[[BID_NUMBER]]" },
+        { "title": "CRM", "value": "[[CRM_NUMBER]]" },
         { "title": "Cliente", "value": "[[CLIENT]]" },
+        { "title": "Projeto", "value": "[[PROJECT_NAME]]" },
         { "title": "Divisão", "value": "[[DIVISION]]" },
         { "title": "Service Line", "value": "[[SERVICE_LINE]]" },
         { "title": "Solicitado por", "value": "[[REQUESTED_BY]]" },

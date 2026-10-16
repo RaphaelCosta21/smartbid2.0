@@ -40,12 +40,11 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
     <span
       className={`${styles.badge} ${pulsing ? styles.pulsing : ""}`}
       style={{
-        background: `${badgeColor}18`,
+        background: `color-mix(in srgb, ${badgeColor} 10%, transparent)`,
         color: badgeColor,
-        border: `1px solid ${badgeColor}30`,
+        border: `1px solid color-mix(in srgb, ${badgeColor} 22%, transparent)`,
       }}
     >
-      <span className={styles.dot} style={{ background: badgeColor }} />
       {status}
     </span>
   );

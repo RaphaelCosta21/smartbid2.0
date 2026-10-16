@@ -1,7 +1,16 @@
 import * as React from "react";
-import { Check, X, Clock, Circle, RefreshCw } from "lucide-react";
+import {
+  Check,
+  X,
+  Clock,
+  Circle,
+  RefreshCw,
+  FastForward,
+  ShieldCheck,
+} from "lucide-react";
 import {
   IBid,
+  IExchangeRateSnapshot,
   ITeamMember,
   Division,
   BidType,
@@ -10,33 +19,44 @@ import {
 } from "../../models";
 import { StatusBadge } from "../common/StatusBadge";
 import { EditLockBanner } from "../common/EditLockBanner";
+import { ApprovalOverrideBanner } from "../approval/ApprovalOverrideBanner";
 import { useConfigStore } from "../../stores/useConfigStore";
+import { useUIStore } from "../../stores/useUIStore";
 import { useConfigPhases } from "../../hooks/useConfigPhases";
 import { useEditControl } from "../../hooks/useEditControl";
-import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { useColorTheme } from "../../hooks/useColorTheme";
 import { useSpfxContext } from "../../config/SpfxContext";
 import { MembersService } from "../../services/MembersService";
 import { CurrencyService } from "../../services/CurrencyService";
 import { isTerminalStatus } from "../../utils/statusHelpers";
 import { PRIORITY_COLORS } from "../../utils/constants";
 import { createActivityLogEntry } from "../../utils/activityLogHelpers";
-import { canManageErn } from "../../utils/accessControl";
+import { getActiveApprovalOverride } from "../../utils/approvalHelpers";
+import {
+  buildDueDateChangePatch,
+  DUE_DATE_CHANGED,
+} from "../../utils/revisionHelpers";
 import {
   formatDate,
   formatDateTime,
   formatCurrency,
+  getDaysUntil,
 } from "../../utils/formatters";
+import { getDueFreezeDate } from "../../utils/bidHelpers";
 import {
   buildCostSummary,
   calculateAssetsByResourceType,
 } from "../../utils/costCalculations";
 import { EmptySection } from "./EmptySection";
+import { TechnicalProposalChip } from "./TechnicalProposalChip";
+import { getTechnicalProposalState } from "../../utils/technicalProposalHelpers";
 import { getPhaseLabelForBid } from "../../utils/phaseHelpers";
 import { calcElapsedDays } from "../../utils/durationHelpers";
 import { getCurrentRevisionLetter, hasActiveRevision } from "./RevisionsTab";
 import { ErnCreateModal } from "./ErnCreateModal";
 import { ErnDetailsModal } from "./ErnDetailsModal";
 import { ErnSearchModal } from "./ErnSearchModal";
+import { DueDateChangeModal } from "./DueDateChangeModal";
 import {
   getErnDeadlineState,
   getErnSlots,
@@ -55,7 +75,7 @@ const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({
 }) => (
   <div className={styles.infoItem}>
     <div className={styles.infoLabel}>{label}</div>
-    <div className={styles.infoValue}>{value || "—"}</div>
+    <div className={styles.infoValue}>{value || "-"}</div>
   </div>
 );
 
@@ -90,17 +110,48 @@ const APPROVAL_STATUS_DISPLAY: Record<
     color: "var(--warning)",
     label: "Revision Requested",
   },
+  overridden: {
+    icon: <ShieldCheck size={14} style={{ verticalAlign: "-2px" }} />,
+    color: "var(--tertiary-accent)",
+    label: "Approved (Override)",
+  },
+  bypassed: {
+    icon: (
+      <FastForward
+        size={14}
+        style={{ verticalAlign: "-2px", color: "var(--tertiary-accent)" }}
+      />
+    ),
+    color: "var(--tertiary-accent)",
+    label: "Bypassed by override",
+  },
 };
 
 const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
   const approvals = bid.approvals || [];
   const status = bid.approvalStatus || "not-started";
-  const display =
-    APPROVAL_STATUS_DISPLAY[status] || APPROVAL_STATUS_DISPLAY["not-started"];
+  const override = getActiveApprovalOverride(bid);
+  const display = override
+    ? APPROVAL_STATUS_DISPLAY["overridden"]
+    : APPROVAL_STATUS_DISPLAY[status] || APPROVAL_STATUS_DISPLAY["not-started"];
+  const bypassedEmails = override
+    ? override.approvalsAtOverride
+        .filter((p) => p.status !== "approved")
+        .map((p) => p.stakeholder.email.toLowerCase())
+    : [];
+  const isBypassed = (email: string): boolean =>
+    bypassedEmails.indexOf(email.toLowerCase()) >= 0;
   const totalCount = approvals.length;
   const approvedCount = approvals.filter((a) => a.status === "approved").length;
-  const rejectedCount = approvals.filter((a) => a.status === "rejected").length;
-  const pendingCount = approvals.filter((a) => a.status === "pending").length;
+  const rejectedCount = approvals.filter(
+    (a) => a.status === "rejected" && !isBypassed(a.stakeholder.email),
+  ).length;
+  const pendingCount = approvals.filter(
+    (a) => a.status === "pending" && !isBypassed(a.stakeholder.email),
+  ).length;
+  const bypassedCount = approvals.filter((a) =>
+    isBypassed(a.stakeholder.email),
+  ).length;
   const progressPct =
     totalCount > 0 ? Math.round((approvedCount / totalCount) * 100) : 0;
 
@@ -145,10 +196,14 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
       </h4>
 
       {totalCount === 0 ? (
-        <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-          Approval not started yet. Go to the Approval tab to select approvers
-          and start the flow.
-        </div>
+        override ? (
+          <ApprovalOverrideBanner override={override} compact />
+        ) : (
+          <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+            Approval not started yet. Go to the Approval tab to select approvers
+            and start the flow.
+          </div>
+        )
       ) : (
         <div className={styles.flexColumnSmall}>
           {/* Overall Status Badge */}
@@ -202,6 +257,8 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
             />
           </div>
 
+          {override && <ApprovalOverrideBanner override={override} compact />}
+
           {/* Sector Breakdown with approver names + photos */}
           <div
             style={{
@@ -218,11 +275,16 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
               );
               const sectorDone = g.approved === g.total;
               const sectorRejected = g.rejected > 0;
-              const sectorIcon = sectorDone
-                ? "✅"
-                : sectorRejected
-                  ? "❌"
-                  : "⏳";
+              const sectorBypassed = sectorApprovals.some((a) =>
+                isBypassed(a.stakeholder.email),
+              );
+              const sectorIcon = sectorBypassed
+                ? "⏩"
+                : sectorDone
+                  ? "✅"
+                  : sectorRejected
+                    ? "❌"
+                    : "⏳";
               return (
                 <div key={sector}>
                   <div
@@ -260,54 +322,75 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
                     }}
                   >
                     {sectorApprovals.map((a) => {
-                      const aStatus =
-                        APPROVAL_STATUS_DISPLAY[a.status] ||
-                        APPROVAL_STATUS_DISPLAY["pending"];
+                      const aStatus = isBypassed(a.stakeholder.email)
+                        ? APPROVAL_STATUS_DISPLAY["bypassed"]
+                        : APPROVAL_STATUS_DISPLAY[a.status] ||
+                          APPROVAL_STATUS_DISPLAY["pending"];
                       return (
-                        <div
-                          key={a.id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            fontSize: 12,
-                          }}
-                        >
-                          {a.stakeholder.photoUrl ? (
-                            <img
-                              src={a.stakeholder.photoUrl}
-                              alt=""
-                              style={{
-                                width: 22,
-                                height: 22,
-                                borderRadius: "50%",
-                                objectFit: "cover",
-                              }}
-                            />
-                          ) : (
+                        <div key={a.id}>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              fontSize: 12,
+                            }}
+                          >
+                            {a.stakeholder.photoUrl ? (
+                              <img
+                                src={a.stakeholder.photoUrl}
+                                alt=""
+                                style={{
+                                  width: 22,
+                                  height: 22,
+                                  borderRadius: "50%",
+                                  objectFit: "cover",
+                                }}
+                              />
+                            ) : (
+                              <span
+                                style={{
+                                  width: 22,
+                                  height: 22,
+                                  borderRadius: "50%",
+                                  background: "var(--border-subtle)",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  color: "var(--text-secondary)",
+                                }}
+                              >
+                                {a.stakeholder.name.charAt(0).toUpperCase()}
+                              </span>
+                            )}
                             <span
+                              style={{ flex: 1, color: "var(--text-primary)" }}
+                            >
+                              {a.stakeholder.name}
+                            </span>
+                            <span
+                              style={{ fontSize: 11 }}
+                              title={aStatus.label}
+                            >
+                              {aStatus.icon}
+                            </span>
+                          </div>
+                          {a.comments && (
+                            <div
                               style={{
-                                width: 22,
-                                height: 22,
-                                borderRadius: "50%",
-                                background: "var(--border-subtle)",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: 10,
-                                fontWeight: 600,
+                                paddingLeft: 28,
+                                fontSize: 11,
+                                fontStyle: "italic",
                                 color: "var(--text-secondary)",
+                                whiteSpace: "pre-wrap",
+                                wordBreak: "break-word",
                               }}
                             >
-                              {a.stakeholder.name.charAt(0).toUpperCase()}
-                            </span>
+                              &ldquo;{a.comments}&rdquo;
+                            </div>
                           )}
-                          <span
-                            style={{ flex: 1, color: "var(--text-primary)" }}
-                          >
-                            {a.stakeholder.name}
-                          </span>
-                          <span style={{ fontSize: 11 }}>{aStatus.icon}</span>
                         </div>
                       );
                     })}
@@ -318,7 +401,7 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
           </div>
 
           {/* Summary stats */}
-          {(rejectedCount > 0 || pendingCount > 0) && (
+          {(rejectedCount > 0 || pendingCount > 0 || bypassedCount > 0) && (
             <div
               style={{
                 display: "flex",
@@ -338,6 +421,12 @@ const ApprovalStatusCard: React.FC<{ bid: IBid }> = ({ bid }) => {
                 <span style={{ color: "var(--danger)" }}>
                   <X size={12} style={{ verticalAlign: "-2px" }} />{" "}
                   {rejectedCount} rejected
+                </span>
+              )}
+              {bypassedCount > 0 && (
+                <span style={{ color: "var(--tertiary-accent)" }}>
+                  <FastForward size={12} style={{ verticalAlign: "-2px" }} />{" "}
+                  {bypassedCount} bypassed by override
                 </span>
               )}
             </div>
@@ -368,11 +457,16 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const configPhases = useConfigPhases();
   const config = useConfigStore((s) => s.config);
   const isClosed = isTerminalStatus(bid.currentStatus);
+  const tpState = getTechnicalProposalState(bid);
   const spfxContext = useSpfxContext();
 
-  // Only the Engineering team (or super admins) may create/select/change ERNs
-  const fullUser = useCurrentUser();
-  const canEditErn = !!canEdit && canManageErn(fullUser);
+  // ERN and due date follow the Overview tab permission; due date also needs a reason and an open BID.
+  const canEditErn = !!canEdit;
+  const canEditDueDate = !!canEdit && !isClosed;
+  const [dueDateModalOpen, setDueDateModalOpen] = React.useState(false);
+  const lastDueDateChange = (bid.activityLog || [])
+    .filter((e) => e.type === DUE_DATE_CHANGED)
+    .pop();
 
   // ERN modals
   const [ernCreate, setErnCreate] = React.useState<{
@@ -394,6 +488,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const allPeople: { email: string }[] = React.useMemo(() => {
     const list: { email: string }[] = [];
     if (bid.creator?.email) list.push(bid.creator);
+    if (bid.commercialRequester?.email) list.push(bid.commercialRequester);
     (bid.engineerResponsible || []).forEach((p) => {
       if (p.email) list.push(p);
     });
@@ -535,6 +630,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   // Currency & Exchange Rates edit
   const [editingCurrency, setEditingCurrency] = React.useState(false);
   const [fetchingRates, setFetchingRates] = React.useState(false);
+  const addToast = useUIStore((s) => s.addToast);
 
   // Engineer BID Overview
   const [editingOverview, setEditingOverview] = React.useState(false);
@@ -559,6 +655,22 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     onSave({
       ...patch,
       activityLog: [...(bid.activityLog || []), logEntry],
+    });
+  };
+
+  const changeDueDate = (newDueDate: string, reason: string): void => {
+    if (!onSave) return;
+    onSave(
+      buildDueDateChangePatch(bid, newDueDate, reason, {
+        name: currentUser?.displayName || currentUser?.email || "",
+        email: currentUser?.email || "",
+      }),
+    );
+    setDueDateModalOpen(false);
+    addToast({
+      type: "success",
+      title: "Due date updated",
+      message: `${bid.bidNumber} is now due ${formatDate(newDueDate)}.`,
     });
   };
 
@@ -625,17 +737,35 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       const currencies = (config?.currencySettings?.exchangeRates || []).map(
         (er) => er.currency,
       );
+      // BRL is always needed for the Cost Summary BRL column
+      if (currencies.indexOf("BRL") < 0) currencies.push("BRL");
       const rates = await CurrencyService.getRatesWithFallback(currencies);
       if (rates.length === 0) {
-        setFetchingRates(false);
+        addToast({
+          type: "error",
+          title: "Could not fetch exchange rates from Banco Central",
+          message: "The rates registered on this BID were kept unchanged.",
+        });
         return;
       }
       const now = new Date().toISOString();
-      const newSnapshot = rates.map((r) => ({
+      const newSnapshot: IExchangeRateSnapshot[] = rates.map((r) => ({
         currency: r.currency,
         rate: r.rate,
         capturedDate: now,
+        rateDate: r.timestamp || "",
+        source: "BCB PTAX" as const,
       }));
+      const kept = (bid.opportunityInfo?.exchangeRatesSnapshot || []).filter(
+        (old) => !newSnapshot.some((n) => n.currency === old.currency),
+      );
+      if (kept.length > 0) {
+        addToast({
+          type: "warning",
+          title: `BCB returned no rate for ${kept.map((k) => k.currency).join(", ")}`,
+          message: "The previously registered rate was kept.",
+        });
+      }
       // Also update the BRL rate as ptax for backward compat
       const brlRate = rates.find((r) => r.currency === "BRL");
       logAndSave(
@@ -644,13 +774,18 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             ...bid.opportunityInfo,
             ptax: brlRate ? brlRate.rate : bid.opportunityInfo?.ptax || 0,
             ptaxDate: now.split("T")[0],
-            exchangeRatesSnapshot: newSnapshot,
+            exchangeRatesSnapshot: [...newSnapshot, ...kept],
           },
         },
-        `Exchange rates updated from BCB PTAX (${rates.map((r) => r.currency).join(", ")})`,
+        `Exchange rates updated from BCB PTAX (${rates.map((r) => `${r.currency} ${r.rate}`).join(", ")})`,
       );
     } catch (err) {
       console.error("Failed to fetch BCB rates:", err);
+      addToast({
+        type: "error",
+        title: "Could not fetch exchange rates from Banco Central",
+        message: "The rates registered on this BID were kept unchanged.",
+      });
     } finally {
       setFetchingRates(false);
       setEditingCurrency(false);
@@ -681,7 +816,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const saveBtnStyle: React.CSSProperties = {
     ...editBtnStyle,
     background: "var(--primary-accent)",
-    color: "#fff",
+    color: "var(--primary-accent-contrast)",
     border: "none",
   };
   const cancelBtnStyle: React.CSSProperties = { ...editBtnStyle };
@@ -972,7 +1107,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 ? `ERN (${slot.label})`
                 : "ERN Number";
               const slotDeadline = link
-                ? getErnDeadlineState(link.ernDueDate, link.ernStatus)
+                ? getErnDeadlineState(
+                    link.ernDueDate,
+                    link.ernStatus,
+                    link.ernFinishDate,
+                  )
                 : "none";
               return (
                 <InfoRow
@@ -1188,7 +1327,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       fontSize: 13,
                     }}
                   >
-                    <option value="">— Select —</option>
+                    <option value="">- Select -</option>
                     {(config?.clientList || [])
                       .filter((c) => c.isActive !== false)
                       .map((c) => (
@@ -1228,7 +1367,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       fontSize: 13,
                     }}
                   >
-                    <option value="">— Select —</option>
+                    <option value="">- Select -</option>
                     {(config?.regions || [])
                       .filter((r) => r.isActive !== false)
                       .map((r) => (
@@ -1316,7 +1455,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 value={
                   bid.opportunityInfo?.waterDepth
                     ? `${bid.opportunityInfo.waterDepth} ${bid.opportunityInfo.waterDepthUnit || "m"}`
-                    : "—"
+                    : "-"
                 }
               />
               <InfoRow
@@ -1324,7 +1463,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 value={
                   bid.opportunityInfo?.operationStartDate
                     ? formatDate(bid.opportunityInfo.operationStartDate)
-                    : "—"
+                    : "-"
                 }
               />
               <InfoRow
@@ -1332,7 +1471,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 value={
                   bid.opportunityInfo?.totalDuration
                     ? `${bid.opportunityInfo.totalDuration} ${bid.opportunityInfo.totalDurationUnit || "days"}`
-                    : "—"
+                    : "-"
                 }
               />
             </div>
@@ -1573,7 +1712,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       <span
                         style={{ fontSize: 13, color: "var(--text-secondary)" }}
                       >
-                        —
+                        -
                       </span>
                     )}
                 </div>
@@ -1606,7 +1745,29 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         photoUrl={bid.creator.photoUrl}
                       />
                     ) : (
-                      "—"
+                      "-"
+                    )}
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: "var(--text-secondary)",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Commercial Requester
+                    </div>
+                    {bid.commercialRequester ? (
+                      <PersonChip
+                        name={bid.commercialRequester.name}
+                        email={bid.commercialRequester.email}
+                        role={bid.commercialRequester.role}
+                        photoUrl={bid.commercialRequester.photoUrl}
+                      />
+                    ) : (
+                      "-"
                     )}
                   </div>
                   <div>
@@ -1633,7 +1794,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       <span
                         style={{ fontSize: 13, color: "var(--text-secondary)" }}
                       >
-                        —
+                        -
                       </span>
                     )}
                   </div>
@@ -1663,7 +1824,29 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     photoUrl={bid.creator.photoUrl}
                   />
                 ) : (
-                  "—"
+                  "-"
+                )}
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--text-secondary)",
+                    marginBottom: 4,
+                  }}
+                >
+                  Commercial Requester
+                </div>
+                {bid.commercialRequester ? (
+                  <PersonChip
+                    name={bid.commercialRequester.name}
+                    email={bid.commercialRequester.email}
+                    role={bid.commercialRequester.role}
+                    photoUrl={bid.commercialRequester.photoUrl}
+                  />
+                ) : (
+                  "-"
                 )}
               </div>
               <div style={{ marginBottom: 8 }}>
@@ -1690,7 +1873,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   <span
                     style={{ fontSize: 13, color: "var(--text-secondary)" }}
                   >
-                    —
+                    -
                   </span>
                 )}
               </div>
@@ -1718,7 +1901,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   <span
                     style={{ fontSize: 13, color: "var(--text-secondary)" }}
                   >
-                    —
+                    -
                   </span>
                 )}
               </div>
@@ -1746,7 +1929,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   <span
                     style={{ fontSize: 13, color: "var(--text-secondary)" }}
                   >
-                    —
+                    -
                   </span>
                 )}
               </div>
@@ -1759,7 +1942,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       <div className={styles.flexColumn}>
         <div className={styles.progressSection}>
           <h4 className={styles.infoTitle}>
-            Phase Progress — {getPhaseLabelForBid(bid)}
+            Phase Progress - {getPhaseLabelForBid(bid)}
             {(bid.revisions || []).length > 0 && (
               <span
                 style={{
@@ -1804,7 +1987,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     {isCompleted ? "✓" : idx}
                   </div>
                   <div className={styles.phaseInfo}>
-                    <div className={styles.phaseLabel}>{phase.label}</div>
+                    <div className={styles.phaseLabel}>
+                      {phase.label}
+                      {phase.value === "Technical Proposal" &&
+                        tpState !== "not-requested" && (
+                          <TechnicalProposalChip
+                            state={tpState}
+                            showRequested
+                            className={styles.tpChipInline}
+                          />
+                        )}
+                    </div>
                     <div className={styles.phaseStatus}>
                       {isCompleted
                         ? "Completed"
@@ -1874,18 +2067,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <InfoRow
               label="Overdue"
               value={(() => {
-                if (!bid.dueDate) return "No";
-                const now =
-                  isClosed && bid.completedDate
-                    ? new Date(bid.completedDate)
-                    : new Date();
-                const due = new Date(bid.dueDate);
-                const diffMs = now.getTime() - due.getTime();
-                if (diffMs > 0) {
-                  const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                  return `Yes (${days} days)`;
-                }
-                return "No";
+                const days = getDaysUntil(bid.dueDate, getDueFreezeDate(bid));
+                return days !== null && days < 0 ? `Yes (${-days} days)` : "No";
               })()}
             />
             <InfoRow
@@ -1908,10 +2091,58 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               label="Start Date"
               value={bid.startDate ? formatDate(bid.startDate) : "Not started"}
             />
-            <InfoRow label="Due Date" value={formatDate(bid.dueDate)} />
+            <InfoRow
+              label="Due Date"
+              value={
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 4 }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                    }}
+                  >
+                    <span>{formatDate(bid.dueDate)}</span>
+                    {canEditDueDate && (
+                      <button
+                        style={editBtnStyle}
+                        title="Change the BID due date (reason required)"
+                        onClick={() => setDueDateModalOpen(true)}
+                      >
+                        Change
+                      </button>
+                    )}
+                  </div>
+                  {lastDueDateChange && (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 400,
+                        color: "var(--text-muted)",
+                      }}
+                      title={lastDueDateChange.description}
+                    >
+                      Changed by {lastDueDateChange.actorName} on{" "}
+                      {formatDateTime(lastDueDateChange.timestamp)} - &ldquo;
+                      {String(lastDueDateChange.metadata?.reason || "")}
+                      &rdquo;
+                    </span>
+                  )}
+                </div>
+              }
+            />
+            <DueDateChangeModal
+              bid={bid}
+              isOpen={dueDateModalOpen}
+              onDismiss={() => setDueDateModalOpen(false)}
+              onConfirm={changeDueDate}
+            />
             <InfoRow
               label="Completed"
-              value={bid.completedDate ? formatDate(bid.completedDate) : "—"}
+              value={bid.completedDate ? formatDate(bid.completedDate) : "-"}
             />
             {/* Revision completion dates */}
             {(bid.revisions || [])
@@ -1968,7 +2199,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 label="Opened By"
                 value={
                   (bid.revisions || []).find((r) => r.status === "open")
-                    ?.openedBy?.name || "—"
+                    ?.openedBy?.name || "-"
                 }
               />
               <InfoRow
@@ -1982,7 +2213,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 label="Reason"
                 value={
                   (bid.revisions || []).find((r) => r.status === "open")
-                    ?.reason || "—"
+                    ?.reason || "-"
                 }
               />
             </div>
@@ -2172,7 +2403,7 @@ const ExchangeRatesCard: React.FC<{
                       fontWeight: 600,
                     }}
                   >
-                    {er.rate > 0 ? (1 / er.rate).toFixed(4) : "—"}
+                    {er.rate > 0 ? (1 / er.rate).toFixed(4) : "-"}
                   </span>
                 </div>,
               );
@@ -2191,7 +2422,7 @@ const ExchangeRatesCard: React.FC<{
                       fontWeight: 600,
                     }}
                   >
-                    {er.rate > 0 ? (1 / er.rate).toFixed(4) : "—"}
+                    {er.rate > 0 ? (1 / er.rate).toFixed(4) : "-"}
                   </span>
                 </div>,
               );
@@ -2215,6 +2446,10 @@ const ExchangeRatesCard: React.FC<{
             {formatDate(
               bid.opportunityInfo.exchangeRatesSnapshot[0].capturedDate,
             )}
+            {bid.opportunityInfo.exchangeRatesSnapshot[0].source &&
+              ` · Source: ${bid.opportunityInfo.exchangeRatesSnapshot[0].source}`}
+            {bid.opportunityInfo.exchangeRatesSnapshot[0].rateDate &&
+              ` · Quote date: ${formatDate(bid.opportunityInfo.exchangeRatesSnapshot[0].rateDate)}`}
           </span>
         )}
     </div>
@@ -2227,7 +2462,7 @@ const ExchangeRatesCard: React.FC<{
           fontStyle: "italic",
         }}
       >
-        Currency locked — BID is closed.
+        Currency locked - BID is closed.
       </p>
     )}
   </div>
@@ -2318,7 +2553,7 @@ const AnalysisNotesCard: React.FC<{
           <button
             style={{
               background: "var(--primary-accent)",
-              color: "#fff",
+              color: "var(--primary-accent-contrast)",
               border: "none",
               borderRadius: 6,
               padding: "3px 10px",
@@ -2401,7 +2636,7 @@ const AnalysisNotesCard: React.FC<{
                     className={styles.backBtn}
                     style={{
                       background: "var(--primary-accent)",
-                      color: "white",
+                      color: "var(--primary-accent-contrast)",
                       border: "none",
                     }}
                     onClick={() => handleSave(section, editValue)}
@@ -2502,7 +2737,7 @@ const AnalysisNotesCard: React.FC<{
               className={styles.backBtn}
               style={{
                 background: "var(--primary-accent)",
-                color: "white",
+                color: "var(--primary-accent-contrast)",
                 border: "none",
               }}
               onClick={handleAddNote}
@@ -2542,8 +2777,9 @@ const CapexOpexVerticalChart: React.FC<{ bid: IBid }> = ({ bid }) => {
     [bid],
   );
 
+  const colorTheme = useColorTheme();
   const TYPE_COLORS = [
-    "#0d9488",
+    colorTheme.accents.a600,
     "#3b82f6",
     "#8b5cf6",
     "#f59e0b",
@@ -2786,7 +3022,8 @@ const CapexOpexVerticalChart: React.FC<{ bid: IBid }> = ({ bid }) => {
             style={{
               width: `${totalBRL > 0 ? (capexBRL / totalBRL) * 100 : 50}%`,
               height: "100%",
-              background: "linear-gradient(90deg, #0d9488, #14b8a6)",
+              background:
+                "linear-gradient(90deg, var(--accent-600), var(--accent-500))",
               transition: "width 0.3s ease",
             }}
           />

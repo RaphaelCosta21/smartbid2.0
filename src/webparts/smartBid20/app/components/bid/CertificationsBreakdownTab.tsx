@@ -1,14 +1,22 @@
 import * as React from "react";
-import { Paperclip } from "lucide-react";
+import { BadgeCheck, Paperclip, TriangleAlert } from "lucide-react";
 import { IScopeItem, ICertificationItem } from "../../models";
 import { makeId } from "../../utils/idGenerator";
 import { getCurrencies } from "../../utils/currencyHelpers";
+import {
+  IBidFx,
+  calculateMultiCurrencyTotals,
+} from "../../utils/costCalculations";
+import { formatCurrency, formatNumber } from "../../utils/formatters";
 import { AttachmentService } from "../../services/AttachmentService";
+import { BidFxNote, UsdAmountCell } from "./BidFxNote";
+import { BidTabHeader, HeaderChip } from "./BidTabHeader";
 import styles from "./CertificationsBreakdownTab.module.scss";
 
 interface CertificationsBreakdownTabProps {
   scopeItems: IScopeItem[];
   certificationsBreakdown: ICertificationItem[];
+  fx: IBidFx;
   onSave: (items: ICertificationItem[]) => void;
   readOnly?: boolean;
   bidNumber?: string;
@@ -68,6 +76,7 @@ export const CertificationsBreakdownTab: React.FC<
 > = ({
   scopeItems,
   certificationsBreakdown,
+  fx,
   onSave,
   readOnly = false,
   bidNumber,
@@ -272,7 +281,9 @@ export const CertificationsBreakdownTab: React.FC<
   const sections = items.filter((i) => i.isSection);
   const dataItems = items.filter((i) => !i.isSection);
   const unsectionedItems = dataItems.filter((i) => !i.sectionId);
-  const grandTotal = dataItems.reduce((sum, i) => sum + (i.totalCost || 0), 0);
+  const totals = calculateMultiCurrencyTotals(dataItems, fx);
+  const linkedCount = dataItems.filter((i) => !!i.scopeItemId).length;
+  const withoutCostCount = dataItems.filter((i) => !(i.totalCost > 0)).length;
 
   // ─── Row renderer ───
   const renderRow = (item: ICertificationItem): React.ReactNode => (
@@ -283,7 +294,7 @@ export const CertificationsBreakdownTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.itemRef || "—"
+          item.itemRef || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -311,7 +322,7 @@ export const CertificationsBreakdownTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.expiryPeriod || "—"
+          item.expiryPeriod || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -361,9 +372,15 @@ export const CertificationsBreakdownTab: React.FC<
       <td className={`${styles.cellRight} ${styles.cellBold}`}>
         {((item.qty || 0) * (item.unitCost || 0)).toLocaleString()}
       </td>
+      <UsdAmountCell
+        className={styles.cellRight}
+        amount={(item.qty || 0) * (item.unitCost || 0)}
+        currency={item.originalCurrency}
+        fx={fx}
+      />
       <td>
         {readOnly ? (
-          item.costReference || "—"
+          item.costReference || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -377,7 +394,7 @@ export const CertificationsBreakdownTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.notes || "—"
+          item.notes || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -452,22 +469,45 @@ export const CertificationsBreakdownTab: React.FC<
     </tr>
   );
 
-  const COLS = readOnly ? 11 : 12;
+  const COLS = readOnly ? 12 : 13;
 
   return (
     <div className={styles.container}>
-      <div className={styles.summaryRow}>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Certifications</span>
-          <span className={styles.summaryValue}>{dataItems.length}</span>
-        </div>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Total Cost</span>
-          <span className={styles.summaryValue}>
-            {grandTotal.toLocaleString()}
-          </span>
-        </div>
-      </div>
+      <BidTabHeader
+        title="Certifications"
+        subtitle="Certification costs for Scope items"
+        icon={<BadgeCheck size={18} />}
+        hero={{
+          label: "Total cost (USD)",
+          value: formatCurrency(totals.totalUSD),
+          sub: `${dataItems.length} certification${dataItems.length !== 1 ? "s" : ""} in ${sections.length} section${sections.length !== 1 ? "s" : ""}`,
+        }}
+        stats={[
+          {
+            label: "From Scope",
+            value: formatNumber(linkedCount),
+            sub: "flagged Needs Certification",
+          },
+          {
+            label: "Manual",
+            value: formatNumber(dataItems.length - linkedCount),
+          },
+        ]}
+        footer={
+          <>
+            <BidFxNote
+              fx={fx}
+              currencies={dataItems.map((i) => i.originalCurrency)}
+            />
+            {withoutCostCount > 0 && (
+              <HeaderChip tone="warning" icon={<TriangleAlert size={13} />}>
+                {withoutCostCount} certification
+                {withoutCostCount !== 1 ? "s" : ""} without cost
+              </HeaderChip>
+            )}
+          </>
+        }
+      />
 
       {!readOnly && (
         <div className={styles.toolbar}>
@@ -499,6 +539,7 @@ export const CertificationsBreakdownTab: React.FC<
                 <th>Currency</th>
                 <th>Unit Cost</th>
                 <th>Total Cost</th>
+                <th>Total (USD)</th>
                 <th>Cost Ref</th>
                 <th>Notes</th>
                 <th>Attachments</th>
@@ -629,8 +670,7 @@ export const CertificationsBreakdownTab: React.FC<
                                           className={styles.colorSwatch}
                                           style={{
                                             background:
-                                              c ||
-                                              "var(--accent-color, #14b8a6)",
+                                              c || "var(--accent-500)",
                                             border:
                                               (c || "") === (sColor || "")
                                                 ? "2px solid #fff"
@@ -665,7 +705,7 @@ export const CertificationsBreakdownTab: React.FC<
             </tbody>
           </table>
           <div className={styles.totalBar}>
-            <span>Total: {grandTotal.toLocaleString()}</span>
+            <span>Total (USD): {formatCurrency(totals.totalUSD)}</span>
           </div>
         </div>
       )}

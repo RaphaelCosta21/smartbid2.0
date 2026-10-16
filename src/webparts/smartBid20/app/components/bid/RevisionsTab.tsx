@@ -1,5 +1,6 @@
 import * as React from "react";
 import {
+  IActivityLogEntry,
   IBid,
   IBidRevision,
   IPhaseHistoryEntry,
@@ -250,6 +251,29 @@ export const RevisionsTab: React.FC<RevisionsTabProps> = ({
       description: `Revision ${activeRevision.revisionLetter} closed`,
       metadata: { revisionLetter: activeRevision.revisionLetter },
     };
+    const transitionLogs: IActivityLogEntry[] = [];
+    if (bid.currentPhase !== "Close Out") {
+      transitionLogs.push({
+        id: `log-${Date.now()}-phase`,
+        type: "PHASE_CHANGED",
+        timestamp: now,
+        actor: currentUser.email,
+        actorName: currentUser.displayName,
+        description: `Phase changed from "${bid.currentPhase}" to "Close Out"`,
+        metadata: { fromPhase: bid.currentPhase, toPhase: "Close Out" },
+      });
+    }
+    if (bid.currentStatus !== "Completed") {
+      transitionLogs.push({
+        id: `log-${Date.now()}-status`,
+        type: "STATUS_CHANGED",
+        timestamp: now,
+        actor: currentUser.email,
+        actorName: currentUser.displayName,
+        description: `Status changed from "${bid.currentStatus}" to "Completed"`,
+        metadata: { fromStatus: bid.currentStatus, toStatus: "Completed" },
+      });
+    }
 
     onSave({
       revisions: updatedRevisions,
@@ -258,7 +282,7 @@ export const RevisionsTab: React.FC<RevisionsTabProps> = ({
       phaseHistory: [...updatedPhaseHistory, closeOutEntry],
       statusHistory: [...updatedStatusHistory, completedEntry],
       completedDate: now,
-      activityLog: [...(bid.activityLog || []), logEntry],
+      activityLog: [...(bid.activityLog || []), logEntry, ...transitionLogs],
     });
 
     setShowConfirm(null);

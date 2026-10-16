@@ -34,7 +34,7 @@ export function buildScopeItemsFromPackage(
       lineNumber: 0,
       isSection: true,
       sectionId: null,
-      sectionTitle: `Survey — ${family ? family.title : familyId}`,
+      sectionTitle: `Survey - ${family ? family.title : familyId}`,
       clientDocRef: "",
       description: "",
       compliance: null,
@@ -70,7 +70,7 @@ export function buildScopeItemsFromPackage(
         qtySpare: 0,
         needsCertification: false,
         comments: [
-          line.vesselSupplied ? "Vessel supplied — not priced" : "",
+          line.vesselSupplied ? "Vessel supplied - not priced" : "",
           line.qtyLabel ? `Qty: ${line.qtyLabel}` : "",
           line.spreadId ? `From spread template ${line.spreadId}` : "Added from Survey Portal",
         ]

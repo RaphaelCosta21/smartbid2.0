@@ -1,16 +1,27 @@
 import * as React from "react";
+import { useLocation } from "react-router-dom";
 import { PageHeader } from "../components/common/PageHeader";
 import { EmptyState } from "../components/common/EmptyState";
 import { useDebounce } from "../hooks/useDebounce";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { usePageAccess } from "../hooks/usePageAccess";
+import { useRegisterQuotationSuppliers } from "../hooks/useRegisterQuotationSuppliers";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useQuotationStore } from "../stores/useQuotationStore";
+import { useSupplierStore } from "../stores/useSupplierStore";
 import { useUIStore } from "../stores/useUIStore";
-import { QuotationService } from "../services/QuotationService";
+import {
+  QUOTATION_TEXT_MAX,
+  QuotationService,
+} from "../services/QuotationService";
+import { SPService } from "../services/SPService";
+import { validateMaxLength } from "../utils/validators";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { convertToUSD } from "../utils/costCalculations";
+import { canonicalSupplierName } from "../utils/supplierMatching";
 import { AddQuotationModal } from "../components/bid/AddQuotationModal";
 import { CollapsibleSidebar } from "../components/common/CollapsibleSidebar";
+import { SupplierCombobox } from "../components/common/SupplierCombobox";
 import {
   IQuotationItem,
   QuotationType,
@@ -206,6 +217,7 @@ export const QuotationsPage: React.FC = () => {
   // ─── Stores & hooks ───
   const config = useConfigStore((s) => s.config);
   const currentUser = useCurrentUser();
+  const { canEdit } = usePageAccess();
   const {
     items: quotations,
     isLoading,
@@ -216,9 +228,13 @@ export const QuotationsPage: React.FC = () => {
     toggleFavorite,
   } = useQuotationStore();
   const addToast = useUIStore((s) => s.addToast);
+  const registerSuppliers = useRegisterQuotationSuppliers();
+  const location = useLocation();
 
   // ─── Local state ───
-  const [search, setSearch] = React.useState("");
+  const [search, setSearch] = React.useState(
+    () => (location.state as { search?: string } | null)?.search || "",
+  );
   const debouncedSearch = useDebounce(search, 300);
   const [selectedGroup, setSelectedGroup] = React.useState<string | null>(null);
   const [selectedSubGroup, setSelectedSubGroup] = React.useState<string | null>(
@@ -508,6 +524,31 @@ export const QuotationsPage: React.FC = () => {
           });
           return;
         }
+        const tooLong =
+          validateMaxLength(
+            line.description.trim(),
+            QUOTATION_TEXT_MAX,
+            "Description",
+          ) ||
+          validateMaxLength(
+            line.partNumber.trim(),
+            QUOTATION_TEXT_MAX,
+            "Part Number",
+          ) ||
+          validateMaxLength(
+            line.reference.trim(),
+            QUOTATION_TEXT_MAX,
+            "Quotation REF",
+          ) ||
+          validateMaxLength(
+            line.supplier.trim(),
+            QUOTATION_TEXT_MAX,
+            "Supplier",
+          );
+        if (tooLong) {
+          addToast({ type: "error", title: tooLong });
+          return;
+        }
       }
 
       setSaving(true);
@@ -521,6 +562,7 @@ export const QuotationsPage: React.FC = () => {
         }
 
         const now = new Date().toISOString();
+        const registered = useSupplierStore.getState().suppliers;
 
         if (isEdit && editingItem) {
           // Single item edit
@@ -532,7 +574,7 @@ export const QuotationsPage: React.FC = () => {
             subGroupId: line.subGroupId,
             partNumber: line.partNumber.trim(),
             description: line.description.trim(),
-            supplier: line.supplier.trim(),
+            supplier: canonicalSupplierName(line.supplier, registered),
             reference: line.reference.trim(),
             leadTimeDays: line.leadTimeDays,
             quotationDate: line.quotationDate,
@@ -547,6 +589,7 @@ export const QuotationsPage: React.FC = () => {
           };
           await updateItem(updated);
           addToast({ type: "success", title: "Quotation updated" });
+          registerSuppliers([{ name: updated.supplier }]);
         } else {
           // Create new items
           const newItems: IQuotationItem[] = lines.map((line) => {
@@ -559,7 +602,7 @@ export const QuotationsPage: React.FC = () => {
               description: line.description.trim(),
               reference: line.reference.trim(),
               quantity: 1,
-              supplier: line.supplier.trim(),
+              supplier: canonicalSupplierName(line.supplier, registered),
               leadTimeDays: line.leadTimeDays,
               quotationDate: line.quotationDate,
               type: line.type,
@@ -581,10 +624,16 @@ export const QuotationsPage: React.FC = () => {
             type: "success",
             title: `${newItems.length} quotation item${newItems.length > 1 ? "s" : ""} added`,
           });
+          registerSuppliers(newItems.map((item) => ({ name: item.supplier })));
         }
         onClose();
-      } catch {
-        addToast({ type: "error", title: "Failed to save quotation" });
+      } catch (err) {
+        console.error("Failed to save quotation", err);
+        addToast({
+          type: "error",
+          title: "Failed to save quotation",
+          message: SPService.errorMessage(err),
+        });
       } finally {
         setSaving(false);
       }
@@ -715,12 +764,9 @@ export const QuotationsPage: React.FC = () => {
                     {/* Row 3: Supplier + Lead Time + Date */}
                     <div className={styles.formField}>
                       <label>Supplier *</label>
-                      <input
-                        type="text"
+                      <SupplierCombobox
                         value={line.supplier}
-                        onChange={(e) =>
-                          updateLine(line._key, "supplier", e.target.value)
-                        }
+                        onChange={(v) => updateLine(line._key, "supplier", v)}
                         placeholder="Vendor name..."
                       />
                     </div>
@@ -887,6 +933,7 @@ export const QuotationsPage: React.FC = () => {
           <button
             className={styles.iconBtn}
             onClick={() => handleToggleFavorite(item.id)}
+            disabled={!canEdit}
             title={
               item.isFavorite ? "Remove from favorites" : "Add to favorites"
             }
@@ -902,29 +949,33 @@ export const QuotationsPage: React.FC = () => {
               {ExternalLinkIcon}
             </button>
           )}
-          <button
-            className={styles.iconBtn}
-            onClick={() => setEditItem(item)}
-            title="Edit"
-          >
-            {EditIcon}
-          </button>
-          <button
-            className={`${styles.iconBtn} ${styles.dangerBtn}`}
-            onClick={() => handleDelete(item.id)}
-            title="Delete"
-          >
-            {TrashIcon}
-          </button>
+          {canEdit && (
+            <>
+              <button
+                className={styles.iconBtn}
+                onClick={() => setEditItem(item)}
+                title="Edit"
+              >
+                {EditIcon}
+              </button>
+              <button
+                className={`${styles.iconBtn} ${styles.dangerBtn}`}
+                onClick={() => handleDelete(item.id)}
+                title="Delete"
+              >
+                {TrashIcon}
+              </button>
+            </>
+          )}
         </div>
       </div>
       <div className={styles.cardBody}>
         <div className={styles.cardPN}>{item.partNumber}</div>
         <div className={styles.cardDesc}>{item.description}</div>
         <div className={styles.cardMeta}>
-          <span>{groupMap[item.groupId] || "—"}</span>
+          <span>{groupMap[item.groupId] || "-"}</span>
           <span className={styles.sep}>›</span>
-          <span>{subGroupMap[item.subGroupId] || "—"}</span>
+          <span>{subGroupMap[item.subGroupId] || "-"}</span>
         </div>
       </div>
       <div className={styles.cardFooter}>
@@ -960,12 +1011,14 @@ export const QuotationsPage: React.FC = () => {
         subtitle={`${filtered.length} quotation${filtered.length !== 1 ? "s" : ""}`}
         icon={FileTextIcon}
         actions={
-          <button
-            className={styles.addBtn}
-            onClick={() => setShowAddModal(true)}
-          >
-            {PlusIcon} Add Quotation
-          </button>
+          canEdit ? (
+            <button
+              className={styles.addBtn}
+              onClick={() => setShowAddModal(true)}
+            >
+              {PlusIcon} Add Quotation
+            </button>
+          ) : undefined
         }
       />
 
@@ -1157,10 +1210,10 @@ export const QuotationsPage: React.FC = () => {
                 <tbody>
                   {filtered.map((q) => (
                     <tr key={q.id}>
-                      <td>{groupMap[q.groupId] || "—"}</td>
-                      <td>{subGroupMap[q.subGroupId] || "—"}</td>
+                      <td>{groupMap[q.groupId] || "-"}</td>
+                      <td>{subGroupMap[q.subGroupId] || "-"}</td>
                       <td className={styles.bold}>{q.partNumber}</td>
-                      <td className={styles.refCell}>{q.reference || "—"}</td>
+                      <td className={styles.refCell}>{q.reference || "-"}</td>
                       <td
                         className={`${styles.descCell} ${
                           expandedCells[q.id + ":desc"]
@@ -1199,13 +1252,14 @@ export const QuotationsPage: React.FC = () => {
                         title={q.notes}
                         onClick={() => toggleCell(q.id + ":notes")}
                       >
-                        {q.notes || "—"}
+                        {q.notes || "-"}
                       </td>
                       <td>
                         <div className={styles.rowActions}>
                           <button
                             className={styles.iconBtn}
                             onClick={() => handleToggleFavorite(q.id)}
+                            disabled={!canEdit}
                             title={
                               q.isFavorite
                                 ? "Remove from favorites"
@@ -1223,20 +1277,24 @@ export const QuotationsPage: React.FC = () => {
                               {ExternalLinkIcon}
                             </button>
                           )}
-                          <button
-                            className={styles.iconBtn}
-                            onClick={() => setEditItem(q)}
-                            title="Edit"
-                          >
-                            {EditIcon}
-                          </button>
-                          <button
-                            className={`${styles.iconBtn} ${styles.dangerBtn}`}
-                            onClick={() => handleDelete(q.id)}
-                            title="Delete"
-                          >
-                            {TrashIcon}
-                          </button>
+                          {canEdit && (
+                            <>
+                              <button
+                                className={styles.iconBtn}
+                                onClick={() => setEditItem(q)}
+                                title="Edit"
+                              >
+                                {EditIcon}
+                              </button>
+                              <button
+                                className={`${styles.iconBtn} ${styles.dangerBtn}`}
+                                onClick={() => handleDelete(q.id)}
+                                title="Delete"
+                              >
+                                {TrashIcon}
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

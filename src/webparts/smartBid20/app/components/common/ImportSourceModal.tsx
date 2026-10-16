@@ -9,6 +9,7 @@ import {
 import { IBidTemplate } from "../../models/IBidTemplate";
 import { useBidStore } from "../../stores/useBidStore";
 import { useTemplateStore } from "../../stores/useTemplateStore";
+import { useFavoritesStore } from "../../stores/useFavoritesStore";
 import { isTerminalStatus } from "../../utils/statusHelpers";
 import { ImportSourceList, IImportSource } from "./ImportSourceList";
 import { ScopeImportPreview, IScopeImportResult } from "./ScopeImportPreview";
@@ -64,23 +65,46 @@ export const ImportSourceModal: React.FC<ImportSourceModalProps> = ({
     }
   }, [isOpen]);
 
+  const favoritesData = useFavoritesStore((s) => s.data);
+  const favoritesLoaded = useFavoritesStore((s) => s.isLoaded);
+  const loadFavorites = useFavoritesStore((s) => s.loadFavorites);
+
+  React.useEffect(() => {
+    if (isOpen && !favoritesLoaded) loadFavorites().catch(() => undefined);
+  }, [isOpen, favoritesLoaded, loadFavorites]);
+
+  const favoriteBidNumbers = React.useMemo(() => {
+    const set = new Set<string>();
+    (favoritesData?.bids || []).forEach((b) => set.add(b.bidNumber));
+    return set;
+  }, [favoritesData]);
+
+  React.useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
   const sources: IImportSource[] = React.useMemo(() => {
     const result: IImportSource[] = [];
 
     // Add completed BIDs
     bids.forEach((bid) => {
       if (isTerminalStatus(bid.currentStatus)) {
-        const hasScopeContent =
-          importMode === "scope" ? (bid.scopeItems || []).length > 0 : true;
-        const hasHoursContent =
-          importMode === "hours"
-            ? bid.hoursSummary &&
+        const hasContent =
+          importMode === "scope"
+            ? (bid.scopeItems || []).some((i) => !i.isSection)
+            : !!bid.hoursSummary &&
               ((bid.hoursSummary.engineeringHours?.items?.length || 0) > 0 ||
+                (bid.hoursSummary.engineeringHours?.engineeringItems?.length ||
+                  0) > 0 ||
                 (bid.hoursSummary.onshoreHours?.items?.length || 0) > 0 ||
-                (bid.hoursSummary.offshoreHours?.items?.length || 0) > 0)
-            : true;
+                (bid.hoursSummary.offshoreHours?.items?.length || 0) > 0);
 
-        if (hasScopeContent || hasHoursContent) {
+        if (hasContent) {
           result.push({
             id: bid.bidNumber,
             type: "bid",
@@ -96,6 +120,7 @@ export const ImportSourceModal: React.FC<ImportSourceModalProps> = ({
                 : bid.hoursSummary?.grandTotalHours || 0,
             itemLabel: importMode === "scope" ? "items" : "hrs",
             tags: [],
+            isFavorite: favoriteBidNumbers.has(bid.bidNumber),
             sourceData: bid,
           });
         }
@@ -105,17 +130,17 @@ export const ImportSourceModal: React.FC<ImportSourceModalProps> = ({
     // Add active templates
     templates.forEach((tpl) => {
       if (tpl.isActive === false) return;
-      const hasScopeContent =
-        importMode === "scope" ? (tpl.scopeItems || []).length > 0 : true;
-      const hasHoursContent =
-        importMode === "hours"
-          ? tpl.hoursSummary &&
-            ((tpl.hoursSummary as any)?.engineeringHours?.items?.length > 0 ||
-              (tpl.hoursSummary as any)?.onshoreHours?.items?.length > 0 ||
-              (tpl.hoursSummary as any)?.offshoreHours?.items?.length > 0)
-          : true;
+      const hs = tpl.hoursSummary;
+      const hasContent =
+        importMode === "scope"
+          ? (tpl.scopeItems || []).some((i: IScopeItem) => !i.isSection)
+          : !!hs &&
+            ((hs.engineeringHours?.items?.length || 0) > 0 ||
+              (hs.engineeringHours?.engineeringItems?.length || 0) > 0 ||
+              (hs.onshoreHours?.items?.length || 0) > 0 ||
+              (hs.offshoreHours?.items?.length || 0) > 0);
 
-      if (hasScopeContent || hasHoursContent) {
+      if (hasContent) {
         result.push({
           id: tpl.id,
           type: "template",
@@ -137,7 +162,7 @@ export const ImportSourceModal: React.FC<ImportSourceModalProps> = ({
     });
 
     return result;
-  }, [bids, templates, importMode]);
+  }, [bids, templates, importMode, favoriteBidNumbers]);
 
   const handleSelectSource = (source: IImportSource): void => {
     setSelectedSource(source);

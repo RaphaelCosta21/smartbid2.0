@@ -32,7 +32,8 @@ import { useChartTheme } from "../hooks/useChartTheme";
 import { useBids } from "../hooks/useBids";
 import { useAnalyticsFilters } from "../hooks/useAnalyticsFilters";
 import { useConfigStore } from "../stores/useConfigStore";
-import { DEFAULT_KPI_TARGETS } from "../config/kpi.config";
+import { useKpiTargets } from "../hooks/useKpiTargets";
+import { BID_PRIORITIES } from "../config/kpi.config";
 import {
   Granularity,
   volumeTrend,
@@ -43,7 +44,7 @@ import {
   periodDelta,
   Delta,
 } from "../utils/analyticsHelpers";
-import { formatPercentage } from "../utils/formatters";
+import { formatPercentage, isPastDue } from "../utils/formatters";
 import styles from "./PerformanceTrendsPage.module.scss";
 
 const GRAN_SEGMENTS: SegmentOption<Granularity>[] = [
@@ -63,8 +64,16 @@ export const PerformanceTrendsPage: React.FC = () => {
   const { bids } = useBids();
   const chart = useChartTheme();
   const config = useConfigStore((s) => s.config);
-  const { filters, patch, setPreset, reset, applyFilters, hasActive } =
-    useAnalyticsFilters();
+  const { targets } = useKpiTargets();
+  const {
+    filters,
+    patch,
+    setPreset,
+    reset,
+    applyFilters,
+    getFacetCounts,
+    hasActive,
+  } = useAnalyticsFilters();
 
   const [gran, setGran] = React.useState<Granularity>("month");
   const [otdMode, setOtdMode] = React.useState<"count" | "percent">("count");
@@ -87,6 +96,11 @@ export const PerformanceTrendsPage: React.FC = () => {
   const filtered = React.useMemo(
     () => applyFilters(bids, "createdDate"),
     [bids, applyFilters],
+  );
+
+  const facetCounts = React.useMemo(
+    () => getFacetCounts(bids, "createdDate"),
+    [bids, getFacetCounts],
   );
 
   const vol = React.useMemo(
@@ -133,8 +147,10 @@ export const PerformanceTrendsPage: React.FC = () => {
     const otdBase = completed.filter((b) => b.desiredDueDate || b.dueDate);
     const onTime = otdBase.filter(
       (b) =>
-        new Date(b.completedDate as string).getTime() <=
-        new Date(b.desiredDueDate || b.dueDate).getTime() + MS_DAY,
+        !isPastDue(
+          b.desiredDueDate || b.dueDate,
+          new Date(b.completedDate as string),
+        ),
     ).length;
     const otdRate = otdBase.length
       ? Math.round((onTime / otdBase.length) * 100)
@@ -177,6 +193,7 @@ export const PerformanceTrendsPage: React.FC = () => {
         hasActive={hasActive}
         divisions={divisions}
         serviceLines={serviceLines}
+        facetCounts={facetCounts}
         rightSlot={
           <SegmentedControl<Granularity>
             value={gran}
@@ -220,7 +237,9 @@ export const PerformanceTrendsPage: React.FC = () => {
               value={`${stats.avgCompletion}d`}
               variant="glass"
               accentColor={chart.accentTertiary}
-              subtitle={`target ${DEFAULT_KPI_TARGETS.targetAvgCompletionDays}d`}
+              subtitle={`targets ${BID_PRIORITIES.map(
+                (p) => `${p} ${targets.targetAvgCompletionDaysByPriority[p]}`,
+              ).join(" · ")} business days`}
               sparkline={
                 <Sparkline
                   data={compSpark}
@@ -238,7 +257,7 @@ export const PerformanceTrendsPage: React.FC = () => {
                 value: `${Math.abs(winDelta.value)}`,
                 direction: winDelta.direction,
               }}
-              subtitle={`target ${DEFAULT_KPI_TARGETS.targetWinRate}%`}
+              subtitle={`target ${targets.targetWinRate}%`}
               sparkline={
                 <Sparkline data={winSpark} color={chart.success} height={34} />
               }
@@ -252,7 +271,7 @@ export const PerformanceTrendsPage: React.FC = () => {
                 value: `${Math.abs(otdDelta.value)}`,
                 direction: otdDelta.direction,
               }}
-              subtitle={`target ${DEFAULT_KPI_TARGETS.targetOnTimeDelivery}%`}
+              subtitle={`target ${targets.targetOnTimeDelivery}%`}
               sparkline={
                 <Sparkline data={otdSpark} color={chart.info} height={34} />
               }
@@ -355,17 +374,6 @@ export const PerformanceTrendsPage: React.FC = () => {
                       <ChartTooltip valueFormatter={(v) => `${v} dias`} />
                     }
                   />
-                  <ReferenceLine
-                    y={DEFAULT_KPI_TARGETS.targetAvgCompletionDays}
-                    stroke={chart.warning}
-                    strokeDasharray="5 4"
-                    label={{
-                      value: `Meta ${DEFAULT_KPI_TARGETS.targetAvgCompletionDays}d`,
-                      position: "insideTopRight",
-                      fill: chart.textMuted,
-                      fontSize: 11,
-                    }}
-                  />
                   <Line
                     type="monotone"
                     dataKey="avgDays"
@@ -421,11 +429,11 @@ export const PerformanceTrendsPage: React.FC = () => {
                     content={<ChartTooltip valueFormatter={(v) => `${v}%`} />}
                   />
                   <ReferenceLine
-                    y={DEFAULT_KPI_TARGETS.targetWinRate}
+                    y={targets.targetWinRate}
                     stroke={chart.warning}
                     strokeDasharray="5 4"
                     label={{
-                      value: `Meta ${DEFAULT_KPI_TARGETS.targetWinRate}%`,
+                      value: `Meta ${targets.targetWinRate}%`,
                       position: "insideTopRight",
                       fill: chart.textMuted,
                       fontSize: 11,

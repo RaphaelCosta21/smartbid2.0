@@ -1,5 +1,5 @@
 import * as React from "react";
-import { BookOpen, Sparkles } from "lucide-react";
+import { BookOpen, Download, Sparkles } from "lucide-react";
 import {
   IBid,
   IClarificationItem,
@@ -18,18 +18,23 @@ import { makeId } from "../../utils/idGenerator";
 import { AIAnalysisService } from "../../services/AIAnalysisService";
 import { buildAiContext, buildRequirementsText } from "../../utils/aiContext";
 import { mapSuggestedClarification } from "../../utils/aiClarificationMapper";
+import { activeConfigOptions } from "../../utils/clarificationHelpers";
 import { useUIStore } from "../../stores/useUIStore";
+import { useConfigStore } from "../../stores/useConfigStore";
+import { ClarificationCategoryChip } from "../knowledge/ClarificationBadges";
 import styles from "../../pages/BidDetailPage.module.scss";
 
 export interface QualificationsTabProps {
   bid: IBid;
   canEdit?: boolean;
+  canDelete?: boolean;
   onSave?: (patch: Partial<IBid>) => void;
 }
 
 export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   bid,
   canEdit,
+  canDelete = canEdit,
   onSave,
 }) => {
   const tables = bid.qualificationTables || [];
@@ -47,12 +52,51 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
     IAISuggestedClarification[]
   >([]);
   const addToast = useUIStore((s) => s.addToast);
+  const categoryList = useConfigStore((s) => s.config?.clarificationCategories);
+  const categoryOptions = React.useMemo(
+    () => activeConfigOptions(categoryList),
+    [categoryList],
+  );
+
+  /** Category select; keeps a value that is no longer configured selectable. */
+  const renderCategorySelect = (
+    value: string | undefined,
+    onChange: (v: string) => void,
+    width: number | string = "100%",
+  ): React.ReactElement => (
+    <select
+      value={value || ""}
+      onChange={(e) => onChange(e.target.value)}
+      title="Category (System Configuration - Clarif. Categories)"
+      style={{
+        width,
+        padding: "4px 6px",
+        border: "1px solid var(--border)",
+        borderRadius: 4,
+        background: "var(--card-bg-elevated)",
+        color: "var(--text-primary)",
+        fontSize: 12,
+      }}
+    >
+      <option value="">No category</option>
+      {categoryOptions.map((o) => (
+        <option key={o.id} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+      {value && !categoryOptions.some((o) => o.value === value) && (
+        <option value={value}>{value}</option>
+      )}
+    </select>
+  );
 
   // Edit lock hooks — separate locks for Qualifications and Clarifications
   const qualLock = useEditControl(bid.bidNumber, "qualifications");
   const clarLock = useEditControl(bid.bidNumber, "clarifications");
   const canEditQual = !!canEdit && qualLock.isEditing;
   const canEditClar = !!canEdit && clarLock.isEditing;
+  const canDeleteQual = canEditQual && !!canDelete;
+  const canDeleteClar = canEditClar && !!canDelete;
 
   // Auto-import clarifications from scope items with compliance === "no"
   const autoImported = React.useMemo(() => {
@@ -98,9 +142,12 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
         .map((s) => s.id),
     );
     return merged.filter(
-      (c) => !c.isAutoImported || nonCompliantIds.has(c.scopeItemId || ""),
+      (c) =>
+        !canDelete ||
+        !c.isAutoImported ||
+        nonCompliantIds.has(c.scopeItemId || ""),
     );
-  }, [clarifications, autoImported, scopeItems]);
+  }, [clarifications, autoImported, scopeItems, canDelete]);
 
   // ─── Local state to prevent input lag ───
   const [localTables, setLocalTables] =
@@ -156,6 +203,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
 
   // Persist clarifications
   const saveClarifications = (updated: IClarificationItem[]): void => {
+    if (!canEditClar) return;
     setLocalClarifications(updated);
     if (!onSave) return;
     debouncedSaveClar(updated);
@@ -205,6 +253,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   };
 
   const deleteClarification = (id: string): void => {
+    if (!canDeleteClar) return;
     saveClarifications(localClarifications.filter((c) => c.id !== id));
   };
 
@@ -226,9 +275,28 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
         setAiModalOpen(false);
         return;
       }
+      const existingText = localClarifications
+        .filter((c) => (c.clarification || c.description || "").trim())
+        .map(
+          (c) =>
+            `- ${c.baseType || "Clarification"}: ${c.description || ""} - ${c.clarification || ""}`,
+        )
+        .concat(
+          tables.reduce<string[]>(
+            (acc, t) =>
+              acc.concat(
+                (t.items || [])
+                  .filter((q) => (q.description || "").trim())
+                  .map((q) => `- Qualification (${t.title}): ${q.description}`),
+              ),
+            [],
+          ),
+        )
+        .join("\n");
       const suggestions = await AIAnalysisService.suggestClarifications(
         requirementsText,
         buildAiContext(bid),
+        { bidNumber: bid.bidNumber, existingText },
       );
       setAiSuggestions(suggestions);
     } catch (e) {
@@ -258,6 +326,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
 
   // Qualification tables
   const saveQualTables = (updated: IQualificationTable[]): void => {
+    if (!canEditQual) return;
     setLocalTables(updated);
     if (!onSave) return;
     debouncedSaveQual(updated);
@@ -276,7 +345,16 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
     );
   };
 
+  const updateTableCategory = (tableId: string, category: string): void => {
+    saveQualTables(
+      localTables.map((t) =>
+        t.id === tableId ? { ...t, category: category || undefined } : t,
+      ),
+    );
+  };
+
   const deleteTable = (tableId: string): void => {
+    if (!canDeleteQual) return;
     saveQualTables(localTables.filter((t) => t.id !== tableId));
   };
 
@@ -322,6 +400,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
   };
 
   const deleteQualItem = (tableId: string, itemId: string): void => {
+    if (!canDeleteQual) return;
     saveQualTables(
       localTables.map((t) => {
         if (t.id !== tableId) return t;
@@ -391,7 +470,22 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                   {table.title}
                 </h4>
               )}
-              {canEditQual && (
+              {canEditQual ? (
+                <span style={{ marginRight: 8 }}>
+                  {renderCategorySelect(
+                    table.category,
+                    (v) => updateTableCategory(table.id, v),
+                    180,
+                  )}
+                </span>
+              ) : (
+                table.category && (
+                  <span style={{ marginLeft: "auto", marginRight: 8 }}>
+                    <ClarificationCategoryChip category={table.category} />
+                  </span>
+                )
+              )}
+              {canDeleteQual && (
                 <button
                   className={styles.backBtn}
                   style={{ color: "var(--error-color, #EF4444)", fontSize: 12 }}
@@ -448,7 +542,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                   >
                     Comments
                   </th>
-                  {canEditQual && (
+                  {canDeleteQual && (
                     <th
                       style={{
                         width: 40,
@@ -498,7 +592,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                           }}
                         />
                       ) : (
-                        qi.description || "—"
+                        qi.description || "-"
                       )}
                     </td>
                     <td
@@ -529,10 +623,10 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                           }}
                         />
                       ) : (
-                        qi.comments || "—"
+                        qi.comments || "-"
                       )}
                     </td>
-                    {canEditQual && (
+                    {canDeleteQual && (
                       <td
                         style={{
                           padding: "6px 10px",
@@ -574,7 +668,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
             className={styles.backBtn}
             style={{
               background: "var(--primary-accent)",
-              color: "white",
+              color: "var(--primary-accent-contrast)",
               border: "none",
               marginTop: 8,
             }}
@@ -615,22 +709,10 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
           <div style={{ display: "flex", gap: 8 }}>
             {canEditClar && (
               <button
+                type="button"
+                className={`${styles.clarActionBtn} ${styles.clarAiBtn}`}
                 onClick={handleSuggestClarifications}
                 disabled={aiLoading}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: 8,
-                  border: "1px solid var(--primary-accent)",
-                  background: "var(--card-bg-elevated)",
-                  color: "var(--primary-accent)",
-                  cursor: aiLoading ? "not-allowed" : "pointer",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  transition: "all 0.15s ease",
-                }}
               >
                 <Sparkles size={14} />
                 {aiLoading ? "Suggesting…" : "Suggest with AI"}
@@ -638,45 +720,22 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
             )}
             {canEditClar && (
               <button
+                type="button"
+                className={styles.clarActionBtn}
                 onClick={() => setImportModalOpen(true)}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: 8,
-                  border: "1px solid var(--border)",
-                  background: "var(--card-bg-elevated)",
-                  color: "var(--text-primary)",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  transition: "all 0.15s ease",
-                }}
               >
                 <BookOpen size={14} />
-                Import from Database
+                Import from Library
               </button>
             )}
             {localClarifications.length > 0 && (
               <button
+                type="button"
+                className={styles.clarActionBtn}
                 onClick={() => setExportModalOpen(true)}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: 8,
-                  border: "1px solid var(--border)",
-                  background: "var(--card-bg-elevated)",
-                  color: "var(--text-primary)",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  transition: "all 0.15s ease",
-                }}
               >
-                📥 Export Excel
+                <Download size={14} />
+                Export Excel
               </button>
             )}
           </div>
@@ -690,7 +749,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                 width: "100%",
                 borderCollapse: "collapse",
                 fontSize: 13,
-                minWidth: 900,
+                minWidth: 1040,
               }}
             >
               <thead>
@@ -716,6 +775,17 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                     }}
                   >
                     Type
+                  </th>
+                  <th
+                    style={{
+                      padding: "8px 10px",
+                      textAlign: "left",
+                      borderBottom: "1px solid var(--border)",
+                      color: "var(--text-secondary)",
+                      width: 140,
+                    }}
+                  >
+                    Category
                   </th>
                   <th
                     style={{
@@ -790,7 +860,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                   >
                     Source
                   </th>
-                  {canEditClar && (
+                  {canDeleteClar && (
                     <th
                       style={{
                         width: 40,
@@ -853,6 +923,22 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                         borderBottom: "1px solid var(--border)",
                       }}
                     >
+                      {canEditClar ? (
+                        renderCategorySelect(c.category, (v) =>
+                          updateClarification(c.id, "category", v),
+                        )
+                      ) : (
+                        <ClarificationCategoryChip
+                          category={c.category || ""}
+                        />
+                      )}
+                    </td>
+                    <td
+                      style={{
+                        padding: "6px 10px",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
                       {canEditClar && !c.isAutoImported ? (
                         <input
                           value={c.item}
@@ -878,7 +964,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                               : undefined,
                           }}
                         >
-                          {c.item || "—"}
+                          {c.item || "-"}
                         </span>
                       )}
                     </td>
@@ -909,7 +995,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                           }}
                         />
                       ) : (
-                        c.description || "—"
+                        c.description || "-"
                       )}
                     </td>
                     <td
@@ -939,7 +1025,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                           }}
                         />
                       ) : (
-                        c.clarification || "—"
+                        c.clarification || "-"
                       )}
                     </td>
                     <td
@@ -969,7 +1055,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                           }}
                         />
                       ) : (
-                        c.clientResponse || "—"
+                        c.clientResponse || "-"
                       )}
                     </td>
                     <td
@@ -983,7 +1069,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                     >
                       {c.createdDate
                         ? new Date(c.createdDate).toLocaleDateString()
-                        : "—"}
+                        : "-"}
                     </td>
                     <td
                       style={{
@@ -998,7 +1084,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                     >
                       {c.responseDate
                         ? new Date(c.responseDate).toLocaleDateString()
-                        : "—"}
+                        : "-"}
                     </td>
                     <td
                       style={{
@@ -1008,22 +1094,35 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
                       }}
                     >
                       <span
+                        title={
+                          c.libraryRefId
+                            ? "Imported from the Clarif. & Qualif. library"
+                            : undefined
+                        }
                         style={{
                           fontSize: 11,
                           padding: "2px 6px",
                           borderRadius: 4,
                           background: c.isAutoImported
                             ? "rgba(234, 179, 8, 0.15)"
-                            : "rgba(59, 130, 246, 0.15)",
+                            : c.libraryRefId
+                              ? "color-mix(in srgb, var(--tertiary-accent) 15%, transparent)"
+                              : "rgba(59, 130, 246, 0.15)",
                           color: c.isAutoImported
                             ? "var(--warning-color, #EAB308)"
-                            : "var(--primary-accent)",
+                            : c.libraryRefId
+                              ? "var(--tertiary-accent)"
+                              : "var(--primary-accent)",
                         }}
                       >
-                        {c.isAutoImported ? "Auto" : "Manual"}
+                        {c.isAutoImported
+                          ? "Auto"
+                          : c.libraryRefId
+                            ? "Library"
+                            : "Manual"}
                       </span>
                     </td>
-                    {canEditClar && (
+                    {canDeleteClar && (
                       <td
                         style={{
                           padding: "6px 10px",
@@ -1058,7 +1157,7 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
             className={styles.backBtn}
             style={{
               background: "var(--primary-accent)",
-              color: "white",
+              color: "var(--primary-accent-contrast)",
               border: "none",
               marginTop: 12,
             }}
@@ -1080,6 +1179,8 @@ export const QualificationsTab: React.FC<QualificationsTabProps> = ({
       {/* Import from Database Modal */}
       {importModalOpen && (
         <ImportClarificationModal
+          bid={bid}
+          existing={localClarifications}
           onClose={() => setImportModalOpen(false)}
           onImport={handleImportFromDb}
         />

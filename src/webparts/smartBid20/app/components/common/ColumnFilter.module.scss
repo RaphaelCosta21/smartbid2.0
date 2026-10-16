@@ -1,0 +1,55 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+  padding: 3px 5px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  vertical-align: middle;
+  opacity: 0.7;
+  transition:
+    color 150ms ease,
+    background 150ms ease,
+    opacity 150ms ease;
+
+  &:hover,
+  &.open {
+    opacity: 1;
+    color: var(--text-primary);
+    background: var(--hover-bg);
+  }
+
+  &.active {
+    opacity: 1;
+    color: var(--primary-accent);
+    background: color-mix(in srgb, var(--primary-accent) 12%, transparent);
+    border-color: color-mix(in srgb, var(--primary-accent) 30%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 1px;
+  }
+}
+
+.count {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.portal {
+  position: fixed;
+  z-index: var(--z-popover);
+  text-transform: none;
+  letter-spacing: normal;
+
+  > div {
+    max-width: none;
+  }
+}

@@ -1,0 +1,134 @@
+.banner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tertiary-accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tertiary-accent) 30%, transparent);
+  min-width: 0;
+}
+
+.compact {
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+
+  .title {
+    font-size: 13px;
+  }
+
+  .reason,
+  .summary {
+    font-size: 12px;
+  }
+
+  .groups {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--tertiary-accent);
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+
+  strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+}
+
+.reason {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.5;
+  padding: 8px 12px;
+  border-left: 3px solid var(--tertiary-accent);
+  border-radius: 6px;
+  background: var(--glass-bg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+
+  strong {
+    color: var(--text-primary);
+  }
+}
+
+.groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.groupTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.itemIcon {
+  flex-shrink: 0;
+}
+
+.itemApproved .itemIcon {
+  color: var(--success);
+}
+
+.itemBypassed .itemIcon {
+  color: var(--tertiary-accent);
+}
+
+.itemName {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.itemRole {
+  color: var(--text-secondary);
+}
+
+.itemMeta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}

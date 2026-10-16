@@ -1,13 +1,9 @@
 import * as React from "react";
 import { DocLibraryCatalog } from "../components/knowledge/DocLibraryCatalog";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
-import { useCurrentUser } from "../hooks/useCurrentUser";
-import { canAccessKnowledge } from "../utils/accessControl";
+import { usePageAccess } from "../hooks/usePageAccess";
 
 const FOLDER = `${SHAREPOINT_CONFIG.docLibrary.serverRelativeUrl}/${SHAREPOINT_CONFIG.docLibrary.folders.technicalProposals}`;
-
-/** Every technical proposal is classified under this group; AI only picks/suggests the sub-group. */
-const LOCKED_GROUP_NAME = "Operation KIT";
 
 // The shared catalog columns are reused with proposal-oriented wording.
 const FIELD_LABELS = {
@@ -25,8 +21,7 @@ const FIELD_LABELS = {
 };
 
 export const TechnicalProposalsPage: React.FC = () => {
-  const currentUser = useCurrentUser();
-  const canManage = canAccessKnowledge(currentUser);
+  const { canEdit: canManage } = usePageAccess();
 
   return (
     <DocLibraryCatalog
@@ -36,7 +31,7 @@ export const TechnicalProposalsPage: React.FC = () => {
       defaultDocType="Technical Proposal"
       canManage={canManage}
       fieldLabels={FIELD_LABELS}
-      lockedGroupName={LOCKED_GROUP_NAME}
+      lockedGroupName={SHAREPOINT_CONFIG.technicalProposal.knowledgeGroupName}
       icon={
         <svg
           width="28"

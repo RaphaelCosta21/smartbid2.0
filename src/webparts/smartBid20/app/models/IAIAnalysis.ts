@@ -10,6 +10,8 @@ export type AIUseCase =
   | "scope-of-supply"
   | "quotation"
   | "document-metadata"
+  | "past-bid-profile"
+  | "supplier-profile"
   | "chat"
   | "clarification";
 
@@ -27,6 +29,18 @@ export interface IAIGroupOption {
   name: string;
   /** Sub-group names configured under this group. */
   subGroups: string[];
+}
+
+/** A registered supplier, so the model reuses its name instead of creating a duplicate. */
+export interface IAISupplierOption {
+  name: string;
+  aliases: string[];
+}
+
+/** A configured supplier service type (System Configuration). */
+export interface IAIServiceTypeOption {
+  label: string;
+  category: string;
 }
 
 /**
@@ -65,14 +79,22 @@ export interface IAIAnalysisContext {
   resourceTypeOptions?: IAIResourceTypeOption[];
   /** Configured Group/SubGroup taxonomy (guides quotation categorization). */
   groupOptions?: IAIGroupOption[];
+  /** Registered suppliers (quotation extraction reuses their names). */
+  supplierOptions?: IAISupplierOption[];
+  /** Active supplier service types (supplier profile). */
+  serviceTypeOptions?: IAIServiceTypeOption[];
   /** Assets Catalog records (guides equipmentOffer + partNumber). */
   assetCatalogOptions?: IAIAssetCatalogOption[];
   /** Allowed "docType" values for the current document catalog. */
   docTypeOptions?: string[];
   /** Pins document classification to a single group (e.g. "Operation KIT"). */
   lockedGroupName?: string;
+  /** Configured scope categories (Past Bids classification). */
+  scopeCategoryOptions?: string[];
   /** Optional extra context (KB summaries, past-bid hints). */
   contextSummary?: string;
+  /** Free-text focus/exclusion instructions typed by the user for this analysis. */
+  userInstructions?: string;
 }
 
 /** Request payload POSTed to the Azure AI backend. */
@@ -151,8 +173,10 @@ export interface IAIImportMeta {
   removedCount: number;
   /** Warnings surfaced by the analysis. */
   warnings: string[];
-  /** Clarifications/qualifications the AI suggested alongside the scope. */
+  /** AI-suggested clarifications/qualifications the user selected to import. */
   suggestedClarifications?: IAISuggestedClarification[];
+  /** User instructions applied to the analysis that produced these items. */
+  userInstructions?: string;
 }
 
 /** A clarification/qualification the AI proposes from retrieved past ones. */
@@ -177,8 +201,14 @@ export interface IExtractedQuotationLine {
   partNumber: string;
   /** Item description. */
   description: string;
-  /** Supplier / vendor name. */
+  /** Supplier / vendor name (the registered name when the model matched one). */
   supplier: string;
+  /** Issuing company name exactly as written on the document. */
+  supplierNameAsWritten?: string;
+  /** True when `supplier` is a registered supplier name. */
+  supplierMatched?: boolean;
+  /** What the document itself says about the issuing company (first line only). */
+  supplierAbout?: string;
   /** Supplier's quotation number/reference (same for every line of a document). */
   reference?: string;
   /** Unit cost or day rate in the original currency. */
@@ -251,4 +281,28 @@ export interface IDocumentMetadataExtractionResult {
   sourceDocument: string;
   /** ISO timestamp of when the extraction was performed. */
   extractedAt: string;
+}
+
+/** Where the model took a supplier profile from. */
+export type SupplierProfileBasis =
+  | "quotations"
+  | "document"
+  | "general-knowledge"
+  | "mixed"
+  | "none";
+
+/** AI-suggested supplier profile. `serviceTypes` holds config option ids. */
+export interface ISupplierProfileSuggestion {
+  description: string;
+  keywords: string[];
+  serviceTypes: string[];
+  basis: SupplierProfileBasis;
+}
+
+/** AI-suggested classification of a completed BID (Past Bids). */
+export interface IPastBidProfileSuggestion {
+  /** Only values from the configured scope categories. */
+  scopeCategories: string[];
+  tags: string[];
+  summary: string;
 }

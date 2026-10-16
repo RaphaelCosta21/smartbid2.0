@@ -3,7 +3,7 @@ import { PageHeader } from "../components/common/PageHeader";
 import { LinksRecommendationsService } from "../services/LinksRecommendationsService";
 import { IBidLink, IBidRecommendation } from "../models/ILinksRecommendations";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-import { canAccessKnowledge } from "../utils/accessControl";
+import { usePageAccess } from "../hooks/usePageAccess";
 import { makeId } from "../utils/idGenerator";
 import { formatDate } from "../utils/formatters";
 import styles from "./LinksRecommendationsPage.module.scss";
@@ -13,7 +13,7 @@ type RecModal = { open: boolean; item: IBidRecommendation | null };
 
 export const LinksRecommendationsPage: React.FC = () => {
   const currentUser = useCurrentUser();
-  const canManage = canAccessKnowledge(currentUser);
+  const { canEdit: canManage } = usePageAccess();
 
   const [links, setLinks] = React.useState<IBidLink[]>([]);
   const [recommendations, setRecommendations] = React.useState<

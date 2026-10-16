@@ -20,8 +20,8 @@
 
 .generateBtn {
   padding: 10px 20px;
-  background: var(--accent-color, #3b82f6);
-  color: #fff;
+  background: var(--primary-accent);
+  color: var(--primary-accent-contrast);
   border: none;
   border-radius: 8px;
   cursor: pointer;

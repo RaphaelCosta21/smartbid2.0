@@ -4,6 +4,8 @@
  */
 import { IBid, IBidRevision, IRevisionChange } from "../models";
 import { makeId } from "./idGenerator";
+import { createActivityLogEntry } from "./activityLogHelpers";
+import { formatDate } from "./formatters";
 
 /** Sections that are tracked during revisions */
 export type TrackableSection =
@@ -156,7 +158,7 @@ export function detectRevisionChanges(
             id: makeId("chg"),
             section: SECTION_LABELS[section],
             changeType: "added",
-            description: `Added: "${getAssetLabel(item)}" — $${item.totalCostUSD.toLocaleString()} (${item.acquisitionType || "N/A"})`,
+            description: `Added: "${getAssetLabel(item)}" - $${item.totalCostUSD.toLocaleString()} (${item.acquisitionType || "N/A"})`,
             fieldPath: `assetBreakdown[${item.id}]`,
             previousValue: null,
             newValue: `$${item.totalCostUSD}`,
@@ -172,7 +174,7 @@ export function detectRevisionChanges(
             id: makeId("chg"),
             section: SECTION_LABELS[section],
             changeType: "removed",
-            description: `Removed: "${getAssetLabel(item)}" — was $${item.totalCostUSD.toLocaleString()}`,
+            description: `Removed: "${getAssetLabel(item)}" - was $${item.totalCostUSD.toLocaleString()}`,
             fieldPath: `assetBreakdown[${item.id}]`,
             previousValue: `$${item.totalCostUSD}`,
             newValue: null,
@@ -200,12 +202,12 @@ export function detectRevisionChanges(
             }
             if (oldItem.acquisitionType !== newItem.acquisitionType) {
               fieldChanges.push(
-                `type: ${oldItem.acquisitionType || "—"} → ${newItem.acquisitionType || "—"}`,
+                `type: ${oldItem.acquisitionType || "-"} → ${newItem.acquisitionType || "-"}`,
               );
             }
             if (oldItem.supplier !== newItem.supplier) {
               fieldChanges.push(
-                `supplier: ${oldItem.supplier || "—"} → ${newItem.supplier || "—"}`,
+                `supplier: ${oldItem.supplier || "-"} → ${newItem.supplier || "-"}`,
               );
             }
             if (oldItem.leadTimeDays !== newItem.leadTimeDays) {
@@ -215,7 +217,7 @@ export function detectRevisionChanges(
             }
             if (oldItem.availabilityStatus !== newItem.availabilityStatus) {
               fieldChanges.push(
-                `availability: ${oldItem.availabilityStatus || "—"} → ${newItem.availabilityStatus || "—"}`,
+                `availability: ${oldItem.availabilityStatus || "-"} → ${newItem.availabilityStatus || "-"}`,
               );
             }
             const oldLinks = oldItem.quotationLinks || [];
@@ -266,7 +268,7 @@ export function detectRevisionChanges(
               id: makeId("chg"),
               section: SECTION_LABELS[section],
               changeType: "added",
-              description: `Added ${label}: "${desc}" — $${(item.totalCost || 0).toLocaleString()}`,
+              description: `Added ${label}: "${desc}" - $${(item.totalCost || 0).toLocaleString()}`,
               fieldPath: `${fieldName}[${item.id}]`,
               previousValue: null,
               newValue: `$${item.totalCost || 0}`,
@@ -285,7 +287,7 @@ export function detectRevisionChanges(
               id: makeId("chg"),
               section: SECTION_LABELS[section],
               changeType: "removed",
-              description: `Removed ${label}: "${desc}" — was $${(item.totalCost || 0).toLocaleString()}`,
+              description: `Removed ${label}: "${desc}" - was $${(item.totalCost || 0).toLocaleString()}`,
               fieldPath: `${fieldName}[${item.id}]`,
               previousValue: `$${item.totalCost || 0}`,
               newValue: null,
@@ -384,7 +386,7 @@ export function detectRevisionChanges(
             id: makeId("chg"),
             section: SECTION_LABELS[section],
             changeType: "added",
-            description: `Added: "${label}" — ${item.qty}x $${item.unitCost} = $${item.totalCost.toLocaleString()}`,
+            description: `Added: "${label}" - ${item.qty}x $${item.unitCost} = $${item.totalCost.toLocaleString()}`,
             fieldPath: `logisticsBreakdown[${item.id}]`,
             previousValue: null,
             newValue: `$${item.totalCost}`,
@@ -402,7 +404,7 @@ export function detectRevisionChanges(
             id: makeId("chg"),
             section: SECTION_LABELS[section],
             changeType: "removed",
-            description: `Removed: "${label}" — was $${item.totalCost.toLocaleString()}`,
+            description: `Removed: "${label}" - was $${item.totalCost.toLocaleString()}`,
             fieldPath: `logisticsBreakdown[${item.id}]`,
             previousValue: `$${item.totalCost}`,
             newValue: null,
@@ -470,7 +472,7 @@ export function detectRevisionChanges(
             id: makeId("chg"),
             section: SECTION_LABELS[section],
             changeType: "added",
-            description: `Added: "${label}" — ${item.qty}x $${item.unitCost} = $${item.totalCost.toLocaleString()}`,
+            description: `Added: "${label}" - ${item.qty}x $${item.unitCost} = $${item.totalCost.toLocaleString()}`,
             fieldPath: `certificationsBreakdown[${item.id}]`,
             previousValue: null,
             newValue: `$${item.totalCost}`,
@@ -487,7 +489,7 @@ export function detectRevisionChanges(
             id: makeId("chg"),
             section: SECTION_LABELS[section],
             changeType: "removed",
-            description: `Removed: "${label}" — was $${item.totalCost.toLocaleString()}`,
+            description: `Removed: "${label}" - was $${item.totalCost.toLocaleString()}`,
             fieldPath: `certificationsBreakdown[${item.id}]`,
             previousValue: `$${item.totalCost}`,
             newValue: null,
@@ -518,7 +520,7 @@ export function detectRevisionChanges(
             }
             if (oldItem.expiryPeriod !== newItem.expiryPeriod) {
               fieldChanges.push(
-                `expiry: ${oldItem.expiryPeriod || "—"} → ${newItem.expiryPeriod || "—"}`,
+                `expiry: ${oldItem.expiryPeriod || "-"} → ${newItem.expiryPeriod || "-"}`,
               );
             }
             const detail =
@@ -577,4 +579,60 @@ export function appendRevisionChanges(
   return revisions.map((r) =>
     r.status === "open" ? { ...r, changes: [...r.changes, ...newChanges] } : r,
   );
+}
+
+/** Activity log type for a manual BID due date change */
+export const DUE_DATE_CHANGED = "DUE_DATE_CHANGED";
+
+/**
+ * Builds the patch for a manual due date change: updates both due date fields,
+ * records the reason in the activity log and, when a revision is open, in the revision changes.
+ */
+export function buildDueDateChangePatch(
+  bid: IBid,
+  newDueDate: string,
+  reason: string,
+  changedBy: { name: string; email: string },
+): Partial<IBid> {
+  const previousDueDate = bid.dueDate || bid.desiredDueDate || "";
+  const description = `Due date changed: ${formatDate(previousDueDate)} → ${formatDate(newDueDate)}. Reason: "${reason}"`;
+  const revisions = bid.revisions || [];
+  const openRevision = revisions.find((r) => r.status === "open");
+
+  const patch: Partial<IBid> = {
+    dueDate: newDueDate,
+    desiredDueDate: newDueDate,
+    activityLog: [
+      ...(bid.activityLog || []),
+      createActivityLogEntry(
+        DUE_DATE_CHANGED,
+        description,
+        changedBy.email,
+        changedBy.name,
+        {
+          previousDueDate,
+          newDueDate,
+          reason,
+          revision: openRevision ? openRevision.revisionLetter : null,
+        },
+      ),
+    ],
+  };
+
+  if (openRevision) {
+    patch.revisions = appendRevisionChanges(revisions, [
+      {
+        id: makeId("chg"),
+        section: "Key Dates",
+        changeType: "modified",
+        description,
+        fieldPath: "dueDate",
+        previousValue: previousDueDate || null,
+        newValue: newDueDate,
+        changedBy,
+        changedAt: new Date().toISOString(),
+      },
+    ]);
+  }
+  return patch;
 }

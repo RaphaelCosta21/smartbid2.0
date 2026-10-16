@@ -1,0 +1,150 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--overlay-bg);
+  backdrop-filter: blur(4px);
+  animation: aiModalFade 200ms ease;
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1040px;
+  max-height: 92vh;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card-hover);
+  overflow: hidden;
+  animation: aiModalSlide 250ms ease;
+  transition:
+    max-width 250ms ease,
+    height 250ms ease;
+}
+
+.modalExpanded {
+  max-width: 95vw;
+  height: 92vh;
+}
+
+/* ─── Header ─── */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  background: var(--gradient-header);
+  border-bottom: 1px solid var(--header-border);
+  flex-shrink: 0;
+}
+
+.headerMain {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.headerIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  color: var(--primary-accent);
+  background: color-mix(in srgb, var(--primary-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary-accent) 35%, transparent);
+}
+
+.headerText {
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--header-text-primary);
+}
+
+.badge {
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--header-border);
+  background: var(--header-input-bg);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  color: var(--header-text-secondary);
+  white-space: nowrap;
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--header-text-secondary);
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--header-text-secondary);
+  cursor: pointer;
+  transition: all 150ms ease;
+
+  &:hover {
+    background: var(--header-input-bg);
+    color: var(--header-text-primary);
+  }
+}
+
+@keyframes aiModalFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes aiModalSlide {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .modal {
+    animation: none;
+    transition: none;
+  }
+}

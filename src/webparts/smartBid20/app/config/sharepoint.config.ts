@@ -56,7 +56,18 @@ export const SHAREPOINT_CONFIG = {
       // Subfolder of Datasheets so the existing AI Search datasource (whose
       // includeFolder filter is recursive) picks it up without redeployment.
       technicalProposals: "Datasheets/Technical Proposals",
+      // Generated from completed BIDs; needs its own includeFolder in the AI Search datasource.
+      pastBids: "Past Bids",
+      // Generated from the Clarifications Database list; needs its own includeFolder too.
+      clarificationLibrary: "Clarifications Library",
     },
+  },
+
+  technicalProposal: {
+    /** Attachment category (and SmartBidAttachments sub-folder) of a BID's Technical Proposal */
+    attachmentCategory: "Technical Proposal",
+    /** Every technical proposal is classified under this group; AI only picks the sub-group. */
+    knowledgeGroupName: "Operation KIT",
   },
 
   /** Internal field names for the smartBidDocs catalog columns (auto-created if missing) */
@@ -127,6 +138,12 @@ export const SHAREPOINT_CONFIG = {
     chatId: "ChatId",
     statusCardMessageId: "StatusCardMessageId",
     expectedApproverCount: "ExpectedApproverCount",
+    overriddenBy: "OverriddenBy",
+    overriddenDate: "OverriddenDate",
+    overrideReason: "OverrideReason",
+    nativeApprovalId: "NativeApprovalId",
+    approverComments: "ApproverComments",
+    lastReminderDate: "LastReminderDate",
   },
 
   /** Internal field names for the "Clarifications Database" list */
@@ -140,6 +157,11 @@ export const SHAREPOINT_CONFIG = {
     date: "Data",
     keyword: "Keyword",
     client: "Client",
+    category: "Category",
+    division: "Division",
+    serviceLine: "ServiceLine",
+    sourceBidNumber: "SourceBidNumber",
+    sourceItemId: "SourceItemId",
   },
 
   folders: {

@@ -17,7 +17,7 @@
   border-radius: 10px;
   border: none;
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -130,10 +130,19 @@
 }
 
 .toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-card);
 }
 
 .aiDropZone {
@@ -223,7 +232,7 @@
 
   &.typeFilterBtnActive {
     background: var(--primary-accent);
-    color: #fff;
+    color: var(--primary-accent-contrast);
     font-weight: 600;
   }
 }
@@ -627,7 +636,7 @@
   border-radius: 8px;
   border: none;
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -720,7 +729,7 @@
   cursor: pointer;
 
   &:hover {
-    background: rgba(0, 201, 167, 0.08);
+    background: color-mix(in srgb, var(--accent-brand) 8%, transparent);
   }
 }
 
@@ -845,7 +854,7 @@
 
   &.typeBtnActive {
     background: var(--primary-accent);
-    color: #fff;
+    color: var(--primary-accent-contrast);
     font-weight: 600;
   }
 }

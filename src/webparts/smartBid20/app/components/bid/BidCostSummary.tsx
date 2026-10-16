@@ -1,16 +1,14 @@
 import * as React from "react";
-import { IBid, IHoursItem } from "../../models";
+import { Wallet } from "lucide-react";
+import { IBid } from "../../models";
 import {
-  buildCostSummary,
-  calculateAssetsByResourceType,
-  calculateHoursTotals,
-  calculateLogisticsTotals,
-  calculateCertificationsTotals,
-  calculateRTSTotals,
-  calculateMobilizationTotals,
-  calculateConsumablesTotals,
-} from "../../utils/costCalculations";
+  ICostSegment,
+  buildCostSummaryView,
+} from "../../utils/costSummaryView";
 import { formatCurrency } from "../../utils/formatters";
+import { useColorTheme } from "../../hooks/useColorTheme";
+import { BidFxNote } from "./BidFxNote";
+import { BidTabHeader, HeaderChip, IHeaderStat } from "./BidTabHeader";
 import styles from "./BidCostSummary.module.scss";
 
 interface BidCostSummaryProps {
@@ -22,392 +20,37 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
   bid,
   className,
 }) => {
-  const s = React.useMemo(() => buildCostSummary(bid), [bid]);
-  const hours = React.useMemo(() => calculateHoursTotals(bid), [bid]);
-  const assetsByType = React.useMemo(
-    () =>
-      calculateAssetsByResourceType(
-        bid.assetBreakdown || [],
-        bid.scopeItems || [],
-        (bid.assetsContingencyPerYear || 0) > 0
-          ? { perYear: bid.assetsContingencyPerYear || 0, applied: true }
-          : undefined,
-      ),
-    [bid],
+  const view = React.useMemo(() => buildCostSummaryView(bid), [bid]);
+  const colorTheme = useColorTheme();
+  const { summary: s, fx, assetsByType, rows: breakdown } = view;
+
+  const topRows = breakdown.filter((r) => !r.indent);
+  const largest = topRows.reduce<(typeof topRows)[number] | null>(
+    (best, r) => (r.usd > 0 && (!best || r.usd > best.usd) ? r : best),
+    null,
   );
-
-  const kpis = [
+  const capexOpexUSD = view.capex.usd + view.opex.usd;
+  const headerStats: IHeaderStat[] = [
     {
-      label: "Total Cost USD",
-      value: formatCurrency(s.totalCostUSD),
-      accent: true,
+      label: "Largest category",
+      value: largest ? largest.label : "-",
+      sub:
+        largest && s.totalCostUSD > 0
+          ? `${Math.round((largest.usd / s.totalCostUSD) * 100)}% of total`
+          : undefined,
     },
     {
-      label: "Total Cost BRL",
-      value: formatCurrency(s.totalCostBRL, "BRL"),
-      accent: true,
+      label: "CAPEX share",
+      value:
+        capexOpexUSD > 0
+          ? `${Math.round((view.capex.usd / capexOpexUSD) * 100)}%`
+          : "-",
+      sub:
+        capexOpexUSD > 0
+          ? `OPEX ${Math.round((view.opex.usd / capexOpexUSD) * 100)}%`
+          : undefined,
     },
-    { label: "PTAX Used", value: s.ptaxUsed.toFixed(4) },
-    { label: "Currency", value: s.currency },
   ];
-
-  // ─── Breakdown rows ───
-  interface IBreakdownRow {
-    label: string;
-    usd: number;
-    brl: number;
-    indent?: boolean;
-    hoursLabel?: string;
-  }
-
-  const isIntegrated = (bid.serviceLine || "").toLowerCase() === "integrated";
-  const divisions: string[] = isIntegrated ? ["ROV", "SURVEY"] : [];
-  const ptax = s.ptaxUsed;
-
-  // ─── Per-division hours breakdown ───
-  const hoursByDiv = React.useMemo(() => {
-    if (!isIntegrated) return {};
-    const hs = bid.hoursSummary;
-    const scopeItems = bid.scopeItems || [];
-    const result: Record<
-      string,
-      {
-        engBRL: number;
-        engH: number;
-        onBRL: number;
-        onH: number;
-        offBRL: number;
-        offH: number;
-      }
-    > = {};
-    divisions.forEach((div) => {
-      // Legacy row-based engineering items
-      const engItems: IHoursItem[] = (hs?.engineeringHours?.items || []).filter(
-        (i) => i.integratedDivision === div,
-      );
-      // Deliverable-based engineering items (linked via scope or sub-items)
-      const divScopeIds = new Set<string>();
-      scopeItems
-        .filter((si) => si.integratedDivision === div)
-        .forEach((si) => {
-          divScopeIds.add(si.id);
-          if (si.subItems) {
-            si.subItems.forEach((sub) => divScopeIds.add(sub.id));
-          }
-        });
-      const engDeliverableHours = (hs?.engineeringHours?.engineeringItems || [])
-        .filter((ei) =>
-          ei.source === "manual" || !ei.scopeItemId
-            ? ei.integratedDivision === div
-            : divScopeIds.has(ei.scopeItemId),
-        )
-        .reduce((sum, ei) => sum + (ei.totalHours || 0), 0);
-
-      const onItems: IHoursItem[] = (hs?.onshoreHours?.items || []).filter(
-        (i) => i.integratedDivision === div,
-      );
-      const offItems: IHoursItem[] = (hs?.offshoreHours?.items || []).filter(
-        (i) => i.integratedDivision === div,
-      );
-      result[div] = {
-        engBRL: engItems.reduce((sum, i) => sum + (i.costBRL || 0), 0),
-        engH:
-          engItems.reduce((sum, i) => sum + (i.totalHours || 0), 0) +
-          engDeliverableHours,
-        onBRL: onItems.reduce((sum, i) => sum + (i.costBRL || 0), 0),
-        onH: onItems.reduce((sum, i) => sum + (i.totalHours || 0), 0),
-        offBRL: offItems.reduce((sum, i) => sum + (i.costBRL || 0), 0),
-        offH: offItems.reduce((sum, i) => sum + (i.totalHours || 0), 0),
-      };
-    });
-    return result;
-  }, [bid, isIntegrated]);
-
-  // ─── Per-division logistics/certs/rts/mob/consumables ───
-  const divLogistics = React.useMemo(() => {
-    if (!isIntegrated) return {};
-    const result: Record<string, { usd: number; brl: number }> = {};
-    divisions.forEach((div) => {
-      const items = (bid.logisticsBreakdown || []).filter(
-        (i) => i.integratedDivision === div,
-      );
-      const t = calculateLogisticsTotals(items, ptax);
-      result[div] = { usd: t.totalUSD, brl: t.totalBRL };
-    });
-    return result;
-  }, [bid, isIntegrated]);
-
-  const divCerts = React.useMemo(() => {
-    if (!isIntegrated) return {};
-    const result: Record<string, { usd: number; brl: number }> = {};
-    divisions.forEach((div) => {
-      const items = (bid.certificationsBreakdown || []).filter(
-        (i) => i.integratedDivision === div,
-      );
-      const t = calculateCertificationsTotals(items, ptax);
-      result[div] = { usd: t.totalUSD, brl: t.totalBRL };
-    });
-    return result;
-  }, [bid, isIntegrated]);
-
-  const divRTS = React.useMemo(() => {
-    if (!isIntegrated) return {};
-    const result: Record<string, { usd: number; brl: number }> = {};
-    divisions.forEach((div) => {
-      const items = (bid.rtsItems || []).filter(
-        (i) => i.integratedDivision === div,
-      );
-      const t = calculateRTSTotals(items, ptax);
-      result[div] = { usd: t.totalUSD, brl: t.totalBRL };
-    });
-    return result;
-  }, [bid, isIntegrated]);
-
-  const divMob = React.useMemo(() => {
-    if (!isIntegrated) return {};
-    const result: Record<string, { usd: number; brl: number }> = {};
-    divisions.forEach((div) => {
-      const items = (bid.mobilizationItems || []).filter(
-        (i) => i.integratedDivision === div,
-      );
-      const t = calculateMobilizationTotals(items, ptax);
-      result[div] = { usd: t.totalUSD, brl: t.totalBRL };
-    });
-    return result;
-  }, [bid, isIntegrated]);
-
-  const divCons = React.useMemo(() => {
-    if (!isIntegrated) return {};
-    const result: Record<string, { usd: number; brl: number }> = {};
-    divisions.forEach((div) => {
-      const items = (bid.consumableItems || []).filter(
-        (i) => i.integratedDivision === div,
-      );
-      const t = calculateConsumablesTotals(items, ptax);
-      result[div] = { usd: t.totalUSD, brl: t.totalBRL };
-    });
-    return result;
-  }, [bid, isIntegrated]);
-
-  const breakdown: IBreakdownRow[] = [];
-
-  // Assets rows — always show resource type breakdown (dynamic labels)
-  breakdown.push({
-    label: "Assets (CAPEX)",
-    usd: s.assetsCapexUSD,
-    brl: s.assetsCapexUSD * s.ptaxUsed,
-  });
-  assetsByType.forEach((rt) => {
-    if (rt.capexUSD > 0) {
-      breakdown.push({
-        label: `↳ ${rt.resourceType}`,
-        usd: rt.capexUSD,
-        brl: rt.capexUSD * s.ptaxUsed,
-        indent: true,
-      });
-    }
-  });
-  breakdown.push({
-    label: "Assets (OPEX)",
-    usd: s.assetsOpexUSD,
-    brl: s.assetsOpexUSD * s.ptaxUsed,
-  });
-  assetsByType.forEach((rt) => {
-    if (rt.opexUSD > 0) {
-      breakdown.push({
-        label: `↳ ${rt.resourceType}`,
-        usd: rt.opexUSD,
-        brl: rt.opexUSD * s.ptaxUsed,
-        indent: true,
-      });
-    }
-  });
-
-  // ─── Compute real totals from items (section.totalHours can be stale) ───
-  const realEngH = isIntegrated
-    ? divisions.reduce(
-        (sum, div) => sum + ((hoursByDiv[div] || {}).engH || 0),
-        0,
-      )
-    : hours.engineeringHours;
-  const realOnH = isIntegrated
-    ? divisions.reduce(
-        (sum, div) => sum + ((hoursByDiv[div] || {}).onH || 0),
-        0,
-      )
-    : hours.onshoreHours;
-  const realOffH = isIntegrated
-    ? divisions.reduce(
-        (sum, div) => sum + ((hoursByDiv[div] || {}).offH || 0),
-        0,
-      )
-    : hours.offshoreHours;
-
-  // Engineering Hours
-  breakdown.push({
-    label: "Engineering Hours",
-    usd: s.ptaxUsed > 0 ? s.engineeringHoursCostBRL / s.ptaxUsed : 0,
-    brl: s.engineeringHoursCostBRL,
-    hoursLabel: realEngH > 0 ? `${realEngH.toLocaleString()}h` : undefined,
-  });
-  if (isIntegrated) {
-    divisions.forEach((div) => {
-      const d = hoursByDiv[div];
-      if (d && (d.engBRL > 0 || d.engH > 0)) {
-        breakdown.push({
-          label: `↳ ${div}`,
-          usd: ptax > 0 ? d.engBRL / ptax : 0,
-          brl: d.engBRL,
-          indent: true,
-          hoursLabel: d.engH > 0 ? `${d.engH.toLocaleString()}h` : undefined,
-        });
-      }
-    });
-  }
-
-  // Onshore Hours
-  breakdown.push({
-    label: "Onshore Hours",
-    usd: s.ptaxUsed > 0 ? s.onshoreHoursCostBRL / s.ptaxUsed : 0,
-    brl: s.onshoreHoursCostBRL,
-    hoursLabel: realOnH > 0 ? `${realOnH.toLocaleString()}h` : undefined,
-  });
-  if (isIntegrated) {
-    divisions.forEach((div) => {
-      const d = hoursByDiv[div];
-      if (d && (d.onBRL > 0 || d.onH > 0)) {
-        breakdown.push({
-          label: `↳ ${div}`,
-          usd: ptax > 0 ? d.onBRL / ptax : 0,
-          brl: d.onBRL,
-          indent: true,
-          hoursLabel: d.onH > 0 ? `${d.onH.toLocaleString()}h` : undefined,
-        });
-      }
-    });
-  }
-
-  // Offshore Hours
-  breakdown.push({
-    label: "Offshore Hours",
-    usd: s.ptaxUsed > 0 ? s.offshoreHoursCostBRL / s.ptaxUsed : 0,
-    brl: s.offshoreHoursCostBRL,
-    hoursLabel: realOffH > 0 ? `${realOffH.toLocaleString()}h` : undefined,
-  });
-  if (isIntegrated) {
-    divisions.forEach((div) => {
-      const d = hoursByDiv[div];
-      if (d && (d.offBRL > 0 || d.offH > 0)) {
-        breakdown.push({
-          label: `↳ ${div}`,
-          usd: ptax > 0 ? d.offBRL / ptax : 0,
-          brl: d.offBRL,
-          indent: true,
-          hoursLabel: d.offH > 0 ? `${d.offH.toLocaleString()}h` : undefined,
-        });
-      }
-    });
-  }
-
-  // Logistics
-  breakdown.push({
-    label: "Logistics",
-    usd: s.logisticsCostUSD,
-    brl: s.logisticsCostBRL,
-  });
-  if (isIntegrated) {
-    divisions.forEach((div) => {
-      const d = divLogistics[div];
-      if (d && (d.usd > 0 || d.brl > 0)) {
-        breakdown.push({
-          label: `↳ ${div}`,
-          usd: d.usd,
-          brl: d.brl,
-          indent: true,
-        });
-      }
-    });
-  }
-
-  // Certifications
-  breakdown.push({
-    label: "Certifications",
-    usd: s.certificationsCostUSD,
-    brl: s.certificationsCostBRL,
-  });
-  if (isIntegrated) {
-    divisions.forEach((div) => {
-      const d = divCerts[div];
-      if (d && (d.usd > 0 || d.brl > 0)) {
-        breakdown.push({
-          label: `↳ ${div}`,
-          usd: d.usd,
-          brl: d.brl,
-          indent: true,
-        });
-      }
-    });
-  }
-
-  // RTS
-  breakdown.push({
-    label: "RTS (Ready To Service)",
-    usd: s.rtsCostUSD,
-    brl: s.rtsCostBRL,
-  });
-  if (isIntegrated) {
-    divisions.forEach((div) => {
-      const d = divRTS[div];
-      if (d && (d.usd > 0 || d.brl > 0)) {
-        breakdown.push({
-          label: `↳ ${div}`,
-          usd: d.usd,
-          brl: d.brl,
-          indent: true,
-        });
-      }
-    });
-  }
-
-  // Mobilization
-  breakdown.push({
-    label: "Mobilization",
-    usd: s.mobilizationCostUSD,
-    brl: s.mobilizationCostBRL,
-  });
-  if (isIntegrated) {
-    divisions.forEach((div) => {
-      const d = divMob[div];
-      if (d && (d.usd > 0 || d.brl > 0)) {
-        breakdown.push({
-          label: `↳ ${div}`,
-          usd: d.usd,
-          brl: d.brl,
-          indent: true,
-        });
-      }
-    });
-  }
-
-  // Consumables
-  breakdown.push({
-    label: "Consumables",
-    usd: s.consumablesCostUSD,
-    brl: s.consumablesCostBRL,
-  });
-  if (isIntegrated) {
-    divisions.forEach((div) => {
-      const d = divCons[div];
-      if (d && (d.usd > 0 || d.brl > 0)) {
-        breakdown.push({
-          label: `↳ ${div}`,
-          usd: d.usd,
-          brl: d.brl,
-          indent: true,
-        });
-      }
-    });
-  }
 
   // Simple horizontal bar percentages
   const maxUSD = Math.max(...breakdown.map((b) => b.usd), 1);
@@ -415,39 +58,14 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
   // Expand/collapse sub-categories (open by default)
   const [subCatsExpanded, setSubCatsExpanded] = React.useState(true);
 
-  // ─── CAPEX vs OPEX totals ───
-  const capexBRL = React.useMemo(() => {
-    // Assets CAPEX
-    let c = s.assetsCapexUSD * s.ptaxUsed;
-    // RTS, Certifications, Engineering, Logistics, etc. are typically CAPEX
-    // For simplicity: everything non-OPEX-asset goes to CAPEX
-    c +=
-      s.engineeringHoursCostBRL +
-      s.onshoreHoursCostBRL +
-      s.offshoreHoursCostBRL;
-    c += s.logisticsCostBRL;
-    c += s.certificationsCostBRL;
-    c += s.rtsCostBRL;
-    c += s.mobilizationCostBRL;
-    c += s.consumablesCostBRL;
-    return c;
-  }, [s]);
-
-  const opexBRL = React.useMemo(() => {
-    return s.assetsOpexUSD * s.ptaxUsed;
-  }, [s]);
-
-  const capexUSD = React.useMemo(() => {
-    return s.totalCostUSD - s.assetsOpexUSD;
-  }, [s]);
-
-  const opexUSD = React.useMemo(() => {
-    return s.assetsOpexUSD;
-  }, [s]);
+  const capexBRL = view.capex.brl;
+  const opexBRL = view.opex.brl;
+  const capexUSD = view.capex.usd;
+  const opexUSD = view.opex.usd;
 
   // Chart colors for resource types
   const TYPE_COLORS = [
-    "#0d9488",
+    colorTheme.accents.a600,
     "#3b82f6",
     "#8b5cf6",
     "#f59e0b",
@@ -470,83 +88,31 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
     return TYPE_COLORS[idx >= 0 ? idx % TYPE_COLORS.length : 0];
   };
 
-  // Non-asset costs totals (for the "other" segment in chart)
-  const nonAssetCostsBRL =
-    s.engineeringHoursCostBRL +
-    s.onshoreHoursCostBRL +
-    s.offshoreHoursCostBRL +
-    s.logisticsCostBRL +
-    s.certificationsCostBRL +
-    s.rtsCostBRL +
-    s.mobilizationCostBRL +
-    s.consumablesCostBRL;
+  const segmentColor = (seg: ICostSegment): string =>
+    seg.isServices ? "#64748b" : getTypeColor(seg.label);
 
-  const nonAssetCostsUSD = s.ptaxUsed > 0 ? nonAssetCostsBRL / s.ptaxUsed : 0;
-
-  // Stacked bar segments for CAPEX
-  const capexSegments = React.useMemo(() => {
-    const segs: { label: string; brl: number; usd: number; color: string }[] =
-      [];
-    assetsByType.forEach((rt) => {
-      if (rt.capexUSD > 0) {
-        segs.push({
-          label: rt.resourceType,
-          brl: rt.capexUSD * s.ptaxUsed,
-          usd: rt.capexUSD,
-          color: getTypeColor(rt.resourceType),
-        });
-      }
-    });
-    // Add non-asset costs to CAPEX
-    if (nonAssetCostsBRL > 0) {
-      segs.push({
-        label: "Services & Others",
-        brl: nonAssetCostsBRL,
-        usd: nonAssetCostsUSD,
-        color: "#64748b",
-      });
-    }
-    return segs;
-  }, [assetsByType, s, nonAssetCostsBRL]);
-
-  const opexSegments = React.useMemo(() => {
-    const segs: { label: string; brl: number; usd: number; color: string }[] =
-      [];
-    assetsByType.forEach((rt) => {
-      if (rt.opexUSD > 0) {
-        segs.push({
-          label: rt.resourceType,
-          brl: rt.opexUSD * s.ptaxUsed,
-          usd: rt.opexUSD,
-          color: getTypeColor(rt.resourceType),
-        });
-      }
-    });
-    return segs;
-  }, [assetsByType, s]);
-
-  // Render stacked bar
+  // Render stacked bar (amounts in USD)
   const renderStackedBar = (
-    segments: { label: string; brl: number; usd: number; color: string }[],
-    totalBRL: number,
+    segments: ICostSegment[],
+    totalUSD: number,
   ): React.ReactNode => {
-    if (totalBRL <= 0) return null;
+    if (totalUSD <= 0) return null;
     return (
       <div className={styles.stackedBarContainer}>
         <div className={styles.stackedBar}>
           {segments.map((seg) => {
-            const pct = (seg.brl / totalBRL) * 100;
+            const pct = (seg.usd / totalUSD) * 100;
             if (pct < 0.5) return null;
             return (
               <div
                 key={seg.label}
                 className={styles.stackedSegment}
-                style={{ width: `${pct}%`, background: seg.color }}
-                title={`${seg.label}: ${formatCurrency(seg.brl, "BRL")} (${pct.toFixed(1)}%)`}
+                style={{ width: `${pct}%`, background: segmentColor(seg) }}
+                title={`${seg.label}: ${formatCurrency(seg.usd)} (${pct.toFixed(1)}%) · ${formatCurrency(seg.brl, "BRL")}`}
               >
                 {pct > 10 && (
                   <span className={styles.segmentLabel}>
-                    {formatCurrency(seg.brl, "BRL")}
+                    {formatCurrency(seg.usd)}
                   </span>
                 )}
               </div>
@@ -558,9 +124,12 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
             <span key={seg.label} className={styles.legendItem}>
               <span
                 className={styles.legendDot}
-                style={{ background: seg.color }}
+                style={{ background: segmentColor(seg) }}
               />
               {seg.label}
+              <span className={styles.legendValue}>
+                {formatCurrency(seg.usd)}
+              </span>
             </span>
           ))}
         </div>
@@ -570,26 +139,26 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
 
   return (
     <div className={`${styles.wrapper} ${className || ""}`}>
-      {/* Service Line Badge */}
-      <div className={styles.serviceLineBadge}>
-        <span className={styles.serviceLineLabel}>Service Line</span>
-        <span className={styles.serviceLineValue}>
-          {(bid.serviceLine || "N/A").toUpperCase()}
-        </span>
-      </div>
-
-      {/* KPI Cards */}
-      <div className={styles.kpiRow}>
-        {kpis.map((k) => (
-          <div
-            key={k.label}
-            className={`${styles.kpiCard} ${k.accent ? styles.kpiAccent : ""}`}
-          >
-            <div className={styles.kpiLabel}>{k.label}</div>
-            <div className={styles.kpiValue}>{k.value}</div>
-          </div>
-        ))}
-      </div>
+      <BidTabHeader
+        title="Cost Summary"
+        subtitle="Consolidated BID cost across all tabs"
+        icon={<Wallet size={18} />}
+        meta={
+          <>
+            <HeaderChip>Service line: {bid.serviceLine || "N/A"}</HeaderChip>
+            <HeaderChip>Currency: {s.currency}</HeaderChip>
+          </>
+        }
+        hero={{
+          label: "Total cost (USD)",
+          value: formatCurrency(s.totalCostUSD),
+          sub: formatCurrency(s.totalCostBRL, "BRL"),
+        }}
+        stats={headerStats}
+        footer={
+          <BidFxNote fx={fx} currencies={view.itemCurrencies} requireBrl />
+        }
+      />
 
       {/* Breakdown Table */}
       <div className={styles.breakdownSection}>
@@ -628,9 +197,11 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
                   className={row.indent ? styles.indentRow : ""}
                 >
                   <td>
-                    {row.label}
-                    {row.hoursLabel && (
-                      <span className={styles.hoursTag}>{row.hoursLabel}</span>
+                    {row.indent ? `↳ ${row.label}` : row.label}
+                    {row.hours !== undefined && (
+                      <span className={styles.hoursTag}>
+                        {`${row.hours.toLocaleString()}h`}
+                      </span>
                     )}
                   </td>
                   <td className={styles.cellRight}>
@@ -685,7 +256,7 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
                 {formatCurrency(capexBRL, "BRL")}
               </span>
             </div>
-            {renderStackedBar(capexSegments, capexBRL)}
+            {renderStackedBar(view.capex.segments, capexUSD)}
           </div>
 
           {/* OPEX Card */}
@@ -699,7 +270,7 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
                 {formatCurrency(opexBRL, "BRL")}
               </span>
             </div>
-            {renderStackedBar(opexSegments, opexBRL)}
+            {renderStackedBar(view.opex.segments, opexUSD)}
           </div>
         </div>
 
@@ -708,15 +279,15 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
           <div className={styles.capexOpexBarLabels}>
             <span>
               CAPEX:{" "}
-              {s.totalCostBRL > 0
-                ? ((capexBRL / (capexBRL + opexBRL)) * 100).toFixed(1)
+              {capexOpexUSD > 0
+                ? ((capexUSD / capexOpexUSD) * 100).toFixed(1)
                 : 0}
               %
             </span>
             <span>
               OPEX:{" "}
-              {s.totalCostBRL > 0
-                ? ((opexBRL / (capexBRL + opexBRL)) * 100).toFixed(1)
+              {capexOpexUSD > 0
+                ? ((opexUSD / capexOpexUSD) * 100).toFixed(1)
                 : 0}
               %
             </span>
@@ -725,17 +296,25 @@ export const BidCostSummary: React.FC<BidCostSummaryProps> = ({
             <div
               className={styles.capexPortion}
               style={{
-                width: `${capexBRL + opexBRL > 0 ? (capexBRL / (capexBRL + opexBRL)) * 100 : 50}%`,
+                width: `${capexOpexUSD > 0 ? (capexUSD / capexOpexUSD) * 100 : 50}%`,
               }}
             />
             <div
               className={styles.opexPortion}
               style={{
-                width: `${capexBRL + opexBRL > 0 ? (opexBRL / (capexBRL + opexBRL)) * 100 : 50}%`,
+                width: `${capexOpexUSD > 0 ? (opexUSD / capexOpexUSD) * 100 : 50}%`,
               }}
             />
           </div>
         </div>
+        {view.uncategorized.usd > 0 && (
+          <div className={styles.notes}>
+            Uncategorized assets (no CAPEX/OPEX set):{" "}
+            {formatCurrency(view.uncategorized.usd)} ·{" "}
+            {formatCurrency(view.uncategorized.brl, "BRL")} - included in the
+            total but not in CAPEX or OPEX.
+          </div>
+        )}
       </div>
 
       {s.notes && <div className={styles.notes}>{s.notes}</div>}

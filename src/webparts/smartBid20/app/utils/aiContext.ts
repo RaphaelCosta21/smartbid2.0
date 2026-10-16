@@ -42,7 +42,7 @@ export function buildRequirementsText(bid: IBid): string {
     const ref = s.clientDocRef ? `[${s.clientDocRef}] ` : "";
     const desc = s.description || "";
     const req = s.clientRequirement
-      ? ` — Requirement: ${s.clientRequirement}`
+      ? ` - Requirement: ${s.clientRequirement}`
       : "";
     const comp = s.compliance ? ` (compliance: ${s.compliance})` : "";
     if (desc || req) lines.push(`${ref}${desc}${req}${comp}`);

@@ -18,7 +18,7 @@
         },
         {
           "type": "TextBlock",
-          "text": "[[BID_NUMBER]] · [[CLIENT]]",
+          "text": "[[BID_NUMBER]] · [[CLIENT]] · [[PROJECT_NAME]]",
           "horizontalAlignment": "Center",
           "isSubtle": true,
           "spacing": "None",
@@ -34,6 +34,7 @@
     {
       "type": "FactSet",
       "facts": [
+        { "title": "Projeto", "value": "[[PROJECT_NAME]]" },
         { "title": "Total de aprovadores", "value": "[[TOTAL_COUNT]]" },
         { "title": "Concluído em", "value": "[[COMPLETED_AT]]" },
         { "title": "Duração total", "value": "[[DURATION]]" }

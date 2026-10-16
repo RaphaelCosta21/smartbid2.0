@@ -173,7 +173,8 @@
     box-shadow: 0 0 0 0 transparent;
   }
   50% {
-    box-shadow: 0 0 20px rgba(0, 201, 167, 0.25);
+    box-shadow: 0 0 20px
+      color-mix(in srgb, var(--accent-brand) 25%, transparent);
   }
 }
 

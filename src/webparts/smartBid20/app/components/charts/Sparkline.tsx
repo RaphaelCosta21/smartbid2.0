@@ -1,5 +1,6 @@
 import * as React from "react";
 import { AreaChart, Area, ResponsiveContainer, YAxis } from "recharts";
+import { useColorTheme } from "../../hooks/useColorTheme";
 
 interface SparklineProps {
   data: number[];
@@ -14,10 +15,12 @@ interface SparklineProps {
  */
 export const Sparkline: React.FC<SparklineProps> = ({
   data,
-  color = "#00c9a7",
+  color: colorProp,
   height = 40,
   filled = true,
 }) => {
+  const colorTheme = useColorTheme();
+  const color = colorProp || colorTheme.accents.brand;
   const gradientId = React.useMemo(
     () => `spark-${Math.random().toString(36).slice(2, 9)}`,
     [],

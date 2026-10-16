@@ -31,7 +31,8 @@
 
     &:focus {
       border-color: var(--primary-accent);
-      box-shadow: 0 0 0 2px rgba(0, 201, 167, 0.15);
+      box-shadow: 0 0 0 2px
+        color-mix(in srgb, var(--accent-brand) 15%, transparent);
       background: rgba(255, 255, 255, 0.1);
     }
   }
@@ -292,7 +293,7 @@
 
 .themeActive {
   background: var(--primary-accent) !important;
-  color: white !important;
+  color: var(--primary-accent-contrast) !important;
   border-color: var(--primary-accent) !important;
 }
 

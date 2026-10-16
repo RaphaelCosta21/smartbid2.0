@@ -375,7 +375,7 @@
 .tabBtnActive {
   border-color: transparent;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-weight: 600;
 
   &:hover {
@@ -674,6 +674,58 @@
   color: var(--text-primary);
 }
 
+/* Win chance (undecided BIDs) */
+.chanceGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chanceBtn {
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover {
+    border-color: var(--border);
+    color: var(--text-primary);
+  }
+}
+
+.chanceBtnActive {
+  border-color: var(--primary-accent);
+  color: var(--primary-accent);
+  background: color-mix(in srgb, var(--primary-accent) 12%, transparent);
+}
+
+.chanceHint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.chanceCell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.chanceSource {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+
 /* Conditional fields */
 .fieldGroup {
   display: flex;
@@ -748,7 +800,7 @@
   border-radius: 10px;
   border: none;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;

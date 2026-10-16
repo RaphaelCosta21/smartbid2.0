@@ -61,7 +61,17 @@ export interface ISearchResultItem {
   /** Item description */
   description: string;
   /** Data source identifier */
-  source: "AR" | "PS" | "FAR" | "FAV" | "BUMBL" | "BUMBR" | "FIN";
+  source:
+    | "AR"
+    | "PS"
+    | "FAR"
+    | "FAV"
+    | "BUMBL"
+    | "BUMBR"
+    | "FIN"
+    | "QUOTE"
+    | "BOMCOST"
+    | "ASSET";
   /** Business unit (when known) */
   businessUnit?: string;
   /** Manufacturer ID (Active Registered only) */
@@ -70,15 +80,23 @@ export interface ISearchResultItem {
   mfgItmId?: string;
 }
 
-/** Multi-source search results grouped by origin */
-export interface IMultiSourceResults {
-  /** From Active Registered + PeopleSoft Financials */
-  query: ISearchResultItem[];
-  /** From Favorites equipment catalog */
-  favorites: ISearchResultItem[];
-  /** From BUMBL/BUMBR/Financials (PN + description only, no costs) */
-  bomCosts: ISearchResultItem[];
+/** Cross-reference between an OII Part Number and a manufacturer ref (MFG REF) */
+export interface IPnAlias {
+  /** The related PN (a MFG REF when kind = "mfgRef", an OII PN when kind = "oiiPn") */
+  pn: string;
+  kind: "mfgRef" | "oiiPn";
+  mfgName?: string;
+  /** AR = Active Registered - Brazil tab, FAR = Financials Active Registered CSV */
+  source: "AR" | "FAR";
 }
+
+/** Autocomplete source buckets — the tabs of the "Add Items from Catalog" modal */
+export type CatalogSearchBucket =
+  | "query"
+  | "quotations"
+  | "bomCosts"
+  | "assets"
+  | "favorites";
 
 /** Raw tab data — headers + rows as key-value objects for full-column display */
 export interface IRawTabData {

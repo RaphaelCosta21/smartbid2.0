@@ -7,7 +7,7 @@ import { ScopeOfSupplyTab } from "../bid/ScopeOfSupplyTab";
 import { BidHoursTable } from "../bid/BidHoursTable";
 import { EditToolbar } from "../common/EditLockBanner";
 import { useEditControl } from "../../hooks/useEditControl";
-import { useAccessLevel } from "../../hooks/useAccessLevel";
+import { usePageAccess } from "../../hooks/usePageAccess";
 import { DIVISIONS, SERVICE_LINES } from "../../utils/constants";
 import { makeId } from "../../utils/idGenerator";
 import { AttachmentService } from "../../services/AttachmentService";
@@ -31,8 +31,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 }) => {
   const currentUser = useCurrentUser();
   const config = useConfigStore((s) => s.config);
-  const { canEdit: canEditSection, isSuperAdmin } = useAccessLevel();
-  const canEditTemplates = canEditSection("templates") || isSuperAdmin;
+  const { canEdit: canEditTemplates } = usePageAccess();
 
   // Stable ID for this template (existing or new)
   const [stableId] = React.useState(() => template?.id || makeId("tpl"));
@@ -426,7 +425,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
           <div className={styles.scopeHeader}>
             <div>
               <h3 className={styles.scopeTitle}>
-                Scope of Supply — {name || "Template"}
+                Scope of Supply - {name || "Template"}
               </h3>
               <p className={styles.scopeSubtitle}>
                 {isScopeEditing
@@ -444,6 +443,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
               templateId={stableId}
               tabNotes={scopeNotes}
               onSaveTabNotes={setScopeNotes}
+              embedded
             />
           </div>
 
@@ -486,7 +486,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
           <div className={styles.scopeHeader}>
             <div>
               <h3 className={styles.scopeTitle}>
-                Hours &amp; Personnel — {name || "Template"}
+                Hours &amp; Personnel - {name || "Template"}
               </h3>
               <p className={styles.scopeSubtitle}>
                 {isHoursEditing
@@ -502,6 +502,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
               readOnly={!isHoursEditing}
               onSave={setHoursSummary}
               scopeItems={scopeItems}
+              embedded
             />
           </div>
 

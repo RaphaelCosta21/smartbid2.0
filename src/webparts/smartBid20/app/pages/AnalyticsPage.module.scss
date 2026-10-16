@@ -26,8 +26,8 @@
 
   &.tabBtnActive {
     border: none;
-    background: var(--accent-color, #3b82f6);
-    color: #fff;
+    background: var(--primary-accent);
+    color: var(--primary-accent-contrast);
     font-weight: 600;
   }
 }

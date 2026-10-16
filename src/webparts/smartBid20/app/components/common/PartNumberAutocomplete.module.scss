@@ -70,42 +70,6 @@
   }
 }
 
-/* ─── Section headers ─── */
-.section {
-  &:not(:first-child) {
-    border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
-    margin-top: 2px;
-    padding-top: 2px;
-  }
-}
-
-.sectionHeader {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted, rgba(255, 255, 255, 0.45));
-  user-select: none;
-}
-
-.sectionIcon {
-  font-size: 12px;
-}
-
-.sectionCount {
-  margin-left: auto;
-  font-size: 9px;
-  background: var(--border-subtle, rgba(255, 255, 255, 0.08));
-  border-radius: 8px;
-  padding: 1px 5px;
-  min-width: 16px;
-  text-align: center;
-}
-
 /* ─── Result rows ─── */
 .resultRow {
   display: flex;
@@ -128,7 +92,7 @@
   font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
   font-size: 12px;
   font-weight: 600;
-  color: var(--accent-color, #3b82f6);
+  color: var(--secondary-accent);
   white-space: nowrap;
   min-width: 80px;
   flex-shrink: 0;
@@ -180,6 +144,34 @@
   color: #ec4899;
 }
 
+/* Token-colored badges — tinted fill derived from the text color */
+.badgeQUOTE,
+.badgeASSET {
+  position: relative;
+  z-index: 0;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: currentColor;
+    opacity: 0.15;
+  }
+}
+
+.badgeQUOTE {
+  color: var(--info);
+}
+
+.badgeASSET {
+  color: var(--primary-accent);
+}
+
 /* ─── Loading / Empty states ─── */
 .loadingRow {
   display: flex;
@@ -202,7 +194,7 @@
   width: 14px;
   height: 14px;
   border: 2px solid var(--border-subtle, rgba(255, 255, 255, 0.15));
-  border-top-color: var(--accent-color, #3b82f6);
+  border-top-color: var(--primary-accent);
   border-radius: 50%;
   animation: pnSpin 0.6s linear infinite;
 }

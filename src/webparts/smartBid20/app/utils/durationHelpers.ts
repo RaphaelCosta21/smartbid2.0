@@ -9,7 +9,7 @@
  * Handles null values, sub-hour durations (minutes), hours, and days.
  */
 export function formatDurationHours(hours: number | null): string {
-  if (hours === null || hours === undefined) return "—";
+  if (hours === null || hours === undefined) return "-";
   if (hours < 1) {
     const mins = Math.round(hours * 60);
     return mins <= 1 ? "< 1 min" : `${mins} min`;

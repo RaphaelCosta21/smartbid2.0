@@ -79,8 +79,15 @@ export const BottleneckAnalysisPage: React.FC = () => {
   const chart = useChartTheme();
   const config = useConfigStore((s) => s.config);
   const { getPhaseColor, getStatusColor } = useStatusColors();
-  const { filters, patch, setPreset, reset, applyFilters, hasActive } =
-    useAnalyticsFilters();
+  const {
+    filters,
+    patch,
+    setPreset,
+    reset,
+    applyFilters,
+    getFacetCounts,
+    hasActive,
+  } = useAnalyticsFilters();
 
   const [scope, setScope] = React.useState<Scope>("all");
   const [dimension, setDimension] = React.useState<Dimension>("phase");
@@ -126,6 +133,11 @@ export const BottleneckAnalysisPage: React.FC = () => {
   const filtered = React.useMemo(
     () => applyFilters(bids, "createdDate"),
     [bids, applyFilters],
+  );
+
+  const facetCounts = React.useMemo(
+    () => getFacetCounts(bids, "createdDate"),
+    [bids, getFacetCounts],
   );
 
   const scoped = React.useMemo(() => {
@@ -262,6 +274,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
         hasActive={hasActive}
         divisions={divisions}
         bidTypes={bidTypeOptions}
+        facetCounts={facetCounts}
         rightSlot={
           <SegmentedControl<Scope>
             value={scope}
@@ -291,7 +304,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
             />
             <KPICard
               label="Slowest Phase"
-              value={stats.slowestPhase ? `${stats.slowestPhase.days}d` : "—"}
+              value={stats.slowestPhase ? `${stats.slowestPhase.days}d` : "-"}
               variant="glass"
               accentColor={chart.danger}
               subtitle={
@@ -300,7 +313,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
             />
             <KPICard
               label="Approval Cycle"
-              value={stats.avgApproval != null ? `${stats.avgApproval}d` : "—"}
+              value={stats.avgApproval != null ? `${stats.avgApproval}d` : "-"}
               variant="glass"
               accentColor={chart.warning}
               subtitle="average per BID"
@@ -315,16 +328,14 @@ export const BottleneckAnalysisPage: React.FC = () => {
           </div>
 
           <GlassCard
-            title={
-              dimension === "phase" ? "Time by Phase" : "Time by Status"
-            }
+            title={dimension === "phase" ? "Time by Phase" : "Time by Status"}
             subtitle={`Duration ${
               stat === "avg"
                 ? "average"
                 : stat === "median"
                   ? "median"
                   : "maximum"
-            } (days) — bottlenecks above ${threshold}d highlighted`}
+            } (days) - bottlenecks above ${threshold}d highlighted`}
             accentColor={chart.danger}
             className={styles.spanAll}
             actions={
@@ -429,7 +440,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
 
           <GlassCard
             title="Average Approval Time by Department"
-            subtitle="Average days by department — completed approval rounds only"
+            subtitle="Average days by department - completed approval rounds only"
             accentColor={chart.warning}
             className={styles.spanAll}
           >
@@ -494,7 +505,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
 
           <div className={styles.chartsGrid}>
             <GlassCard
-              title="Heatmap — Division × Phase"
+              title="Heatmap - Division × Phase"
               subtitle="Average days by phase for each division"
               accentColor={chart.warning}
             >
@@ -549,7 +560,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
 
           <GlassCard
             title="Longest-Running BIDs"
-            subtitle="Longest elapsed time — click to open details"
+            subtitle="Longest elapsed time - click to open details"
             accentColor={chart.danger}
             className={styles.spanAll}
           >
@@ -581,7 +592,7 @@ export const BottleneckAnalysisPage: React.FC = () => {
                       )}
                     </div>
                     <div className={styles.slowClient}>
-                      {row.bid.opportunityInfo?.client || "—"}
+                      {row.bid.opportunityInfo?.client || "-"}
                       {row.bid.opportunityInfo?.projectName
                         ? ` · ${row.bid.opportunityInfo.projectName}`
                         : ""}

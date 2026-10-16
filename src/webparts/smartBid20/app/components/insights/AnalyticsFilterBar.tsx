@@ -2,7 +2,12 @@ import * as React from "react";
 import styles from "./AnalyticsFilterBar.module.scss";
 import { SegmentedControl, SegmentOption } from "./SegmentedControl";
 import { MultiSelectDropdown, MultiSelectOption } from "./MultiSelectDropdown";
-import { AnalyticsFilters, DatePreset } from "../../hooks/useAnalyticsFilters";
+import {
+  AnalyticsFacetCounts,
+  AnalyticsFilters,
+  DatePreset,
+} from "../../hooks/useAnalyticsFilters";
+import { withCounts } from "../../utils/facetHelpers";
 
 interface AnalyticsFilterBarProps {
   filters: AnalyticsFilters;
@@ -13,8 +18,11 @@ interface AnalyticsFilterBarProps {
   divisions: MultiSelectOption[];
   serviceLines?: MultiSelectOption[];
   bidTypes?: MultiSelectOption[];
+  /** From `useAnalyticsFilters().getFacetCounts` over the page's source BIDs. */
+  facetCounts: AnalyticsFacetCounts;
   /** Right-aligned actions (export, view toggles). */
   rightSlot?: React.ReactNode;
+  showSearch?: boolean;
 }
 
 const PRESETS: SegmentOption<DatePreset>[] = [
@@ -57,7 +65,9 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
   divisions,
   serviceLines,
   bidTypes,
+  facetCounts,
   rightSlot,
+  showSearch = true,
 }) => {
   const divLabel = (v: string): string =>
     divisions.find((d) => d.value === v)?.label || v;
@@ -128,7 +138,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
             }
             aria-label="From"
           />
-          <span className={styles.dateSep}>–</span>
+          <span className={styles.dateSep}>-</span>
           <input
             type="date"
             className={styles.dateInput}
@@ -142,7 +152,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
         <MultiSelectDropdown
           label="Division"
           icon={DivisionIcon}
-          options={divisions}
+          options={withCounts(divisions, facetCounts.divisions)}
           selected={filters.divisions}
           onChange={(v) => onPatch({ divisions: v })}
         />
@@ -151,7 +161,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
           <MultiSelectDropdown
             label="Service Line"
             icon={ServiceIcon}
-            options={serviceLines}
+            options={withCounts(serviceLines, facetCounts.serviceLines)}
             selected={filters.serviceLines}
             onChange={(v) => onPatch({ serviceLines: v })}
           />
@@ -161,29 +171,31 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
           <MultiSelectDropdown
             label="Type"
             icon={BidTypeIcon}
-            options={bidTypes}
+            options={withCounts(bidTypes, facetCounts.bidTypes)}
             selected={filters.bidTypes}
             onChange={(v) => onPatch({ bidTypes: v })}
           />
         )}
 
-        <div className={styles.search}>
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search BIDs, clients, projects…"
-            value={filters.search}
-            onChange={(e) => onPatch({ search: e.target.value })}
-          />
-        </div>
+        {showSearch && (
+          <div className={styles.search}>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search BIDs, clients, projects…"
+              value={filters.search}
+              onChange={(e) => onPatch({ search: e.target.value })}
+            />
+          </div>
+        )}
 
         {rightSlot && <div className={styles.right}>{rightSlot}</div>}
       </div>

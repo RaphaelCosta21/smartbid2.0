@@ -11,7 +11,7 @@ appendices) as Markdown, drops the repeated boilerplate, and emits one chunk per
 section so an equipment section stays together with its specification table.
 """
 import re
-from collections import Counter
+from collections import defaultdict
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 DEFAULT_MAX_CHARS = 4000
@@ -42,6 +42,9 @@ TITLE_HEADING_LEVEL = 6
 # Repeated header/footer detection. A line that shows up this many times, once
 # page numbers are masked, is furniture rather than content.
 BOILERPLATE_MIN_REPEATS = 3
+# A running header recurs about once per page; a repeated table cell ("X",
+# "Included") recurs a few lines apart and is content.
+BOILERPLATE_MIN_GAP_LINES = 12
 BOILERPLATE_MAX_CHARS = 100
 NOISE_MAX_CHARS = 200
 
@@ -49,12 +52,15 @@ _WHITESPACE = re.compile(r"[ \t]+")
 _DIGITS = re.compile(r"\d+")
 _BLANK_SPLIT = re.compile(r"\n\s*\n")
 _NUMBERED_HEADING = re.compile(r"^(\d{1,2}(?:\.\d{1,3}){0,5})[.)]?\s*(\S.*)$")
+# Markdown documents (e.g. generated Past Bids) declare their outline explicitly.
+_ATX_HEADING = re.compile(r"^(#{1,6})\s+(\S.*?)\s*#*\s*$")
 _APPENDIX_HEADING = re.compile(
     r"^(appendix|annex|anexo|ap[eê]ndice|attachment|exhibit)\b", re.IGNORECASE
 )
-# Dot leaders only occur in a table of contents, whose entries would otherwise be
-# detected as headings and create phantom sections.
-_TOC_LEADER = re.compile(r"\.{4,}")
+# A dot-leader line is never a heading. It is a table-of-contents entry only when a
+# page number follows; "Depth rating ..... 3000 msw" is a datasheet row.
+_DOT_LEADER = re.compile(r"\.{4,}")
+_TOC_ENTRY = re.compile(r"\.{4,}\s*\d{1,4}$")
 # Only unambiguous page markers. Bare numeric lines are left alone because PDF
 # extraction often emits one table cell per line.
 _PAGE_MARKER = re.compile(
@@ -134,24 +140,36 @@ def _normalize(line: str) -> str:
     return _DIGITS.sub("#", _WHITESPACE.sub(" ", line.strip())).lower()
 
 
-def _is_boilerplate(line: str, exact: Counter, masked: Counter) -> bool:
+def _recurs_per_page(positions: List[int]) -> bool:
+    if len(positions) < BOILERPLATE_MIN_REPEATS:
+        return False
+    gaps = sorted(b - a for a, b in zip(positions, positions[1:]))
+    return gaps[(len(gaps) - 1) // 2] >= BOILERPLATE_MIN_GAP_LINES
+
+
+def _is_boilerplate(
+    line: str, exact: Dict[str, List[int]], masked: Dict[str, List[int]]
+) -> bool:
     """Digit masking is what catches a running footer, but it also makes a
     measurement table whose rows differ only in numbers look repetitive — so the
     masked form only counts when the line reads like page furniture."""
     if len(line) > BOILERPLATE_MAX_CHARS or not _has_letters(line):
         return False
-    if exact[_WHITESPACE.sub(" ", line).lower()] >= BOILERPLATE_MIN_REPEATS:
+    if _recurs_per_page(exact[line.lower()]):
         return True
     return (
-        masked[_normalize(line)] >= BOILERPLATE_MIN_REPEATS
+        _recurs_per_page(masked[_normalize(line)])
         and _FURNITURE_HINT.search(line) is not None
     )
 
 
 def strip_boilerplate(lines: Sequence[str]) -> List[str]:
     stripped = [_WHITESPACE.sub(" ", line.strip()) for line in lines]
-    exact = Counter(line.lower() for line in stripped if line)
-    masked = Counter(_normalize(line) for line in stripped if line)
+    exact: Dict[str, List[int]] = defaultdict(list)
+    masked: Dict[str, List[int]] = defaultdict(list)
+    for position, line in enumerate(line for line in stripped if line):
+        exact[line.lower()].append(position)
+        masked[_normalize(line)].append(position)
     kept: List[str] = []
 
     def separate() -> None:
@@ -164,7 +182,7 @@ def strip_boilerplate(lines: Sequence[str]) -> List[str]:
         if not line:
             separate()
             continue
-        if _PAGE_MARKER.match(line) or _TOC_LEADER.search(line):
+        if _PAGE_MARKER.match(line) or _TOC_ENTRY.search(line):
             separate()
             continue
         if len(line) <= NOISE_MAX_CHARS and _NOISE.search(line):
@@ -179,7 +197,7 @@ def strip_boilerplate(lines: Sequence[str]) -> List[str]:
 
 def _heading(line: str, prev_blank: bool, next_top: int) -> Optional[_Heading]:
     """Return (level, title) when the line opens a section, else None."""
-    if line.endswith((".", ",", ";", ":", "?", "!")):
+    if line.endswith((".", ",", ";", ":", "?", "!")) or _DOT_LEADER.search(line):
         return None
 
     numbered = _NUMBERED_HEADING.match(line)
@@ -217,9 +235,18 @@ def _heading(line: str, prev_blank: bool, next_top: int) -> Optional[_Heading]:
     return None
 
 
-def split_sections(lines: Sequence[str]) -> List[_Section]:
+def _atx_heading(line: str) -> Optional[_Heading]:
+    match = _ATX_HEADING.match(line)
+    if not match:
+        return None
+    return len(match.group(1)), match.group(2).strip()
+
+
+def split_sections(lines: Sequence[str], markdown: bool = False) -> List[_Section]:
     """Walk the document once, keeping a heading stack so every section carries
-    its full ancestry instead of just its own title."""
+    its full ancestry instead of just its own title. In `markdown` mode only ATX
+    headings open sections — record lines such as "- Client: X | Project: Y"
+    would otherwise pass the Title Case heuristic."""
     stack: List[_Heading] = []
     sections: List[_Section] = []
     path: List[_Heading] = []
@@ -235,7 +262,7 @@ def split_sections(lines: Sequence[str]) -> List[_Section]:
                 body.append("")
             continue
 
-        found = _heading(line, prev_blank, next_top)
+        found = _atx_heading(line) if markdown else _heading(line, prev_blank, next_top)
         prev_blank = False
         if not found:
             body.append(line)
@@ -372,12 +399,22 @@ def build_chunks(
     max_chars: int = DEFAULT_MAX_CHARS,
     min_chars: int = DEFAULT_MIN_CHARS,
     overlap_chars: int = DEFAULT_OVERLAP_CHARS,
+    markdown: bool = False,
+    outline_chunk: bool = True,
 ) -> List[Dict[str, Any]]:
     """Return one dict per chunk: `text` is what gets stored and shown to the
     model, `content` is the same text prefixed with the catalogue metadata and is
-    what gets embedded."""
-    lines = strip_boilerplate((text or "").splitlines())
-    sections = split_sections(lines)
+    what gets embedded. `markdown` is for authored/generated Markdown: ATX
+    headings define the sections and no line is dropped as page furniture
+    (repeated short lines are real content there, not running headers)."""
+    raw_lines = (text or "").splitlines()
+    if markdown:
+        lines = [_WHITESPACE.sub(" ", line.strip()) for line in raw_lines]
+    else:
+        lines = strip_boilerplate(raw_lines)
+    # If text extraction dropped the "#" markers, fall back to the numbered-heading heuristics.
+    atx = markdown and any(_ATX_HEADING.match(line) for line in lines)
+    sections = split_sections(lines, atx)
 
     units: List[Tuple[List[_Heading], str]] = []
     for path, body_lines in sections:
@@ -415,7 +452,7 @@ def build_chunks(
         )
 
     titles = outline(sections)
-    if len(titles) >= OUTLINE_MIN_ENTRIES:
+    if outline_chunk and len(titles) >= OUTLINE_MIN_ENTRIES:
         emit(
             OUTLINE_SECTION,
             f"# {OUTLINE_SECTION}\n\nSections and items covered by this document:\n"

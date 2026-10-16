@@ -171,7 +171,7 @@ export function statusByClient(
 ): ClientStatusRow[] {
   const byClient: { [client: string]: { [status: string]: number } } = {};
   bids.forEach((b) => {
-    const client = (b.opportunityInfo && b.opportunityInfo.client) || "—";
+    const client = (b.opportunityInfo && b.opportunityInfo.client) || "-";
     const s = getResultStatus(b, terminalStatuses);
     byClient[client] = byClient[client] || {};
     byClient[client][s] = (byClient[client][s] || 0) + 1;
@@ -209,7 +209,7 @@ export function winRateByClient(
     [client: string]: { won: number; lost: number; total: number };
   } = {};
   bids.forEach((b) => {
-    const client = (b.opportunityInfo && b.opportunityInfo.client) || "—";
+    const client = (b.opportunityInfo && b.opportunityInfo.client) || "-";
     const rec = (byClient[client] = byClient[client] || {
       won: 0,
       lost: 0,
@@ -248,7 +248,7 @@ export interface RequesterRow {
 export function byCommercialRequester(bids: IBid[]): RequesterRow[] {
   const byReq: { [name: string]: { total: number; won: number } } = {};
   bids.forEach((b) => {
-    const name = (b.commercialRequester && b.commercialRequester.name) || "—";
+    const name = (b.commercialRequester && b.commercialRequester.name) || "-";
     const rec = (byReq[name] = byReq[name] || { total: 0, won: 0 });
     rec.total++;
     if (b.bidResult && b.bidResult.outcome === "Won") rec.won++;
@@ -287,7 +287,7 @@ export function clientPerformanceByDivision(
     };
   } = {};
   divBids.forEach((b) => {
-    const client = (b.opportunityInfo && b.opportunityInfo.client) || "—";
+    const client = (b.opportunityInfo && b.opportunityInfo.client) || "-";
     const rec = (byClient[client] = byClient[client] || {
       total: 0,
       won: 0,
@@ -361,21 +361,21 @@ export function bidTableRows(
 ): BidTableRow[] {
   return bids.map((b) => ({
     bidNumber: b.bidNumber,
-    title: (b.opportunityInfo && b.opportunityInfo.projectName) || "—",
-    requester: (b.commercialRequester && b.commercialRequester.name) || "—",
-    crm: b.crmNumber || "—",
-    client: (b.opportunityInfo && b.opportunityInfo.client) || "—",
+    title: (b.opportunityInfo && b.opportunityInfo.projectName) || "-",
+    requester: (b.commercialRequester && b.commercialRequester.name) || "-",
+    crm: b.crmNumber || "-",
+    client: (b.opportunityInfo && b.opportunityInfo.client) || "-",
     status: getResultStatus(b, terminalStatuses),
     justificative:
       (b.bidResult && (b.bidResult.lostReason || b.bidResult.feedbackNotes)) ||
       "",
     division: b.division,
-    businessLine: b.serviceLine || "—",
+    businessLine: b.serviceLine || "-",
     created: b.createdDate || "",
     assignedTo:
       (b.engineerResponsible &&
         b.engineerResponsible[0] &&
         b.engineerResponsible[0].name) ||
-      "—",
+      "-",
   }));
 }

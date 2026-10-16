@@ -16,42 +16,51 @@ import { GlassCard } from "../components/common/GlassCard";
 import { KPICard } from "../components/common/KPICard";
 import { EmptyState } from "../components/common/EmptyState";
 import { ChartTooltip } from "../components/charts/ChartTooltip";
+import { Sparkline } from "../components/charts/Sparkline";
 import { AnalyticsFilterBar } from "../components/insights/AnalyticsFilterBar";
-import { ExportBar } from "../components/reports/ExportBar";
+import { ApprovalDueImpactSection } from "../components/reports/ApprovalDueImpactSection";
 import { useChartTheme } from "../hooks/useChartTheme";
 import { useBids } from "../hooks/useBids";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useAnalyticsFilters } from "../hooks/useAnalyticsFilters";
 import { useStatusColors } from "../hooks/useStatusColors";
+import { useKpiTargets } from "../hooks/useKpiTargets";
 import { PHASE_ORDER, volumeTrend } from "../utils/analyticsHelpers";
-import { avgApprovalDaysBySector } from "../utils/approvalHelpers";
-import { bidsToCSV, downloadCSV } from "../utils/exportHelpers";
-import { captureElementToPng, buildReportPdf } from "../utils/pdfExport";
-import { ExportService } from "../services/ExportService";
+import {
+  avgApprovalHoursBySector,
+  summarizeApprovalDueImpact,
+} from "../utils/approvalHelpers";
+import { formatElapsedHours, isPastDue } from "../utils/formatters";
+import { getDueFreezeDate } from "../utils/bidHelpers";
+import {
+  buildCycleBreakdown,
+  computeCycleByPriority,
+  computeFirstPassApproval,
+  computeOtif,
+  cycleTargetTone,
+  formatTarget,
+  targetTone,
+} from "../utils/kpiHelpers";
+import { OTIF_REVISION_WINDOW_MONTHS } from "../config/kpi.config";
 import styles from "./OperationalSummaryPage.module.scss";
 
-const CHART_SECTIONS: { key: string; title: string }[] = [
-  { key: "workload", title: "Division Workloads" },
-  { key: "phase", title: "Active BIDs by Phase" },
-  { key: "throughput", title: "Throughput (Completed / Month)" },
-  { key: "sector", title: "Avg Approval Time by Sector" },
-];
+const hideZero = (v: number): string | number => (v > 0 ? v : "");
 
 export const OperationalSummaryPage: React.FC = () => {
   const { bids } = useBids();
   const config = useConfigStore((s) => s.config);
   const chart = useChartTheme();
-  const { getPhaseColor } = useStatusColors();
-  const { filters, patch, setPreset, reset, applyFilters, hasActive } =
-    useAnalyticsFilters();
-  const [busy, setBusy] = React.useState(false);
-
-  const chartEls = React.useRef<{ [k: string]: HTMLDivElement | null }>({});
-  const setRef =
-    (k: string) =>
-    (el: HTMLDivElement | null): void => {
-      chartEls.current[k] = el;
-    };
+  const { getPhaseColor, getPriorityColor } = useStatusColors();
+  const { targets } = useKpiTargets();
+  const {
+    filters,
+    patch,
+    setPreset,
+    reset,
+    applyFilters,
+    getFacetCounts,
+    hasActive,
+  } = useAnalyticsFilters();
 
   const terminalStatuses = React.useMemo(() => {
     const t = (
@@ -102,56 +111,62 @@ export const OperationalSummaryPage: React.FC = () => {
     [bids, applyFilters],
   );
 
+  const facetCounts = React.useMemo(
+    () => getFacetCounts(bids, "createdDate"),
+    [bids, getFacetCounts],
+  );
+
   const isTerminal = React.useCallback(
     (status: string) => terminalStatuses.indexOf(status) >= 0,
     [terminalStatuses],
   );
 
   const stats = React.useMemo(() => {
-    const now = Date.now();
     const active = filtered.filter((b) => !isTerminal(b.currentStatus));
     const pending = filtered.filter((b) => b.approvalStatus === "pending");
-    const overdue = active.filter((b) => {
-      const due = b.desiredDueDate || b.dueDate;
-      return due ? new Date(due).getTime() < now : false;
-    });
+    const overdue = active.filter((b) =>
+      isPastDue(b.desiredDueDate || b.dueDate, getDueFreezeDate(b)),
+    );
     const completed = filtered.filter(
       (b) =>
         b.currentStatus === "Completed" && b.completedDate && b.createdDate,
     );
-    const avgCycle = completed.length
-      ? Math.round(
-          completed.reduce(
-            (s, b) =>
-              s +
-              (new Date(b.completedDate as string).getTime() -
-                new Date(b.createdDate).getTime()) /
-                86400000,
-            0,
-          ) / completed.length,
-        )
-      : 0;
     return {
       active: active.length,
       pending: pending.length,
       overdue: overdue.length,
+      overdueRate: active.length
+        ? Math.round((overdue.length / active.length) * 100)
+        : null,
       completed: completed.length,
-      avgCycle,
     };
   }, [filtered, isTerminal]);
 
+  const cycle = React.useMemo(
+    () => computeCycleByPriority(filtered, targets),
+    [filtered, targets],
+  );
+  const firstPass = React.useMemo(
+    () => computeFirstPassApproval(filtered),
+    [filtered],
+  );
+  const otif = React.useMemo(() => computeOtif(filtered), [filtered]);
+  const approvalDue = React.useMemo(
+    () => summarizeApprovalDueImpact(filtered).counts,
+    [filtered],
+  );
+
   const divWorkloads = React.useMemo(() => {
-    const now = Date.now();
     return divisions
       .map((d) => {
         const db = filtered.filter((b) => b.division === d.value);
         const active = db.filter((b) => !isTerminal(b.currentStatus)).length;
         const pending = db.filter((b) => b.approvalStatus === "pending").length;
-        const overdue = db.filter((b) => {
-          if (isTerminal(b.currentStatus)) return false;
-          const due = b.desiredDueDate || b.dueDate;
-          return due ? new Date(due).getTime() < now : false;
-        }).length;
+        const overdue = db.filter(
+          (b) =>
+            !isTerminal(b.currentStatus) &&
+            isPastDue(b.desiredDueDate || b.dueDate, getDueFreezeDate(b)),
+        ).length;
         return { division: d.label, active, pending, overdue };
       })
       .filter((d) => d.active + d.pending + d.overdue > 0);
@@ -180,60 +195,22 @@ export const OperationalSummaryPage: React.FC = () => {
   );
 
   const sectorData = React.useMemo(
-    () => avgApprovalDaysBySector(filtered),
+    () => avgApprovalHoursBySector(filtered),
     [filtered],
   );
 
+  const completedPerMonth = throughput.length
+    ? Math.round((stats.completed / throughput.length) * 10) / 10
+    : 0;
+
   const axisTick = { fill: chart.tick, fontSize: 12 };
   const legendStyle = { fontSize: 12, color: chart.textSecondary };
-
-  const handleExcel = (): void => {
-    ExportService.exportToExcel(filtered, {
-      format: "xlsx",
-      includeEquipment: false,
-      includeHours: false,
-      includeCostSummary: true,
-      includeApprovalHistory: false,
-      includeComments: false,
-      includeActivityLog: false,
-      title: "Operational-Summary",
-    }).catch((e) => console.error(e));
-  };
-  const handleCsv = (): void => {
-    downloadCSV(bidsToCSV(filtered), "Operational-Summary.csv");
-  };
-  const handlePdf = async (): Promise<void> => {
-    setBusy(true);
-    try {
-      const bg = chart.mode === "dark" ? "#0f1b2d" : "#f8fafc";
-      const charts: { title: string; dataUrl: string }[] = [];
-      for (const sec of CHART_SECTIONS) {
-        const el = chartEls.current[sec.key];
-        if (el)
-          charts.push({
-            title: sec.title,
-            dataUrl: await captureElementToPng(el, bg),
-          });
-      }
-      await buildReportPdf({
-        title: "Operational Summary",
-        subtitle: `${filtered.length} BIDs`,
-        kpis: [
-          { label: "Active", value: String(stats.active) },
-          { label: "Pending Approvals", value: String(stats.pending) },
-          { label: "Overdue", value: String(stats.overdue) },
-          { label: "Completed", value: String(stats.completed) },
-          { label: "Average Cycle", value: `${stats.avgCycle}d` },
-        ],
-        charts,
-        fileName: "Operational-Summary.pdf",
-        orientation: "l",
-      });
-    } catch (e) {
-      console.error("PDF export failed:", e);
-    } finally {
-      setBusy(false);
-    }
+  const insideLabel = {
+    position: "inside" as const,
+    fill: "#ffffff",
+    fontSize: 11,
+    fontWeight: 700,
+    formatter: hideZero,
   };
 
   return (
@@ -264,14 +241,8 @@ export const OperationalSummaryPage: React.FC = () => {
         divisions={divisions}
         serviceLines={serviceLines}
         bidTypes={bidTypeOptions}
-        rightSlot={
-          <ExportBar
-            onExcel={handleExcel}
-            onCsv={handleCsv}
-            onPdf={handlePdf}
-            busy={busy}
-          />
-        }
+        facetCounts={facetCounts}
+        showSearch={false}
       />
 
       {filtered.length === 0 ? (
@@ -302,33 +273,102 @@ export const OperationalSummaryPage: React.FC = () => {
               label="Overdue"
               value={stats.overdue}
               accentColor={chart.danger}
-              subtitle="overdue active BIDs"
+              subtitle={
+                stats.overdueRate === null
+                  ? "no active BIDs"
+                  : `${stats.overdueRate}% of active BIDs past due`
+              }
+              target={{
+                label: `Overdue target ≤ ${targets.targetOverdueRate}%`,
+                tone: targetTone(
+                  stats.overdueRate,
+                  targets.targetOverdueRate,
+                  false,
+                ),
+              }}
+              breakdown={[
+                {
+                  label: "Late due to approval",
+                  value: String(approvalDue.lateDueToApproval),
+                  color: chart.danger,
+                },
+                {
+                  label: "Late before approval",
+                  value: String(approvalDue.lateBeforeApproval),
+                  color: chart.warning,
+                },
+              ]}
             />
             <KPICard
               variant="glass"
               label="Completed"
               value={stats.completed}
               accentColor={chart.success}
-              subtitle="in selected period"
+              subtitle={`in selected period, avg ${completedPerMonth}/month`}
+              sparkline={
+                <Sparkline
+                  data={throughput.map((p) => p.completed)}
+                  color={chart.success}
+                  height={34}
+                />
+              }
             />
             <KPICard
               variant="glass"
               label="Average Cycle"
-              value={`${stats.avgCycle}d`}
+              value={
+                cycle.overall.avg === null ? "-" : `${cycle.overall.avg} bd`
+              }
               accentColor={chart.accentTertiary}
-              subtitle="creation → completion"
+              subtitle="business days, creation to first delivery"
+              target={{
+                label: `${cycle.onTarget} of ${cycle.measured} urgencies on target`,
+                tone: cycleTargetTone(cycle),
+              }}
+              breakdown={buildCycleBreakdown(cycle, getPriorityColor)}
             />
             <KPICard
               variant="glass"
-              label="Throughput"
-              value={stats.completed}
+              label="First-Pass Approval"
+              value={firstPass.rate === null ? "-" : `${firstPass.rate}%`}
+              accentColor={chart.accentSecondary}
+              subtitle={
+                firstPass.total
+                  ? `${firstPass.hits} of ${firstPass.total} approved with no rejection or override`
+                  : "no closed approval round"
+              }
+              target={{
+                label: formatTarget(targets.targetFirstPassApproval, "%", true),
+                tone: targetTone(
+                  firstPass.rate,
+                  targets.targetFirstPassApproval,
+                  true,
+                ),
+              }}
+            />
+            <KPICard
+              variant="glass"
+              label="OTIF"
+              value={otif.rate === null ? "-" : `${otif.rate}%`}
               accentColor={chart.info}
-              subtitle="completed in selected period"
+              subtitle={
+                otif.total
+                  ? `${otif.hits} of ${otif.total} delivered BIDs${
+                      otif.provisional
+                        ? `, ${otif.provisional} still in the ${OTIF_REVISION_WINDOW_MONTHS}-month revision window`
+                        : ""
+                    }`
+                  : "no delivered BIDs"
+              }
+              target={{
+                label: formatTarget(targets.targetOTIF, "%", true),
+                tone: targetTone(otif.rate, targets.targetOTIF, true),
+              }}
             />
           </div>
 
           <div className={styles.chartsGrid2}>
-            <div ref={setRef("workload")}>
+            <div>
               <GlassCard
                 title="Division Workloads"
                 subtitle="Active BIDs, pending approvals, and overdue BIDs by division"
@@ -366,28 +406,34 @@ export const OperationalSummaryPage: React.FC = () => {
                         fill={chart.accentSecondary}
                         radius={[4, 4, 0, 0]}
                         maxBarSize={30}
-                      />
+                      >
+                        <LabelList dataKey="active" {...insideLabel} />
+                      </Bar>
                       <Bar
                         dataKey="pending"
                         name="Approvals"
                         fill={chart.warning}
                         radius={[4, 4, 0, 0]}
                         maxBarSize={30}
-                      />
+                      >
+                        <LabelList dataKey="pending" {...insideLabel} />
+                      </Bar>
                       <Bar
                         dataKey="overdue"
                         name="Overdue"
                         fill={chart.danger}
                         radius={[4, 4, 0, 0]}
                         maxBarSize={30}
-                      />
+                      >
+                        <LabelList dataKey="overdue" {...insideLabel} />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 )}
               </GlassCard>
             </div>
 
-            <div ref={setRef("phase")}>
+            <div>
               <GlassCard
                 title="Active BIDs by Phase"
                 subtitle="Distribution of active BIDs by phase"
@@ -445,7 +491,7 @@ export const OperationalSummaryPage: React.FC = () => {
             </div>
           </div>
 
-          <div ref={setRef("throughput")} className={styles.spanAll}>
+          <div className={styles.spanAll}>
             <GlassCard
               title="Throughput"
               subtitle="Completed BIDs per month"
@@ -492,16 +538,16 @@ export const OperationalSummaryPage: React.FC = () => {
             </GlassCard>
           </div>
 
-          <div ref={setRef("sector")} className={styles.spanAll}>
+          <div className={styles.spanAll}>
             <GlassCard
               title="Average Approval Time by Department"
-              subtitle="Average days by department (completed approvals only)"
+              subtitle="Time from approval start to each department's last sign-off (final approved round of completed BIDs)"
               accentColor={chart.warning}
             >
               {sectorData.length === 0 ? (
-                  <EmptyState
-                    title="No Completed Approvals"
-                    description="Average department approval times will appear here once approval rounds are closed."
+                <EmptyState
+                  title="No Completed Approvals"
+                  description="Average department approval times will appear here once BIDs are approved and completed."
                 />
               ) : (
                 <ResponsiveContainer
@@ -511,7 +557,7 @@ export const OperationalSummaryPage: React.FC = () => {
                   <BarChart
                     data={sectorData}
                     layout="vertical"
-                    margin={{ top: 8, right: 44, bottom: 4, left: 8 }}
+                    margin={{ top: 8, right: 64, bottom: 4, left: 8 }}
                   >
                     <CartesianGrid horizontal={false} stroke={chart.grid} />
                     <XAxis
@@ -519,7 +565,7 @@ export const OperationalSummaryPage: React.FC = () => {
                       tick={axisTick}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={(v) => `${v}d`}
+                      tickFormatter={(v: number) => formatElapsedHours(v)}
                     />
                     <YAxis
                       type="category"
@@ -532,19 +578,25 @@ export const OperationalSummaryPage: React.FC = () => {
                     <Tooltip
                       cursor={{ fill: chart.referenceFill }}
                       content={
-                        <ChartTooltip valueFormatter={(v) => `${v} dias`} />
+                        <ChartTooltip
+                          valueFormatter={(v, entry) =>
+                            `${formatElapsedHours(Number(v))} (${
+                              entry.payload?.count
+                            } BIDs)`
+                          }
+                        />
                       }
                     />
                     <Bar
-                      dataKey="avgDays"
-                      name="Average Days"
+                      dataKey="avgHours"
+                      name="Average Time"
                       radius={[0, 6, 6, 0]}
                       maxBarSize={24}
                     >
                       <LabelList
-                        dataKey="avgDays"
+                        dataKey="avgHours"
                         position="right"
-                        formatter={(v: number) => `${v}d`}
+                        formatter={(v: number) => formatElapsedHours(v)}
                         fill={chart.textSecondary}
                         fontSize={11}
                       />
@@ -557,6 +609,8 @@ export const OperationalSummaryPage: React.FC = () => {
               )}
             </GlassCard>
           </div>
+
+          <ApprovalDueImpactSection bids={filtered} />
         </>
       )}
     </div>

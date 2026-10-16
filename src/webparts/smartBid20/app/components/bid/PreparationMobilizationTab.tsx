@@ -1,15 +1,27 @@
 import * as React from "react";
 import {
+  ChevronsDownUp,
+  ChevronsUpDown,
+  TriangleAlert,
+  Wrench,
+} from "lucide-react";
+import {
   IScopeItem,
   IRTSItem,
   IMobilizationItem,
   IConsumableItem,
   IHoursSectionGroup,
-  RTSCostType,
-  MobilizationCostType,
 } from "../../models";
+import { RTS_TYPES, MOB_TYPES } from "../../config/prepMobilization.config";
 import { makeId } from "../../utils/idGenerator";
 import { getCurrencies } from "../../utils/currencyHelpers";
+import {
+  IBidFx,
+  calculateMultiCurrencyTotals,
+} from "../../utils/costCalculations";
+import { formatCurrency } from "../../utils/formatters";
+import { BidFxNote, UsdAmountCell } from "./BidFxNote";
+import { BidTabHeader, HeaderChip, ShareBar } from "./BidTabHeader";
 import styles from "./PreparationMobilizationTab.module.scss";
 
 interface PreparationMobilizationTabProps {
@@ -17,6 +29,7 @@ interface PreparationMobilizationTabProps {
   rtsItems: IRTSItem[];
   mobilizationItems: IMobilizationItem[];
   consumableItems: IConsumableItem[];
+  fx: IBidFx;
   rtsSections: IHoursSectionGroup[];
   mobSections: IHoursSectionGroup[];
   consSections: IHoursSectionGroup[];
@@ -28,19 +41,6 @@ interface PreparationMobilizationTabProps {
   onSaveConsSections: (sections: IHoursSectionGroup[]) => void;
   readOnly?: boolean;
 }
-
-const RTS_TYPES: { value: RTSCostType; label: string }[] = [
-  { value: "maintenance", label: "Maintenance" },
-  { value: "refurbishment", label: "Refurbishment" },
-  { value: "upgrade", label: "Upgrade" },
-  { value: "rts-inspection", label: "RTS Inspection" },
-];
-
-const MOB_TYPES: { value: MobilizationCostType; label: string }[] = [
-  { value: "mobilization", label: "Mobilization" },
-  { value: "demobilization", label: "Demobilization" },
-  { value: "transit", label: "Transit" },
-];
 
 const blankRTS = (n: number, sectionId?: string | null): IRTSItem => ({
   id: makeId("rts"),
@@ -95,6 +95,7 @@ export const PreparationMobilizationTab: React.FC<
   rtsItems,
   mobilizationItems,
   consumableItems,
+  fx,
   rtsSections,
   mobSections,
   consSections,
@@ -510,10 +511,18 @@ export const PreparationMobilizationTab: React.FC<
     if (r) persistCons(r as IConsumableItem[]);
   };
 
-  // ─── Totals ───
-  const rtsTotal = rts.reduce((s, i) => s + (i.totalCost || 0), 0);
-  const mobTotal = mob.reduce((s, i) => s + (i.totalCost || 0), 0);
-  const consTotal = cons.reduce((s, i) => s + (i.totalCost || 0), 0);
+  // ─── Totals (USD, converted with the BID exchange rates) ───
+  const rtsTotal = calculateMultiCurrencyTotals(rts, fx).totalUSD;
+  const mobTotal = calculateMultiCurrencyTotals(mob, fx).totalUSD;
+  const consTotal = calculateMultiCurrencyTotals(cons, fx).totalUSD;
+  const allPrepItems: Array<{ totalCost: number; originalCurrency: string }> = [
+    ...rts,
+    ...mob,
+    ...cons,
+  ];
+  const itemsWithoutCost = allPrepItems.filter(
+    (i) => !(i.totalCost > 0),
+  ).length;
 
   // ─── Shared section group header renderer ───
   const renderSectionHeader = (
@@ -718,11 +727,11 @@ export const PreparationMobilizationTab: React.FC<
                                 (c || "") === (gColor || "")
                                   ? "2px solid #fff"
                                   : "2px solid transparent",
-                              background: c || "var(--accent-color, #14b8a6)",
+                              background: c || "var(--accent-500)",
                               cursor: "pointer",
                               boxShadow:
                                 (c || "") === (gColor || "")
-                                  ? "0 0 0 2px var(--accent-color, #14b8a6)"
+                                  ? "0 0 0 2px var(--accent-500)"
                                   : "none",
                             }}
                             title={c || "Default"}
@@ -804,7 +813,7 @@ export const PreparationMobilizationTab: React.FC<
       <td className={styles.cellCenter}>{item.lineNumber}</td>
       <td>
         {readOnly ? (
-          getScopeName(item.scopeItemId) || "—"
+          getScopeName(item.scopeItemId) || "-"
         ) : (
           <select
             className={styles.selectCell}
@@ -827,7 +836,7 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.description || "—"
+          item.description || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -838,7 +847,7 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          RTS_TYPES.find((t) => t.value === item.costType)?.label || "—"
+          RTS_TYPES.find((t) => t.value === item.costType)?.label || "-"
         ) : (
           <select
             className={styles.selectCell}
@@ -910,9 +919,15 @@ export const PreparationMobilizationTab: React.FC<
       <td className={`${styles.cellRight} ${styles.cellBold}`}>
         {((item.qty || 0) * (item.unitCost || 0)).toLocaleString()}
       </td>
+      <UsdAmountCell
+        className={styles.cellRight}
+        amount={(item.qty || 0) * (item.unitCost || 0)}
+        currency={item.originalCurrency}
+        fx={fx}
+      />
       <td>
         {readOnly ? (
-          item.costReference || "—"
+          item.costReference || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -926,7 +941,7 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.notes || "—"
+          item.notes || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -956,7 +971,7 @@ export const PreparationMobilizationTab: React.FC<
                   cursor: "pointer",
                 }}
               >
-                <option value="">— None —</option>
+                <option value="">- None -</option>
                 {(rtsSections || []).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.title || "Untitled"}
@@ -987,7 +1002,7 @@ export const PreparationMobilizationTab: React.FC<
       <td className={styles.cellCenter}>{item.lineNumber}</td>
       <td>
         {readOnly ? (
-          item.description || "—"
+          item.description || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -998,7 +1013,7 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          MOB_TYPES.find((t) => t.value === item.costType)?.label || "—"
+          MOB_TYPES.find((t) => t.value === item.costType)?.label || "-"
         ) : (
           <select
             className={styles.selectCell}
@@ -1070,9 +1085,15 @@ export const PreparationMobilizationTab: React.FC<
       <td className={`${styles.cellRight} ${styles.cellBold}`}>
         {((item.qty || 0) * (item.unitCost || 0)).toLocaleString()}
       </td>
+      <UsdAmountCell
+        className={styles.cellRight}
+        amount={(item.qty || 0) * (item.unitCost || 0)}
+        currency={item.originalCurrency}
+        fx={fx}
+      />
       <td>
         {readOnly ? (
-          item.costReference || "—"
+          item.costReference || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -1086,7 +1107,7 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.notes || "—"
+          item.notes || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -1116,7 +1137,7 @@ export const PreparationMobilizationTab: React.FC<
                   cursor: "pointer",
                 }}
               >
-                <option value="">— None —</option>
+                <option value="">- None -</option>
                 {(mobSections || []).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.title || "Untitled"}
@@ -1147,7 +1168,7 @@ export const PreparationMobilizationTab: React.FC<
       <td className={styles.cellCenter}>{item.lineNumber}</td>
       <td>
         {readOnly ? (
-          item.item || "—"
+          item.item || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -1158,7 +1179,7 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.description || "—"
+          item.description || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -1221,9 +1242,15 @@ export const PreparationMobilizationTab: React.FC<
       <td className={`${styles.cellRight} ${styles.cellBold}`}>
         {((item.qty || 0) * (item.unitCost || 0)).toLocaleString()}
       </td>
+      <UsdAmountCell
+        className={styles.cellRight}
+        amount={(item.qty || 0) * (item.unitCost || 0)}
+        currency={item.originalCurrency}
+        fx={fx}
+      />
       <td>
         {readOnly ? (
-          item.costReference || "—"
+          item.costReference || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -1237,7 +1264,7 @@ export const PreparationMobilizationTab: React.FC<
       </td>
       <td>
         {readOnly ? (
-          item.notes || "—"
+          item.notes || "-"
         ) : (
           <input
             className={styles.editInput}
@@ -1267,7 +1294,7 @@ export const PreparationMobilizationTab: React.FC<
                   cursor: "pointer",
                 }}
               >
-                <option value="">— None —</option>
+                <option value="">- None -</option>
                 {(consSections || []).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.title || "Untitled"}
@@ -1289,33 +1316,64 @@ export const PreparationMobilizationTab: React.FC<
 
   return (
     <div className={styles.container}>
+      <BidTabHeader
+        title="Prep & Mobilization"
+        subtitle="RTS, mobilization and consumables costs"
+        icon={<Wrench size={18} />}
+        hero={{
+          label: "Grand total (USD)",
+          value: formatCurrency(rtsTotal + mobTotal + consTotal),
+          sub: `${allPrepItems.length} item${allPrepItems.length !== 1 ? "s" : ""}`,
+        }}
+        footer={
+          <>
+            <BidFxNote
+              fx={fx}
+              currencies={allPrepItems.map((i) => i.originalCurrency)}
+            />
+            {itemsWithoutCost > 0 && (
+              <HeaderChip tone="warning" icon={<TriangleAlert size={13} />}>
+                {itemsWithoutCost} item{itemsWithoutCost !== 1 ? "s" : ""}{" "}
+                without cost
+              </HeaderChip>
+            )}
+          </>
+        }
+      >
+        <ShareBar
+          title="By category"
+          segments={[
+            {
+              label: "RTS",
+              value: rtsTotal,
+              detail: `${rts.length} item${rts.length !== 1 ? "s" : ""}`,
+            },
+            {
+              label: "Mobilization",
+              value: mobTotal,
+              detail: `${mob.length} item${mob.length !== 1 ? "s" : ""}`,
+            },
+            {
+              label: "Consumables",
+              value: consTotal,
+              detail: `${cons.length} item${cons.length !== 1 ? "s" : ""}`,
+            },
+          ]}
+          format={formatCurrency}
+          emptyLabel="No costs yet"
+        />
+      </BidTabHeader>
+
       {/* Collapse All / Expand All */}
       <div className={styles.collapseToolbar}>
         <button className={styles.collapseBtn} onClick={toggleAllSections}>
-          {allCollapsed ? "▶ Expand All" : "▼ Collapse All"}
+          {allCollapsed ? (
+            <ChevronsUpDown size={15} />
+          ) : (
+            <ChevronsDownUp size={15} />
+          )}
+          {allCollapsed ? "Expand all" : "Collapse all"}
         </button>
-      </div>
-
-      {/* KPI Cards */}
-      <div className={styles.kpiRow}>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>RTS Total</span>
-          <span className={styles.kpiValue}>{rtsTotal.toLocaleString()}</span>
-        </div>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>Mobilization Total</span>
-          <span className={styles.kpiValue}>{mobTotal.toLocaleString()}</span>
-        </div>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>Consumables Total</span>
-          <span className={styles.kpiValue}>{consTotal.toLocaleString()}</span>
-        </div>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>Grand Total</span>
-          <span className={styles.kpiValue}>
-            {(rtsTotal + mobTotal + consTotal).toLocaleString()}
-          </span>
-        </div>
       </div>
 
       {/* ─── RTS Section ─── */}
@@ -1327,7 +1385,7 @@ export const PreparationMobilizationTab: React.FC<
             >
               ▼
             </span>
-            🔧 RTS — Ready To Service
+            🔧 RTS - Ready To Service
             <span className={styles.sectionBadge}>{rts.length} items</span>
           </div>
           <div
@@ -1370,6 +1428,7 @@ export const PreparationMobilizationTab: React.FC<
                       <th>Qty</th>
                       <th>Unit Cost</th>
                       <th>Total</th>
+                      <th>Total (USD)</th>
                       <th>Cost Ref</th>
                       <th>Notes</th>
                       {!readOnly && <th />}
@@ -1387,7 +1446,7 @@ export const PreparationMobilizationTab: React.FC<
                             "rts",
                             group,
                             gi.length,
-                            readOnly ? 11 : 12,
+                            readOnly ? 12 : 13,
                             () => addRTS(group.id),
                           )}
                           {!collapsedGroups.has(group.id) &&
@@ -1398,7 +1457,7 @@ export const PreparationMobilizationTab: React.FC<
                   </tbody>
                 </table>
                 <div className={styles.subtotalBar}>
-                  Subtotal: {rtsTotal.toLocaleString()}
+                  Subtotal (USD): {formatCurrency(rtsTotal)}
                 </div>
               </div>
             )}
@@ -1456,6 +1515,7 @@ export const PreparationMobilizationTab: React.FC<
                       <th>Qty</th>
                       <th>Unit Cost</th>
                       <th>Total</th>
+                      <th>Total (USD)</th>
                       <th>Cost Ref</th>
                       <th>Notes</th>
                       {!readOnly && <th />}
@@ -1473,7 +1533,7 @@ export const PreparationMobilizationTab: React.FC<
                             "mob",
                             group,
                             gi.length,
-                            readOnly ? 10 : 11,
+                            readOnly ? 11 : 12,
                             () => addMob(group.id),
                           )}
                           {!collapsedGroups.has(group.id) &&
@@ -1484,7 +1544,7 @@ export const PreparationMobilizationTab: React.FC<
                   </tbody>
                 </table>
                 <div className={styles.subtotalBar}>
-                  Subtotal: {mobTotal.toLocaleString()}
+                  Subtotal (USD): {formatCurrency(mobTotal)}
                 </div>
               </div>
             )}
@@ -1542,6 +1602,7 @@ export const PreparationMobilizationTab: React.FC<
                       <th>Qty</th>
                       <th>Unit Cost</th>
                       <th>Total</th>
+                      <th>Total (USD)</th>
                       <th>Cost Ref</th>
                       <th>Notes</th>
                       {!readOnly && <th />}
@@ -1559,7 +1620,7 @@ export const PreparationMobilizationTab: React.FC<
                             "cons",
                             group,
                             gi.length,
-                            readOnly ? 10 : 11,
+                            readOnly ? 11 : 12,
                             () => addCons(group.id),
                           )}
                           {!collapsedGroups.has(group.id) &&
@@ -1570,7 +1631,7 @@ export const PreparationMobilizationTab: React.FC<
                   </tbody>
                 </table>
                 <div className={styles.subtotalBar}>
-                  Subtotal: {consTotal.toLocaleString()}
+                  Subtotal (USD): {formatCurrency(consTotal)}
                 </div>
               </div>
             )}

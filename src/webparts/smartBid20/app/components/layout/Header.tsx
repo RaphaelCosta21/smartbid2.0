@@ -2,10 +2,11 @@ import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useNotificationStore } from "../../stores/useNotificationStore";
-import { useUIStore, ThemeMode, ThemePalette } from "../../stores/useUIStore";
+import { useUIStore, ThemeMode } from "../../stores/useUIStore";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useSpfxContext } from "../../config/SpfxContext";
 import { MembersService } from "../../services/MembersService";
+import { LivePulse } from "./LivePulse";
 import styles from "./Header.module.scss";
 
 export const Header: React.FC = () => {
@@ -16,8 +17,6 @@ export const Header: React.FC = () => {
   const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
-  const palette = useUIStore((s) => s.palette);
-  const setPalette = useUIStore((s) => s.setPalette);
   const { isMobile } = useResponsive();
 
   const [photoUrl, setPhotoUrl] = React.useState<string>("");
@@ -82,40 +81,12 @@ export const Header: React.FC = () => {
   const handleThemeChange = async (newTheme: ThemeMode): Promise<void> => {
     setTheme(newTheme);
     setShowUserMenu(false);
-    // Save preference to TEAM_MEMBERS in SharePoint
     try {
-      const data = await MembersService.getAll();
-      const userEmail = currentUser.email.toLowerCase();
-      const memberIdx = data.members.findIndex(
-        (m) => m.email.toLowerCase() === userEmail,
-      );
-      if (memberIdx >= 0) {
-        (data.members[memberIdx] as any).themePreference = newTheme;
-        await MembersService.save(data);
-      }
+      await MembersService.savePreferences(currentUser.email, {
+        themePreference: newTheme,
+      });
     } catch (err) {
       console.warn("Could not save theme preference:", err);
-    }
-  };
-
-  const handlePaletteChange = async (
-    newPalette: ThemePalette,
-  ): Promise<void> => {
-    setPalette(newPalette);
-    setShowUserMenu(false);
-    // Save preference to TEAM_MEMBERS in SharePoint
-    try {
-      const data = await MembersService.getAll();
-      const userEmail = currentUser.email.toLowerCase();
-      const memberIdx = data.members.findIndex(
-        (m) => m.email.toLowerCase() === userEmail,
-      );
-      if (memberIdx >= 0) {
-        (data.members[memberIdx] as any).palettePreference = newPalette;
-        await MembersService.save(data);
-      }
-    } catch (err) {
-      console.warn("Could not save palette preference:", err);
     }
   };
 
@@ -144,6 +115,7 @@ export const Header: React.FC = () => {
       </div>
 
       <div className={styles.headerActions}>
+        <LivePulse />
         <button
           className={styles.iconBtn}
           onClick={() => navigate("/notifications")}
@@ -274,50 +246,6 @@ export const Header: React.FC = () => {
                       <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
                     </svg>
                     Dark
-                  </button>
-                </div>
-              </div>
-              <div className={styles.userMenuSection}>
-                <span className={styles.userMenuLabel}>Theme</span>
-                <div className={styles.themeOptions}>
-                  <button
-                    className={`${styles.themeOption} ${palette === "default" ? styles.themeActive : ""}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePaletteChange("default");
-                    }}
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <circle cx="12" cy="12" r="9" />
-                      <path d="M12 3a9 9 0 000 18z" fill="currentColor" />
-                    </svg>
-                    Default
-                  </button>
-                  <button
-                    className={`${styles.themeOption} ${palette === "oceaneering" ? styles.themeActive : ""}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePaletteChange("oceaneering");
-                    }}
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M12 2.7l6 6.3a6 6 0 11-12 0z" />
-                    </svg>
-                    Oceaneering
                   </button>
                 </div>
               </div>

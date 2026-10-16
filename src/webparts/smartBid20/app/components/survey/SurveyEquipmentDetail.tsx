@@ -7,7 +7,7 @@ import {
   ISurveyFitNode,
 } from "../../models";
 import { SurveyCatalogService } from "../../services/SurveyCatalogService";
-import { useAuthStore } from "../../stores/useAuthStore";
+import { usePageAccess } from "../../hooks/usePageAccess";
 import { useSurveyStore } from "../../stores/useSurveyStore";
 import { useUIStore } from "../../stores/useUIStore";
 import { SurveyEquipmentPhoto } from "./SurveyEquipmentCard";
@@ -45,7 +45,12 @@ const BAR_MAX_PX = 44;
 const FitIcon: React.FC<{ label: string }> = ({ label }) => {
   const icon = SURVEY_FIT_ICONS.find((i) => i.match.test(label));
   return icon ? (
-    <img className={styles.fitIcon} src={icon.src} alt="" style={{ height: icon.height }} />
+    <img
+      className={styles.fitIcon}
+      src={icon.src}
+      alt=""
+      style={{ height: icon.height }}
+    />
   ) : null;
 };
 
@@ -65,14 +70,15 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
   React.useEffect(() => setExpanded({}), [equipment.id]);
   const datasheet = safeUrl(equipment.datasheetUrl);
   const status = (equipment.status || "Active").toUpperCase();
-  // Same permission that imports the catalog (Engineering, Commercial, super admins).
-  const canEditPhoto = useAuthStore((s) => s.hasAccess)("templates", "edit");
+  const { canEdit: canEditPhoto } = usePageAccess();
   const setEquipmentImage = useSurveyStore((s) => s.setEquipmentImage);
   const addToast = useUIStore((s) => s.addToast);
   const photoInput = React.useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = React.useState(false);
 
-  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+  const handlePhoto = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ): Promise<void> => {
     const file = e.target.files && e.target.files[0];
     e.target.value = "";
     if (!file) return;
@@ -81,10 +87,18 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
     try {
       const url = await SurveyCatalogService.uploadEquipmentPhoto(id, file);
       setEquipmentImage(id, url);
-      addToast({ type: "success", title: "Photo updated", message: equipment.title });
+      addToast({
+        type: "success",
+        title: "Photo updated",
+        message: equipment.title,
+      });
     } catch (err) {
       console.error("Survey photo upload failed:", err);
-      addToast({ type: "error", title: "Photo upload failed", message: (err as Error).message });
+      addToast({
+        type: "error",
+        title: "Photo upload failed",
+        message: (err as Error).message,
+      });
     } finally {
       setUploading(false);
     }
@@ -146,9 +160,24 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
   }, [catalog, equipment]);
 
   const bars = [
-    { key: "inHouse", label: "In-house", value: intel.frequency.inHouse, cls: styles.barNavy },
-    { key: "purchase", label: "Purchase", value: intel.frequency.purchase, cls: styles.barYellow },
-    { key: "rent", label: "Rent", value: intel.frequency.rent, cls: styles.barTeal },
+    {
+      key: "inHouse",
+      label: "In-house",
+      value: intel.frequency.inHouse,
+      cls: styles.barNavy,
+    },
+    {
+      key: "purchase",
+      label: "Purchase",
+      value: intel.frequency.purchase,
+      cls: styles.barYellow,
+    },
+    {
+      key: "rent",
+      label: "Rent",
+      value: intel.frequency.rent,
+      cls: styles.barTeal,
+    },
   ];
   const maxBar = Math.max(1, bars[0].value, bars[1].value, bars[2].value);
   const top = bars.slice().sort((a, b) => b.value - a.value)[0];
@@ -240,7 +269,11 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
           <span className={styles.topStatus}>{status} • SELECTED</span>
           <span className={styles.statusDot} />
           {onClose && (
-            <button className={styles.close} onClick={onClose} aria-label="Close">
+            <button
+              className={styles.close}
+              onClick={onClose}
+              aria-label="Close"
+            >
               <X size={12} />
             </button>
           )}
@@ -263,7 +296,8 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
               >
                 {photo}
                 <span className={styles.photoOverlay}>
-                  <Camera size={14} /> {uploading ? "Uploading…" : "Upload photo"}
+                  <Camera size={14} />{" "}
+                  {uploading ? "Uploading…" : "Upload photo"}
                 </span>
               </button>
               <input
@@ -423,14 +457,18 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
               </span>
             </div>
             <span className={styles.pnTag}>
-              {equipment.partNumber ? `PN ${equipment.partNumber}` : "PN PENDING"}
+              {equipment.partNumber
+                ? `PN ${equipment.partNumber}`
+                : "PN PENDING"}
             </span>
           </div>
           <div className={styles.metrics}>
             <div className={styles.metric}>
               <span className={styles.metricLabel}>MEDIAN HISTORICAL COST</span>
               <span className={styles.metricValue}>
-                {intel.medianCostUSD !== null ? formatUSD(intel.medianCostUSD) : "—"}
+                {intel.medianCostUSD !== null
+                  ? formatUSD(intel.medianCostUSD)
+                  : "-"}
               </span>
               <span className={styles.metricHint}>PURCHASE · USD</span>
             </div>
@@ -440,15 +478,17 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
                 {intel.leadTimeWeeksMin !== null
                   ? intel.leadTimeWeeksMin === intel.leadTimeWeeksMax
                     ? `~${intel.leadTimeWeeksMin} wks`
-                    : `~${intel.leadTimeWeeksMin}–${intel.leadTimeWeeksMax} wks`
-                  : "—"}
+                    : `~${intel.leadTimeWeeksMin}-${intel.leadTimeWeeksMax} wks`
+                  : "-"}
               </span>
               <span className={styles.metricHint}>QUOTATIONS + BIDS</span>
             </div>
           </div>
           <div className={styles.freq}>
             <div className={styles.freqHead}>
-              <span className={styles.freqTitle}>HISTORICAL QUOTATION FREQUENCY</span>
+              <span className={styles.freqTitle}>
+                HISTORICAL QUOTATION FREQUENCY
+              </span>
               <span className={styles.metricLabel}>BY ACQUISITION TYPE</span>
             </div>
             <div className={styles.bars}>
@@ -457,7 +497,12 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
                   <span className={styles.barValue}>{b.value}</span>
                   <span
                     className={`${styles.bar} ${b.cls}`}
-                    style={{ height: Math.max(4, Math.round((b.value / maxBar) * BAR_MAX_PX)) }}
+                    style={{
+                      height: Math.max(
+                        4,
+                        Math.round((b.value / maxBar) * BAR_MAX_PX),
+                      ),
+                    }}
                   />
                   <span className={styles.barLabel}>{b.label}</span>
                 </div>

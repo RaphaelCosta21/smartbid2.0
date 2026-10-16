@@ -4,6 +4,7 @@
  */
 import { SPService } from "./SPService";
 import "@pnp/sp/fields";
+import { DateTimeFieldFormatType } from "@pnp/sp/fields";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import {
   IBidApprovalState,
@@ -11,7 +12,7 @@ import {
   IApprovalSectorGroup,
 } from "../models/IBidApproval";
 import { IPersonRef } from "../models";
-import { IBid } from "../models/IBid";
+import { IBid, IApprovalOverride } from "../models/IBid";
 
 export class ApprovalService {
   private static get _approvalsList() {
@@ -61,7 +62,10 @@ export class ApprovalService {
     const addDateTime = async (name: string): Promise<void> => {
       if (has(name)) return;
       try {
-        await fieldsApi.addDateTime(name);
+        // PnP defaults to DateOnly, which drops the time and the UTC "Z" the flow needs.
+        await fieldsApi.addDateTime(name, {
+          DisplayFormat: DateTimeFieldFormatType.DateTime,
+        });
       } catch (e) {
         /* ignore */
       }
@@ -77,6 +81,45 @@ export class ApprovalService {
         /* ignore */
       }
     };
+    const addNote = async (name: string, richText = true): Promise<void> => {
+      if (has(name)) return;
+      try {
+        await fieldsApi.addMultilineText(name, { RichText: richText });
+      } catch (e) {
+        /* ignore */
+      }
+    };
+    // Lists provisioned before later features lack the newer ApprovalStatus choices.
+    const ensureChoiceOptions = async (
+      name: string,
+      options: string[],
+    ): Promise<void> => {
+      if (!has(name)) return;
+      try {
+        const field = fieldsApi.getByInternalNameOrTitle(name);
+        const data = (await field.select("Choices")()) as {
+          Choices?: string[] | { results?: string[] };
+        };
+        const raw = data.Choices;
+        const current: string[] = Array.isArray(raw)
+          ? raw
+          : (raw && raw.results) || [];
+        const missing = options.filter((o) => current.indexOf(o) < 0);
+        if (missing.length === 0) return;
+        await field.update(
+          {
+            "@odata.type": "#SP.FieldChoice",
+            Choices: [...current, ...missing],
+          },
+          "SP.FieldChoice",
+        );
+      } catch (e) {
+        console.warn(
+          `ApprovalService.ensureApprovalColumns: cannot add choices "${options.join(", ")}" to ${name}`,
+          e,
+        );
+      }
+    };
 
     await addChoice(F.recordType, ["Round", "Approver"]);
     await addText(F.bidNumber);
@@ -85,11 +128,29 @@ export class ApprovalService {
     await addText(F.approverName);
     await addText(F.sector);
     await addText(F.sectorLabel);
-    await addChoice(F.approvalStatus, ["Pending", "Approved"]);
+    await addChoice(F.approvalStatus, [
+      "Pending",
+      "Approved",
+      "Overridden",
+      "Rejected",
+      "Expired",
+    ]);
+    await ensureChoiceOptions(F.approvalStatus, [
+      "Overridden",
+      "Rejected",
+      "Expired",
+    ]);
     await addDateTime(F.respondedDate);
     await addText(F.chatId);
     await addText(F.statusCardMessageId);
     await addNumber(F.expectedApproverCount);
+    await addText(F.overriddenBy);
+    await addDateTime(F.overriddenDate);
+    await addNote(F.overrideReason);
+    // Written by the Teams flow in power-automate/APPROVALS-INDIVIDUAL.md.
+    await addText(F.nativeApprovalId);
+    await addNote(F.approverComments, false);
+    await addDateTime(F.lastReminderDate);
   }
 
   public static async requestApproval(
@@ -237,6 +298,8 @@ export class ApprovalService {
           email: p.email,
         })),
         client: bid.opportunityInfo?.client || "",
+        projectName: bid.opportunityInfo?.projectName || "",
+        crmNumber: bid.crmNumber || "",
         requestedDate: new Date().toISOString(),
         deepLink,
         status: "pending",
@@ -244,6 +307,34 @@ export class ApprovalService {
         division: bid.division,
         serviceLine: bid.serviceLine,
       }),
+    });
+  }
+
+  /**
+   * Flag the round's "Round" row as Overridden so the Teams flow can stop
+   * waiting for the approvers that were bypassed.
+   */
+  public static async markRoundOverridden(
+    bidNumber: string,
+    round: number,
+    override: IApprovalOverride,
+  ): Promise<void> {
+    await ApprovalService.ensureApprovalColumns();
+    const F = SHAREPOINT_CONFIG.approvalFields;
+    const safeBid = bidNumber.replace(/'/g, "''");
+    const rows = (await ApprovalService._approvalsList.items
+      .filter(
+        `${F.recordType} eq 'Round' and ${F.bidNumber} eq '${safeBid}' and ${F.roundNumber} eq ${Number(round)}`,
+      )
+      .select("Id")
+      .top(1)()) as { Id: number }[];
+    if (rows.length === 0) return;
+    await ApprovalService._approvalsList.items.getById(rows[0].Id).update({
+      Title: bidNumber,
+      [F.approvalStatus]: "Overridden",
+      [F.overriddenBy]: `${override.overriddenBy.name} <${override.overriddenBy.email}>`,
+      [F.overriddenDate]: override.overriddenDate,
+      [F.overrideReason]: override.reason,
     });
   }
 }

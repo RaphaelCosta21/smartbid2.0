@@ -1,8 +1,15 @@
 /**
  * ERN helpers — pure functions for the Engineering Request Number integration.
  */
-import { IBid, IBidErnLink, ISystemConfig, ErnDeadlineState } from "../models";
+import {
+  IBid,
+  IBidErnLink,
+  IErn,
+  ISystemConfig,
+  ErnDeadlineState,
+} from "../models";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
+import { getDaysUntil } from "./formatters";
 
 /** Revision Reason dropdown options (used when Content Action = "Revise"). */
 export const ERN_REVISION_REASONS: string[] = [
@@ -102,28 +109,43 @@ export function resolveErnProjectNumber(
   return "";
 }
 
-/** Whether an ERN status counts as closed/finished. */
-export function isErnClosed(status: string | null | undefined): boolean {
+const ERN_CLOSED_STATUSES = [
+  "completed",
+  "closed",
+  "cancelled",
+  "canceled",
+  "released",
+];
+
+/** Whether an ERN counts as closed/finished (closed status or a Released/Finish date). */
+export function isErnClosed(
+  status: string | null | undefined,
+  finishDate?: string | null,
+): boolean {
+  if (finishDate) return true;
   if (!status) return false;
-  const s = status.toLowerCase();
-  return s === "completed" || s === "closed" || s === "cancelled";
+  return ERN_CLOSED_STATUSES.indexOf(status.trim().toLowerCase()) >= 0;
+}
+
+/** On Hold ERNs stay open but are never due soon / overdue. */
+export function isErnOnHold(status: string | null | undefined): boolean {
+  return (status || "").trim().toLowerCase() === "on hold";
 }
 
 /**
  * Classify an ERN due date into a reminder state.
- * overdue  = past due and not closed
- * due-soon = within `dueSoonDays` and not closed
+ * overdue  = past due and not closed / on hold
+ * due-soon = within `dueSoonDays` and not closed / on hold
  */
 export function getErnDeadlineState(
   dueDate: string | null | undefined,
   status?: string | null,
+  finishDate?: string | null,
 ): ErnDeadlineState {
   if (!dueDate) return "none";
-  if (isErnClosed(status)) return "ok";
-  const due = new Date(dueDate).getTime();
-  if (isNaN(due)) return "none";
-  const now = Date.now();
-  const days = Math.floor((due - now) / 86400000);
+  if (isErnClosed(status, finishDate) || isErnOnHold(status)) return "ok";
+  const days = getDaysUntil(dueDate);
+  if (days === null) return "none";
   if (days < 0) return "overdue";
   if (days <= SHAREPOINT_CONFIG.ern.dueSoonDays) return "due-soon";
   return "ok";
@@ -131,8 +153,109 @@ export function getErnDeadlineState(
 
 /** Days until (positive) or since (negative) the ERN due date. */
 export function getErnDaysLeft(dueDate: string | null | undefined): number {
-  if (!dueDate) return 0;
-  const due = new Date(dueDate).getTime();
-  if (isNaN(due)) return 0;
-  return Math.floor((due - Date.now()) / 86400000);
+  return getDaysUntil(dueDate) || 0;
+}
+
+/** One linked ERN with its live state (live list data wins over the BID snapshot). */
+export interface IErnLinkRow {
+  bid: IBid;
+  ernNumber: string;
+  division: ErnDivision;
+  status: string;
+  dueDate: string;
+  finishDate: string;
+  closed: boolean;
+  onHold: boolean;
+  deadline: ErnDeadlineState;
+  /** Days until (positive) or since (negative) the due date; null without a date */
+  daysLeft: number | null;
+  /** Live ERN list record, undefined when the ERN is not (yet) loaded */
+  ern?: IErn;
+}
+
+/** Linked ERNs across BIDs, deduped by ERN number. */
+export function buildErnLinkRows(
+  bids: IBid[],
+  liveByTitle: Record<string, IErn>,
+): IErnLinkRow[] {
+  const seen: Record<string, boolean> = {};
+  const rows: IErnLinkRow[] = [];
+  bids.forEach((bid) => {
+    getErnLinks(bid).forEach((l) => {
+      if (!l.ernNumber || seen[l.ernNumber]) return;
+      seen[l.ernNumber] = true;
+      const live = liveByTitle[l.ernNumber];
+      const status = (live ? live.status : l.ernStatus) || "Unknown";
+      const dueDate = (live ? live.dueDate : l.ernDueDate) || "";
+      const finishDate = (live ? live.finishDate : l.ernFinishDate) || "";
+      rows.push({
+        bid,
+        ernNumber: l.ernNumber,
+        division: l.division || null,
+        status,
+        dueDate,
+        finishDate,
+        closed: isErnClosed(status, finishDate),
+        onHold: isErnOnHold(status),
+        deadline: getErnDeadlineState(dueDate, status, finishDate),
+        daysLeft: getDaysUntil(dueDate),
+        ern: live,
+      });
+    });
+  });
+  return rows;
+}
+
+/** Whether the user is the ERN's responsible, checker or lead. */
+export function isErnAssignedTo(
+  ern: IErn | undefined,
+  email: string | undefined,
+): boolean {
+  const me = (email || "").trim().toLowerCase();
+  if (!ern || !me) return false;
+  return [ern.resource1Email, ern.checkerEmail, ern.leadEmail].some(
+    (e) => (e || "").trim().toLowerCase() === me,
+  );
+}
+
+const DEADLINE_RANK: Record<string, number> = {
+  overdue: 0,
+  "due-soon": 1,
+  ok: 2,
+  none: 3,
+};
+
+/** Most urgent first: overdue (latest first), due soon, by date; on hold / undated last. */
+export function compareErnUrgency(a: IErnLinkRow, b: IErnLinkRow): number {
+  const rank = (r: IErnLinkRow): number =>
+    r.closed ? 5 : r.onHold ? 4 : DEADLINE_RANK[r.deadline];
+  const diff = rank(a) - rank(b);
+  if (diff !== 0) return diff;
+  const da = a.daysLeft === null ? Infinity : a.daysLeft;
+  const db = b.daysLeft === null ? Infinity : b.daysLeft;
+  return da - db;
+}
+
+/** Live watchlist buckets (all of them exclude closed ERNs). */
+export type ErnWatchFilter = "overdue" | "due-soon" | "open" | "on-hold";
+
+export function matchesErnWatchFilter(
+  r: IErnLinkRow,
+  filter: ErnWatchFilter,
+): boolean {
+  if (r.closed) return false;
+  if (filter === "open") return true;
+  if (filter === "on-hold") return r.onHold;
+  return r.deadline === filter;
+}
+
+/** Short countdown for an ERN row, e.g. "3d late", "Due today", "in 4d". */
+export function getErnCountdownLabel(r: IErnLinkRow): string {
+  if (r.closed) return "Released";
+  if (r.onHold) return "On hold";
+  if (r.daysLeft === null) return "No due date";
+  if (r.daysLeft < 0) return `${-r.daysLeft}d late`;
+  if (r.daysLeft === 0) return "Due today";
+  if (r.daysLeft === 1) return "Tomorrow";
+  return `in ${r.daysLeft}d`;
 }

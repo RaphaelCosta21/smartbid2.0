@@ -29,6 +29,15 @@ export class ErnService {
     ERN.projectNumber,
     ERN.description,
     ERN.deliverableType,
+    ERN.serviceLine,
+    ERN.resource1,
+    ERN.emailResource1,
+    ERN.resource3,
+    ERN.emailChecker,
+    ERN.checkerDueDate,
+    ERN.lead,
+    ERN.leadEmail,
+    ERN.leadDate,
   ];
 
   /** Fetch all ERNs (top 5000). Falls back to all fields if a select fails. */
@@ -205,6 +214,15 @@ export class ErnService {
       projectNumber: item[ERN.projectNumber] || "",
       description: item[ERN.description] || "",
       deliverableType,
+      serviceLine: item[ERN.serviceLine] || "",
+      resource1: item[ERN.resource1] || "",
+      resource1Email: item[ERN.emailResource1] || "",
+      checker: item[ERN.resource3] || "",
+      checkerEmail: item[ERN.emailChecker] || "",
+      checkerDueDate: item[ERN.checkerDueDate] || "",
+      lead: item[ERN.lead] || "",
+      leadEmail: item[ERN.leadEmail] || "",
+      leadDate: item[ERN.leadDate] || "",
     };
   }
 }

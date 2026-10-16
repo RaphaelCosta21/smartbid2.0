@@ -1,5 +1,6 @@
 import { UserRole } from "./IUser";
 import { IFavoriteGroup } from "./IFavoriteItem";
+import { BidPriority } from "./IBidStatus";
 
 export interface IConfigOption {
   id: string;
@@ -17,13 +18,19 @@ export interface IConfigOption {
 export interface IKPITargets {
   targetOnTimeDelivery: number;
   targetOTIF: number;
-  targetAvgCompletionDays: number;
+  /** Business days from creation to first delivery, per BID urgency. */
+  targetAvgCompletionDaysByPriority: Record<BidPriority, number>;
   targetFirstPassApproval: number;
   targetApprovalCycleDays: number;
-  targetCancellationRate: number;
-  targetTemplateUsage: number;
+  /** Applies to both ERN overdue and BID due-date overdue. */
   targetOverdueRate: number;
   targetWinRate: number;
+}
+
+/** Business-day lead time (request date to desired due date) that classifies a new BID. */
+export interface IPriorityRules {
+  urgentMaxBusinessDays: number;
+  normalMaxBusinessDays: number;
 }
 
 export interface IExchangeRate {
@@ -38,16 +45,32 @@ export interface ICurrencySettings {
   updateFrequency: "monthly" | "weekly" | "daily";
 }
 
-export type AccessPermission = "edit" | "view" | "none";
+export type AccessPermission = "edit" | "view" | "none" | "editNoDelete";
 
-export interface IAccessLevelDef {
-  workspace: AccessPermission;
-  insights: AccessPermission;
-  reports: AccessPermission;
-  settings: AccessPermission;
-  approvals: AccessPermission;
-  templates: AccessPermission;
-}
+export type AccessAreaKey =
+  | "workspace"
+  | "knowledge"
+  | "insights"
+  | "reports"
+  | "tools"
+  | "settings";
+
+export type BidTabGroupKey =
+  | "general"
+  | "scopeCosting"
+  | "management"
+  | "collaboration"
+  | "tools";
+
+/** Area levels per team; `pages` holds manual sub-page overrides (absent = inherit area). */
+export type IAccessLevelDef = Record<AccessAreaKey, AccessPermission> & {
+  pages?: Record<string, AccessPermission>;
+};
+
+/** BID Details group levels per team; `tabs` holds manual tab overrides (absent = inherit group). */
+export type IBidAccessLevelDef = Record<BidTabGroupKey, AccessPermission> & {
+  tabs?: Record<string, AccessPermission>;
+};
 
 export interface IResourceTypeConfig {
   id: string;
@@ -59,6 +82,7 @@ export interface IResourceTypeConfig {
 
 export interface ISystemConfig {
   kpiTargets: IKPITargets;
+  priorityRules?: IPriorityRules;
   regions: IConfigOption[];
   bidTypes: IConfigOption[];
   divisions: IConfigOption[];
@@ -79,8 +103,15 @@ export interface ISystemConfig {
   subStatuses: IConfigOption[];
   terminalStatuses: IConfigOption[];
   resourceTypes: IResourceTypeConfig[];
+  /** Scope categories used to classify completed BIDs on the Past Bids page */
+  scopeCategories?: IConfigOption[];
+  /** Categories used to classify Clarifications & Qualifications (library + BID) */
+  clarificationCategories?: IConfigOption[];
+  /** Supplier service types (Suppliers page filters + AI profile). */
+  supplierServiceTypes?: IConfigOption[];
   currencySettings: ICurrencySettings;
   notifications: Record<string, string[]>;
   accessLevels: Record<UserRole, IAccessLevelDef>;
+  bidAccessLevels?: Record<UserRole, IBidAccessLevelDef>;
   favoriteGroups: IFavoriteGroup[];
 }

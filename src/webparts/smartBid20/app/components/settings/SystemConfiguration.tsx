@@ -1,7 +1,7 @@
 /**
  * SystemConfiguration Component — SMART BID 2.0
  * Real SharePoint data loaded from smartbid-config list.
- * Editable only by engineering sector (or superAdmin).
+ * Editable with Edit on the System Configuration page (super admins always).
  * Sidebar navigation with grouped menus.
  */
 
@@ -11,8 +11,14 @@ import {
   ISystemConfig,
   IConfigOption,
   IKPITargets,
+  IPriorityRules,
   IExchangeRate,
+  AccessAreaKey,
   AccessPermission,
+  BidTabGroupKey,
+  IAccessLevelDef,
+  IBidAccessLevelDef,
+  UserRole,
   IFavoriteGroup,
   IFavoriteSubGroup,
 } from "../../models";
@@ -20,13 +26,64 @@ import { SystemConfigService } from "../../services/SystemConfigService";
 import { CurrencyService } from "../../services/CurrencyService";
 import { BidService } from "../../services/BidService";
 import { QuotationService } from "../../services/QuotationService";
+import { MembersService } from "../../services/MembersService";
 // DEFAULT_SYSTEM_CONFIG removed — all data loaded from SharePoint JSON
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { usePageAccess } from "../../hooks/usePageAccess";
 import { useConfigStore } from "../../stores/useConfigStore";
+import { useBidStore } from "../../stores/useBidStore";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
+import { useUIStore, ThemeMode } from "../../stores/useUIStore";
 import { APP_CONFIG } from "../../config/app.config";
+import {
+  ACCESS_AREAS,
+  ACCESS_ROLES,
+  DEFAULT_ACCESS_LEVELS,
+  DEFAULT_BID_ACCESS_LEVELS,
+  normalizeAccessLevels,
+  normalizeBidAccessLevels,
+} from "../../config/accessControl.config";
+import { BID_TAB_GROUPS } from "../../config/bidTabs.config";
+import {
+  COLOR_THEMES,
+  UPCOMING_COLOR_THEMES,
+  ColorThemeId,
+} from "../../config/colorThemes.config";
+import { buildDefaultSupplierServiceTypes } from "../../config/suppliers.config";
+import {
+  BID_PRIORITIES,
+  DEFAULT_PRIORITY_RULES,
+  IKPIDef,
+  KPI_DEFINITIONS,
+  KPI_GROUPS,
+} from "../../config/kpi.config";
+import { BidPriority } from "../../models/IBidStatus";
+import {
+  getPriorityRangeLabels,
+  resolveKpiTargets,
+  resolvePriorityRules,
+  validatePriorityRules,
+} from "../../utils/kpiHelpers";
+import darkTheme from "../../styles/themes/dark.module.scss";
+import lightTheme from "../../styles/themes/light.module.scss";
 import { EntraTokenTest } from "../common/EntraTokenTest";
 import { CollapsibleSidebar } from "../common/CollapsibleSidebar";
+import { PriorityBadge } from "../common/PriorityBadge";
+import { ConfirmDialog } from "../common/ConfirmDialog";
+import {
+  AccessLegend,
+  AccessMatrix,
+  IAccessMatrixGroup,
+  SuperAdminsCard,
+} from "./AccessMatrix";
+import {
+  BookOpen,
+  FileChartColumn,
+  LayoutDashboard,
+  Settings,
+  TrendingUp,
+  Wrench,
+} from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* NAV STRUCTURE                                                      */
@@ -47,7 +104,10 @@ interface INavGroup {
 const NAV_GROUPS: INavGroup[] = [
   {
     group: "Performance",
-    items: [{ key: "kpi", label: "KPI Targets", icon: "📊" }],
+    items: [
+      { key: "kpi", label: "KPI Targets", icon: "📊" },
+      { key: "priorityRules", label: "BID Urgency", icon: "🚦" },
+    ],
   },
   {
     group: "BID Structure",
@@ -74,6 +134,18 @@ const NAV_GROUPS: INavGroup[] = [
         key: "groupsAndSubGroups",
         label: "Groups & SubGroups",
         icon: "📂",
+      },
+      {
+        key: "scopeCategories",
+        label: "Scope Categories",
+        icon: "🧭",
+        configKey: "scopeCategories",
+      },
+      {
+        key: "clarificationCategories",
+        label: "Clarif. Categories",
+        icon: "💬",
+        configKey: "clarificationCategories",
       },
     ],
   },
@@ -119,6 +191,17 @@ const NAV_GROUPS: INavGroup[] = [
     ],
   },
   {
+    group: "Suppliers",
+    items: [
+      {
+        key: "supplierServiceTypes",
+        label: "Service Types",
+        icon: "🏭",
+        configKey: "supplierServiceTypes",
+      },
+    ],
+  },
+  {
     group: "Deliverables",
     items: [
       {
@@ -150,6 +233,7 @@ const NAV_GROUPS: INavGroup[] = [
     items: [
       { key: "access", label: "Access Levels", icon: "🔐" },
       { key: "notifications", label: "Notifications", icon: "🔔" },
+      { key: "themeSelector", label: "Theme Selector", icon: "🎨" },
       { key: "apiDiagnostics", label: "API Diagnostics", icon: "🧪" },
     ],
   },
@@ -163,54 +247,56 @@ const ALL_NAV_ITEMS: INavItem[] = ([] as INavItem[]).concat(
 /* KPI HELPERS                                                        */
 /* ------------------------------------------------------------------ */
 
-const KPI_META: Record<keyof IKPITargets, { label: string; unit: string }> = {
-  targetOnTimeDelivery: { label: "On-Time Delivery", unit: "%" },
-  targetOTIF: { label: "OTIF (On-Time In-Full)", unit: "%" },
-  targetAvgCompletionDays: { label: "Avg Completion", unit: "days" },
-  targetFirstPassApproval: { label: "First-Pass Approval", unit: "%" },
-  targetApprovalCycleDays: { label: "Approval Cycle", unit: "days" },
-  targetCancellationRate: { label: "Cancellation Rate", unit: "%" },
-  targetTemplateUsage: { label: "Template Usage", unit: "%" },
-  targetOverdueRate: { label: "Overdue Rate", unit: "%" },
-  targetWinRate: { label: "Win Rate", unit: "%" },
-};
+type ScalarKpiKey = Exclude<
+  keyof IKPITargets,
+  "targetAvgCompletionDaysByPriority"
+>;
+
+const clampTarget = (value: number, def: IKPIDef): number =>
+  Math.max(0, def.format === "percent" ? Math.min(100, value) : value);
+
+/** Editable rules as typed (may be invalid), unlike resolvePriorityRules. */
+const getEditablePriorityRules = (config: ISystemConfig): IPriorityRules => ({
+  ...DEFAULT_PRIORITY_RULES,
+  ...(config.priorityRules || {}),
+});
 
 /* ------------------------------------------------------------------ */
 /* ACCESS / NOTIFICATION CONSTANTS                                    */
 /* ------------------------------------------------------------------ */
 
-const ROLES = [
-  "commercial",
-  "engineering",
-  "project",
-  "operation",
-  "dataCenter",
-  "equipmentInstallation",
-  "supplyChain",
-  "guest",
-] as const;
+const ROLES = ACCESS_ROLES.map((r) => r.value);
 
-const ROLE_LABELS: Record<string, string> = {
-  commercial: "Commercial",
-  engineering: "Engineering",
-  project: "Project",
-  operation: "Operation",
-  dataCenter: "Data Center",
-  equipmentInstallation: "Equip. Install.",
-  supplyChain: "Supply Chain",
-  guest: "Guest",
+const ROLE_LABELS: Record<string, string> = {};
+ACCESS_ROLES.forEach((r) => {
+  ROLE_LABELS[r.value] = r.label;
+});
+
+const AREA_ICONS: Record<AccessAreaKey, React.ReactNode> = {
+  workspace: <LayoutDashboard size={14} />,
+  knowledge: <BookOpen size={14} />,
+  insights: <TrendingUp size={14} />,
+  reports: <FileChartColumn size={14} />,
+  tools: <Wrench size={14} />,
+  settings: <Settings size={14} />,
 };
 
-const ACCESS_AREAS: Array<{ key: string; label: string }> = [
-  { key: "workspace", label: "Workspace" },
-  { key: "insights", label: "Insights" },
-  { key: "reports", label: "Reports" },
-  { key: "settings", label: "Settings" },
-  { key: "approvals", label: "Approvals" },
-  { key: "templates", label: "Templates" },
-];
+const PAGE_MATRIX_GROUPS: IAccessMatrixGroup[] = ACCESS_AREAS.map((a) => ({
+  key: a.key,
+  label: a.label,
+  icon: AREA_ICONS[a.key],
+  items: a.pages,
+}));
 
-const PERM_CYCLE: AccessPermission[] = ["none", "view", "edit"];
+const BID_MATRIX_GROUPS: IAccessMatrixGroup[] = BID_TAB_GROUPS.map((g) => ({
+  key: g.key,
+  label: g.group,
+  allowEditNoDelete: g.key === "collaboration",
+  icon: <span aria-hidden="true">{g.items[0].icon}</span>,
+  items: g.items.map((t) => ({ key: t.key, label: t.label })),
+}));
+
+const cloneDeep = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
 
 const NOTIFICATION_LABELS: Record<string, string> = {
   BID_CREATED: "BID Created",
@@ -347,15 +433,15 @@ const SubStatusColorRow: React.FC<{
 
 const SystemConfiguration: React.FC = () => {
   const currentUser = useCurrentUser();
-  const canEdit =
-    currentUser.sector === "engineering" ||
-    currentUser.isSuperAdmin === true ||
-    (APP_CONFIG.superAdminEmails as readonly string[]).includes(
-      currentUser.email,
-    );
+  const { canEdit } = usePageAccess();
+  const savedConfig = useConfigStore((s) => s.config);
+  const [confirmAccessReset, setConfirmAccessReset] = React.useState(false);
 
   // Subscribe to favorites data for equipment counts (Groups tab)
   const favEquipment = useFavoritesStore((s) => s.data?.equipment || []);
+  const colorTheme = useUIStore((s) => s.colorTheme);
+  const setColorTheme = useUIStore((s) => s.setColorTheme);
+  const [savingTheme, setSavingTheme] = React.useState(false);
 
   const [activeTab, setActiveTab] = React.useState<string>("kpi");
   const [navigationCollapsed, setNavigationCollapsed] = React.useState(false);
@@ -455,7 +541,7 @@ const SystemConfiguration: React.FC = () => {
         showMsg("success", "Configuration saved to SharePoint");
       } catch (err) {
         console.error("Failed to save config:", err);
-        showMsg("error", "Failed to save — check console for details");
+        showMsg("error", "Failed to save - check console for details");
       } finally {
         setSaving(false);
       }
@@ -468,6 +554,17 @@ const SystemConfiguration: React.FC = () => {
     setConfig({ ...config, ...patch });
     setDirty(true);
   };
+
+  // The list starts from the built-in seed until an admin saves it to the JSON.
+  React.useEffect(() => {
+    if (activeTab !== "supplierServiceTypes" || !config) return;
+    if (config.supplierServiceTypes) return;
+    setConfig({
+      ...config,
+      supplierServiceTypes: buildDefaultSupplierServiceTypes(),
+    });
+    if (canEdit) setDirty(true);
+  }, [activeTab, config, canEdit]);
 
   /* ---- generic list CRUD ---------------------------------------- */
 
@@ -561,6 +658,40 @@ const SystemConfiguration: React.FC = () => {
       return;
     }
 
+    if (key === "subStatuses" && !editItem) {
+      const label = panelForm.label.trim();
+      if (!label) return;
+      const taken = [
+        ...(config.phases || []),
+        ...(config.subStatuses || []),
+        ...(config.terminalStatuses || []),
+      ].some(
+        (o) =>
+          (o.value || "").toLowerCase() === label.toLowerCase() ||
+          (o.label || "").toLowerCase() === label.toLowerCase(),
+      );
+      if (taken) {
+        showMsg("error", `"${label}" already exists as a phase or status`);
+        return;
+      }
+      const newStatus: IConfigOption = {
+        id: `ss-${Date.now()}`,
+        label,
+        value: label,
+        isActive: true,
+        order: list.length + 1,
+        color: panelForm.color,
+        category: panelForm.category || "all",
+      };
+      updateConfig({ subStatuses: [...list, newStatus] });
+      showMsg(
+        "success",
+        `"${label}" added - click Save Changes to store it in SharePoint`,
+      );
+      setShowPanel(false);
+      return;
+    }
+
     if (!panelForm.label.trim()) return;
 
     if (editItem) {
@@ -640,7 +771,7 @@ const SystemConfiguration: React.FC = () => {
       console.error("Failed to fetch BCB rates:", err);
       showMsg(
         "error",
-        "Failed to fetch exchange rates from BCB — check console",
+        "Failed to fetch exchange rates from BCB - check console",
       );
     } finally {
       setFetchingRates(false);
@@ -649,15 +780,53 @@ const SystemConfiguration: React.FC = () => {
 
   /* ---- KPI changes ---------------------------------------------- */
 
-  const handleKPIChange = (
-    kpiKey: keyof IKPITargets,
+  const handleKPIChange = (def: IKPIDef, valueStr: string): void => {
+    if (!config || !canEdit) return;
+    const num = Number(valueStr);
+    if (isNaN(num)) return;
+    updateConfig({
+      kpiTargets: {
+        ...resolveKpiTargets(config),
+        [def.targetKey as ScalarKpiKey]: clampTarget(num, def),
+      },
+    });
+  };
+
+  const handleAvgCompletionChange = (
+    def: IKPIDef,
+    priority: BidPriority,
     valueStr: string,
   ): void => {
     if (!config || !canEdit) return;
     const num = Number(valueStr);
     if (isNaN(num)) return;
-    updateConfig({ kpiTargets: { ...config.kpiTargets, [kpiKey]: num } });
+    const current = resolveKpiTargets(config);
+    updateConfig({
+      kpiTargets: {
+        ...current,
+        targetAvgCompletionDaysByPriority: {
+          ...current.targetAvgCompletionDaysByPriority,
+          [priority]: clampTarget(num, def),
+        },
+      },
+    });
   };
+
+  const handlePriorityRuleChange = (
+    field: keyof IPriorityRules,
+    valueStr: string,
+  ): void => {
+    if (!config || !canEdit) return;
+    const num = Number(valueStr);
+    if (isNaN(num)) return;
+    updateConfig({
+      priorityRules: { ...getEditablePriorityRules(config), [field]: num },
+    });
+  };
+
+  const priorityRulesError = config?.priorityRules
+    ? validatePriorityRules(getEditablePriorityRules(config))
+    : null;
 
   /* ================================================================ */
   /* RENDER HELPERS                                                   */
@@ -705,6 +874,11 @@ const SystemConfiguration: React.FC = () => {
               )}
               <div className={styles.optionInfo}>
                 <span className={styles.optionLabel}>{opt.label}</span>
+                {configKey === "supplierServiceTypes" && opt.category && (
+                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                    {opt.category as string}
+                  </span>
+                )}
                 {!opt.isActive && (
                   <span className={styles.inactiveTag}>Inactive</span>
                 )}
@@ -1402,34 +1576,210 @@ const SystemConfiguration: React.FC = () => {
 
   /* ---- KPI targets ---------------------------------------------- */
 
+  const renderKpiCardHead = (def: IKPIDef): React.ReactElement => (
+    <>
+      <div className={styles.kpiCardHead}>
+        <span className={styles.kpiLabel}>{def.label}</span>
+        <span
+          className={`${styles.kpiDirection} ${def.higherIsBetter ? styles.kpiHigher : styles.kpiLower}`}
+        >
+          {def.higherIsBetter ? "Higher is better" : "Lower is better"}
+        </span>
+      </div>
+      <p className={styles.kpiDescription}>{def.description}</p>
+    </>
+  );
+
   const renderKPITargets = (): React.ReactElement => {
     if (!config) return <></>;
+    const targets = resolveKpiTargets(config);
+    const ranges = getPriorityRangeLabels(resolvePriorityRules(config));
     return (
       <div>
         <div className={styles.sectionHeader}>
           <h3>KPI Targets</h3>
           <p>
-            Define target thresholds for key performance indicators displayed on
-            dashboards.
+            Targets saved in the SmartBid configuration list and compared with
+            the actual values on the Engineering Dashboard and Operational
+            Summary.
           </p>
         </div>
-        <div className={styles.kpiGrid}>
-          {(Object.keys(KPI_META) as Array<keyof IKPITargets>).map((k) => (
-            <div key={k} className={styles.kpiCard}>
-              <div className={styles.kpiLabel}>{KPI_META[k].label}</div>
-              <div className={styles.kpiInputRow}>
-                <input
-                  type="number"
-                  className={styles.kpiInput}
-                  value={config.kpiTargets[k]}
-                  onChange={(e) => handleKPIChange(k, e.currentTarget.value)}
-                  readOnly={!canEdit}
-                />
-                <span className={styles.kpiUnit}>{KPI_META[k].unit}</span>
+        {KPI_GROUPS.map((group) => {
+          const defs = KPI_DEFINITIONS.filter((d) => d.group === group);
+          if (defs.length === 0) return null;
+          return (
+            <div key={group} className={styles.groupedSection}>
+              <div className={styles.groupLabel}>{group}</div>
+              <div className={styles.kpiGrid}>
+                {defs.map((def) => {
+                  const operator = def.higherIsBetter ? "≥" : "≤";
+                  if (def.targetKey === "targetAvgCompletionDaysByPriority") {
+                    return (
+                      <div
+                        key={def.id}
+                        className={`${styles.kpiCard} ${styles.kpiCardWide}`}
+                      >
+                        {renderKpiCardHead(def)}
+                        <div className={styles.priorityTargets}>
+                          {BID_PRIORITIES.map((p) => (
+                            <div key={p} className={styles.priorityTarget}>
+                              <div className={styles.priorityTargetHead}>
+                                <PriorityBadge priority={p} />
+                                <span className={styles.priorityRange}>
+                                  {ranges[p]} bd lead time
+                                </span>
+                              </div>
+                              <div className={styles.kpiInputRow}>
+                                <span className={styles.kpiOperator}>
+                                  {operator}
+                                </span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={0.5}
+                                  className={styles.kpiInput}
+                                  value={
+                                    targets.targetAvgCompletionDaysByPriority[p]
+                                  }
+                                  onChange={(e) =>
+                                    handleAvgCompletionChange(
+                                      def,
+                                      p,
+                                      e.currentTarget.value,
+                                    )
+                                  }
+                                  readOnly={!canEdit}
+                                />
+                                <span className={styles.kpiUnit}>
+                                  {def.unit}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  const key = def.targetKey as ScalarKpiKey;
+                  return (
+                    <div key={def.id} className={styles.kpiCard}>
+                      {renderKpiCardHead(def)}
+                      <div className={styles.kpiInputRow}>
+                        <span className={styles.kpiOperator}>{operator}</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={def.format === "percent" ? 100 : undefined}
+                          step={def.format === "percent" ? 1 : 0.5}
+                          className={styles.kpiInput}
+                          value={targets[key]}
+                          onChange={(e) =>
+                            handleKPIChange(def, e.currentTarget.value)
+                          }
+                          readOnly={!canEdit}
+                        />
+                        <span className={styles.kpiUnit}>{def.unit}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  /* ---- BID urgency (priority) rules ------------------------------ */
+
+  const renderPriorityRules = (): React.ReactElement => {
+    if (!config) return <></>;
+    const rules = getEditablePriorityRules(config);
+    const error = validatePriorityRules(rules);
+    const ranges = getPriorityRangeLabels(rules);
+    const limits: Array<{
+      priority: BidPriority;
+      field?: keyof IPriorityRules;
+      hint: string;
+    }> = [
+      {
+        priority: "Urgent",
+        field: "urgentMaxBusinessDays",
+        hint: "Due date within this many business days",
+      },
+      {
+        priority: "Normal",
+        field: "normalMaxBusinessDays",
+        hint: "Due date within this many business days",
+      },
+      {
+        priority: "Low",
+        hint: `Due date more than ${rules.normalMaxBusinessDays} business days away`,
+      },
+    ];
+    return (
+      <div>
+        <div className={styles.sectionHeader}>
+          <h3>BID Urgency</h3>
+          <p>
+            A new BID request is classified by counting business days (Monday to
+            Friday) from the request date to the desired due date. Changing
+            these limits only affects new requests: existing BIDs keep their
+            urgency. Each category has its own Avg Completion target in KPI
+            Targets.
+          </p>
+        </div>
+        <div className={styles.urgencyGrid}>
+          {limits.map((l) => (
+            <div key={l.priority} className={styles.kpiCard}>
+              <div className={styles.kpiCardHead}>
+                <PriorityBadge priority={l.priority} />
+                <span className={styles.priorityRange}>
+                  {ranges[l.priority]} business days
+                </span>
+              </div>
+              <p className={styles.kpiDescription}>{l.hint}</p>
+              {l.field ? (
+                <div className={styles.kpiInputRow}>
+                  <span className={styles.kpiOperator}>≤</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    step={1}
+                    className={styles.kpiInput}
+                    value={rules[l.field]}
+                    onChange={(e) =>
+                      handlePriorityRuleChange(
+                        l.field as keyof IPriorityRules,
+                        e.currentTarget.value,
+                      )
+                    }
+                    readOnly={!canEdit}
+                  />
+                  <span className={styles.kpiUnit}>business days</span>
+                </div>
+              ) : (
+                <div className={styles.kpiInputRow}>
+                  <span className={styles.kpiOperator}>&gt;</span>
+                  <span className={styles.kpiReadOnlyValue}>
+                    {rules.normalMaxBusinessDays}
+                  </span>
+                  <span className={styles.kpiUnit}>business days</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
+        {error && (
+          <div
+            className={`${styles.messageBar} ${styles.error}`}
+            style={{ marginTop: 12 }}
+          >
+            {error}
+          </div>
+        )}
       </div>
     );
   };
@@ -1654,7 +2004,7 @@ const SystemConfiguration: React.FC = () => {
           setAddCurrencyLoading(false);
           showMsg(
             "success",
-            `${code} added with rate ${finalRate > 0 ? finalRate.toFixed(4) : "(no rate — update manually)"}`,
+            `${code} added with rate ${finalRate > 0 ? finalRate.toFixed(4) : "(no rate - update manually)"}`,
           );
         })
         .catch(() => {
@@ -1677,7 +2027,7 @@ const SystemConfiguration: React.FC = () => {
               rel="noopener noreferrer"
               style={{ color: "var(--primary-accent)" }}
             >
-              Banco Central do Brasil — PTAX
+              Banco Central do Brasil - PTAX
             </a>
             .
           </p>
@@ -1819,75 +2169,190 @@ const SystemConfiguration: React.FC = () => {
     );
   };
 
-  /* ---- Access Levels (clickable badges to cycle) ---------------- */
+  /* ---- Access Levels (pages + BID tabs matrices) ----------------- */
 
   const renderAccessLevels = (): React.ReactElement => {
     if (!config) return <></>;
 
-    const cyclePerm = (role: string, area: string): void => {
-      if (!canEdit) return;
-      const current =
-        config.accessLevels[role as keyof typeof config.accessLevels]?.[
-          area as keyof typeof config.accessLevels.commercial
-        ] || "none";
-      const nextIdx = (PERM_CYCLE.indexOf(current) + 1) % PERM_CYCLE.length;
-      const next = PERM_CYCLE[nextIdx];
-      updateConfig({
-        accessLevels: {
-          ...config.accessLevels,
-          [role]: {
-            ...config.accessLevels[role as keyof typeof config.accessLevels],
-            [area]: next,
-          },
-        },
-      });
+    const levels = normalizeAccessLevels(config.accessLevels);
+    const bidLevels = normalizeBidAccessLevels(config.bidAccessLevels);
+    const saved = savedConfig;
+
+    const withOverride = (
+      map: Record<string, AccessPermission> | undefined,
+      key: string,
+      level: AccessPermission | undefined,
+    ): Record<string, AccessPermission> | undefined => {
+      const next = { ...(map || {}) };
+      if (level) next[key] = level;
+      else delete next[key];
+      return Object.keys(next).length ? next : undefined;
     };
 
-    const roleCount = ROLES.length;
+    const patchPages = (
+      mutate: (draft: Record<UserRole, IAccessLevelDef>) => void,
+    ): void => {
+      if (!canEdit) return;
+      const draft = cloneDeep(levels);
+      mutate(draft);
+      updateConfig({ accessLevels: draft });
+    };
+
+    const patchBid = (
+      mutate: (draft: Record<UserRole, IBidAccessLevelDef>) => void,
+    ): void => {
+      if (!canEdit) return;
+      const draft = cloneDeep(bidLevels);
+      mutate(draft);
+      updateConfig({ bidAccessLevels: draft });
+    };
+
+    const setPageOverride = (
+      draft: Record<UserRole, IAccessLevelDef>,
+      role: UserRole,
+      key: string,
+      level: AccessPermission | undefined,
+    ): void => {
+      const pages = withOverride(draft[role].pages, key, level);
+      if (pages) draft[role].pages = pages;
+      else delete draft[role].pages;
+    };
+
+    const setTabOverride = (
+      draft: Record<UserRole, IBidAccessLevelDef>,
+      role: UserRole,
+      key: string,
+      level: AccessPermission | undefined,
+    ): void => {
+      const tabs = withOverride(draft[role].tabs, key, level);
+      if (tabs) draft[role].tabs = tabs;
+      else delete draft[role].tabs;
+    };
 
     return (
-      <div>
+      <div className={styles.accessSection}>
         <div className={styles.sectionHeader}>
           <h3>Access Levels</h3>
           <p>
             {canEdit
-              ? "Click on a badge to cycle between None → View → Edit."
-              : "View permissions per role. Only engineering can edit."}
+              ? "Click a permission to cycle None → View → Edit. Expand an area to fine-tune its pages: pages inherit the area unless you customize them."
+              : "Permissions per team. You have read-only access to this page."}
           </p>
         </div>
-        <div
-          className={styles.accessGrid}
-          style={{ "--role-count": roleCount } as React.CSSProperties}
-        >
-          <div className={styles.accessGridHeader}>
-            <div>Area</div>
-            {ROLES.map((r) => (
-              <div key={r}>{ROLE_LABELS[r]}</div>
-            ))}
-          </div>
-          {ACCESS_AREAS.map((area) => (
-            <div key={area.key} className={styles.accessGridRow}>
-              <div>{area.label}</div>
-              {ROLES.map((role) => {
-                const perm =
-                  config.accessLevels[role]?.[
-                    area.key as keyof typeof config.accessLevels.commercial
-                  ] || "none";
-                return (
-                  <div key={role}>
-                    <span
-                      className={`${styles.accessBadge} ${perm === "edit" ? styles.edit : perm === "view" ? styles.view : styles.none} ${!canEdit ? styles.readonly : ""}`}
-                      onClick={() => cyclePerm(role, area.key)}
-                      title={canEdit ? "Click to change" : perm}
-                    >
-                      {perm}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+
+        <div className={styles.accessTopRow}>
+          <AccessLegend />
+          {canEdit && (
+            <button
+              className={styles.actionBtn}
+              onClick={() => setConfirmAccessReset(true)}
+            >
+              Reset to defaults
+            </button>
+          )}
         </div>
+
+        <SuperAdminsCard emails={APP_CONFIG.superAdminEmails} />
+
+        <AccessMatrix
+          title="Application pages"
+          subtitle="Sidebar areas and their pages. None keeps the page listed in the sidebar, but disabled."
+          groupHeader="Area"
+          itemNoun="pages"
+          groups={PAGE_MATRIX_GROUPS}
+          roles={ACCESS_ROLES}
+          readOnly={!canEdit}
+          getGroupLevel={(role, area) => levels[role][area as AccessAreaKey]}
+          getOverride={(role, key) => levels[role].pages?.[key]}
+          getSavedGroupLevel={
+            saved
+              ? (role, area) =>
+                  saved.accessLevels?.[role]?.[area as AccessAreaKey]
+              : undefined
+          }
+          getSavedOverride={
+            saved
+              ? (role, key) => saved.accessLevels?.[role]?.pages?.[key]
+              : undefined
+          }
+          onSetGroup={(role, area, level) =>
+            patchPages((d) => {
+              d[role][area as AccessAreaKey] = level;
+            })
+          }
+          onSetItem={(role, key, level) =>
+            patchPages((d) => setPageOverride(d, role, key, level))
+          }
+          onClearGroupOverrides={(area) =>
+            patchPages((d) => {
+              const group = PAGE_MATRIX_GROUPS.find((g) => g.key === area);
+              ACCESS_ROLES.forEach((r) =>
+                (group ? group.items : []).forEach((item) =>
+                  setPageOverride(d, r.value, item.key, undefined),
+                ),
+              );
+            })
+          }
+        />
+
+        <AccessMatrix
+          title="BID Details tabs"
+          subtitle="View opens a tab read-only; None disables it. Collaboration also offers Edit*: add and edit without deleting."
+          groupHeader="Group"
+          itemNoun="tabs"
+          groups={BID_MATRIX_GROUPS}
+          roles={ACCESS_ROLES}
+          readOnly={!canEdit}
+          getGroupLevel={(role, group) =>
+            bidLevels[role][group as BidTabGroupKey]
+          }
+          getOverride={(role, key) => bidLevels[role].tabs?.[key]}
+          getSavedGroupLevel={
+            saved
+              ? (role, group) =>
+                  saved.bidAccessLevels?.[role]?.[group as BidTabGroupKey]
+              : undefined
+          }
+          getSavedOverride={
+            saved
+              ? (role, key) => saved.bidAccessLevels?.[role]?.tabs?.[key]
+              : undefined
+          }
+          onSetGroup={(role, group, level) =>
+            patchBid((d) => {
+              d[role][group as BidTabGroupKey] = level;
+            })
+          }
+          onSetItem={(role, key, level) =>
+            patchBid((d) => setTabOverride(d, role, key, level))
+          }
+          onClearGroupOverrides={(groupKey) =>
+            patchBid((d) => {
+              const group = BID_MATRIX_GROUPS.find((g) => g.key === groupKey);
+              ACCESS_ROLES.forEach((r) =>
+                (group ? group.items : []).forEach((item) =>
+                  setTabOverride(d, r.value, item.key, undefined),
+                ),
+              );
+            })
+          }
+        />
+
+        <ConfirmDialog
+          isOpen={confirmAccessReset}
+          title="Reset access levels?"
+          message="Every team goes back to the default permissions for pages and BID Details tabs, including custom page settings. Nothing is stored until you click Save Changes."
+          confirmLabel="Reset"
+          variant="warning"
+          onConfirm={() => {
+            setConfirmAccessReset(false);
+            updateConfig({
+              accessLevels: cloneDeep(DEFAULT_ACCESS_LEVELS),
+              bidAccessLevels: cloneDeep(DEFAULT_BID_ACCESS_LEVELS),
+            });
+          }}
+          onCancel={() => setConfirmAccessReset(false)}
+        />
       </div>
     );
   };
@@ -1917,7 +2382,7 @@ const SystemConfiguration: React.FC = () => {
           <p>
             {canEdit
               ? "Toggle which roles receive notifications for each event."
-              : "View notification settings. Only engineering can edit."}
+              : "View notification settings. You have read-only access to this page."}
           </p>
         </div>
         <div
@@ -1955,6 +2420,135 @@ const SystemConfiguration: React.FC = () => {
     );
   };
 
+  /* ---- Theme Selector (per-user, saved on the Members record) ----- */
+
+  const handleSelectColorTheme = async (id: ColorThemeId): Promise<void> => {
+    if (id === colorTheme || savingTheme) return;
+    setColorTheme(id);
+    setSavingTheme(true);
+    try {
+      const saved = await MembersService.savePreferences(currentUser.email, {
+        colorTheme: id,
+      });
+      if (saved) {
+        showMsg("success", "Theme saved to your profile");
+      } else {
+        showMsg(
+          "error",
+          "Theme applied for this session only - no Members record to save it on",
+        );
+      }
+    } catch (err) {
+      console.error("Failed to save color theme:", err);
+      showMsg("error", "Theme applied, but saving failed - check console");
+    } finally {
+      setSavingTheme(false);
+    }
+  };
+
+  const renderThemePreview = (
+    id: ColorThemeId,
+    mode: ThemeMode,
+  ): React.ReactElement => (
+    <span
+      className={`${mode === "dark" ? darkTheme.smartBidDark : lightTheme.smartBidLight} ${styles.themePreview}`}
+      data-color-theme={id}
+    >
+      <span className={styles.themePreviewSidebar}>
+        <span
+          className={`${styles.themePreviewNav} ${styles.themePreviewNavActive}`}
+        />
+        <span className={styles.themePreviewNav} />
+        <span className={styles.themePreviewNav} />
+      </span>
+      <span className={styles.themePreviewBody}>
+        <span className={styles.themePreviewHero} />
+        <span className={styles.themePreviewCard}>
+          <span className={styles.themePreviewButton}>Save</span>
+          <span className={styles.themePreviewChip} />
+        </span>
+        <span className={styles.themePreviewBar}>
+          <span className={styles.themePreviewBarFill} />
+        </span>
+      </span>
+      <span className={styles.themePreviewLabel}>
+        {mode === "dark" ? "Dark" : "Light"}
+      </span>
+    </span>
+  );
+
+  const renderThemeSelector = (): React.ReactElement => (
+    <div>
+      <div className={styles.sectionHeader}>
+        <h3>Theme Selector</h3>
+        <p>
+          Pick the color theme for SmartBid. Every theme works in Light and Dark
+          mode, and your choice is saved to your profile.
+        </p>
+      </div>
+      {!currentUser.sector && (
+        <div className={styles.themeNote}>
+          You are not registered in Members Management, so your theme only
+          applies to this session.
+        </div>
+      )}
+      <div className={styles.themeGrid}>
+        {COLOR_THEMES.map((t) => {
+          const active = t.id === colorTheme;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              className={`${styles.themeCard} ${active ? styles.themeCardActive : ""}`}
+              onClick={() => void handleSelectColorTheme(t.id)}
+              disabled={savingTheme}
+              aria-pressed={active}
+            >
+              <span className={styles.themePreviews}>
+                {renderThemePreview(t.id, "light")}
+                {renderThemePreview(t.id, "dark")}
+              </span>
+              <span className={styles.themeCardInfo}>
+                <span className={styles.themeCardTitle}>
+                  {t.label}
+                  {active && <span className={styles.themeBadge}>Active</span>}
+                </span>
+                <span className={styles.themeCardDescription}>
+                  {t.description}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+        {UPCOMING_COLOR_THEMES.map((t) => (
+          <div
+            key={t.label}
+            className={`${styles.themeCard} ${styles.themeCardDisabled}`}
+            aria-disabled="true"
+          >
+            <span className={styles.themePreviewPlaceholder}>Coming soon</span>
+            <span className={styles.themeCardInfo}>
+              <span className={styles.themeCardTitle}>
+                {t.label}
+                <span
+                  className={`${styles.themeBadge} ${styles.themeBadgeMuted}`}
+                >
+                  Coming soon
+                </span>
+              </span>
+              <span className={styles.themeCardDescription}>
+                {t.description}
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className={styles.themeHint}>
+        Light and Dark mode are switched from your profile menu (top right).
+      </p>
+    </div>
+  );
+
   /* ---- API Diagnostics (Entra ID delegated token) ---------------- */
 
   // TEMPORARY — one-off provisioning of the AI Search columns. Remove once every
@@ -1969,7 +2563,7 @@ const SystemConfiguration: React.FC = () => {
       await BidService.ensureColumns();
       await QuotationService.ensureColumns();
       setProvisionResult(
-        "OK — columns created on smartbid-tracker (BidClient, BidProjectName, BidDivision, BidScopeSummary) and smartbid-quotations (20 quotation columns). Existing rows only fill in as they are saved.",
+        "OK - columns created on smartbid-tracker (BidClient, BidProjectName, BidDivision, BidScopeSummary) and smartbid-quotations (20 quotation columns). Existing rows only fill in as they are saved.",
       );
     } catch (err) {
       setProvisionResult(
@@ -1980,10 +2574,37 @@ const SystemConfiguration: React.FC = () => {
     }
   };
 
+  const [recalculating, setRecalculating] = React.useState(false);
+  const [recalcProgress, setRecalcProgress] = React.useState("");
+  const [recalcResult, setRecalcResult] = React.useState("");
+
+  const handleRecalculateCosts = async (): Promise<void> => {
+    setRecalculating(true);
+    setRecalcResult("");
+    setRecalcProgress("");
+    try {
+      const r = await BidService.recalculateCostSummaries((done, total) =>
+        setRecalcProgress(`${done}/${total}`),
+      );
+      useBidStore.getState().setBids(await BidService.getAll());
+      setRecalcResult(
+        `OK - ${r.checked} BIDs checked, ${r.updated} updated${
+          r.failed ? `, ${r.failed} failed (see console)` : ""
+        }.`,
+      );
+    } catch (err) {
+      setRecalcResult(
+        `Failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   const renderApiDiagnostics = (): React.ReactElement => (
     <div>
       <div className={styles.sectionHeader}>
-        <h3>API Diagnostics — SmartBid AI backend</h3>
+        <h3>API Diagnostics - SmartBid AI backend</h3>
         <p>
           Runs the production code path end to end: configuration, session
           identity, Entra ID token (MSAL, authorization code + PKCE), token
@@ -2000,7 +2621,7 @@ const SystemConfiguration: React.FC = () => {
         <h3>Provision AI Search columns (one-off)</h3>
         <p>
           Creates the plain columns that let AI Search index bids and quotations
-          without parsing their JSON. Safe to run more than once — existing
+          without parsing their JSON. Safe to run more than once - existing
           columns are skipped. Delete this panel once every environment has been
           migrated.
         </p>
@@ -2021,6 +2642,36 @@ const SystemConfiguration: React.FC = () => {
           style={{ marginTop: 12 }}
         >
           {provisionResult}
+        </div>
+      )}
+
+      <div className={styles.sectionHeader} style={{ marginTop: 24 }}>
+        <h3>Recalculate BID cost summaries</h3>
+        <p>
+          Rebuilds the Cost Summary stored in each BID (used by Pipeline Value,
+          the CAPEX approval rule, BID Details report and exports) from its cost
+          breakdowns. Only BIDs whose stored values differ are saved. New saves
+          keep it up to date automatically.
+        </p>
+      </div>
+      <button
+        type="button"
+        className={`${styles.actionBtn} ${styles.primary}`}
+        onClick={() => void handleRecalculateCosts()}
+        disabled={recalculating || !canEdit}
+      >
+        {recalculating
+          ? `Recalculating${recalcProgress ? ` ${recalcProgress}` : ""}...`
+          : "Recalculate cost summaries"}
+      </button>
+      {recalcResult && (
+        <div
+          className={`${styles.messageBar} ${
+            recalcResult.indexOf("OK") === 0 ? styles.success : styles.error
+          }`}
+          style={{ marginTop: 12 }}
+        >
+          {recalcResult}
         </div>
       )}
     </div>
@@ -2068,10 +2719,20 @@ const SystemConfiguration: React.FC = () => {
           <h3>Status</h3>
           <p>
             Workflow statuses that can appear within multiple phases. You can
-            customize the color. The phase applicability is shown as read-only
-            chips below each status.
+            add new statuses and customize the color and the phases each status
+            applies to.
           </p>
         </div>
+        {canEdit && (
+          <div className={styles.addBtnRow}>
+            <button
+              className={`${styles.actionBtn} ${styles.primary}`}
+              onClick={() => openAddPanel("subStatuses")}
+            >
+              + Add Status
+            </button>
+          </div>
+        )}
         <div className={styles.optionsList}>
           {subStatusList.map((ss) => (
             <SubStatusColorRow
@@ -2523,13 +3184,13 @@ const SystemConfiguration: React.FC = () => {
       marginLeft: 8,
       background:
         cat === "CAPEX"
-          ? "rgba(0,201,167,0.15)"
+          ? "color-mix(in srgb, var(--accent-brand) 15%, transparent)"
           : cat === "OPEX"
             ? "rgba(99,102,241,0.15)"
             : "rgba(150,150,150,0.15)",
       color:
         cat === "CAPEX"
-          ? "var(--success, #00c9a7)"
+          ? "var(--success)"
           : cat === "OPEX"
             ? "var(--primary-accent, #6366f1)"
             : "var(--text-muted)",
@@ -2861,7 +3522,7 @@ const SystemConfiguration: React.FC = () => {
       const itemCount = getGroupItemCount(groupId);
       if (itemCount > 0) {
         alert(
-          `Cannot delete "${g.name}" — it still contains ${itemCount} equipment item(s) in the Favorites catalog. Remove or move them first.`,
+          `Cannot delete "${g.name}" - it still contains ${itemCount} equipment item(s) in the Favorites catalog. Remove or move them first.`,
         );
         return;
       }
@@ -2890,7 +3551,7 @@ const SystemConfiguration: React.FC = () => {
       const itemCount = getSubGroupItemCount(subGroupId);
       if (itemCount > 0) {
         alert(
-          `Cannot delete sub-group "${sg.name}" — it still contains ${itemCount} equipment item(s) in the Favorites catalog. Remove or move them first.`,
+          `Cannot delete sub-group "${sg.name}" - it still contains ${itemCount} equipment item(s) in the Favorites catalog. Remove or move them first.`,
         );
         return;
       }
@@ -2961,7 +3622,7 @@ const SystemConfiguration: React.FC = () => {
                         onClick={() => handleDeleteGroup(g.id)}
                         title={
                           gCount > 0
-                            ? "Cannot delete — has equipment items"
+                            ? "Cannot delete - has equipment items"
                             : "Delete group"
                         }
                       >
@@ -3002,7 +3663,7 @@ const SystemConfiguration: React.FC = () => {
                                 }
                                 title={
                                   sgCount > 0
-                                    ? "Cannot delete — has equipment items"
+                                    ? "Cannot delete - has equipment items"
                                     : "Delete sub-group"
                                 }
                               >
@@ -3033,10 +3694,13 @@ const SystemConfiguration: React.FC = () => {
   /* ================================================================ */
 
   const renderTabContent = (): React.ReactElement | null => {
+    if (activeTab === "themeSelector") return renderThemeSelector();
     if (!config) return null;
     switch (activeTab) {
       case "kpi":
         return renderKPITargets();
+      case "priorityRules":
+        return renderPriorityRules();
       case "divisionsAndServiceLines":
         return renderDivisionsAndServiceLines();
       case "jobFunctions":
@@ -3102,14 +3766,6 @@ const SystemConfiguration: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Read-only banner */}
-      {!canEdit && (
-        <div className={styles.readOnlyBanner}>
-          🔒 You have read-only access. Only the Engineering team can edit
-          system configuration.
-        </div>
-      )}
 
       {/* Message bar */}
       {message && (
@@ -3190,7 +3846,12 @@ const SystemConfiguration: React.FC = () => {
                 <button
                   className={`${styles.actionBtn} ${styles.primary}`}
                   onClick={() => config && saveConfig(config)}
-                  disabled={saving}
+                  disabled={saving || !!priorityRulesError}
+                  title={
+                    priorityRulesError
+                      ? `BID Urgency: ${priorityRulesError}`
+                      : undefined
+                  }
                 >
                   {saving ? "Saving..." : "Save Changes"}
                 </button>
@@ -3218,24 +3879,25 @@ const SystemConfiguration: React.FC = () => {
               </button>
             </div>
             <div className={styles.panelBody}>
-              {panelConfigKey !== "phases" &&
+              {((panelConfigKey !== "phases" &&
                 panelConfigKey !== "subStatuses" &&
-                panelConfigKey !== "terminalStatuses" && (
-                  <div className={styles.fieldGroup}>
-                    <label>Label</label>
-                    <input
-                      value={panelForm.label}
-                      onChange={(e) =>
-                        setPanelForm({
-                          ...panelForm,
-                          label: e.currentTarget.value,
-                        })
-                      }
-                      placeholder="Display label"
-                      autoFocus
-                    />
-                  </div>
-                )}
+                panelConfigKey !== "terminalStatuses") ||
+                (panelConfigKey === "subStatuses" && !editItem)) && (
+                <div className={styles.fieldGroup}>
+                  <label>Label</label>
+                  <input
+                    value={panelForm.label}
+                    onChange={(e) =>
+                      setPanelForm({
+                        ...panelForm,
+                        label: e.currentTarget.value,
+                      })
+                    }
+                    placeholder="Display label"
+                    autoFocus
+                  />
+                </div>
+              )}
               {(panelConfigKey === "phases" ||
                 panelConfigKey === "subStatuses" ||
                 panelConfigKey === "terminalStatuses") &&
@@ -3304,7 +3966,7 @@ const SystemConfiguration: React.FC = () => {
                       })
                     }
                   >
-                    <option value="">— Select —</option>
+                    <option value="">- Select -</option>
                     {config.divisions
                       .filter((d) => d.isActive)
                       .map((d) => (
@@ -3313,6 +3975,33 @@ const SystemConfiguration: React.FC = () => {
                         </option>
                       ))}
                   </select>
+                </div>
+              )}
+              {panelConfigKey === "supplierServiceTypes" && config && (
+                <div className={styles.fieldGroup}>
+                  <label>Category</label>
+                  <input
+                    list="smartbid-service-type-categories"
+                    value={panelForm.category}
+                    placeholder="e.g. Manufacturing"
+                    onChange={(e) =>
+                      setPanelForm({
+                        ...panelForm,
+                        category: e.currentTarget.value,
+                      })
+                    }
+                  />
+                  <datalist id="smartbid-service-type-categories">
+                    {Array.from(
+                      new Set(
+                        (config.supplierServiceTypes || [])
+                          .map((o) => o.category || "")
+                          .filter(Boolean),
+                      ),
+                    ).map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
                 </div>
               )}
               {(panelConfigKey === "serviceLines" ||
@@ -3346,7 +4035,7 @@ const SystemConfiguration: React.FC = () => {
                   </p>
                 </div>
               )}
-              {panelConfigKey === "subStatuses" && editItem && config && (
+              {panelConfigKey === "subStatuses" && config && (
                 <div className={styles.fieldGroup}>
                   <label>Applicable Phases</label>
                   <p
@@ -3365,7 +4054,8 @@ const SystemConfiguration: React.FC = () => {
                       "Pending Assignment": ["Request Submitted"],
                       "Awaiting Kick Off": ["Bid Kick Off"],
                     };
-                    const lockedPhases = LOCKED_PHASE_MAP[editItem.value] || [];
+                    const lockedPhases =
+                      (editItem && LOCKED_PHASE_MAP[editItem.value]) || [];
 
                     const cat =
                       panelForm.category === undefined ||
@@ -3440,7 +4130,7 @@ const SystemConfiguration: React.FC = () => {
                                   opacity: allChecked || isLocked ? 0.7 : 1,
                                 }}
                                 title={
-                                  isLocked
+                                  isLocked && editItem
                                     ? `"${phase.label}" is required for "${editItem.label}" and cannot be removed`
                                     : undefined
                                 }
@@ -3518,7 +4208,7 @@ const SystemConfiguration: React.FC = () => {
                           });
                         }}
                       >
-                        <option value="">— Select —</option>
+                        <option value="">- Select -</option>
                         {(config.availabilityStatuses || [])
                           .filter((a) => a.isActive !== false)
                           .map((a) => (

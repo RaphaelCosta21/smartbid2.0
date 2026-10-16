@@ -174,7 +174,7 @@
 
   &:hover:not(:disabled) {
     background: var(--primary-accent);
-    color: #fff;
+    color: var(--primary-accent-contrast);
   }
 
   &:disabled {
@@ -334,7 +334,7 @@
 
 .typeBtnActive {
   background: var(--primary-accent) !important;
-  color: white !important;
+  color: var(--primary-accent-contrast) !important;
 }
 
 .costInputRow {
@@ -385,7 +385,7 @@
   border: none;
   border-radius: 8px;
   background: var(--primary-accent);
-  color: white;
+  color: var(--primary-accent-contrast);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;

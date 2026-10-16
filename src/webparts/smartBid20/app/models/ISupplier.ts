@@ -14,8 +14,14 @@ export interface ISupplier {
   /** SharePoint item Id. */
   id: number;
   name: string;
+  /** Other names of the same company (legal names, spellings seen on quotations). */
+  aliases: string[];
   country: string;
-  categories: string[];
+  description: string;
+  /** Stored in the legacy `Categories` column. */
+  keywords: string[];
+  /** Ids of systemConfig.supplierServiceTypes options (ids survive renames). */
+  serviceTypes: string[];
   partNumbers: string[];
   contacts: ISupplierContact[];
   notes: string;
@@ -26,3 +32,10 @@ export interface ISupplier {
 
 /** Payload de criação/edição (sem o Id gerado pelo SharePoint). */
 export type ISupplierInput = Omit<ISupplier, "id" | "logoUrl">;
+
+/** AI-generated (or user-edited) profile fields of a supplier. */
+export interface ISupplierProfile {
+  description: string;
+  keywords: string[];
+  serviceTypes: string[];
+}

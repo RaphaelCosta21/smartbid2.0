@@ -178,7 +178,7 @@ export const BidDetailsReportPage: React.FC = () => {
       key: "description",
       header: "Description",
       render: (r: IScopeItem) => (
-        <span className={styles.cellStrong}>{r.description || "—"}</span>
+        <span className={styles.cellStrong}>{r.description || "-"}</span>
       ),
     },
     {
@@ -187,7 +187,7 @@ export const BidDetailsReportPage: React.FC = () => {
       render: (r: IScopeItem) => (
         <span className={styles.cellMuted}>
           {[r.resourceType, r.resourceSubType].filter(Boolean).join(" · ") ||
-            "—"}
+            "-"}
         </span>
       ),
     },
@@ -238,7 +238,7 @@ export const BidDetailsReportPage: React.FC = () => {
       }
       await buildReportPdf({
         title: `BID ${bid.bidNumber}`,
-        subtitle: `${bid.opportunityInfo?.client || ""} — ${
+        subtitle: `${bid.opportunityInfo?.client || ""} - ${
           bid.opportunityInfo?.projectName || ""
         }`,
         kpis: [
@@ -253,7 +253,7 @@ export const BidDetailsReportPage: React.FC = () => {
           { label: "Scope Items", value: String(equipmentRows.length) },
           {
             label: "Approval Cycle",
-            value: cycleTime != null ? `${cycleTime}d` : "—",
+            value: cycleTime != null ? `${cycleTime}d` : "-",
           },
           { label: "Status", value: bid.currentStatus },
         ],
@@ -331,7 +331,7 @@ export const BidDetailsReportPage: React.FC = () => {
           )}
           {filteredOptions.map((b) => (
             <option key={b.bidNumber} value={b.bidNumber}>
-              {b.bidNumber} — {b.opportunityInfo?.client || "?"} —{" "}
+              {b.bidNumber} - {b.opportunityInfo?.client || "?"} -{" "}
               {b.opportunityInfo?.projectName || "?"}
             </option>
           ))}
@@ -377,7 +377,7 @@ export const BidDetailsReportPage: React.FC = () => {
             <KPICard
               variant="glass"
               label="Approval Cycle"
-              value={cycleTime != null ? `${cycleTime}d` : "—"}
+              value={cycleTime != null ? `${cycleTime}d` : "-"}
               accentColor={chart.warning}
               subtitle="request → completion"
             />

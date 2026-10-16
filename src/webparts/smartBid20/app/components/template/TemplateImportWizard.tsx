@@ -25,7 +25,7 @@ export const TemplateImportWizard: React.FC<TemplateImportWizardProps> = ({
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.modalHeader}>
           <h3 className={styles.modalTitle}>
-            Import Template — Step {step + 1}/2
+            Import Template - Step {step + 1}/2
           </h3>
           <button onClick={onClose} className={styles.closeBtn}>
             ×

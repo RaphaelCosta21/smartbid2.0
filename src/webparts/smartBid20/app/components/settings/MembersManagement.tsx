@@ -5,6 +5,22 @@
  */
 
 import * as React from "react";
+import {
+  Briefcase,
+  Building2,
+  ClipboardList,
+  Cog,
+  DraftingCompass,
+  HardHat,
+  Layers,
+  RefreshCw,
+  Search,
+  Server,
+  Truck,
+  UserPlus,
+  Users,
+  X,
+} from "lucide-react";
 import styles from "./MembersManagement.module.scss";
 import {
   ITeamMember,
@@ -15,6 +31,15 @@ import {
 } from "../../models";
 import { MembersService } from "../../services/MembersService";
 import { useSpfxContext } from "../../config/SpfxContext";
+import { usePageAccess } from "../../hooks/usePageAccess";
+import { PageHeader } from "../common/PageHeader";
+import { EmptyState } from "../common/EmptyState";
+import { SkeletonLoader } from "../common/SkeletonLoader";
+import {
+  MultiSelectDropdown,
+  MultiSelectOption,
+} from "../insights/MultiSelectDropdown";
+import { countFacets } from "../../utils/facetHelpers";
 
 /* ------------------------------------------------------------------ */
 /* CONSTANTS                                                          */
@@ -24,8 +49,7 @@ interface ISectorMeta {
   key: Sector;
   label: string;
   color: string;
-  bg: string;
-  icon: string;
+  icon: React.ReactNode;
 }
 
 const SECTOR_META: ISectorMeta[] = [
@@ -33,52 +57,48 @@ const SECTOR_META: ISectorMeta[] = [
     key: "commercial",
     label: "Commercial",
     color: "#3b82f6",
-    bg: "rgba(59,130,246,0.12)",
-    icon: "💼",
+    icon: <Briefcase />,
   },
   {
     key: "engineering",
     label: "Engineering",
     color: "#ec4899",
-    bg: "rgba(236,72,153,0.12)",
-    icon: "🛠️",
+    icon: <DraftingCompass />,
   },
   {
     key: "project",
     label: "Project",
     color: "#f59e0b",
-    bg: "rgba(245,158,11,0.12)",
-    icon: "📋",
+    icon: <ClipboardList />,
   },
   {
     key: "operation",
     label: "Operation",
     color: "#10b981",
-    bg: "rgba(16,185,129,0.12)",
-    icon: "⚙️",
+    icon: <Cog />,
   },
   {
     key: "dataCenter",
     label: "Data Center",
     color: "#06b6d4",
-    bg: "rgba(6,182,212,0.12)",
-    icon: "📡",
+    icon: <Server />,
   },
   {
     key: "equipmentInstallation",
     label: "Equipment & Installation",
     color: "#8b5cf6",
-    bg: "rgba(139,92,246,0.12)",
-    icon: "🔧",
+    icon: <HardHat />,
   },
   {
     key: "supplyChain",
     label: "Supply Chain",
     color: "#f97316",
-    bg: "rgba(249,115,22,0.12)",
-    icon: "📦",
+    icon: <Truck />,
   },
 ];
+
+const sectorStyle = (color: string): React.CSSProperties =>
+  ({ "--sector-color": color }) as React.CSSProperties;
 
 const BUSINESS_LINES: BusinessLine[] = ["ROV", "OPG", "SURVEY"];
 
@@ -86,6 +106,16 @@ const BL_COLORS: Record<BusinessLine, { color: string; bg: string }> = {
   ROV: { color: "#0369a1", bg: "rgba(3,105,161,0.14)" },
   OPG: { color: "#b45309", bg: "rgba(180,83,9,0.14)" },
   SURVEY: { color: "#047857", bg: "rgba(4,120,87,0.14)" },
+};
+
+type MemberFacetKey = "sector" | "businessLine";
+
+const MEMBER_FACET_VALUES: Record<
+  MemberFacetKey,
+  (m: ITeamMember) => string[]
+> = {
+  sector: (m) => [m.sector],
+  businessLine: (m) => m.businessLines,
 };
 
 interface IBidRoleMeta {
@@ -111,8 +141,8 @@ const BID_ROLE_META: IBidRoleMeta[] = [
   {
     key: "coordinator",
     label: "Coordinator",
-    color: "#0f766e",
-    bg: "rgba(15,118,110,0.12)",
+    color: "var(--accent-700)",
+    bg: "color-mix(in srgb, var(--accent-700) 12%, transparent)",
   },
   {
     key: "analyst",
@@ -178,14 +208,15 @@ interface IPeopleResult {
 
 const MembersManagement: React.FC = () => {
   const spfxContext = useSpfxContext();
+  const { canEdit } = usePageAccess();
 
   const [membersData, setMembersData] = React.useState<IMembersData>({
     members: [],
   });
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
-  const [sectorFilter, setSectorFilter] = React.useState<string>("all");
-  const [blFilter, setBlFilter] = React.useState<string>("all");
+  const [sectorFilter, setSectorFilter] = React.useState<string[]>([]);
+  const [blFilter, setBlFilter] = React.useState<string[]>([]);
   const [showPanel, setShowPanel] = React.useState(false);
   const [editMember, setEditMember] = React.useState<ITeamMember | null>(null);
   const [message, setMessage] = React.useState<{
@@ -241,29 +272,40 @@ const MembersManagement: React.FC = () => {
 
   const allMembers = membersData.members || [];
 
-  const filteredMembers = React.useMemo(() => {
-    let list = allMembers;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(
-        (m) =>
+  // `skip` lets a dropdown count against the other filters
+  const passesFilters = React.useCallback(
+    (m: ITeamMember, skip?: MemberFacetKey): boolean => {
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const hit =
           m.name.toLowerCase().includes(q) ||
           m.email.toLowerCase().includes(q) ||
           m.jobTitle.toLowerCase().includes(q) ||
           m.sector.toLowerCase().includes(q) ||
-          m.businessLines.some((bl) => bl.toLowerCase().includes(q)),
+          m.businessLines.some((bl) => bl.toLowerCase().includes(q));
+        if (!hit) return false;
+      }
+      return (
+        (skip === "sector" ||
+          sectorFilter.length === 0 ||
+          sectorFilter.indexOf(m.sector) >= 0) &&
+        (skip === "businessLine" ||
+          blFilter.length === 0 ||
+          m.businessLines.some((bl) => blFilter.indexOf(bl) >= 0))
       );
-    }
-    if (sectorFilter !== "all") {
-      list = list.filter((m) => m.sector === sectorFilter);
-    }
-    if (blFilter !== "all") {
-      list = list.filter((m) =>
-        m.businessLines.includes(blFilter as BusinessLine),
-      );
-    }
-    return list;
-  }, [allMembers, search, sectorFilter, blFilter]);
+    },
+    [search, sectorFilter, blFilter],
+  );
+
+  const filteredMembers = React.useMemo(
+    () => allMembers.filter((m) => passesFilters(m)),
+    [allMembers, passesFilters],
+  );
+
+  const facetCounts = React.useMemo(
+    () => countFacets(allMembers, MEMBER_FACET_VALUES, passesFilters),
+    [allMembers, passesFilters],
+  );
 
   const membersBySector = React.useMemo(() => {
     const grouped: Record<string, ITeamMember[]> = {};
@@ -280,6 +322,38 @@ const MembersManagement: React.FC = () => {
     });
     return counts;
   }, [allMembers]);
+
+  const sectorOptions: MultiSelectOption[] = SECTOR_META.map((s) => ({
+    value: s.key,
+    label: s.label,
+    color: s.color,
+    count: facetCounts.sector[s.key] || 0,
+  }));
+
+  const blOptions: MultiSelectOption[] = BUSINESS_LINES.map((bl) => ({
+    value: bl,
+    label: bl,
+    color: BL_COLORS[bl].color,
+    count: facetCounts.businessLine[bl] || 0,
+  }));
+
+  const activeCount = allMembers.filter((m) => m.isActive).length;
+  const sectorsInUse = SECTOR_META.filter(
+    (s) => sectorCounts[s.key] > 0,
+  ).length;
+  const hasFilters =
+    !!search.trim() || sectorFilter.length > 0 || blFilter.length > 0;
+
+  const clearFilters = (): void => {
+    setSearch("");
+    setSectorFilter([]);
+    setBlFilter([]);
+  };
+
+  const toggleSector = (key: Sector): void =>
+    setSectorFilter((prev) =>
+      prev.indexOf(key) >= 0 ? prev.filter((k) => k !== key) : [...prev, key],
+    );
 
   /* ---- People Picker (Graph API) -------------------------------- */
 
@@ -558,49 +632,52 @@ const MembersManagement: React.FC = () => {
 
   /* ---- render ---------------------------------------------------- */
 
+  const header = (
+    <PageHeader
+      title="Members Management"
+      subtitle={
+        loading
+          ? "Loading team members..."
+          : `${allMembers.length} team members across ${sectorsInUse} sectors, ${activeCount} active`
+      }
+      icon={<Users size={28} />}
+      actions={
+        <div className={styles.headerActions}>
+          <button
+            type="button"
+            className={styles.headerBtn}
+            onClick={() => loadMembers().catch(console.error)}
+            disabled={loading}
+            title="Reload members from SharePoint"
+          >
+            <RefreshCw size={15} /> Refresh
+          </button>
+          {canEdit && (
+            <button
+              type="button"
+              className={styles.createBtn}
+              onClick={openAddPanel}
+            >
+              <UserPlus size={15} /> Add Member
+            </button>
+          )}
+        </div>
+      }
+    />
+  );
+
   if (loading) {
     return (
       <div className={styles.container}>
-        <div className={styles.loadingState}>Loading team members...</div>
+        {header}
+        <SkeletonLoader height={72} borderRadius={12} count={4} />
       </div>
     );
   }
 
   return (
     <div className={styles.container}>
-      {/* Header */}
-      <div className={styles.header}>
-        <div className={styles.headerContent}>
-          <span className={styles.headerIcon}>
-            <svg
-              width="48"
-              height="48"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-          </span>
-          <div className={styles.headerText}>
-            <h2 className={styles.title}>Members Management</h2>
-            <p className={styles.subtitle}>
-              {allMembers.length} team members across{" "}
-              {
-                Object.keys(sectorCounts).filter((k) => sectorCounts[k] > 0)
-                  .length
-              }{" "}
-              sectors
-            </p>
-          </div>
-        </div>
-      </div>
+      {header}
 
       {/* Message */}
       {message && (
@@ -611,93 +688,86 @@ const MembersManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Stat Cards */}
-      <div className={styles.statRow}>
-        {SECTOR_META.map((s) => (
-          <div key={s.key} className={styles.statCard}>
-            <div
-              className={styles.statIcon}
-              style={{ background: s.bg, color: s.color }}
+      {/* Sector tiles (quick filter) */}
+      <div className={styles.sectorRow}>
+        {SECTOR_META.map((s) => {
+          const selected = sectorFilter.indexOf(s.key) >= 0;
+          return (
+            <button
+              key={s.key}
+              type="button"
+              className={`${styles.sectorTile} ${selected ? styles.sectorTileActive : ""}`}
+              style={sectorStyle(s.color)}
+              onClick={() => toggleSector(s.key)}
+              aria-pressed={selected}
+              title={
+                selected ? `Remove ${s.label} filter` : `Filter by ${s.label}`
+              }
             >
-              {s.icon}
-            </div>
-            <div className={styles.statInfo}>
-              <span className={styles.statValue}>
-                {sectorCounts[s.key] || 0}
+              <span className={styles.sectorIcon}>{s.icon}</span>
+              <span className={styles.sectorInfo}>
+                <span className={styles.sectorValue}>
+                  {sectorCounts[s.key] || 0}
+                </span>
+                <span className={styles.sectorLabel}>{s.label}</span>
               </span>
-              <span className={styles.statLabel}>{s.label}</span>
-            </div>
-          </div>
-        ))}
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{
-              background: "rgba(0,201,167,0.12)",
-              color: "var(--primary-accent)",
-            }}
-          >
-            ✓
-          </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>
-              {allMembers.filter((m) => m.isActive).length}
-            </span>
-            <span className={styles.statLabel}>Active</span>
-          </div>
-        </div>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Toolbar */}
-      <div className={styles.toolbar}>
-        <input
-          className={styles.searchInput}
-          placeholder="Search members by name, email, sector, or business line..."
-          value={search}
-          onChange={(e) => setSearch(e.currentTarget.value)}
+      {/* Filter bar */}
+      <div className={styles.filterBar}>
+        <div className={styles.filterSearch}>
+          <Search size={15} className={styles.filterSearchIcon} />
+          <input
+            type="text"
+            className={styles.filterSearchInput}
+            placeholder="Search by name, email, job title, sector or business line..."
+            value={search}
+            onChange={(e) => setSearch(e.currentTarget.value)}
+            aria-label="Search members"
+          />
+          {search && (
+            <button
+              type="button"
+              className={styles.searchClearBtn}
+              onClick={() => setSearch("")}
+              title="Clear search"
+              aria-label="Clear search"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        <MultiSelectDropdown
+          label="Sector"
+          icon={<Building2 />}
+          options={sectorOptions}
+          selected={sectorFilter}
+          onChange={setSectorFilter}
         />
-        <button
-          className={`${styles.filterBtn} ${sectorFilter === "all" ? styles.active : ""}`}
-          onClick={() => setSectorFilter("all")}
-        >
-          All
-        </button>
-        {SECTOR_META.map((s) => (
+        <MultiSelectDropdown
+          label="Business Line"
+          icon={<Layers />}
+          options={blOptions}
+          selected={blFilter}
+          onChange={setBlFilter}
+        />
+        {hasFilters && (
           <button
-            key={s.key}
-            className={`${styles.filterBtn} ${sectorFilter === s.key ? styles.active : ""}`}
-            onClick={() => setSectorFilter(s.key)}
+            type="button"
+            className={styles.clearFiltersBtn}
+            onClick={clearFilters}
           >
-            {s.label}
+            <X size={14} /> Clear
           </button>
-        ))}
-        <span className={styles.filterSeparator}>|</span>
-        <button
-          className={`${styles.filterBtn} ${blFilter === "all" ? styles.active : ""}`}
-          onClick={() => setBlFilter("all")}
-        >
-          All BLs
-        </button>
-        {BUSINESS_LINES.map((bl) => (
-          <button
-            key={bl}
-            className={`${styles.filterBtn} ${blFilter === bl ? styles.active : ""}`}
-            style={
-              blFilter === bl
-                ? {
-                    borderColor: BL_COLORS[bl].color,
-                    color: BL_COLORS[bl].color,
-                  }
-                : {}
-            }
-            onClick={() => setBlFilter(bl)}
-          >
-            {bl}
-          </button>
-        ))}
-        <button className={styles.addBtn} onClick={openAddPanel}>
-          + Add Member
-        </button>
+        )}
+        <span className={styles.resultCount}>
+          <strong>{filteredMembers.length}</strong>{" "}
+          {hasFilters ? `of ${allMembers.length} ` : ""}
+          {allMembers.length === 1 ? "member" : "members"}
+        </span>
       </div>
 
       {/* Members grouped by sector */}
@@ -705,10 +775,7 @@ const MembersManagement: React.FC = () => {
         (s) => (
           <div key={s.key} className={styles.roleSection}>
             <div className={styles.roleSectionHeader}>
-              <span
-                className={styles.roleBadge}
-                style={{ background: s.bg, color: s.color }}
-              >
+              <span className={styles.roleBadge} style={sectorStyle(s.color)}>
                 {s.icon} {s.label}
               </span>
               <span className={styles.roleCount}>
@@ -781,29 +848,31 @@ const MembersManagement: React.FC = () => {
                         )}
                       </div>
                     </div>
-                    <div className={styles.memberActions}>
-                      <button
-                        className={styles.iconBtn}
-                        title="Edit"
-                        onClick={() => openEditPanel(m)}
-                      >
-                        ✎
-                      </button>
-                      <button
-                        className={styles.iconBtn}
-                        title={m.isActive ? "Deactivate" : "Activate"}
-                        onClick={() => toggleActive(m)}
-                      >
-                        {m.isActive ? "⏸" : "▶"}
-                      </button>
-                      <button
-                        className={`${styles.iconBtn} ${styles.danger}`}
-                        title="Remove"
-                        onClick={() => handleDelete(m)}
-                      >
-                        ✕
-                      </button>
-                    </div>
+                    {canEdit && (
+                      <div className={styles.memberActions}>
+                        <button
+                          className={styles.iconBtn}
+                          title="Edit"
+                          onClick={() => openEditPanel(m)}
+                        >
+                          ✎
+                        </button>
+                        <button
+                          className={styles.iconBtn}
+                          title={m.isActive ? "Deactivate" : "Activate"}
+                          onClick={() => toggleActive(m)}
+                        >
+                          {m.isActive ? "⏸" : "▶"}
+                        </button>
+                        <button
+                          className={`${styles.iconBtn} ${styles.danger}`}
+                          title="Remove"
+                          onClick={() => handleDelete(m)}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -812,16 +881,24 @@ const MembersManagement: React.FC = () => {
         ),
       )}
 
-      {filteredMembers.length === 0 && !loading && (
-        <div className={styles.emptyState}>
-          <div className={styles.emptyIcon}>🔍</div>
-          <div className={styles.emptyText}>
-            {allMembers.length === 0
-              ? "No team members yet. Click '+ Add Member' to get started."
-              : "No members found matching your search."}
-          </div>
-        </div>
-      )}
+      {filteredMembers.length === 0 &&
+        (allMembers.length === 0 ? (
+          <EmptyState
+            variant="glass"
+            title="No team members yet"
+            description="Add the first member to start building the team."
+            actionLabel={canEdit ? "Add Member" : undefined}
+            onAction={canEdit ? openAddPanel : undefined}
+          />
+        ) : (
+          <EmptyState
+            variant="glass"
+            title="No members match these filters"
+            description="Try fewer filters or another search term."
+            actionLabel="Clear filters"
+            onAction={clearFilters}
+          />
+        ))}
 
       {/* Add/Edit Panel */}
       {showPanel && (

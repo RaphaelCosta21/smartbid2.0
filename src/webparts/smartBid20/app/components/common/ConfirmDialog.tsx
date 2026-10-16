@@ -27,7 +27,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const confirmColors: Record<string, string> = {
     danger: "#EF4444",
     warning: "#F59E0B",
-    default: "var(--accent-color, #3B82F6)",
+    default: "var(--primary-accent)",
   };
 
   return (

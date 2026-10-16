@@ -7,7 +7,13 @@ import {
   getPhaseLabel,
   getAllTasks,
 } from "../config/phases.config";
-import { IBid, BidPhase } from "../models";
+import {
+  IBid,
+  BidPhase,
+  IPhaseHistoryEntry,
+  IStatusHistoryEntry,
+} from "../models";
+import { calcDurationHours } from "./durationHelpers";
 
 export function getPhaseProgress(bid: IBid): number {
   const phaseConfig = getPhaseConfig(bid.currentPhase);
@@ -86,4 +92,59 @@ export function getPendingTasks(bid: IBid): string[] {
   return bid.tasks
     .filter((s) => s.status === "not-started" || s.status === "in-progress")
     .map((s) => s.name);
+}
+
+function closeLastOpen<
+  T extends { start: string; end: string | null; durationHours: number | null },
+>(list: T[], at: string): T[] {
+  return list.map((e, i) =>
+    i === list.length - 1 && !e.end
+      ? { ...e, end: at, durationHours: calcDurationHours(e.start, at) }
+      : e,
+  );
+}
+
+/** Closes the open phase/status history entries and opens new ones for whatever changed. */
+export function buildHistoryTransition(
+  bid: Pick<
+    IBid,
+    "currentPhase" | "currentStatus" | "phaseHistory" | "statusHistory"
+  >,
+  newPhase: BidPhase,
+  newStatus: string,
+  actor: string,
+  at: string,
+): Pick<IBid, "phaseHistory" | "statusHistory"> {
+  let phaseHistory: IPhaseHistoryEntry[] = bid.phaseHistory || [];
+  if (newPhase !== bid.currentPhase) {
+    phaseHistory = closeLastOpen(phaseHistory, at);
+    phaseHistory = [
+      ...phaseHistory,
+      {
+        id: phaseHistory.length + 1,
+        phase: newPhase,
+        start: at,
+        end: null,
+        durationHours: null,
+        actor,
+      },
+    ];
+  }
+  let statusHistory: IStatusHistoryEntry[] = bid.statusHistory || [];
+  if (newStatus !== bid.currentStatus) {
+    statusHistory = closeLastOpen(statusHistory, at);
+    statusHistory = [
+      ...statusHistory,
+      {
+        id: statusHistory.length + 1,
+        status: newStatus,
+        phase: newPhase,
+        start: at,
+        end: null,
+        durationHours: null,
+        actor,
+      },
+    ];
+  }
+  return { phaseHistory, statusHistory };
 }

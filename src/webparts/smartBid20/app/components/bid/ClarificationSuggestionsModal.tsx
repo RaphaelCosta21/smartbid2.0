@@ -3,9 +3,7 @@
  * qualifications. The user selects which suggestions to accept; accepted ones
  * are mapped to IClarificationItem rows by the caller.
  *
- * Reused by:
- *  - QualificationsTab (on-demand "Suggest with AI" button)
- *  - BidDetailPage (suggestions surfaced after an AI scope analysis import)
+ * Used by QualificationsTab (on-demand "Suggest with AI" button).
  */
 import * as React from "react";
 import { IAISuggestedClarification } from "../../models";
@@ -258,7 +256,7 @@ export const ClarificationSuggestionsModal: React.FC<
               borderRadius: 8,
               border: "none",
               background: "var(--primary-accent)",
-              color: "#fff",
+              color: "var(--primary-accent-contrast)",
               cursor:
                 loading || acceptedList.length === 0
                   ? "not-allowed"

@@ -7,6 +7,7 @@ import { IBid, IPersonRef, IExchangeRateSnapshot } from "../models";
 import { BidService } from "./BidService";
 import { SystemConfigService } from "./SystemConfigService";
 import { makeId } from "../utils/idGenerator";
+import { isUnassignedBid } from "../utils/bidHelpers";
 
 export class RequestService {
   /**
@@ -15,13 +16,7 @@ export class RequestService {
    */
   public static async getUnassignedFromSP(): Promise<IBidRequest[]> {
     const allBids = await BidService.getAll();
-    const unassigned = allBids.filter((bid) => {
-      return (
-        !bid.engineerResponsible ||
-        (Array.isArray(bid.engineerResponsible) &&
-          bid.engineerResponsible.length === 0)
-      );
-    });
+    const unassigned = allBids.filter(isUnassignedBid);
 
     return unassigned.map((bid) => RequestService.bidToRequest(bid));
   }
@@ -60,6 +55,7 @@ export class RequestService {
       vessel: opp.vessel || "",
       field: opp.field || "",
       commercialFolderUrl: bid.commercialFolderUrl || "",
+      technicalProposalRequested: !!bid.technicalProposal?.requested,
       attachments: (bid.attachments || []).map((a) => ({
         fileName: a.fileName,
         fileType: a.fileType,
@@ -105,12 +101,17 @@ export class RequestService {
             currency: er.currency,
             rate: er.rate,
             capturedDate: now,
+            rateDate: er.lastUpdate || "",
+            source: "System Config" as const,
           }),
         );
       }
     } catch {
       // Continue without snapshot if config fetch fails
     }
+    const brlSnapshot = exchangeRatesSnapshot.find(
+      (r) => (r.currency || "").toUpperCase() === "BRL",
+    );
 
     const bid: IBid = {
       bidNumber: request.requestNumber,
@@ -134,8 +135,8 @@ export class RequestService {
         totalDuration: request.totalDuration || 0,
         totalDurationUnit: "days",
         currency: "USD",
-        ptax: 0,
-        ptaxDate: "",
+        ptax: brlSnapshot ? brlSnapshot.rate : 0,
+        ptaxDate: brlSnapshot ? now.split("T")[0] : "",
         exchangeRatesSnapshot,
         qualifications: [],
       },
@@ -269,6 +270,11 @@ export class RequestService {
       templateUsed: null,
       bidFolderUrl: null,
       commercialFolderUrl: request.commercialFolderUrl || null,
+      technicalProposal: {
+        requested: !!request.technicalProposalRequested,
+        requestedBy: request.technicalProposalRequested ? creatorRef : null,
+        requestedDate: request.technicalProposalRequested ? now : null,
+      },
       bidNotes: request.notes ? { general: request.notes } : {},
       bidNotesMetadata: {},
       quickNotes: [],

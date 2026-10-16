@@ -215,7 +215,8 @@
           "filePath": 1,
           "chunk": 1
         }
-      }
+      },
+      "functions": []
     }
   ],
   "defaultScoringProfile": "smartbid-metadata-boost",

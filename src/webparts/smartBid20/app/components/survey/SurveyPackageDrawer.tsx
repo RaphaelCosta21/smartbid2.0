@@ -4,7 +4,7 @@ import { X, Minus, Plus, Trash2, FilePlus2, FolderInput, Box } from "lucide-reac
 import { ROUTES } from "../../config/routes.config";
 import { useSurveyStore } from "../../stores/useSurveyStore";
 import { useBidStore } from "../../stores/useBidStore";
-import { useAuthStore } from "../../stores/useAuthStore";
+import { useAccessLevel } from "../../hooks/useAccessLevel";
 import { useUIStore } from "../../stores/useUIStore";
 import { BidService } from "../../services/BidService";
 import { buildScopeItemsFromPackage } from "../../utils/surveyPackage";
@@ -34,7 +34,7 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
   const bidNumber = useSurveyStore((s) => s.bidNumber);
   const bids = useBidStore((s) => s.bids);
   const refreshBids = useBidStore((s) => s.refreshBids);
-  const hasAccess = useAuthStore((s) => s.hasAccess);
+  const { getBidTabLevel } = useAccessLevel();
   const addToast = useUIStore((s) => s.addToast);
 
   const [pickerOpen, setPickerOpen] = React.useState(false);
@@ -43,7 +43,7 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
   const [target, setTarget] = React.useState<IBid | null>(null);
   const [saving, setSaving] = React.useState(false);
 
-  const canEditBids = hasAccess("workspace", "edit");
+  const canEditBids = getBidTabLevel("scope") === "edit";
   // The BID compared in the portal header is the package's default destination.
   const linkedBid = bidNumber ? bids.find((b) => b.bidNumber === bidNumber) : undefined;
   const linkedOpen = !!linkedBid && CLOSED_STATUSES.indexOf(linkedBid.currentStatus) < 0;

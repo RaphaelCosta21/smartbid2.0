@@ -1,0 +1,118 @@
+/* SupplierCombobox — registered-supplier suggestions + new-supplier hint */
+
+.container {
+  position: relative;
+  width: 100%;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.dropdown {
+  position: fixed;
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: var(--z-popover);
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-card-hover);
+  padding: 4px 0;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 3px;
+  }
+}
+
+.option {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+}
+
+.highlighted {
+  background: var(--hover-bg);
+}
+
+.optionName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.optionAlias {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inactiveTag {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.status {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.statusRegistered,
+.statusNew,
+.statusPossible {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.statusRegistered {
+  color: var(--success);
+}
+
+.statusNew {
+  color: var(--info);
+}
+
+.statusPossible {
+  color: var(--warning);
+}
+
+.useBtn {
+  margin-left: 4px;
+  padding: 1px 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  color: var(--warning);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in srgb, var(--warning) 22%, transparent);
+  }
+}

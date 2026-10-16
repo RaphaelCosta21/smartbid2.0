@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Star } from "lucide-react";
 import { useConfigStore } from "../../stores/useConfigStore";
 import styles from "./ImportSourceList.module.scss";
 
@@ -13,8 +14,11 @@ export interface IImportSource {
   itemCount: number;
   itemLabel: string;
   tags: string[];
+  isFavorite?: boolean;
   sourceData: any;
 }
+
+type SourceTypeFilter = "all" | "favorites" | "bid" | "template";
 
 interface ImportSourceListProps {
   sources: IImportSource[];
@@ -35,9 +39,23 @@ export const ImportSourceList: React.FC<ImportSourceListProps> = ({
     currentDivision || "",
   );
   const [filterServiceLine, setFilterServiceLine] = React.useState<string>("");
-  const [filterType, setFilterType] = React.useState<
-    "all" | "bid" | "template"
-  >("all");
+  const [filterType, setFilterType] = React.useState<SourceTypeFilter>("all");
+
+  const typeCounts = React.useMemo(() => {
+    const counts = { all: sources.length, favorites: 0, bid: 0, template: 0 };
+    sources.forEach((s) => {
+      counts[s.type]++;
+      if (s.isFavorite) counts.favorites++;
+    });
+    return counts;
+  }, [sources]);
+
+  const typeOptions: { key: SourceTypeFilter; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "favorites", label: "Favorites" },
+    { key: "bid", label: "BIDs" },
+    { key: "template", label: "Templates" },
+  ];
 
   // Get unique divisions and service lines from config
   const divisions: string[] = React.useMemo(() => {
@@ -62,8 +80,9 @@ export const ImportSourceList: React.FC<ImportSourceListProps> = ({
   const filteredSources = React.useMemo(() => {
     let result = sources;
 
-    // Filter by type
-    if (filterType !== "all") {
+    if (filterType === "favorites") {
+      result = result.filter((s) => s.isFavorite);
+    } else if (filterType !== "all") {
       result = result.filter((s) => s.type === filterType);
     }
 
@@ -91,9 +110,10 @@ export const ImportSourceList: React.FC<ImportSourceListProps> = ({
       });
     }
 
-    // Sort: templates first, then by date descending
+    // Sort: templates first, then favorite BIDs, then by date descending
     result = result.slice().sort((a, b) => {
       if (a.type !== b.type) return a.type === "template" ? -1 : 1;
+      if (!!a.isFavorite !== !!b.isFavorite) return a.isFavorite ? -1 : 1;
       return (b.date || "").localeCompare(a.date || "");
     });
 
@@ -168,24 +188,25 @@ export const ImportSourceList: React.FC<ImportSourceListProps> = ({
         <div className={styles.filterGroup}>
           {/* Type filter pills */}
           <div className={styles.typePills}>
-            <button
-              className={`${styles.pill} ${filterType === "all" ? styles.pillActive : ""}`}
-              onClick={() => setFilterType("all")}
-            >
-              All
-            </button>
-            <button
-              className={`${styles.pill} ${filterType === "bid" ? styles.pillActive : ""}`}
-              onClick={() => setFilterType("bid")}
-            >
-              BIDs
-            </button>
-            <button
-              className={`${styles.pill} ${filterType === "template" ? styles.pillActive : ""}`}
-              onClick={() => setFilterType("template")}
-            >
-              Templates
-            </button>
+            {typeOptions.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                className={`${styles.pill} ${filterType === opt.key ? styles.pillActive : ""}`}
+                onClick={() => setFilterType(opt.key)}
+                aria-pressed={filterType === opt.key}
+              >
+                {opt.key === "favorites" && (
+                  <Star
+                    size={12}
+                    className={styles.pillStar}
+                    fill="currentColor"
+                  />
+                )}
+                {opt.label}
+                <span className={styles.pillCount}>{typeCounts[opt.key]}</span>
+              </button>
+            ))}
           </div>
 
           {/* Division filter */}
@@ -257,13 +278,25 @@ export const ImportSourceList: React.FC<ImportSourceListProps> = ({
             >
               <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <p>No sources match your filters</p>
-            <span>Try adjusting the search or filter criteria</span>
+            {filterType === "favorites" && typeCounts.favorites === 0 ? (
+              <>
+                <p>No favorite BIDs yet</p>
+                <span>
+                  Star a completed BID to find it here quickly next time
+                </span>
+              </>
+            ) : (
+              <>
+                <p>No sources match your filters</p>
+                <span>Try adjusting the search or filter criteria</span>
+              </>
+            )}
           </div>
         ) : (
           filteredSources.map((source) => (
             <button
-              key={source.id}
+              key={`${source.type}-${source.id}`}
+              type="button"
               className={styles.sourceCard}
               onClick={() => onSelect(source)}
             >
@@ -275,6 +308,11 @@ export const ImportSourceList: React.FC<ImportSourceListProps> = ({
                     {source.type === "bid" ? "BID" : "TPL"}
                   </span>
                   <span className={styles.cardTitle}>{source.title}</span>
+                  {source.isFavorite && (
+                    <span className={styles.favStar} title="Favorite">
+                      <Star size={14} fill="currentColor" />
+                    </span>
+                  )}
                 </div>
                 <div className={styles.cardMeta}>
                   <span className={styles.cardSubtitle}>{source.subtitle}</span>

@@ -71,7 +71,7 @@ export const ApprovalMatrix: React.FC<ApprovalMatrixProps> = ({
                     <td className={styles.cellDate}>
                       {step.decisionDate
                         ? new Date(step.decisionDate).toLocaleDateString()
-                        : "—"}
+                        : "-"}
                     </td>
                   </tr>
                 ),

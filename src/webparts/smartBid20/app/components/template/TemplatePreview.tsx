@@ -49,12 +49,12 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
             {dataItems.slice(0, 15).map((item, idx) => (
               <tr key={item.id}>
                 <td>{idx + 1}</td>
-                <td>{item.description || "—"}</td>
-                <td>{item.resourceType || "—"}</td>
-                <td>{item.resourceSubType || "—"}</td>
+                <td>{item.description || "-"}</td>
+                <td>{item.resourceType || "-"}</td>
+                <td>{item.resourceSubType || "-"}</td>
                 <td className={styles.cellRight}>{item.qtyOperational}</td>
                 <td className={styles.cellRight}>{item.qtySpare}</td>
-                <td>{item.compliance || "—"}</td>
+                <td>{item.compliance || "-"}</td>
               </tr>
             ))}
           </tbody>

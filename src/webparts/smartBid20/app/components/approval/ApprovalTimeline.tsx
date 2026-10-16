@@ -24,7 +24,7 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({
               id: `${chain.chainId}-${step.stepOrder}`,
               title: `${step.approver.name} (${step.role})`,
               description: step.decision
-                ? `${step.decision}${step.comments ? ` — ${step.comments}` : ""}`
+                ? `${step.decision}${step.comments ? ` - ${step.comments}` : ""}`
                 : step.stepOrder === chain.currentStep
                   ? "Awaiting decision..."
                   : "Pending",

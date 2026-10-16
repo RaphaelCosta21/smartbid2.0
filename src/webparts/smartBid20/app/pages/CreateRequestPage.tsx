@@ -10,6 +10,7 @@ import { useConfigStore } from "../stores/useConfigStore";
 import { useSurveyStore } from "../stores/useSurveyStore";
 import { buildScopeItemsFromPackage } from "../utils/surveyPackage";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useKpiTargets } from "../hooks/useKpiTargets";
 import { useSpfxContext } from "../config/SpfxContext";
 import { sanitizeText } from "../utils/validators";
 import {
@@ -18,6 +19,7 @@ import {
   isToday,
   countBusinessDays,
 } from "../utils/businessDays";
+import { parseDate } from "../utils/formatters";
 import { PRIORITY_COLORS } from "../utils/constants";
 import { IPersonRef } from "../models/IUser";
 import { ITeamMember } from "../models/ITeamMember";
@@ -48,6 +50,7 @@ interface FormData {
   vessel: string;
   field: string;
   commercialFolderUrl: string;
+  technicalProposalRequested: boolean;
   notes: string;
 }
 
@@ -71,6 +74,7 @@ const INITIAL_FORM: FormData = {
   vessel: "",
   field: "",
   commercialFolderUrl: "",
+  technicalProposalRequested: false,
   notes: "",
 };
 
@@ -86,6 +90,7 @@ export const CreateRequestPage: React.FC = () => {
   const currentUser = useCurrentUser();
   const spfxContext = useSpfxContext();
   const config = useConfigStore((s) => s.config);
+  const { priorityRules } = useKpiTargets();
   const addRequest = useRequestStore((s) => s.setRequests);
   const requests = useRequestStore((s) => s.requests);
   const surveyPrefill = useSurveyStore((s) => s.requestPrefill);
@@ -99,6 +104,10 @@ export const CreateRequestPage: React.FC = () => {
   const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([]);
   const [showPeoplePicker, setShowPeoplePicker] = React.useState(false);
   const [showCommercialPicker, setShowCommercialPicker] = React.useState(false);
+  const [showClientPicker, setShowClientPicker] = React.useState(false);
+  // Only filter after the user types, so focusing a filled field still lists all clients
+  const [clientFilterActive, setClientFilterActive] = React.useState(false);
+  const [clientHighlight, setClientHighlight] = React.useState(-1);
   const [submitting, setSubmitting] = React.useState(false);
   const peoplePickerRef = React.useRef<HTMLDivElement>(null);
   const commercialPickerRef = React.useRef<HTMLDivElement>(null);
@@ -112,18 +121,26 @@ export const CreateRequestPage: React.FC = () => {
 
   // Computed priority from due date
   const computedPriority: BidPriority = form.desiredDueDate
-    ? calculatePriority(form.desiredDueDate)
+    ? calculatePriority(form.desiredDueDate, priorityRules)
     : "Normal";
 
   // Business days until due date
   const businessDaysUntilDue = form.desiredDueDate
-    ? countBusinessDays(new Date(), new Date(form.desiredDueDate))
+    ? countBusinessDays(
+        new Date(),
+        parseDate(form.desiredDueDate) || new Date(),
+      )
     : null;
 
   // Config-driven lists
   const clientOptions = (
     config?.clientList?.filter((c) => c.isActive) || []
   ).sort((a, b) => a.label.localeCompare(b.label));
+  const clientQuery = form.client.trim().toLowerCase();
+  const filteredClients =
+    clientFilterActive && clientQuery
+      ? clientOptions.filter((c) => c.label.toLowerCase().includes(clientQuery))
+      : clientOptions;
   const divisionOptions = config?.divisions?.filter((d) => d.isActive) || [];
   const bidTypeOptions = config?.bidTypes?.filter((b) => b.isActive) || [];
 
@@ -307,10 +324,51 @@ export const CreateRequestPage: React.FC = () => {
     });
   };
 
+  const selectClient = (value: string): void => {
+    updateField("client", value);
+    setShowClientPicker(false);
+    setClientFilterActive(false);
+    setClientHighlight(-1);
+  };
+
+  const handleClientBlur = (): void => {
+    setShowClientPicker(false);
+    setClientHighlight(-1);
+    // Normalize casing when the typed text matches a configured client
+    const match = clientOptions.find(
+      (c) => c.label.toLowerCase() === clientQuery,
+    );
+    if (match && match.value !== form.client)
+      updateField("client", match.value);
+  };
+
+  const handleClientKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ): void => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setShowClientPicker(true);
+      setClientHighlight((i) => (i < filteredClients.length - 1 ? i + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setShowClientPicker(true);
+      setClientHighlight((i) => (i > 0 ? i - 1 : filteredClients.length - 1));
+    } else if (
+      e.key === "Enter" &&
+      showClientPicker &&
+      filteredClients[clientHighlight]
+    ) {
+      e.preventDefault();
+      selectClient(filteredClients[clientHighlight].value);
+    } else if (e.key === "Escape") {
+      setShowClientPicker(false);
+    }
+  };
+
   const validateStep = (): boolean => {
     const stepErrors: string[] = [];
     if (step === 0) {
-      if (!form.client) stepErrors.push("Client is required.");
+      if (!form.client.trim()) stepErrors.push("Client is required.");
       if (!form.projectName) stepErrors.push("Project Name is required.");
       if (!form.division) stepErrors.push("Division is required.");
       if (!form.serviceLine) stepErrors.push("Service Line is required.");
@@ -364,7 +422,7 @@ export const CreateRequestPage: React.FC = () => {
           photoUrl: currentUserPhoto || currentUser.photoUrl,
         },
         requestDate: now,
-        client: form.client,
+        client: form.client.trim(),
         clientContact: form.clientContact,
         crmNumber: form.crmNumber,
         projectName: form.projectName,
@@ -400,6 +458,7 @@ export const CreateRequestPage: React.FC = () => {
         vessel: form.vessel,
         field: form.field,
         commercialFolderUrl: form.commercialFolderUrl,
+        technicalProposalRequested: form.technicalProposalRequested,
         attachments: attachmentsMeta,
         phases: [
           {
@@ -588,7 +647,7 @@ export const CreateRequestPage: React.FC = () => {
           {surveyPrefill && surveyPrefill.length > 0 && (
             <div className={styles.surveyBanner}>
               <span>
-                Survey package attached — {surveyPackageCount} unit(s) across{" "}
+                Survey package attached - {surveyPackageCount} unit(s) across{" "}
                 {surveyPrefill.length} equipment will be added to the Scope of
                 Supply.
               </span>
@@ -612,21 +671,70 @@ export const CreateRequestPage: React.FC = () => {
                 📋 Client & Project Information
               </div>
               <div className={styles.formGrid}>
-                <label className={styles.formGroup}>
+                <div className={styles.formGroup}>
                   <span className={styles.formLabel}>Client *</span>
-                  <select
-                    className={styles.formInput}
-                    value={form.client}
-                    onChange={(e) => updateField("client", e.target.value)}
-                  >
-                    <option value="">Select client...</option>
-                    {clientOptions.map((c) => (
-                      <option key={c.id} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <div className={styles.peoplePickerWrapper}>
+                    <input
+                      className={`${styles.formInput} ${styles.comboInput}`}
+                      value={form.client}
+                      onChange={(e) => {
+                        updateField("client", e.target.value);
+                        setClientFilterActive(true);
+                        setShowClientPicker(true);
+                        setClientHighlight(-1);
+                      }}
+                      onFocus={() => {
+                        setClientFilterActive(false);
+                        setShowClientPicker(true);
+                      }}
+                      onClick={() => setShowClientPicker(true)}
+                      onBlur={handleClientBlur}
+                      onKeyDown={handleClientKeyDown}
+                      placeholder="Type or select client..."
+                      autoComplete="off"
+                      role="combobox"
+                      aria-expanded={showClientPicker}
+                      aria-autocomplete="list"
+                    />
+                    <span className={styles.comboCaret} aria-hidden="true">
+                      ▾
+                    </span>
+                    {showClientPicker && (
+                      <div className={styles.peopleDropdown} role="listbox">
+                        {filteredClients.length === 0 ? (
+                          <div className={styles.peopleDropdownEmpty}>
+                            {form.client.trim()
+                              ? `No match - "${form.client.trim()}" will be used as a new client`
+                              : "No clients configured"}
+                          </div>
+                        ) : (
+                          filteredClients.map((c, i) => (
+                            <div
+                              key={c.id}
+                              role="option"
+                              aria-selected={c.value === form.client}
+                              ref={
+                                i === clientHighlight
+                                  ? (el) =>
+                                      el?.scrollIntoView({ block: "nearest" })
+                                  : undefined
+                              }
+                              className={`${styles.peopleDropdownItem} ${styles.comboOption} ${i === clientHighlight ? styles.comboOptionActive : ""}`}
+                              // mousedown + preventDefault keeps input focus so blur doesn't close first
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                selectClient(c.value);
+                              }}
+                              onMouseEnter={() => setClientHighlight(i)}
+                            >
+                              {c.label}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <label className={styles.formGroup}>
                   <span className={styles.formLabel}>Client Contact</span>
                   <input
@@ -1047,7 +1155,7 @@ export const CreateRequestPage: React.FC = () => {
                             <line x1="12" y1="17" x2="12.01" y2="17" />
                           </svg>
                           <span>
-                            <strong>🔴 Urgent Priority</strong> — Due date is
+                            <strong>🔴 Urgent Priority</strong> - Due date is
                             within {businessDaysUntilDue} business day
                             {businessDaysUntilDue !== 1 ? "s" : ""}. This BID
                             will be flagged as high priority.
@@ -1068,7 +1176,7 @@ export const CreateRequestPage: React.FC = () => {
                           <polyline points="12 6 12 12 16 14" />
                         </svg>
                         <span>
-                          <strong>🟡 Normal Priority</strong> — Standard
+                          <strong>🟡 Normal Priority</strong> - Standard
                           timeline ({businessDaysUntilDue} business day
                           {businessDaysUntilDue !== 1 ? "s" : ""}).
                         </span>
@@ -1088,7 +1196,7 @@ export const CreateRequestPage: React.FC = () => {
                           <polyline points="12 6 12 12 16 14" />
                         </svg>
                         <span>
-                          <strong>🟢 Low Priority</strong> — Extended timeline (
+                          <strong>🟢 Low Priority</strong> - Extended timeline (
                           {businessDaysUntilDue} business day
                           {businessDaysUntilDue !== 1 ? "s" : ""} until due
                           date).
@@ -1141,6 +1249,28 @@ export const CreateRequestPage: React.FC = () => {
                     Do not change the folder path after submission.
                   </span>
                 </label>
+                <div className={styles.formGroupFull}>
+                  <span className={styles.formLabel}>Technical Proposal</span>
+                  <label className={styles.checkboxRow}>
+                    <input
+                      type="checkbox"
+                      checked={form.technicalProposalRequested}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setForm((prev) => ({
+                          ...prev,
+                          technicalProposalRequested: checked,
+                        }));
+                      }}
+                    />
+                    <span className={styles.checkboxText}>
+                      Deliver a Technical Proposal with this BID
+                    </span>
+                  </label>
+                  <span className={styles.fieldNote}>
+                    Engineering attaches the proposal PDF in the BID documents.
+                  </span>
+                </div>
                 <label className={styles.formGroupFull}>
                   <span className={styles.formLabel}>Notes</span>
                   <textarea
@@ -1189,43 +1319,43 @@ export const CreateRequestPage: React.FC = () => {
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Client</span>
                   <span className={styles.reviewCellValue}>
-                    {form.client || "—"}
+                    {form.client || "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Client Contact</span>
                   <span className={styles.reviewCellValue}>
-                    {form.clientContact || "—"}
+                    {form.clientContact || "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>CRM</span>
                   <span className={styles.reviewCellValue}>
-                    {form.crmNumber || "—"}
+                    {form.crmNumber || "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Division</span>
                   <span className={styles.reviewCellValue}>
-                    {form.division || "—"}
+                    {form.division || "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Service Line</span>
                   <span className={styles.reviewCellValue}>
-                    {form.serviceLine || "—"}
+                    {form.serviceLine || "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>
                   <span className={styles.reviewCellLabel}>Project Name</span>
                   <span className={styles.reviewCellValue}>
-                    {form.projectName || "—"}
+                    {form.projectName || "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCellFull}>
                   <span className={styles.reviewCellLabel}>Description</span>
                   <span className={styles.reviewCellValue}>
-                    {form.projectDescription || "—"}
+                    {form.projectDescription || "-"}
                   </span>
                 </div>
                 {form.operationStartDate && (
@@ -1275,7 +1405,7 @@ export const CreateRequestPage: React.FC = () => {
                             size="small"
                           />
                         ))
-                      : "—"}
+                      : "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>
@@ -1304,7 +1434,7 @@ export const CreateRequestPage: React.FC = () => {
                         size="small"
                       />
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -1317,7 +1447,7 @@ export const CreateRequestPage: React.FC = () => {
                     Desired Due Date
                   </span>
                   <span className={styles.reviewCellValue}>
-                    {form.desiredDueDate || "—"}
+                    {form.desiredDueDate || "-"}
                   </span>
                 </div>
                 <div className={styles.reviewCell}>
@@ -1351,6 +1481,7 @@ export const CreateRequestPage: React.FC = () => {
               {(form.vessel ||
                 form.field ||
                 form.commercialFolderUrl ||
+                form.technicalProposalRequested ||
                 form.notes ||
                 uploadedFiles.length > 0) && (
                 <>
@@ -1387,6 +1518,16 @@ export const CreateRequestPage: React.FC = () => {
                           >
                             {form.commercialFolderUrl}
                           </a>
+                        </span>
+                      </div>
+                    )}
+                    {form.technicalProposalRequested && (
+                      <div className={styles.reviewCell}>
+                        <span className={styles.reviewCellLabel}>
+                          Technical Proposal
+                        </span>
+                        <span className={styles.reviewCellValue}>
+                          Requested
                         </span>
                       </div>
                     )}

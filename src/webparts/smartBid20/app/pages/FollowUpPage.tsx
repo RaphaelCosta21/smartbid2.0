@@ -5,7 +5,7 @@ import { DivisionBadge } from "../components/common/DivisionBadge";
 import { DataTable } from "../components/common/DataTable";
 import { useBids } from "../hooks/useBids";
 import { useConfigStore } from "../stores/useConfigStore";
-import { useAuthStore } from "../stores/useAuthStore";
+import { usePageAccess } from "../hooks/usePageAccess";
 import { useBidStore } from "../stores/useBidStore";
 import { BidService } from "../services/BidService";
 import { GlassCard } from "../components/common/GlassCard";
@@ -15,8 +15,16 @@ import { Sparkline } from "../components/charts/Sparkline";
 import { AnalyticsFilterBar } from "../components/insights/AnalyticsFilterBar";
 import { useChartTheme } from "../hooks/useChartTheme";
 import { useAnalyticsFilters } from "../hooks/useAnalyticsFilters";
+import { usePastBidPublisher } from "../hooks/usePastBidPublisher";
 import { winRateTrend } from "../utils/analyticsHelpers";
 import { formatDate } from "../utils/formatters";
+import {
+  buildWinRateIndex,
+  getHistoricalWinProbability,
+  getWinProbability,
+  WIN_PROBABILITY_LEVELS,
+  WIN_PROBABILITY_SOURCE_LABEL,
+} from "../utils/winProbability";
 import { IBid, IBidResult } from "../models";
 import {
   ComposedChart,
@@ -37,30 +45,33 @@ import {
 } from "recharts";
 import styles from "./FollowUpPage.module.scss";
 
+/** Outcomes still open to a win: they get a win chance. */
+function isUndecided(outcome: string | null | undefined): boolean {
+  return !outcome || outcome === "Pending" || outcome === "Renegotiation";
+}
+
 /* ─────────────────────────────── Component ─────────────────────────────── */
 
 export const FollowUpPage: React.FC = () => {
   const { bids } = useBids();
   const config = useConfigStore((s) => s.config);
   const setBids = useBidStore((s) => s.setBids);
-  const currentUser = useAuthStore((s) => s.currentUser);
   const navigate = useNavigate();
   const chart = useChartTheme();
+  const publishPastBid = usePastBidPublisher();
 
-  // Access control: only Commercial and Engineering teams can edit
-  const canEdit = React.useMemo(() => {
-    if (currentUser.isSuperAdmin) return true;
-    const team = (
-      currentUser.teamCategory ||
-      currentUser.role ||
-      ""
-    ).toLowerCase();
-    return team === "commercial" || team === "engineering";
-  }, [currentUser]);
+  const { canEdit } = usePageAccess();
 
   // Top-level filters (division / service line / date / search) via shared bar
-  const { filters, patch, setPreset, reset, applyFilters, hasActive } =
-    useAnalyticsFilters();
+  const {
+    filters,
+    patch,
+    setPreset,
+    reset,
+    applyFilters,
+    getFacetCounts,
+    hasActive,
+  } = useAnalyticsFilters();
 
   // Table-level filters
   const [outcomeFilter, setOutcomeFilter] = React.useState<string>("all");
@@ -77,6 +88,11 @@ export const FollowUpPage: React.FC = () => {
   const [formCompetitor, setFormCompetitor] = React.useState<string>("");
   const [formNotes, setFormNotes] = React.useState<string>("");
   const [formFollowUpDate, setFormFollowUpDate] = React.useState<string>("");
+  /** null = Auto (historical win rate) */
+  const [formWinChance, setFormWinChance] = React.useState<number | null>(null);
+
+  // History base for win chances: every decided BID, not just the filtered ones
+  const winIndex = React.useMemo(() => buildWinRateIndex(bids), [bids]);
 
   /* ────────────────────── Config-driven options ────────────────────── */
 
@@ -186,6 +202,11 @@ export const FollowUpPage: React.FC = () => {
     [completedBids, applyFilters],
   );
 
+  const facetCounts = React.useMemo(
+    () => getFacetCounts(completedBids, "createdDate"),
+    [completedBids, getFacetCounts],
+  );
+
   const filtered = React.useMemo(() => {
     let result = kpiFilteredBids;
 
@@ -231,6 +252,15 @@ export const FollowUpPage: React.FC = () => {
     const decided = won + lost;
     const winRate = decided > 0 ? Math.round((won / decided) * 100) : 0;
 
+    let expectedWins = 0;
+    let undecided = 0;
+    kpiFilteredBids.forEach((b) => {
+      if (!isUndecided(b.bidResult?.outcome)) return;
+      undecided++;
+      const p = getWinProbability(b, winIndex);
+      if (p) expectedWins += p.value / 100;
+    });
+
     // Average days from completion to outcome
     const withOutcome = kpiFilteredBids.filter(
       (b) =>
@@ -249,8 +279,17 @@ export const FollowUpPage: React.FC = () => {
       avgDaysToResult = Math.round(totalDays / withOutcome.length);
     }
 
-    return { total, won, lost, pending, winRate, avgDaysToResult };
-  }, [kpiFilteredBids]);
+    return {
+      total,
+      won,
+      lost,
+      pending,
+      winRate,
+      avgDaysToResult,
+      expectedWins: Math.round(expectedWins * 10) / 10,
+      undecided,
+    };
+  }, [kpiFilteredBids, winIndex]);
 
   /* ────────────────────── Chart Data ────────────────────── */
 
@@ -316,6 +355,8 @@ export const FollowUpPage: React.FC = () => {
     setFormCompetitor(bid.bidResult?.competitorName || "");
     setFormNotes(bid.bidResult?.feedbackNotes || "");
     setFormFollowUpDate(bid.bidResult?.followUpDate || "");
+    const manual = bid.bidResult?.winProbability;
+    setFormWinChance(typeof manual === "number" ? manual : null);
     setSaveSuccess(false);
   };
 
@@ -341,11 +382,18 @@ export const FollowUpPage: React.FC = () => {
         followUpDate: formFollowUpDate || null,
         lastUpdatedBy: null,
         lastUpdatedDate: new Date().toISOString(),
+        winProbability: isUndecided(formOutcome) ? formWinChance : null,
       };
 
       await BidService.patchByBidNumber(drawerBid.bidNumber, {
         bidResult: updatedResult,
       } as Partial<IBid>);
+      if (drawerBid.knowledgeProfile) {
+        publishPastBid(
+          { ...drawerBid, bidResult: updatedResult },
+          { runAi: false, silent: true },
+        ).catch(() => undefined);
+      }
 
       // Optimistic local update
       const updatedBids = bids.map((b) =>
@@ -394,7 +442,7 @@ export const FollowUpPage: React.FC = () => {
       header: "Client",
       render: (bid: IBid) => (
         <span className={styles.clientText}>
-          {bid.opportunityInfo?.client || "—"}
+          {bid.opportunityInfo?.client || "-"}
         </span>
       ),
     },
@@ -403,7 +451,7 @@ export const FollowUpPage: React.FC = () => {
       header: "Project",
       render: (bid: IBid) => (
         <span className={styles.clientText}>
-          {bid.opportunityInfo?.projectName || "—"}
+          {bid.opportunityInfo?.projectName || "-"}
         </span>
       ),
     },
@@ -411,7 +459,7 @@ export const FollowUpPage: React.FC = () => {
       key: "crmNumber",
       header: "CRM",
       render: (bid: IBid) => (
-        <span className={styles.serviceLineText}>{bid.crmNumber || "—"}</span>
+        <span className={styles.serviceLineText}>{bid.crmNumber || "-"}</span>
       ),
     },
     {
@@ -423,7 +471,7 @@ export const FollowUpPage: React.FC = () => {
       key: "serviceLine",
       header: "Service Line",
       render: (bid: IBid) => (
-        <span className={styles.serviceLineText}>{bid.serviceLine || "—"}</span>
+        <span className={styles.serviceLineText}>{bid.serviceLine || "-"}</span>
       ),
     },
     {
@@ -432,7 +480,7 @@ export const FollowUpPage: React.FC = () => {
       sortable: true,
       render: (bid: IBid) => (
         <span className={styles.dateText}>
-          {bid.createdDate ? formatDate(bid.createdDate) : "—"}
+          {bid.createdDate ? formatDate(bid.createdDate) : "-"}
         </span>
       ),
     },
@@ -442,7 +490,7 @@ export const FollowUpPage: React.FC = () => {
       sortable: true,
       render: (bid: IBid) => (
         <span className={styles.dateText}>
-          {bid.completedDate ? formatDate(bid.completedDate) : "—"}
+          {bid.completedDate ? formatDate(bid.completedDate) : "-"}
         </span>
       ),
     },
@@ -474,6 +522,32 @@ export const FollowUpPage: React.FC = () => {
       },
     },
     {
+      key: "winChance",
+      header: "Win Chance",
+      render: (bid: IBid) => {
+        if (!isUndecided(bid.bidResult?.outcome)) {
+          return <span className={styles.dateText}>-</span>;
+        }
+        const p = getWinProbability(bid, winIndex);
+        if (!p) return <span className={styles.dateText}>-</span>;
+        return (
+          <span
+            className={styles.chanceCell}
+            title={
+              p.source === "manual"
+                ? "Set by the commercial team"
+                : `${WIN_PROBABILITY_SOURCE_LABEL[p.source]} (${p.sample} decided BIDs)`
+            }
+          >
+            <strong>{p.value}%</strong>
+            <span className={styles.chanceSource}>
+              {p.source === "manual" ? "Manual" : "History"}
+            </span>
+          </span>
+        );
+      },
+    },
+    {
       key: "lossReason",
       header: "Loss Reason",
       render: (bid: IBid) =>
@@ -482,7 +556,7 @@ export const FollowUpPage: React.FC = () => {
             {bid.bidResult.lostReason}
           </span>
         ) : (
-          <span className={styles.dateText}>—</span>
+          <span className={styles.dateText}>-</span>
         ),
     },
     {
@@ -492,7 +566,7 @@ export const FollowUpPage: React.FC = () => {
         <span className={styles.dateText}>
           {bid.bidResult?.outcomeDate
             ? formatDate(bid.bidResult.outcomeDate)
-            : "—"}
+            : "-"}
         </span>
       ),
     },
@@ -561,6 +635,7 @@ export const FollowUpPage: React.FC = () => {
           value: s.value,
           label: s.label || s.value,
         }))}
+        facetCounts={facetCounts}
       />
 
       {/* KPI Cards */}
@@ -594,6 +669,13 @@ export const FollowUpPage: React.FC = () => {
           value={kpis.pending}
           accentColor={chart.warning}
           subtitle="Awaiting outcome"
+        />
+        <KPICard
+          variant="glass"
+          label="Expected Wins"
+          value={kpis.expectedWins}
+          accentColor={chart.accent}
+          subtitle={`of ${kpis.undecided} undecided · weighted by win chance`}
         />
         <KPICard
           variant="glass"
@@ -980,14 +1062,14 @@ export const FollowUpPage: React.FC = () => {
                   {drawerBid.bidNumber} ↗
                 </span>
                 <span className={styles.drawerClient}>
-                  {drawerBid.opportunityInfo?.client || "—"}
+                  {drawerBid.opportunityInfo?.client || "-"}
                 </span>
                 <span className={styles.drawerProject}>
-                  {drawerBid.opportunityInfo?.projectName || "—"}
+                  {drawerBid.opportunityInfo?.projectName || "-"}
                 </span>
                 <div className={styles.drawerMeta}>
                   <span>{drawerBid.division}</span>
-                  <span>{drawerBid.serviceLine || "—"}</span>
+                  <span>{drawerBid.serviceLine || "-"}</span>
                   {drawerBid.completedDate && (
                     <span>Completed {formatDate(drawerBid.completedDate)}</span>
                   )}
@@ -1073,6 +1155,45 @@ export const FollowUpPage: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* Win chance while the BID is undecided */}
+              {isUndecided(formOutcome) &&
+                (() => {
+                  const hist = getHistoricalWinProbability(drawerBid, winIndex);
+                  return (
+                    <div className={styles.drawerSection}>
+                      <span className={styles.drawerSectionTitle}>
+                        Win Chance
+                      </span>
+                      <div className={styles.chanceGrid}>
+                        <button
+                          type="button"
+                          className={`${styles.chanceBtn} ${formWinChance === null ? styles.chanceBtnActive : ""}`}
+                          onClick={() => setFormWinChance(null)}
+                        >
+                          Auto{hist ? ` (${hist.value}%)` : ""}
+                        </button>
+                        {WIN_PROBABILITY_LEVELS.map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            className={`${styles.chanceBtn} ${formWinChance === v ? styles.chanceBtnActive : ""}`}
+                            onClick={() => setFormWinChance(v)}
+                          >
+                            {v}%
+                          </button>
+                        ))}
+                      </div>
+                      <span className={styles.chanceHint}>
+                        {formWinChance !== null
+                          ? "Manual estimate from the commercial team. Used in the Engineering Dashboard expected demand."
+                          : hist
+                            ? `Auto uses ${WIN_PROBABILITY_SOURCE_LABEL[hist.source].toLowerCase()} (${hist.sample} decided BIDs).`
+                            : "No decided BIDs yet to estimate a win chance."}
+                      </span>
+                    </div>
+                  );
+                })()}
 
               {/* Notes & Follow-up */}
               <div className={styles.drawerSection}>

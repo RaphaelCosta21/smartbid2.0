@@ -15,6 +15,8 @@ const LEGACY_CONFIG_KEY = "QUOTATIONS";
 const F = SHAREPOINT_CONFIG.quotationFields;
 const QUOTATIONS_FOLDER =
   "/sites/G-OPGSSRBrazilEngineering/smartBidDocs/Quotations";
+/** Max length of Title and the single-line text columns (SharePoint limit). */
+export const QUOTATION_TEXT_MAX = 255;
 
 /** Runs at most once per session; the columns only need provisioning the first time. */
 let ensureColumnsPromise: Promise<void> | undefined;
@@ -273,7 +275,14 @@ export class QuotationService {
     // Prefix with timestamp to avoid collisions
     const safeName = file.name.replace(/[\\/:*?"<>|#%]/g, "_");
     const ts = Date.now();
-    const fileName = `${ts}_${safeName}`;
+    let fileName = `${ts}_${safeName}`;
+    // The resulting URL is stored in the FileUrl text column (255 chars).
+    const maxName = QUOTATION_TEXT_MAX - QUOTATIONS_FOLDER.length - 1;
+    if (fileName.length > maxName) {
+      const dot = fileName.lastIndexOf(".");
+      const ext = dot > 0 ? fileName.slice(dot) : "";
+      fileName = fileName.slice(0, maxName - ext.length) + ext;
+    }
 
     const result = await SPService.sp.web
       .getFolderByServerRelativePath(QUOTATIONS_FOLDER)

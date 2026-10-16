@@ -8,36 +8,117 @@
   gap: 20px;
 }
 
-/* ---- Toolbar (search + view toggle + filters) -------------------- */
+/* ---- View toggle (PageHeader actions — dark hero in both themes) - */
 
-.toolbar {
-  display: flex;
+.viewToggle {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--header-input-bg);
+  border: 1px solid var(--header-border);
+  backdrop-filter: blur(12px);
 }
 
-.searchInput {
-  flex: 1;
-  min-width: 550px;
-  padding: 9px 14px 9px 36px;
-  border-radius: 10px;
-  border: 1px solid var(--border-subtle);
-  background: var(--card-bg);
-  color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-  transition: border-color 200ms;
+.viewIndicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  box-sizing: border-box;
+  border-radius: 8px;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--primary-accent) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary-accent) 55%, transparent);
+  box-shadow: var(--shadow-glow);
+}
 
-  &:focus {
-    border-color: var(--primary-accent);
+// Slight overshoot for an elastic, Apple-like settle
+.viewIndicatorAnimated {
+  transition:
+    transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    width 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.viewBtn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--header-text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 200ms ease,
+    background 200ms ease;
+
+  &:hover:not(.viewBtnActive) {
+    color: var(--header-text-primary);
+    background: var(--header-input-bg);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 1px;
   }
 }
 
-.searchWrap {
+.viewBtnActive {
+  color: var(--header-text-primary);
+
+  svg {
+    color: var(--primary-accent);
+    transition: color 200ms ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewBtn,
+  .viewIndicatorAnimated {
+    transition: none;
+  }
+}
+
+/* ---- KPI cards ---------------------------------------------------- */
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+/* ---- Filter bar (glass) ------------------------------------------- */
+
+.filterBar {
+  // Above later glass siblings so dropdown panels aren't covered
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-card);
+}
+
+.searchWrapper {
   position: relative;
-  flex: 2;
-  min-width: 320px;
+  flex: 1 1 240px;
+  min-width: 200px;
 }
 
 .searchIcon {
@@ -45,117 +126,61 @@
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   pointer-events: none;
 }
 
-.viewToggle {
-  display: flex;
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  overflow: hidden;
-}
+.searchInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 14px 8px 36px;
+  border-radius: 9px;
+  border: 1px solid var(--glass-border);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: border-color 200ms ease;
 
-.viewBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border: none;
-  background: var(--card-bg);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 200ms;
-
-  &.viewBtnActive {
-    background: var(--primary-accent);
-    color: #fff;
+  &::placeholder {
+    color: var(--text-muted);
   }
-}
-
-.filterBtn {
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-  background: var(--card-bg);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  transition: all 200ms;
-
-  &.filterBtnActive {
-    background: var(--primary-accent);
-    color: #fff;
-    border-color: var(--primary-accent);
-  }
-}
-
-.filterSelect {
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-  background: var(--card-bg);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  outline: none;
-  transition: border-color 200ms;
 
   &:focus {
+    outline: none;
     border-color: var(--primary-accent);
   }
 }
 
-/* ---- Stat summary row -------------------------------------------- */
-
-.statRow {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.statCard {
-  flex: 1;
-  min-width: 130px;
-  display: flex;
+.clearBtn {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: var(--card-bg);
-  border: 1px solid var(--border-subtle);
+  gap: 4px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms ease;
+
+  &:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
 }
 
-.statIcon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
-}
+.resultCount {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
 
-.statInfo {
-  display: flex;
-  flex-direction: column;
-}
-
-.statValue {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1;
-}
-
-.statLabel {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin-top: 2px;
+  strong {
+    color: var(--text-primary);
+    font-weight: 700;
+  }
 }
 
 /* ---- Shared helpers ---------------------------------------------- */
@@ -189,7 +214,7 @@
   border: none;
   border-radius: 6px;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   cursor: pointer;
   transition: opacity 200ms;
   white-space: nowrap;
@@ -681,7 +706,7 @@
   &.assignChecked {
     background: var(--primary-accent);
     border-color: var(--primary-accent);
-    color: #fff;
+    color: var(--primary-accent-contrast);
   }
 }
 
@@ -731,7 +756,7 @@
   border-radius: 8px;
   border: none;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--primary-accent-contrast);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;

@@ -1,6 +1,7 @@
 /**
- * ErnDashboardSection — ERN KPIs and breakdowns for the Engineering Dashboard.
- * Combines linked ERNs on BIDs with live ERN data from the store.
+ * ErnDashboardSection — ERN KPIs + watchlist ("status", live) and breakdown
+ * charts ("breakdown") for the Engineering Dashboard. Live ERN list data wins
+ * over the snapshot stored on the BID; the dashboard sync keeps the ERN store fresh.
  */
 import * as React from "react";
 import {
@@ -15,86 +16,64 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { IBid } from "../../models";
+import { IBid, IErn } from "../../models";
 import { useErnStore } from "../../stores/useErnStore";
 import { useChartTheme, categoricalColor } from "../../hooks/useChartTheme";
 import { useStatusColors } from "../../hooks/useStatusColors";
-import { getErnDeadlineState, getErnLinks } from "../../utils/ernHelpers";
+import { useKpiTargets } from "../../hooks/useKpiTargets";
+import { LiveOverview } from "../../hooks/useLiveOverview";
+import { buildErnLinkRows, ErnWatchFilter } from "../../utils/ernHelpers";
+import { targetTone } from "../../utils/kpiHelpers";
+import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import { GlassCard } from "../common/GlassCard";
 import { KPICard } from "../common/KPICard";
 import { EmptyState } from "../common/EmptyState";
 import { ChartTooltip } from "../charts/ChartTooltip";
+import { ErnWatchlist } from "./ErnWatchlist";
 import styles from "./ErnDashboardSection.module.scss";
 
 interface ErnDashboardSectionProps {
-  bids: IBid[];
+  view: "status" | "breakdown";
+  /** breakdown: BIDs of the selected period */
+  bids?: IBid[];
+  /** status: live ERN rows and KPIs from useLiveOverview */
+  live?: Pick<LiveOverview, "ernRows" | "ernKpis">;
+  onBidClick?: (bidNumber: string) => void;
 }
 
+const NO_BIDS: IBid[] = [];
+
 export const ErnDashboardSection: React.FC<ErnDashboardSectionProps> = ({
-  bids,
+  view,
+  bids = NO_BIDS,
+  live,
+  onBidClick,
 }) => {
   const erns = useErnStore((s) => s.erns);
-  const loadAll = useErnStore((s) => s.loadAll);
   const theme = useChartTheme();
   const { getDivisionColor } = useStatusColors();
+  const { targets } = useKpiTargets();
+  const [filter, setFilter] = React.useState<ErnWatchFilter>("open");
 
-  React.useEffect(() => {
-    if (erns.length === 0) loadAll().catch(console.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const ernStatusByTitle = React.useMemo(() => {
-    const map: Record<string, { status: string; dueDate: string }> = {};
+  const liveByTitle = React.useMemo(() => {
+    const map: Record<string, IErn> = {};
     erns.forEach((e) => {
-      map[e.title] = { status: e.status, dueDate: e.dueDate };
+      map[e.title] = e;
     });
     return map;
   }, [erns]);
 
-  // Flattened ERN links across all BIDs (Integrated BIDs contribute 2)
-  const links = React.useMemo(() => {
-    const out: {
-      bid: IBid;
-      ernNumber: string;
-      division: string | null;
-      status: string;
-      dueDate: string;
-      serviceLine: string;
-    }[] = [];
-    bids.forEach((b) => {
-      getErnLinks(b).forEach((l) => {
-        const live = ernStatusByTitle[l.ernNumber];
-        out.push({
-          bid: b,
-          ernNumber: l.ernNumber,
-          division: l.division,
-          status: live?.status || l.ernStatus || "Unknown",
-          dueDate: live?.dueDate || l.ernDueDate || "",
-          serviceLine: l.division || b.serviceLine || "—",
-        });
-      });
-    });
-    return out;
-  }, [bids, ernStatusByTitle]);
-
-  const kpis = React.useMemo(() => {
-    let open = 0;
-    let dueSoon = 0;
-    let overdue = 0;
-    links.forEach((l) => {
-      const s = l.status.toLowerCase();
-      if (s !== "completed" && s !== "closed" && s !== "cancelled") open++;
-      const state = getErnDeadlineState(l.dueDate, l.status);
-      if (state === "due-soon") dueSoon++;
-      if (state === "overdue") overdue++;
-    });
-    return { total: links.length, open, dueSoon, overdue };
-  }, [links]);
+  // Unique ERNs across the BIDs (Integrated BIDs contribute 2)
+  const links = React.useMemo(
+    () => (view === "breakdown" ? buildErnLinkRows(bids, liveByTitle) : []),
+    [view, bids, liveByTitle],
+  );
 
   const byServiceLine = React.useMemo(() => {
     const map: Record<string, number> = {};
     links.forEach((l) => {
-      map[l.serviceLine] = (map[l.serviceLine] || 0) + 1;
+      const key = l.division || l.bid.serviceLine || "-";
+      map[key] = (map[key] || 0) + 1;
     });
     return Object.keys(map)
       .map((k) => ({ name: k, count: map[k] }))
@@ -104,7 +83,7 @@ export const ErnDashboardSection: React.FC<ErnDashboardSectionProps> = ({
   const byDivision = React.useMemo(() => {
     const map: Record<string, number> = {};
     links.forEach((l) => {
-      const key = l.bid.division || "—";
+      const key = l.bid.division || "-";
       map[key] = (map[key] || 0) + 1;
     });
     return Object.keys(map).map((k) => ({
@@ -126,36 +105,69 @@ export const ErnDashboardSection: React.FC<ErnDashboardSectionProps> = ({
     }));
   }, [links]);
 
+  if (view === "status") {
+    if (!live) return null;
+    const kpis = live.ernKpis;
+    const toggle = (f: ErnWatchFilter): void =>
+      setFilter((cur) => (cur === f ? "open" : f));
+    return (
+      <>
+        <div className={styles.kpiRow}>
+          <KPICard
+            label="ERNs Open"
+            value={kpis.open}
+            accentColor={theme.info}
+            variant="glass"
+            subtitle={
+              kpis.onHold > 0 ? `${kpis.onHold} on hold` : "In progress"
+            }
+            onClick={() => setFilter("open")}
+            selected={filter === "open"}
+          />
+          <KPICard
+            label="Due Soon"
+            value={kpis.dueSoon}
+            accentColor={theme.warning}
+            variant="glass"
+            subtitle={`Within ${SHAREPOINT_CONFIG.ern.dueSoonDays} days`}
+            onClick={() => toggle("due-soon")}
+            selected={filter === "due-soon"}
+          />
+          <KPICard
+            label="Overdue"
+            value={kpis.overdue}
+            accentColor={theme.danger}
+            variant="glass"
+            subtitle={
+              kpis.overdue > 0
+                ? `${kpis.overdueRate}% of open ERNs, oldest ${kpis.maxLate}d late`
+                : "None late"
+            }
+            target={{
+              label: `Overdue target ≤ ${targets.targetOverdueRate}%`,
+              tone: targetTone(
+                kpis.overdueRate,
+                targets.targetOverdueRate,
+                false,
+              ),
+            }}
+            onClick={() => toggle("overdue")}
+            selected={filter === "overdue"}
+          />
+        </div>
+        <ErnWatchlist
+          rows={live.ernRows}
+          filter={filter}
+          onFilterChange={setFilter}
+          onBidClick={(n) => onBidClick?.(n)}
+        />
+      </>
+    );
+  }
+
   return (
     <div className={styles.section}>
-      <div className={styles.kpiRow}>
-        <KPICard
-          label="ERNs Linked"
-          value={kpis.total}
-          accentColor="var(--secondary-accent)"
-          variant="glass"
-        />
-        <KPICard
-          label="ERNs Open"
-          value={kpis.open}
-          accentColor="var(--info)"
-          variant="glass"
-        />
-        <KPICard
-          label="Due Soon"
-          value={kpis.dueSoon}
-          accentColor="var(--warning)"
-          variant="glass"
-        />
-        <KPICard
-          label="Overdue"
-          value={kpis.overdue}
-          accentColor="var(--danger)"
-          variant="glass"
-        />
-      </div>
-
-      {kpis.total === 0 ? (
+      {links.length === 0 ? (
         <GlassCard title="ERN Overview">
           <EmptyState
             variant="glass"

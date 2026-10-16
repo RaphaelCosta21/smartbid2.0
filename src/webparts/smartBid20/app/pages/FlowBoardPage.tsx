@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../components/common/PageHeader";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { useBids } from "../hooks/useBids";
-import { isActiveBid } from "../utils/bidHelpers";
+import { getDueFreezeDate, isActiveBid } from "../utils/bidHelpers";
 import { useConfigStore } from "../stores/useConfigStore";
 import { getActiveStatuses, getDivisionColor } from "../utils/statusHelpers";
-import { differenceInDays } from "date-fns";
+import { formatDaysLeft } from "../utils/formatters";
+import { resolveSemanticColor } from "../hooks/useColorTheme";
 import styles from "./FlowBoardPage.module.scss";
 
 export const FlowBoardPage: React.FC = () => {
@@ -14,7 +15,6 @@ export const FlowBoardPage: React.FC = () => {
   const { bids } = useBids();
   const config = useConfigStore((s) => s.config);
   const activeBids = React.useMemo(() => bids.filter(isActiveBid), [bids]);
-  const now = new Date();
 
   // Flow columns from config subStatuses (non-terminal)
   const FLOW_COLUMNS = React.useMemo(() => {
@@ -27,7 +27,11 @@ export const FlowBoardPage: React.FC = () => {
           id: s.id,
           label: s.label,
           value: s.value,
-          color: s.color || "#94A3B8",
+          color: resolveSemanticColor(
+            "statuses",
+            s.value,
+            s.color || "#94A3B8",
+          ),
         }));
     }
     return getActiveStatuses()
@@ -89,7 +93,7 @@ export const FlowBoardPage: React.FC = () => {
 
               {/* Cards */}
               {colBids.map((bid) => {
-                const daysLeft = differenceInDays(new Date(bid.dueDate), now);
+                const due = formatDaysLeft(bid.dueDate, getDueFreezeDate(bid));
                 return (
                   <div
                     key={bid.bidNumber}
@@ -113,14 +117,12 @@ export const FlowBoardPage: React.FC = () => {
                     </div>
                     <div className={styles.cardFooter}>
                       <span className={styles.cardOwner}>
-                        {(bid.creator?.name || "—").split(" ")[0]}
+                        {(bid.creator?.name || "-").split(" ")[0]}
                       </span>
                       <span
-                        className={`${styles.cardDaysLeft} ${daysLeft < 0 ? styles.cardOverdue : daysLeft <= 3 ? styles.cardWarning : styles.cardOk}`}
+                        className={`${styles.cardDaysLeft} ${due.isOverdue ? styles.cardOverdue : due.days !== null && due.days <= 3 ? styles.cardWarning : styles.cardOk}`}
                       >
-                        {daysLeft < 0
-                          ? `${Math.abs(daysLeft)}d late`
-                          : `${daysLeft}d`}
+                        {due.text}
                       </span>
                     </div>
                   </div>

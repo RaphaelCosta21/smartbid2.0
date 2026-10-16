@@ -4,6 +4,8 @@
  */
 import * as React from "react";
 import { useConfigStore } from "../stores/useConfigStore";
+import { useUIStore } from "../stores/useUIStore";
+import { resolveSemanticColor } from "./useColorTheme";
 import { PRIORITY_COLORS } from "../utils/constants";
 import {
   getPhaseColor as staticPhaseColor,
@@ -15,15 +17,18 @@ interface StatusColorLookup {
   getStatusColor: (statusValue: string) => string;
   getPriorityColor: (priority: string) => string;
   getDivisionColor: (division: string) => string;
+  getServiceLineColor: (serviceLine: string) => string;
 }
 
 export function useStatusColors(): StatusColorLookup {
   const config = useConfigStore((s) => s.config);
+  const colorTheme = useUIStore((s) => s.colorTheme);
 
   return React.useMemo(() => {
     const phaseMap = new Map<string, string>();
     const subStatusMap = new Map<string, string>();
     const divisionMap = new Map<string, string>();
+    const serviceLineMap = new Map<string, string>();
 
     if (config) {
       (config.phases || []).forEach((p) => {
@@ -38,14 +43,25 @@ export function useStatusColors(): StatusColorLookup {
       (config.divisions || []).forEach((d) => {
         if (d.value && d.color) divisionMap.set(d.value, d.color);
       });
+      (config.serviceLines || []).forEach((s) => {
+        if (s.value && s.color) serviceLineMap.set(s.value, s.color);
+      });
     }
 
     return {
       getPhaseColor: (phaseValue: string) =>
-        phaseMap.get(phaseValue) || staticPhaseColor(phaseValue),
+        resolveSemanticColor(
+          "phases",
+          phaseValue,
+          phaseMap.get(phaseValue) || staticPhaseColor(phaseValue),
+        ),
 
       getStatusColor: (statusValue: string) =>
-        subStatusMap.get(statusValue) || staticStatusColor(statusValue),
+        resolveSemanticColor(
+          "statuses",
+          statusValue,
+          subStatusMap.get(statusValue) || staticStatusColor(statusValue),
+        ),
 
       getPriorityColor: (priority: string) => {
         return PRIORITY_COLORS[priority] || "#94A3B8";
@@ -53,6 +69,10 @@ export function useStatusColors(): StatusColorLookup {
 
       getDivisionColor: (division: string) =>
         divisionMap.get(division) || "#94a3b8",
+
+      getServiceLineColor: (serviceLine: string) =>
+        serviceLineMap.get(serviceLine) || "#94a3b8",
     };
-  }, [config]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- colorTheme is read inside resolveSemanticColor
+  }, [config, colorTheme]);
 }

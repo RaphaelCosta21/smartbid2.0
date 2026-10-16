@@ -4,19 +4,22 @@
  */
 import { ISystemConfig } from "../models";
 import { getDefaultFavoriteGroups } from "../config/defaultFavoriteGroups";
+import {
+  DEFAULT_ACCESS_LEVELS,
+  DEFAULT_BID_ACCESS_LEVELS,
+} from "../config/accessControl.config";
 
 export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
   kpiTargets: {
     targetOnTimeDelivery: 90,
     targetOTIF: 85,
-    targetAvgCompletionDays: 21,
+    targetAvgCompletionDaysByPriority: { Urgent: 4, Normal: 10, Low: 20 },
     targetFirstPassApproval: 80,
     targetApprovalCycleDays: 3,
-    targetCancellationRate: 10,
-    targetTemplateUsage: 50,
     targetOverdueRate: 5,
     targetWinRate: 40,
   },
+  priorityRules: { urgentMaxBusinessDays: 4, normalMaxBusinessDays: 14 },
   regions: [
     { id: "reg-1", label: "Brazil", value: "Brazil", isActive: true, order: 1 },
     { id: "reg-2", label: "Mexico", value: "Mexico", isActive: true, order: 2 },
@@ -1123,6 +1126,15 @@ export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
       color: "#2563EB",
       category: "Technical Analysis,Cost & Resources",
     },
+    {
+      id: "ss-10",
+      label: "Under Construction",
+      value: "Under Construction",
+      isActive: true,
+      order: 10,
+      color: "#0EA5E9",
+      category: "Technical Proposal",
+    },
   ],
   terminalStatuses: [
     {
@@ -1333,71 +1345,7 @@ export const DEFAULT_SYSTEM_CONFIG: ISystemConfig = {
     BID_OVERDUE: ["commercial", "engineering"],
     DEADLINE_WARNING: ["commercial", "engineering"],
   },
-  accessLevels: {
-    commercial: {
-      workspace: "edit",
-      insights: "edit",
-      reports: "edit",
-      settings: "edit",
-      approvals: "edit",
-      templates: "edit",
-    },
-    engineering: {
-      workspace: "edit",
-      insights: "view",
-      reports: "view",
-      settings: "none",
-      approvals: "view",
-      templates: "edit",
-    },
-    project: {
-      workspace: "edit",
-      insights: "view",
-      reports: "view",
-      settings: "none",
-      approvals: "edit",
-      templates: "view",
-    },
-    operation: {
-      workspace: "edit",
-      insights: "view",
-      reports: "view",
-      settings: "none",
-      approvals: "view",
-      templates: "view",
-    },
-    dataCenter: {
-      workspace: "view",
-      insights: "view",
-      reports: "view",
-      settings: "none",
-      approvals: "view",
-      templates: "none",
-    },
-    equipmentInstallation: {
-      workspace: "view",
-      insights: "view",
-      reports: "view",
-      settings: "none",
-      approvals: "view",
-      templates: "none",
-    },
-    supplyChain: {
-      workspace: "view",
-      insights: "view",
-      reports: "view",
-      settings: "none",
-      approvals: "view",
-      templates: "none",
-    },
-    guest: {
-      workspace: "view",
-      insights: "none",
-      reports: "none",
-      settings: "none",
-      approvals: "none",
-      templates: "none",
-    },
-  },
+  accessLevels: DEFAULT_ACCESS_LEVELS,
+  bidAccessLevels: DEFAULT_BID_ACCESS_LEVELS,
   favoriteGroups: getDefaultFavoriteGroups(),
 };

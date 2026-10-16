@@ -27,10 +27,16 @@ export const BidPhaseProgress: React.FC<BidPhaseProgressProps> = ({
                 background: isCompleted
                   ? "#10b981"
                   : isCurrent
-                    ? "#00c9a7"
+                    ? "var(--accent-brand)"
                     : "var(--border-subtle)",
-                color: isCompleted || isCurrent ? "white" : "var(--text-muted)",
-                border: isCurrent ? "2px solid rgba(0, 201, 167, 0.4)" : "none",
+                color: isCompleted
+                  ? "white"
+                  : isCurrent
+                    ? "var(--primary-accent-contrast)"
+                    : "var(--text-muted)",
+                border: isCurrent
+                  ? "2px solid color-mix(in srgb, var(--accent-brand) 40%, transparent)"
+                  : "none",
               }}
             >
               {isCompleted ? "✓" : idx}

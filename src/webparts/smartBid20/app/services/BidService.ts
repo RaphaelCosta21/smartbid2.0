@@ -6,13 +6,22 @@ import { SPService } from "./SPService";
 import "@pnp/sp/fields";
 import { IBid } from "../models";
 import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
+import { withCostSummary } from "../utils/costCalculations";
 
 const F = SHAREPOINT_CONFIG.bidTrackerFields;
+
+/** Re-reads after a 412 (the Teams approval flow wrote the same item). */
+const MAX_PATCH_ATTEMPTS = 3;
 
 /** Runs at most once per session; the columns only need provisioning the first time. */
 let ensureColumnsPromise: Promise<void> | undefined;
 
 export class BidService {
+  /** Serialize read-modify-write patches for the same JSON-backed BID. */
+  private static readonly _pendingPatches: Record<string, Promise<void>> = {};
+  /** Bumped on every local patch so background reads can detect a racing save. */
+  private static readonly _patchVersions: Record<string, number> = {};
+
   private static get _list() {
     return SPService.sp.web.lists.getByTitle(
       SHAREPOINT_CONFIG.lists.bidTracker,
@@ -74,7 +83,7 @@ export class BidService {
       .join("; ");
     const summary = [opp ? opp.projectDescription : "", scope]
       .filter(Boolean)
-      .join(" — ");
+      .join(" - ");
     return {
       [F.client]: (opp ? opp.client : "") || "",
       [F.projectName]: (opp ? opp.projectName : "") || "",
@@ -90,14 +99,19 @@ export class BidService {
       .top(5000)();
     return items
       .filter((item: { jsondata?: string }) => item.jsondata)
-      .map((item: { jsondata: string }) => JSON.parse(item.jsondata) as IBid);
+      .map((item: { jsondata: string }) => BidService._parse(item.jsondata));
+  }
+
+  /** Older rows were saved with a zeroed costSummary; rebuild it on read. */
+  private static _parse(json: string): IBid {
+    return withCostSummary(JSON.parse(json) as IBid);
   }
 
   public static async getById(id: number): Promise<IBid | null> {
     const item = (await BidService._list.items
       .getById(id)
       .select("jsondata")()) as { jsondata?: string };
-    return item.jsondata ? (JSON.parse(item.jsondata) as IBid) : null;
+    return item.jsondata ? BidService._parse(item.jsondata) : null;
   }
 
   public static async getByBidNumber(bidNumber: string): Promise<IBid | null> {
@@ -106,14 +120,14 @@ export class BidService {
       .select("jsondata")
       .top(1)();
     if (items.length === 0) return null;
-    return JSON.parse((items[0] as { jsondata: string }).jsondata) as IBid;
+    return BidService._parse((items[0] as { jsondata: string }).jsondata);
   }
 
   public static async create(bid: IBid): Promise<number> {
     await BidService.ensureColumns();
     const result = await BidService._list.items.add({
       Title: bid.bidNumber,
-      jsondata: JSON.stringify(bid),
+      jsondata: JSON.stringify(withCostSummary(bid)),
       Status: bid.currentStatus,
       DueDate: bid.desiredDueDate || bid.dueDate,
       ...BidService._searchColumns(bid),
@@ -125,7 +139,7 @@ export class BidService {
     await BidService.ensureColumns();
     await BidService._list.items.getById(id).update({
       Title: bid.bidNumber,
-      jsondata: JSON.stringify(bid),
+      jsondata: JSON.stringify(withCostSummary(bid)),
       Status: bid.currentStatus,
       DueDate: bid.desiredDueDate || bid.dueDate,
       ...BidService._searchColumns(bid),
@@ -166,8 +180,8 @@ export class BidService {
       .filter(`Status eq '${status}'`)
       .select("jsondata")
       .top(5000)();
-    return items.map(
-      (item: { jsondata: string }) => JSON.parse(item.jsondata) as IBid,
+    return items.map((item: { jsondata: string }) =>
+      BidService._parse(item.jsondata),
     );
   }
 
@@ -179,8 +193,8 @@ export class BidService {
       )
       .select("jsondata")
       .top(5000)();
-    return items.map(
-      (item: { jsondata: string }) => JSON.parse(item.jsondata) as IBid,
+    return items.map((item: { jsondata: string }) =>
+      BidService._parse(item.jsondata),
     );
   }
 
@@ -192,17 +206,110 @@ export class BidService {
     bidNumber: string,
     patch: Partial<IBid>,
   ): Promise<void> {
-    const items = await BidService._list.items
-      .filter(`Title eq '${bidNumber}'`)
-      .select("Id", "jsondata")
-      .top(1)();
-    if (items.length === 0) return;
-    const row = items[0] as { Id: number; jsondata: string };
-    const bid = JSON.parse(row.jsondata) as IBid;
-    const merged = { ...bid, ...patch };
-    await BidService._list.items.getById(row.Id).update({
-      jsondata: JSON.stringify(merged),
-      ...BidService._searchColumns(merged),
-    });
+    BidService._patchVersions[bidNumber] =
+      BidService.getPatchVersion(bidNumber) + 1;
+    const previous = BidService._pendingPatches[bidNumber];
+    const pending = previous
+      ? previous.then(
+          () => BidService._patchByBidNumber(bidNumber, patch),
+          () => BidService._patchByBidNumber(bidNumber, patch),
+        )
+      : BidService._patchByBidNumber(bidNumber, patch);
+    BidService._pendingPatches[bidNumber] = pending;
+    try {
+      await pending;
+    } finally {
+      if (BidService._pendingPatches[bidNumber] === pending) {
+        delete BidService._pendingPatches[bidNumber];
+      }
+    }
+  }
+
+  public static hasPendingPatch(bidNumber: string): boolean {
+    return !!BidService._pendingPatches[bidNumber];
+  }
+
+  public static getPatchVersion(bidNumber: string): number {
+    return BidService._patchVersions[bidNumber] || 0;
+  }
+
+  public static hasAnyPendingPatch(): boolean {
+    return Object.keys(BidService._pendingPatches).length > 0;
+  }
+
+  /** Sum of all patch versions; changes whenever any BID patch starts. */
+  public static getTotalPatchVersion(): number {
+    return Object.keys(BidService._patchVersions).reduce(
+      (sum, k) => sum + BidService._patchVersions[k],
+      0,
+    );
+  }
+
+  /** One-off backfill: writes the rebuilt costSummary into every BID whose stored one differs. */
+  public static async recalculateCostSummaries(
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<{ checked: number; updated: number; failed: number }> {
+    const items = (await BidService._list.items
+      .select("Title", "jsondata")
+      .top(5000)()) as { Title?: string; jsondata?: string }[];
+    const rows = items.filter((i) => i.Title && i.jsondata);
+    let updated = 0;
+    let failed = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      try {
+        const stored = JSON.parse(row.jsondata as string) as IBid;
+        const rebuilt = withCostSummary(stored).costSummary;
+        if (JSON.stringify(rebuilt) !== JSON.stringify(stored.costSummary)) {
+          await BidService.patchByBidNumber(row.Title as string, {
+            costSummary: rebuilt,
+          });
+          updated++;
+        }
+      } catch (err) {
+        failed++;
+        console.error(`Cost summary backfill failed for ${row.Title}:`, err);
+      }
+      if (onProgress) onProgress(i + 1, rows.length);
+    }
+    return { checked: rows.length, updated, failed };
+  }
+
+  private static async _patchByBidNumber(
+    bidNumber: string,
+    patch: Partial<IBid>,
+  ): Promise<void> {
+    for (let attempt = 1; attempt <= MAX_PATCH_ATTEMPTS; attempt++) {
+      const items = await BidService._list.items
+        .filter(`Title eq '${bidNumber}'`)
+        .select("Id", "jsondata")
+        .top(1)();
+      if (items.length === 0) return;
+      const row = items[0] as {
+        Id: number;
+        jsondata: string;
+        "odata.etag"?: string;
+      };
+      const bid = JSON.parse(row.jsondata) as IBid;
+      const merged = withCostSummary({ ...bid, ...patch });
+      const dueDateChanged =
+        patch.dueDate !== undefined || patch.desiredDueDate !== undefined;
+      try {
+        await BidService._list.items.getById(row.Id).update(
+          {
+            jsondata: JSON.stringify(merged),
+            ...BidService._searchColumns(merged),
+            ...(dueDateChanged
+              ? { DueDate: merged.desiredDueDate || merged.dueDate }
+              : {}),
+          },
+          row["odata.etag"] || "*",
+        );
+        return;
+      } catch (err) {
+        const status = (err as { status?: number }).status;
+        if (status !== 412 || attempt === MAX_PATCH_ATTEMPTS) throw err;
+      }
+    }
   }
 }

@@ -1,11 +1,5 @@
 import * as React from "react";
-import {
-  HashRouter,
-  Routes,
-  Route,
-  useLocation,
-  Navigate,
-} from "react-router-dom";
+import { HashRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useUIStore } from "../../stores/useUIStore";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useBidStore } from "../../stores/useBidStore";
@@ -14,13 +8,12 @@ import { BidService } from "../../services/BidService";
 import { SystemConfigService } from "../../services/SystemConfigService";
 import { MembersService } from "../../services/MembersService";
 import { UserService } from "../../services/UserService";
-import { canAccessKnowledge, isSuperAdmin } from "../../utils/accessControl";
+import { isSuperAdmin } from "../../utils/accessControl";
 import { IUser, UserRole } from "../../models";
 import { ROUTES } from "../../config/routes.config";
+import { ColorThemeId, isColorThemeId } from "../../config/colorThemes.config";
 import darkTheme from "../../styles/themes/dark.module.scss";
 import lightTheme from "../../styles/themes/light.module.scss";
-import oceaneeringDark from "../../styles/themes/oceaneering-dark.module.scss";
-import oceaneeringLight from "../../styles/themes/oceaneering-light.module.scss";
 import globalStyles from "../../styles/globals.module.scss";
 import "../../styles/sharepoint-overrides.module.scss";
 import styles from "./AppLayout.module.scss";
@@ -46,6 +39,7 @@ import { AssetsCatalogPage } from "../../pages/AssetsCatalogPage";
 import { DatasheetsPage } from "../../pages/DatasheetsPage";
 import { ManualsCatalogsPage } from "../../pages/ManualsCatalogsPage";
 import { TechnicalProposalsPage } from "../../pages/TechnicalProposalsPage";
+import { PastBidsPage } from "../../pages/PastBidsPage";
 import { ClarificationsDbPage } from "../../pages/ClarificationsDbPage";
 import { LinksRecommendationsPage } from "../../pages/LinksRecommendationsPage";
 import { SurveySystemPage } from "../../pages/SurveySystemPage";
@@ -71,23 +65,20 @@ import { CommandPalette } from "./CommandPalette";
 import { ToastContainer } from "../common/ToastContainer";
 import { QueryCatalogLoadingBanner } from "../common/QueryCatalogLoadingBanner";
 import { ChatAssistant } from "../common/ChatAssistant";
+import { RequirePageAccess } from "../common/RequirePageAccess";
 
-/** Route guard — only the Engineering team may access Knowledge Base pages */
-const RequireEngineering: React.FC<{ children: React.ReactElement }> = ({
-  children,
-}) => {
-  const currentUser = useAuthStore((s) => s.currentUser);
-  if (!canAccessKnowledge(currentUser)) {
-    return <Navigate to={ROUTES.tracker} replace />;
-  }
-  return children;
-};
+const guard = (
+  pageKey: string,
+  page: React.ReactElement,
+): React.ReactElement => (
+  <RequirePageAccess pageKey={pageKey}>{page}</RequirePageAccess>
+);
 
 export const AppLayout: React.FC = () => {
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
-  const palette = useUIStore((s) => s.palette);
-  const setPalette = useUIStore((s) => s.setPalette);
+  const colorTheme = useUIStore((s) => s.colorTheme);
+  const setColorTheme = useUIStore((s) => s.setColorTheme);
   const sidebarExpanded = useUIStore((s) => s.sidebarExpanded);
   const isGuestUser = useAuthStore((s) => s.isGuestUser);
   const setCurrentUser = useAuthStore((s) => s.setCurrentUser);
@@ -95,6 +86,23 @@ export const AppLayout: React.FC = () => {
   const toasts = useUIStore((s) => s.toasts);
   const dismissToast = useUIStore((s) => s.dismissToast);
   const setConfig = useConfigStore((s) => s.setConfig);
+
+  // Every link to a file/URL opens in a new tab. data-interception="off" stops
+  // SharePoint's page router from hijacking the click into the current tab.
+  React.useEffect(() => {
+    const onClick = (e: MouseEvent): void => {
+      const target = e.target as Element | null;
+      const anchor = target?.closest ? target.closest("a[href]") : null;
+      if (!anchor || !anchor.closest(`.${globalStyles.smartBidRoot}`)) return;
+      const href = (anchor.getAttribute("href") || "").trim();
+      if (!href || /^(#|mailto:|tel:|javascript:)/i.test(href)) return;
+      anchor.setAttribute("target", "_blank");
+      anchor.setAttribute("rel", "noopener noreferrer");
+      anchor.setAttribute("data-interception", "off");
+    };
+    window.addEventListener("click", onClick, true);
+    return () => window.removeEventListener("click", onClick, true);
+  }, []);
 
   React.useEffect(() => {
     BidService.getAll()
@@ -104,10 +112,13 @@ export const AppLayout: React.FC = () => {
     // Load system config from SharePoint into global store
     SystemConfigService.get()
       .then((cfg) => setConfig(cfg))
-      .catch((err) => console.error("Failed to load system config:", err));
+      .catch((err) => {
+        console.error("Failed to load system config:", err);
+        useConfigStore.getState().setLoadFailed();
+      });
 
-    // Resolve the signed-in user and merge their Members Management record,
-    // so access (e.g. the Engineering-only Knowledge Base) reflects reality.
+    // Resolve the signed-in user and merge their Members Management record:
+    // their team drives every permission (no team = guest, super admins included).
     Promise.all([UserService.getCurrentUser(), MembersService.getAll()])
       .then(([spUser, data]) => {
         const email = (spUser.email || "").toLowerCase();
@@ -124,11 +135,7 @@ export const AppLayout: React.FC = () => {
           jobTitle: member ? member.jobTitle : spUser.jobTitle,
           department: member ? member.department : spUser.department,
           sector: member ? member.sector : undefined,
-          role: member
-            ? (member.sector as UserRole)
-            : admin
-              ? "engineering"
-              : "guest",
+          role: member ? (member.sector as UserRole) : "guest",
           teamCategory: member ? member.sector : spUser.teamCategory,
           bidRole: member ? member.bidRole : undefined,
           businessLines: member ? member.businessLines : undefined,
@@ -139,26 +146,28 @@ export const AppLayout: React.FC = () => {
         if (member && member.themePreference) {
           setTheme(member.themePreference);
         }
-        if (member && member.palettePreference) {
-          setPalette(member.palettePreference);
+        if (member && isColorThemeId(member.colorTheme)) {
+          setColorTheme(member.colorTheme);
         }
       })
-      .catch((err) => console.warn("Failed to resolve current user:", err));
+      .catch((err) => {
+        console.warn("Failed to resolve current user:", err);
+        setCurrentUser({
+          ...useAuthStore.getState().currentUser,
+          role: "guest",
+          isSuperAdmin: false,
+        });
+      });
   }, []);
 
   const themeClass =
-    palette === "oceaneering"
-      ? theme === "dark"
-        ? oceaneeringDark.smartBidOceaneeringDark
-        : oceaneeringLight.smartBidOceaneeringLight
-      : theme === "dark"
-        ? darkTheme.smartBidDark
-        : lightTheme.smartBidLight;
+    theme === "dark" ? darkTheme.smartBidDark : lightTheme.smartBidLight;
 
   return (
     <HashRouter>
       <AppLayoutInner
         themeClass={themeClass}
+        colorTheme={colorTheme}
         sidebarExpanded={sidebarExpanded}
         isGuestUser={isGuestUser}
         toasts={toasts}
@@ -171,11 +180,19 @@ export const AppLayout: React.FC = () => {
 /** Inner component that can use useLocation (inside HashRouter) */
 const AppLayoutInner: React.FC<{
   themeClass: string;
+  colorTheme: ColorThemeId;
   sidebarExpanded: boolean;
   isGuestUser: boolean;
   toasts: any[];
   dismissToast: (id: string) => void;
-}> = ({ themeClass, sidebarExpanded, isGuestUser, toasts, dismissToast }) => {
+}> = ({
+  themeClass,
+  colorTheme,
+  sidebarExpanded,
+  isGuestUser,
+  toasts,
+  dismissToast,
+}) => {
   const location = useLocation();
   const isExternal = location.pathname === ROUTES.queryConsultingExternal;
 
@@ -183,6 +200,7 @@ const AppLayoutInner: React.FC<{
     return (
       <div
         className={`${themeClass} ${globalStyles.smartBidRoot}`}
+        data-color-theme={colorTheme}
         style={{
           padding: "16px 24px",
           minHeight: "100vh",
@@ -193,7 +211,7 @@ const AppLayoutInner: React.FC<{
         <Routes>
           <Route
             path={ROUTES.queryConsultingExternal}
-            element={<QueryConsultingPage />}
+            element={guard("query-consulting", <QueryConsultingPage />)}
           />
         </Routes>
       </div>
@@ -203,6 +221,7 @@ const AppLayoutInner: React.FC<{
   return (
     <div
       className={`${themeClass} ${globalStyles.smartBidRoot} ${styles.appLayout}`}
+      data-color-theme={colorTheme}
     >
       <CommandPalette />
       <div
@@ -228,123 +247,142 @@ const AppLayoutInner: React.FC<{
           }`}
         >
           <Routes>
-            <Route path={ROUTES.tracker} element={<BidTrackerPage />} />
-            <Route path={ROUTES.dashboard} element={<DashboardPage />} />
+            <Route
+              path={ROUTES.tracker}
+              element={guard("tracker", <BidTrackerPage />)}
+            />
+            <Route
+              path={ROUTES.dashboard}
+              element={guard("dashboard", <DashboardPage />)}
+            />
             <Route path={ROUTES.bidDetail} element={<BidDetailPage />} />
             <Route
               path={ROUTES.requests}
-              element={<UnassignedRequestsPage />}
+              element={guard("unassigned", <UnassignedRequestsPage />)}
             />
             <Route
               path={ROUTES.createRequest}
               element={<CreateRequestPage />}
             />
-            <Route path={ROUTES.flowboard} element={<FlowBoardPage />} />
-            <Route path={ROUTES.timeline} element={<TimelinePage />} />
+            <Route
+              path={ROUTES.flowboard}
+              element={
+                <RequirePageAccess area="workspace">
+                  <FlowBoardPage />
+                </RequirePageAccess>
+              }
+            />
+            <Route
+              path={ROUTES.timeline}
+              element={guard("timeline", <TimelinePage />)}
+            />
             <Route
               path={ROUTES.notifications}
-              element={<NotificationsPage />}
+              element={guard("notifications", <NotificationsPage />)}
             />
-            <Route path={ROUTES.faq} element={<FaqPage />} />
+            <Route path={ROUTES.faq} element={guard("faq", <FaqPage />)} />
             <Route
               path={ROUTES.assetsCatalog}
-              element={
-                <RequireEngineering>
-                  <AssetsCatalogPage />
-                </RequireEngineering>
-              }
+              element={guard("assets-catalog", <AssetsCatalogPage />)}
             />
             <Route
               path={ROUTES.datasheets}
-              element={
-                <RequireEngineering>
-                  <DatasheetsPage />
-                </RequireEngineering>
-              }
+              element={guard("datasheets", <DatasheetsPage />)}
             />
             <Route
               path={ROUTES.manualsCatalogs}
-              element={
-                <RequireEngineering>
-                  <ManualsCatalogsPage />
-                </RequireEngineering>
-              }
+              element={guard("manuals-catalogs", <ManualsCatalogsPage />)}
             />
             <Route
               path={ROUTES.technicalProposals}
-              element={
-                <RequireEngineering>
-                  <TechnicalProposalsPage />
-                </RequireEngineering>
-              }
+              element={guard("technical-proposals", <TechnicalProposalsPage />)}
+            />
+            <Route
+              path={ROUTES.pastBids}
+              element={guard("past-bids", <PastBidsPage />)}
             />
             <Route
               path={ROUTES.clarificationsDb}
-              element={
-                <RequireEngineering>
-                  <ClarificationsDbPage />
-                </RequireEngineering>
-              }
+              element={guard("clarifications-db", <ClarificationsDbPage />)}
             />
             <Route
               path={ROUTES.linksRecommendations}
-              element={
-                <RequireEngineering>
-                  <LinksRecommendationsPage />
-                </RequireEngineering>
-              }
+              element={guard(
+                "links-recommendations",
+                <LinksRecommendationsPage />,
+              )}
             />
             <Route
               path={ROUTES.surveySystem}
-              element={
-                <RequireEngineering>
-                  <SurveySystemPage />
-                </RequireEngineering>
-              }
+              element={guard("survey-portal", <SurveySystemPage />)}
             />
-            <Route path={ROUTES.analytics} element={<AnalyticsPage />} />
+            <Route
+              path={ROUTES.analytics}
+              element={guard("analytics", <AnalyticsPage />)}
+            />
             <Route
               path={ROUTES.performanceTrends}
-              element={<PerformanceTrendsPage />}
+              element={guard("performance-trends", <PerformanceTrendsPage />)}
             />
             <Route
               path={ROUTES.bottleneckAnalysis}
-              element={<BottleneckAnalysisPage />}
+              element={guard("bottleneck-analysis", <BottleneckAnalysisPage />)}
             />
             <Route
               path={ROUTES.teamAnalytics}
-              element={<TeamAnalyticsPage />}
+              element={guard("team-analytics", <TeamAnalyticsPage />)}
             />
-            <Route path={ROUTES.reports} element={<ReportsPage />} />
+            <Route
+              path={ROUTES.reports}
+              element={guard("reports", <ReportsPage />)}
+            />
             <Route
               path={ROUTES.periodPerformance}
-              element={<PeriodPerformancePage />}
+              element={guard("period-performance", <PeriodPerformancePage />)}
             />
             <Route
               path={ROUTES.bidDetailsReport}
-              element={<BidDetailsReportPage />}
+              element={guard("bid-details-report", <BidDetailsReportPage />)}
             />
             <Route
               path={ROUTES.operationalSummary}
-              element={<OperationalSummaryPage />}
+              element={guard("operational-summary", <OperationalSummaryPage />)}
             />
-            <Route path={ROUTES.approvals} element={<ApprovalsPage />} />
-            <Route path={ROUTES.followUp} element={<FollowUpPage />} />
             <Route
-              path={ROUTES.templates}
+              path={ROUTES.approvals}
               element={
-                <RequireEngineering>
-                  <TemplatesPage />
-                </RequireEngineering>
+                <RequirePageAccess area="workspace">
+                  <ApprovalsPage />
+                </RequirePageAccess>
               }
             />
-            <Route path={ROUTES.favorites} element={<FavoritesPage />} />
-            <Route path={ROUTES.bomCosts} element={<BomCostsPage />} />
-            <Route path={ROUTES.quotations} element={<QuotationsPage />} />
-            <Route path={ROUTES.tooling} element={<ToolingReportPage />} />
+            <Route
+              path={ROUTES.followUp}
+              element={guard("follow-up", <FollowUpPage />)}
+            />
+            <Route
+              path={ROUTES.templates}
+              element={guard("templates", <TemplatesPage />)}
+            />
+            <Route
+              path={ROUTES.favorites}
+              element={guard("favorites", <FavoritesPage />)}
+            />
+            <Route
+              path={ROUTES.bomCosts}
+              element={guard("bom-costs", <BomCostsPage />)}
+            />
+            <Route
+              path={ROUTES.quotations}
+              element={guard("quotations", <QuotationsPage />)}
+            />
+            <Route
+              path={ROUTES.tooling}
+              element={guard("tooling-report", <ToolingReportPage />)}
+            />
             <Route
               path={ROUTES.queryConsulting}
-              element={<QueryConsultingPage />}
+              element={guard("query-consulting", <QueryConsultingPage />)}
             />
             <Route path={ROUTES.priceHistory} element={<PriceHistoryPage />} />
             <Route
@@ -353,11 +391,20 @@ const AppLayoutInner: React.FC<{
             />
             <Route
               path={ROUTES.easiSuppliers}
-              element={<EasiSuppliersPage />}
+              element={guard("easi-suppliers", <EasiSuppliersPage />)}
             />
-            <Route path={ROUTES.systemConfig} element={<SystemConfigPage />} />
-            <Route path={ROUTES.members} element={<MembersPage />} />
-            <Route path={ROUTES.patchNotes} element={<PatchNotesPage />} />
+            <Route
+              path={ROUTES.systemConfig}
+              element={guard("system-config", <SystemConfigPage />)}
+            />
+            <Route
+              path={ROUTES.members}
+              element={guard("members", <MembersPage />)}
+            />
+            <Route
+              path={ROUTES.patchNotes}
+              element={guard("patch-notes", <PatchNotesPage />)}
+            />
           </Routes>
         </div>
 

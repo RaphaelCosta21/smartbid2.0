@@ -7,6 +7,7 @@ import { PageHeader } from "../components/common/PageHeader";
 import { useQueryCatalogStore } from "../stores/useQueryCatalogStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { usePageAccess } from "../hooks/usePageAccess";
 import {
   IBomCostAnalysis,
   IBomCostItem,
@@ -158,7 +159,7 @@ function srcLabel(src: BomCostSource, costRef: string): string {
   if (src === "Financials") return costRef || "FIN";
   if (src === "manual") return "Manual";
   if (src === "QUOTATION") return "Quotation";
-  return "—";
+  return "-";
 }
 
 /**
@@ -300,6 +301,7 @@ function dateAgeBucket(dateRef: string): "recent" | "warn" | "old" | "" {
 
 export const BomCostsPage: React.FC = () => {
   const currentUser = useCurrentUser();
+  const { canEdit } = usePageAccess();
   const config = useConfigStore((s) => s.config);
   const exchangeRates = config?.currencySettings?.exchangeRates || [];
 
@@ -833,7 +835,7 @@ export const BomCostsPage: React.FC = () => {
       isManual: false,
       isRolledUp: false,
       quotationItemId: q.id,
-      comments: `Quotation: ${q.supplier}${q.partNumber ? " — " + q.partNumber : ""}`,
+      comments: `Quotation: ${q.supplier}${q.partNumber ? " - " + q.partNumber : ""}`,
     });
     setShowQuotationModal(false);
     setQuotationTargetItemId("");
@@ -1136,20 +1138,22 @@ export const BomCostsPage: React.FC = () => {
                 ({filteredAnalyses.length})
               </span>
             </span>
-            <div className={styles.listActions}>
-              <label className={styles.newBtn}>
-                + Import File
-                <input
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  style={{ display: "none" }}
-                  onChange={handleFileImport}
-                />
-              </label>
-              <button className={styles.newBtn} onClick={handleNewBlank}>
-                + Manual BOM
-              </button>
-            </div>
+            {canEdit && (
+              <div className={styles.listActions}>
+                <label className={styles.newBtn}>
+                  + Import File
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    style={{ display: "none" }}
+                    onChange={handleFileImport}
+                  />
+                </label>
+                <button className={styles.newBtn} onClick={handleNewBlank}>
+                  + Manual BOM
+                </button>
+              </div>
+            )}
           </div>
 
           <div className={styles.listFilters}>
@@ -1194,15 +1198,17 @@ export const BomCostsPage: React.FC = () => {
               <div className={styles.emptySub}>
                 Import a CSV or XLSX Bill of Materials to get started
               </div>
-              <label className={styles.emptyUploadBtn}>
-                📎 Upload BOM File (CSV / XLSX)
-                <input
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  style={{ display: "none" }}
-                  onChange={handleFileImport}
-                />
-              </label>
+              {canEdit && (
+                <label className={styles.emptyUploadBtn}>
+                  📎 Upload BOM File (CSV / XLSX)
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    style={{ display: "none" }}
+                    onChange={handleFileImport}
+                  />
+                </label>
+              )}
             </div>
           ) : filteredAnalyses.length === 0 ? (
             <div className={styles.emptyState}>
@@ -1219,13 +1225,15 @@ export const BomCostsPage: React.FC = () => {
                   className={styles.analysisCard}
                   onClick={() => handleLoadAnalysis(a)}
                 >
-                  <button
-                    className={styles.cardDelete}
-                    onClick={(e) => handleDeleteAnalysis(e, a.id)}
-                    title="Delete"
-                  >
-                    ✕
-                  </button>
+                  {canEdit && (
+                    <button
+                      className={styles.cardDelete}
+                      onClick={(e) => handleDeleteAnalysis(e, a.id)}
+                      title="Delete"
+                    >
+                      ✕
+                    </button>
+                  )}
                   <div className={styles.cardHeader}>
                     <span className={styles.cardPN}>{a.mainPartNumber}</span>
                     <span
@@ -1308,15 +1316,17 @@ export const BomCostsPage: React.FC = () => {
               >
                 ← Back
               </button>
-              <button
-                className={styles.actionBtnSecondary}
-                onClick={() => {
-                  setPasteText("");
-                  setShowPasteModal(true);
-                }}
-              >
-                📋 Paste Items
-              </button>
+              {canEdit && (
+                <button
+                  className={styles.actionBtnSecondary}
+                  onClick={() => {
+                    setPasteText("");
+                    setShowPasteModal(true);
+                  }}
+                >
+                  📋 Paste Items
+                </button>
+              )}
               <button
                 className={styles.actionBtn}
                 onClick={handleCostLookup}
@@ -1328,13 +1338,15 @@ export const BomCostsPage: React.FC = () => {
                     ? "Searching..."
                     : "🔍 Check Costs"}
               </button>
-              <button
-                className={styles.actionBtn}
-                onClick={handleSave}
-                disabled={isSaving}
-              >
-                {isSaving ? "Saving..." : "💾 Save"}
-              </button>
+              {canEdit && (
+                <button
+                  className={styles.actionBtn}
+                  onClick={handleSave}
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Saving..." : "💾 Save"}
+                </button>
+              )}
               <button
                 className={styles.actionBtnSecondary}
                 onClick={handleExport}
@@ -1366,11 +1378,11 @@ export const BomCostsPage: React.FC = () => {
             <div className={styles.statCard}>
               <span className={styles.statLabel}>Max Lead Time</span>
               <span className={styles.statValue}>
-                {maxLeadTimeItem ? `${maxLeadTimeItem.leadTimeDays} days` : "—"}
+                {maxLeadTimeItem ? `${maxLeadTimeItem.leadTimeDays} days` : "-"}
               </span>
               {maxLeadTimeItem && (
                 <span className={styles.statSub} style={{ maxWidth: 200 }}>
-                  #{maxLeadTimeItem.level}.{maxLeadTimeItem.findNumber} —{" "}
+                  #{maxLeadTimeItem.level}.{maxLeadTimeItem.findNumber} -{" "}
                   {maxLeadTimeItem.partNumber}
                 </span>
               )}
@@ -1537,12 +1549,14 @@ export const BomCostsPage: React.FC = () => {
               <span className={styles.contingencyValue}>
                 {contingencyPerYear}% / year
               </span>
-              <button
-                className={styles.contingencyEditBtn}
-                onClick={() => setIsContingencyEditing(true)}
-              >
-                ✏️ Edit
-              </button>
+              {canEdit && (
+                <button
+                  className={styles.contingencyEditBtn}
+                  onClick={() => setIsContingencyEditing(true)}
+                >
+                  ✏️ Edit
+                </button>
+              )}
             </>
           )}
 
@@ -1694,7 +1708,7 @@ export const BomCostsPage: React.FC = () => {
                             }
                           />
                         ) : (
-                          item.partNumber || "—"
+                          item.partNumber || "-"
                         )}
                       </td>
 
@@ -1712,7 +1726,7 @@ export const BomCostsPage: React.FC = () => {
                             }
                           />
                         ) : (
-                          item.description || "—"
+                          item.description || "-"
                         )}
                       </td>
 
@@ -1733,7 +1747,7 @@ export const BomCostsPage: React.FC = () => {
                         ) : item.qty > 0 ? (
                           item.qty
                         ) : (
-                          "—"
+                          "-"
                         )}
                       </td>
 
@@ -1784,7 +1798,7 @@ export const BomCostsPage: React.FC = () => {
                                   )}
                               </>
                             ) : (
-                              "—"
+                              "-"
                             )}
                           </td>
 
@@ -1804,11 +1818,11 @@ export const BomCostsPage: React.FC = () => {
                                 step={0.5}
                               />
                             ) : isRolled ? (
-                              <span className={styles.rolledUpMuted}>—</span>
+                              <span className={styles.rolledUpMuted}>-</span>
                             ) : item.contingencyPercent > 0 ? (
                               item.contingencyPercent
                             ) : (
-                              "—"
+                              "-"
                             )}
                           </td>
 
@@ -1823,7 +1837,7 @@ export const BomCostsPage: React.FC = () => {
                                 {formatCurrency(item.totalCostInclCont, "USD")}
                               </span>
                             ) : (
-                              "—"
+                              "-"
                             )}
                             {ancestorHasDirectCost && (
                               <div className={styles.childOfCostedNote}>
@@ -1839,7 +1853,7 @@ export const BomCostsPage: React.FC = () => {
                                 className={styles.editInputSmall}
                                 type="number"
                                 value={item.leadTimeDays || ""}
-                                placeholder="—"
+                                placeholder="-"
                                 onChange={(e) =>
                                   updateItem(item.id, {
                                     leadTimeDays:
@@ -1853,12 +1867,12 @@ export const BomCostsPage: React.FC = () => {
                                   {item.leadTimeDays}d
                                 </span>
                               ) : (
-                                "—"
+                                "-"
                               )
                             ) : item.leadTimeDays > 0 ? (
                               `${item.leadTimeDays}d`
                             ) : (
-                              "—"
+                              "-"
                             )}
                           </td>
 
@@ -1877,7 +1891,7 @@ export const BomCostsPage: React.FC = () => {
                                 {srcLabel(item.sourceTab, item.costReference)}
                               </span>
                             ) : (
-                              "—"
+                              "-"
                             )}
                           </td>
 
@@ -1909,7 +1923,7 @@ export const BomCostsPage: React.FC = () => {
                                 />
                               </div>
                             ) : isRolled ? (
-                              "—"
+                              "-"
                             ) : item.dateReference ? (
                               <span
                                 className={`${styles.dateBadge} ${dateAgeClass(item.dateReference)}`}
@@ -1925,7 +1939,7 @@ export const BomCostsPage: React.FC = () => {
                                 {formatDateDMY(item.dateReference)}
                               </span>
                             ) : (
-                              "—"
+                              "-"
                             )}
                           </td>
 
@@ -1944,7 +1958,7 @@ export const BomCostsPage: React.FC = () => {
                                 placeholder="..."
                               />
                             ) : (
-                              item.comments || "—"
+                              item.comments || "-"
                             )}
                           </td>
                         </>
@@ -1952,14 +1966,16 @@ export const BomCostsPage: React.FC = () => {
 
                       {/* Actions column */}
                       <td className={styles.tdActions}>
-                        <button
-                          className={`${styles.rowActionBtn} ${isEditing ? styles.rowActionBtnActive : ""}`}
-                          onClick={() => toggleRowEdit(item.id)}
-                          title={isEditing ? "Done editing" : "Edit row"}
-                        >
-                          {isEditing ? "✓" : "✏️"}
-                        </button>
-                        {isEditing && hasSearchedCosts && (
+                        {canEdit && (
+                          <button
+                            className={`${styles.rowActionBtn} ${isEditing ? styles.rowActionBtnActive : ""}`}
+                            onClick={() => toggleRowEdit(item.id)}
+                            title={isEditing ? "Done editing" : "Edit row"}
+                          >
+                            {isEditing ? "✓" : "✏️"}
+                          </button>
+                        )}
+                        {canEdit && isEditing && hasSearchedCosts && (
                           <button
                             className={`${styles.rowActionBtn} ${styles.rowActionBtnQuotation}`}
                             onClick={() => handleOpenQuotationModal(item.id)}
@@ -1980,42 +1996,50 @@ export const BomCostsPage: React.FC = () => {
                               >
                                 👁
                               </button>
-                              <button
-                                className={`${styles.rowActionBtn} ${styles.rowActionBtnDanger}`}
-                                onClick={() => handleRemoveQuotation(item.id)}
-                                title="Remove Quotation"
-                              >
-                                ✕
-                              </button>
+                              {canEdit && (
+                                <button
+                                  className={`${styles.rowActionBtn} ${styles.rowActionBtnDanger}`}
+                                  onClick={() => handleRemoveQuotation(item.id)}
+                                  title="Remove Quotation"
+                                >
+                                  ✕
+                                </button>
+                              )}
                             </>
                           )}
-                        <button
-                          className={styles.rowActionBtn}
-                          onClick={() => handleAddRow(item.id, false)}
-                          title="Add sibling row below"
-                        >
-                          +
-                        </button>
-                        <button
-                          className={styles.rowActionBtn}
-                          onClick={() => handleAddRow(item.id, true)}
-                          title="Add child row"
-                        >
-                          ⤵
-                        </button>
-                        <button
-                          className={`${styles.rowActionBtn} ${styles.rowActionBtnDanger}`}
-                          onClick={() => {
-                            if (
-                              confirm("Delete this row and all its children?")
-                            ) {
-                              handleDeleteRow(item.id);
-                            }
-                          }}
-                          title="Delete row"
-                        >
-                          ✕
-                        </button>
+                        {canEdit && (
+                          <>
+                            <button
+                              className={styles.rowActionBtn}
+                              onClick={() => handleAddRow(item.id, false)}
+                              title="Add sibling row below"
+                            >
+                              +
+                            </button>
+                            <button
+                              className={styles.rowActionBtn}
+                              onClick={() => handleAddRow(item.id, true)}
+                              title="Add child row"
+                            >
+                              ⤵
+                            </button>
+                            <button
+                              className={`${styles.rowActionBtn} ${styles.rowActionBtnDanger}`}
+                              onClick={() => {
+                                if (
+                                  confirm(
+                                    "Delete this row and all its children?",
+                                  )
+                                ) {
+                                  handleDeleteRow(item.id);
+                                }
+                              }}
+                              title="Delete row"
+                            >
+                              ✕
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   );
@@ -2036,15 +2060,17 @@ export const BomCostsPage: React.FC = () => {
             scratch with a blank manual BOM
           </div>
           <div className={styles.importActions}>
-            <label className={styles.actionBtn}>
-              📎 Upload File
-              <input
-                type="file"
-                accept=".csv,.xlsx,.xls"
-                style={{ display: "none" }}
-                onChange={handleFileImport}
-              />
-            </label>
+            {canEdit && (
+              <label className={styles.actionBtn}>
+                📎 Upload File
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  style={{ display: "none" }}
+                  onChange={handleFileImport}
+                />
+              </label>
+            )}
             <button className={styles.actionBtnSecondary} onClick={handleBack}>
               ← Back to List
             </button>
@@ -2197,15 +2223,15 @@ export const BomCostsPage: React.FC = () => {
                     {filteredQuotations.slice(0, 50).map((q) => (
                       <tr key={q.id} className={styles.quotationRow}>
                         <td className={styles.quotationPN}>
-                          {q.partNumber || "—"}
+                          {q.partNumber || "-"}
                         </td>
                         <td
                           className={styles.quotationDesc}
                           title={q.description}
                         >
-                          {q.description || "—"}
+                          {q.description || "-"}
                         </td>
-                        <td>{q.supplier || "—"}</td>
+                        <td>{q.supplier || "-"}</td>
                         <td>
                           <span
                             className={`${styles.quotationTypeBadge} ${q.type === "rental" ? styles.quotationTypeRental : styles.quotationTypeAcq}`}
@@ -2225,10 +2251,10 @@ export const BomCostsPage: React.FC = () => {
                           )}
                         </td>
                         <td style={{ textAlign: "right" }}>
-                          {q.leadTimeDays > 0 ? `${q.leadTimeDays}d` : "—"}
+                          {q.leadTimeDays > 0 ? `${q.leadTimeDays}d` : "-"}
                         </td>
                         <td>
-                          {q.quotationDate ? formatDate(q.quotationDate) : "—"}
+                          {q.quotationDate ? formatDate(q.quotationDate) : "-"}
                         </td>
                         <td>
                           <button
@@ -2276,19 +2302,19 @@ export const BomCostsPage: React.FC = () => {
               <div className={styles.viewerRow}>
                 <span className={styles.viewerLabel}>Part Number</span>
                 <span className={styles.viewerValue}>
-                  {viewingQuotation.partNumber || "—"}
+                  {viewingQuotation.partNumber || "-"}
                 </span>
               </div>
               <div className={styles.viewerRow}>
                 <span className={styles.viewerLabel}>Description</span>
                 <span className={styles.viewerValue}>
-                  {viewingQuotation.description || "—"}
+                  {viewingQuotation.description || "-"}
                 </span>
               </div>
               <div className={styles.viewerRow}>
                 <span className={styles.viewerLabel}>Supplier</span>
                 <span className={styles.viewerValue}>
-                  {viewingQuotation.supplier || "—"}
+                  {viewingQuotation.supplier || "-"}
                 </span>
               </div>
               <div className={styles.viewerRow}>
@@ -2326,7 +2352,7 @@ export const BomCostsPage: React.FC = () => {
                 <span className={styles.viewerValue}>
                   {viewingQuotation.leadTimeDays > 0
                     ? `${viewingQuotation.leadTimeDays} days`
-                    : "—"}
+                    : "-"}
                 </span>
               </div>
               <div className={styles.viewerRow}>
@@ -2334,13 +2360,13 @@ export const BomCostsPage: React.FC = () => {
                 <span className={styles.viewerValue}>
                   {viewingQuotation.quotationDate
                     ? formatDate(viewingQuotation.quotationDate)
-                    : "—"}
+                    : "-"}
                 </span>
               </div>
               <div className={styles.viewerRow}>
                 <span className={styles.viewerLabel}>Created By</span>
                 <span className={styles.viewerValue}>
-                  {viewingQuotation.createdBy || "—"}
+                  {viewingQuotation.createdBy || "-"}
                 </span>
               </div>
               {viewingQuotation.notes && (

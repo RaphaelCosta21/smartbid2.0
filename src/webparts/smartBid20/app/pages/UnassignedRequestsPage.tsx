@@ -5,22 +5,33 @@
  * List + Card dual view. Detail modal with full JSON info + assign panel.
  */
 import * as React from "react";
+import { LayoutGrid, LayoutList, Search, X } from "lucide-react";
 import { PageHeader } from "../components/common/PageHeader";
 import { DataTable } from "../components/common/DataTable";
 import { StatusBadge } from "../components/common/StatusBadge";
+import { KPICard } from "../components/common/KPICard";
+import {
+  MultiSelectDropdown,
+  MultiSelectOption,
+} from "../components/insights/MultiSelectDropdown";
+import { useChartTheme } from "../hooks/useChartTheme";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { usePageAccess } from "../hooks/usePageAccess";
 import { useConfigStore } from "../stores/useConfigStore";
 import { MembersService } from "../services/MembersService";
 import { RequestService } from "../services/RequestService";
 import { BidService } from "../services/BidService";
 import { useBidStore } from "../stores/useBidStore";
 import { IBidRequest } from "../models/IBidRequest";
-import { IPersonRef, IBid } from "../models";
+import { BidPriority, IPersonRef, IBid } from "../models";
 import { ITeamMember } from "../models/ITeamMember";
 import { PRIORITY_COLORS } from "../utils/constants";
 import { useStatusColors } from "../hooks/useStatusColors";
+import { useSlidingIndicator } from "../hooks/useSlidingIndicator";
 import { ErnCreateModal } from "../components/bid/ErnCreateModal";
 import { isIntegratedBid } from "../utils/ernHelpers";
+import { formatDate } from "../utils/formatters";
+import { countFacets, withCounts } from "../utils/facetHelpers";
 import { format } from "date-fns";
 import styles from "./UnassignedRequestsPage.module.scss";
 
@@ -55,6 +66,30 @@ function getAvatarColor(name: string): string {
 
 type ViewMode = "list" | "cards";
 
+const VIEW_OPTIONS: { mode: ViewMode; label: string; icon: React.ReactNode }[] =
+  [
+    { mode: "list", label: "List", icon: <LayoutList size={14} /> },
+    { mode: "cards", label: "Cards", icon: <LayoutGrid size={14} /> },
+  ];
+
+const PRIORITIES: BidPriority[] = ["Urgent", "Normal", "Low"];
+
+function getCreatorKey(r: IBidRequest): string {
+  return r.creator?.email || r.creator?.name || "";
+}
+
+type RequestFacetKey = "priority" | "division" | "serviceLine" | "creator";
+
+const REQUEST_FACET_VALUES: Record<
+  RequestFacetKey,
+  (r: IBidRequest) => string
+> = {
+  priority: (r) => r.priority,
+  division: (r) => r.division,
+  serviceLine: (r) => r.serviceLine,
+  creator: getCreatorKey,
+};
+
 /* ------------------------------------------------------------------ */
 /* COMPONENT                                                          */
 /* ------------------------------------------------------------------ */
@@ -63,6 +98,7 @@ export const UnassignedRequestsPage: React.FC = () => {
   const currentUser = useCurrentUser();
   const sysConfig = useConfigStore((s) => s.config);
   const statusColors = useStatusColors();
+  const chart = useChartTheme();
 
   // Real requests fetched from SharePoint smartbid-tracker list
   const [requests, setRequests] = React.useState<IBidRequest[]>([]);
@@ -71,9 +107,14 @@ export const UnassignedRequestsPage: React.FC = () => {
   // Team members from MembersManagement
   const [teamMembers, setTeamMembers] = React.useState<ITeamMember[]>([]);
   const [viewMode, setViewMode] = React.useState<ViewMode>("list");
+  const viewIndicator = useSlidingIndicator(viewMode);
   const [search, setSearch] = React.useState("");
-  const [priorityFilter, setPriorityFilter] = React.useState<string>("all");
-  const [divisionFilter, setDivisionFilter] = React.useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = React.useState<string[]>([]);
+  const [divisionFilter, setDivisionFilter] = React.useState<string[]>([]);
+  const [serviceLineFilter, setServiceLineFilter] = React.useState<string[]>(
+    [],
+  );
+  const [creatorFilter, setCreatorFilter] = React.useState<string[]>([]);
   const [selectedRequest, setSelectedRequest] =
     React.useState<IBidRequest | null>(null);
   const [showAssignPanel, setShowAssignPanel] = React.useState(false);
@@ -109,11 +150,10 @@ export const UnassignedRequestsPage: React.FC = () => {
   };
 
   // ---- Permissions ------------------------------------------------
-  const isEngineering = currentUser.sector === "engineering";
-  const isManager = isEngineering && currentUser.bidRole === "manager";
-  const isContributor = isEngineering && currentUser.bidRole === "contributor";
-  const canAssign =
-    isManager || isContributor || currentUser.isSuperAdmin === true;
+  const { canEdit } = usePageAccess();
+  const isManager = currentUser.bidRole === "manager";
+  const isContributor = currentUser.bidRole === "contributor";
+  const canAssign = canEdit && (isManager || isContributor);
 
   // ---- Load requests from SharePoint ------------------------------
   const loadRequests = React.useCallback(async () => {
@@ -143,28 +183,132 @@ export const UnassignedRequestsPage: React.FC = () => {
   // ---- Data already filtered from SP — use directly
   const unassignedRequests = requests;
 
-  // ---- Search + filter
-  const filteredRequests = React.useMemo(() => {
-    let list = unassignedRequests;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(
-        (r) =>
+  // ---- Search + filter (`skip` lets a dropdown count against the other filters)
+  const passesFilters = React.useCallback(
+    (r: IBidRequest, skip?: RequestFacetKey): boolean => {
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const hit =
           r.requestNumber?.toLowerCase().includes(q) ||
           r.crmNumber?.toLowerCase().includes(q) ||
           r.client?.toLowerCase().includes(q) ||
           r.projectName?.toLowerCase().includes(q) ||
-          r.requestedBy?.name?.toLowerCase().includes(q),
+          r.requestedBy?.name?.toLowerCase().includes(q);
+        if (!hit) return false;
+      }
+      const selected: Record<RequestFacetKey, string[]> = {
+        priority: priorityFilter,
+        division: divisionFilter,
+        serviceLine: serviceLineFilter,
+        creator: creatorFilter,
+      };
+      return (Object.keys(selected) as RequestFacetKey[]).every(
+        (key) =>
+          key === skip ||
+          selected[key].length === 0 ||
+          selected[key].indexOf(REQUEST_FACET_VALUES[key](r)) >= 0,
       );
+    },
+    [search, priorityFilter, divisionFilter, serviceLineFilter, creatorFilter],
+  );
+
+  const filteredRequests = React.useMemo(
+    () => unassignedRequests.filter((r) => passesFilters(r)),
+    [unassignedRequests, passesFilters],
+  );
+
+  const facetCounts = React.useMemo(
+    () => countFacets(unassignedRequests, REQUEST_FACET_VALUES, passesFilters),
+    [unassignedRequests, passesFilters],
+  );
+
+  // ---- Filter options
+  const divisionOptions = React.useMemo<MultiSelectOption[]>(
+    () =>
+      (sysConfig?.divisions || [])
+        .filter((d) => d.isActive !== false)
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .map((d) => ({
+          value: d.value,
+          label: d.label || d.value,
+          color: statusColors.getDivisionColor(d.value),
+        })),
+    [sysConfig, statusColors],
+  );
+
+  const serviceLineOptions = React.useMemo<MultiSelectOption[]>(() => {
+    const configured = (sysConfig?.serviceLines || []).filter(
+      (s) => s.isActive !== false,
+    );
+    if (configured.length === 0) {
+      const seen: Record<string, true> = {};
+      requests.forEach((r) => {
+        if (r.serviceLine) seen[r.serviceLine] = true;
+      });
+      return Object.keys(seen)
+        .sort((a, b) => a.localeCompare(b))
+        .map((v) => ({ value: v, label: v }));
     }
-    if (priorityFilter !== "all") {
-      list = list.filter((r) => r.priority === priorityFilter);
-    }
-    if (divisionFilter !== "all") {
-      list = list.filter((r) => r.division === divisionFilter);
-    }
-    return list;
-  }, [unassignedRequests, search, priorityFilter, divisionFilter]);
+    return configured
+      .filter(
+        (s) =>
+          divisionFilter.length === 0 ||
+          divisionFilter.indexOf(String(s.category)) >= 0,
+      )
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .map((s) => ({
+        value: s.value,
+        label: s.label || s.value,
+        color: statusColors.getServiceLineColor(s.value),
+      }));
+  }, [sysConfig, requests, divisionFilter, statusColors]);
+
+  const creatorOptions = React.useMemo<MultiSelectOption[]>(() => {
+    const nameByKey: Record<string, string> = {};
+    requests.forEach((r) => {
+      const key = getCreatorKey(r);
+      if (key) nameByKey[key] = r.creator?.name || key;
+    });
+    return Object.keys(nameByKey)
+      .map((key) => ({ value: key, label: nameByKey[key] }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [requests]);
+
+  const priorityOptions = React.useMemo<MultiSelectOption[]>(
+    () =>
+      PRIORITIES.map((p) => ({
+        value: p,
+        label: p,
+        color: statusColors.getPriorityColor(p),
+      })),
+    [statusColors],
+  );
+
+  const handleDivisionsChange = (divisions: string[]): void => {
+    setDivisionFilter(divisions);
+    if (divisions.length === 0) return;
+    const configured = sysConfig?.serviceLines || [];
+    setServiceLineFilter((prev) =>
+      prev.filter((value) => {
+        const sl = configured.find((s) => s.value === value);
+        return !sl || divisions.indexOf(String(sl.category)) >= 0;
+      }),
+    );
+  };
+
+  const hasActiveFilters =
+    search.trim() !== "" ||
+    [priorityFilter, divisionFilter, serviceLineFilter, creatorFilter].some(
+      (selected) => selected.length > 0,
+    );
+
+  const handleClearFilters = (): void => {
+    setSearch("");
+    setPriorityFilter([]);
+    setDivisionFilter([]);
+    setServiceLineFilter([]);
+    setCreatorFilter([]);
+  };
 
   // ---- Engineering contributors & analysts
   const engineeringContributors = React.useMemo(() => {
@@ -182,15 +326,7 @@ export const UnassignedRequestsPage: React.FC = () => {
   }, [teamMembers]);
 
   // ---- Stats
-  const urgentCount = unassignedRequests.filter(
-    (r) => r.priority === "Urgent",
-  ).length;
-  const normalCount = unassignedRequests.filter(
-    (r) => r.priority === "Normal",
-  ).length;
-  const lowCount = unassignedRequests.filter(
-    (r) => r.priority === "Low",
-  ).length;
+  const totalPending = unassignedRequests.length;
 
   // ---- Close all modals/panels helper -----------------------------
   const closeAll = (): void => {
@@ -206,7 +342,7 @@ export const UnassignedRequestsPage: React.FC = () => {
     setAssignTarget(req);
     setShowAssignPanel(true);
     // If contributor (not manager), auto-select and lock themselves as first
-    if (isContributor && !isManager && !currentUser.isSuperAdmin) {
+    if (isContributor && !isManager) {
       const selfMember = engineeringContributors.find(
         (m) => m.email.toLowerCase() === currentUser.email.toLowerCase(),
       );
@@ -228,7 +364,7 @@ export const UnassignedRequestsPage: React.FC = () => {
   // ---- Toggle selections
   const toggleEngineer = (memberId: string): void => {
     // If contributor (not manager), first slot is locked to self
-    if (isContributor && !isManager && !currentUser.isSuperAdmin) {
+    if (isContributor && !isManager) {
       const selfMember = engineeringContributors.find(
         (m) => m.email.toLowerCase() === currentUser.email.toLowerCase(),
       );
@@ -350,7 +486,7 @@ export const UnassignedRequestsPage: React.FC = () => {
         timestamp: now,
         actor: engineers[0]?.email || "",
         actorName: engineers[0]?.name || "",
-        description: `BID assigned — moved from ${prevPhase} / ${prevStatus} to Bid Kick Off / Awaiting Kick Off`,
+        description: `BID assigned - moved from ${prevPhase} / ${prevStatus} to Bid Kick Off / Awaiting Kick Off`,
         metadata: {
           previousPhase: prevPhase,
           previousStatus: prevStatus,
@@ -401,7 +537,7 @@ export const UnassignedRequestsPage: React.FC = () => {
     const selfMember = engineeringContributors.find(
       (m) => m.email.toLowerCase() === currentUser.email.toLowerCase(),
     );
-    const isSelf = isContributor && !isManager && !currentUser.isSuperAdmin;
+    const isSelf = isContributor && !isManager;
 
     return (
       <div className={styles.assignPanel} ref={assignPanelRef}>
@@ -666,25 +802,25 @@ export const UnassignedRequestsPage: React.FC = () => {
                 <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>Client</span>
                   <span className={styles.modalFieldValue}>
-                    {r.client || "—"}
+                    {r.client || "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>Client Contact</span>
                   <span className={styles.modalFieldValue}>
-                    {r.clientContact || "—"}
+                    {r.clientContact || "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>CRM</span>
                   <span className={styles.modalFieldValue}>
-                    {r.crmNumber || "—"}
+                    {r.crmNumber || "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>Project Name</span>
                   <span className={styles.modalFieldValue}>
-                    {r.projectName || "—"}
+                    {r.projectName || "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
@@ -696,7 +832,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                 <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>Service Line</span>
                   <span className={styles.modalFieldValue}>
-                    {r.serviceLine || "—"}
+                    {r.serviceLine || "-"}
                   </span>
                 </div>
                 <div
@@ -704,7 +840,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                 >
                   <span className={styles.modalFieldLabel}>Description</span>
                   <span className={styles.modalFieldValue}>
-                    {r.projectDescription || "—"}
+                    {r.projectDescription || "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
@@ -713,8 +849,8 @@ export const UnassignedRequestsPage: React.FC = () => {
                   </span>
                   <span className={styles.modalFieldValue}>
                     {r.operationStartDate
-                      ? format(new Date(r.operationStartDate), "MMM d, yyyy")
-                      : "—"}
+                      ? formatDate(r.operationStartDate, "MMM d, yyyy")
+                      : "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
@@ -722,7 +858,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                     Expected Duration
                   </span>
                   <span className={styles.modalFieldValue}>
-                    {r.totalDuration ? `${r.totalDuration} days` : "—"}
+                    {r.totalDuration ? `${r.totalDuration} days` : "-"}
                   </span>
                 </div>
               </div>
@@ -762,7 +898,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                         </span>
                       ))
                     ) : (
-                      <span style={{ color: "var(--text-tertiary)" }}>—</span>
+                      <span style={{ color: "var(--text-tertiary)" }}>-</span>
                     )}
                   </div>
                 </div>
@@ -786,7 +922,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                   <span className={styles.modalFieldValue}>
                     {r.creationDate
                       ? format(new Date(r.creationDate), "MMM d, yyyy")
-                      : "—"}
+                      : "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
@@ -813,7 +949,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                           )}
                         </span>
                       )}
-                      {r.creator?.name || r.requestedBy?.name || "—"}
+                      {r.creator?.name || r.requestedBy?.name || "-"}
                     </span>
                   </div>
                 </div>
@@ -823,8 +959,8 @@ export const UnassignedRequestsPage: React.FC = () => {
                   </span>
                   <span className={styles.modalFieldValue}>
                     {r.desiredDueDate
-                      ? format(new Date(r.desiredDueDate), "MMM d, yyyy")
-                      : "—"}
+                      ? formatDate(r.desiredDueDate, "MMM d, yyyy")
+                      : "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
@@ -842,7 +978,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                         }
                       />
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -861,7 +997,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                         }
                       />
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -877,13 +1013,13 @@ export const UnassignedRequestsPage: React.FC = () => {
                 <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>Vessel</span>
                   <span className={styles.modalFieldValue}>
-                    {r.vessel || "—"}
+                    {r.vessel || "-"}
                   </span>
                 </div>
                 <div className={styles.modalField}>
                   <span className={styles.modalFieldLabel}>Field</span>
                   <span className={styles.modalFieldValue}>
-                    {r.field || "—"}
+                    {r.field || "-"}
                   </span>
                 </div>
                 <div
@@ -903,7 +1039,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                         {r.commercialFolderUrl} ↗
                       </a>
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -912,7 +1048,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                 >
                   <span className={styles.modalFieldLabel}>Notes</span>
                   <span className={styles.modalFieldValue}>
-                    {r.notes || "—"}
+                    {r.notes || "-"}
                   </span>
                 </div>
                 <div
@@ -972,7 +1108,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                       className={styles.modalFieldValue}
                       style={{ color: "var(--text-tertiary)" }}
                     >
-                      —
+                      -
                     </span>
                   )}
                 </div>
@@ -1046,7 +1182,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                 <div className={styles.cardMetaItem}>
                   <span className={styles.cardMetaLabel}>CRM</span>
                   <span className={styles.cardMetaValue}>
-                    {r.crmNumber || "—"}
+                    {r.crmNumber || "-"}
                   </span>
                 </div>
                 <div className={styles.cardMetaItem}>
@@ -1064,7 +1200,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                         }
                       />
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -1076,8 +1212,8 @@ export const UnassignedRequestsPage: React.FC = () => {
                   <span className={styles.cardMetaLabel}>Due Date</span>
                   <span className={styles.cardMetaValue}>
                     {r.desiredDueDate
-                      ? format(new Date(r.desiredDueDate), "MMM d")
-                      : "—"}
+                      ? formatDate(r.desiredDueDate, "MMM d")
+                      : "-"}
                   </span>
                 </div>
                 <div className={styles.cardMetaItem}>
@@ -1089,7 +1225,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                         color={statusColors.getPhaseColor(r.currentPhase)}
                       />
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -1102,7 +1238,7 @@ export const UnassignedRequestsPage: React.FC = () => {
                         color={statusColors.getStatusColor(r.currentStatus)}
                       />
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -1168,7 +1304,7 @@ export const UnassignedRequestsPage: React.FC = () => {
       sortable: true,
       width: 110,
       render: (r: IBidRequest) => (
-        <span className={styles.mono}>{r.crmNumber || "—"}</span>
+        <span className={styles.mono}>{r.crmNumber || "-"}</span>
       ),
     },
     {
@@ -1264,16 +1400,14 @@ export const UnassignedRequestsPage: React.FC = () => {
       header: "Date",
       sortable: true,
       render: (r: IBidRequest) =>
-        r.requestDate ? format(new Date(r.requestDate), "MMM d, yyyy") : "—",
+        r.requestDate ? format(new Date(r.requestDate), "MMM d, yyyy") : "-",
     },
     {
       key: "desiredDueDate",
       header: "Due Date",
       sortable: true,
       render: (r: IBidRequest) =>
-        r.desiredDueDate
-          ? format(new Date(r.desiredDueDate), "MMM d, yyyy")
-          : "—",
+        r.desiredDueDate ? formatDate(r.desiredDueDate, "MMM d, yyyy") : "-",
     },
     {
       key: "currentPhase",
@@ -1285,7 +1419,7 @@ export const UnassignedRequestsPage: React.FC = () => {
         return r.currentPhase ? (
           <StatusBadge status={r.currentPhase} color={phaseColor} />
         ) : (
-          "—"
+          "-"
         );
       },
     },
@@ -1299,7 +1433,7 @@ export const UnassignedRequestsPage: React.FC = () => {
         return r.currentStatus ? (
           <StatusBadge status={r.currentStatus} color={statusColor} />
         ) : (
-          "—"
+          "-"
         );
       },
     },
@@ -1351,6 +1485,38 @@ export const UnassignedRequestsPage: React.FC = () => {
             <line x1="23" y1="11" x2="17" y2="11" />
           </svg>
         }
+        actions={
+          <div
+            ref={viewIndicator.containerRef}
+            className={styles.viewToggle}
+            role="tablist"
+            aria-label="View"
+          >
+            {viewIndicator.style && (
+              <span
+                aria-hidden="true"
+                className={`${styles.viewIndicator} ${viewIndicator.animated ? styles.viewIndicatorAnimated : ""}`}
+                style={viewIndicator.style}
+              />
+            )}
+            {VIEW_OPTIONS.map((opt) => {
+              const active = viewMode === opt.mode;
+              return (
+                <button
+                  key={opt.mode}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={`${styles.viewBtn} ${active ? styles.viewBtnActive : ""}`}
+                  onClick={() => setViewMode(opt.mode)}
+                >
+                  {opt.icon}
+                  <span>{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        }
       />
 
       {/* Message */}
@@ -1362,174 +1528,95 @@ export const UnassignedRequestsPage: React.FC = () => {
         </div>
       )}
 
-      {/* No access banner for non-engineering users */}
-      {!canAssign && (
+      {/* Edit access without an assigning BID role (View mode has its own banner) */}
+      {canEdit && !canAssign && (
         <div className={styles.noAccessMsg}>
-          🔒 Only Engineering team members (Manager or Contributor) can assign
+          🔒 Only members with the Manager or Contributor BID role can assign
           requests.
         </div>
       )}
 
-      {/* Stat Cards */}
-      <div className={styles.statRow}>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "rgba(59,130,246,0.12)", color: "#3b82f6" }}
-          >
-            📋
-          </div>
-          <div className={styles.statInfo}>
-            <div className={styles.statValue}>{unassignedRequests.length}</div>
-            <div className={styles.statLabel}>Total Pending</div>
-          </div>
-        </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444" }}
-          >
-            🔴
-          </div>
-          <div className={styles.statInfo}>
-            <div className={styles.statValue}>{urgentCount}</div>
-            <div className={styles.statLabel}>Urgent</div>
-          </div>
-        </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "rgba(59,130,246,0.12)", color: "#3b82f6" }}
-          >
-            🔵
-          </div>
-          <div className={styles.statInfo}>
-            <div className={styles.statValue}>{normalCount}</div>
-            <div className={styles.statLabel}>Normal</div>
-          </div>
-        </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "rgba(100,116,139,0.12)", color: "#64748b" }}
-          >
-            ⚪
-          </div>
-          <div className={styles.statInfo}>
-            <div className={styles.statValue}>{lowCount}</div>
-            <div className={styles.statLabel}>Low</div>
-          </div>
-        </div>
+      {/* KPI Cards */}
+      <div className={styles.kpiGrid}>
+        <KPICard
+          label="Total Pending"
+          value={totalPending}
+          variant="glass"
+          accentColor={chart.accent}
+          subtitle="Awaiting assignment"
+        />
+        {PRIORITIES.map((p) => {
+          const count = unassignedRequests.filter(
+            (r) => r.priority === p,
+          ).length;
+          return (
+            <KPICard
+              key={p}
+              label={p}
+              value={count}
+              variant="glass"
+              accentColor={statusColors.getPriorityColor(p)}
+              subtitle={
+                totalPending > 0
+                  ? `${Math.round((count / totalPending) * 100)}% of pending`
+                  : "No pending requests"
+              }
+              progress={{ value: count, max: Math.max(totalPending, 1) }}
+            />
+          );
+        })}
       </div>
 
-      {/* Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.searchWrap}>
-          <svg
-            className={styles.searchIcon}
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+      {/* Filters */}
+      <div className={styles.filterBar}>
+        <div className={styles.searchWrapper}>
+          <Search size={15} className={styles.searchIcon} />
           <input
+            type="text"
             className={styles.searchInput}
-            placeholder="Search by request #, CRM, client, project..."
+            placeholder="Search request #, CRM, client, project, creator…"
             value={search}
             onChange={(e) => setSearch(e.currentTarget.value)}
+            aria-label="Search requests"
           />
         </div>
-
-        {/* Division filter */}
-        <select
-          className={styles.filterSelect}
-          value={divisionFilter}
-          onChange={(e) => setDivisionFilter(e.currentTarget.value)}
-        >
-          <option value="all">All Divisions</option>
-          {(sysConfig?.divisions || [])
-            .filter((d) => d.isActive !== false)
-            .map((d) => (
-              <option key={d.id} value={d.value}>
-                {d.label}
-              </option>
-            ))}
-        </select>
-
-        {/* Priority filter */}
-        <button
-          className={`${styles.filterBtn} ${priorityFilter === "all" ? styles.filterBtnActive : ""}`}
-          onClick={() => setPriorityFilter("all")}
-        >
-          All
-        </button>
-        {(["Urgent", "Normal", "Low"] as const).map((p) => (
+        <MultiSelectDropdown
+          label="Division"
+          options={withCounts(divisionOptions, facetCounts.division)}
+          selected={divisionFilter}
+          onChange={handleDivisionsChange}
+        />
+        <MultiSelectDropdown
+          label="Service Line"
+          options={withCounts(serviceLineOptions, facetCounts.serviceLine)}
+          selected={serviceLineFilter}
+          onChange={setServiceLineFilter}
+        />
+        <MultiSelectDropdown
+          label="Creator"
+          options={withCounts(creatorOptions, facetCounts.creator)}
+          selected={creatorFilter}
+          onChange={setCreatorFilter}
+        />
+        <MultiSelectDropdown
+          label="Priority"
+          options={withCounts(priorityOptions, facetCounts.priority)}
+          selected={priorityFilter}
+          onChange={setPriorityFilter}
+        />
+        {hasActiveFilters && (
           <button
-            key={p}
-            className={`${styles.filterBtn} ${priorityFilter === p ? styles.filterBtnActive : ""}`}
-            onClick={() => setPriorityFilter(p)}
-            style={
-              priorityFilter === p
-                ? {
-                    borderColor: PRIORITY_COLORS[p],
-                    background: `${PRIORITY_COLORS[p]}18`,
-                    color: PRIORITY_COLORS[p],
-                  }
-                : {}
-            }
+            type="button"
+            className={styles.clearBtn}
+            onClick={handleClearFilters}
           >
-            {p}
+            <X size={14} /> Clear
           </button>
-        ))}
-
-        {/* View toggle */}
-        <div className={styles.viewToggle}>
-          <button
-            className={`${styles.viewBtn} ${viewMode === "list" ? styles.viewBtnActive : ""}`}
-            onClick={() => setViewMode("list")}
-            title="List view"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <line x1="8" y1="6" x2="21" y2="6" />
-              <line x1="8" y1="12" x2="21" y2="12" />
-              <line x1="8" y1="18" x2="21" y2="18" />
-              <line x1="3" y1="6" x2="3.01" y2="6" />
-              <line x1="3" y1="12" x2="3.01" y2="12" />
-              <line x1="3" y1="18" x2="3.01" y2="18" />
-            </svg>
-          </button>
-          <button
-            className={`${styles.viewBtn} ${viewMode === "cards" ? styles.viewBtnActive : ""}`}
-            onClick={() => setViewMode("cards")}
-            title="Card view"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
-            </svg>
-          </button>
-        </div>
+        )}
+        <span className={styles.resultCount}>
+          <strong>{filteredRequests.length}</strong>{" "}
+          {filteredRequests.length === 1 ? "request" : "requests"}
+        </span>
       </div>
 
       {/* Content: List or Cards */}

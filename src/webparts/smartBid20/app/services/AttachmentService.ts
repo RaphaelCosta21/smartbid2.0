@@ -7,6 +7,16 @@ import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import { IBidAttachment } from "../models/IBid";
 
 export class AttachmentService {
+  /** Turn free text (e.g. a document category) into a single, valid SharePoint folder name. */
+  public static safeFolderName(name: string): string {
+    const safe = name
+      .replace(/[\\/:*?"<>|#%~&{}]/g, "_")
+      .replace(/\.{2,}/g, "_")
+      .replace(/^[\s.]+|[\s.]+$/g, "")
+      .substring(0, 100);
+    return safe || "Documents";
+  }
+
   public static async uploadFile(
     bidNumber: string,
     category: string,

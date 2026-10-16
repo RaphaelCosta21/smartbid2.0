@@ -47,7 +47,9 @@ export const ErnDetailsModal: React.FC<ErnDetailsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const deadline = ern ? getErnDeadlineState(ern.dueDate, ern.status) : "none";
+  const deadline = ern
+    ? getErnDeadlineState(ern.dueDate, ern.status, ern.finishDate)
+    : "none";
 
   return (
     <div className={styles.overlay} onMouseDown={onDismiss}>
@@ -85,18 +87,25 @@ export const ErnDetailsModal: React.FC<ErnDetailsModalProps> = ({
                     className={styles.statusPill}
                     style={{ background: stateColor[deadline] }}
                   >
-                    {ern.status || "—"}
+                    {ern.status || "-"}
                   </span>
                 </Row>
                 <Row label="Deliverable Type" value={ern.deliverableType} />
+                <Row label="Service Line" value={ern.serviceLine} />
                 <Row label="Due Date" value={formatDate(ern.dueDate)} />
                 <Row label="Released Date" value={formatDate(ern.finishDate)} />
+                <Row label="Responsible" value={ern.resource1} />
+                <Row
+                  label="Checker"
+                  value={withDate(ern.checker, ern.checkerDueDate, "due ")}
+                />
+                <Row label="Lead" value={withDate(ern.lead, ern.leadDate)} />
                 <Row label="Project Number" value={ern.projectNumber} />
                 <Row label="Project Title" value={ern.projectTitle} />
               </div>
               <div className={styles.descBlock}>
                 <div className={styles.descLabel}>Deliverable Description</div>
-                <div className={styles.descValue}>{ern.description || "—"}</div>
+                <div className={styles.descValue}>{ern.description || "-"}</div>
               </div>
               <a
                 className={styles.appLink}
@@ -121,6 +130,11 @@ const Row: React.FC<{
 }> = ({ label, value, children }) => (
   <div className={styles.row}>
     <span className={styles.rowLabel}>{label}</span>
-    <span className={styles.rowValue}>{children || value || "—"}</span>
+    <span className={styles.rowValue}>{children || value || "-"}</span>
   </div>
 );
+
+function withDate(name: string, date: string, prefix = ""): string {
+  if (!name) return "";
+  return date ? `${name} (${prefix}${formatDate(date, "MMM d")})` : name;
+}

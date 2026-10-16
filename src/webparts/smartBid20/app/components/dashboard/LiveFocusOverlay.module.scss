@@ -1,0 +1,259 @@
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay-bg);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 320ms ease;
+}
+
+.open .scrim {
+  opacity: 1;
+}
+
+.panel {
+  position: fixed;
+  top: 4vh;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: calc(100vw - 48px);
+  max-width: 1280px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-card-hover);
+  overflow: hidden;
+  transform-origin: 0 0;
+  will-change: transform;
+  transition:
+    transform 480ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms ease;
+}
+
+.exiting .panel {
+  transition:
+    transform 340ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 150ms ease 190ms;
+}
+
+/* Content is hidden while the surface morphs, then fades up */
+.header,
+.body {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.open .header,
+.open .body {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 260ms ease 200ms,
+    transform 360ms cubic-bezier(0.22, 1, 0.36, 1) 200ms;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 28px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.titleBlock {
+  min-width: 0;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.livePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.liveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  animation: focusLivePulse 2s ease-in-out infinite;
+}
+
+@keyframes focusLivePulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.closeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    color 200ms ease,
+    border-color 200ms ease,
+    transform 250ms ease;
+
+  &:hover {
+    color: var(--text-primary);
+    border-color: var(--border);
+    transform: scale(0.94);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 28px 28px;
+}
+
+/* Items marked data-focus-item (with --i = index) cascade in once open.
+   "backwards" fill so hover transforms still work after the entrance. */
+.open .body [data-focus-item] {
+  animation: focusItemIn 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 35ms + 220ms);
+}
+
+@keyframes focusItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Trigger shown in each Live card header */
+.focusBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 200ms ease,
+    border-color 200ms ease,
+    background 200ms ease,
+    transform 250ms ease;
+
+  &:hover {
+    color: var(--primary-accent);
+    border-color: color-mix(in srgb, var(--primary-accent) 40%, transparent);
+    background: color-mix(in srgb, var(--primary-accent) 8%, transparent);
+    transform: scale(1.08);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+}
+
+@media (max-width: 700px) {
+  .panel {
+    top: 0;
+    width: 100vw;
+    max-width: none;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .header {
+    padding: 16px;
+  }
+
+  .body {
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .exiting .panel {
+    transition: opacity 150ms ease;
+  }
+
+  .header,
+  .body,
+  .open .header,
+  .open .body {
+    transform: none;
+    transition: opacity 150ms ease;
+  }
+
+  .open .body [data-focus-item],
+  .liveDot {
+    animation: none;
+  }
+
+  .focusBtn:hover,
+  .closeBtn:hover {
+    transform: none;
+  }
+}

@@ -24,7 +24,7 @@ export const ApprovalDecisionPanel: React.FC<ApprovalDecisionPanelProps> = ({
     <div className={`${styles.panel} ${className || ""}`}>
       <h4 className={styles.title}>Decision Required</h4>
       <p className={styles.subtitle}>
-        {bidNumber} — {chainName}
+        {bidNumber} - {chainName}
       </p>
       <textarea
         value={comments}

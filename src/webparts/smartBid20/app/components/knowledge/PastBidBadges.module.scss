@@ -1,0 +1,91 @@
+/* Past BID classification badges — shared by Past Bids and Favorites */
+
+.empty {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chip {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: var(--card-bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.chipAccent {
+  color: var(--tertiary-accent);
+  border-color: var(--tertiary-accent);
+}
+
+.chipMore {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+/* ─── Outcome ─── */
+.outcome {
+  --outcome-color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--outcome-color);
+  white-space: nowrap;
+}
+
+.won {
+  --outcome-color: var(--success);
+}
+
+.loss {
+  --outcome-color: var(--danger);
+}
+
+.pending {
+  --outcome-color: var(--warning);
+}
+
+.none {
+  --outcome-color: var(--text-muted);
+}
+
+.outcomePill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: color-mix(in srgb, var(--outcome-color) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--outcome-color) 24%, transparent);
+}
+
+/* ─── Knowledge Base status ─── */
+.kbBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.kbPublished {
+  color: var(--success);
+}
+
+.kbFailed {
+  color: var(--danger);
+}
+
+.kbNone {
+  color: var(--text-muted);
+}

@@ -12,7 +12,7 @@
  * Supports both BIDs and Templates. Static singleton pattern.
  */
 import { AiAuthService } from "./AiAuthService";
-import { IScopeItem, IScopeSubItem } from "../models";
+import { IConfigOption, IScopeItem, IScopeSubItem } from "../models";
 import {
   IAIAnalysisResult,
   IAIAnalysisRequest,
@@ -23,6 +23,9 @@ import {
   IExtractedDocumentMetadata,
   IDocumentMetadataExtractionResult,
   IAIGroupOption,
+  IPastBidProfileSuggestion,
+  ISupplierProfileSuggestion,
+  SupplierProfileBasis,
   AIUseCase,
 } from "../models/IAIAnalysis";
 import {
@@ -30,6 +33,7 @@ import {
   IChatCitation,
   IChatMessage,
   IChatRetrievedDoc,
+  IPastBidChatContext,
 } from "../models/IAiChat";
 import { makeId } from "../utils/idGenerator";
 import { AI_CONFIG, buildAiUrl, isAiConfigured } from "../config/ai.config";
@@ -42,10 +46,21 @@ import {
   DOCUMENT_METADATA_EXTRACTION_PROMPT_VERSION,
   buildKnowledgeChatPrompt,
   KNOWLEDGE_CHAT_PROMPT_VERSION,
-  // Future: clarification suggestions (endpoint not wired yet)
-  // buildClarificationSuggestionPrompt,
-  // CLARIFICATION_SUGGESTION_PROMPT_VERSION,
+  buildPastBidProfilePrompt,
+  PAST_BID_PROFILE_PROMPT_VERSION,
+  buildSupplierProfilePrompt,
+  SUPPLIER_PROFILE_PROMPT_VERSION,
+  buildClarificationSuggestionPrompt,
+  CLARIFICATION_SUGGESTION_PROMPT_VERSION,
 } from "../config/ai.prompts";
+
+const SUPPLIER_PROFILE_BASES: SupplierProfileBasis[] = [
+  "quotations",
+  "document",
+  "general-knowledge",
+  "mixed",
+  "none",
+];
 
 /** Only same-tenant SharePoint links are rendered as citations. */
 const CHAT_CITATION_ORIGIN = "https://oceaneering.sharepoint.com/";
@@ -230,7 +245,7 @@ export class AIAnalysisService {
   private static ensureConfigured(): void {
     if (!isAiConfigured()) {
       throw new Error(
-        "AI is not available yet — IT is still finishing the Azure setup (Function App + app registration). Please try again later or contact IT.",
+        "AI is not available yet - IT is still finishing the Azure setup (Function App + app registration). Please try again later or contact IT.",
       );
     }
   }
@@ -316,11 +331,13 @@ export class AIAnalysisService {
         request.systemPrompt = buildScopeOfSupplyPrompt(
           resourceTypeOptions,
           context.assetCatalogOptions || [],
+          context.userInstructions,
         );
         request.promptVersion = SCOPE_OF_SUPPLY_PROMPT_VERSION;
       } else if (useCase === "quotation") {
         request.systemPrompt = buildQuotationExtractionPrompt(
           context.groupOptions || [],
+          context.supplierOptions || [],
         );
         request.promptVersion = QUOTATION_EXTRACTION_PROMPT_VERSION;
       } else if (useCase === "document-metadata") {
@@ -329,6 +346,16 @@ export class AIAnalysisService {
           context.groupOptions || [],
         );
         request.promptVersion = DOCUMENT_METADATA_EXTRACTION_PROMPT_VERSION;
+      } else if (useCase === "past-bid-profile") {
+        request.systemPrompt = buildPastBidProfilePrompt(
+          context.scopeCategoryOptions || [],
+        );
+        request.promptVersion = PAST_BID_PROFILE_PROMPT_VERSION;
+      } else if (useCase === "supplier-profile") {
+        request.systemPrompt = buildSupplierProfilePrompt(
+          context.serviceTypeOptions || [],
+        );
+        request.promptVersion = SUPPLIER_PROFILE_PROMPT_VERSION;
       }
     }
 
@@ -553,11 +580,15 @@ export class AIAnalysisService {
    * @param question - The user's question
    * @param history - Earlier turns of the conversation, oldest first
    * @param abortSignal - Optional AbortSignal for cancellation
+   * @param pastBids - Completed BIDs SmartBid matched to the question (ledger + refs)
+   * @param clarificationLibrary - Also search the Clarif. & Qualif. library
    */
   public static async chat(
     question: string,
     history: IChatMessage[] = [],
     abortSignal?: AbortSignal,
+    pastBids?: IPastBidChatContext | null,
+    clarificationLibrary = false,
   ): Promise<IChatAnswer> {
     AIAnalysisService.ensureConfigured();
 
@@ -578,6 +609,10 @@ export class AIAnalysisService {
         systemPrompt: buildKnowledgeChatPrompt(),
         promptVersion: KNOWLEDGE_CHAT_PROMPT_VERSION,
         topK: AI_CONFIG.chat.topK,
+        ...(pastBids
+          ? { pastBidsLedger: pastBids.ledger, pastBidRefs: pastBids.refs }
+          : {}),
+        ...(clarificationLibrary ? { clarificationLibrary: true } : {}),
       },
       abortSignal,
     );
@@ -627,13 +662,25 @@ export class AIAnalysisService {
     const list = Array.isArray(rawItems) ? rawItems : [];
     const items: IExtractedQuotationLine[] = [];
     let foldedCount = 0;
+    const notQuoted: string[] = [];
+    let supplierAbout = "";
     list.forEach((entry: Record<string, unknown>) => {
       const it = entry || {};
+      if (!supplierAbout)
+        supplierAbout = String(it.supplierAbout || "")
+          .trim()
+          .substring(0, 600);
       const description = String(it.description || "").trim();
       const cost = typeof it.cost === "number" ? it.cost : Number(it.cost) || 0;
       if (!description && cost <= 0) return;
       const partNumber = String(it.partNumber || it.oiiPartNumber || "");
       const included = String(it.includedComponents || "").trim();
+      // The supplier did not price it, so it is neither part of the row above nor savable here.
+      if (it.notQuoted === true && cost <= 0) {
+        const reason = String(it.notes || "").trim();
+        notQuoted.push(reason ? `${description} (${reason})` : description);
+        return;
+      }
       // Quotation tables bundle accessories/spec rows priced 0 under the
       // position above them. When the model still returns them as standalone
       // entries, fold them back into the parent instead of registering extra
@@ -653,6 +700,8 @@ export class AIAnalysisService {
         partNumber,
         description,
         supplier: String(it.supplier || ""),
+        supplierNameAsWritten: String(it.supplierNameAsWritten || "").trim(),
+        supplierMatched: it.supplierMatched === true,
         reference: String(it.reference || it.quotationRef || "").trim(),
         cost,
         currency: String(it.currency || "USD").toUpperCase(),
@@ -674,12 +723,20 @@ export class AIAnalysisService {
           typeof it.confidence === "number" ? it.confidence : undefined,
       });
     });
+    // The model may put it on a row that was folded or left out above.
+    if (items.length > 0 && supplierAbout)
+      items[0].supplierAbout = supplierAbout;
     const warnings = Array.isArray(raw.warnings)
       ? raw.warnings.map(String)
       : [];
     if (foldedCount > 0) {
       warnings.push(
         `${foldedCount} zero-priced row${foldedCount > 1 ? "s were" : " was"} merged into the item above as included components.`,
+      );
+    }
+    if (notQuoted.length > 0) {
+      warnings.push(
+        `Not quoted by the supplier (left out): ${notQuoted.join("; ")}`,
       );
     }
     if (items.length === 0) {
@@ -697,6 +754,20 @@ export class AIAnalysisService {
         ? String(raw.extractedAt)
         : new Date().toISOString(),
     };
+  }
+
+  /** Flatten every sheet of an Excel workbook into CSV text. */
+  private static async spreadsheetToText(file: File): Promise<string> {
+    const XLSX = await import("xlsx");
+    const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+    return wb.SheetNames.map((name) => {
+      const csv = XLSX.utils
+        .sheet_to_csv(wb.Sheets[name], { blankrows: false, strip: true })
+        .trim();
+      return csv ? `Sheet: ${name}\n${csv}` : "";
+    })
+      .filter(Boolean)
+      .join("\n\n");
   }
 
   /**
@@ -718,6 +789,10 @@ export class AIAnalysisService {
       context,
       {},
     );
+    // The backend cannot parse Excel workbooks, so they are sent as text.
+    if (/\.xlsx?$/i.test(file.name)) {
+      request.documentText = await AIAnalysisService.spreadsheetToText(file);
+    }
     const data = await AIAnalysisService.postJson(
       AI_CONFIG.endpoints.extractQuotation,
       request,
@@ -816,21 +891,210 @@ export class AIAnalysisService {
   }
 
   /**
-   * Suggest clarifications/qualifications for the current BID, grounded in past
-   * accepted ones retrieved by the backend (RAG over the Clarifications DB).
+   * Suggest scope categories, tags and a summary for a completed BID from its
+   * knowledge document. Reuses the `/quotation/extract` passthrough endpoint.
+   *
+   * @param documentText - Past Bid knowledge text (no pricing needed)
+   * @param bidNumber - BID number, for traceability
+   * @param scopeCategories - Allowed scope categories (System Config)
+   * @param abortSignal - Optional AbortSignal for cancellation
+   */
+  public static async suggestPastBidProfile(
+    documentText: string,
+    bidNumber: string,
+    scopeCategories: string[],
+    abortSignal?: AbortSignal,
+  ): Promise<IPastBidProfileSuggestion> {
+    AIAnalysisService.ensureConfigured();
+    const file = new File([documentText], `${bidNumber || "bid"}-profile.txt`, {
+      type: "text/plain",
+    });
+    const request = await AIAnalysisService.buildRequest(
+      file,
+      "past-bid-profile",
+      { scopeCategoryOptions: scopeCategories },
+      { bidNumber },
+    );
+    const data = (await AIAnalysisService.postJson(
+      AI_CONFIG.endpoints.extractQuotation,
+      request,
+      abortSignal,
+    )) as Record<string, unknown>;
+    if (data && data.error) {
+      throw new Error(
+        data.details ? `${data.error}: ${data.details}` : String(data.error),
+      );
+    }
+    const items = data ? data.items : null;
+    const it = ((Array.isArray(items) ? items[0] : null) || {}) as Record<
+      string,
+      unknown
+    >;
+    const allowed: Record<string, string> = {};
+    scopeCategories.forEach((c) => (allowed[c.trim().toLowerCase()] = c));
+    const asList = (raw: unknown): string[] =>
+      Array.isArray(raw)
+        ? raw.map((v) =>
+            String(v || "")
+              .replace(/\s+/g, " ")
+              .trim(),
+          )
+        : [];
+    const categories: string[] = [];
+    asList(it.scopeCategories).forEach((c) => {
+      const match = allowed[c.toLowerCase()];
+      if (match && categories.indexOf(match) < 0) categories.push(match);
+    });
+    const tags: string[] = [];
+    const seen: Record<string, boolean> = {};
+    asList(it.tags).forEach((t) => {
+      const key = t.toLowerCase();
+      if (!t || t.length > 40 || seen[key]) return;
+      seen[key] = true;
+      tags.push(t);
+    });
+    return {
+      scopeCategories: categories.slice(0, 3),
+      tags: tags.slice(0, 15),
+      summary: String(it.summary || "")
+        .trim()
+        .substring(0, 600),
+    };
+  }
+
+  /**
+   * Suggest a supplier description, keywords and service types from a dossier
+   * of SmartBid data. Reuses the `/quotation/extract` passthrough endpoint.
+   *
+   * @param dossier - Text built by `buildSupplierProfileText`
+   * @param supplierName - Used only to name the uploaded text file
+   * @param serviceTypes - Active service type options; returned ids come from here
+   * @param abortSignal - Optional AbortSignal for cancellation
+   */
+  public static async suggestSupplierProfile(
+    dossier: string,
+    supplierName: string,
+    serviceTypes: IConfigOption[],
+    abortSignal?: AbortSignal,
+  ): Promise<ISupplierProfileSuggestion> {
+    AIAnalysisService.ensureConfigured();
+    const safeName =
+      (supplierName || "supplier")
+        .replace(/[^A-Za-z0-9]+/g, "-")
+        .slice(0, 40) || "supplier";
+    const file = new File([dossier], `${safeName}-profile.txt`, {
+      type: "text/plain",
+    });
+    const request = await AIAnalysisService.buildRequest(
+      file,
+      "supplier-profile",
+      {
+        serviceTypeOptions: serviceTypes.map((t) => ({
+          label: t.label,
+          category: t.category || "",
+        })),
+      },
+      {},
+    );
+    const data = (await AIAnalysisService.postJson(
+      AI_CONFIG.endpoints.extractQuotation,
+      request,
+      abortSignal,
+    )) as Record<string, unknown>;
+    if (data && data.error) {
+      throw new Error(
+        data.details ? `${data.error}: ${data.details}` : String(data.error),
+      );
+    }
+    const items = data ? data.items : null;
+    const it = ((Array.isArray(items) ? items[0] : null) || {}) as Record<
+      string,
+      unknown
+    >;
+    const loose = (v: string): string =>
+      v.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const typeIds: Record<string, string> = {};
+    serviceTypes.forEach((t) => (typeIds[loose(t.label)] = t.id));
+    const asList = (raw: unknown): string[] =>
+      Array.isArray(raw)
+        ? raw.map((v) =>
+            String(v || "")
+              .replace(/\s+/g, " ")
+              .trim(),
+          )
+        : [];
+    const serviceTypeIds: string[] = [];
+    asList(it.serviceTypes).forEach((label) => {
+      const id = typeIds[loose(label)];
+      if (id && serviceTypeIds.indexOf(id) < 0) serviceTypeIds.push(id);
+    });
+    const keywords: string[] = [];
+    const seen: Record<string, boolean> = {};
+    asList(it.keywords).forEach((k) => {
+      const keyword = k.replace(/,/g, " ").trim();
+      const key = keyword.toLowerCase();
+      if (!keyword || keyword.length > 40 || seen[key]) return;
+      seen[key] = true;
+      keywords.push(keyword);
+    });
+    const basis = String(it.basis || "") as SupplierProfileBasis;
+    const description = String(it.description || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .substring(0, 400);
+    return {
+      description,
+      keywords: keywords.slice(0, 15),
+      serviceTypes: serviceTypeIds,
+      basis:
+        SUPPLIER_PROFILE_BASES.indexOf(basis) >= 0
+          ? basis
+          : description || keywords.length
+            ? "mixed"
+            : "none",
+    };
+  }
+
+  /**
+   * Suggest clarifications/qualifications for the current BID, grounded in the
+   * ones raised in similar Past Bids (retrieved by the backend).
    *
    * @param requirementsText - Serialized current BID requirements / scope
    * @param context - Division / service line / resource types for retrieval
+   * @param ids - Current BID number (kept out of its own precedents) and the
+   *   clarifications/qualifications it already has (not to be repeated)
    * @param abortSignal - Optional AbortSignal for cancellation
    */
   public static async suggestClarifications(
     requirementsText: string,
     context: IAIAnalysisContext = {},
+    ids: { bidNumber?: string; existingText?: string } = {},
     abortSignal?: AbortSignal,
   ): Promise<IAISuggestedClarification[]> {
-    // Future: the /clarifications/suggest endpoint is not wired yet. Re-enable
-    // AI_CONFIG.endpoints.suggestClarifications (ai.config.ts) + the clarification
-    // prompt imports above, then restore the request/postJson body (see git history).
-    throw new Error("AI clarification suggestions are not available yet.");
+    AIAnalysisService.ensureConfigured();
+    const data = (await AIAnalysisService.postJson(
+      AI_CONFIG.endpoints.suggestClarifications,
+      {
+        requirementsText,
+        existingText: ids.existingText || "",
+        bidNumber: ids.bidNumber || "",
+        division: context.division || "",
+        serviceLine: context.serviceLine || "",
+        resourceTypes: context.resourceTypes || [],
+        contextSummary: context.contextSummary || "",
+        useCase: "clarification",
+        systemPrompt: buildClarificationSuggestionPrompt(),
+        promptVersion: CLARIFICATION_SUGGESTION_PROMPT_VERSION,
+      },
+      abortSignal,
+    )) as Record<string, unknown>;
+    if (data && data.error) {
+      throw new Error(
+        data.details ? `${data.error}: ${data.details}` : String(data.error),
+      );
+    }
+    return AIAnalysisService.parseClarifications(
+      data ? data.suggestedClarifications : [],
+    );
   }
 }

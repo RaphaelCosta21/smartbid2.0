@@ -1,5 +1,6 @@
 import { IBid, Division } from "../models";
-import { differenceInDays } from "date-fns";
+import { formatDaysLeft, isPastDue, parseDate } from "./formatters";
+import { DUE_DATE_CHANGED } from "./revisionHelpers";
 
 export function isActiveBid(bid: IBid): boolean {
   const terminalStatuses = [
@@ -11,9 +12,91 @@ export function isActiveBid(bid: IBid): boolean {
   return terminalStatuses.indexOf(bid.currentStatus) < 0;
 }
 
+/** A BID stays in Unassigned Requests until an engineer responsible is set. */
+export function isUnassignedBid(bid: IBid): boolean {
+  return (
+    !bid.engineerResponsible ||
+    (Array.isArray(bid.engineerResponsible) &&
+      bid.engineerResponsible.length === 0)
+  );
+}
+
+function getLastDueDateChange(bid: IBid): Date | null {
+  let last: Date | null = null;
+  for (const entry of bid.activityLog || []) {
+    if (entry.type !== DUE_DATE_CHANGED) continue;
+    const at = parseDate(entry.timestamp);
+    if (at && (!last || at.getTime() > last.getTime())) last = at;
+  }
+  return last;
+}
+
+/** Due date in effect at `at`: the previous value of the first due-date change after it, else the current one. */
+export function getDueDateAt(bid: IBid, at: Date): string {
+  let firstAfter: { time: number; previous: string } | null = null;
+  for (const entry of bid.activityLog || []) {
+    if (entry.type !== DUE_DATE_CHANGED) continue;
+    const changedAt = parseDate(entry.timestamp);
+    const previous = entry.metadata?.previousDueDate;
+    if (!changedAt || changedAt.getTime() <= at.getTime()) continue;
+    if (typeof previous !== "string" || !previous) continue;
+    if (!firstAfter || changedAt.getTime() < firstAfter.time) {
+      firstAfter = { time: changedAt.getTime(), previous };
+    }
+  }
+  return firstAfter
+    ? firstAfter.previous
+    : bid.desiredDueDate || bid.dueDate || "";
+}
+
+/**
+ * When the BID first reached a terminal status under its current due date. The
+ * due/overdue count stops there and stays frozen even after a revision reopens
+ * the BID. A due date changed after a closing is a new deadline, so only a later
+ * closing freezes it. Null = not closed since the current due date was set.
+ */
+export function getDueFreezeDate(bid: IBid): Date | null {
+  const dueSetAt = getLastDueDateChange(bid);
+  const appliesToDue = (closedAt: Date | null): boolean =>
+    !!closedAt && (!dueSetAt || closedAt.getTime() >= dueSetAt.getTime());
+
+  for (const revision of bid.revisions || []) {
+    const opened = parseDate(revision.openedDate);
+    if (!opened) continue;
+    // Revisions only open from a terminal status: the entry in effect then is the closing one.
+    let closedAt = opened;
+    for (const entry of bid.statusHistory || []) {
+      const start = parseDate(entry.start);
+      if (start && start.getTime() < opened.getTime()) closedAt = start;
+    }
+    if (appliesToDue(closedAt)) return closedAt;
+  }
+  const completed = parseDate(bid.completedDate);
+  return appliesToDue(completed) ? completed : null;
+}
+
 export function isOverdueBid(bid: IBid): boolean {
   if (!isActiveBid(bid)) return false;
-  return differenceInDays(new Date(bid.dueDate), new Date()) < 0;
+  return isPastDue(bid.dueDate, getDueFreezeDate(bid));
+}
+
+export interface IUpcomingDeadline {
+  bid: IBid;
+  /** Days until due (negative = overdue) */
+  days: number;
+  text: string;
+}
+
+/** Active BIDs with a due date, most overdue / nearest first. */
+export function buildUpcomingDeadlines(bids: IBid[]): IUpcomingDeadline[] {
+  const rows: IUpcomingDeadline[] = [];
+  bids.forEach((bid) => {
+    if (!isActiveBid(bid)) return;
+    const due = formatDaysLeft(bid.dueDate, getDueFreezeDate(bid));
+    if (due.days === null) return;
+    rows.push({ bid, days: due.days, text: due.text });
+  });
+  return rows.sort((a, b) => a.days - b.days);
 }
 
 export function getBidsByDivision(bids: IBid[], division: Division): IBid[] {

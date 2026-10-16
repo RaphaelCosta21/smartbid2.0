@@ -55,3 +55,11 @@ export interface IChatAnswer {
   followUps: string[];
   retrieved: IChatRetrievedDoc[];
 }
+
+/** Completed BIDs SmartBid matched to a chat question (exact, from its own data). */
+export interface IPastBidChatContext {
+  /** Plain-text table of the matching completed BIDs, with totals. */
+  ledger: string;
+  /** Most recent matching BIDs whose Past Bid documents the backend reads in depth. */
+  refs: string[];
+}

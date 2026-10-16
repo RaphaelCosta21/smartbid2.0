@@ -88,7 +88,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
       )}
 
       <div className={styles.footer}>
-        <span className={styles.creator}>By {template.createdBy || "—"}</span>
+        <span className={styles.creator}>By {template.createdBy || "-"}</span>
         <div className={styles.actions} onClick={(e) => e.stopPropagation()}>
           {onDuplicate && (
             <button
