@@ -39,6 +39,9 @@ export const XL_COLORS = {
   infoFill: "FFECFEFF",
   infoText: "FF155E75",
   danger: "FFB91C1C",
+  dangerFill: "FFFEE2E2",
+  success: "FF047857",
+  successFill: "FFD1FAE5",
   link: "FF2563EB",
   purple: "FF7C3AED",
 };

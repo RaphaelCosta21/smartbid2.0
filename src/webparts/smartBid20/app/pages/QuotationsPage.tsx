@@ -233,7 +233,10 @@ export const QuotationsPage: React.FC = () => {
 
   // ─── Local state ───
   const [search, setSearch] = React.useState(
-    () => (location.state as { search?: string } | null)?.search || "",
+    () =>
+      (location.state as { search?: string } | null)?.search ||
+      new URLSearchParams(location.search).get("search") ||
+      "",
   );
   const debouncedSearch = useDebounce(search, 300);
   const [selectedGroup, setSelectedGroup] = React.useState<string | null>(null);
