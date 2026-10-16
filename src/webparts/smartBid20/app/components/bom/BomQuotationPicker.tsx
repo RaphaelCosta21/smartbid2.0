@@ -248,7 +248,9 @@ export const BomQuotationPicker: React.FC<IBomQuotationPickerProps> = ({
                       type="button"
                       className={styles.selectBtn}
                       disabled={!!block || isUsed}
-                      title={block || (isUsed ? "Already applied" : "Use this price")}
+                      title={
+                        block || (isUsed ? "Already applied" : "Use this price")
+                      }
                       onClick={() => onSelect(q)}
                     >
                       Select

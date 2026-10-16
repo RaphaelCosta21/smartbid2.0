@@ -926,7 +926,9 @@
 
 /* ─── Go to highlight: square border pulse around the whole row ─── */
 @function ringShadow($color, $left, $right) {
-  $s: inset 0 2px 0 $color, inset 0 -2px 0 $color;
+  $s:
+    inset 0 2px 0 $color,
+    inset 0 -2px 0 $color;
   @if $left {
     $s: append($s, inset 2px 0 0 $color, comma);
   }
@@ -942,7 +944,11 @@
     40%,
     80% {
       box-shadow: ringShadow(var(--primary-accent), $left, $right);
-      background-color: color-mix(in srgb, var(--primary-accent) 14%, transparent);
+      background-color: color-mix(
+        in srgb,
+        var(--primary-accent) 14%,
+        transparent
+      );
     }
     20%,
     60% {
@@ -951,7 +957,11 @@
         $left,
         $right
       );
-      background-color: color-mix(in srgb, var(--primary-accent) 4%, transparent);
+      background-color: color-mix(
+        in srgb,
+        var(--primary-accent) 4%,
+        transparent
+      );
     }
     100% {
       box-shadow: ringShadow(transparent, $left, $right);

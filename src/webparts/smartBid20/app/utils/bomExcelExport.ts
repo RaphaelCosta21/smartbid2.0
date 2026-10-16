@@ -67,7 +67,8 @@ function sourceLabel(item: IBomCostItem): string {
 
 export function getBomExcelFilename(analysis: IBomCostAnalysis): string {
   const pn = sanitizeFilePart(
-    analysis.mainPartNumber + (analysis.revision ? ` Rev ${analysis.revision}` : ""),
+    analysis.mainPartNumber +
+      (analysis.revision ? ` Rev ${analysis.revision}` : ""),
   );
   return `${pn || "BOM"} - BOM Costs - ${new Date().toISOString().slice(0, 10)}.xlsx`;
 }
@@ -128,21 +129,66 @@ export async function exportBomCostsToExcel(
     x.banner("BOM COST ANALYSIS", subtitle);
 
     x.kpis([
-      { label: "Total cost (USD)", value: total, numFmt: NUM.usd, from: 1, to: 2, sub: contingencyPerYear > 0 ? `Contingency ${contingencyPerYear}% / year` : "Contingency not applied" },
-      { label: "Costed", value: `${cov.costed} / ${cov.eligible}`, from: 3, to: 4, sub: cov.covered > 0 ? `${cov.covered} covered by a parent cost` : "No covered items" },
-      { label: "Max lead time", value: maxLead ? `${maxLead.leadTimeDays} days` : "-", from: 5, to: 6, sub: maxLead ? maxLead.partNumber : "" },
-      { label: "Status", value: cov.isComplete ? "Complete" : "Incomplete", from: 7, to: 8, sub: `${items.length} items in the BOM` },
+      {
+        label: "Total cost (USD)",
+        value: total,
+        numFmt: NUM.usd,
+        from: 1,
+        to: 2,
+        sub:
+          contingencyPerYear > 0
+            ? `Contingency ${contingencyPerYear}% / year`
+            : "Contingency not applied",
+      },
+      {
+        label: "Costed",
+        value: `${cov.costed} / ${cov.eligible}`,
+        from: 3,
+        to: 4,
+        sub:
+          cov.covered > 0
+            ? `${cov.covered} covered by a parent cost`
+            : "No covered items",
+      },
+      {
+        label: "Max lead time",
+        value: maxLead ? `${maxLead.leadTimeDays} days` : "-",
+        from: 5,
+        to: 6,
+        sub: maxLead ? maxLead.partNumber : "",
+      },
+      {
+        label: "Status",
+        value: cov.isComplete ? "Complete" : "Incomplete",
+        from: 7,
+        to: 8,
+        sub: `${items.length} items in the BOM`,
+      },
     ]);
     x.gap(14);
 
     x.sectionTitle("Analysis", span);
-    x.keyValue("Main Part Number", analysis.mainPartNumber, { valueEnd: 5, bold: true });
-    x.keyValue("Description", analysis.mainDescription, { valueEnd: 5, wrap: true });
+    x.keyValue("Main Part Number", analysis.mainPartNumber, {
+      valueEnd: 5,
+      bold: true,
+    });
+    x.keyValue("Description", analysis.mainDescription, {
+      valueEnd: 5,
+      wrap: true,
+    });
     x.keyValue("Revision", analysis.revision, { valueEnd: 5 });
-    x.keyValue("Analysis Date", formatDateDMY(analysis.analysisDate), { valueEnd: 5 });
+    x.keyValue("Analysis Date", formatDateDMY(analysis.analysisDate), {
+      valueEnd: 5,
+    });
     x.keyValue("Created By", analysis.createdBy, { valueEnd: 5 });
-    x.keyValue("Last Modified", formatDateDMY(analysis.lastModified), { valueEnd: 5 });
-    x.keyValue("Contingency / year", contingencyPerYear > 0 ? contingencyPerYear / 100 : "", { valueEnd: 5, numFmt: NUM.pct });
+    x.keyValue("Last Modified", formatDateDMY(analysis.lastModified), {
+      valueEnd: 5,
+    });
+    x.keyValue(
+      "Contingency / year",
+      contingencyPerYear > 0 ? contingencyPerYear / 100 : "",
+      { valueEnd: 5, numFmt: NUM.pct },
+    );
     x.gap(14);
 
     // Cost sources: only items whose own cost is in the total
@@ -157,20 +203,50 @@ export async function exportBomCostsToExcel(
     });
     const sources: string[] = [];
     bySource.forEach((_v, k) => sources.push(k));
-    sources.sort((a, b) => (bySource.get(b)!.usd - bySource.get(a)!.usd));
+    sources.sort((a, b) => bySource.get(b)!.usd - bySource.get(a)!.usd);
 
     if (sources.length > 0) {
       const ranges: IXlRange[] = [
         { header: "Cost Source", width: 0, from: 1, to: 2 },
-        { header: "Items", width: 0, align: "right", numFmt: NUM.int, from: 3, to: 4 },
-        { header: "Total USD", width: 0, align: "right", numFmt: NUM.usd, from: 5, to: 6 },
-        { header: "% of Total", width: 0, align: "right", numFmt: NUM.pct, from: 7, to: 8 },
+        {
+          header: "Items",
+          width: 0,
+          align: "right",
+          numFmt: NUM.int,
+          from: 3,
+          to: 4,
+        },
+        {
+          header: "Total USD",
+          width: 0,
+          align: "right",
+          numFmt: NUM.usd,
+          from: 5,
+          to: 6,
+        },
+        {
+          header: "% of Total",
+          width: 0,
+          align: "right",
+          numFmt: NUM.pct,
+          from: 7,
+          to: 8,
+        },
       ];
       x.sectionTitle("Cost Sources", span, "Items priced directly");
       x.rangeHeader(ranges);
       sources.forEach((s, i) => {
         const v = bySource.get(s)!;
-        x.rangeRow(ranges, [{ value: s, bold: true }, v.count, v.usd, total > 0 ? v.usd / total : 0], { zebra: i % 2 === 1 });
+        x.rangeRow(
+          ranges,
+          [
+            { value: s, bold: true },
+            v.count,
+            v.usd,
+            total > 0 ? v.usd / total : 0,
+          ],
+          { zebra: i % 2 === 1 },
+        );
       });
       x.gap(14);
     }
@@ -186,8 +262,22 @@ export async function exportBomCostsToExcel(
     if (dated > 0) {
       const ranges: IXlRange[] = [
         { header: "Date Freshness", width: 0, from: 1, to: 2 },
-        { header: "Items", width: 0, align: "right", numFmt: NUM.int, from: 3, to: 4 },
-        { header: "% of Dated", width: 0, align: "right", numFmt: NUM.pct, from: 5, to: 6 },
+        {
+          header: "Items",
+          width: 0,
+          align: "right",
+          numFmt: NUM.int,
+          from: 3,
+          to: 4,
+        },
+        {
+          header: "% of Dated",
+          width: 0,
+          align: "right",
+          numFmt: NUM.pct,
+          from: 5,
+          to: 6,
+        },
         { header: "Rule", width: 0, from: 7, to: 8 },
       ];
       x.sectionTitle("Date Freshness", span, "Age of the cost reference date");
@@ -198,7 +288,11 @@ export async function exportBomCostsToExcel(
         ["Over 2 years", fresh.old, XL_COLORS.danger, "2 years or more"],
       ];
       rows.forEach((r, i) => {
-        x.rangeRow(ranges, [{ value: r[0], bold: true, color: r[2] }, r[1], r[1] / dated, r[3]], { zebra: i % 2 === 1 });
+        x.rangeRow(
+          ranges,
+          [{ value: r[0], bold: true, color: r[2] }, r[1], r[1] / dated, r[3]],
+          { zebra: i % 2 === 1 },
+        );
       });
       x.gap(14);
     }
@@ -207,12 +301,23 @@ export async function exportBomCostsToExcel(
     if (rates.length > 0) {
       const ranges: IXlRange[] = [
         { header: "Currency", width: 0, from: 1, to: 2 },
-        { header: "Rate (per 1 USD)", width: 0, align: "right", numFmt: NUM.rate, from: 3, to: 4 },
+        {
+          header: "Rate (per 1 USD)",
+          width: 0,
+          align: "right",
+          numFmt: NUM.rate,
+          from: 3,
+          to: 4,
+        },
       ];
       x.sectionTitle("Exchange Rates Used", span);
       x.rangeHeader(ranges);
       rates.forEach((cur, i) => {
-        x.rangeRow(ranges, [{ value: cur, bold: true }, analysis.currencyRatesUsed[cur]], { zebra: i % 2 === 1 });
+        x.rangeRow(
+          ranges,
+          [{ value: cur, bold: true }, analysis.currencyRatesUsed[cur]],
+          { zebra: i % 2 === 1 },
+        );
       });
       x.gap(14);
     }
@@ -222,7 +327,14 @@ export async function exportBomCostsToExcel(
         { header: "Item", width: 0, from: 1, to: 1 },
         { header: "Part Number", width: 0, from: 2, to: 3 },
         { header: "Description", width: 0, from: 4, to: 6 },
-        { header: "Qty", width: 0, align: "right", numFmt: NUM.int, from: 7, to: 7 },
+        {
+          header: "Qty",
+          width: 0,
+          align: "right",
+          numFmt: NUM.int,
+          from: 7,
+          to: 7,
+        },
         { header: "Parent", width: 0, from: 8, to: 8 },
       ];
       x.sectionTitle("Items Missing Cost", span, `${missingCount} to review`);
@@ -245,8 +357,16 @@ export async function exportBomCostsToExcel(
       x.gap(14);
     }
 
-    x.note("Total = items priced directly. Rolled-up parents are skipped (their children are summed) and children of a parent with its own cost are not counted again.", span, "info");
-    x.note("Search priority: 1st BUMBL, 2nd BUMBR, 3rd Global BUs (Financials), using the most recent Last Order Date when a part exists in several Business Units.", span, "muted");
+    x.note(
+      "Total = items priced directly. Rolled-up parents are skipped (their children are summed) and children of a parent with its own cost are not counted again.",
+      span,
+      "info",
+    );
+    x.note(
+      "Search priority: 1st BUMBL, 2nd BUMBR, 3rd Global BUs (Financials), using the most recent Last Order Date when a part exists in several Business Units.",
+      span,
+      "muted",
+    );
   }
 
   // ─── BOM Costs ───
@@ -256,14 +376,44 @@ export async function exportBomCostsToExcel(
       { key: "pn", header: "Part Number", width: 28 },
       { key: "desc", header: "Description", width: 42, wrap: true },
       { key: "qty", header: "Qty", width: 7, align: "right", numFmt: NUM.int },
-      { key: "unit", header: "Cost / Item USD", width: 17, align: "right", numFmt: NUM.usd },
+      {
+        key: "unit",
+        header: "Cost / Item USD",
+        width: 17,
+        align: "right",
+        numFmt: NUM.usd,
+      },
       { key: "orig", header: "Original Cost", width: 16, align: "right" },
-      { key: "cont", header: "Cont. %", width: 9, align: "right", numFmt: NUM.pctWhole },
-      { key: "total", header: "Total USD", width: 18, align: "right", numFmt: NUM.usd },
-      { key: "lead", header: "Lead Time (days)", width: 11, align: "right", numFmt: NUM.int },
+      {
+        key: "cont",
+        header: "Cont. %",
+        width: 9,
+        align: "right",
+        numFmt: NUM.pctWhole,
+      },
+      {
+        key: "total",
+        header: "Total USD",
+        width: 18,
+        align: "right",
+        numFmt: NUM.usd,
+      },
+      {
+        key: "lead",
+        header: "Lead Time (days)",
+        width: 11,
+        align: "right",
+        numFmt: NUM.int,
+      },
       { key: "src", header: "Source", width: 14, align: "center" },
       { key: "ref", header: "Cost Ref", width: 14, wrap: true },
-      { key: "date", header: "Date Ref", width: 13, align: "center", numFmt: NUM.date },
+      {
+        key: "date",
+        header: "Date Ref",
+        width: 13,
+        align: "center",
+        numFmt: NUM.date,
+      },
       { key: "status", header: "Status", width: 19, align: "center" },
       { key: "comments", header: "Comments", width: 32, wrap: true },
     ]);
@@ -295,13 +445,24 @@ export async function exportBomCostsToExcel(
       const muted = status === "covered";
       const values = pickRow(cols, {
         item: `${it.level}.${it.findNumber || ""}`,
-        pn: { value: it.partNumber || "-", bold: it.level === 1 || it.isRolledUp || status === "costed" },
+        pn: {
+          value: it.partNumber || "-",
+          bold: it.level === 1 || it.isRolledUp || status === "costed",
+        },
         desc: it.description,
         qty: it.qty > 0 ? it.qty : null,
         unit: it.costPerItemUSD > 0 ? it.costPerItemUSD : null,
-        orig: hasOrig ? { value: it.originalCost, numFmt: currencyFmt(it.originalCurrency) } : null,
-        cont: it.contingencyPercent > 0 && !it.isRolledUp ? it.contingencyPercent : null,
-        total: it.totalCostInclCont > 0 ? { value: it.totalCostInclCont, bold: !muted } : null,
+        orig: hasOrig
+          ? { value: it.originalCost, numFmt: currencyFmt(it.originalCurrency) }
+          : null,
+        cont:
+          it.contingencyPercent > 0 && !it.isRolledUp
+            ? it.contingencyPercent
+            : null,
+        total:
+          it.totalCostInclCont > 0
+            ? { value: it.totalCostInclCont, bold: !muted }
+            : null,
         lead: it.leadTimeDays > 0 ? it.leadTimeDays : null,
         src: sourceLabel(it),
         ref: it.isRolledUp ? "" : it.costReference,
@@ -309,15 +470,31 @@ export async function exportBomCostsToExcel(
           ? null
           : {
               value: toExcelDate(it.dateReference),
-              color: age === "recent" ? XL_COLORS.success : age === "warn" ? XL_COLORS.warningText : age === "old" ? XL_COLORS.danger : undefined,
+              color:
+                age === "recent"
+                  ? XL_COLORS.success
+                  : age === "warn"
+                    ? XL_COLORS.warningText
+                    : age === "old"
+                      ? XL_COLORS.danger
+                      : undefined,
               bold: age === "old",
             },
-        status: { value: STATUS_LABEL[status], bold: true, color: STATUS_COLOR[status] },
+        status: {
+          value: STATUS_LABEL[status],
+          bold: true,
+          color: STATUS_COLOR[status],
+        },
         comments: it.comments,
       } as Record<string, XlValue>);
       x.dataRow(cols, values, {
         zebra: i % 2 === 1,
-        fill: status === "missing" ? XL_COLORS.warningFill : it.level === 1 ? XL_COLORS.accentTint : undefined,
+        fill:
+          status === "missing"
+            ? XL_COLORS.warningFill
+            : it.level === 1
+              ? XL_COLORS.accentTint
+              : undefined,
         bold: it.level === 1,
         italic: it.isRolledUp,
         muted,
@@ -332,9 +509,19 @@ export async function exportBomCostsToExcel(
         to: { row: x.row - 1, column: span },
       };
     }
-    x.total("TOTAL BOM COST", span, [{ col: totalCol, value: total, numFmt: NUM.usd }], "grand", 1);
+    x.total(
+      "TOTAL BOM COST",
+      span,
+      [{ col: totalCol, value: total, numFmt: NUM.usd }],
+      "grand",
+      1,
+    );
     x.gap(10);
-    x.note("Italic rows are sums of their children. Grey rows are already included in a parent that has its own cost. Highlighted rows have no cost yet.", span, "muted");
+    x.note(
+      "Italic rows are sums of their children. Grey rows are already included in a parent that has its own cost. Highlighted rows have no cost yet.",
+      span,
+      "muted",
+    );
   }
 
   const buffer = await wb.xlsx.writeBuffer();

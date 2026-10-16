@@ -82,7 +82,9 @@ export const BomAnalysisCard: React.FC<IBomAnalysisCardProps> = ({
         <div className={styles.stat}>
           <span className={styles.statLabel}>Max LT</span>
           <span className={styles.statValue}>
-            {analysis.maxLeadTimeDays > 0 ? `${analysis.maxLeadTimeDays}d` : "-"}
+            {analysis.maxLeadTimeDays > 0
+              ? `${analysis.maxLeadTimeDays}d`
+              : "-"}
           </span>
         </div>
       </div>

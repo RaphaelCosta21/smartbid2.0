@@ -28,7 +28,10 @@ export function formatDateDMY(dateRef: string): string {
   return `${dd}/${MONTH_NAMES[d.getMonth()]}/${d.getFullYear()}`;
 }
 
-export function hasChildren(item: IBomCostItem, items: IBomCostItem[]): boolean {
+export function hasChildren(
+  item: IBomCostItem,
+  items: IBomCostItem[],
+): boolean {
   return items.some((c) => c.parentId === item.id);
 }
 
@@ -275,9 +278,7 @@ export function getBomCoverage(items: IBomCostItem[]): IBomCoverage {
 }
 
 /** Item with the longest lead time among items that carry their own value. */
-export function getMaxLeadTimeItem(
-  items: IBomCostItem[],
-): IBomCostItem | null {
+export function getMaxLeadTimeItem(items: IBomCostItem[]): IBomCostItem | null {
   let best: IBomCostItem | null = null;
   items.forEach((i) => {
     if (!i.isRolledUp && i.leadTimeDays > 0) {

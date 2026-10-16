@@ -1195,7 +1195,9 @@ export const BomCostsPage: React.FC = () => {
                       {formatCurrency(r.a.totalCostUSD || 0, "USD")}
                     </td>
                     <td className={styles.tdRight}>
-                      {r.a.maxLeadTimeDays > 0 ? `${r.a.maxLeadTimeDays}d` : "-"}
+                      {r.a.maxLeadTimeDays > 0
+                        ? `${r.a.maxLeadTimeDays}d`
+                        : "-"}
                     </td>
                     <td>
                       <span
