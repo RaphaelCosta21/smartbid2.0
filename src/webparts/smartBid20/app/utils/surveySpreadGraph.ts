@@ -7,6 +7,7 @@ import {
   ISurveyEquipment,
   ISurveyPipelineNode,
   ISurveySpread,
+  SurveyDataType,
   SurveyLinkKind,
   SurveyPipelineStage,
   SurveySceneAnchor,
@@ -389,11 +390,57 @@ const STAGE_KEY: Record<SurveyPipelineStage, LineageStageKey> = {
 const overlaps = (a?: string[], b?: string[]): boolean =>
   !!a && !!b && a.some((x) => b.indexOf(x) >= 0);
 
-interface IDataRoute {
+export interface IDataRoute {
   src: ISpreadNode;
   path: ISignalPath | null;
   /** Software → storage → processing → deliverables reached by the source data types. */
   chain: ISurveyPipelineNode[];
+}
+
+/**
+ * Wiring path from a source node to the software that consumes its data, plus the pipeline that
+ * follows. `types` narrows the route to some data types (defaults to all the source produces).
+ */
+export function traceDataRoute(
+  src: ISpreadNode,
+  nodes: ISpreadNode[],
+  links: ISpreadLinkRef[],
+  equipmentById: Record<string, ISurveyEquipment>,
+  pipeline: ISurveyPipelineNode[],
+  types?: SurveyDataType[],
+): IDataRoute {
+  const dataTypes =
+    types || (equipmentById[src.equipmentId] || ({} as ISurveyEquipment)).dataTypes || [];
+  const spreadNodes = nodes.filter((n) => n.source !== "catalog");
+  const present = (equipmentId?: string): boolean =>
+    !!equipmentId && spreadNodes.some((n) => n.equipmentId === equipmentId);
+  const pipeById: Record<string, ISurveyPipelineNode> = {};
+  pipeline.forEach((p) => (pipeById[p.id] = p));
+  const sw = pipeline.filter((p) => p.stage === "software" && overlaps(p.consumes, dataTypes));
+  const hosts = sw.map((p) => p.hostEquipmentId).filter((h) => present(h)) as string[];
+  let path: ISignalPath | null = null;
+  if (hosts.indexOf(src.equipmentId) >= 0) path = { nodeIds: [src.id], linkKeys: [] };
+  else if (hosts.length) {
+    path = shortestPath(buildAdjacency(links), src.id, (id) => hosts.indexOf(baseId(id)) >= 0);
+  }
+  if (!path) path = traceSignalPath(links, src.id);
+
+  const chain: ISurveyPipelineNode[] = [];
+  const seen: Record<string, boolean> = {};
+  const queue = sw.slice();
+  sw.forEach((p) => (seen[p.id] = true));
+  while (queue.length) {
+    const p = queue.shift()!;
+    chain.push(p);
+    (p.feeds || []).forEach((id) => {
+      const next = pipeById[id];
+      if (!next || seen[id]) return;
+      if (next.consumes && !overlaps(next.consumes, dataTypes)) return;
+      seen[id] = true;
+      queue.push(next);
+    });
+  }
+  return { src, path, chain };
 }
 
 /**
@@ -412,45 +459,16 @@ export function traceDataLineage(
   const eq = node && equipmentById[node.equipmentId];
   if (!node || !eq || !eq.dataRole || pipeline.length === 0) return null;
 
-  const adjacency = buildAdjacency(links);
   const spreadNodes = nodes.filter((n) => n.source !== "catalog");
   const nodeById: Record<string, ISpreadNode> = {};
   spreadNodes.forEach((n) => (nodeById[n.id] = n));
   const pipeById: Record<string, ISurveyPipelineNode> = {};
   pipeline.forEach((p) => (pipeById[p.id] = p));
   const software = pipeline.filter((p) => p.stage === "software");
-  const present = (equipmentId?: string): boolean =>
-    !!equipmentId && spreadNodes.some((n) => n.equipmentId === equipmentId);
   const nodeLabel = (id: string): string => (nodeById[id] ? nodeById[id].label : id);
 
-  const route = (src: ISpreadNode): IDataRoute => {
-    const types = (equipmentById[src.equipmentId] || ({} as ISurveyEquipment)).dataTypes || [];
-    const sw = software.filter((p) => overlaps(p.consumes, types));
-    const hosts = sw.map((p) => p.hostEquipmentId).filter((h) => present(h)) as string[];
-    let path: ISignalPath | null = null;
-    if (hosts.indexOf(src.equipmentId) >= 0) path = { nodeIds: [src.id], linkKeys: [] };
-    else if (hosts.length) {
-      path = shortestPath(adjacency, src.id, (id) => hosts.indexOf(baseId(id)) >= 0);
-    }
-    if (!path) path = traceSignalPath(links, src.id);
-
-    const chain: ISurveyPipelineNode[] = [];
-    const seen: Record<string, boolean> = {};
-    const queue = sw.slice();
-    sw.forEach((p) => (seen[p.id] = true));
-    while (queue.length) {
-      const p = queue.shift()!;
-      chain.push(p);
-      (p.feeds || []).forEach((id) => {
-        const next = pipeById[id];
-        if (!next || seen[id]) return;
-        if (next.consumes && !overlaps(next.consumes, types)) return;
-        seen[id] = true;
-        queue.push(next);
-      });
-    }
-    return { src, path, chain };
-  };
+  const route = (src: ISpreadNode): IDataRoute =>
+    traceDataRoute(src, nodes, links, equipmentById, pipeline);
 
   const hostSub = (p: ISurveyPipelineNode): string | undefined => {
     if (!p.hostEquipmentId) return undefined;

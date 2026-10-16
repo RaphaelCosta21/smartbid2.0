@@ -25,6 +25,8 @@ interface ISurveyGlossaryProps {
   onLangChange: (lang: SurveyLang) => void;
   /** Term shown when the modal opens. */
   initialTermId?: string | null;
+  /** Opens on the Decode tab with this sentence. */
+  initialSentence?: string | null;
   equipmentById: Record<string, ISurveyEquipment>;
   /** Highlights an equipment in the scene; the glossary closes afterwards. */
   onPickEquipment: (equipmentId: string) => void;
@@ -100,17 +102,20 @@ export const SurveyGlossary: React.FC<ISurveyGlossaryProps> = ({
   lang,
   onLangChange,
   initialTermId,
+  initialSentence,
   equipmentById,
   onPickEquipment,
   onClose,
 }) => {
-  const [tab, setTab] = React.useState<SurveyGlossaryTab>("terms");
+  const [tab, setTab] = React.useState<SurveyGlossaryTab>(initialSentence ? "decode" : "terms");
   const [termId, setTermId] = React.useState<string>(
     initialTermId && getGlossaryTerm(initialTermId) ? initialTermId : SURVEY_GLOSSARY[0].id,
   );
   const [query, setQuery] = React.useState("");
   const [category, setCategory] = React.useState<SurveyGlossaryCategory | "all">("all");
-  const [labSentence, setLabSentence] = React.useState<string | undefined>(undefined);
+  const [labSentence, setLabSentence] = React.useState<string | undefined>(
+    initialSentence || undefined,
+  );
   const L = (key: keyof typeof GLOSSARY_UI): string => localize(GLOSSARY_UI[key], lang);
 
   // Capture phase + stopPropagation so an Escape here does not also close the panel underneath.

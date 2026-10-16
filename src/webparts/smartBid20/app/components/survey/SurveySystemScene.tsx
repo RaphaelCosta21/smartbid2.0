@@ -15,6 +15,11 @@ import {
   GraduationCap,
   Sparkles,
   BookOpen,
+  Pause,
+  FlaskConical,
+  Route,
+  SkipBack,
+  SkipForward,
 } from "lucide-react";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import { SurveyLinkKind, SurveySceneAnchor } from "../../models";
@@ -27,6 +32,7 @@ import {
   LINK_KINDS,
   LINK_LABELS,
   SceneFocus,
+  SceneJourneyStep,
   SceneNodeStates,
   SceneOverlay,
   ScenePick,
@@ -34,6 +40,7 @@ import {
   SceneZone,
 } from "./survey3d/sceneTypes";
 import styles from "./SurveySystemScene.module.scss";
+import { GlossaryText } from "./GlossaryText";
 
 export interface SurveySceneTour {
   step: number;
@@ -57,6 +64,37 @@ export interface SurveyTraceStep {
   cable?: string;
   /** Software / storage / processing / deliverable step: no 3D object behind it. */
   logical?: boolean;
+}
+
+/** Data journey card, already localized by the page. */
+export interface SurveyJourneyView {
+  title: string;
+  step: number;
+  total: number;
+  kindLabel: string;
+  stepTitle: string;
+  caption: string;
+  formatLabel: string;
+  carrier?: string;
+  sample?: string;
+  decodable: boolean;
+  inferred: boolean;
+  playing: boolean;
+  /** Playback rate (0.5, 1, 2). */
+  speed: number;
+  /** CSS colour of the travelling packet. */
+  color: string;
+  labels: {
+    typical: string;
+    decode: string;
+    play: string;
+    pause: string;
+    back: string;
+    next: string;
+    finish: string;
+    stop: string;
+    speed: string;
+  };
 }
 
 interface SurveySystemSceneProps {
@@ -92,6 +130,17 @@ interface SurveySystemSceneProps {
   onTourStart: () => void;
   onTourStep: (delta: number) => void;
   onTourStop: () => void;
+  /** Data journey step drawn in 3D and its card (both null when no journey runs). */
+  journeyStep?: SceneJourneyStep | null;
+  journey?: SurveyJourneyView | null;
+  onJourneyStep?: (delta: number) => void;
+  onJourneyJump?: (index: number) => void;
+  onJourneyTogglePlay?: () => void;
+  onJourneySpeed?: () => void;
+  onJourneyStop?: () => void;
+  onJourneyDecode?: (sentence: string) => void;
+  /** The packet finished a step (SceneJourneyStep key). */
+  onJourneyStepEnd?: (key: string) => void;
 }
 
 /** Node labels: full up to FULL_LABEL_MAX nodes, compact up to COMPACT_LABEL_MAX, then hover-only. */
@@ -155,6 +204,14 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     onTourStart,
     onTourStep,
     onTourStop,
+    journeyStep = null,
+    journey = null,
+    onJourneyStep,
+    onJourneyJump,
+    onJourneyTogglePlay,
+    onJourneySpeed,
+    onJourneyStop,
+    onJourneyDecode,
   } = props;
   const hostRef = React.useRef<HTMLDivElement>(null);
   const apiRef = React.useRef<SurveySceneApi | null>(null);
@@ -204,6 +261,10 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
         setHotZoneId(zoneOfPick(pick));
       },
       onInteract: () => latest.current.onInteract(),
+      onJourneyStepEnd: (key) => {
+        const p = latest.current;
+        if (p.onJourneyStepEnd) p.onJourneyStepEnd(key);
+      },
     });
     apiRef.current = api;
     Object.keys(labelEls.current).forEach((k) =>
@@ -214,6 +275,9 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     api.setTrunks(latest.current.trunks);
     api.setFocus(latest.current.focus);
     api.setNodeStates(latest.current.nodeStates);
+    api.setJourney(latest.current.journeyStep || null);
+    const j = latest.current.journey;
+    api.setJourneyPlayback(!!j && j.playing, j ? j.speed : 1);
     return () => {
       apiRef.current = null;
       api.dispose();
@@ -238,6 +302,15 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   React.useEffect(() => {
     apiRef.current?.setLinksVisible(linesOn);
   }, [linesOn]);
+  // After setFocus, so a journey camera view overrides the room fly-to.
+  React.useEffect(() => {
+    apiRef.current?.setJourney(journeyStep);
+  }, [journeyStep]);
+  const journeyPlaying = !!journey && journey.playing;
+  const journeySpeed = journey ? journey.speed : 1;
+  React.useEffect(() => {
+    apiRef.current?.setJourneyPlayback(journeyPlaying, journeySpeed);
+  }, [journeyPlaying, journeySpeed]);
 
   const registerLabel = (key: string) => (el: HTMLDivElement | null) => {
     if (el) labelEls.current[key] = el;
@@ -276,7 +349,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     nodeStates.traceNodeIds.indexOf(id) >= 0;
   // Overview arcs are monochrome, so the colour legend only applies inside a room.
   const legendKinds =
-    focus && linesOn
+    focus && linesOn && !journey
       ? LINK_KINDS.filter((k) => focus.links.some((l) => l.kind === k))
       : [];
 
@@ -362,6 +435,20 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
                 </button>
               </div>
             ))}
+
+        {journey && (
+          <div ref={registerLabel("journey:packet")} className={styles.anchor}>
+            <div className={styles.packetBubble} style={{ borderLeftColor: journey.color }}>
+              <span className={styles.packetTag}>{journey.kindLabel}</span>
+              <span className={styles.packetFormat}>{journey.carrier || journey.formatLabel}</span>
+              {journey.sample && (
+                <code className={styles.packetSample}>
+                  {journey.sample.length > 48 ? `${journey.sample.slice(0, 46)}…` : journey.sample}
+                </code>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {focus && (
@@ -457,7 +544,101 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
       </div>
 
       <div className={styles.bottomStack}>
-        {tour && (
+        {journey && (
+          <div
+            className={styles.journeyCard}
+            style={{ borderTopColor: journey.color }}
+            role="region"
+            aria-label={journey.title}
+          >
+            <div className={styles.tourHead}>
+              <Route size={12} className={styles.journeyIcon} />
+              <span className={styles.journeyTitle}>{journey.title}</span>
+              <button
+                className={styles.tourIcon}
+                onClick={onJourneyStop}
+                aria-label={journey.labels.stop}
+                title={journey.labels.stop}
+              >
+                <X size={12} />
+              </button>
+            </div>
+            <div className={styles.journeyStepHead} aria-live="polite">
+              <span className={styles.journeyKind}>{journey.kindLabel}</span>
+              <strong>{journey.stepTitle}</strong>
+              {journey.inferred && (
+                <span className={styles.journeyTypical}>{journey.labels.typical}</span>
+              )}
+            </div>
+            <p className={styles.tourCaption}>
+              <GlossaryText text={journey.caption} />
+            </p>
+            <div className={styles.player}>
+              <button
+                className={styles.playerBtn}
+                onClick={() => onJourneyStep && onJourneyStep(-1)}
+                disabled={journey.step === 0}
+                aria-label={journey.labels.back}
+                title={journey.labels.back}
+              >
+                <SkipBack size={13} />
+              </button>
+              <button
+                className={`${styles.playerBtn} ${styles.playerMain}`}
+                onClick={onJourneyTogglePlay}
+                aria-label={journey.playing ? journey.labels.pause : journey.labels.play}
+                title={journey.playing ? journey.labels.pause : journey.labels.play}
+              >
+                {journey.playing ? <Pause size={14} /> : <Play size={14} />}
+              </button>
+              <button
+                className={styles.playerBtn}
+                onClick={() => onJourneyStep && onJourneyStep(1)}
+                aria-label={
+                  journey.step + 1 === journey.total ? journey.labels.finish : journey.labels.next
+                }
+                title={journey.step + 1 === journey.total ? journey.labels.finish : journey.labels.next}
+              >
+                <SkipForward size={13} />
+              </button>
+              <div className={styles.timeline} role="tablist">
+                {Array.from({ length: journey.total }).map((_, i) => (
+                  <button
+                    key={i}
+                    role="tab"
+                    aria-selected={i === journey.step}
+                    aria-label={`${i + 1}/${journey.total}`}
+                    className={`${styles.segment} ${i < journey.step ? styles.segmentDone : ""} ${
+                      i === journey.step ? styles.segmentActive : ""
+                    } ${i === journey.step && journey.playing ? styles.segmentPlaying : ""}`}
+                    onClick={() => onJourneyJump && onJourneyJump(i)}
+                  />
+                ))}
+              </div>
+              <span className={styles.playerCount}>
+                {journey.step + 1}/{journey.total}
+              </span>
+              <button
+                className={styles.speedBtn}
+                onClick={onJourneySpeed}
+                title={journey.labels.speed}
+                aria-label={`${journey.labels.speed} ${journey.speed}×`}
+              >
+                {journey.speed}×
+              </button>
+              {journey.sample && journey.decodable && onJourneyDecode && (
+                <button
+                  className={styles.journeyDecode}
+                  onClick={() => onJourneyDecode(journey.sample as string)}
+                >
+                  <FlaskConical size={11} /> {journey.labels.decode}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tour && !journey && (
           <div className={styles.tourCard} role="status" aria-live="polite">
             <div className={styles.tourHead}>
               <span className={styles.tourStep}>
@@ -485,7 +666,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
           </div>
         )}
 
-        {tracePath && tracePath.length > 1 && (
+        {!journey && tracePath && tracePath.length > 1 && (
           <div className={styles.tracePath}>
             <span className={styles.traceTitle}>SIGNAL PATH</span>
             {tracePath.map((step, i) => (
@@ -513,7 +694,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
           </div>
         )}
 
-        {cableInfo && linesOn && (
+        {!journey && cableInfo && linesOn && (
           <div className={styles.cableInfo} role="status">
             <Cable size={12} className={styles.cableIcon} />
             <span

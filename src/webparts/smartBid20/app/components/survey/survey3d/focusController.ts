@@ -177,6 +177,11 @@ export class FocusController {
     this.cables.setEnabled(enabled);
   }
 
+  /** Curve of a cable in the open room; null until the equipment has emerged. */
+  public getCableCurve(key: string): THREE.QuadraticBezierCurve3 | null {
+    return this.emerged ? this.cables.getCurve(key) : null;
+  }
+
   /** "node:<id>" or "cluster:<anchor>" label targets; null while hidden or still emerging. */
   public getLabelTarget(key: string): THREE.Object3D | null {
     if (key.indexOf("node:") === 0) {
@@ -289,6 +294,7 @@ export class FocusController {
       (e.plinth.material as THREE.MeshBasicMaterial).color.setHex(color);
     });
     const cableKeys = s.traceLinkKeys.length ? s.traceLinkKeys : s.hoverLinkKeys;
-    this.cables.setTrace(cableKeys.length ? cableKeys : null);
+    if (s.isolateTrace) this.cables.setTrace(s.traceLinkKeys, true);
+    else this.cables.setTrace(cableKeys.length ? cableKeys : null);
   }
 }

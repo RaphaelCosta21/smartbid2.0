@@ -16,16 +16,19 @@ import { SurveyGlossary } from "../components/survey/SurveyGlossary";
 import { GlossaryContext, IGlossaryContextValue } from "../components/survey/GlossaryContext";
 import type {
   SurveyCableInfo,
+  SurveyJourneyView,
   SurveySceneTour,
   SurveyTraceStep,
 } from "../components/survey/SurveySystemScene";
 import {
   CATALOG_CLUSTER,
+  LINK_COLORS,
   LINK_LABELS,
   PORTAL_CLUSTER,
   PORTAL_PREFIX,
   TRUNK_PREFIX,
   SceneFocus,
+  SceneJourneyStep,
   SceneLink,
   SceneNode,
   SceneNodeStates,
@@ -44,6 +47,7 @@ import {
 import {
   ISurveyEquipment,
   ISurveySpreadZone,
+  SurveyDataType,
   SurveyLang,
   SurveyLinkKind,
   SurveySceneAnchor,
@@ -72,6 +76,12 @@ import {
   saveGlossaryLang,
 } from "../utils/surveyGlossary";
 import { GLOSSARY_UI } from "../config/surveyGlossary";
+import { JOURNEY_KIND_LABELS, JOURNEY_UI } from "../config/surveyDataFormats";
+import {
+  buildDataJourney,
+  IJourneyContext,
+  listJourneys,
+} from "../utils/surveyDataJourney";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useChatStore } from "../stores/useChatStore";
 import { isAiConfigured } from "../config/ai.config";
@@ -85,6 +95,18 @@ const SurveySystemScene = React.lazy(
 );
 
 const TOUR_STEP_MS = 8000;
+const JOURNEY_PACKET_COLOR = 0xffc72c;
+const JOURNEY_SPEEDS = [0.5, 1, 2];
+
+interface IJourneyRun {
+  sourceNodeId: string;
+  dataType: SurveyDataType;
+  step: number;
+  playing: boolean;
+  speed: number;
+}
+
+const cssHex = (color: number): string => `#${`000000${color.toString(16)}`.slice(-6)}`;
 /** Tour reads topside → hull → umbilical → subsea, whatever the zone order in the data. */
 const TOUR_DEPTH: Partial<Record<SurveySceneAnchor, number>> = {
   "vessel-hull": 1,
@@ -158,6 +180,8 @@ export const SurveySystemPage: React.FC = () => {
   const [glossaryOpen, setGlossaryOpen] = React.useState(false);
   const [glossaryTermId, setGlossaryTermId] = React.useState<string | null>(null);
   const [lang, setLang] = React.useState<SurveyLang>(loadGlossaryLang);
+  const [journeyRun, setJourneyRun] = React.useState<IJourneyRun | null>(null);
+  const [glossaryDecode, setGlossaryDecode] = React.useState<string | null>(null);
   const pageRef = React.useRef<HTMLDivElement>(null);
   const currentUser = useCurrentUser();
   const openChat = useChatStore((s) => s.open);
@@ -473,6 +497,35 @@ export const SurveySystemPage: React.FC = () => {
     return result;
   }, [catalog]);
   const pipeline = React.useMemo(() => spread?.pipeline || [], [spread]);
+  const journeyCtx = React.useMemo<IJourneyContext>(
+    () => ({ nodes, links, equipmentById, pipeline }),
+    [nodes, links, equipmentById, pipeline],
+  );
+  const journeySourceId = journeyRun ? journeyRun.sourceNodeId : null;
+  const journeyType = journeyRun ? journeyRun.dataType : null;
+  const journey = React.useMemo(
+    () =>
+      journeySourceId && journeyType
+        ? buildDataJourney(journeySourceId, journeyType, journeyCtx)
+        : null,
+    [journeySourceId, journeyType, journeyCtx],
+  );
+  const journeyStepIndex =
+    journey && journeyRun ? Math.min(journeyRun.step, journey.steps.length - 1) : 0;
+  const journeyCurrent = journey ? journey.steps[journeyStepIndex] : null;
+  // Nodes and cables already visited light up like a signal trace.
+  const journeyTrace = React.useMemo(() => {
+    if (!journey) return null;
+    const nodeIds: string[] = [];
+    const linkKeys: string[] = [];
+    journey.steps.slice(0, journeyStepIndex + 1).forEach((s) => {
+      if (s.nodeId && nodeIds.indexOf(s.nodeId) < 0) nodeIds.push(s.nodeId);
+      [s.linkKey, s.arriveLinkKey].forEach((k) => {
+        if (k && linkKeys.indexOf(k) < 0) linkKeys.push(k);
+      });
+    });
+    return { nodeIds, linkKeys };
+  }, [journey, journeyStepIndex]);
   const lineageOf = React.useCallback(
     (nodeId: string | null | undefined): IDataLineage | null =>
       nodeId
@@ -545,37 +598,42 @@ export const SurveySystemPage: React.FC = () => {
     return { bidNumber: comparison.bid.bidNumber, covered, missing, extras };
   }, [considered, spread, isFree, comparison, equipmentById]);
   const nodeStates = React.useMemo<SceneNodeStates>(() => {
-    const traceNodeIds = trace ? trace.nodeIds.slice() : [];
+    const activeTrace = journeyTrace || trace;
+    const activeSelected = journeyCurrent ? journeyCurrent.nodeId || null : selectedNodeId;
+    const traceNodeIds = activeTrace ? activeTrace.nodeIds.slice() : [];
     // Steps in other rooms light the portal that leads there.
-    if (trace && activeZoneId) {
-      trace.nodeIds.forEach((id) => {
+    if (activeTrace && activeZoneId) {
+      activeTrace.nodeIds.forEach((id) => {
         const zoneId = nodeById[id]?.zoneId;
         if (zoneId && zoneId !== activeZoneId)
           traceNodeIds.push(`${PORTAL_PREFIX}${zoneId}`);
       });
     }
     const hoverLinkKeys =
-      !selectedNodeId && hoverNodeId && activeFocus
+      !activeSelected && !journeyCurrent && hoverNodeId && activeFocus
         ? activeFocus.links
             .filter((l) => l.from === hoverNodeId || l.to === hoverNodeId)
             .map((l) => l.key)
         : [];
     return {
-      selectedNodeId,
+      selectedNodeId: activeSelected,
       hoverNodeId,
       packageEquipmentIds,
       traceNodeIds,
-      traceLinkKeys: trace ? trace.linkKeys : [],
+      traceLinkKeys: activeTrace ? activeTrace.linkKeys : [],
       hoverLinkKeys,
       overlay: isFree ? "none" : sceneMode,
       faultNodeId: sceneMode === "fault" ? faultNodeId : null,
       offlineNodeIds: failureImpact ? failureImpact.offlineNodeIds : [],
+      isolateTrace: !!journeyCurrent,
     };
   }, [
     selectedNodeId,
     hoverNodeId,
     packageEquipmentIds,
     trace,
+    journeyTrace,
+    journeyCurrent,
     activeZoneId,
     nodeById,
     activeFocus,
@@ -649,6 +707,80 @@ export const SurveySystemPage: React.FC = () => {
     return { ...baseCableInfo, protocols };
   }, [baseCableInfo, hoverCableKey, protocolsOfCable, lang]);
 
+  const journeyLinkKind = journeyCurrent
+    ? journeyCurrent.linkKind ||
+      (journeyCurrent.arriveLinkKey && linkByKey[journeyCurrent.arriveLinkKey]
+        ? linkByKey[journeyCurrent.arriveLinkKey].kind
+        : undefined)
+    : undefined;
+  const sceneJourneyStep = React.useMemo<SceneJourneyStep | null>(() => {
+    if (!journeyCurrent) return null;
+    const s = journeyCurrent;
+    const mode: SceneJourneyStep["mode"] =
+      s.kind === "origin"
+        ? s.satellites
+          ? "satellites"
+          : "node"
+        : s.kind === "cable"
+          ? "cable"
+          : s.kind === "deliverables"
+            ? "deliverables"
+            : s.nodeId
+              ? "node"
+              : "overview";
+    return {
+      key: `${journeyStepIndex}:${s.id}`,
+      mode,
+      zoneId: s.zoneId,
+      nodeId: s.nodeId,
+      linkKey: s.linkKey,
+      reverse: s.reverse,
+      arriveLinkKey: s.arriveLinkKey,
+      arriveReverse: s.arriveReverse,
+      color: JOURNEY_PACKET_COLOR,
+      deliverables: s.deliverables
+        ? s.deliverables.map((d) => ({
+            id: d.id,
+            title: d.title,
+            subtitle: localize(d.format, lang),
+            visual: d.visual,
+          }))
+        : undefined,
+    };
+  }, [journeyCurrent, journeyStepIndex, lang]);
+  const journeyView = React.useMemo<SurveyJourneyView | null>(() => {
+    if (!journey || !journeyCurrent || !journeyRun) return null;
+    const L = (key: keyof typeof JOURNEY_UI): string => localize(JOURNEY_UI[key], lang);
+    const f = journeyCurrent.format;
+    return {
+      title: `${L("title")} · ${localize(journey.title, lang)}`,
+      step: journeyStepIndex,
+      total: journey.steps.length,
+      kindLabel: localize(JOURNEY_KIND_LABELS[journeyCurrent.kind], lang),
+      stepTitle: localize(journeyCurrent.title, lang),
+      caption: localize(journeyCurrent.caption, lang),
+      formatLabel: localize(f.label, lang),
+      carrier: f.carrier ? localize(f.carrier, lang) : undefined,
+      sample: f.sample,
+      decodable: f.decodable,
+      inferred: journeyCurrent.inferred,
+      playing: journeyRun.playing,
+      speed: journeyRun.speed,
+      color: cssHex(journeyLinkKind ? LINK_COLORS[journeyLinkKind] : JOURNEY_PACKET_COLOR),
+      labels: {
+        typical: L("typical"),
+        decode: L("decode"),
+        play: L("play"),
+        pause: L("pause"),
+        back: L("back"),
+        next: L("next"),
+        finish: L("finish"),
+        stop: L("stop"),
+        speed: L("speed"),
+      },
+    };
+  }, [journey, journeyCurrent, journeyRun, journeyStepIndex, journeyLinkKind, lang]);
+
   const tourSteps = React.useMemo(() => {
     if (!spread) return [];
     const depth = (a: SurveySceneAnchor): number => TOUR_DEPTH[a] || 0;
@@ -692,6 +824,14 @@ export const SurveySystemPage: React.FC = () => {
     );
     return node ? lineageOf(node.id) : null;
   }, [selected, selectedNodeId, nodeById, nodeLineage, nodes, lineageOf]);
+  const detailJourneyOptions = React.useMemo(() => {
+    if (!selected || isFree) return [];
+    const node =
+      selectedNodeId && nodeById[selectedNodeId]?.equipmentId === selected.id
+        ? nodeById[selectedNodeId]
+        : nodes.find((n) => n.equipmentId === selected.id && n.source !== "catalog");
+    return node ? listJourneys(node.id, journeyCtx) : [];
+  }, [selected, isFree, selectedNodeId, nodeById, nodes, journeyCtx]);
   const intel = useSurveyBidIntel(detailOpen ? selected : undefined);
   const adding = catalog?.equipment.find((e) => e.id === addingId);
   const closeAdd = React.useCallback(() => setAddingId(null), []);
@@ -718,6 +858,7 @@ export const SurveySystemPage: React.FC = () => {
 
   const handleZoneSelect = (zoneId: string | null): void => {
     stopTour();
+    setJourneyRun(null);
     if (zoneId !== null && zoneId === activeZoneId) return;
     openZone(zoneId);
   };
@@ -735,6 +876,7 @@ export const SurveySystemPage: React.FC = () => {
     const node = nodeById[nodeId];
     if (!node) return;
     stopTour();
+    setJourneyRun(null);
     if (node.zoneId !== activeZoneId) setActiveZoneId(node.zoneId);
     setSelectedNodeId(nodeId);
     handleSelect(node.equipmentId);
@@ -774,6 +916,7 @@ export const SurveySystemPage: React.FC = () => {
     setSceneMode(mode);
     setFaultNodeId(null);
     if (mode !== "none") {
+      setJourneyRun(null);
       setSelectedNodeId(null);
       setDetailOpen(false);
       setAskOpen(false);
@@ -784,11 +927,13 @@ export const SurveySystemPage: React.FC = () => {
   const openMissions = (): void => {
     setMissionsOpen(true);
     setAskOpen(false);
+    setJourneyRun(null);
   };
 
   const openAsk = (): void => {
     setAskOpen(true);
     setMissionsOpen(false);
+    setJourneyRun(null);
     setSceneMode("none");
     setFaultNodeId(null);
     setDetailOpen(false);
@@ -796,8 +941,50 @@ export const SurveySystemPage: React.FC = () => {
 
   const openGlossary = React.useCallback((termId?: string): void => {
     setGlossaryTermId(termId || null);
+    setGlossaryDecode(null);
     setGlossaryOpen(true);
   }, []);
+
+  const pauseJourney = (): void =>
+    setJourneyRun((prev) => (prev && prev.playing ? { ...prev, playing: false } : prev));
+
+  // The journey card's "Decode" opens the glossary lab on the packet's sentence.
+  const openDecode = (sentence: string): void => {
+    pauseJourney();
+    setGlossaryTermId(null);
+    setGlossaryDecode(sentence);
+    setGlossaryOpen(true);
+  };
+
+  const startJourney = (sourceNodeId: string, dataType: SurveyDataType): void => {
+    stopTour();
+    setSceneMode("none");
+    setFaultNodeId(null);
+    setAskOpen(false);
+    setMissionsOpen(false);
+    setDetailOpen(false);
+    setSelectedNodeId(null);
+    setJourneyRun({ sourceNodeId, dataType, step: 0, playing: true, speed: 1 });
+  };
+
+  const stepJourney = React.useCallback(
+    (delta: number): void => {
+      const total = journey ? journey.steps.length : 0;
+      setJourneyRun((prev) => {
+        if (!prev) return prev;
+        const next = prev.step + delta;
+        if (next >= total) return null;
+        return { ...prev, step: Math.max(0, next) };
+      });
+    },
+    [journey],
+  );
+
+  const jumpJourney = (index: number): void =>
+    setJourneyRun((prev) => (prev ? { ...prev, step: index } : prev));
+
+  const toggleJourneyPlay = (): void =>
+    setJourneyRun((prev) => (prev ? { ...prev, playing: !prev.playing } : prev));
 
   const handleLangChange = (next: SurveyLang): void => {
     setLang(next);
@@ -942,13 +1129,43 @@ export const SurveySystemPage: React.FC = () => {
     setSceneMode("none");
     setFaultNodeId(null);
     setAskOpen(false);
+    setJourneyRun(null);
   }, [spreadId]);
+
+  // Each journey step opens its room (or the overview) in the scene.
+  const journeyZoneId = journeyCurrent ? journeyCurrent.zoneId : undefined;
+  React.useEffect(() => {
+    if (journeyZoneId === undefined) return;
+    setActiveZoneId(journeyZoneId);
+    setHoverNodeId(null);
+    setHoverCableKey(null);
+  }, [journeyZoneId, journeyStepIndex]);
+
+  const journeyPlaying = !!journeyRun && journeyRun.playing;
+  const journeyLast = !!journey && journeyStepIndex >= journey.steps.length - 1;
+  // The scene reports when the packet has finished a step; playback then moves on.
+  const handleJourneyStepEnd = (key: string): void => {
+    if (!journeyPlaying || !sceneJourneyStep || key !== sceneJourneyStep.key) return;
+    if (journeyLast) {
+      setJourneyRun((prev) => (prev ? { ...prev, playing: false } : prev));
+      return;
+    }
+    stepJourney(1);
+  };
+
+  const cycleJourneySpeed = (): void =>
+    setJourneyRun((prev) => {
+      if (!prev) return prev;
+      const i = JOURNEY_SPEEDS.indexOf(prev.speed);
+      return { ...prev, speed: JOURNEY_SPEEDS[(i + 1) % JOURNEY_SPEEDS.length] };
+    });
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key !== "Escape") return;
       if (missionsOpen) setMissionsOpen(false);
       else if (askOpen) setAskOpen(false);
+      else if (journeyRun) setJourneyRun(null);
       else if (tourStep !== null) setTourStep(null);
       else if (detailOpen) setDetailOpen(false);
       else if (selectedNodeId) setSelectedNodeId(null);
@@ -956,7 +1173,7 @@ export const SurveySystemPage: React.FC = () => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [tourStep, detailOpen, selectedNodeId, activeZoneId, missionsOpen, askOpen]);
+  }, [tourStep, detailOpen, selectedNodeId, activeZoneId, missionsOpen, askOpen, journeyRun]);
 
   /** Adds the spread (or one zone) to the package, skipping what the compared BID already has. */
   const addLines = (zoneId?: string): void => {
@@ -1078,6 +1295,18 @@ export const SurveySystemPage: React.FC = () => {
               onAdd={() => setAddingId(selected.id)}
               onSelectEquipment={handleSelectLinked}
               onClose={() => setDetailOpen(false)}
+              journeyOptions={detailJourneyOptions.map((o) => ({
+                key: o.key,
+                label: `${localize(o.typeLabel, lang)} · ${o.sourceLabel}`,
+              }))}
+              journeyLabels={{
+                button: localize(JOURNEY_UI.button, lang),
+                pick: localize(JOURNEY_UI.pick, lang),
+              }}
+              onStartJourney={(key) => {
+                const option = detailJourneyOptions.filter((o) => o.key === key)[0];
+                if (option) startJourney(option.sourceNodeId, option.dataType);
+              }}
             />
           </div>
         )}
@@ -1162,10 +1391,20 @@ export const SurveySystemPage: React.FC = () => {
               onCableOpen={handleCableOpen}
               onInteract={stopTour}
               onTourStart={() => {
+                setJourneyRun(null);
                 if (!isFree) setTourStep(0);
               }}
               onTourStep={stepTour}
               onTourStop={stopTour}
+              journeyStep={isFree ? null : sceneJourneyStep}
+              journey={isFree ? null : journeyView}
+              onJourneyStep={stepJourney}
+              onJourneyJump={jumpJourney}
+              onJourneyTogglePlay={toggleJourneyPlay}
+              onJourneyStop={() => setJourneyRun(null)}
+              onJourneyDecode={openDecode}
+              onJourneySpeed={cycleJourneySpeed}
+              onJourneyStepEnd={handleJourneyStepEnd}
             />
           </React.Suspense>
         </div>
@@ -1196,6 +1435,7 @@ export const SurveySystemPage: React.FC = () => {
           lang={lang}
           onLangChange={handleLangChange}
           initialTermId={glossaryTermId}
+          initialSentence={glossaryDecode}
           equipmentById={equipmentById}
           onPickEquipment={(id) => handlePickFromAsk(id)}
           onClose={() => setGlossaryOpen(false)}

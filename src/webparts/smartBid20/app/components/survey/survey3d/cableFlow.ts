@@ -46,6 +46,7 @@ export class CableNetwork {
   private hidden = new THREE.MeshBasicMaterial({ visible: false });
   private particleGeo = new THREE.SphereGeometry(0.075, 10, 8);
   private trace: Record<string, boolean> | null = null;
+  private isolate = false;
   private hoverKey: string | null = null;
   private fade = 0;
   private visibleTarget = false;
@@ -92,8 +93,14 @@ export class CableNetwork {
   public setHover(key: string | null): void {
     this.hoverKey = key;
     this.cables.forEach((cable) => {
-      cable.hit.material = cable.key === key ? this.halo[cable.kind] : this.hidden;
+      const shown = !this.isolate || (!!this.trace && !!this.trace[cable.key]);
+      cable.hit.material = cable.key === key && shown ? this.halo[cable.kind] : this.hidden;
     });
+  }
+
+  public getCurve(key: string): THREE.QuadraticBezierCurve3 | null {
+    const cable = this.cables.filter((c) => c.key === key)[0];
+    return cable ? cable.curve : null;
   }
 
   /** Fades the network in/out (cables appear once the nodes have emerged). */
@@ -106,8 +113,10 @@ export class CableNetwork {
     this.enabled = enabled;
   }
 
-  public setTrace(linkKeys: string[] | null): void {
-    if (!linkKeys || linkKeys.length === 0) {
+  /** isolate: cables off the trace are hidden instead of dimmed (data journey). */
+  public setTrace(linkKeys: string[] | null, isolate = false): void {
+    this.isolate = isolate;
+    if (!linkKeys || (linkKeys.length === 0 && !isolate)) {
       this.trace = null;
     } else {
       this.trace = {};
@@ -161,7 +170,11 @@ export class CableNetwork {
   private applyTrace(): void {
     this.cables.forEach((cable) => {
       const traced = !this.trace || !!this.trace[cable.key];
-      cable.tube.material = traced ? this.normal[cable.kind] : this.dim[cable.kind];
+      cable.tube.material = traced
+        ? this.normal[cable.kind]
+        : this.isolate
+          ? this.hidden
+          : this.dim[cable.kind];
       cable.particles.forEach((p) => (p.visible = traced));
     });
   }
