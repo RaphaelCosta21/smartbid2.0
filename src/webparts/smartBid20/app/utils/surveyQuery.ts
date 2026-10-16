@@ -16,9 +16,11 @@ import {
   ISurveyPipelineNode,
   ISurveySpread,
   SurveyDataType,
+  SurveyLang,
 } from "../models";
 import { ISpreadLinkRef, ISpreadNode } from "./surveySpreadGraph";
 import { computeFailureImpact } from "./surveyFailure";
+import { findGlossaryTerm, loadGlossaryLang, localize } from "./surveyGlossary";
 
 export type SurveyAnswerTone = "default" | "good" | "bad" | "warn";
 
@@ -39,6 +41,8 @@ export interface ISurveyAnswer {
   chips?: ISurveyAnswerChip[];
   /** Spread node id to focus in the scene, when the answer is about one node. */
   focusNodeId?: string | null;
+  /** Glossary term the answer explains; the UI offers to open its full card. */
+  glossaryTermId?: string;
 }
 
 export interface ISurveyQueryContext {
@@ -384,6 +388,64 @@ const answerCount = (q: string, ctx: ISurveyQueryContext): ISurveyAnswer | null 
   };
 };
 
+const DEFINE_CUES_PT = [
+  "o que e",
+  "o que sao",
+  "explique",
+  "explica",
+  "significa",
+  "quer dizer",
+  "para que serve",
+  "como funciona",
+  "definicao",
+];
+const DEFINE_CUES_EN = [
+  "what is",
+  "what are",
+  "what s",
+  "whats",
+  "explain",
+  "mean",
+  "define",
+  "stand for",
+  "how does",
+  "how do",
+];
+
+/** Explains a glossary term ("o que é NMEA?"); a more specific equipment name in the question wins instead. */
+const answerDefine = (q: string, ctx: ISurveyQueryContext, raw: string): ISurveyAnswer | null => {
+  const hit = findGlossaryTerm(raw);
+  if (!hit) return null;
+  const matched = normalize(hit.matched);
+  const pt = hasAny(q, DEFINE_CUES_PT);
+  const cued = pt || hasAny(q, DEFINE_CUES_EN);
+  if (!cued && q !== matched) return null;
+  const eqMatch = findEquipment(q, ctx);
+  if (eqMatch && eqMatch.matched.length > matched.length) return null;
+  const lang: SurveyLang = pt ? "pt" : cued ? "en" : loadGlossaryLang();
+  const term = hit.term;
+  const bullets: string[] = [];
+  if (term.analogy)
+    bullets.push(`${lang === "pt" ? "Analogia" : "Analogy"}: ${localize(term.analogy, lang)}`);
+  (term.details || []).slice(0, 2).forEach((d) => bullets.push(localize(d, lang)));
+  if (term.bidNote)
+    bullets.push(`${lang === "pt" ? "No BID" : "In a BID"}: ${localize(term.bidNote, lang)}`);
+  const chips: ISurveyAnswerChip[] = [];
+  (term.equipmentIds || []).forEach((id) => {
+    const eq = ctx.equipmentById[id];
+    if (eq && chips.length < 6) chips.push({ id, label: eq.title });
+  });
+  return {
+    kind: "answer",
+    intent: "define",
+    title: term.fullName ? `${term.term} · ${localize(term.fullName, lang)}` : term.term,
+    text: localize(term.oneLiner, lang),
+    bullets: bullets.length ? bullets : undefined,
+    chips: chips.length ? chips : undefined,
+    glossaryTermId: term.id,
+  };
+};
+
 const answerWhatIs = (q: string, ctx: ISurveyQueryContext): ISurveyAnswer | null => {
   const match = findEquipment(q, ctx);
   if (!match) return null;
@@ -429,7 +491,7 @@ const answerSearch = (q: string, ctx: ISurveyQueryContext): ISurveyAnswer | null
   };
 };
 
-const HANDLERS: ((q: string, ctx: ISurveyQueryContext) => ISurveyAnswer | null)[] = [
+const HANDLERS: ((q: string, ctx: ISurveyQueryContext, raw: string) => ISurveyAnswer | null)[] = [
   answerFailure,
   answerConnections,
   answerInBid,
@@ -437,6 +499,7 @@ const HANDLERS: ((q: string, ctx: ISurveyQueryContext) => ISurveyAnswer | null)[
   answerWhere,
   answerProduces,
   answerCount,
+  answerDefine,
   answerWhatIs,
   answerSearch,
 ];
@@ -448,7 +511,7 @@ export function answerSurveyQuery(raw: string, ctx: ISurveyQueryContext): ISurve
     return empty("none", "Ask about the spread", "Try: \u201Cwhat does the USBL do?\u201D or \u201Cwhat fails if the switch dies?\u201D");
   }
   for (let i = 0; i < HANDLERS.length; i++) {
-    const answer = HANDLERS[i](q, ctx);
+    const answer = HANDLERS[i](q, ctx, raw);
     if (answer) return answer;
   }
   return empty(
@@ -465,4 +528,6 @@ export const SURVEY_QUERY_EXAMPLES: string[] = [
   "What connects to the online PC?",
   "What's missing from the BID?",
   "What produces position?",
+  "O que é NMEA?",
+  "What is PPS?",
 ];

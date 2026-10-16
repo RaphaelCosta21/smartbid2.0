@@ -12,6 +12,8 @@ import { SurveyFailurePanel } from "../components/survey/SurveyFailurePanel";
 import { SurveyGapPanel } from "../components/survey/SurveyGapPanel";
 import { SurveyMissions } from "../components/survey/SurveyMissions";
 import { SurveyAsk } from "../components/survey/SurveyAsk";
+import { SurveyGlossary } from "../components/survey/SurveyGlossary";
+import { GlossaryContext, IGlossaryContextValue } from "../components/survey/GlossaryContext";
 import type {
   SurveyCableInfo,
   SurveySceneTour,
@@ -42,6 +44,7 @@ import {
 import {
   ISurveyEquipment,
   ISurveySpreadZone,
+  SurveyLang,
   SurveyLinkKind,
   SurveySceneAnchor,
 } from "../models";
@@ -61,6 +64,14 @@ import {
 import { buildFreeScene, FREE_SPREAD_ID } from "../utils/surveyFreeScene";
 import { computeFailureImpact, IFailureImpact } from "../utils/surveyFailure";
 import { answerSurveyQuery, ISurveyAnswer } from "../utils/surveyQuery";
+import {
+  getGlossaryTerm,
+  loadGlossaryLang,
+  localize,
+  protocolsForLinkRefs,
+  saveGlossaryLang,
+} from "../utils/surveyGlossary";
+import { GLOSSARY_UI } from "../config/surveyGlossary";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useChatStore } from "../stores/useChatStore";
 import { isAiConfigured } from "../config/ai.config";
@@ -144,6 +155,10 @@ export const SurveySystemPage: React.FC = () => {
   const [faultNodeId, setFaultNodeId] = React.useState<string | null>(null);
   const [missionsOpen, setMissionsOpen] = React.useState(false);
   const [askOpen, setAskOpen] = React.useState(false);
+  const [glossaryOpen, setGlossaryOpen] = React.useState(false);
+  const [glossaryTermId, setGlossaryTermId] = React.useState<string | null>(null);
+  const [lang, setLang] = React.useState<SurveyLang>(loadGlossaryLang);
+  const pageRef = React.useRef<HTMLDivElement>(null);
   const currentUser = useCurrentUser();
   const openChat = useChatStore((s) => s.open);
   const sendChat = useChatStore((s) => s.send);
@@ -593,7 +608,15 @@ export const SurveySystemPage: React.FC = () => {
     }
     return steps;
   }, [trace, nodeById, linkByKey, nodeLineage]);
-  const cableInfo = React.useMemo<SurveyCableInfo | null>(() => {
+  const protocolsOfCable = React.useCallback(
+    (key: string): string[] => {
+      const trunk = trunkDetails[key];
+      const list = trunk ? trunk.links : linkByKey[key] ? [linkByKey[key]] : [];
+      return protocolsForLinkRefs(list, nodeById, equipmentById);
+    },
+    [trunkDetails, linkByKey, nodeById, equipmentById],
+  );
+  const baseCableInfo = React.useMemo<SurveyCableInfo | null>(() => {
     if (!hoverCableKey) return null;
     const trunk = trunkDetails[hoverCableKey];
     if (trunk) {
@@ -614,6 +637,17 @@ export const SurveySystemPage: React.FC = () => {
       detail: `${labelOf(link.from)} → ${labelOf(link.to)} · ${LINK_LABELS[link.kind]}`,
     };
   }, [hoverCableKey, trunkDetails, linkByKey, nodeById]);
+  const cableInfo = React.useMemo<SurveyCableInfo | null>(() => {
+    if (!baseCableInfo || !hoverCableKey) return baseCableInfo;
+    const ids = protocolsOfCable(hoverCableKey);
+    if (!ids.length) return baseCableInfo;
+    const names = ids.slice(0, 3).map((id) => {
+      const term = getGlossaryTerm(id);
+      return term ? term.term : id;
+    });
+    const protocols = `${localize(GLOSSARY_UI.carries, lang)}: ${names.join(" \u00b7 ")} \u2014 ${localize(GLOSSARY_UI.clickToLearn, lang)}`;
+    return { ...baseCableInfo, protocols };
+  }, [baseCableInfo, hoverCableKey, protocolsOfCable, lang]);
 
   const tourSteps = React.useMemo(() => {
     if (!spread) return [];
@@ -759,6 +793,28 @@ export const SurveySystemPage: React.FC = () => {
     setFaultNodeId(null);
     setDetailOpen(false);
   };
+
+  const openGlossary = React.useCallback((termId?: string): void => {
+    setGlossaryTermId(termId || null);
+    setGlossaryOpen(true);
+  }, []);
+
+  const handleLangChange = (next: SurveyLang): void => {
+    setLang(next);
+    saveGlossaryLang(next);
+  };
+
+  // Clicking a cable teaches its first typical protocol.
+  const handleCableOpen = (key: string): void => {
+    if (isFree) return;
+    const ids = protocolsOfCable(key);
+    if (ids.length) openGlossary(ids[0]);
+  };
+
+  const glossaryCtx = React.useMemo<IGlossaryContextValue>(
+    () => ({ lang, openTerm: openGlossary, getPortalRoot: () => pageRef.current }),
+    [lang, openGlossary],
+  );
 
   const handleAsk = (question: string): ISurveyAnswer => {
     if (!catalog) {
@@ -1075,7 +1131,8 @@ export const SurveySystemPage: React.FC = () => {
   };
 
   return (
-    <div className={styles.page}>
+    <GlossaryContext.Provider value={glossaryCtx}>
+    <div className={styles.page} ref={pageRef}>
       {ready && (
         <div className={styles.sceneLayer}>
           <React.Suspense fallback={null}>
@@ -1097,10 +1154,12 @@ export const SurveySystemPage: React.FC = () => {
               onModeChange={handleModeChange}
               onOpenMissions={openMissions}
               onOpenAsk={openAsk}
+              onOpenGlossary={() => openGlossary()}
               onZoneSelect={handleZoneSelect}
               onNodeSelect={handleSceneNodeSelect}
               onNodeHover={setHoverNodeId}
               onCableHover={setHoverCableKey}
+              onCableOpen={handleCableOpen}
               onInteract={stopTour}
               onTourStart={() => {
                 if (!isFree) setTourStep(0);
@@ -1132,6 +1191,17 @@ export const SurveySystemPage: React.FC = () => {
           onClose={() => setMissionsOpen(false)}
         />
       )}
+      {glossaryOpen && (
+        <SurveyGlossary
+          lang={lang}
+          onLangChange={handleLangChange}
+          initialTermId={glossaryTermId}
+          equipmentById={equipmentById}
+          onPickEquipment={(id) => handlePickFromAsk(id)}
+          onClose={() => setGlossaryOpen(false)}
+        />
+      )}
     </div>
+    </GlossaryContext.Provider>
   );
 };

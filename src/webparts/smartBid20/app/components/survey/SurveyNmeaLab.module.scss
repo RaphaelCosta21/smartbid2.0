@@ -1,0 +1,245 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--survey-navy-deep);
+}
+
+.intro {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--survey-navy);
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  resize: vertical;
+  border-radius: 10px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-glass-strong);
+  color: var(--survey-navy-deep);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+
+  &:focus {
+    outline: 2px solid var(--survey-teal);
+    outline-offset: 1px;
+  }
+}
+
+.samples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.samplesLabel {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--survey-slate);
+}
+
+.sample {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-glass);
+  color: var(--survey-navy-deep);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--survey-teal);
+  }
+}
+
+.sampleActive {
+  background: var(--survey-navy-deep);
+  border-color: var(--survey-navy-deep);
+  color: var(--survey-ice);
+}
+
+.error {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border-left: 3px solid var(--survey-red);
+  background: var(--survey-glass);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.warn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border-left: 3px solid var(--survey-alert);
+  background: var(--survey-glass);
+  font-size: 12px;
+  color: var(--survey-navy);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-glass);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--survey-navy-deep);
+}
+
+.badgeOk {
+  background: var(--survey-green);
+  border-color: var(--survey-green);
+  color: #fff;
+}
+
+.badgeBad {
+  background: var(--survey-red);
+  border-color: var(--survey-red);
+  color: #fff;
+}
+
+.badgeNone {
+  border-color: var(--survey-alert);
+}
+
+.sentence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--survey-navy-deep);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  color: var(--survey-ice);
+}
+
+.tokHead {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--survey-teal);
+  color: #fff;
+  font-weight: 700;
+}
+
+.tok {
+  padding: 2px 6px;
+  border-radius: 6px;
+  cursor: default;
+  transition: background 120ms ease;
+}
+
+.tokActive {
+  background: #ffc72c;
+  color: var(--survey-navy-deep);
+}
+
+.tokEmpty {
+  color: var(--survey-muted);
+}
+
+.tokSum {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--survey-slate);
+  color: #fff;
+  font-weight: 700;
+}
+
+.comma {
+  color: var(--survey-muted);
+}
+
+.heading {
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--survey-slate);
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.summaryItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--survey-glass-border);
+  background: var(--survey-glass);
+}
+
+.summaryLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--survey-slate);
+}
+
+.summaryValue {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--survey-navy-deep);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+
+  th {
+    padding: 6px 8px;
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--survey-slate);
+    border-bottom: 1px solid var(--survey-glass-border);
+  }
+
+  td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--survey-glass-border);
+    vertical-align: top;
+  }
+}
+
+.rowActive td {
+  background: var(--survey-glass-strong);
+}
+
+.mono {
+  font-family: Consolas, "Courier New", monospace;
+  font-weight: 700;
+}
+
+.scope {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--survey-slate);
+}

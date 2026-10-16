@@ -1,0 +1,78 @@
+.term {
+  border-bottom: 1px dotted var(--survey-teal);
+  cursor: help;
+  color: inherit;
+
+  &:hover {
+    border-bottom-style: solid;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--survey-teal);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+.card {
+  position: absolute;
+  z-index: 80;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--survey-navy-deep);
+  color: var(--survey-ice);
+  box-shadow: var(--survey-shadow);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: left;
+  pointer-events: none;
+  animation: pop 120ms ease both;
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.draftTag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--survey-alert);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cardAnalogy {
+  margin-top: 6px;
+  padding-left: 8px;
+  border-left: 2px solid var(--survey-teal);
+  color: var(--survey-line);
+}
+
+.cardHint {
+  margin-top: 8px;
+  color: var(--survey-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}

@@ -598,6 +598,13 @@
   text-overflow: ellipsis;
 }
 
+.cableProtocols {
+  flex-shrink: 0;
+  color: #ffc72c;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .legendItem {
   display: inline-flex;
   align-items: center;

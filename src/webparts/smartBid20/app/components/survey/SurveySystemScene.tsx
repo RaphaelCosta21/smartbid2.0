@@ -14,6 +14,7 @@ import {
   Compass,
   GraduationCap,
   Sparkles,
+  BookOpen,
 } from "lucide-react";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import { SurveyLinkKind, SurveySceneAnchor } from "../../models";
@@ -45,6 +46,8 @@ export interface SurveyCableInfo {
   kind: SurveyLinkKind;
   title: string;
   detail: string;
+  /** Ready-to-show line with the typical protocols the cable carries (glossary-linked). */
+  protocols?: string;
 }
 
 export interface SurveyTraceStep {
@@ -77,6 +80,10 @@ interface SurveySystemSceneProps {
   onOpenMissions?: () => void;
   /** Natural-language ask launcher (hidden when omitted). */
   onOpenAsk?: () => void;
+  /** Survey glossary launcher (hidden when omitted). */
+  onOpenGlossary?: () => void;
+  /** A cable was clicked (link or trunk key). */
+  onCableOpen?: (key: string) => void;
   onZoneSelect: (zoneId: string | null) => void;
   onNodeSelect: (nodeId: string) => void;
   onNodeHover: (nodeId: string | null) => void;
@@ -142,6 +149,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     onModeChange,
     onOpenMissions,
     onOpenAsk,
+    onOpenGlossary,
     onZoneSelect,
     onNodeSelect,
     onTourStart,
@@ -180,8 +188,9 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
       onPick: (pick: ScenePick) => {
         const p = latest.current;
         if (pick.type === "node") p.onNodeSelect(pick.nodeId);
-        else if (pick.type === "cable") return;
-        else {
+        else if (pick.type === "cable") {
+          if (p.onCableOpen) p.onCableOpen(pick.key);
+        } else {
           const zoneId = zoneOfPick(pick);
           if (zoneId) p.onZoneSelect(zoneId);
         }
@@ -436,6 +445,15 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
             <GraduationCap size={11} /> Learn
           </button>
         )}
+        {onOpenGlossary && !tour && (
+          <button
+            className={styles.auxButton}
+            onClick={onOpenGlossary}
+            title="Survey glossary: NMEA, TCP/IP, PPS and more"
+          >
+            <BookOpen size={11} /> Glossary
+          </button>
+        )}
       </div>
 
       <div className={styles.bottomStack}>
@@ -503,6 +521,9 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
             />
             <strong>{cableInfo.title}</strong>
             <span className={styles.cableDetail}>{cableInfo.detail}</span>
+            {cableInfo.protocols && (
+              <span className={styles.cableProtocols}>{cableInfo.protocols}</span>
+            )}
           </div>
         )}
 

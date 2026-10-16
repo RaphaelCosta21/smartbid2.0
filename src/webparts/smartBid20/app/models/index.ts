@@ -270,3 +270,12 @@ export {
   type SurveyPipelineStage,
   type ISurveyPipelineNode,
 } from "./ISurveyCatalog";
+
+export {
+  type SurveyLang,
+  type ILocalizedText,
+  type SurveyGlossaryCategory,
+  type IGlossaryAnatomySegment,
+  type IGlossaryAnatomy,
+  type ISurveyGlossaryTerm,
+} from "./ISurveyGlossary";

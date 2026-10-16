@@ -12,6 +12,7 @@ import { useSurveyStore } from "../../stores/useSurveyStore";
 import { useUIStore } from "../../stores/useUIStore";
 import { SurveyEquipmentPhoto } from "./SurveyEquipmentCard";
 import { SurveyEquipment3DThumb } from "./SurveyEquipment3DThumb";
+import { GlossaryText } from "./GlossaryText";
 import { SceneShape } from "./survey3d/sceneTypes";
 import { SURVEY_FIT_ICONS } from "./surveyAssets";
 import {
@@ -346,12 +347,12 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
             )}
             {equipment.whatIsIt && (
               <p className={styles.copy}>
-                <strong>WHAT IS IT?</strong> {equipment.whatIsIt}
+                <strong>WHAT IS IT?</strong> <GlossaryText text={equipment.whatIsIt} />
               </p>
             )}
             {equipment.whatDoesItDo && (
               <p className={styles.copy}>
-                <strong>WHAT DOES IT DO?</strong> {equipment.whatDoesItDo}
+                <strong>WHAT DOES IT DO?</strong> <GlossaryText text={equipment.whatDoesItDo} />
               </p>
             )}
           </div>

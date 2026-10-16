@@ -28,6 +28,7 @@ import {
   SurveyMissionProgress,
 } from "../../utils/surveyProgress";
 import styles from "./SurveyMissions.module.scss";
+import { GlossaryText } from "./GlossaryText";
 
 interface SurveyMissionsProps {
   /** Current user id/email — scopes the saved progress. */
@@ -216,7 +217,11 @@ export const SurveyMissions: React.FC<SurveyMissionsProps> = ({ user, onClose })
           </span>
         </div>
         <h3 className={styles.missionTitle}>{m.title}</h3>
-        {qIndex === 0 && !answered && <p className={styles.brief}>{m.brief}</p>}
+        {qIndex === 0 && !answered && (
+          <p className={styles.brief}>
+            <GlossaryText text={m.brief} />
+          </p>
+        )}
 
         <div className={styles.progressTrack}>
           <span
@@ -228,7 +233,9 @@ export const SurveyMissions: React.FC<SurveyMissionsProps> = ({ user, onClose })
           Question {qIndex + 1} of {m.questions.length}
         </span>
 
-        <p className={styles.qPrompt}>{q.prompt}</p>
+        <p className={styles.qPrompt}>
+          <GlossaryText text={q.prompt} />
+        </p>
         <div className={styles.options}>
           {q.options.map((opt, i) => {
             const isCorrect = i === q.answerIndex;
@@ -258,7 +265,9 @@ export const SurveyMissions: React.FC<SurveyMissionsProps> = ({ user, onClose })
         {answered && (
           <div className={styles.explain}>
             <Lightbulb size={14} className={styles.explainIcon} />
-            <span>{q.explanation}</span>
+            <span>
+              <GlossaryText text={q.explanation} />
+            </span>
           </div>
         )}
 
