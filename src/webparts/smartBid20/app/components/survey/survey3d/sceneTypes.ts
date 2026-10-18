@@ -3,6 +3,7 @@
  * use them without pulling the lazy "survey-3d" chunk into the main bundle.
  */
 import { SurveyLinkKind, SurveySceneAnchor, SurveySceneShape } from "../../../models";
+import type { DeliverableVisual } from "../../../config/surveyDataFormats";
 
 export interface SceneZone {
   id: string;
@@ -75,6 +76,8 @@ export interface SceneNodeStates {
   faultNodeId: string | null;
   /** Nodes that lose the online hub because of the fault. */
   offlineNodeIds: string[];
+  /** Show only the traced cables (data journey); the others are hidden, not dimmed. */
+  isolateTrace?: boolean;
 }
 
 export type ScenePick =
@@ -83,6 +86,33 @@ export type ScenePick =
   | { type: "node"; nodeId: string }
   /** A focus cable (link key) or an overview trunk (trunk key). */
   | { type: "cable"; key: string };
+
+export interface SceneJourneyDeliverable {
+  id: string;
+  title: string;
+  subtitle: string;
+  visual: DeliverableVisual;
+}
+
+/** satellites = GNSS beam; node / cable = inside the open room; overview = vessel; deliverables = 3D cards. */
+export type SceneJourneyMode = "satellites" | "node" | "cable" | "overview" | "deliverables";
+
+/** One step of the data journey as the 3D scene draws it (travelling packet + camera). */
+export interface SceneJourneyStep {
+  key: string;
+  mode: SceneJourneyMode;
+  /** Room the step happens in; the packet waits until this room is open. */
+  zoneId?: string | null;
+  nodeId?: string;
+  linkKey?: string;
+  reverse?: boolean;
+  /** Cable from another room travelled before the packet rests on the node. */
+  arriveLinkKey?: string;
+  arriveReverse?: boolean;
+  /** Packet colour (link kind colour). */
+  color: number;
+  deliverables?: SceneJourneyDeliverable[];
+}
 
 export const LINK_KINDS: SurveyLinkKind[] = [
   "data",

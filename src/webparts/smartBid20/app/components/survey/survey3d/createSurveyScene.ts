@@ -9,8 +9,10 @@ import { SurveySceneAnchor } from "../../../models";
 import { FocusController } from "./focusController";
 import { layoutExplode } from "./explodeLayout";
 import { TrunkNetwork } from "./trunkFlow";
+import { JourneyController } from "./journeyController";
 import {
   SceneFocus,
+  SceneJourneyStep,
   SceneNodeStates,
   ScenePick,
   SceneTrunk,
@@ -59,6 +61,9 @@ export interface SurveySceneApi {
   setNodeStates: (states: SceneNodeStates) => void;
   /** Shows or hides every connection line (room cables and overview trunks). */
   setLinksVisible: (visible: boolean) => void;
+  /** Current data journey step (travelling packet, camera, deliverable cards); null ends it. */
+  setJourney: (step: SceneJourneyStep | null) => void;
+  setJourneyPlayback: (playing: boolean, speed: number) => void;
   dispose: () => void;
 }
 
@@ -70,6 +75,8 @@ export interface SurveySceneOptions {
   onHover: (pick: ScenePick | null) => void;
   /** Any pointer press on the canvas (used to interrupt the guided tour). */
   onInteract: () => void;
+  /** The packet finished the current journey step (key of SceneJourneyStep). */
+  onJourneyStepEnd?: (key: string) => void;
 }
 
 export function isWebGLAvailable(): boolean {
@@ -598,6 +605,34 @@ export function createSurveyScene(
   const trunks = new TrunkNetwork((anchor) => anchors[anchor] || null);
   scene.add(trunks.group);
   let focusZoneId: string | null = null;
+  const journey = new JourneyController(
+    {
+      cableCurve: (key) => focusCtl.getCableCurve(key),
+      nodeObject: (nodeId) => focusCtl.getLabelTarget(`node:${nodeId}`),
+      satellite: () => satellites[0],
+      antenna: () => cnavAnchor,
+      openZoneId: () => focusZoneId,
+      onStepEnd: (key) => {
+        if (opts.onJourneyStepEnd) opts.onJourneyStepEnd(key);
+      },
+    },
+    opts.reducedMotion,
+  );
+  scene.add(journey.group);
+  const BEAM_GLOW = { normal: 0.16, journey: 0.5 };
+  const PHOTON_GLOW = { normal: 0.5, journey: 0.95 };
+  const setSatelliteEmphasis = (on: boolean): void => {
+    gnssBeams.forEach(({ beam, photons }) => {
+      (beam.material as THREE.MeshBasicMaterial).opacity = on ? BEAM_GLOW.journey : BEAM_GLOW.normal;
+      photons.forEach((p) => {
+        (p.material as THREE.MeshBasicMaterial).opacity = on ? PHOTON_GLOW.journey : PHOTON_GLOW.normal;
+      });
+    });
+  };
+  // Deliverable cards float beside the vessel, on the side the home camera looks from.
+  const DELIVERABLE_CENTER = new THREE.Vector3(6, 7, 14);
+  let journeyStep: SceneJourneyStep | null = null;
+  let linksVisible = true;
   let focusSignature = "";
   const HOME_POSITION = camera.position.clone();
   const HOME_TARGET = controls.target.clone();
@@ -628,8 +663,27 @@ export function createSurveyScene(
   };
   const easeInOutCubic = (k: number): number =>
     k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  /** Satellite and deliverable steps own the camera; returns false for the other modes. */
+  const flyToJourneyView = (): boolean => {
+    if (!journeyStep) return false;
+    const dir = new THREE.Vector3().subVectors(HOME_POSITION, HOME_TARGET).normalize();
+    if (journeyStep.mode === "satellites") {
+      const target = cnavAnchor.getWorldPosition(new THREE.Vector3()).lerp(GNSS_ORBIT_CENTER, 0.5);
+      flyTo(target.clone().addScaledVector(dir, 40), target);
+      return true;
+    }
+    if (journeyStep.mode === "deliverables") {
+      const right = new THREE.Vector3().crossVectors(up, dir).normalize();
+      journey.placeCards(DELIVERABLE_CENTER, right);
+      const distance = journey.cardCount > 3 ? 21 : 15;
+      flyTo(DELIVERABLE_CENTER.clone().addScaledVector(dir, distance), DELIVERABLE_CENTER);
+      return true;
+    }
+    return false;
+  };
 
   const labelTarget = (key: string): THREE.Object3D | null => {
+    if (key === "journey:packet") return journey.packetTarget;
     if (key.indexOf("zone:") === 0) {
       if (focusZoneId) return null;
       const z = zoneAnchors.find((a) => a.zone.id === key.slice(5));
@@ -976,6 +1030,7 @@ export function createSurveyScene(
     }
     focusCtl.update(dt, time);
     trunks.update(dt, time, opts.reducedMotion);
+    journey.update(dt, time, camera);
 
     controls.update();
     clampTarget();
@@ -1034,7 +1089,7 @@ export function createSurveyScene(
         trunks.setVisible(true);
         vesselScaleGoal = VESSEL_SCALE.overview;
         controls.minDistance = HOME_MIN_DISTANCE;
-        flyTo(HOME_POSITION, HOME_TARGET);
+        if (!flyToJourneyView()) flyTo(HOME_POSITION, HOME_TARGET);
         return;
       }
       const signature = `${focus.zoneId}|${focus.nodes
@@ -1084,8 +1139,21 @@ export function createSurveyScene(
       focusCtl.setStates(states);
     },
     setLinksVisible: (visible) => {
+      linksVisible = visible;
       focusCtl.setCablesEnabled(visible);
-      trunks.setEnabled(visible);
+      trunks.setEnabled(visible && !journeyStep);
+    },
+    setJourney: (step) => {
+      journeyStep = step;
+      journey.setStep(step);
+      // Room-to-room arcs are not part of the journey path.
+      trunks.setEnabled(linksVisible && !step);
+      setSatelliteEmphasis(!!step && step.mode === "satellites");
+      if (!step || flyToJourneyView()) return;
+      if (step.mode === "overview" && !focusZoneId) flyTo(HOME_POSITION, HOME_TARGET);
+    },
+    setJourneyPlayback: (playing, speed) => {
+      journey.setPlayback(playing, speed);
     },
     dispose: () => {
       disposed = true;
@@ -1103,6 +1171,7 @@ export function createSurveyScene(
       controls.dispose();
       focusCtl.dispose();
       trunks.dispose();
+      journey.dispose();
       disposeObject(scene);
       renderer.dispose();
       renderer.forceContextLoss();

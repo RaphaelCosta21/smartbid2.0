@@ -1,6 +1,10 @@
 import * as React from "react";
-import { X, Sparkles, CornerDownLeft, Bot } from "lucide-react";
+import { X, Sparkles, CornerDownLeft, Bot, BookOpen } from "lucide-react";
 import { ISurveyAnswer, SURVEY_QUERY_EXAMPLES } from "../../utils/surveyQuery";
+import { GLOSSARY_UI } from "../../config/surveyGlossary";
+import { localize } from "../../utils/surveyGlossary";
+import { GlossaryContext } from "./GlossaryContext";
+import { GlossaryText } from "./GlossaryText";
 import styles from "./SurveyAsk.module.scss";
 
 interface SurveyAskProps {
@@ -31,6 +35,7 @@ export const SurveyAsk: React.FC<SurveyAskProps> = ({
   const [asked, setAsked] = React.useState("");
   const [answer, setAnswer] = React.useState<ISurveyAnswer | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const glossary = React.useContext(GlossaryContext);
 
   React.useEffect(() => {
     if (inputRef.current) inputRef.current.focus();
@@ -92,12 +97,14 @@ export const SurveyAsk: React.FC<SurveyAskProps> = ({
         {answer && (
           <div className={styles.answer}>
             <span className={styles.answerTitle}>{answer.title}</span>
-            <p className={styles.answerText}>{answer.text}</p>
+            <p className={styles.answerText}>
+              <GlossaryText text={answer.text} />
+            </p>
             {answer.bullets && answer.bullets.length > 0 && (
               <ul className={styles.bullets}>
                 {answer.bullets.map((b, i) => (
                   <li key={i} className={styles.bullet}>
-                    {b}
+                    <GlossaryText text={b} />
                   </li>
                 ))}
               </ul>
@@ -114,6 +121,14 @@ export const SurveyAsk: React.FC<SurveyAskProps> = ({
                   </button>
                 ))}
               </div>
+            )}
+            {answer.glossaryTermId && glossary && (
+              <button
+                className={styles.aiBtn}
+                onClick={() => glossary.openTerm(answer.glossaryTermId as string)}
+              >
+                <BookOpen size={13} /> {localize(GLOSSARY_UI.openCard, glossary.lang)}
+              </button>
             )}
             {aiAvailable && onEscalateAI && (
               <button className={styles.aiBtn} onClick={() => onEscalateAI(asked)}>

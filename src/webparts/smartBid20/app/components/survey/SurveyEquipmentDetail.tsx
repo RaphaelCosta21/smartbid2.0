@@ -1,5 +1,5 @@
 import * as React from "react";
-import { X, Plus, Camera } from "lucide-react";
+import { X, Plus, Camera, Route } from "lucide-react";
 import {
   ISurveyBidIntel,
   ISurveyCatalog,
@@ -12,6 +12,7 @@ import { useSurveyStore } from "../../stores/useSurveyStore";
 import { useUIStore } from "../../stores/useUIStore";
 import { SurveyEquipmentPhoto } from "./SurveyEquipmentCard";
 import { SurveyEquipment3DThumb } from "./SurveyEquipment3DThumb";
+import { GlossaryText } from "./GlossaryText";
 import { SceneShape } from "./survey3d/sceneTypes";
 import { SURVEY_FIT_ICONS } from "./surveyAssets";
 import {
@@ -31,6 +32,10 @@ interface SurveyEquipmentDetailProps {
   onAdd: () => void;
   onSelectEquipment: (id: string) => void;
   onClose?: () => void;
+  /** Data journeys that start at, cross or are processed on this equipment. */
+  journeyOptions?: { key: string; label: string }[];
+  journeyLabels?: { button: string; pick: string };
+  onStartJourney?: (key: string) => void;
 }
 
 /** Items shown per stage before "+N more" (transport collapses to "via N hops"). */
@@ -67,11 +72,18 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
   onAdd,
   onSelectEquipment,
   onClose,
+  journeyOptions,
+  journeyLabels,
+  onStartJourney,
 }) => {
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+  const [journeyPick, setJourneyPick] = React.useState(false);
   const toggleStage = (key: string): void =>
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
-  React.useEffect(() => setExpanded({}), [equipment.id]);
+  React.useEffect(() => {
+    setExpanded({});
+    setJourneyPick(false);
+  }, [equipment.id]);
   const datasheet = safeUrl(equipment.datasheetUrl);
   const status = (equipment.status || "Active").toUpperCase();
   const { canEdit: canEditPhoto } = usePageAccess();
@@ -346,12 +358,12 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
             )}
             {equipment.whatIsIt && (
               <p className={styles.copy}>
-                <strong>WHAT IS IT?</strong> {equipment.whatIsIt}
+                <strong>WHAT IS IT?</strong> <GlossaryText text={equipment.whatIsIt} />
               </p>
             )}
             {equipment.whatDoesItDo && (
               <p className={styles.copy}>
-                <strong>WHAT DOES IT DO?</strong> {equipment.whatDoesItDo}
+                <strong>WHAT DOES IT DO?</strong> <GlossaryText text={equipment.whatDoesItDo} />
               </p>
             )}
           </div>
@@ -395,6 +407,39 @@ export const SurveyEquipmentDetail: React.FC<SurveyEquipmentDetailProps> = ({
                 Dashed steps are standard practice, pending survey SME
                 validation.
               </span>
+            )}
+            {onStartJourney && journeyOptions && journeyOptions.length > 0 && (
+              <div className={styles.journeyRow}>
+                <button
+                  type="button"
+                  className={styles.journeyBtn}
+                  aria-expanded={journeyOptions.length > 1 ? journeyPick : undefined}
+                  onClick={() =>
+                    journeyOptions.length === 1
+                      ? onStartJourney(journeyOptions[0].key)
+                      : setJourneyPick(!journeyPick)
+                  }
+                >
+                  <Route size={12} /> {journeyLabels ? journeyLabels.button : "Data journey"}
+                </button>
+                {journeyPick && journeyOptions.length > 1 && (
+                  <div className={styles.journeyPick}>
+                    <span className={styles.journeyPickLabel}>
+                      {journeyLabels ? journeyLabels.pick : "Pick the data to follow"}
+                    </span>
+                    {journeyOptions.map((o) => (
+                      <button
+                        key={o.key}
+                        type="button"
+                        className={styles.journeyChip}
+                        onClick={() => onStartJourney(o.key)}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         ) : (
