@@ -59,7 +59,9 @@ export default class SmartBid20WebPart extends BaseClientSideWebPart<ISmartBid20
     // visualizar os módulos POPULADOS no design nativo. Voltar para `false` antes de commitar.
     const DEMO_WITH_MOCK_DATA = false;
     configureSmartBidModules({
-      adapter: DEMO_WITH_MOCK_DATA ? new MockAdapter() : new EasiModulesAdapter(),
+      adapter: DEMO_WITH_MOCK_DATA
+        ? new MockAdapter()
+        : new EasiModulesAdapter(),
     });
     if (!document.getElementById("easi-modules-styles")) {
       const style: HTMLStyleElement = document.createElement("style");

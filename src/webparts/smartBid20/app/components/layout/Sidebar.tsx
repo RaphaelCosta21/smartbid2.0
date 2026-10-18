@@ -623,7 +623,11 @@ export const Sidebar: React.FC = () => {
           className={`${styles.logo} ${sidebarExpanded ? styles.logoExpanded : ""}`}
         >
           <span className={styles.brandLockup}>
-            <img src={smartBidIcon} alt="SmartBid 2.0" className={styles.brandIcon} />
+            <img
+              src={smartBidIcon}
+              alt="SmartBid 2.0"
+              className={styles.brandIcon}
+            />
             <span className={styles.brandText} aria-hidden="true">
               <span className={styles.brandTextInner}>
                 <span className={styles.brandName}>SmartBid</span>
