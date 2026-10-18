@@ -58,6 +58,9 @@ export interface SceneTrunk {
   kind: SurveyLinkKind;
 }
 
+/** Analysis overlay driving plinth colours: explore (default), failure cascade or BID gap. */
+export type SceneOverlay = "none" | "fault" | "gap";
+
 export interface SceneNodeStates {
   selectedNodeId: string | null;
   hoverNodeId: string | null;
@@ -66,6 +69,12 @@ export interface SceneNodeStates {
   traceLinkKeys: string[];
   /** Cables of the hovered node, highlighted while nothing is traced. */
   hoverLinkKeys: string[];
+  /** Active analysis overlay. */
+  overlay: SceneOverlay;
+  /** Node simulated as failed (fault overlay). */
+  faultNodeId: string | null;
+  /** Nodes that lose the online hub because of the fault. */
+  offlineNodeIds: string[];
 }
 
 export type ScenePick =

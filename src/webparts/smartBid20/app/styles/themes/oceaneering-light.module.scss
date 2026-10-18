@@ -1,0 +1,80 @@
+/* SMART BID 2.0 — Oceaneering Theme (Light) — OII brand palette */
+.smartBidOceaneeringLight {
+  --sidebar-bg: #00263e;
+  --sidebar-hover: rgba(0, 151, 169, 0.14);
+  --main-bg: #eef4f8;
+  --card-bg: #ffffff;
+  --card-bg-elevated: #f2f7fa;
+  --primary-accent: #007f8f;
+  --secondary-accent: #5b7f95;
+  --tertiary-accent: #b57e00;
+  --success: #009b77;
+  --warning: #dc4405;
+  --danger: #c8102e;
+  --info: #5b7f95;
+  --text-primary: #00263e;
+  --text-secondary: #335269;
+  --text-muted: #7a99ac;
+  --border: #cfdde7;
+  --border-subtle: #e4eef4;
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(0, 59, 92, 0.08);
+  --gradient-header: linear-gradient(135deg, #00263e 0%, #003b5c 100%);
+  --gradient-primary: linear-gradient(135deg, #0097a9 0%, #007f8f 100%);
+  --gradient-accent: linear-gradient(135deg, #0097a9 0%, #ffc72c 100%);
+  --shadow-glow: 0 0 20px rgba(0, 151, 169, 0.12);
+  --shadow-card: 0 2px 8px rgba(0, 38, 62, 0.08);
+  --shadow-card-hover: 0 4px 16px rgba(0, 38, 62, 0.12);
+  --elevation-1: 0 1px 3px rgba(0, 38, 62, 0.06);
+  --elevation-2: 0 4px 12px rgba(0, 38, 62, 0.1);
+  --elevation-3: 0 10px 24px rgba(0, 38, 62, 0.12);
+  --elevation-4: 0 20px 48px rgba(0, 38, 62, 0.16);
+  --overlay-bg: rgba(0, 38, 62, 0.4);
+  --input-bg: #eef4f8;
+  --hover-bg: rgba(0, 38, 62, 0.04);
+  --scrollbar-thumb: #cfdde7;
+  --scrollbar-track: #eef4f8;
+
+  /* Survey Portal "bid package" accent */
+  --package-accent: #ffc72c;
+  --package-accent-contrast: #003b5c;
+
+  /* Survey Portal — OII palette (Figma "Survey Knowledge & BID Portal"), same in both themes */
+  --survey-navy: #003b5c;
+  --survey-navy-deep: #00263e;
+  --survey-slate: #5b7f95;
+  --survey-muted: #7a99ac;
+  --survey-teal: #0097a9;
+  --survey-green: #009b77;
+  --survey-alert: #dc4405;
+  --survey-red: #c8102e;
+  --survey-silver: #b0bac1;
+  --survey-ice: #f4fbff;
+  --survey-cream: #fff7ed;
+  --survey-line: #d7e2ec;
+  --survey-chip-bg: #f1f5f9;
+  --survey-glass: rgba(255, 255, 255, 0.3);
+  --survey-glass-strong: rgba(255, 255, 255, 0.42);
+  --survey-glass-border: rgba(0, 151, 169, 0.28);
+  --survey-bar: rgba(0, 38, 62, 0.72);
+  --survey-bar-border: rgba(91, 127, 149, 0.4);
+  --survey-field: rgba(0, 38, 62, 0.88);
+  --survey-hero-overlay: rgba(0, 38, 62, 0.52);
+  --survey-marker-bg: rgba(0, 38, 62, 0.62);
+  --survey-shadow: 0 4px 20px rgba(0, 59, 92, 0.1);
+  --survey-glow: 0 0 12px rgba(0, 151, 169, 0.45);
+  --survey-teal-glow: rgba(0, 151, 169, 0.55);
+
+  /* Sidebar always has dark bg — text must stay light */
+  --sidebar-text-primary: #f1f5f9;
+  --sidebar-text-secondary: #94a3b8;
+  --sidebar-text-muted: #64748b;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+
+  /* Header always has dark bg — text must stay light */
+  --header-text-primary: #f1f5f9;
+  --header-text-secondary: #94a3b8;
+  --header-text-muted: #64748b;
+  --header-border: rgba(255, 255, 255, 0.1);
+  --header-input-bg: rgba(255, 255, 255, 0.06);
+}

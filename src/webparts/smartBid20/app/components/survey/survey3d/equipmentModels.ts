@@ -319,6 +319,20 @@ export class EquipmentModelFactory {
         sphere(0.2, "screen");
         break;
       }
+      case "subsea-ins": {
+        // Horizontal titanium pressure cylinder with an inertial ring: a subsea INS, not a gyro.
+        const body = cyl(0.26, 1.05, "steel");
+        body.rotation.z = Math.PI / 2;
+        [-0.55, 0.55].forEach((x) => {
+          const cap = cyl(0.29, 0.1, "dark", x, 0);
+          cap.rotation.z = Math.PI / 2;
+        });
+        const ring = torus(0.3, 0.04, "accent", 0, 0);
+        ring.rotation.y = Math.PI / 2;
+        box(0.5, 0.04, 0.02, "screen", 0, 0.18, 0.26);
+        leds(3, 0.3, 0.1, 0.27, "green");
+        break;
+      }
       case "system-core":
       default: {
         const shell = new THREE.Mesh(

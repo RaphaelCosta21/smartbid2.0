@@ -111,6 +111,9 @@ export const SurveyComposition3D: React.FC<SurveyComposition3DProps> = ({
       traceNodeIds: [],
       traceLinkKeys: [],
       hoverLinkKeys: [],
+      overlay: "none",
+      faultNodeId: null,
+      offlineNodeIds: [],
     }),
     [selectedNodeId, hoverNodeId, selectedIds],
   );
@@ -148,6 +151,10 @@ export const SurveyComposition3D: React.FC<SurveyComposition3DProps> = ({
                 tracePath={null}
                 cableInfo={null}
                 tour={null}
+                modesEnabled={false}
+                mode="none"
+                gapAvailable={false}
+                onModeChange={noop}
                 onZoneSelect={setActiveZoneId}
                 onNodeSelect={setSelectedNodeId}
                 onNodeHover={setHoverNodeId}

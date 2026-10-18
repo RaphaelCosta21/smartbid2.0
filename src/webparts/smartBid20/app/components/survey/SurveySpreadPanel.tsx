@@ -11,6 +11,10 @@ interface SurveySpreadPanelProps {
   packageEquipmentIds: string[];
   /** Catalog equipment outside the spread, by zone (reference only, never added to the package). */
   catalogByZone: Record<string, string[]>;
+  /** Software licenses outside the spread; listed with a description until the user adds them. */
+  softwareIds: string[];
+  addedSoftwareIds: string[];
+  onToggleSoftware: (equipmentId: string) => void;
   /** Equipment the compared BID already considers; null when no BID is selected. */
   considered: Record<string, boolean> | null;
   bidNumber: string | null;
@@ -40,6 +44,9 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
   selectedEquipmentId,
   packageEquipmentIds,
   catalogByZone,
+  softwareIds,
+  addedSoftwareIds,
+  onToggleSoftware,
   considered,
   bidNumber,
   onZoneToggle,
@@ -48,6 +55,7 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
   onAddZone,
   onAddSpread,
 }) => {
+  const [softwareOpen, setSoftwareOpen] = React.useState(false);
   const titleOf = (id: string): string =>
     catalog.equipment.find((e) => e.id === id)?.title || id;
   const categoryTitle: Record<string, string> = {};
@@ -192,6 +200,53 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
             </li>
           );
         })}
+        {softwareIds.length > 0 && (
+          <li className={`${styles.toneNeutral} ${softwareOpen ? styles.zoneOpen : ""}`}>
+            <button
+              className={styles.zoneRow}
+              aria-expanded={softwareOpen}
+              onClick={() => setSoftwareOpen(!softwareOpen)}
+            >
+              <span className={styles.zoneDot} />
+              <span className={styles.zoneTitle}>Software</span>
+              <span className={styles.zoneMeta}>{softwareIds.length} licenses</span>
+              <ChevronDown size={12} className={styles.chevron} />
+            </button>
+            {softwareOpen && (
+              <div className={styles.zoneBody}>
+                <span className={styles.zoneNote}>
+                  Click a license to add it to the diagram; click again to remove it.
+                </span>
+                <ul className={styles.lines}>
+                  {softwareIds.map((id) => {
+                    const eq = catalog.equipment.find((e) => e.id === id);
+                    const added = addedSoftwareIds.indexOf(id) >= 0;
+                    return (
+                      <li key={id}>
+                        <button
+                          className={`${styles.line} ${
+                            added && id === selectedEquipmentId ? styles.lineSelected : ""
+                          }`}
+                          onClick={() => onToggleSoftware(id)}
+                        >
+                          <span className={styles.lineCopy}>
+                            <span className={styles.lineTitle}>{titleOf(id)}</span>
+                            {eq && eq.summary && (
+                              <span className={styles.lineNote}>{eq.summary}</span>
+                            )}
+                          </span>
+                          {added && (
+                            <Check size={12} className={styles.bidCheck} aria-label="In the diagram" />
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </li>
+        )}
       </ul>
 
       {categoryTotals.length > 0 && (

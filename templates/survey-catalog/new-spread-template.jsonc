@@ -1,0 +1,71 @@
+// =============================================================================
+// MODELO DE NOVO DIAGRAMA (SPREAD)  —  arquivo de REFERÊNCIA, não é importado
+// -----------------------------------------------------------------------------
+// COMO USAR:
+//   1. Preencha o objeto abaixo
+//   2. Copie SÓ o objeto { ... } (sem as // linhas de comentário).
+//   3. Cole dentro do array "spreads" em survey-catalog.seed.json,
+//      logo depois do "full-survey-spread" (separado por vírgula).
+//   4. Salve o seed e use "Import catalog" no header do Survey Portal.
+//   5. O diagrama aparece no seletor "DIAGRAM" (ordenado pelo campo "order").
+//
+// REGRAS DE OURO:
+//   - Reaproveite os "equipmentId" que JÁ existem no array "equipment" do seed.
+//   - Em "links", se o equipamento tem "instances", use o sufixo #N
+//     (ex.: "network-switch#1"). Sem instances, use só o id.
+//   - Só inclua links entre equipamentos que estão presentes nas "zones"
+//     deste spread. Não copie links que apontem para equipamentos removidos.
+//   - "category" de cada linha precisa bater com um "id" de "categories".
+// =============================================================================
+{
+  "id": "light-survey-spread",            // id único, sem espaços (ex.: "light-survey-spread")
+  "title": "Light Survey Spread",          // texto que aparece no seletor "DIAGRAM"
+  "drawingNo": "",                          // nº do desenho one-line (opcional)
+  "revision": "A",                          // revisão (opcional)
+  "description": "Spread reduzido para ...", // 1 parágrafo; resume o diagrama
+  "order": 2,                               // ordem no dropdown (full-survey-spread = 1)
+
+  // Grupos de BID. Pode manter os mesmos três do full spread.
+  "categories": [
+    { "id": "topside", "title": "Topside" },
+    { "id": "subsea-rov", "title": "Subsea / ROV" },
+    { "id": "infrastructure", "title": "Infrastructure" }
+  ],
+
+  // Cada zona = um "cômodo" do diagrama. sceneAnchor define onde ela emerge no 3D:
+  //   mast | survey-online | bridge | rov-control | vessel-hull | rov
+  //   "" (vazio) = grupo só de BID, NÃO aparece no 3D (ex.: Integration & Systems)
+  "zones": [
+    {
+      "id": "survey-online",                // id da zona, único dentro do spread
+      "title": "Survey Online",             // título mostrado no painel
+      "sceneAnchor": "survey-online",       // local no 3D (ver lista acima)
+      "description": "...",                 // 1 parágrafo; vira a legenda do tour guiado
+      "lines": [
+        // equipmentId: id de um equipamento existente no array "equipment"
+        // qty:         quantidade (número)
+        // qtyLabel:    rótulo livre quando não é contagem simples (ex.: "#1", "AFT + FWD") — opcional
+        // instances:   quando o MESMO equipamento aparece em várias salas (ex.: [1], [2]) — opcional
+        // vesselSupplied: true = fornecido pelo navio, fica no escopo mas não é precificado — opcional
+        // category:    precisa bater com um id de "categories"
+        { "equipmentId": "online-master-pc", "qty": 1, "category": "topside" },
+        { "equipmentId": "network-switch", "qty": 1, "qtyLabel": "#1", "instances": [1], "category": "topside" }
+        // ... adicione só os equipamentos que ESTE spread usa
+      ]
+    }
+    // ... adicione outras zonas conforme necessário
+  ],
+
+  // Conexões (cabos) entre equipamentos presentes nas zonas acima.
+  // kind: data | power | video | rf | subsea | fibre | acoustic | timing
+  // cable: código do cabo no desenho (opcional)
+  // Lembre do sufixo #N quando o equipamento tem "instances".
+  "links": [
+    { "from": "online-master-pc", "to": "network-switch#1", "kind": "data" }
+    // ... adicione as demais conexões
+  ],
+
+  // Etapas lógicas depois do hardware (software/armazenamento/processamento/entregável).
+  // Opcional — pode deixar vazio [] se este diagrama não precisar.
+  "pipeline": []
+}
