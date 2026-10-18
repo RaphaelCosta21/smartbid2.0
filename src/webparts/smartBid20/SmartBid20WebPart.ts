@@ -44,13 +44,13 @@ export default class SmartBid20WebPart extends BaseClientSideWebPart<ISmartBid20
     // Initialize PnPjs with SPFx context
     SPService.init(this.context);
 
-    // Load Google Fonts (Inter + JetBrains Mono) for the app
+    // Load Google Fonts (Inter + JetBrains Mono + Montserrat for the brand lockup) for the app
     if (!document.getElementById("smartbid-google-fonts")) {
       const link: HTMLLinkElement = document.createElement("link");
       link.id = "smartbid-google-fonts";
       link.rel = "stylesheet";
       link.href =
-        "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap";
+        "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Montserrat:wght@600;700&display=swap";
       document.head.appendChild(link);
     }
 

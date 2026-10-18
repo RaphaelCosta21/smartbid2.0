@@ -6,8 +6,7 @@ import styles from "./Footer.module.scss";
 
 const oiiBlueLogo = require("../../../assets/OII-blue-vetorizado.svg");
 const oiiWhiteLogo = require("../../../assets/OII-white-transparent-vetorizado.svg");
-const smartBidIcon = require("../../../assets/smartbid-icon.svg");
-const smartBidIconDark = require("../../../assets/smartbid-icon-dark.svg");
+const smartBidIcon = require("../../../assets/smartbid-logo-teal-icon.png");
 
 export const Footer: React.FC = () => {
   const navigate = useNavigate();
@@ -25,12 +24,12 @@ export const Footer: React.FC = () => {
   return (
     <footer className={styles.footer}>
       <span className={styles.brandGroup}>
-        <img
-          src={isDark ? smartBidIcon : smartBidIconDark}
-          alt="SmartBid"
-          className={styles.footerSmartBidIcon}
-        />
-        Smart BID v{APP_CONFIG.appVersion}{" "}
+        <span className={styles.brandLockup} aria-label="SmartBid 2.0">
+          <img src={smartBidIcon} alt="" className={styles.brandIcon} />
+          <span className={styles.brandName}>SmartBid</span>
+          <span className={styles.brandVersion}>2.0</span>
+        </span>
+        v{APP_CONFIG.appVersion}{" "}
         <span
           className={styles.patchLink}
           onClick={() => navigate("/settings/patch-notes")}

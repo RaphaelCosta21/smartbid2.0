@@ -18,25 +18,74 @@
 }
 
 .logo {
-  padding: 20px 20px;
+  // Same height as the top header so both bottom borders line up.
+  height: 64px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid var(--sidebar-border);
-  min-height: 72px;
   justify-content: center;
+  border-bottom: 1px solid var(--sidebar-border);
+  overflow: hidden;
 }
 
-.logoImage {
-  height: 52px;
+.brandLockup {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.brandIcon {
+  height: 32px;
   width: auto;
   object-fit: contain;
+  flex-shrink: 0;
 }
 
-.logoIconImg {
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
+// Growing width keeps the whole lockup centered, so the icon glides between positions.
+.brandText {
+  display: inline-block;
+  overflow: hidden;
+  // Must stay just above the rendered text width (155px in Montserrat) or the wordmark gets cut.
+  max-width: 0;
+  transition: max-width 280ms ease;
+
+  .logoExpanded & {
+    max-width: 160px;
+  }
+}
+
+.brandTextInner {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-left: 10px;
+  font-family: "Montserrat", "Inter", sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.3px;
+  // 12 steps = one per character of "SmartBid 2.0", so it reads as being typed.
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 280ms steps(12, end);
+
+  .logoExpanded & {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brandText,
+  .brandTextInner {
+    transition: none;
+  }
+}
+
+.brandName {
+  color: var(--sidebar-text-primary);
+}
+
+.brandVersion {
+  color: var(--sidebar-brand-accent);
 }
 
 .logoIcon {

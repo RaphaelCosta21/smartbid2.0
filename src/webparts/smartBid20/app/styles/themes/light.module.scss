@@ -105,6 +105,10 @@
   --header-border: rgba(255, 255, 255, 0.1);
   --header-input-bg: rgba(255, 255, 255, 0.06);
 
+  /* SmartBid wordmark "2.0" (brand book): light icon facet on dark, #0097A9 on light */
+  --sidebar-brand-accent: #00b8c8;
+  --brand-wordmark-accent: #0097a9;
+
   /* Color theme: Oceaneering (OII brand palette) */
   &[data-color-theme="oceaneering"] {
     --accent-brand: #0097a9;

@@ -15,8 +15,7 @@ import { SidebarItem } from "./SidebarItem";
 import { SidebarSubmenu } from "./SidebarSubmenu";
 
 // Logo imports
-const smartBidLogoCompact = require("../../../assets/smartbid-logo-compact.svg");
-const smartBidIconWhite = require("../../../assets/smartbid-icon.svg");
+const smartBidIcon = require("../../../assets/smartbid-logo-teal-icon.png");
 const oiiWhiteLogo = require("../../../assets/OII-white-transparent-vetorizado.svg");
 
 // Simple icon component that renders Lucide-style icons inline
@@ -620,20 +619,18 @@ export const Sidebar: React.FC = () => {
       </button>
 
       <div className={styles.sidebarInner}>
-        <div className={styles.logo}>
-          {sidebarExpanded ? (
-            <img
-              src={smartBidLogoCompact}
-              alt="SmartBid"
-              className={styles.logoImage}
-            />
-          ) : (
-            <img
-              src={smartBidIconWhite}
-              alt="SmartBid"
-              className={styles.logoIconImg}
-            />
-          )}
+        <div
+          className={`${styles.logo} ${sidebarExpanded ? styles.logoExpanded : ""}`}
+        >
+          <span className={styles.brandLockup}>
+            <img src={smartBidIcon} alt="SmartBid 2.0" className={styles.brandIcon} />
+            <span className={styles.brandText} aria-hidden="true">
+              <span className={styles.brandTextInner}>
+                <span className={styles.brandName}>SmartBid</span>
+                <span className={styles.brandVersion}>2.0</span>
+              </span>
+            </span>
+          </span>
         </div>
 
         {/* Create Request Button */}
