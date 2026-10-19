@@ -27,8 +27,7 @@
   height: min(680px, 100%);
   border-radius: 14px;
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass-strong);
-  backdrop-filter: blur(14px);
+  background: var(--survey-ice);
   box-shadow: var(--survey-shadow);
   overflow: hidden;
   animation: rise 280ms ease both;
@@ -51,7 +50,7 @@
   gap: 16px;
   min-height: 48px;
   padding: 0 16px;
-  background: var(--survey-glass);
+  background: #fff;
   border-bottom: 1px solid var(--survey-glass-border);
   flex: none;
 }
@@ -175,8 +174,8 @@
   padding: 7px 10px;
   border-radius: 10px;
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass-strong);
-  color: var(--survey-slate);
+  background: #fff;
+  color: var(--survey-navy);
 
   input {
     flex: 1;
@@ -236,7 +235,7 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--survey-slate);
+  color: var(--survey-teal);
 }
 
 .termBtn {
@@ -279,7 +278,7 @@
 .empty {
   margin: 8px 0;
   font-size: 13px;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
 }
 
 .main {
@@ -333,17 +332,18 @@
 
 .fullName {
   margin: -4px 0 0;
-  font-size: 12px;
-  color: var(--survey-slate);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--survey-navy);
 }
 
 .section {
   margin: 8px 0 0;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--survey-slate);
+  color: var(--survey-teal);
 }
 
 .oneLiner {
@@ -362,10 +362,10 @@
   border-radius: 10px;
   border: 1px solid var(--survey-glass-border);
   border-left: 3px solid var(--survey-teal);
-  background: var(--survey-glass);
+  background: #fff;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--survey-navy);
+  color: var(--survey-navy-deep);
 }
 
 .calloutBid {
@@ -432,11 +432,12 @@
   padding: 3px 6px;
   border-radius: 6px;
   font-size: 12px;
-  color: var(--survey-navy);
+  color: var(--survey-navy-deep);
 }
 
 .legendActive {
-  background: var(--survey-glass-strong);
+  background: #fff;
+  box-shadow: inset 0 0 0 1px var(--survey-teal);
 }
 
 .legendKey {
@@ -450,8 +451,8 @@
 
 .note {
   margin: 0;
-  font-size: 11px;
-  color: var(--survey-slate);
+  font-size: 12px;
+  color: var(--survey-navy);
 }
 
 .tone0 {
@@ -490,7 +491,7 @@
   padding-left: 18px;
   font-size: 13px;
   line-height: 1.55;
-  color: var(--survey-navy);
+  color: var(--survey-navy-deep);
 
   li + li {
     margin-top: 4px;
@@ -528,7 +529,7 @@
   border: 1px dashed var(--survey-glass-border);
   font-size: 12px;
   font-weight: 600;
-  color: var(--survey-navy);
+  color: var(--survey-navy-deep);
 }
 
 .swatch {

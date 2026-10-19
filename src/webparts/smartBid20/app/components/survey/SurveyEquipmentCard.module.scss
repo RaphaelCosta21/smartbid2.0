@@ -8,8 +8,7 @@
   padding: 14px;
   border-radius: 8px;
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass);
-  backdrop-filter: blur(9px);
+  background: var(--survey-ice);
   box-shadow: var(--survey-shadow);
   cursor: pointer;
   outline: none;
@@ -21,7 +20,7 @@
   &:focus-visible {
     transform: translateY(-2px);
     border-color: var(--survey-teal);
-    background: var(--survey-glass-strong);
+    background: #fff;
     box-shadow: var(--survey-glow), var(--survey-shadow);
   }
 }
@@ -39,7 +38,7 @@
 
 .selected {
   border: 1px solid var(--package-accent);
-  background: var(--survey-glass-strong);
+  background: #fff;
 
   &:hover,
   &:focus-visible {
@@ -65,7 +64,7 @@
   height: 106px;
   border-radius: 6px;
   border: 1px solid var(--survey-line);
-  background: var(--survey-glass);
+  background: #fff;
   overflow: hidden;
 }
 
@@ -109,7 +108,7 @@
 .tech {
   font-size: 8px;
   letter-spacing: 0.04em;
-  color: var(--survey-slate);
+  color: var(--survey-teal);
 }
 
 .title {
@@ -127,7 +126,7 @@
 
 .aliasLabel {
   font-size: 7px;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
   white-space: nowrap;
 }
 

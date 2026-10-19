@@ -4,8 +4,7 @@
   height: 100%;
   border-radius: 10px;
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass-strong);
-  backdrop-filter: blur(10px);
+  background: var(--survey-ice);
   box-shadow: var(--survey-shadow);
   overflow: hidden;
   animation: panelIn 350ms ease both;
@@ -29,7 +28,7 @@
   gap: 8px;
   height: 40px;
   padding: 0 16px;
-  background: var(--survey-glass);
+  background: #fff;
   border-bottom: 1px solid var(--survey-glass-border);
 }
 
@@ -82,7 +81,7 @@
   gap: 2px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: var(--survey-glass-strong);
+  background: #fff;
   border: 1px solid var(--survey-glass-border);
   border-left: 3px solid var(--survey-red);
 }
@@ -94,7 +93,7 @@
 
 .failedSub {
   font-size: 11px;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
 }
 
 .metrics {
@@ -109,7 +108,7 @@
   gap: 2px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: var(--survey-glass);
+  background: #fff;
   border: 1px solid var(--survey-glass-border);
 }
 
@@ -127,7 +126,7 @@
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
 }
 
 .block {
@@ -141,7 +140,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 700;
-  color: var(--survey-slate);
+  color: var(--survey-teal);
 }
 
 .chips {
@@ -155,7 +154,7 @@
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  background: var(--survey-glass);
+  background: #fff;
   border: 1px solid var(--survey-slate);
   color: var(--survey-navy-deep);
 }
@@ -193,10 +192,10 @@
   margin: 0;
   font-size: 11px;
   line-height: 1.5;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
   padding: 8px 10px;
   border-radius: 8px;
-  background: var(--survey-glass);
+  background: #fff;
   border: 1px solid var(--survey-glass-border);
   border-left: 3px solid var(--survey-green);
 }
