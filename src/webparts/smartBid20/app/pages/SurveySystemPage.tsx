@@ -705,7 +705,9 @@ export const SurveySystemPage: React.FC = () => {
       s.kind === "origin"
         ? s.satellites
           ? "satellites"
-          : "node"
+          : s.effect
+            ? "phenomenon"
+            : "node"
         : s.kind === "cable"
           ? "cable"
           : s.kind === "deliverables"
@@ -723,6 +725,7 @@ export const SurveySystemPage: React.FC = () => {
       arriveLinkKey: s.arriveLinkKey,
       arriveReverse: s.arriveReverse,
       color: JOURNEY_PACKET_COLOR,
+      effect: s.kind === "origin" ? s.effect : undefined,
       deliverables: s.deliverables
         ? s.deliverables.map((d) => ({
             id: d.id,
@@ -757,6 +760,7 @@ export const SurveySystemPage: React.FC = () => {
         next: L("next"),
         finish: L("finish"),
         stop: L("stop"),
+        simulated: L("simulated"),
       },
     };
   }, [journey, journeyCurrent, journeyRun, journeyStepIndex, journeyLinkKind, lang]);

@@ -228,6 +228,52 @@ test("lab samples decode with a valid checksum and the glossary anatomy matches 
   assert.equal(term.anatomy.segments.map((s) => s.text).join(""), gga);
 });
 
+test("physical effects: origins play over the vessel and every effect has a builder", () => {
+  const effects = loadModule(path.join(app, "components/survey/survey3d/effects/index.ts"));
+  const used = {};
+  Object.keys(formats.DATA_ORIGINS).forEach((type) => {
+    const e = formats.DATA_ORIGINS[type].effect;
+    if (e) used[e] = true;
+  });
+  Object.keys(formats.JOURNEY_OVERRIDES).forEach((id) => {
+    const byType = formats.JOURNEY_OVERRIDES[id];
+    Object.keys(byType).forEach((type) => {
+      const o = byType[type].origin;
+      if (o && o.effect) used[o.effect] = true;
+    });
+  });
+  Object.keys(used).forEach((kind) => assert.equal(typeof effects.EFFECT_BUILDERS[kind], "function", kind));
+  Object.keys(effects.EFFECT_BUILDERS).forEach((kind) => assert.ok(used[kind], `unused effect ${kind}`));
+  full.out.forEach(({ journey }) => {
+    const origin = journey.steps[0];
+    if (origin.effect) {
+      assert.equal(origin.zoneId, null, journey.title.en);
+      assert.equal(origin.nodeId, undefined, journey.title.en);
+    }
+  });
+  const effectOf = (nodeId, type) => find(nodeId, type).journey.steps[0].effect;
+  assert.equal(effectOf("octans-9", "motion"), "motion-vessel");
+  assert.equal(effectOf("octans-9", "heading"), "heading");
+  assert.equal(effectOf("rov-gyro", "motion"), "motion-rov");
+  assert.equal(effectOf("rov-gyro", "heading"), "heading-rov");
+  assert.equal(effectOf("barometer", "depth"), "air-pressure");
+  assert.equal(effectOf("dq", "depth"), "water-pressure");
+  assert.equal(effectOf("altimeter", "altitude"), "altimeter-echo");
+  assert.equal(effectOf("r2sonic-heads#1", "bathymetry"), "bathymetry");
+  assert.equal(effectOf("c-node#1", "acoustic-position"), "usbl-ping");
+  assert.equal(effectOf("tss440-coils", "pipe-tracking"), "pipe-field");
+  assert.equal(effectOf("boom-cameras#1", "video"), "camera-view");
+  assert.equal(effectOf("svx2", "sound-velocity"), "sound-column");
+  const time = find("cnav-x1-receiver#1", "time-sync").journey.steps[0];
+  assert.equal(time.effect, "pps-tick");
+  assert.equal(time.satellites, true);
+  assert.equal(find("cnav-x1-receiver#1", "position").journey.steps[0].effect, undefined);
+  // The VS1000 heading comes from the satellites, not from a gyro phenomenon.
+  const vs = find("hemisphere-vs1000-receiver", "heading").journey.steps[0];
+  assert.equal(vs.satellites, true);
+  assert.equal(vs.effect, undefined);
+});
+
 test("journey counts", () => {
   const partial = full.out.filter((j) => j.journey.partial).length;
   console.log(`full spread: ${full.out.length} journeys, ${partial} partial`);

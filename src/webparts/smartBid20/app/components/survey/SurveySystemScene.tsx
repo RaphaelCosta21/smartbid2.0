@@ -85,6 +85,7 @@ export interface SurveyJourneyView {
     next: string;
     finish: string;
     stop: string;
+    simulated: string;
   };
 }
 
@@ -201,6 +202,8 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   const [supported] = React.useState(isWebGLAvailable);
   const [hotZoneId, setHotZoneId] = React.useState<string | null>(null);
   const [linesOn, setLinesOn] = React.useState(true);
+  /** Live numbers of the physical effect on the current journey step. */
+  const [readout, setReadout] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!supported || !hostRef.current) return undefined;
@@ -240,6 +243,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
         setHotZoneId(zoneOfPick(pick));
       },
       onInteract: () => latest.current.onInteract(),
+      onJourneyReadout: setReadout,
     });
     apiRef.current = api;
     Object.keys(labelEls.current).forEach((k) =>
@@ -527,6 +531,12 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
             <p className={styles.tourCaption}>
               <GlossaryText text={journey.caption} />
             </p>
+            {readout && (
+              <div className={styles.journeyReadout}>
+                <span>{readout}</span>
+                <span className={styles.journeyTypical}>{journey.labels.simulated}</span>
+              </div>
+            )}
             <div className={styles.player}>
               <button
                 className={styles.playerBtn}

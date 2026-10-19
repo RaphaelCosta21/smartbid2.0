@@ -23,7 +23,27 @@ export interface IDataOrigin {
   format: IDataFormat;
   /** The data starts in the GNSS constellation (satellite step before the antenna). */
   satellites?: boolean;
+  /** Visual the 3D scene plays while the physical phenomenon is explained. */
+  effect?: JourneyEffectKind;
 }
+
+/** Physical-signal effects of the data journey (see survey3d/effects). */
+export type JourneyEffectKind =
+  | "motion-vessel"
+  | "motion-rov"
+  | "heading"
+  | "heading-rov"
+  | "bathymetry"
+  | "usbl-ping"
+  | "altimeter-echo"
+  | "water-pressure"
+  | "air-pressure"
+  | "sound-column"
+  | "pipe-field"
+  | "camera-view"
+  | "pps-tick"
+  | "radio-waves"
+  | "corrections";
 
 /** Visual archetype of a client deliverable in the 3D scene. */
 export type DeliverableVisual = "report" | "dtm" | "chart" | "video" | "points" | "calibration";
@@ -80,6 +100,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       termIds: ["gnss", "utc"],
     },
     satellites: true,
+    effect: "pps-tick",
   },
   corrections: {
     title: t("Satélites de correção", "Correction satellites"),
@@ -92,6 +113,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       termIds: ["ppp", "dgps"],
     },
     satellites: true,
+    effect: "corrections",
   },
   heading: {
     title: t("Rotação da Terra", "Earth's rotation"),
@@ -99,6 +121,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "O giro sente a rotação da Terra e descobre sozinho onde fica o Norte verdadeiro.",
       "The gyro senses the Earth's rotation and finds true North by itself.",
     ),
+    effect: "heading",
     format: { label: t("Fenômeno físico", "Physical phenomenon") },
   },
   motion: {
@@ -107,6 +130,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "Acelerômetros e giros medem heave, pitch e roll a cada instante.",
       "Accelerometers and gyros measure heave, pitch and roll at every instant.",
     ),
+    effect: "motion-vessel",
     format: { label: t("Fenômeno físico", "Physical phenomenon") },
   },
   depth: {
@@ -115,6 +139,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "Quanto mais fundo, maior a pressão: o sensor converte pressão em profundidade.",
       "The deeper, the higher the pressure: the sensor turns pressure into depth.",
     ),
+    effect: "water-pressure",
     format: { label: t("Fenômeno físico", "Physical phenomenon") },
   },
   altitude: {
@@ -123,6 +148,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "O altímetro emite um pulso acústico e mede quanto tempo o eco leva para voltar.",
       "The altimeter sends an acoustic pulse and times how long the echo takes to come back.",
     ),
+    effect: "altimeter-echo",
     format: { label: t("Pulso acústico", "Acoustic pulse") },
   },
   "sound-velocity": {
@@ -131,6 +157,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "A sonda mede quão rápido o som viaja na água naquele ponto (muda com temperatura, salinidade e pressão).",
       "The probe measures how fast sound travels in the water at that point (it changes with temperature, salinity and pressure).",
     ),
+    effect: "sound-column",
     format: { label: t("Fenômeno físico", "Physical phenomenon"), termIds: ["sound-velocity"] },
   },
   bathymetry: {
@@ -139,6 +166,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "O multifeixe emite um leque de feixes acústicos; cada eco vira um ponto de profundidade.",
       "The multibeam sends a fan of acoustic beams; every echo becomes a depth point.",
     ),
+    effect: "bathymetry",
     format: { label: t("Pulsos acústicos", "Acoustic pulses"), termIds: ["mbes"] },
   },
   "acoustic-position": {
@@ -147,6 +175,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "O transceptor chama o beacon com um ping; pelo tempo e ângulo da resposta se calcula a posição.",
       "The transceiver calls the beacon with a ping; the reply's timing and angle give its position.",
     ),
+    effect: "usbl-ping",
     format: { label: t("Pulso acústico", "Acoustic pulse"), termIds: ["usbl", "transponder"] },
   },
   "pipe-tracking": {
@@ -155,6 +184,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "As bobinas induzem e leem o campo magnético do duto enterrado para achar posição e cobertura.",
       "The coils induce and read the buried pipe's magnetic field to find its position and burial depth.",
     ),
+    effect: "pipe-field",
     format: { label: t("Campo eletromagnético", "Electromagnetic field") },
   },
   video: {
@@ -163,6 +193,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "A câmera do ROV transforma a cena submarina em sinal de vídeo.",
       "The ROV camera turns the subsea scene into a video signal.",
     ),
+    effect: "camera-view",
     format: { label: t("Imagem", "Image") },
   },
   comms: {
@@ -171,6 +202,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "Mensagens trocadas por rádio entre equipamentos.",
       "Messages exchanged by radio between devices.",
     ),
+    effect: "radio-waves",
     format: { label: t("Sinal de rádio", "Radio signal") },
   },
 };
@@ -331,6 +363,7 @@ export const JOURNEY_OVERRIDES: Record<string, Partial<Record<SurveyDataType, IJ
             "The barometer measures the atmospheric pressure on deck. It is the reference used to remove the weight of the air from the pressure measured by the ROV sensor and get the depth.",
           ),
           format: PHYSICAL,
+          effect: "air-pressure",
         },
         payload: TBD_FORMAT,
       },
@@ -344,7 +377,11 @@ export const JOURNEY_OVERRIDES: Record<string, Partial<Record<SurveyDataType, IJ
             "The ROV gyro senses the vehicle's tilt (pitch and roll) at every instant.",
           ),
           format: PHYSICAL,
+          effect: "motion-rov",
         },
+      },
+      heading: {
+        origin: { ...DATA_ORIGINS.heading, effect: "heading-rov" },
       },
     },
     "c-node": {
@@ -429,6 +466,7 @@ export const JOURNEY_OVERRIDES: Record<string, Partial<Record<SurveyDataType, IJ
             "The ROV telemetry transmitter sends the video over radio; this antenna picks up the signal and hands it to the receiver.",
           ),
           format: { label: t("Sinal de rádio com o vídeo", "Radio signal carrying the video") },
+          effect: "radio-waves",
         },
       },
     },
@@ -532,6 +570,7 @@ export const JOURNEY_UI = {
   finish: t("Concluir", "Finish"),
   stop: t("Sair da jornada", "Exit journey"),
   typical: t("típico", "typical"),
+  simulated: t("ilustrativo", "illustrative"),
   offline: t(
     "Etapa feita depois, fora do navio ou no escritório: não há cabo nem equipamento na cena.",
     "This step happens later, off the vessel or in the office: there is no cable or equipment in the scene.",

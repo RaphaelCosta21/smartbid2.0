@@ -23,6 +23,7 @@ import {
   DeliverableVisual,
   IDataFormat,
   IJourneyOverride,
+  JourneyEffectKind,
   JOURNEY_OVERRIDES,
   JOURNEY_UI,
   LINK_FORMAT_OVERRIDES,
@@ -78,6 +79,8 @@ export interface IJourneyStep {
   arriveReverse?: boolean;
   /** Origin in the GNSS constellation. */
   satellites?: boolean;
+  /** Physical phenomenon the 3D scene illustrates on this step. */
+  effect?: JourneyEffectKind;
   format: IJourneyFormat;
   deliverables?: IJourneyDeliverable[];
   inferred: boolean;
@@ -285,14 +288,17 @@ export function buildDataJourney(
     }
   }
 
+  // A phenomenon with a visual plays over the whole vessel; rooms open once equipment acts on it.
+  const overview = !!origin.satellites || !!origin.effect;
   steps.push({
     id: "origin",
     kind: "origin",
     title: origin.title,
     caption: origin.caption,
-    zoneId: origin.satellites ? null : src.zoneId,
-    nodeId: origin.satellites ? undefined : src.id,
+    zoneId: overview ? null : src.zoneId,
+    nodeId: overview ? undefined : src.id,
     satellites: !!origin.satellites,
+    effect: origin.effect,
     format: toFormat(origin.format),
     inferred: true,
   });

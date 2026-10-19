@@ -23,6 +23,8 @@ const TRAVEL_MIN = 1.1;
 const TRAVEL_MAX = 2.8;
 const SATELLITE_SECONDS = 2.6;
 const REST_LIFT = 1.15;
+/** The halo swells when the packet first appears on the sensor: the signal became a message. */
+const FLASH_SECONDS = 0.7;
 const TRAIL = 7;
 const TRAIL_GAP = 0.022;
 const CARD_SPACING = 3.9;
@@ -54,6 +56,7 @@ export class JourneyController {
   private t = 0;
   private travelSeconds = TRAVEL_MIN;
   private travelMeasured = false;
+  private flash = 0;
   private packetShown = false;
   private tmpA = new THREE.Vector3();
   private tmpB = new THREE.Vector3();
@@ -95,11 +98,13 @@ export class JourneyController {
 
   public setStep(step: SceneJourneyStep | null): void {
     const same = !!step && !!this.step && step.key === this.step.key;
+    const afterPhenomenon = !!this.step && this.step.mode === "phenomenon";
     this.step = step;
     if (!same) {
       this.t = 0;
       this.travelSeconds = TRAVEL_MIN;
       this.travelMeasured = false;
+      this.flash = afterPhenomenon && !!step && step.mode === "node" ? FLASH_SECONDS : 0;
     }
     if (step) {
       this.packetMat.color.setHex(step.color);
@@ -132,6 +137,7 @@ export class JourneyController {
       this.measureTravel();
       this.t += dt;
     }
+    if (this.flash > 0 && this.packetShown) this.flash = Math.max(0, this.flash - dt);
     this.updatePacket(time, ready);
 
     this.cardsT += dt;
@@ -240,7 +246,10 @@ export class JourneyController {
     if (!shown) return;
     this.packet.position.copy(pos);
     this.packetAnchor.position.copy(pos);
-    if (!this.reducedMotion) this.halo.scale.setScalar(1 + Math.sin(time * 6) * 0.18);
+    if (!this.reducedMotion) {
+      const swell = 1 + 2.2 * (this.flash / FLASH_SECONDS);
+      this.halo.scale.setScalar((1 + Math.sin(time * 6) * 0.18) * swell);
+    }
   }
 
   private buildCards(step: SceneJourneyStep | null, key: string): void {
