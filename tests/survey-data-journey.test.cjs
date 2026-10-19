@@ -214,6 +214,20 @@ test("every decodable sample has a valid NMEA checksum and TBD is never decodabl
   });
 });
 
+test("lab samples decode with a valid checksum and the glossary anatomy matches the GGA", () => {
+  const nmea = loadModule(path.join(app, "utils/nmeaDecode.ts"));
+  const glossary = loadModule(path.join(app, "config/surveyGlossary.ts"));
+  glossary.NMEA_LAB_SAMPLES.forEach((s) => {
+    const r = nmea.parseNmea(s.sentence);
+    assert.ok(r.ok, s.id);
+    assert.equal(r.checksum.valid, true, s.id);
+  });
+  const gga = glossary.NMEA_LAB_SAMPLES.filter((s) => s.id === "gga")[0].sentence;
+  assert.equal(gga, formats.DATA_SAMPLES.position.sample);
+  const term = glossary.SURVEY_GLOSSARY.filter((x) => x.id === "nmea-0183")[0];
+  assert.equal(term.anatomy.segments.map((s) => s.text).join(""), gga);
+});
+
 test("journey counts", () => {
   const partial = full.out.filter((j) => j.journey.partial).length;
   console.log(`full spread: ${full.out.length} journeys, ${partial} partial`);

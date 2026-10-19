@@ -191,7 +191,7 @@ const ACOUSTIC_TELEGRAM_TBD: IDataFormat = {
 export const DATA_SAMPLES: Record<SurveyDataType, IDataFormat> = {
   position: {
     label: t("NMEA 0183 · GGA", "NMEA 0183 · GGA"),
-    sample: "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47",
+    sample: "$GPGGA,123519,2230.000,S,04000.000,W,1,08,0.9,24.8,M,-5.1,M,,*61",
     decodable: true,
     termIds: ["nmea-gga", "nmea-0183"],
   },
