@@ -103,7 +103,7 @@ export interface IGlossaryMention {
 }
 
 /** Every glossary mention in the text, left to right, longest alias first. */
-export function scanGlossary(text: string, opts?: { looseCase?: boolean }): IGlossaryMention[] {
+export function scanGlossary(text: string): IGlossaryMention[] {
   const out: IGlossaryMention[] = [];
   if (!text) return out;
   const { re, byKey } = getMatcher();
@@ -119,11 +119,7 @@ export function scanGlossary(text: string, opts?: { looseCase?: boolean }): IGlo
     const after = end < folded.length ? folded.charAt(end) : "";
     const leftOk = !isWordChar(hit.charAt(0)) || !before || !isWordChar(before);
     const rightOk = !isWordChar(hit.charAt(hit.length - 1)) || !after || !isWordChar(after);
-    const caseOk =
-      !needle ||
-      !needle.strictCase ||
-      (opts && opts.looseCase) ||
-      text.slice(start, end) === needle.raw;
+    const caseOk = !needle || !needle.strictCase || text.slice(start, end) === needle.raw;
     if (needle && leftOk && rightOk && caseOk) {
       out.push({
         termId: needle.termId,
@@ -159,21 +155,6 @@ export function splitByGlossary(text: string, opts?: { all?: boolean }): IGlossa
   });
   if (cursor < text.length) segments.push({ text: text.slice(cursor) });
   return segments;
-}
-
-export interface IGlossaryHit {
-  term: ISurveyGlossaryTerm;
-  matched: string;
-}
-
-/** Longest glossary mention in a free-text question (used by the Ask panel); users type acronyms in any case. */
-export function findGlossaryTerm(text: string): IGlossaryHit | null {
-  const mentions = scanGlossary(text, { looseCase: true });
-  let best: IGlossaryMention | null = null;
-  for (let i = 0; i < mentions.length; i++) {
-    if (!best || mentions[i].text.length > best.text.length) best = mentions[i];
-  }
-  return best ? { term: TERM_BY_ID[best.termId], matched: best.text } : null;
 }
 
 /** Terms whose name, aliases, full name or one-liner contain every word of the query. */

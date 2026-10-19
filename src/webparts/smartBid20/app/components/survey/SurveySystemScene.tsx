@@ -12,8 +12,6 @@ import {
   AlertTriangle,
   Scale,
   Compass,
-  GraduationCap,
-  Sparkles,
   BookOpen,
   Pause,
   FlaskConical,
@@ -114,10 +112,6 @@ interface SurveySystemSceneProps {
   /** BID gap mode is only usable once a BID is selected. */
   gapAvailable: boolean;
   onModeChange: (mode: SceneOverlay) => void;
-  /** Learning missions launcher (hidden when omitted). */
-  onOpenMissions?: () => void;
-  /** Natural-language ask launcher (hidden when omitted). */
-  onOpenAsk?: () => void;
   /** Survey glossary launcher (hidden when omitted). */
   onOpenGlossary?: () => void;
   /** A cable was clicked (link or trunk key). */
@@ -196,8 +190,6 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     mode,
     gapAvailable,
     onModeChange,
-    onOpenMissions,
-    onOpenAsk,
     onOpenGlossary,
     onZoneSelect,
     onNodeSelect,
@@ -516,20 +508,6 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
         {zones.length > 0 && !tour && (
           <button className={styles.tourButton} onClick={onTourStart}>
             <Play size={11} /> Guided tour
-          </button>
-        )}
-        {onOpenAsk && !tour && (
-          <button className={styles.auxButton} onClick={onOpenAsk} title="Ask about this spread">
-            <Sparkles size={11} /> Ask
-          </button>
-        )}
-        {onOpenMissions && !tour && (
-          <button
-            className={styles.auxButton}
-            onClick={onOpenMissions}
-            title="Guided learning missions"
-          >
-            <GraduationCap size={11} /> Learn
           </button>
         )}
         {onOpenGlossary && !tour && (

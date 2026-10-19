@@ -1,7 +1,7 @@
 /**
  * surveyGlossary.ts - Static glossary of survey terms for the Survey Knowledge Portal.
  *
- * Reference content (like surveyMissions.ts), bilingual pt-BR / EN. Every term carries a
+ * Reference content, bilingual pt-BR / EN. Every term carries a
  * one-liner, an analogy, optional annotated "anatomy" and a BID note. `validated: false`
  * marks a draft that a survey SME still has to confirm.
  */
@@ -51,7 +51,6 @@ export const GLOSSARY_UI = {
   ),
   noResults: t("Nenhum termo encontrado.", "No term found."),
   pickTerm: t("Escolha um termo na lista.", "Pick a term from the list."),
-  openCard: t("Abrir no glossário", "Open in glossary"),
   tryDecode: t("Testar no Decode", "Try in Decode"),
   hoverHint: t("Toque para ver o card completo", "Click for the full card"),
   carries: t("Carrega (típico)", "Carries (typical)"),
