@@ -63,7 +63,6 @@ export interface SurveySceneApi {
   setLinksVisible: (visible: boolean) => void;
   /** Current data journey step (travelling packet, camera, deliverable cards); null ends it. */
   setJourney: (step: SceneJourneyStep | null) => void;
-  setJourneyPlayback: (playing: boolean, speed: number) => void;
   dispose: () => void;
 }
 
@@ -75,8 +74,6 @@ export interface SurveySceneOptions {
   onHover: (pick: ScenePick | null) => void;
   /** Any pointer press on the canvas (used to interrupt the guided tour). */
   onInteract: () => void;
-  /** The packet finished the current journey step (key of SceneJourneyStep). */
-  onJourneyStepEnd?: (key: string) => void;
 }
 
 export function isWebGLAvailable(): boolean {
@@ -612,9 +609,6 @@ export function createSurveyScene(
       satellite: () => satellites[0],
       antenna: () => cnavAnchor,
       openZoneId: () => focusZoneId,
-      onStepEnd: (key) => {
-        if (opts.onJourneyStepEnd) opts.onJourneyStepEnd(key);
-      },
     },
     opts.reducedMotion,
   );
@@ -1151,9 +1145,6 @@ export function createSurveyScene(
       setSatelliteEmphasis(!!step && step.mode === "satellites");
       if (!step || flyToJourneyView()) return;
       if (step.mode === "overview" && !focusZoneId) flyTo(HOME_POSITION, HOME_TARGET);
-    },
-    setJourneyPlayback: (playing, speed) => {
-      journey.setPlayback(playing, speed);
     },
     dispose: () => {
       disposed = true;

@@ -90,14 +90,11 @@ const SurveySystemScene = React.lazy(
 
 const TOUR_STEP_MS = 8000;
 const JOURNEY_PACKET_COLOR = 0xffc72c;
-const JOURNEY_SPEEDS = [0.5, 1, 2];
 
 interface IJourneyRun {
   sourceNodeId: string;
   dataType: SurveyDataType;
   step: number;
-  playing: boolean;
-  speed: number;
 }
 
 const cssHex = (color: number): string => `#${`000000${color.toString(16)}`.slice(-6)}`;
@@ -752,19 +749,14 @@ export const SurveySystemPage: React.FC = () => {
       sample: f.sample,
       decodable: f.decodable,
       inferred: journeyCurrent.inferred,
-      playing: journeyRun.playing,
-      speed: journeyRun.speed,
       color: cssHex(journeyLinkKind ? LINK_COLORS[journeyLinkKind] : JOURNEY_PACKET_COLOR),
       labels: {
         typical: L("typical"),
         decode: L("decode"),
-        play: L("play"),
-        pause: L("pause"),
         back: L("back"),
         next: L("next"),
         finish: L("finish"),
         stop: L("stop"),
-        speed: L("speed"),
       },
     };
   }, [journey, journeyCurrent, journeyRun, journeyStepIndex, journeyLinkKind, lang]);
@@ -915,12 +907,8 @@ export const SurveySystemPage: React.FC = () => {
     setGlossaryOpen(true);
   }, []);
 
-  const pauseJourney = (): void =>
-    setJourneyRun((prev) => (prev && prev.playing ? { ...prev, playing: false } : prev));
-
   // The journey card's "Decode" opens the glossary lab on the packet's sentence.
   const openDecode = (sentence: string): void => {
-    pauseJourney();
     setGlossaryTermId(null);
     setGlossaryDecode(sentence);
     setGlossaryOpen(true);
@@ -932,7 +920,7 @@ export const SurveySystemPage: React.FC = () => {
     setFaultNodeId(null);
     setDetailOpen(false);
     setSelectedNodeId(null);
-    setJourneyRun({ sourceNodeId, dataType, step: 0, playing: true, speed: 1 });
+    setJourneyRun({ sourceNodeId, dataType, step: 0 });
   };
 
   const stepJourney = React.useCallback(
@@ -950,9 +938,6 @@ export const SurveySystemPage: React.FC = () => {
 
   const jumpJourney = (index: number): void =>
     setJourneyRun((prev) => (prev ? { ...prev, step: index } : prev));
-
-  const toggleJourneyPlay = (): void =>
-    setJourneyRun((prev) => (prev ? { ...prev, playing: !prev.playing } : prev));
 
   const handleLangChange = (next: SurveyLang): void => {
     setLang(next);
@@ -1083,25 +1068,6 @@ export const SurveySystemPage: React.FC = () => {
     setHoverNodeId(null);
     setHoverCableKey(null);
   }, [journeyZoneId, journeyStepIndex]);
-
-  const journeyPlaying = !!journeyRun && journeyRun.playing;
-  const journeyLast = !!journey && journeyStepIndex >= journey.steps.length - 1;
-  // The scene reports when the packet has finished a step; playback then moves on.
-  const handleJourneyStepEnd = (key: string): void => {
-    if (!journeyPlaying || !sceneJourneyStep || key !== sceneJourneyStep.key) return;
-    if (journeyLast) {
-      setJourneyRun((prev) => (prev ? { ...prev, playing: false } : prev));
-      return;
-    }
-    stepJourney(1);
-  };
-
-  const cycleJourneySpeed = (): void =>
-    setJourneyRun((prev) => {
-      if (!prev) return prev;
-      const i = JOURNEY_SPEEDS.indexOf(prev.speed);
-      return { ...prev, speed: JOURNEY_SPEEDS[(i + 1) % JOURNEY_SPEEDS.length] };
-    });
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -1327,11 +1293,8 @@ export const SurveySystemPage: React.FC = () => {
               journey={isFree ? null : journeyView}
               onJourneyStep={stepJourney}
               onJourneyJump={jumpJourney}
-              onJourneyTogglePlay={toggleJourneyPlay}
               onJourneyStop={() => setJourneyRun(null)}
               onJourneyDecode={openDecode}
-              onJourneySpeed={cycleJourneySpeed}
-              onJourneyStepEnd={handleJourneyStepEnd}
             />
           </React.Suspense>
         </div>

@@ -332,13 +332,10 @@ export const JOURNEY_UI = {
   format: t("Formato", "Format"),
   carrier: t("Meio", "Carrier"),
   decode: t("Decodificar", "Decode"),
-  play: t("Reproduzir", "Play"),
-  pause: t("Pausar", "Pause"),
   back: t("Voltar", "Back"),
   next: t("Avançar", "Next"),
   finish: t("Concluir", "Finish"),
   stop: t("Sair da jornada", "Exit journey"),
-  speed: t("Velocidade", "Speed"),
   typical: t("típico", "typical"),
   offline: t(
     "Etapa feita depois, fora do navio ou no escritório: não há cabo nem equipamento na cena.",

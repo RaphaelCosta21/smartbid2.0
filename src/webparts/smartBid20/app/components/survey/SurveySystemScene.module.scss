@@ -570,7 +570,7 @@
   }
 }
 
-/* Video-like player: skip / play / skip, step timeline, counter, speed */
+/* Step player: back / next, step timeline, counter */
 .player {
   display: flex;
   align-items: center;
@@ -654,38 +654,11 @@
   background: var(--package-accent);
 }
 
-.segmentPlaying {
-  animation: segmentPulse 1.2s ease-in-out infinite;
-}
-
-@keyframes segmentPulse {
-  50% {
-    opacity: 0.45;
-  }
-}
-
 .playerCount {
   flex-shrink: 0;
   font-size: 10px;
   font-weight: 700;
   color: var(--survey-muted);
-}
-
-.speedBtn {
-  flex-shrink: 0;
-  min-width: 34px;
-  padding: 3px 6px;
-  border-radius: 4px;
-  border: 1px solid var(--survey-slate);
-  background: transparent;
-  color: var(--survey-ice);
-  font-size: 10px;
-  font-weight: 800;
-  cursor: pointer;
-
-  &:hover {
-    border-color: var(--survey-teal);
-  }
 }
 
 /* Data bubble riding on the travelling packet */
