@@ -177,9 +177,15 @@ type EndpointClass = "serial-box" | "network" | "nmea-sensor" | "other";
 
 const NETWORK_SHAPES = ["switch", "workstation", "rack", "monitor", "network-cloud", "printer"];
 const NMEA_SENSOR_SHAPES = ["gyro", "receiver", "gnss-dome"];
+/** Serial lines whose strings are vendor specific, not NMEA (so the cable is not labelled NMEA). */
+const SERIAL_ONLY_IDS = ["barometer", "rov-instrument-rack"];
+/** Boxes the scene draws like serial servers although they are not (Ethernet side only). */
+const ETHERNET_ONLY_IDS = ["bullet-poe"];
 
 const classify = (eq: ISurveyEquipment | undefined): EndpointClass => {
   if (!eq) return "other";
+  if (ETHERNET_ONLY_IDS.indexOf(eq.id) >= 0) return "network";
+  if (SERIAL_ONLY_IDS.indexOf(eq.id) >= 0) return "other";
   const shape = resolveSceneShape(eq);
   if (shape === "serial-box") return "serial-box";
   if (NETWORK_SHAPES.indexOf(shape) >= 0) return "network";
@@ -208,7 +214,10 @@ export function protocolsForLink(
       return ["pps", "nmea-zda"];
     case "data":
       if (has("serial-box") && has("network")) return ["tcp-ip", "serial-server"];
-      if (has("serial-box")) return ["serial", "nmea-0183"];
+      if (has("serial-box")) {
+        const vendorSerial = [from, to].some((e) => !!e && SERIAL_ONLY_IDS.indexOf(e.id) >= 0);
+        return vendorSerial ? ["serial"] : ["serial", "nmea-0183"];
+      }
       if (has("network")) return ["tcp-ip"];
       if (has("nmea-sensor")) return ["serial", "nmea-0183"];
       return [];

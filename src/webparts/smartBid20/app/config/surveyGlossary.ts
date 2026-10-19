@@ -622,7 +622,7 @@ export const SURVEY_GLOSSARY: ISurveyGlossaryTerm[] = [
         "It improves accuracy from a few metres to around 1 metre or better.",
       ),
     ],
-    equipmentIds: ["vessel-dgps", "cnav-iridium-antenna"],
+    equipmentIds: ["vessel-dgps"],
     linkKinds: ["rf"],
     related: ["gnss", "rtk", "ppp", "fix-quality"],
     validated: false,
