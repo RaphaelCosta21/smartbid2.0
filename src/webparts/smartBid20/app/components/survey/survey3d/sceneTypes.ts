@@ -3,7 +3,7 @@
  * use them without pulling the lazy "survey-3d" chunk into the main bundle.
  */
 import { SurveyLinkKind, SurveySceneAnchor, SurveySceneShape } from "../../../models";
-import type { DeliverableVisual } from "../../../config/surveyDataFormats";
+import type { DeliverableVisual, JourneyEffectKind } from "../../../config/surveyDataFormats";
 
 export interface SceneZone {
   id: string;
@@ -94,8 +94,17 @@ export interface SceneJourneyDeliverable {
   visual: DeliverableVisual;
 }
 
-/** satellites = GNSS beam; node / cable = inside the open room; overview = vessel; deliverables = 3D cards. */
-export type SceneJourneyMode = "satellites" | "node" | "cable" | "overview" | "deliverables";
+/**
+ * satellites = GNSS beam; node / cable = inside the open room; overview = vessel; deliverables = 3D cards;
+ * phenomenon = the physical signal drawn over the vessel / ROV / seabed (no packet yet).
+ */
+export type SceneJourneyMode =
+  | "satellites"
+  | "node"
+  | "cable"
+  | "overview"
+  | "deliverables"
+  | "phenomenon";
 
 /** One step of the data journey as the 3D scene draws it (travelling packet + camera). */
 export interface SceneJourneyStep {
@@ -111,6 +120,8 @@ export interface SceneJourneyStep {
   arriveReverse?: boolean;
   /** Packet colour (link kind colour). */
   color: number;
+  /** Physical-signal effect played while this step is shown (phenomenon / satellites). */
+  effect?: JourneyEffectKind;
   deliverables?: SceneJourneyDeliverable[];
 }
 

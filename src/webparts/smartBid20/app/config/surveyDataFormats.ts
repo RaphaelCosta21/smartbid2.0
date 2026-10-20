@@ -23,7 +23,27 @@ export interface IDataOrigin {
   format: IDataFormat;
   /** The data starts in the GNSS constellation (satellite step before the antenna). */
   satellites?: boolean;
+  /** Visual the 3D scene plays while the physical phenomenon is explained. */
+  effect?: JourneyEffectKind;
 }
+
+/** Physical-signal effects of the data journey (see survey3d/effects). */
+export type JourneyEffectKind =
+  | "motion-vessel"
+  | "motion-rov"
+  | "heading"
+  | "heading-rov"
+  | "bathymetry"
+  | "usbl-ping"
+  | "altimeter-echo"
+  | "water-pressure"
+  | "air-pressure"
+  | "sound-column"
+  | "pipe-field"
+  | "camera-view"
+  | "pps-tick"
+  | "radio-waves"
+  | "corrections";
 
 /** Visual archetype of a client deliverable in the 3D scene. */
 export type DeliverableVisual = "report" | "dtm" | "chart" | "video" | "points" | "calibration";
@@ -80,6 +100,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       termIds: ["gnss", "utc"],
     },
     satellites: true,
+    effect: "pps-tick",
   },
   corrections: {
     title: t("Satélites de correção", "Correction satellites"),
@@ -92,6 +113,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       termIds: ["ppp", "dgps"],
     },
     satellites: true,
+    effect: "corrections",
   },
   heading: {
     title: t("Rotação da Terra", "Earth's rotation"),
@@ -99,6 +121,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "O giro sente a rotação da Terra e descobre sozinho onde fica o Norte verdadeiro.",
       "The gyro senses the Earth's rotation and finds true North by itself.",
     ),
+    effect: "heading",
     format: { label: t("Fenômeno físico", "Physical phenomenon") },
   },
   motion: {
@@ -107,6 +130,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "Acelerômetros e giros medem heave, pitch e roll a cada instante.",
       "Accelerometers and gyros measure heave, pitch and roll at every instant.",
     ),
+    effect: "motion-vessel",
     format: { label: t("Fenômeno físico", "Physical phenomenon") },
   },
   depth: {
@@ -115,6 +139,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "Quanto mais fundo, maior a pressão: o sensor converte pressão em profundidade.",
       "The deeper, the higher the pressure: the sensor turns pressure into depth.",
     ),
+    effect: "water-pressure",
     format: { label: t("Fenômeno físico", "Physical phenomenon") },
   },
   altitude: {
@@ -123,6 +148,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "O altímetro emite um pulso acústico e mede quanto tempo o eco leva para voltar.",
       "The altimeter sends an acoustic pulse and times how long the echo takes to come back.",
     ),
+    effect: "altimeter-echo",
     format: { label: t("Pulso acústico", "Acoustic pulse") },
   },
   "sound-velocity": {
@@ -131,6 +157,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "A sonda mede quão rápido o som viaja na água naquele ponto (muda com temperatura, salinidade e pressão).",
       "The probe measures how fast sound travels in the water at that point (it changes with temperature, salinity and pressure).",
     ),
+    effect: "sound-column",
     format: { label: t("Fenômeno físico", "Physical phenomenon"), termIds: ["sound-velocity"] },
   },
   bathymetry: {
@@ -139,6 +166,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "O multifeixe emite um leque de feixes acústicos; cada eco vira um ponto de profundidade.",
       "The multibeam sends a fan of acoustic beams; every echo becomes a depth point.",
     ),
+    effect: "bathymetry",
     format: { label: t("Pulsos acústicos", "Acoustic pulses"), termIds: ["mbes"] },
   },
   "acoustic-position": {
@@ -147,6 +175,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "O transceptor chama o beacon com um ping; pelo tempo e ângulo da resposta se calcula a posição.",
       "The transceiver calls the beacon with a ping; the reply's timing and angle give its position.",
     ),
+    effect: "usbl-ping",
     format: { label: t("Pulso acústico", "Acoustic pulse"), termIds: ["usbl", "transponder"] },
   },
   "pipe-tracking": {
@@ -155,6 +184,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "As bobinas induzem e leem o campo magnético do duto enterrado para achar posição e cobertura.",
       "The coils induce and read the buried pipe's magnetic field to find its position and burial depth.",
     ),
+    effect: "pipe-field",
     format: { label: t("Campo eletromagnético", "Electromagnetic field") },
   },
   video: {
@@ -163,6 +193,7 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "A câmera do ROV transforma a cena submarina em sinal de vídeo.",
       "The ROV camera turns the subsea scene into a video signal.",
     ),
+    effect: "camera-view",
     format: { label: t("Imagem", "Image") },
   },
   comms: {
@@ -171,15 +202,28 @@ export const DATA_ORIGINS: Record<SurveyDataType, IDataOrigin> = {
       "Mensagens trocadas por rádio entre equipamentos.",
       "Messages exchanged by radio between devices.",
     ),
+    effect: "radio-waves",
     format: { label: t("Sinal de rádio", "Radio signal") },
   },
+};
+
+/** Placeholder for a format no specialist has confirmed yet: shown as "TBD", never decodable. */
+export const TBD_FORMAT: IDataFormat = {
+  label: t("Formato a confirmar", "Format to confirm"),
+  sample: "TBD",
+};
+
+const ACOUSTIC_TELEGRAM_TBD: IDataFormat = {
+  label: t("Posição acústica · telegrama TBD", "Acoustic position · telegram TBD"),
+  sample: "TBD",
+  termIds: ["usbl"],
 };
 
 /** What the sensor writes when it outputs this data type. */
 export const DATA_SAMPLES: Record<SurveyDataType, IDataFormat> = {
   position: {
     label: t("NMEA 0183 · GGA", "NMEA 0183 · GGA"),
-    sample: "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47",
+    sample: "$GPGGA,123519,2230.000,S,04000.000,W,1,08,0.9,24.8,M,-5.1,M,,*61",
     decodable: true,
     termIds: ["nmea-gga", "nmea-0183"],
   },
@@ -201,12 +245,7 @@ export const DATA_SAMPLES: Record<SurveyDataType, IDataFormat> = {
     decodable: true,
     termIds: ["nmea-0183"],
   },
-  "acoustic-position": {
-    label: t("Sentença proprietária (estilo NMEA)", "Proprietary sentence (NMEA-style)"),
-    sample: "$PSIMSSB,123519.00,B01,A,,C,H,M,-12.35,45.20,98.70,0.3,T,,*58",
-    decodable: true,
-    termIds: ["usbl", "nmea-0183"],
-  },
+  "acoustic-position": ACOUSTIC_TELEGRAM_TBD,
   motion: {
     label: t("String proprietária (ex.: TSS1)", "Proprietary string (e.g. TSS1)"),
     sample: ":00FFE2 -0012F-0123 0045",
@@ -227,14 +266,15 @@ export const DATA_SAMPLES: Record<SurveyDataType, IDataFormat> = {
     termIds: ["mbes", "udp"],
   },
   "pipe-tracking": {
-    label: t("String proprietária do tracker", "Tracker proprietary string"),
-    sample: "V,0.42,L,1.15,D,0.86",
+    label: t("Posição e cobertura do duto · formato TBD", "Pipe position and cover · format TBD"),
+    sample: "TBD",
   },
   video: {
     label: t("Sinal de vídeo (SDI / composto)", "Video signal (SDI / composite)"),
   },
   corrections: {
-    label: t("Correções binárias (ex.: RTCM)", "Binary corrections (e.g. RTCM)"),
+    label: t("Correções do serviço · formato TBD", "Service corrections · format TBD"),
+    sample: "TBD",
     termIds: ["ppp", "dgps"],
   },
   comms: {
@@ -248,14 +288,207 @@ export const LINK_FORMATS: Record<SurveyLinkKind, IDataFormat> = {
   power: { label: t("Energia (não carrega dado)", "Power (carries no data)") },
   video: { label: t("Cabo de vídeo", "Video cable") },
   rf: { label: t("Cabo coaxial de RF", "RF coaxial cable"), termIds: ["gnss"] },
-  subsea: {
-    label: t("Serial pelo umbilical (via MUX)", "Serial through the umbilical (via MUX)"),
-    termIds: ["serial"],
-  },
+  subsea: { label: t("Cabo subsea", "Subsea cable") },
   fibre: { label: t("Fibra óptica multiplexada", "Multiplexed optical fibre") },
   acoustic: { label: t("Som pela água", "Sound through the water"), termIds: ["usbl"] },
   timing: { label: t("Pulso PPS + ZDA", "PPS pulse + ZDA"), termIds: ["pps", "nmea-zda"] },
 };
+
+/** Cable label for links whose end equipment makes the generic kind label wrong (either end). */
+export const LINK_FORMAT_OVERRIDES: Record<string, Partial<Record<SurveyLinkKind, IDataFormat>>> = {
+  "bullet-poe": {
+    rf: { label: t("Cabo Ethernet com alimentação PoE", "Ethernet cable with PoE power") },
+  },
+  "innova-subsea-mux": {
+    subsea: { label: t("Cabo curto do ROV até o MUX subsea", "Short ROV cable to the subsea MUX") },
+  },
+  "ranger2-subsea-head": {
+    subsea: { label: t("Cabo da cabeça USBL ao topside", "USBL head cable to the topside") },
+  },
+  "tss440-coils": {
+    subsea: { label: t("Cabo das bobinas até a bottle", "Cable from the coils to the bottle") },
+  },
+};
+
+/**
+ * Per-equipment corrections of the generic journey texts (keyed by equipment id, then data type).
+ * Used where the data type's default origin, sensor caption or sample would be wrong for that
+ * equipment (e.g. a GNSS compass is not a gyro, a barometer does not measure water pressure).
+ */
+export interface IJourneyOverride {
+  /** Replaces the phenomenon the data type starts from. */
+  origin?: IDataOrigin;
+  /** Replaces the "sensor turns what it measured into a message" line at this equipment. */
+  caption?: ILocalizedText;
+  /** Format this equipment outputs; later hops carry it until another override replaces it. */
+  payload?: IDataFormat;
+  /** Hops after this equipment follow another data type's route (e.g. corrections end as position). */
+  continueAs?: SurveyDataType;
+  /** No journey for this data type from this equipment. */
+  skip?: boolean;
+}
+
+const PHYSICAL: IDataFormat = { label: t("Fenômeno físico", "Physical phenomenon") };
+
+export const JOURNEY_OVERRIDES: Record<string, Partial<Record<SurveyDataType, IJourneyOverride>>> =
+  {
+    "hemisphere-vs1000-receiver": {
+      heading: {
+        origin: {
+          title: t("Satélites GNSS (duas antenas)", "GNSS satellites (two antennas)"),
+          caption: t(
+            "Duas antenas (AFT e FWD) captam os mesmos satélites. A pequena diferença de fase do sinal entre elas dá a direção da linha que as une, ou seja, a proa.",
+            "Two antennas (AFT and FWD) pick up the same satellites. The small phase difference of the signal between them gives the direction of the line joining them, i.e. the bow.",
+          ),
+          format: {
+            label: t("Sinal de rádio dos satélites nas duas antenas", "Satellite radio signal on both antennas"),
+            termIds: ["gnss"],
+          },
+          satellites: true,
+        },
+        payload: {
+          label: t("NMEA 0183 · HDT (heading por GNSS)", "NMEA 0183 · HDT (GNSS heading)"),
+          sample: "$GPHDT,274.07,T*03",
+          decodable: true,
+          termIds: ["nmea-hdt", "nmea-0183"],
+        },
+      },
+    },
+    barometer: {
+      depth: {
+        origin: {
+          title: t("Pressão do ar", "Air pressure"),
+          caption: t(
+            "O barômetro mede a pressão da atmosfera no convés. Ela é a referência para tirar o peso do ar da pressão medida pelo sensor do ROV e chegar à profundidade.",
+            "The barometer measures the atmospheric pressure on deck. It is the reference used to remove the weight of the air from the pressure measured by the ROV sensor and get the depth.",
+          ),
+          format: PHYSICAL,
+          effect: "air-pressure",
+        },
+        payload: TBD_FORMAT,
+      },
+    },
+    "rov-gyro": {
+      motion: {
+        origin: {
+          title: t("Movimento do ROV", "ROV motion"),
+          caption: t(
+            "O giro do ROV sente a inclinação do veículo (pitch e roll) a cada instante.",
+            "The ROV gyro senses the vehicle's tilt (pitch and roll) at every instant.",
+          ),
+          format: PHYSICAL,
+          effect: "motion-rov",
+        },
+      },
+      heading: {
+        origin: { ...DATA_ORIGINS.heading, effect: "heading-rov" },
+      },
+    },
+    "c-node": {
+      "acoustic-position": {
+        caption: t(
+          "O beacon (C-Node) escuta o ping do navio e responde com um pulso acústico. Ele não gera mensagem digital.",
+          "The beacon (C-Node) listens to the vessel's ping and answers with an acoustic pulse. It does not generate a digital message.",
+        ),
+        payload: {
+          label: t("Pulso acústico de resposta", "Acoustic reply pulse"),
+          termIds: ["transponder"],
+        },
+      },
+    },
+    "ranger2-subsea-head": {
+      "acoustic-position": {
+        caption: t(
+          "A cabeça mede o tempo de ida e volta e o ângulo de chegada da resposta e envia essas medidas ao topside.",
+          "The head measures the round-trip time and the arrival angle of the reply and sends those measurements to the topside.",
+        ),
+        payload: {
+          label: t("Medidas acústicas (distância e ângulo) · TBD", "Acoustic measurements (range and angle) · TBD"),
+          sample: "TBD",
+          termIds: ["usbl"],
+        },
+      },
+    },
+    "usbl-topside-unit": {
+      "acoustic-position": {
+        caption: t(
+          "O topside processa as medidas da cabeça e entrega a posição acústica à rede.",
+          "The topside processes the head's measurements and delivers the acoustic position to the network.",
+        ),
+        payload: ACOUSTIC_TELEGRAM_TBD,
+      },
+    },
+    "hipap-apos-interface": {
+      "acoustic-position": {
+        caption: t(
+          "O HiPAP do navio mede as respostas dos beacons e entrega a posição acústica pela interface APOS.",
+          "The vessel's HiPAP measures the beacons' replies and delivers the acoustic position through the APOS interface.",
+        ),
+        payload: ACOUSTIC_TELEGRAM_TBD,
+      },
+    },
+    "tss440-coils": {
+      "pipe-tracking": {
+        caption: t(
+          "As bobinas captam o campo magnético do duto e entregam o sinal à bottle.",
+          "The coils pick up the pipe's magnetic field and hand the signal to the bottle.",
+        ),
+        payload: { label: t("Sinal elétrico das bobinas", "Coil electrical signal") },
+      },
+    },
+    "tss440-bottle": {
+      "pipe-tracking": {
+        caption: t(
+          "A bottle aciona as bobinas, digitaliza as leituras e as envia ao topside pelo MUX subsea.",
+          "The bottle drives the coils, digitises the readings and sends them to the topside through the subsea MUX.",
+        ),
+        payload: {
+          label: t("Leituras digitalizadas · TBD", "Digitised readings · TBD"),
+          sample: "TBD",
+        },
+      },
+    },
+    "tss440-topside": {
+      "pipe-tracking": {
+        caption: t(
+          "O topside do TSS 440 processa o sinal das bobinas e calcula a posição e a cobertura do duto.",
+          "The TSS 440 topside processes the coil signal and computes the pipe's position and burial cover.",
+        ),
+      },
+    },
+    "green-laser": { video: { skip: true } },
+    "video-telemetry-rx-antenna": {
+      video: {
+        origin: {
+          title: t("Vídeo enviado por rádio", "Video sent over radio"),
+          caption: t(
+            "O transmissor de telemetria do ROV envia o vídeo por rádio; esta antena recebe o sinal e o entrega ao receptor.",
+            "The ROV telemetry transmitter sends the video over radio; this antenna picks up the signal and hands it to the receiver.",
+          ),
+          format: { label: t("Sinal de rádio com o vídeo", "Radio signal carrying the video") },
+          effect: "radio-waves",
+        },
+      },
+    },
+    "bullet-wifi-antenna": {
+      comms: {
+        caption: t(
+          "O rádio Wi-Fi (Bullet) troca dados sem fio com a rede do navio e os entrega ao PoE por cabo Ethernet.",
+          "The Wi-Fi radio (Bullet) exchanges data wirelessly with the vessel network and hands it to the PoE box over an Ethernet cable.",
+        ),
+      },
+    },
+    "cnav-x1-receiver": {
+      corrections: {
+        caption: t(
+          "O receptor aplica as correções por dentro: elas não saem pelo cabo. O que sai é a posição já corrigida (GGA, com a qualidade do fix).",
+          "The receiver applies the corrections internally: they do not leave on the cable. What comes out is the already corrected position (GGA, with the fix quality).",
+        ),
+        payload: DATA_SAMPLES.position,
+        continueAs: "position",
+      },
+    },
+  };
 
 /** What each equipment role does to the data as it passes. */
 export const ROLE_CAPTIONS: Record<SurveyDataRole, ILocalizedText> = {
@@ -332,14 +565,12 @@ export const JOURNEY_UI = {
   format: t("Formato", "Format"),
   carrier: t("Meio", "Carrier"),
   decode: t("Decodificar", "Decode"),
-  play: t("Reproduzir", "Play"),
-  pause: t("Pausar", "Pause"),
   back: t("Voltar", "Back"),
   next: t("Avançar", "Next"),
   finish: t("Concluir", "Finish"),
   stop: t("Sair da jornada", "Exit journey"),
-  speed: t("Velocidade", "Speed"),
   typical: t("típico", "typical"),
+  simulated: t("ilustrativo", "illustrative"),
   offline: t(
     "Etapa feita depois, fora do navio ou no escritório: não há cabo nem equipamento na cena.",
     "This step happens later, off the vessel or in the office: there is no cable or equipment in the scene.",
@@ -350,4 +581,8 @@ export const JOURNEY_UI = {
   ),
   arrives: t("Chega em", "Arrives at"),
   leaves: t("Sai de", "Leaves"),
+  hostMissing: t(
+    "Este equipamento não está no diagrama: a ligação física até ele está por confirmar (TBD).",
+    "This equipment is not in the diagram: its physical connection is to be confirmed (TBD).",
+  ),
 };

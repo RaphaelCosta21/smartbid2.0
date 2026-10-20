@@ -3,8 +3,7 @@
   flex-direction: column;
   border-radius: 10px;
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass-strong);
-  backdrop-filter: blur(10px);
+  background: var(--survey-ice);
   box-shadow: var(--survey-shadow);
   overflow: hidden;
   animation: panelIn 350ms ease both;
@@ -28,7 +27,7 @@
   gap: 8px;
   height: 40px;
   padding: 0 16px;
-  background: var(--survey-glass);
+  background: #fff;
   border-bottom: 1px solid var(--survey-glass-border);
 }
 
@@ -72,7 +71,7 @@
   border-radius: 11px;
   border: 1px solid var(--survey-glass-border);
   background: var(--survey-glass);
-  color: var(--survey-slate);
+  color: var(--survey-navy);
   cursor: pointer;
 
   &:hover {
@@ -250,7 +249,7 @@
   border-radius: 4px;
   border: 1px solid var(--survey-line);
   background: var(--survey-chip-bg);
-  color: var(--survey-slate);
+  color: var(--survey-navy);
   font-size: 9px;
 }
 
@@ -273,7 +272,7 @@
   padding: 14px;
   border-radius: 8px;
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass);
+  background: #fff;
 }
 
 .fitHead {
@@ -293,7 +292,7 @@
   align-items: center;
   gap: 6px;
   font-size: 8px;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
 }
 
 .liveDot {
@@ -375,7 +374,7 @@
   font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: var(--survey-slate);
+  color: var(--survey-teal);
 }
 
 .flowItems {
@@ -392,7 +391,7 @@
   padding: 4px 9px;
   border-radius: 4px;
   border: 1px solid var(--survey-line);
-  background: var(--survey-glass-strong);
+  background: #fff;
   color: var(--survey-navy);
   font-family: inherit;
   font-size: 9px;
@@ -405,7 +404,7 @@
 
 .flowItemSub {
   font-size: 8px;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
 }
 
 .flowLink {
@@ -461,7 +460,7 @@
 
 .flowNote {
   font-size: 8px;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
 }
 
 .journeyRow {
@@ -509,14 +508,14 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--survey-slate);
+  color: var(--survey-teal);
 }
 
 .journeyChip {
   padding: 5px 9px;
   border-radius: 999px;
   border: 1px solid var(--survey-teal);
-  background: var(--survey-glass-strong);
+  background: #fff;
   color: var(--survey-navy);
   font-size: 9px;
   font-weight: 600;
@@ -553,7 +552,7 @@
   padding: 5px 9px;
   border-radius: 4px;
   border: 1px solid var(--survey-line);
-  background: var(--survey-glass-strong);
+  background: #fff;
   color: var(--survey-navy);
   font-size: 9px;
   white-space: nowrap;
@@ -670,7 +669,7 @@
 
 .viewLinkMuted {
   font-size: 10px;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
 }
 
 .addBtn {
@@ -700,8 +699,7 @@
   padding: 14px;
   border-radius: 8px;
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass);
-  backdrop-filter: blur(9px);
+  background: var(--survey-ice);
   box-shadow: var(--survey-shadow);
 }
 
@@ -753,12 +751,12 @@
   padding: 10px;
   border-radius: 6px;
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass);
+  background: #fff;
 }
 
 .metricLabel {
   font-size: 8px;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
 }
 
 .metricValue {
@@ -779,7 +777,7 @@
   padding: 12px;
   border-radius: 6px;
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass);
+  background: #fff;
 }
 
 .freqHead {
@@ -812,7 +810,7 @@
 
 .barValue {
   font-size: 8px;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
 }
 
 .bar {

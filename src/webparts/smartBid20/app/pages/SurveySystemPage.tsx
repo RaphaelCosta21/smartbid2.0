@@ -10,8 +10,6 @@ import { SurveyPackageDrawer } from "../components/survey/SurveyPackageDrawer";
 import { SurveySpreadPanel } from "../components/survey/SurveySpreadPanel";
 import { SurveyFailurePanel } from "../components/survey/SurveyFailurePanel";
 import { SurveyGapPanel } from "../components/survey/SurveyGapPanel";
-import { SurveyMissions } from "../components/survey/SurveyMissions";
-import { SurveyAsk } from "../components/survey/SurveyAsk";
 import { SurveyGlossary } from "../components/survey/SurveyGlossary";
 import { GlossaryContext, IGlossaryContextValue } from "../components/survey/GlossaryContext";
 import type {
@@ -67,7 +65,6 @@ import {
 } from "../utils/surveySpreadGraph";
 import { buildFreeScene, FREE_SPREAD_ID } from "../utils/surveyFreeScene";
 import { computeFailureImpact, IFailureImpact } from "../utils/surveyFailure";
-import { answerSurveyQuery, ISurveyAnswer } from "../utils/surveyQuery";
 import {
   getGlossaryTerm,
   loadGlossaryLang,
@@ -82,9 +79,6 @@ import {
   IJourneyContext,
   listJourneys,
 } from "../utils/surveyDataJourney";
-import { useCurrentUser } from "../hooks/useCurrentUser";
-import { useChatStore } from "../stores/useChatStore";
-import { isAiConfigured } from "../config/ai.config";
 import styles from "./SurveySystemPage.module.scss";
 
 const SurveySystemScene = React.lazy(
@@ -96,14 +90,11 @@ const SurveySystemScene = React.lazy(
 
 const TOUR_STEP_MS = 8000;
 const JOURNEY_PACKET_COLOR = 0xffc72c;
-const JOURNEY_SPEEDS = [0.5, 1, 2];
 
 interface IJourneyRun {
   sourceNodeId: string;
   dataType: SurveyDataType;
   step: number;
-  playing: boolean;
-  speed: number;
 }
 
 const cssHex = (color: number): string => `#${`000000${color.toString(16)}`.slice(-6)}`;
@@ -175,18 +166,12 @@ export const SurveySystemPage: React.FC = () => {
   const [addedSoftware, setAddedSoftware] = React.useState<string[]>([]);
   const [sceneMode, setSceneMode] = React.useState<SceneOverlay>("none");
   const [faultNodeId, setFaultNodeId] = React.useState<string | null>(null);
-  const [missionsOpen, setMissionsOpen] = React.useState(false);
-  const [askOpen, setAskOpen] = React.useState(false);
   const [glossaryOpen, setGlossaryOpen] = React.useState(false);
   const [glossaryTermId, setGlossaryTermId] = React.useState<string | null>(null);
   const [lang, setLang] = React.useState<SurveyLang>(loadGlossaryLang);
   const [journeyRun, setJourneyRun] = React.useState<IJourneyRun | null>(null);
   const [glossaryDecode, setGlossaryDecode] = React.useState<string | null>(null);
   const pageRef = React.useRef<HTMLDivElement>(null);
-  const currentUser = useCurrentUser();
-  const openChat = useChatStore((s) => s.open);
-  const sendChat = useChatStore((s) => s.send);
-  const aiAvailable = React.useMemo(() => isAiConfigured(), []);
   const reducedMotion = React.useMemo(
     () =>
       !!window.matchMedia &&
@@ -720,7 +705,9 @@ export const SurveySystemPage: React.FC = () => {
       s.kind === "origin"
         ? s.satellites
           ? "satellites"
-          : "node"
+          : s.effect
+            ? "phenomenon"
+            : "node"
         : s.kind === "cable"
           ? "cable"
           : s.kind === "deliverables"
@@ -738,6 +725,7 @@ export const SurveySystemPage: React.FC = () => {
       arriveLinkKey: s.arriveLinkKey,
       arriveReverse: s.arriveReverse,
       color: JOURNEY_PACKET_COLOR,
+      effect: s.kind === "origin" ? s.effect : undefined,
       deliverables: s.deliverables
         ? s.deliverables.map((d) => ({
             id: d.id,
@@ -764,19 +752,15 @@ export const SurveySystemPage: React.FC = () => {
       sample: f.sample,
       decodable: f.decodable,
       inferred: journeyCurrent.inferred,
-      playing: journeyRun.playing,
-      speed: journeyRun.speed,
       color: cssHex(journeyLinkKind ? LINK_COLORS[journeyLinkKind] : JOURNEY_PACKET_COLOR),
       labels: {
         typical: L("typical"),
         decode: L("decode"),
-        play: L("play"),
-        pause: L("pause"),
         back: L("back"),
         next: L("next"),
         finish: L("finish"),
         stop: L("stop"),
-        speed: L("speed"),
+        simulated: L("simulated"),
       },
     };
   }, [journey, journeyCurrent, journeyRun, journeyStepIndex, journeyLinkKind, lang]);
@@ -841,7 +825,6 @@ export const SurveySystemPage: React.FC = () => {
   const handleSelect = (id: string): void => {
     selectEquipment(id);
     setDetailOpen(true);
-    setAskOpen(false);
   };
 
   const firstNodeOf = (equipmentId: string): ISpreadNode | undefined =>
@@ -919,24 +902,7 @@ export const SurveySystemPage: React.FC = () => {
       setJourneyRun(null);
       setSelectedNodeId(null);
       setDetailOpen(false);
-      setAskOpen(false);
     }
-  };
-
-  // Learning missions and the ask panel share the right drawer with detail/mode panels.
-  const openMissions = (): void => {
-    setMissionsOpen(true);
-    setAskOpen(false);
-    setJourneyRun(null);
-  };
-
-  const openAsk = (): void => {
-    setAskOpen(true);
-    setMissionsOpen(false);
-    setJourneyRun(null);
-    setSceneMode("none");
-    setFaultNodeId(null);
-    setDetailOpen(false);
   };
 
   const openGlossary = React.useCallback((termId?: string): void => {
@@ -945,12 +911,8 @@ export const SurveySystemPage: React.FC = () => {
     setGlossaryOpen(true);
   }, []);
 
-  const pauseJourney = (): void =>
-    setJourneyRun((prev) => (prev && prev.playing ? { ...prev, playing: false } : prev));
-
   // The journey card's "Decode" opens the glossary lab on the packet's sentence.
   const openDecode = (sentence: string): void => {
-    pauseJourney();
     setGlossaryTermId(null);
     setGlossaryDecode(sentence);
     setGlossaryOpen(true);
@@ -960,11 +922,9 @@ export const SurveySystemPage: React.FC = () => {
     stopTour();
     setSceneMode("none");
     setFaultNodeId(null);
-    setAskOpen(false);
-    setMissionsOpen(false);
     setDetailOpen(false);
     setSelectedNodeId(null);
-    setJourneyRun({ sourceNodeId, dataType, step: 0, playing: true, speed: 1 });
+    setJourneyRun({ sourceNodeId, dataType, step: 0 });
   };
 
   const stepJourney = React.useCallback(
@@ -983,9 +943,6 @@ export const SurveySystemPage: React.FC = () => {
   const jumpJourney = (index: number): void =>
     setJourneyRun((prev) => (prev ? { ...prev, step: index } : prev));
 
-  const toggleJourneyPlay = (): void =>
-    setJourneyRun((prev) => (prev ? { ...prev, playing: !prev.playing } : prev));
-
   const handleLangChange = (next: SurveyLang): void => {
     setLang(next);
     saveGlossaryLang(next);
@@ -1003,27 +960,9 @@ export const SurveySystemPage: React.FC = () => {
     [lang, openGlossary],
   );
 
-  const handleAsk = (question: string): ISurveyAnswer => {
-    if (!catalog) {
-      return { kind: "empty", intent: "none", title: "Not ready", text: "The catalog is still loading." };
-    }
-    return answerSurveyQuery(question, {
-      catalog,
-      spread: spread || null,
-      nodes,
-      links,
-      pipeline,
-      equipmentById,
-      considered,
-      bidNumber: comparison ? comparison.bid.bidNumber : null,
-    });
-  };
-
-  // An answer chip highlights the node in the 3D scene without swapping the ask panel for a drawer.
-  const handlePickFromAsk = (equipmentId: string, focusNodeId?: string | null): void => {
-    const node = focusNodeId
-      ? nodeById[focusNodeId]
-      : nodes.find((n) => n.equipmentId === equipmentId && n.source !== "catalog");
+  // Highlights the equipment in the 3D scene (glossary chips); catalog-only items open the detail.
+  const handlePickEquipment = (equipmentId: string): void => {
+    const node = nodes.find((n) => n.equipmentId === equipmentId && n.source !== "catalog");
     if (node) {
       stopTour();
       setSceneMode("none");
@@ -1033,14 +972,8 @@ export const SurveySystemPage: React.FC = () => {
       selectEquipment(equipmentId);
       return;
     }
-    // Catalog-only item has nothing to highlight: fall back to the detail drawer.
     setFilters({ search: "" });
     handleSelect(equipmentId);
-  };
-
-  const handleEscalateAI = (question: string): void => {
-    openChat();
-    sendChat(question).catch(() => undefined);
   };
 
   const handleSearchHit = (id: string): void => {
@@ -1128,7 +1061,6 @@ export const SurveySystemPage: React.FC = () => {
     setAddedSoftware([]);
     setSceneMode("none");
     setFaultNodeId(null);
-    setAskOpen(false);
     setJourneyRun(null);
   }, [spreadId]);
 
@@ -1141,31 +1073,10 @@ export const SurveySystemPage: React.FC = () => {
     setHoverCableKey(null);
   }, [journeyZoneId, journeyStepIndex]);
 
-  const journeyPlaying = !!journeyRun && journeyRun.playing;
-  const journeyLast = !!journey && journeyStepIndex >= journey.steps.length - 1;
-  // The scene reports when the packet has finished a step; playback then moves on.
-  const handleJourneyStepEnd = (key: string): void => {
-    if (!journeyPlaying || !sceneJourneyStep || key !== sceneJourneyStep.key) return;
-    if (journeyLast) {
-      setJourneyRun((prev) => (prev ? { ...prev, playing: false } : prev));
-      return;
-    }
-    stepJourney(1);
-  };
-
-  const cycleJourneySpeed = (): void =>
-    setJourneyRun((prev) => {
-      if (!prev) return prev;
-      const i = JOURNEY_SPEEDS.indexOf(prev.speed);
-      return { ...prev, speed: JOURNEY_SPEEDS[(i + 1) % JOURNEY_SPEEDS.length] };
-    });
-
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key !== "Escape") return;
-      if (missionsOpen) setMissionsOpen(false);
-      else if (askOpen) setAskOpen(false);
-      else if (journeyRun) setJourneyRun(null);
+      if (journeyRun) setJourneyRun(null);
       else if (tourStep !== null) setTourStep(null);
       else if (detailOpen) setDetailOpen(false);
       else if (selectedNodeId) setSelectedNodeId(null);
@@ -1173,7 +1084,7 @@ export const SurveySystemPage: React.FC = () => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [tourStep, detailOpen, selectedNodeId, activeZoneId, missionsOpen, askOpen, journeyRun]);
+  }, [tourStep, detailOpen, selectedNodeId, activeZoneId, journeyRun]);
 
   /** Adds the spread (or one zone) to the package, skipping what the compared BID already has. */
   const addLines = (zoneId?: string): void => {
@@ -1334,18 +1245,6 @@ export const SurveySystemPage: React.FC = () => {
           </div>
         )}
 
-        {askOpen && !detailOpen && (
-          <div className={styles.detailDrawer}>
-            <SurveyAsk
-              onAsk={handleAsk}
-              onPickEquipment={handlePickFromAsk}
-              onClose={() => setAskOpen(false)}
-              aiAvailable={aiAvailable}
-              onEscalateAI={aiAvailable ? handleEscalateAI : undefined}
-            />
-          </div>
-        )}
-
         {adding && (
           <SurveyAddToPackageDialog
             key={adding.id}
@@ -1381,8 +1280,6 @@ export const SurveySystemPage: React.FC = () => {
               mode={isFree ? "none" : sceneMode}
               gapAvailable={!!considered}
               onModeChange={handleModeChange}
-              onOpenMissions={openMissions}
-              onOpenAsk={openAsk}
               onOpenGlossary={() => openGlossary()}
               onZoneSelect={handleZoneSelect}
               onNodeSelect={handleSceneNodeSelect}
@@ -1400,11 +1297,8 @@ export const SurveySystemPage: React.FC = () => {
               journey={isFree ? null : journeyView}
               onJourneyStep={stepJourney}
               onJourneyJump={jumpJourney}
-              onJourneyTogglePlay={toggleJourneyPlay}
               onJourneyStop={() => setJourneyRun(null)}
               onJourneyDecode={openDecode}
-              onJourneySpeed={cycleJourneySpeed}
-              onJourneyStepEnd={handleJourneyStepEnd}
             />
           </React.Suspense>
         </div>
@@ -1424,12 +1318,6 @@ export const SurveySystemPage: React.FC = () => {
       {packageOpen && (
         <SurveyPackageDrawer onClose={() => setPackageOpen(false)} />
       )}
-      {missionsOpen && (
-        <SurveyMissions
-          user={currentUser ? currentUser.email || currentUser.id : null}
-          onClose={() => setMissionsOpen(false)}
-        />
-      )}
       {glossaryOpen && (
         <SurveyGlossary
           lang={lang}
@@ -1437,7 +1325,7 @@ export const SurveySystemPage: React.FC = () => {
           initialTermId={glossaryTermId}
           initialSentence={glossaryDecode}
           equipmentById={equipmentById}
-          onPickEquipment={(id) => handlePickFromAsk(id)}
+          onPickEquipment={handlePickEquipment}
           onClose={() => setGlossaryOpen(false)}
         />
       )}

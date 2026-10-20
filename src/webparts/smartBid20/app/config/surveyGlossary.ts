@@ -1,7 +1,7 @@
 /**
  * surveyGlossary.ts - Static glossary of survey terms for the Survey Knowledge Portal.
  *
- * Reference content (like surveyMissions.ts), bilingual pt-BR / EN. Every term carries a
+ * Reference content, bilingual pt-BR / EN. Every term carries a
  * one-liner, an analogy, optional annotated "anatomy" and a BID note. `validated: false`
  * marks a draft that a survey SME still has to confirm.
  */
@@ -51,7 +51,6 @@ export const GLOSSARY_UI = {
   ),
   noResults: t("Nenhum termo encontrado.", "No term found."),
   pickTerm: t("Escolha um termo na lista.", "Pick a term from the list."),
-  openCard: t("Abrir no glossário", "Open in glossary"),
   tryDecode: t("Testar no Decode", "Try in Decode"),
   hoverHint: t("Toque para ver o card completo", "Click for the full card"),
   carries: t("Carrega (típico)", "Carries (typical)"),
@@ -60,7 +59,7 @@ export const GLOSSARY_UI = {
     "Cole uma linha NMEA 0183 do log de um sensor e veja campo a campo o que ela diz.",
     "Paste an NMEA 0183 line from a sensor log and see field by field what it says.",
   ),
-  labPlaceholder: t("$GPGGA,123519,4807.038,N,…*47", "$GPGGA,123519,4807.038,N,…*47"),
+  labPlaceholder: t("$GPGGA,123519,2230.000,S,…*61", "$GPGGA,123519,2230.000,S,…*61"),
   labSamples: t("Exemplos", "Samples"),
   labDecoded: t("Resumo decodificado", "Decoded summary"),
   labFields: t("Campos", "Fields"),
@@ -89,7 +88,7 @@ export const NMEA_LAB_SAMPLES: {
   {
     id: "gga",
     label: "GGA · position",
-    sentence: "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47",
+    sentence: "$GPGGA,123519,2230.000,S,04000.000,W,1,08,0.9,24.8,M,-5.1,M,,*61",
   },
   {
     id: "rmc",
@@ -166,13 +165,13 @@ export const SURVEY_GLOSSARY: ISurveyGlossaryTerm[] = [
         sep(","),
         seg("123519", "Hora: 12:35:19 UTC", "Time: 12:35:19 UTC"),
         sep(","),
-        seg("4807.038", "Latitude: 48° 07,038′", "Latitude: 48° 07.038′"),
+        seg("2230.000", "Latitude: 22° 30,000′", "Latitude: 22° 30.000′"),
         sep(","),
-        seg("N", "Hemisfério (N/S)", "Hemisphere (N/S)"),
+        seg("S", "Hemisfério (N/S)", "Hemisphere (N/S)"),
         sep(","),
-        seg("01131.000", "Longitude: 11° 31,000′", "Longitude: 11° 31.000′"),
+        seg("04000.000", "Longitude: 40° 00,000′", "Longitude: 40° 00.000′"),
         sep(","),
-        seg("E", "Hemisfério (E/W)", "Hemisphere (E/W)"),
+        seg("W", "Hemisfério (E/W)", "Hemisphere (E/W)"),
         sep(","),
         seg("1", "Qualidade do fix (1 = GPS)", "Fix quality (1 = GPS)"),
         sep(","),
@@ -180,16 +179,16 @@ export const SURVEY_GLOSSARY: ISurveyGlossaryTerm[] = [
         sep(","),
         seg("0.9", "HDOP (geometria dos satélites)", "HDOP (satellite geometry)"),
         sep(","),
-        seg("545.4", "Altitude", "Altitude"),
+        seg("24.8", "Altitude", "Altitude"),
         sep(","),
         seg("M", "Unidade da altitude: metros", "Altitude unit: metres"),
         sep(","),
-        seg("46.9", "Separação do geoide", "Geoid separation"),
+        seg("-5.1", "Separação do geoide", "Geoid separation"),
         sep(","),
         seg("M", "Unidade: metros", "Unit: metres"),
         sep(",,"),
         seg(
-          "*47",
+          "*61",
           "Checksum (confere se a linha chegou íntegra)",
           "Checksum (proves the line arrived intact)",
         ),
@@ -623,7 +622,7 @@ export const SURVEY_GLOSSARY: ISurveyGlossaryTerm[] = [
         "It improves accuracy from a few metres to around 1 metre or better.",
       ),
     ],
-    equipmentIds: ["vessel-dgps", "cnav-iridium-antenna"],
+    equipmentIds: ["vessel-dgps"],
     linkKinds: ["rf"],
     related: ["gnss", "rtk", "ppp", "fix-quality"],
     validated: false,

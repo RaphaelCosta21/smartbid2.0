@@ -10,6 +10,8 @@ import { FocusController } from "./focusController";
 import { layoutExplode } from "./explodeLayout";
 import { TrunkNetwork } from "./trunkFlow";
 import { JourneyController } from "./journeyController";
+import { PhenomenonController } from "./phenomenonController";
+import type { JourneyEffectKind } from "../../../config/surveyDataFormats";
 import {
   SceneFocus,
   SceneJourneyStep,
@@ -63,7 +65,6 @@ export interface SurveySceneApi {
   setLinksVisible: (visible: boolean) => void;
   /** Current data journey step (travelling packet, camera, deliverable cards); null ends it. */
   setJourney: (step: SceneJourneyStep | null) => void;
-  setJourneyPlayback: (playing: boolean, speed: number) => void;
   dispose: () => void;
 }
 
@@ -75,8 +76,8 @@ export interface SurveySceneOptions {
   onHover: (pick: ScenePick | null) => void;
   /** Any pointer press on the canvas (used to interrupt the guided tour). */
   onInteract: () => void;
-  /** The packet finished the current journey step (key of SceneJourneyStep). */
-  onJourneyStepEnd?: (key: string) => void;
+  /** Live numbers of the physical effect on the current journey step; null when none. */
+  onJourneyReadout?: (text: string | null) => void;
 }
 
 export function isWebGLAvailable(): boolean {
@@ -498,15 +499,15 @@ export function createSurveyScene(
   manifold.add(targetAnchor);
 
   const pipeMat = std(PALETTE.pipeline, { roughness: 0.5 });
+  const pipeCurves: THREE.Curve<THREE.Vector3>[] = [];
   [
     [new THREE.Vector3(-4, 0, 3), new THREE.Vector3(-14, 0, 8), new THREE.Vector3(-26, 0, 5), new THREE.Vector3(-37, 0, 12)],
     [new THREE.Vector3(0, 0, 3), new THREE.Vector3(10, 0, 10), new THREE.Vector3(22, 0, 7), new THREE.Vector3(34, 0, 16)],
   ].forEach((pts) => {
     pts.forEach((p) => (p.y = seabedHeight(p.x, p.z) + 0.15));
-    const tube = new THREE.Mesh(
-      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 80, 0.14, 8, false),
-      pipeMat,
-    );
+    const pipeCurve = new THREE.CatmullRomCurve3(pts);
+    pipeCurves.push(pipeCurve);
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(pipeCurve, 80, 0.14, 8, false), pipeMat);
     scene.add(tube);
   });
 
@@ -612,13 +613,47 @@ export function createSurveyScene(
       satellite: () => satellites[0],
       antenna: () => cnavAnchor,
       openZoneId: () => focusZoneId,
-      onStepEnd: (key) => {
-        if (opts.onJourneyStepEnd) opts.onJourneyStepEnd(key);
-      },
     },
     opts.reducedMotion,
   );
   scene.add(journey.group);
+  const gnssMaterials: THREE.MeshBasicMaterial[] = [];
+  gnssBeams.forEach(({ beam, photons }) => {
+    gnssMaterials.push(beam.material as THREE.MeshBasicMaterial);
+    photons.forEach((p) => gnssMaterials.push(p.material as THREE.MeshBasicMaterial));
+  });
+  const phenomena = new PhenomenonController(
+    scene,
+    {
+      vessel,
+      rov,
+      antennaAnchor: cnavAnchor,
+      mastAnchor,
+      hullAnchor,
+      satellites,
+      gnssMaterials,
+      beaconTops,
+      cone,
+      pipes: pipeCurves,
+      seabedHeight,
+    },
+    opts.reducedMotion,
+    (text) => {
+      if (opts.onJourneyReadout) opts.onJourneyReadout(text);
+    },
+  );
+  /** Effects drawn around the ROV: it holds still so the camera keeps it in frame. */
+  const ROV_EFFECTS: JourneyEffectKind[] = [
+    "motion-rov",
+    "heading-rov",
+    "bathymetry",
+    "altimeter-echo",
+    "water-pressure",
+    "camera-view",
+    "pipe-field",
+    "sound-column",
+  ];
+  let rovHold = false;
   const BEAM_GLOW = { normal: 0.16, journey: 0.5 };
   const PHOTON_GLOW = { normal: 0.5, journey: 0.95 };
   const setSatelliteEmphasis = (on: boolean): void => {
@@ -677,6 +712,12 @@ export function createSurveyScene(
       journey.placeCards(DELIVERABLE_CENTER, right);
       const distance = journey.cardCount > 3 ? 21 : 15;
       flyTo(DELIVERABLE_CENTER.clone().addScaledVector(dir, distance), DELIVERABLE_CENTER);
+      return true;
+    }
+    if (journeyStep.mode === "phenomenon" && journeyStep.effect) {
+      const target = new THREE.Vector3();
+      const distance = phenomena.focus(journeyStep.effect, target);
+      flyTo(target.clone().addScaledVector(dir, distance), target);
       return true;
     }
     return false;
@@ -925,7 +966,7 @@ export function createSurveyScene(
     if (document.hidden) return;
     const dt = Math.min(clock.getDelta(), 0.1);
     if (!opts.reducedMotion) time += dt;
-    if (!opts.reducedMotion && !rovFrozen) rovTime += dt;
+    if (!opts.reducedMotion && !rovFrozen && !rovHold) rovTime += dt;
     const t = time;
 
     for (let i = 0; i < waterPos.count; i++) {
@@ -991,6 +1032,7 @@ export function createSurveyScene(
     const a = rovTime * 0.22;
     rov.position.set(-2 + Math.cos(a) * 5.5, -10.5 + Math.sin(rovTime * 0.7) * 0.35, 3 + Math.sin(a) * 4);
     rov.rotation.y = -a - Math.PI / 2;
+    phenomena.update(dt);
 
     // Tether: vessel moonpool → ROV with a sagging midpoint
     tetherCurve.v0.set(-0.5, -0.9, 0);
@@ -1149,11 +1191,11 @@ export function createSurveyScene(
       // Room-to-room arcs are not part of the journey path.
       trunks.setEnabled(linksVisible && !step);
       setSatelliteEmphasis(!!step && step.mode === "satellites");
+      const effect = step && step.effect ? step.effect : null;
+      phenomena.setEffect(effect);
+      rovHold = !!step && step.mode === "phenomenon" && !!effect && ROV_EFFECTS.indexOf(effect) >= 0;
       if (!step || flyToJourneyView()) return;
       if (step.mode === "overview" && !focusZoneId) flyTo(HOME_POSITION, HOME_TARGET);
-    },
-    setJourneyPlayback: (playing, speed) => {
-      journey.setPlayback(playing, speed);
     },
     dispose: () => {
       disposed = true;
@@ -1172,6 +1214,7 @@ export function createSurveyScene(
       focusCtl.dispose();
       trunks.dispose();
       journey.dispose();
+      phenomena.dispose();
       disposeObject(scene);
       renderer.dispose();
       renderer.forceContextLoss();

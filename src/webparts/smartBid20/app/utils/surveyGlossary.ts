@@ -103,7 +103,7 @@ export interface IGlossaryMention {
 }
 
 /** Every glossary mention in the text, left to right, longest alias first. */
-export function scanGlossary(text: string, opts?: { looseCase?: boolean }): IGlossaryMention[] {
+export function scanGlossary(text: string): IGlossaryMention[] {
   const out: IGlossaryMention[] = [];
   if (!text) return out;
   const { re, byKey } = getMatcher();
@@ -119,11 +119,7 @@ export function scanGlossary(text: string, opts?: { looseCase?: boolean }): IGlo
     const after = end < folded.length ? folded.charAt(end) : "";
     const leftOk = !isWordChar(hit.charAt(0)) || !before || !isWordChar(before);
     const rightOk = !isWordChar(hit.charAt(hit.length - 1)) || !after || !isWordChar(after);
-    const caseOk =
-      !needle ||
-      !needle.strictCase ||
-      (opts && opts.looseCase) ||
-      text.slice(start, end) === needle.raw;
+    const caseOk = !needle || !needle.strictCase || text.slice(start, end) === needle.raw;
     if (needle && leftOk && rightOk && caseOk) {
       out.push({
         termId: needle.termId,
@@ -161,21 +157,6 @@ export function splitByGlossary(text: string, opts?: { all?: boolean }): IGlossa
   return segments;
 }
 
-export interface IGlossaryHit {
-  term: ISurveyGlossaryTerm;
-  matched: string;
-}
-
-/** Longest glossary mention in a free-text question (used by the Ask panel); users type acronyms in any case. */
-export function findGlossaryTerm(text: string): IGlossaryHit | null {
-  const mentions = scanGlossary(text, { looseCase: true });
-  let best: IGlossaryMention | null = null;
-  for (let i = 0; i < mentions.length; i++) {
-    if (!best || mentions[i].text.length > best.text.length) best = mentions[i];
-  }
-  return best ? { term: TERM_BY_ID[best.termId], matched: best.text } : null;
-}
-
 /** Terms whose name, aliases, full name or one-liner contain every word of the query. */
 export function searchGlossary(query: string, lang: SurveyLang): ISurveyGlossaryTerm[] {
   const words = fold(query).toLowerCase().split(/\s+/).filter(Boolean);
@@ -196,9 +177,15 @@ type EndpointClass = "serial-box" | "network" | "nmea-sensor" | "other";
 
 const NETWORK_SHAPES = ["switch", "workstation", "rack", "monitor", "network-cloud", "printer"];
 const NMEA_SENSOR_SHAPES = ["gyro", "receiver", "gnss-dome"];
+/** Serial lines whose strings are vendor specific, not NMEA (so the cable is not labelled NMEA). */
+const SERIAL_ONLY_IDS = ["barometer", "rov-instrument-rack"];
+/** Boxes the scene draws like serial servers although they are not (Ethernet side only). */
+const ETHERNET_ONLY_IDS = ["bullet-poe"];
 
 const classify = (eq: ISurveyEquipment | undefined): EndpointClass => {
   if (!eq) return "other";
+  if (ETHERNET_ONLY_IDS.indexOf(eq.id) >= 0) return "network";
+  if (SERIAL_ONLY_IDS.indexOf(eq.id) >= 0) return "other";
   const shape = resolveSceneShape(eq);
   if (shape === "serial-box") return "serial-box";
   if (NETWORK_SHAPES.indexOf(shape) >= 0) return "network";
@@ -227,7 +214,10 @@ export function protocolsForLink(
       return ["pps", "nmea-zda"];
     case "data":
       if (has("serial-box") && has("network")) return ["tcp-ip", "serial-server"];
-      if (has("serial-box")) return ["serial", "nmea-0183"];
+      if (has("serial-box")) {
+        const vendorSerial = [from, to].some((e) => !!e && SERIAL_ONLY_IDS.indexOf(e.id) >= 0);
+        return vendorSerial ? ["serial"] : ["serial", "nmea-0183"];
+      }
       if (has("network")) return ["tcp-ip"];
       if (has("nmea-sensor")) return ["serial", "nmea-0183"];
       return [];

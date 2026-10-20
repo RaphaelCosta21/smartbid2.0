@@ -231,6 +231,16 @@ export function traceSignalPath(
   return null;
 }
 
+/** Shortest wiring path from a node to the first node of the given equipment (null when none). */
+export function tracePathTo(
+  links: ISpreadLinkRef[],
+  fromId: string,
+  equipmentId: string,
+): ISignalPath | null {
+  if (baseId(fromId) === equipmentId) return null;
+  return shortestPath(buildAdjacency(links), fromId, (id) => baseId(id) === equipmentId);
+}
+
 type Adjacency = Record<string, { to: string; key: string }[]>;
 
 function buildAdjacency(links: ISpreadLinkRef[]): Adjacency {

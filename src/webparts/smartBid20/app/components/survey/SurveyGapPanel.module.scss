@@ -4,8 +4,7 @@
   height: 100%;
   border-radius: 10px;
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass-strong);
-  backdrop-filter: blur(10px);
+  background: var(--survey-ice);
   box-shadow: var(--survey-shadow);
   overflow: hidden;
   animation: panelIn 350ms ease both;
@@ -29,7 +28,7 @@
   gap: 8px;
   height: 40px;
   padding: 0 16px;
-  background: var(--survey-glass);
+  background: #fff;
   border-bottom: 1px solid var(--survey-glass-border);
 }
 
@@ -81,7 +80,7 @@
   gap: 2px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: var(--survey-glass);
+  background: #fff;
   border: 1px solid var(--survey-glass-border);
 }
 
@@ -107,7 +106,7 @@
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
 }
 
 .legend {
@@ -116,7 +115,7 @@
   gap: 10px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: var(--survey-glass);
+  background: #fff;
   border: 1px solid var(--survey-glass-border);
 }
 
@@ -159,7 +158,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 700;
-  color: var(--survey-slate);
+  color: var(--survey-teal);
 }
 
 .list {
@@ -189,10 +188,10 @@
   margin: 0;
   font-size: 11px;
   line-height: 1.5;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
   padding: 8px 10px;
   border-radius: 8px;
-  background: var(--survey-glass);
+  background: #fff;
   border: 1px solid var(--survey-glass-border);
   border-left: 3px solid var(--survey-green);
 }

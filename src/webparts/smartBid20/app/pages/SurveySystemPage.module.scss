@@ -70,8 +70,7 @@
   padding: 14px 16px;
   border-radius: 10px;
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass-strong);
-  backdrop-filter: blur(10px);
+  background: var(--survey-ice);
   box-shadow: var(--survey-shadow);
   transition: max-height 350ms ease;
   animation: fadeUp 450ms 80ms ease both;

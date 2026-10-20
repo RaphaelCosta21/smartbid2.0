@@ -11,8 +11,7 @@
   padding: 16px;
   border-radius: 10px;
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass-strong);
-  backdrop-filter: blur(10px);
+  background: var(--survey-ice);
   box-shadow: var(--survey-shadow), var(--elevation-3);
   animation: popIn 300ms ease both;
 }
@@ -61,7 +60,7 @@
   margin: 0;
   font-size: 10px;
   line-height: 1.45;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
 }
 
 .close {
@@ -74,11 +73,11 @@
   border-radius: 12px;
   border: 1px solid var(--survey-glass-border);
   background: var(--survey-glass);
-  color: var(--survey-muted);
+  color: var(--survey-navy);
   cursor: pointer;
 
   &:hover {
-    color: var(--survey-navy);
+    color: var(--survey-navy-deep);
   }
 }
 
@@ -89,7 +88,7 @@
   padding: 8px 10px;
   border-radius: 6px;
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass);
+  background: #fff;
 }
 
 .dot {
@@ -133,7 +132,7 @@
 
 .qtyHint {
   font-size: 8px;
-  color: var(--survey-slate);
+  color: var(--survey-navy);
 }
 
 .stepper {
@@ -207,8 +206,8 @@
 
 .cancel {
   border: 1px solid var(--survey-glass-border);
-  background: var(--survey-glass);
-  color: var(--survey-slate);
+  background: #fff;
+  color: var(--survey-navy);
   font-weight: 600;
 }
 

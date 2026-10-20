@@ -1,8 +1,8 @@
 /**
- * Data journey in 3D, played like a video: a glowing packet (with a short trail) travels each step
- * once at a steady speed (satellite beam, a cable of the open room, or arriving from another room),
- * rests briefly on the equipment, then reports the step as finished so the page can move on.
- * Pausing freezes the packet in place. The deliverables appear as floating cards at the end.
+ * Data journey in 3D: a glowing packet (with a short trail) travels each step once at a steady
+ * speed (satellite beam, a cable of the open room, or arriving from another room) and then rests
+ * on its destination until the page moves to the next step. The deliverables appear as floating
+ * cards at the end.
  */
 import * as THREE from "three";
 import { SceneJourneyStep } from "./sceneTypes";
@@ -15,7 +15,6 @@ export interface JourneyHooks {
   antenna: () => THREE.Object3D;
   /** Room currently exploded in the scene (null = overview). */
   openZoneId: () => string | null;
-  onStepEnd: (key: string) => void;
 }
 
 /** World units per second along a cable: one steady pace whatever the cable length. */
@@ -23,11 +22,9 @@ const TRAVEL_SPEED = 4.5;
 const TRAVEL_MIN = 1.1;
 const TRAVEL_MAX = 2.8;
 const SATELLITE_SECONDS = 2.6;
-/** Pause on each piece of equipment so its caption can be read. */
-const DWELL_SECONDS = 1.6;
-const OVERVIEW_SECONDS = 3.2;
-const DELIVERABLES_SECONDS = 4;
 const REST_LIFT = 1.15;
+/** The halo swells when the packet first appears on the sensor: the signal became a message. */
+const FLASH_SECONDS = 0.7;
 const TRAIL = 7;
 const TRAIL_GAP = 0.022;
 const CARD_SPACING = 3.9;
@@ -55,12 +52,11 @@ export class JourneyController {
   private cardsKey = "";
   private cardsT = 0;
   private step: SceneJourneyStep | null = null;
-  /** Step clock: only runs while playing and once the step's path exists in the scene. */
+  /** Step clock: runs once the step's path exists in the scene. */
   private t = 0;
   private travelSeconds = TRAVEL_MIN;
-  private ended = false;
-  private playing = true;
-  private speed = 1;
+  private travelMeasured = false;
+  private flash = 0;
   private packetShown = false;
   private tmpA = new THREE.Vector3();
   private tmpB = new THREE.Vector3();
@@ -102,11 +98,13 @@ export class JourneyController {
 
   public setStep(step: SceneJourneyStep | null): void {
     const same = !!step && !!this.step && step.key === this.step.key;
+    const afterPhenomenon = !!this.step && this.step.mode === "phenomenon";
     this.step = step;
     if (!same) {
       this.t = 0;
-      this.ended = false;
       this.travelSeconds = TRAVEL_MIN;
+      this.travelMeasured = false;
+      this.flash = afterPhenomenon && !!step && step.mode === "node" ? FLASH_SECONDS : 0;
     }
     if (step) {
       this.packetMat.color.setHex(step.color);
@@ -116,11 +114,6 @@ export class JourneyController {
     const deliverables = step && step.mode === "deliverables" ? step.deliverables || [] : [];
     const key = deliverables.map((d) => `${d.id}:${d.subtitle}`).join("|");
     if (key !== this.cardsKey) this.buildCards(step, key);
-  }
-
-  public setPlayback(playing: boolean, speed: number): void {
-    this.playing = playing;
-    this.speed = Math.max(0.25, speed);
   }
 
   /** Arranges the deliverable cards around `center`, in rows across the camera's right vector. */
@@ -140,13 +133,11 @@ export class JourneyController {
 
   public update(dt: number, time: number, camera: THREE.Camera): void {
     const ready = this.isReady();
-    if (this.step && ready && this.playing && !this.ended) {
-      this.t += dt * this.speed;
-      if (this.t >= this.duration()) {
-        this.ended = true;
-        this.hooks.onStepEnd(this.step.key);
-      }
+    if (this.step && ready) {
+      this.measureTravel();
+      this.t += dt;
     }
+    if (this.flash > 0 && this.packetShown) this.flash = Math.max(0, this.flash - dt);
     this.updatePacket(time, ready);
 
     this.cardsT += dt;
@@ -184,19 +175,20 @@ export class JourneyController {
     return true;
   }
 
-  private duration(): number {
+  /** Travel time follows the cable length so the packet keeps one steady speed. */
+  private measureTravel(): void {
+    if (this.travelMeasured) return;
+    this.travelMeasured = true;
     const step = this.step as SceneJourneyStep;
-    switch (step.mode) {
-      case "satellites":
-        return SATELLITE_SECONDS;
-      case "cable":
-        return this.travelSeconds;
-      case "node":
-        return (step.arriveLinkKey ? this.travelSeconds : 0) + DWELL_SECONDS;
-      case "deliverables":
-        return DELIVERABLES_SECONDS;
-      default:
-        return OVERVIEW_SECONDS;
+    const key =
+      step.mode === "cable" ? step.linkKey : step.mode === "node" ? step.arriveLinkKey : undefined;
+    const curve = key ? this.hooks.cableCurve(key) : null;
+    if (curve) {
+      this.travelSeconds = THREE.MathUtils.clamp(
+        curve.getLength() / TRAVEL_SPEED,
+        TRAVEL_MIN,
+        TRAVEL_MAX,
+      );
     }
   }
 
@@ -224,23 +216,6 @@ export class JourneyController {
     let shown = false;
     let travelK = -1;
     if (step && ready) {
-      const travelKey =
-        step.mode === "cable"
-          ? step.linkKey
-          : step.mode === "node"
-            ? step.arriveLinkKey
-            : undefined;
-      if (this.t === 0 && travelKey) {
-        const curve = this.hooks.cableCurve(travelKey);
-        // Duration follows the cable length so the packet keeps one steady speed.
-        if (curve) {
-          this.travelSeconds = THREE.MathUtils.clamp(
-            curve.getLength() / TRAVEL_SPEED,
-            TRAVEL_MIN,
-            TRAVEL_MAX,
-          );
-        }
-      }
       if (step.mode === "satellites") {
         travelK = this.reducedMotion ? 1 : this.t / SATELLITE_SECONDS;
       } else if (step.mode === "cable") {
@@ -271,7 +246,10 @@ export class JourneyController {
     if (!shown) return;
     this.packet.position.copy(pos);
     this.packetAnchor.position.copy(pos);
-    if (!this.reducedMotion) this.halo.scale.setScalar(1 + Math.sin(time * 6) * 0.18);
+    if (!this.reducedMotion) {
+      const swell = 1 + 2.2 * (this.flash / FLASH_SECONDS);
+      this.halo.scale.setScalar((1 + Math.sin(time * 6) * 0.18) * swell);
+    }
   }
 
   private buildCards(step: SceneJourneyStep | null, key: string): void {

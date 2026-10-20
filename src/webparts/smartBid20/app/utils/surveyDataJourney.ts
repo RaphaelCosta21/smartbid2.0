@@ -22,12 +22,16 @@ import {
   DELIVERABLE_RULES,
   DeliverableVisual,
   IDataFormat,
+  IJourneyOverride,
+  JourneyEffectKind,
+  JOURNEY_OVERRIDES,
   JOURNEY_UI,
+  LINK_FORMAT_OVERRIDES,
   LINK_FORMATS,
   ROLE_CAPTIONS,
   STAGE_FORMATS,
 } from "../config/surveyDataFormats";
-import { ISpreadLinkRef, ISpreadNode, traceDataRoute } from "./surveySpreadGraph";
+import { ISpreadLinkRef, ISpreadNode, traceDataRoute, tracePathTo } from "./surveySpreadGraph";
 import { getGlossaryTerm, protocolsForLink } from "./surveyGlossary";
 
 export type JourneyStepKind =
@@ -75,6 +79,8 @@ export interface IJourneyStep {
   arriveReverse?: boolean;
   /** Origin in the GNSS constellation. */
   satellites?: boolean;
+  /** Physical phenomenon the 3D scene illustrates on this step. */
+  effect?: JourneyEffectKind;
   format: IJourneyFormat;
   deliverables?: IJourneyDeliverable[];
   inferred: boolean;
@@ -146,6 +152,26 @@ const deliverableOf = (p: ISurveyPipelineNode): IJourneyDeliverable => {
   return { id: p.id, title: p.title, visual: rule.visual, format: rule.format };
 };
 
+const overrideOf = (equipmentId: string, dataType: SurveyDataType): IJourneyOverride | undefined => {
+  const byType = JOURNEY_OVERRIDES[equipmentId];
+  return byType ? byType[dataType] : undefined;
+};
+
+/** Cable label for a link kind, unless the equipment at one end makes it wrong. */
+const linkFormat = (
+  kind: SurveyLinkKind,
+  from?: ISurveyEquipment,
+  to?: ISurveyEquipment,
+): IDataFormat => {
+  const ends = [from, to];
+  for (let i = 0; i < ends.length; i++) {
+    const e = ends[i];
+    const o = e ? LINK_FORMAT_OVERRIDES[e.id] : undefined;
+    if (o && o[kind]) return o[kind] as IDataFormat;
+  }
+  return LINK_FORMATS[kind];
+};
+
 /** One step per hop from the data's origin to the client deliverables, or null for unknown nodes. */
 export function buildDataJourney(
   sourceNodeId: string,
@@ -154,8 +180,8 @@ export function buildDataJourney(
 ): IDataJourney | null {
   const nodeById: Record<string, ISpreadNode> = {};
   ctx.nodes.forEach((n) => (nodeById[n.id] = n));
-  const src = nodeById[sourceNodeId];
-  if (!src) return null;
+  const clicked = nodeById[sourceNodeId];
+  if (!clicked) return null;
   const linkByKey: Record<string, ISpreadLinkRef> = {};
   ctx.links.forEach((l) => (linkByKey[l.key] = l));
   const eqOf = (nodeId: string): ISurveyEquipment | undefined =>
@@ -164,9 +190,30 @@ export function buildDataJourney(
   const zoneOf = (nodeId: string): string | null =>
     nodeById[nodeId] ? nodeById[nodeId].zoneId : null;
 
-  const origin = DATA_ORIGINS[dataType];
-  const payload = DATA_SAMPLES[dataType];
-  const typeName = DATA_TYPE_NAMES[dataType];
+  // An antenna only captures the radio signal: the digital message is born in the receiver it feeds.
+  let src = clicked;
+  let antenna: { id: string; link: ISpreadLinkRef } | null = null;
+  const clickedEq = eqOf(clicked.id);
+  if (clickedEq && clickedEq.dataRole === "rf-frontend") {
+    for (let i = 0; i < ctx.links.length && !antenna; i++) {
+      const l = ctx.links[i];
+      if (l.kind !== "rf") continue;
+      const other = l.from === clicked.id ? l.to : l.to === clicked.id ? l.from : null;
+      const otherEq = other ? eqOf(other) : undefined;
+      if (other && otherEq && otherEq.dataRole === "source" && nodeById[other]) {
+        src = nodeById[other];
+        antenna = { id: clicked.id, link: l };
+      }
+    }
+  }
+
+  const override = overrideOf(src.equipmentId, dataType);
+  const origin = (override && override.origin) || DATA_ORIGINS[dataType];
+  // After the source has acted, wiring and downstream use can follow another data type.
+  const routeType = (override && override.continueAs) || dataType;
+  const typeName = DATA_TYPE_NAMES[routeType];
+  /** What the data looks like leaving the last equipment; some equipment changes it. */
+  let current: IDataFormat = (override && override.payload) || DATA_SAMPLES[dataType];
   const steps: IJourneyStep[] = [];
   let partial = false;
 
@@ -180,7 +227,7 @@ export function buildDataJourney(
     const toEq = eqOf(toId);
     const protocols = protocolsForLink(link.kind, fromEq, toEq);
     const names = termNames(protocols);
-    const base = LINK_FORMATS[link.kind];
+    const base = linkFormat(link.kind, fromEq, toEq);
     const carrier = compose((lang) =>
       names ? `${base.label[lang]} · ${names}` : base.label[lang],
     );
@@ -231,8 +278,7 @@ export function buildDataJourney(
   };
 
   // Satellite-born data enters through an RF front end (antenna) wired to the receiver.
-  let antenna: { id: string; link: ISpreadLinkRef } | null = null;
-  if (origin.satellites) {
+  if (!antenna && origin.satellites) {
     for (let i = 0; i < ctx.links.length && !antenna; i++) {
       const l = ctx.links[i];
       if (l.kind !== "rf") continue;
@@ -242,59 +288,70 @@ export function buildDataJourney(
     }
   }
 
+  // A phenomenon with a visual plays over the whole vessel; rooms open once equipment acts on it.
+  const overview = !!origin.satellites || !!origin.effect;
   steps.push({
     id: "origin",
     kind: "origin",
     title: origin.title,
     caption: origin.caption,
-    zoneId: origin.satellites ? null : src.zoneId,
-    nodeId: origin.satellites ? undefined : src.id,
+    zoneId: overview ? null : src.zoneId,
+    nodeId: overview ? undefined : src.id,
     satellites: !!origin.satellites,
+    effect: origin.effect,
     format: toFormat(origin.format),
     inferred: true,
   });
 
+  const srcEq = eqOf(src.id);
+  const srcCaption =
+    override && override.caption
+      ? override.caption
+      : srcEq && srcEq.dataRole === "rf-frontend"
+        ? ROLE_CAPTIONS["rf-frontend"]
+        : compose((lang) => `${ROLE_CAPTIONS.source[lang]} (${current.label[lang]})`);
   if (antenna) {
     const a = antenna;
     nodeStep(a.id, ROLE_CAPTIONS["rf-frontend"], toFormat(origin.format));
     cableStep(a.id, src.id, a.link, origin.format);
-    nodeStep(
-      src.id,
-      compose((lang) => `${ROLE_CAPTIONS.source[lang]} (${payload.label[lang]})`),
-      toFormat(payload),
-      a.link,
-      a.id,
-    );
+    nodeStep(src.id, srcCaption, toFormat(current), a.link, a.id);
   } else {
-    nodeStep(
-      src.id,
-      compose((lang) => `${ROLE_CAPTIONS.source[lang]} (${payload.label[lang]})`),
-      toFormat(payload),
-    );
+    nodeStep(src.id, srcCaption, toFormat(current));
   }
 
+  /** One hop: the cable out of `fromId`, then the equipment it arrives at. */
+  const hop = (fromId: string, toId: string, link: ISpreadLinkRef): void => {
+    cableStep(fromId, toId, link, current);
+    const toEq = eqOf(toId);
+    const role = toEq ? toEq.dataRole : undefined;
+    const toOverride = toEq ? overrideOf(toEq.id, dataType) : undefined;
+    if (toOverride && toOverride.payload) current = toOverride.payload;
+    nodeStep(
+      toId,
+      compose((lang) => {
+        const text =
+          toOverride && toOverride.caption
+            ? toOverride.caption[lang]
+            : role
+              ? ROLE_CAPTIONS[role][lang]
+              : "";
+        return `${JOURNEY_UI.arrives[lang]} ${labelOf(toId)}. ${text}`.trim();
+      }),
+      toFormat(current),
+      link,
+      fromId,
+    );
+  };
+
   const route = traceDataRoute(src, ctx.nodes, ctx.links, ctx.equipmentById, ctx.pipeline, [
-    dataType,
+    routeType,
   ]);
   const path = route.path;
   if (!path) partial = true;
   if (path) {
     for (let i = 0; i < path.nodeIds.length - 1; i++) {
-      const fromId = path.nodeIds[i];
-      const toId = path.nodeIds[i + 1];
       const link = linkByKey[path.linkKeys[i]];
-      if (!link) continue;
-      cableStep(fromId, toId, link, payload);
-      const role = eqOf(toId) ? eqOf(toId)!.dataRole : undefined;
-      nodeStep(
-        toId,
-        compose((lang) =>
-          `${JOURNEY_UI.arrives[lang]} ${labelOf(toId)}. ${role ? ROLE_CAPTIONS[role][lang] : ""}`.trim(),
-        ),
-        toFormat(payload),
-        link,
-        fromId,
-      );
+      if (link) hop(path.nodeIds[i], path.nodeIds[i + 1], link);
     }
   }
 
@@ -310,28 +367,55 @@ export function buildDataJourney(
     .slice()
     .sort((a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage));
   let lastZone = zoneOf(lastNodeId);
-  chain
-    .filter((p) => p.stage === "software" || p.stage === "storage")
-    .forEach((p) => {
-      const host = hostNode(p.hostEquipmentId);
-      if (host) lastZone = host.zoneId;
-      const stage = p.stage === "software" ? STAGE_FORMATS.software : STAGE_FORMATS.storage;
-      steps.push({
-        id: `${p.stage}:${p.id}`,
-        kind: p.stage === "software" ? "software" : "storage",
-        title: same(p.title),
-        caption: p.description ? same(p.description) : stage.label,
-        zoneId: host ? host.zoneId : lastZone,
-        nodeId: host ? host.id : undefined,
-        format: {
-          label: stage.label,
-          sample: payload.sample,
-          decodable: !!payload.decodable,
-          termIds: uniq((stage.termIds || []).concat(payload.termIds || [])),
-        },
-        inferred: !p.validated,
-      });
+  let prevSoftware: ISurveyPipelineNode | null = null;
+  let prevHost: ISpreadNode | undefined;
+  const stageSteps = chain.filter((p) => p.stage === "software" || p.stage === "storage");
+  for (let i = 0; i < stageSteps.length; i++) {
+    const p = stageSteps[i];
+    const host = hostNode(p.hostEquipmentId);
+    // Software fed by the previous one on another computer: show the wiring between them.
+    if (
+      p.stage === "software" &&
+      host &&
+      prevSoftware &&
+      prevHost &&
+      prevHost.id !== host.id &&
+      (prevSoftware.feeds || []).indexOf(p.id) >= 0
+    ) {
+      const wire = tracePathTo(ctx.links, prevHost.id, host.equipmentId);
+      if (wire) {
+        for (let k = 0; k < wire.nodeIds.length - 1; k++) {
+          const link = linkByKey[wire.linkKeys[k]];
+          if (link) hop(wire.nodeIds[k], wire.nodeIds[k + 1], link);
+        }
+      }
+    }
+    if (host) lastZone = host.zoneId;
+    const stage = p.stage === "software" ? STAGE_FORMATS.software : STAGE_FORMATS.storage;
+    const base = p.description ? same(p.description) : stage.label;
+    steps.push({
+      id: `${p.stage}:${p.id}`,
+      kind: p.stage === "software" ? "software" : "storage",
+      title: same(p.title),
+      caption:
+        p.hostEquipmentId && !host
+          ? compose((lang) => `${base[lang]} ${JOURNEY_UI.hostMissing[lang]}`)
+          : base,
+      zoneId: host ? host.zoneId : lastZone,
+      nodeId: host ? host.id : undefined,
+      format: {
+        label: stage.label,
+        sample: current.sample,
+        decodable: !!current.decodable,
+        termIds: uniq((stage.termIds || []).concat(current.termIds || [])),
+      },
+      inferred: !p.validated,
     });
+    if (p.stage === "software") {
+      prevSoftware = p;
+      prevHost = host;
+    }
+  }
   chain
     .filter((p) => p.stage === "processing")
     .forEach((p) => {
@@ -398,6 +482,8 @@ export function listJourneys(nodeId: string, ctx: IJourneyContext): IJourneyOpti
   const options: IJourneyOption[] = [];
   const add = (src: ISpreadNode, dataType: SurveyDataType): void => {
     const key = `${src.id}|${dataType}`;
+    const skipped = overrideOf(src.equipmentId, dataType);
+    if (skipped && skipped.skip) return;
     if (options.length >= MAX_OPTIONS || options.some((o) => o.key === key)) return;
     options.push({
       key,

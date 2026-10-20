@@ -12,10 +12,7 @@ import {
   AlertTriangle,
   Scale,
   Compass,
-  GraduationCap,
-  Sparkles,
   BookOpen,
-  Pause,
   FlaskConical,
   Route,
   SkipBack,
@@ -79,21 +76,16 @@ export interface SurveyJourneyView {
   sample?: string;
   decodable: boolean;
   inferred: boolean;
-  playing: boolean;
-  /** Playback rate (0.5, 1, 2). */
-  speed: number;
   /** CSS colour of the travelling packet. */
   color: string;
   labels: {
     typical: string;
     decode: string;
-    play: string;
-    pause: string;
     back: string;
     next: string;
     finish: string;
     stop: string;
-    speed: string;
+    simulated: string;
   };
 }
 
@@ -114,10 +106,6 @@ interface SurveySystemSceneProps {
   /** BID gap mode is only usable once a BID is selected. */
   gapAvailable: boolean;
   onModeChange: (mode: SceneOverlay) => void;
-  /** Learning missions launcher (hidden when omitted). */
-  onOpenMissions?: () => void;
-  /** Natural-language ask launcher (hidden when omitted). */
-  onOpenAsk?: () => void;
   /** Survey glossary launcher (hidden when omitted). */
   onOpenGlossary?: () => void;
   /** A cable was clicked (link or trunk key). */
@@ -135,12 +123,8 @@ interface SurveySystemSceneProps {
   journey?: SurveyJourneyView | null;
   onJourneyStep?: (delta: number) => void;
   onJourneyJump?: (index: number) => void;
-  onJourneyTogglePlay?: () => void;
-  onJourneySpeed?: () => void;
   onJourneyStop?: () => void;
   onJourneyDecode?: (sentence: string) => void;
-  /** The packet finished a step (SceneJourneyStep key). */
-  onJourneyStepEnd?: (key: string) => void;
 }
 
 /** Node labels: full up to FULL_LABEL_MAX nodes, compact up to COMPACT_LABEL_MAX, then hover-only. */
@@ -196,8 +180,6 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     mode,
     gapAvailable,
     onModeChange,
-    onOpenMissions,
-    onOpenAsk,
     onOpenGlossary,
     onZoneSelect,
     onNodeSelect,
@@ -208,8 +190,6 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     journey = null,
     onJourneyStep,
     onJourneyJump,
-    onJourneyTogglePlay,
-    onJourneySpeed,
     onJourneyStop,
     onJourneyDecode,
   } = props;
@@ -222,6 +202,8 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   const [supported] = React.useState(isWebGLAvailable);
   const [hotZoneId, setHotZoneId] = React.useState<string | null>(null);
   const [linesOn, setLinesOn] = React.useState(true);
+  /** Live numbers of the physical effect on the current journey step. */
+  const [readout, setReadout] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!supported || !hostRef.current) return undefined;
@@ -261,10 +243,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
         setHotZoneId(zoneOfPick(pick));
       },
       onInteract: () => latest.current.onInteract(),
-      onJourneyStepEnd: (key) => {
-        const p = latest.current;
-        if (p.onJourneyStepEnd) p.onJourneyStepEnd(key);
-      },
+      onJourneyReadout: setReadout,
     });
     apiRef.current = api;
     Object.keys(labelEls.current).forEach((k) =>
@@ -276,8 +255,6 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
     api.setFocus(latest.current.focus);
     api.setNodeStates(latest.current.nodeStates);
     api.setJourney(latest.current.journeyStep || null);
-    const j = latest.current.journey;
-    api.setJourneyPlayback(!!j && j.playing, j ? j.speed : 1);
     return () => {
       apiRef.current = null;
       api.dispose();
@@ -306,11 +283,6 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
   React.useEffect(() => {
     apiRef.current?.setJourney(journeyStep);
   }, [journeyStep]);
-  const journeyPlaying = !!journey && journey.playing;
-  const journeySpeed = journey ? journey.speed : 1;
-  React.useEffect(() => {
-    apiRef.current?.setJourneyPlayback(journeyPlaying, journeySpeed);
-  }, [journeyPlaying, journeySpeed]);
 
   const registerLabel = (key: string) => (el: HTMLDivElement | null) => {
     if (el) labelEls.current[key] = el;
@@ -518,20 +490,6 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
             <Play size={11} /> Guided tour
           </button>
         )}
-        {onOpenAsk && !tour && (
-          <button className={styles.auxButton} onClick={onOpenAsk} title="Ask about this spread">
-            <Sparkles size={11} /> Ask
-          </button>
-        )}
-        {onOpenMissions && !tour && (
-          <button
-            className={styles.auxButton}
-            onClick={onOpenMissions}
-            title="Guided learning missions"
-          >
-            <GraduationCap size={11} /> Learn
-          </button>
-        )}
         {onOpenGlossary && !tour && (
           <button
             className={styles.auxButton}
@@ -573,6 +531,12 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
             <p className={styles.tourCaption}>
               <GlossaryText text={journey.caption} />
             </p>
+            {readout && (
+              <div className={styles.journeyReadout}>
+                <span>{readout}</span>
+                <span className={styles.journeyTypical}>{journey.labels.simulated}</span>
+              </div>
+            )}
             <div className={styles.player}>
               <button
                 className={styles.playerBtn}
@@ -585,14 +549,6 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
               </button>
               <button
                 className={`${styles.playerBtn} ${styles.playerMain}`}
-                onClick={onJourneyTogglePlay}
-                aria-label={journey.playing ? journey.labels.pause : journey.labels.play}
-                title={journey.playing ? journey.labels.pause : journey.labels.play}
-              >
-                {journey.playing ? <Pause size={14} /> : <Play size={14} />}
-              </button>
-              <button
-                className={styles.playerBtn}
                 onClick={() => onJourneyStep && onJourneyStep(1)}
                 aria-label={
                   journey.step + 1 === journey.total ? journey.labels.finish : journey.labels.next
@@ -610,7 +566,7 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
                     aria-label={`${i + 1}/${journey.total}`}
                     className={`${styles.segment} ${i < journey.step ? styles.segmentDone : ""} ${
                       i === journey.step ? styles.segmentActive : ""
-                    } ${i === journey.step && journey.playing ? styles.segmentPlaying : ""}`}
+                    }`}
                     onClick={() => onJourneyJump && onJourneyJump(i)}
                   />
                 ))}
@@ -618,14 +574,6 @@ const SurveySystemScene: React.FC<SurveySystemSceneProps> = (props) => {
               <span className={styles.playerCount}>
                 {journey.step + 1}/{journey.total}
               </span>
-              <button
-                className={styles.speedBtn}
-                onClick={onJourneySpeed}
-                title={journey.labels.speed}
-                aria-label={`${journey.labels.speed} ${journey.speed}×`}
-              >
-                {journey.speed}×
-              </button>
               {journey.sample && journey.decodable && onJourneyDecode && (
                 <button
                   className={styles.journeyDecode}
