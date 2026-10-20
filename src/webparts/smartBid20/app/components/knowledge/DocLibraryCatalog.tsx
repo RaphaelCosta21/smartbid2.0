@@ -2132,7 +2132,8 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
             </div>
             <div className={styles.modalBody}>
               <p className={styles.confirmText}>
-                Move {moveItems.length === 1 ? "this document" : "these documents"}{" "}
+                Move{" "}
+                {moveItems.length === 1 ? "this document" : "these documents"}{" "}
                 to <strong>{moveTarget.label}</strong>?
               </p>
               <ul className={styles.moveFileList}>
@@ -2140,15 +2141,17 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
                   <li key={item.id} className={styles.moveFileItem}>
                     {item.fileName}
                     {moveErrors[item.id] && (
-                      <div className={styles.dupWarning}>{moveErrors[item.id]}</div>
+                      <div className={styles.dupWarning}>
+                        {moveErrors[item.id]}
+                      </div>
                     )}
                   </li>
                 ))}
               </ul>
               <div className={styles.moveWarning}>
-                All catalog metadata is erased on move, including anything already
-                filled in (Title, Type, Group, Manufacturer, Model, Keywords,
-                Revision and Description). Fill it in again on the{" "}
+                All catalog metadata is erased on move, including anything
+                already filled in (Title, Type, Group, Manufacturer, Model,
+                Keywords, Revision and Description). Fill it in again on the{" "}
                 {moveTarget.label} page.
               </div>
             </div>
