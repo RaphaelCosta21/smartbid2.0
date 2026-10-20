@@ -4,6 +4,10 @@ import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import { usePageAccess } from "../hooks/usePageAccess";
 
 const FOLDER = `${SHAREPOINT_CONFIG.docLibrary.serverRelativeUrl}/${SHAREPOINT_CONFIG.docLibrary.folders.datasheets}`;
+const MOVE_TARGET = {
+  label: "Manuals & Catalogs",
+  folderServerRelativeUrl: `${SHAREPOINT_CONFIG.docLibrary.serverRelativeUrl}/${SHAREPOINT_CONFIG.docLibrary.folders.manualsCatalogs}`,
+};
 
 export const DatasheetsPage: React.FC = () => {
   const { canEdit: canManage } = usePageAccess();
@@ -15,6 +19,7 @@ export const DatasheetsPage: React.FC = () => {
       docTypeOptions={["Datasheet"]}
       defaultDocType="Datasheet"
       canManage={canManage}
+      moveTarget={MOVE_TARGET}
       icon={
         <svg
           width="28"

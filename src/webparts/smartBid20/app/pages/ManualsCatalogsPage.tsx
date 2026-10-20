@@ -4,6 +4,10 @@ import { SHAREPOINT_CONFIG } from "../config/sharepoint.config";
 import { usePageAccess } from "../hooks/usePageAccess";
 
 const FOLDER = `${SHAREPOINT_CONFIG.docLibrary.serverRelativeUrl}/${SHAREPOINT_CONFIG.docLibrary.folders.manualsCatalogs}`;
+const MOVE_TARGET = {
+  label: "Datasheets",
+  folderServerRelativeUrl: `${SHAREPOINT_CONFIG.docLibrary.serverRelativeUrl}/${SHAREPOINT_CONFIG.docLibrary.folders.datasheets}`,
+};
 
 export const ManualsCatalogsPage: React.FC = () => {
   const { canEdit: canManage } = usePageAccess();
@@ -15,6 +19,7 @@ export const ManualsCatalogsPage: React.FC = () => {
       docTypeOptions={["Manual", "Catalog"]}
       defaultDocType="Manual"
       canManage={canManage}
+      moveTarget={MOVE_TARGET}
       documentNotice="Documents and OMMs available in this library may not be the latest revision. Before use, consult the Engineering system or the supplier to confirm and obtain the most up-to-date version."
       icon={
         <svg

@@ -2,6 +2,7 @@ import * as React from "react";
 import {
   ArrowDownAZ,
   ArrowDownZA,
+  ArrowRightLeft,
   Info,
   LayoutGrid,
   LayoutList,
@@ -72,6 +73,12 @@ const DEFAULT_FIELD_LABELS: IDocLibraryFieldLabels = {
   allManufacturers: "All Manufacturers",
 };
 
+/** Sibling catalog folder that documents can be moved to from this page */
+export interface IDocLibraryMoveTarget {
+  label: string;
+  folderServerRelativeUrl: string;
+}
+
 export interface DocLibraryCatalogProps {
   title: string;
   icon: React.ReactNode;
@@ -83,6 +90,8 @@ export interface DocLibraryCatalogProps {
   fieldLabels?: Partial<IDocLibraryFieldLabels>;
   /** Pins every document to this Group; the sub-group stays free for the AI to fill. */
   lockedGroupName?: string;
+  /** Enables moving documents (single and multi-select) to another catalog folder. */
+  moveTarget?: IDocLibraryMoveTarget;
 }
 
 type ViewMode = "grid" | "list";
@@ -105,7 +114,7 @@ const EMPTY_META = (docType: DocCatalogType): IDocLibraryMetadata => ({
 });
 
 /** Maximum number of documents that can be selected for a bulk AI fill at once */
-const MAX_BULK_AI_SELECTION = 10;
+const MAX_BULK_SELECTION = 10;
 
 /** How many AI extraction/save calls run at the same time during a bulk fill */
 const BULK_AI_CONCURRENCY = 3;
@@ -463,6 +472,7 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
   documentNotice,
   fieldLabels,
   lockedGroupName,
+  moveTarget,
 }) => {
   const labels = React.useMemo(
     () => ({ ...DEFAULT_FIELD_LABELS, ...(fieldLabels || {}) }),
@@ -543,6 +553,13 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
   const [bulkRows, setBulkRows] = React.useState<IBulkAiRow[]>([]);
   const [bulkSaving, setBulkSaving] = React.useState(false);
 
+  // Move to the sibling folder (single and multi-select share one modal)
+  const [moveItems, setMoveItems] = React.useState<IDocLibraryItem[]>([]);
+  const [moveErrors, setMoveErrors] = React.useState<Record<number, string>>(
+    {},
+  );
+  const [moving, setMoving] = React.useState(false);
+
   const loadItems = React.useCallback(() => {
     setIsLoading(true);
     setError("");
@@ -571,6 +588,12 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
 
   const thumbFor = (item: IDocLibraryItem): string | undefined =>
     thumbs[item.fileName.toLowerCase()];
+
+  /** A Type from another page (e.g. a Datasheet left in Manuals) is dropped so an edit cannot save it by accident */
+  const typeForThisPage = (item: IDocLibraryItem): DocCatalogType | "" =>
+    docTypeOptions.indexOf(item.docType as DocCatalogType) >= 0
+      ? item.docType
+      : "";
 
   const groupName = (item: IDocLibraryItem): string =>
     groups.find((g) => g.id === item.groupId)?.name || "";
@@ -894,7 +917,7 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
     setEditSuggestion(null);
     setEditMeta({
       title: item.title,
-      docType: item.docType,
+      docType: typeForThisPage(item),
       groupId: item.groupId,
       subGroupId: item.subGroupId,
       manufacturer: item.manufacturer,
@@ -1038,6 +1061,49 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
       });
   };
 
+  // ─── Move to the sibling folder ───
+  const openMove = (list: IDocLibraryItem[]): void => {
+    if (!moveTarget || list.length === 0) return;
+    setMoveErrors({});
+    setMoveItems(list.slice(0, MAX_BULK_SELECTION));
+  };
+
+  const closeMove = (): void => {
+    if (moving) return;
+    setMoveItems([]);
+    setMoveErrors({});
+  };
+
+  const confirmMove = async (): Promise<void> => {
+    if (!moveTarget || moving || moveItems.length === 0) return;
+    setMoving(true);
+    const errors: Record<number, string> = {};
+    // One at a time: moves inside the same library can lock each other.
+    for (let i = 0; i < moveItems.length; i++) {
+      const item = moveItems[i];
+      try {
+        await DocLibraryCatalogService.moveToFolder(
+          item.fileServerRelativeUrl,
+          item.fileName,
+          moveTarget.folderServerRelativeUrl,
+        );
+      } catch (err) {
+        console.error("Move failed:", err);
+        errors[item.id] =
+          err instanceof Error && err.message
+            ? err.message
+            : "Could not move the file.";
+      }
+    }
+    setMoving(false);
+    const failed = moveItems.filter((i) => errors[i.id]);
+    setSelectedIds(new Set(failed.map((i) => i.id)));
+    setSelectionWarning("");
+    setMoveItems(failed);
+    setMoveErrors(errors);
+    loadItems();
+  };
+
   const keywordList = (kw: string): string[] =>
     kw
       .split(",")
@@ -1052,9 +1118,9 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
         next.delete(id);
         setSelectionWarning("");
       } else {
-        if (next.size >= MAX_BULK_AI_SELECTION) {
+        if (next.size >= MAX_BULK_SELECTION) {
           setSelectionWarning(
-            `You can select up to ${MAX_BULK_AI_SELECTION} documents at a time.`,
+            `You can select up to ${MAX_BULK_SELECTION} documents at a time.`,
           );
           return prev;
         }
@@ -1075,11 +1141,11 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
       setSelectionWarning("");
       return;
     }
-    const capped = filteredItems.slice(0, MAX_BULK_AI_SELECTION);
+    const capped = filteredItems.slice(0, MAX_BULK_SELECTION);
     setSelectedIds(new Set(capped.map((i) => i.id)));
     setSelectionWarning(
-      filteredItems.length > MAX_BULK_AI_SELECTION
-        ? `Only the first ${MAX_BULK_AI_SELECTION} documents were selected (limit reached).`
+      filteredItems.length > MAX_BULK_SELECTION
+        ? `Only the first ${MAX_BULK_SELECTION} documents were selected (limit reached).`
         : "",
     );
   };
@@ -1157,7 +1223,7 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
         item,
         meta: {
           title: item.title,
-          docType: item.docType,
+          docType: typeForThisPage(item),
           groupId: item.groupId,
           subGroupId: item.subGroupId,
           manufacturer: item.manufacturer,
@@ -1539,6 +1605,16 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
                     >
                       ✏️
                     </button>
+                    {moveTarget && (
+                      <button
+                        className={styles.actionBtn}
+                        onClick={() => openMove([item])}
+                        title={`Move to ${moveTarget.label}`}
+                        aria-label={`Move to ${moveTarget.label}`}
+                      >
+                        <ArrowRightLeft size={14} />
+                      </button>
+                    )}
                     <button
                       className={`${styles.actionBtn} ${styles.deleteBtn}`}
                       onClick={() => setDeleteItem(item)}
@@ -1572,6 +1648,18 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
                 >
                   <Sparkles size={15} /> Run AI on {selectedIds.size} selected
                 </button>
+                {moveTarget && (
+                  <button
+                    className={styles.aiExtractBtn}
+                    onClick={() =>
+                      openMove(items.filter((i) => selectedIds.has(i.id)))
+                    }
+                    disabled={selectedIds.size === 0}
+                  >
+                    <ArrowRightLeft size={15} /> Move {selectedIds.size} to{" "}
+                    {moveTarget.label}
+                  </button>
+                )}
                 <button
                   className={styles.btnSecondary}
                   onClick={clearSelection}
@@ -1591,7 +1679,7 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
                         type="checkbox"
                         checked={allVisibleSelected}
                         onChange={toggleSelectAllVisible}
-                        title={`Select up to ${MAX_BULK_AI_SELECTION} for bulk AI fill`}
+                        title={`Select up to ${MAX_BULK_SELECTION} for bulk actions`}
                       />
                     </th>
                   )}
@@ -1654,6 +1742,16 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
                             >
                               ✏️
                             </button>
+                            {moveTarget && (
+                              <button
+                                className={styles.actionBtn}
+                                onClick={() => openMove([item])}
+                                title={`Move to ${moveTarget.label}`}
+                                aria-label={`Move to ${moveTarget.label}`}
+                              >
+                                <ArrowRightLeft size={14} />
+                              </button>
+                            )}
                             <button
                               className={`${styles.actionBtn} ${styles.deleteBtn}`}
                               onClick={() => setDeleteItem(item)}
@@ -2010,6 +2108,68 @@ export const DocLibraryCatalog: React.FC<DocLibraryCatalogProps> = ({
                 }
               >
                 {bulkSaving ? "Saving…" : "Save All"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move Confirm (single and multi-select) */}
+      {moveTarget && moveItems.length > 0 && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modal} style={{ maxWidth: 480 }}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>
+                Move {moveItems.length === 1 ? "Document" : "Documents"}
+              </h3>
+              <button
+                className={styles.modalClose}
+                onClick={closeMove}
+                disabled={moving}
+              >
+                ✕
+              </button>
+            </div>
+            <div className={styles.modalBody}>
+              <p className={styles.confirmText}>
+                Move {moveItems.length === 1 ? "this document" : "these documents"}{" "}
+                to <strong>{moveTarget.label}</strong>?
+              </p>
+              <ul className={styles.moveFileList}>
+                {moveItems.map((item) => (
+                  <li key={item.id} className={styles.moveFileItem}>
+                    {item.fileName}
+                    {moveErrors[item.id] && (
+                      <div className={styles.dupWarning}>{moveErrors[item.id]}</div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <div className={styles.moveWarning}>
+                All catalog metadata is erased on move, including anything already
+                filled in (Title, Type, Group, Manufacturer, Model, Keywords,
+                Revision and Description). Fill it in again on the{" "}
+                {moveTarget.label} page.
+              </div>
+            </div>
+            <div className={styles.modalFooter}>
+              <button
+                className={styles.btnSecondary}
+                onClick={closeMove}
+                disabled={moving}
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.btnPrimary}
+                onClick={confirmMove}
+                disabled={moving}
+              >
+                {moving
+                  ? "Moving…"
+                  : Object.keys(moveErrors).length > 0
+                    ? "Retry"
+                    : "Move"}
               </button>
             </div>
           </div>

@@ -318,6 +318,47 @@ export class DocLibraryCatalogService {
       .update(DocLibraryCatalogService._mapMetadata(metadata));
   }
 
+  /**
+   * Move a file to another catalog folder and erase its catalog metadata: Type,
+   * Group and the other columns describe the old folder and must not carry over.
+   */
+  public static async moveToFolder(
+    fileServerRelativeUrl: string,
+    fileName: string,
+    destFolderServerRelativeUrl: string,
+  ): Promise<void> {
+    const web = SPService.sp.web as any;
+    const destUrl = `${destFolderServerRelativeUrl}/${fileName}`;
+    if (await web.getFileByServerRelativePath(destUrl).exists()) {
+      throw new Error(
+        `A document named "${fileName}" already exists in the destination folder.`,
+      );
+    }
+    await web
+      .getFileByServerRelativePath(fileServerRelativeUrl)
+      .moveByPath(destUrl, false);
+    // The item id is read again rather than assumed to survive the move.
+    const laf = await web
+      .getFileByServerRelativePath(destUrl)
+      .listItemAllFields.select("Id")();
+    await DocLibraryCatalogService._list.items
+      .getById((laf as { Id: number }).Id)
+      .update(
+        DocLibraryCatalogService._mapMetadata({
+          title: "",
+          docType: "",
+          groupId: "",
+          subGroupId: "",
+          category: "",
+          manufacturer: "",
+          model: "",
+          keywords: "",
+          description: "",
+          revision: "",
+        }),
+      );
+  }
+
   /** Delete a file by its server-relative URL */
   public static async deleteFile(fileServerRelativeUrl: string): Promise<void> {
     await SPService.sp.web
