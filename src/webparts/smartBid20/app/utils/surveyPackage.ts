@@ -67,7 +67,7 @@ export function buildScopeItemsFromPackage(
         equipmentOffer: [eq.manufacturer, eq.model].filter(Boolean).join(" "),
         partNumber: eq.partNumber,
         qtyOperational: line.qty,
-        qtySpare: 0,
+        qtySpare: line.qtySpare || 0,
         needsCertification: false,
         comments: [
           line.vesselSupplied ? "Vessel supplied - not priced" : "",

@@ -76,12 +76,20 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
     considered ? priced(lines).filter((l) => considered[l.equipmentId]).length : 0;
   const allLines: ISurveySpreadZone["lines"] = [];
   spread.zones.forEach((z) => z.lines.forEach((l) => allLines.push(l)));
+  const isPackage = spread.kind === "package";
+  const addAllLabel = isPackage ? "ADD ALL PACKAGES" : "ADD FULL SPREAD";
 
   return (
     <div className={styles.panel}>
       <span className={styles.eyebrow}>
-        SPREAD TEMPLATE{spread.drawingNo ? ` · DWG ${spread.drawingNo}` : ""}
-        {spread.revision ? ` REV ${spread.revision}` : ""}
+        {isPackage ? (
+          "STANDARD PACKAGES"
+        ) : (
+          <>
+            SPREAD TEMPLATE{spread.drawingNo ? ` · DWG ${spread.drawingNo}` : ""}
+            {spread.revision ? ` REV ${spread.revision}` : ""}
+          </>
+        )}
       </span>
       <h3 className={styles.title}>{spread.title}</h3>
       {considered && bidNumber && (
@@ -147,8 +155,12 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
                             <span className={styles.lineQty}>×{line.qty}</span>
                             <span className={styles.lineCopy}>
                               <span className={styles.lineTitle}>{titleOf(line.equipmentId)}</span>
-                              {line.qtyLabel && (
-                                <span className={styles.lineNote}>{line.qtyLabel}</span>
+                              {(line.qtyLabel || !!line.qtySpare) && (
+                                <span className={styles.lineNote}>
+                                  {[line.qtyLabel, line.qtySpare ? `+${line.qtySpare} spare` : ""]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </span>
                               )}
                             </span>
                             {offCategory && <span className={styles.categoryTag}>{offCategory}</span>}
@@ -261,7 +273,7 @@ export const SurveySpreadPanel: React.FC<SurveySpreadPanelProps> = ({
 
       <button className={styles.addSpread} onClick={onAddSpread}>
         <PackagePlus size={13} />{" "}
-        {bidNumber ? `ADD FULL SPREAD TO ${bidNumber} PACKAGE` : "ADD FULL SPREAD TO PACKAGE"}
+        {bidNumber ? `${addAllLabel} TO ${bidNumber} PACKAGE` : `${addAllLabel} TO PACKAGE`}
       </button>
     </div>
   );

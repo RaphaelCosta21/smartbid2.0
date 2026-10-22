@@ -59,12 +59,26 @@
   }
 }
 
-.spreadPanel {
+.leftColumn {
   position: absolute;
   left: 0;
   top: 0;
+  bottom: 0;
   z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   width: 287px;
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+}
+
+.spreadPanel {
+  flex: 0 1 auto;
+  min-height: 0;
   max-height: 42%;
   overflow-y: auto;
   padding: 14px 16px;
@@ -93,8 +107,11 @@
 }
 
 @media (max-width: 900px) {
-  .spreadPanel {
+  .leftColumn {
     width: 100%;
+  }
+
+  .spreadPanel {
     max-height: 30%;
   }
 }

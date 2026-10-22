@@ -2,6 +2,7 @@ import * as React from "react";
 import { X, Radar } from "lucide-react";
 import { useSurveyStore } from "../../stores/useSurveyStore";
 import { buildFreeScene } from "../../utils/surveyFreeScene";
+import { resolveActiveSpread } from "../../utils/surveyPackages";
 import { SceneNodeStates } from "./survey3d/sceneTypes";
 import { EmptyState } from "../common/EmptyState";
 
@@ -78,6 +79,7 @@ export const SurveyComposition3D: React.FC<SurveyComposition3DProps> = ({
   const catalog = useSurveyStore((s) => s.catalog);
   const lines = useSurveyStore((s) => s.packageLines);
   const spreadId = useSurveyStore((s) => s.spreadId);
+  const standardPackageIds = useSurveyStore((s) => s.standardPackageIds);
 
   const [activeZoneId, setActiveZoneId] = React.useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
@@ -91,10 +93,10 @@ export const SurveyComposition3D: React.FC<SurveyComposition3DProps> = ({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const spread = React.useMemo(() => {
-    const spreads = catalog?.spreads || [];
-    return spreads.find((s) => s.id === spreadId) || spreads[0];
-  }, [catalog, spreadId]);
+  const spread = React.useMemo(
+    () => resolveActiveSpread(catalog, spreadId, standardPackageIds),
+    [catalog, spreadId, standardPackageIds],
+  );
 
   const selectedIds = React.useMemo(() => lines.map((l) => l.equipmentId), [lines]);
 

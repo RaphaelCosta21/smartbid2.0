@@ -210,6 +210,8 @@
     },
     {
       "id": "surface-mru",
+      "dataRole": "source",
+      "dataTypes": ["motion"],
       "familyId": "surface-navigation",
       "title": "Surface MRU / INS",
       "technology": "MOTION REFERENCE",
@@ -238,6 +240,8 @@
     },
     {
       "id": "subsea-heading-motion",
+      "dataRole": "source",
+      "dataTypes": ["heading", "motion"],
       "sceneShape": "subsea-ins",
       "familyId": "subsea-navigation",
       "title": "Subsea Heading & Motion Sensor",
@@ -297,6 +301,8 @@
     },
     {
       "id": "bathymetric-sensor",
+      "dataRole": "source",
+      "dataTypes": ["depth"],
       "familyId": "subsea-navigation",
       "title": "Bathymetric Sensor",
       "technology": "DEPTH MEASUREMENT",
@@ -325,6 +331,9 @@
     },
     {
       "id": "svp",
+      "dataRole": "source",
+      "dataTypes": ["sound-velocity"],
+      "sceneShape": "probe",
       "familyId": "subsea-navigation",
       "title": "Sound Velocity Profiler",
       "technology": "ACOUSTIC CALIBRATION",
@@ -438,6 +447,8 @@
     },
     {
       "id": "pipe-tracker",
+      "dataRole": "source",
+      "dataTypes": ["pipe-tracking"],
       "familyId": "inspection-pipeline",
       "title": "Pipe Tracker",
       "technology": "PIPELINE DETECTION",
@@ -792,7 +803,7 @@
       "familyId": "online-network",
       "title": "Online Master PC",
       "technology": "ONLINE SURVEY",
-      "aliases": ["Master PC", "Online PC"],
+      "aliases": ["Master PC", "Online PC", "NaviPac PC", "Computer - NAVIPAC"],
       "summary": "Primary online navigation computer.",
       "whatIsIt": "The main online survey workstation in the survey room.",
       "whatDoesItDo": "Runs online navigation, takes every sensor feed from the network and drives the helmsman displays.",
@@ -1908,7 +1919,7 @@
       "familyId": "comms-telemetry",
       "title": "Bridge Remote Helmsman",
       "technology": "REMOTE DISPLAY",
-      "aliases": ["Helmsman display"],
+      "aliases": ["Helmsman display", "Smart Remote - Bridge"],
       "summary": "Survey display on the bridge.",
       "whatIsIt": "Remote helmsman display installed on the bridge via switch #2.",
       "whatDoesItDo": "Shows the bridge team the vessel and ROV positions against the planned line.",
@@ -1931,7 +1942,7 @@
       "familyId": "comms-telemetry",
       "title": "ROV Remote Helmsman",
       "technology": "REMOTE DISPLAY",
-      "aliases": ["ROV helmsman"],
+      "aliases": ["ROV helmsman", "Smart Remote - ROV"],
       "summary": "Survey display for the ROV pilots.",
       "whatIsIt": "Remote helmsman display in ROV control via switch #3.",
       "whatDoesItDo": "Shows the ROV pilots their position, heading and targets.",
@@ -2000,7 +2011,7 @@
       "familyId": "rov-interface",
       "title": "INNOVA Subsea MUX",
       "technology": "FIBRE MULTIPLEXER",
-      "aliases": ["Subsea MUX"],
+      "aliases": ["Subsea MUX", "Subsea MUX with subsea cables"],
       "summary": "Subsea hub for all ROV survey sensors.",
       "whatIsIt": "Subsea multiplexer on the ROV.",
       "whatDoesItDo": "Collects every ROV survey sensor (gyro, MBES, DQ, TSS, cameras) and sends it up the fibre.",
@@ -2132,6 +2143,325 @@
       "sceneAnchor": "vessel-hull",
       "imageUrl": null, "datasheetUrl": null,
       "order": 14
+    },
+    {
+      "id": "attu",
+      "dataRole": "transport",
+      "dataTypes": ["time-sync"],
+      "sceneShape": "serial-box",
+      "familyId": "data-acquisition",
+      "title": "EIVA ATTU (Accurate Time Tagging Unit)",
+      "technology": "TIMING",
+      "aliases": ["ATTU", "Accurate Time Tagging Unit"],
+      "summary": "Time-tags serial sensor data for EIVA NaviSuite.",
+      "whatIsIt": "EIVA synchronised interface unit: a 1U rack-mounted PC with a 24-port RS-232 interface and a PPS input.",
+      "whatDoesItDo": "Time-tags every serial sensor message on arrival, so the timestamps survive distribution over the LAN to NaviPac and NaviScan.",
+      "partNumber": "100000003", "manufacturer": "EIVA", "model": "ATTU",
+      "divisions": ["SSR-Survey"],
+      "serviceLines": ["Survey", "Multibeam"],
+      "status": "Active",
+      "usedIn": ["Survey - Surface Navigation", "Hydrography"],
+      "connectsTo": ["C-Nav X1 Receiver", "Surface MRU / INS", "Online Master PC"],
+      "whereItFits": [{ "label": "Serial sensors + PPS" }, { "label": "ATTU", "equipmentId": "attu" }, { "label": "NaviPac / NaviScan" }],
+      "bidConsiderations": ["24 x RS-232 ports", "PPS input", "NaviSuite compatibility"],
+      "sceneAnchor": "survey-online",
+      "imageUrl": null, "datasheetUrl": null,
+      "order": 6
+    },
+    {
+      "id": "inertial-fusion2-pc",
+      "dataRole": "compute",
+      "sceneShape": "workstation",
+      "familyId": "online-network",
+      "title": "Inertial + Fusion 2 PC",
+      "technology": "ONLINE SURVEY",
+      "aliases": ["Computer - Inertial + FUSION2", "Fusion 2 PC", "Inertial PC"],
+      "summary": "Survey PC dedicated to Fusion 2 and the inertial interface.",
+      "whatIsIt": "Survey workstation, same hardware as the other survey PCs, dedicated to Sonardyne Fusion 2 and the inertial navigation interface.",
+      "whatDoesItDo": "Runs Fusion 2 for acoustic / inertial positioning and sends the solution to the NaviPac PC.",
+      "partNumber": "", "manufacturer": "", "model": "",
+      "divisions": ["SSR-Survey"],
+      "serviceLines": ["Survey", "Construction"],
+      "status": "Active",
+      "usedIn": ["Survey - Surface Navigation"],
+      "connectsTo": ["Online Master PC", "Sonardyne Fusion 2"],
+      "whereItFits": [{ "label": "Inertial / acoustic" }, { "label": "Inertial + Fusion 2 PC", "equipmentId": "inertial-fusion2-pc" }, { "label": "NaviPac PC" }],
+      "bidConsiderations": ["Fusion 2 license", "Interface"],
+      "sceneAnchor": "survey-online",
+      "imageUrl": null, "datasheetUrl": null,
+      "order": 13
+    },
+    {
+      "id": "data-processor-pc",
+      "dataRole": "compute",
+      "sceneShape": "workstation",
+      "familyId": "online-network",
+      "title": "Data Processor PC",
+      "technology": "DATA PROCESSING",
+      "aliases": ["Computer - Data Processor", "Processing PC"],
+      "summary": "Survey PC dedicated to offshore data processing.",
+      "whatIsIt": "Survey workstation, same hardware as the other survey PCs, dedicated to offshore data processing.",
+      "whatDoesItDo": "Runs NaviEdit / NaviModel to clean, QC and grid the logged data before delivery.",
+      "partNumber": "", "manufacturer": "", "model": "",
+      "divisions": ["SSR-Survey"],
+      "serviceLines": ["Survey", "Multibeam"],
+      "status": "Active",
+      "usedIn": ["Survey - Surface Navigation"],
+      "connectsTo": ["RAID Video Storage", "EIVA NaviEdit"],
+      "whereItFits": [{ "label": "RAID" }, { "label": "Data Processor PC", "equipmentId": "data-processor-pc" }, { "label": "Deliverables" }],
+      "bidConsiderations": ["Processing licenses", "Processing hours", "Storage"],
+      "sceneAnchor": "survey-online",
+      "imageUrl": null, "datasheetUrl": null,
+      "order": 14
+    },
+    {
+      "id": "online-survey-pc",
+      "dataRole": "compute",
+      "sceneShape": "workstation",
+      "familyId": "online-network",
+      "title": "Online Survey PC",
+      "technology": "ONLINE SURVEY",
+      "aliases": ["Computer - ONLINE"],
+      "summary": "Survey PC dedicated to the online picture.",
+      "whatIsIt": "Survey workstation in the online room, same hardware as the other survey PCs, dedicated to the online survey picture.",
+      "whatDoesItDo": "Shows and QCs the online navigation alongside the NaviPac PC.",
+      "partNumber": "", "manufacturer": "", "model": "",
+      "divisions": ["SSR-Survey"],
+      "serviceLines": ["Survey", "Construction"],
+      "status": "Active",
+      "usedIn": ["Survey - Surface Navigation"],
+      "connectsTo": ["Online Master PC", "Survey Online Monitors"],
+      "whereItFits": [{ "label": "NaviPac PC" }, { "label": "Online Survey PC", "equipmentId": "online-survey-pc" }, { "label": "Survey crew" }],
+      "bidConsiderations": ["Monitors", "Software license"],
+      "sceneAnchor": "survey-online",
+      "imageUrl": null, "datasheetUrl": null,
+      "order": 15
+    },
+    {
+      "id": "party-chief-pc",
+      "dataRole": "compute",
+      "sceneShape": "workstation",
+      "familyId": "online-network",
+      "title": "Party Chief PC",
+      "technology": "ONLINE SURVEY",
+      "aliases": ["Computer - Party Chief"],
+      "summary": "Workstation for the survey party chief.",
+      "whatIsIt": "Survey workstation, same hardware as the other survey PCs, used by the survey party chief.",
+      "whatDoesItDo": "Handles reporting, planning and project coordination on the survey network.",
+      "partNumber": "", "manufacturer": "", "model": "",
+      "divisions": ["SSR-Survey"],
+      "serviceLines": ["Survey"],
+      "status": "Active",
+      "usedIn": ["Survey - Surface Navigation"],
+      "connectsTo": ["Online Master PC"],
+      "whereItFits": [{ "label": "Survey network" }, { "label": "Party Chief PC", "equipmentId": "party-chief-pc" }, { "label": "Reports" }],
+      "bidConsiderations": ["Office software", "Internet access"],
+      "sceneAnchor": "survey-online",
+      "imageUrl": null, "datasheetUrl": null,
+      "order": 16
+    },
+    {
+      "id": "smart-remote-client",
+      "dataRole": "display",
+      "sceneShape": "monitor",
+      "familyId": "comms-telemetry",
+      "title": "Smart Remote - Client",
+      "technology": "REMOTE DISPLAY",
+      "aliases": ["Computer - Smart Remote - Client", "Client remote"],
+      "summary": "Survey display for the client representative.",
+      "whatIsIt": "Smart Remote computer installed for the client representative.",
+      "whatDoesItDo": "Mirrors the online survey picture so the client can follow operations live.",
+      "partNumber": "", "manufacturer": "", "model": "",
+      "divisions": ["SSR-Survey"],
+      "serviceLines": ["Survey", "Construction"],
+      "status": "Active",
+      "usedIn": ["Survey - Surface Navigation"],
+      "connectsTo": ["Online Master PC"],
+      "whereItFits": [{ "label": "NaviPac PC" }, { "label": "Smart Remote - Client", "equipmentId": "smart-remote-client" }, { "label": "Client rep" }],
+      "bidConsiderations": ["Display mounting", "Cable run"],
+      "sceneAnchor": "survey-online",
+      "imageUrl": null, "datasheetUrl": null,
+      "order": 12
+    },
+    {
+      "id": "smart-remote-engineer",
+      "dataRole": "display",
+      "sceneShape": "monitor",
+      "familyId": "comms-telemetry",
+      "title": "Smart Remote - Engineer",
+      "technology": "REMOTE DISPLAY",
+      "aliases": ["Computer - Smart Remote - Engineer", "Engineer remote"],
+      "summary": "Survey display for the on-board engineer.",
+      "whatIsIt": "Smart Remote computer installed for the on-board engineer.",
+      "whatDoesItDo": "Mirrors the online survey picture so the engineer can follow operations live.",
+      "partNumber": "", "manufacturer": "", "model": "",
+      "divisions": ["SSR-Survey"],
+      "serviceLines": ["Survey", "Construction"],
+      "status": "Active",
+      "usedIn": ["Survey - Surface Navigation"],
+      "connectsTo": ["Online Master PC"],
+      "whereItFits": [{ "label": "NaviPac PC" }, { "label": "Smart Remote - Engineer", "equipmentId": "smart-remote-engineer" }, { "label": "Engineer" }],
+      "bidConsiderations": ["Display mounting", "Cable run"],
+      "sceneAnchor": "survey-online",
+      "imageUrl": null, "datasheetUrl": null,
+      "order": 13
+    },
+    {
+      "id": "cnav-x1-license",
+      "familyId": "softwares",
+      "title": "C-Nav X1 License",
+      "technology": "CORRECTION SERVICE LICENSE",
+      "aliases": ["CNAV X1 License", "C-Nav subscription"],
+      "summary": "Correction service license for the C-Nav X1.",
+      "whatIsIt": "Subscription that unlocks the satellite-delivered C-Nav corrections on a C-Nav X1 receiver.",
+      "whatDoesItDo": "Enables corrected, high-accuracy positioning; one license per operational receiver.",
+      "partNumber": "", "manufacturer": "Oceaneering C-Nav", "model": "X1",
+      "divisions": ["SSR-Survey"],
+      "serviceLines": ["Survey", "Construction", "IMR"],
+      "status": "Active",
+      "usedIn": ["Survey - Surface Navigation", "Vessel Positioning"],
+      "connectsTo": ["C-Nav X1 Receiver"],
+      "whereItFits": [{ "label": "C-Nav X1" }, { "label": "C-Nav X1 License", "equipmentId": "cnav-x1-license" }, { "label": "Corrected position" }],
+      "bidConsiderations": ["One per receiver", "Subscription period"],
+      "sceneAnchor": "vessel",
+      "sceneShape": "software",
+      "imageUrl": null, "datasheetUrl": null,
+      "order": 7
+    },
+    {
+      "id": "navipac-license",
+      "familyId": "softwares",
+      "title": "EIVA NaviPac License",
+      "technology": "SOFTWARE LICENSE",
+      "aliases": ["NaviPac License", "EIVA Navipac License"],
+      "summary": "License for EIVA NaviPac.",
+      "whatIsIt": "License (dongle) for the EIVA NaviPac online navigation software.",
+      "whatDoesItDo": "Allows NaviPac to run on the NaviPac PC.",
+      "partNumber": "", "manufacturer": "EIVA", "model": "NaviPac",
+      "divisions": ["SSR-Survey"],
+      "serviceLines": ["Survey", "Construction"],
+      "status": "Active",
+      "usedIn": ["Survey - Surface Navigation"],
+      "connectsTo": ["EIVA NaviPac"],
+      "whereItFits": [{ "label": "NaviPac PC" }, { "label": "NaviPac License", "equipmentId": "navipac-license" }, { "label": "EIVA NaviPac", "equipmentId": "navipac" }],
+      "bidConsiderations": ["Dongle", "License period"],
+      "sceneAnchor": "vessel",
+      "sceneShape": "software",
+      "imageUrl": null, "datasheetUrl": null,
+      "order": 8
+    },
+    {
+      "id": "naviscan-naviedit-license",
+      "familyId": "softwares",
+      "title": "EIVA NaviScan / NaviEdit License",
+      "technology": "SOFTWARE LICENSE",
+      "aliases": ["NaviScan License", "NaviEdit License", "Eiva NaviScan/NaviEdit"],
+      "summary": "License for EIVA NaviScan and NaviEdit.",
+      "whatIsIt": "License (dongle) for the EIVA NaviScan acquisition and NaviEdit editing software.",
+      "whatDoesItDo": "Allows MBES acquisition and data editing on the survey PCs.",
+      "partNumber": "", "manufacturer": "EIVA", "model": "NaviScan / NaviEdit",
+      "divisions": ["SSR-Survey"],
+      "serviceLines": ["Survey", "Multibeam"],
+      "status": "Active",
+      "usedIn": ["Survey - Surface Navigation"],
+      "connectsTo": ["EIVA NaviScan", "EIVA NaviEdit"],
+      "whereItFits": [{ "label": "MBES / Processing PC" }, { "label": "NaviScan / NaviEdit License", "equipmentId": "naviscan-naviedit-license" }, { "label": "EIVA NaviScan", "equipmentId": "naviscan" }],
+      "bidConsiderations": ["Dongle", "License period"],
+      "sceneAnchor": "vessel",
+      "sceneShape": "software",
+      "imageUrl": null, "datasheetUrl": null,
+      "order": 9
+    },
+    {
+      "id": "mbes-frame",
+      "dataRole": "support",
+      "sceneShape": "coil-frame",
+      "familyId": "hydrography-imaging",
+      "title": "MBES Frame",
+      "technology": "MOUNTING",
+      "aliases": ["MBES mounting frame", "MBES bracket"],
+      "summary": "Mounting frame for the MBES heads on the ROV.",
+      "whatIsIt": "Mechanical frame that holds the multibeam heads on the ROV.",
+      "whatDoesItDo": "Keeps the heads at a fixed, surveyed offset and angle so the patch test calibration stays valid.",
+      "partNumber": "", "manufacturer": "", "model": "",
+      "divisions": ["SSR-Survey", "SSR-ROV"],
+      "serviceLines": ["Survey", "Multibeam"],
+      "status": "Active",
+      "usedIn": ["MBES Spread"],
+      "connectsTo": ["R2Sonic MBES Heads"],
+      "whereItFits": [{ "label": "ROV" }, { "label": "MBES Frame", "equipmentId": "mbes-frame" }, { "label": "MBES heads" }],
+      "bidConsiderations": ["ROV interface", "Head offsets (lever arms)"],
+      "sceneAnchor": "rov",
+      "imageUrl": null, "datasheetUrl": null,
+      "order": 6
+    },
+    {
+      "id": "kongsberg-m3",
+      "sceneShape": "sonar-head",
+      "familyId": "hydrography-imaging",
+      "title": "Kongsberg M3 Sonar",
+      "technology": "HIGH-RESOLUTION IMAGING SONAR",
+      "aliases": ["M3", "M3 Sonar", "High Resolution Sonar", "HR Sonar"],
+      "summary": "High-resolution multibeam imaging sonar.",
+      "whatIsIt": "Kongsberg M3 multibeam sonar mounted on the ROV for high-resolution imaging.",
+      "whatDoesItDo": "Images targets, structures and the seabed around the ROV, even in poor visibility.",
+      "partNumber": "", "manufacturer": "Kongsberg", "model": "M3",
+      "divisions": ["SSR-Survey", "SSR-ROV"],
+      "serviceLines": ["Survey", "IMR"],
+      "status": "Active",
+      "usedIn": ["MBES Spread", "Pipeline Inspection"],
+      "connectsTo": ["INNOVA Subsea MUX"],
+      "whereItFits": [{ "label": "ROV" }, { "label": "Kongsberg M3", "equipmentId": "kongsberg-m3" }, { "label": "Subsea MUX" }],
+      "bidConsiderations": ["ROV mounting", "Interface (Ethernet)", "Software"],
+      "sceneAnchor": "rov",
+      "imageUrl": null, "datasheetUrl": null,
+      "order": 7
+    },
+    {
+      "id": "pipe-tracker-frame",
+      "dataRole": "support",
+      "sceneShape": "coil-frame",
+      "familyId": "inspection-pipeline",
+      "title": "Pipe Tracker Frame",
+      "technology": "MOUNTING",
+      "aliases": ["Pipe tracker mounting frame"],
+      "summary": "Mounting frame for the pipe tracker on the ROV.",
+      "whatIsIt": "Mechanical frame that holds the pipe tracker coils on the ROV.",
+      "whatDoesItDo": "Keeps the coils at a known geometry below the ROV so depth of burial can be computed.",
+      "partNumber": "", "manufacturer": "", "model": "",
+      "divisions": ["SSR-Survey", "SSR-ROV"],
+      "serviceLines": ["Survey", "IMR"],
+      "status": "Active",
+      "usedIn": ["MBES Spread", "Pipeline Inspection"],
+      "connectsTo": ["Pipe Tracker"],
+      "whereItFits": [{ "label": "ROV" }, { "label": "Pipe Tracker Frame", "equipmentId": "pipe-tracker-frame" }, { "label": "Pipe Tracker" }],
+      "bidConsiderations": ["ROV interface", "Coil geometry"],
+      "sceneAnchor": "rov",
+      "imageUrl": null, "datasheetUrl": null,
+      "order": 8
+    },
+    {
+      "id": "rdom",
+      "dataRole": "transport",
+      "sceneShape": "rack",
+      "familyId": "rov-interface",
+      "title": "RDOM (Rapid Deployment Ocean Matrix)",
+      "technology": "FIBRE MULTIPLEXER",
+      "aliases": ["RDOM", "Rapid Deployment Ocean Matrix", "Ocean Matrix", "Innova Ocean Matrix"],
+      "summary": "Portable fibre-optic multiplexer for survey sensors.",
+      "whatIsIt": "Oceaneering SSR-Survey kit built on the Innova Ocean Matrix: a 19\" 4U rack-mounted topside unit in a transport case, paired with a one-atmosphere subsea unit rated to 4000 msw.",
+      "whatDoesItDo": "Stand-alone fibre-optic multiplexer and control solution that gives a large array of sensors a plug-and-play interface to any remotely operated system, with web-based control, software-resettable fuses and power and insulation monitoring.",
+      "partNumber": "1080191", "manufacturer": "Innova", "model": "Ocean Matrix",
+      "divisions": ["SSR-Survey", "SSR-ROV"],
+      "serviceLines": ["Survey", "Construction", "IMR"],
+      "status": "Active",
+      "usedIn": ["MBES Spread"],
+      "connectsTo": ["INNOVA Subsea MUX", "EIVA ATTU (Accurate Time Tagging Unit)", "Naviscan / MBES PC"],
+      "whereItFits": [{ "label": "ROV sensors" }, { "label": "Subsea MUX" }, { "label": "RDOM", "equipmentId": "rdom" }, { "label": "Survey PCs" }],
+      "bidConsiderations": ["Single-mode fibre in the umbilical", "7 x RS-232 + 4 x RS-232/485 + 6 x Ethernet", "1050 W DC power to sensors", "Subsea unit rated 4000 msw"],
+      "sceneAnchor": "survey-online",
+      "imageUrl": null, "datasheetUrl": null,
+      "order": 5
     }
   ],
   "systems": [
@@ -2867,6 +3197,437 @@
           "validated": false
         }
       ]
+    },
+    {
+      "id": "survey-surface-navigation",
+      "title": "Survey - Surface Navigation",
+      "drawingNo": "N/A",
+      "revision": "N/A",
+      "description": "Basic surface navigation package with operational and spare quantities. No one-line drawing: the cabling between items is inferred, not validated.",
+      "order": 3,
+      "kind": "package",
+      "categories": [
+        { "id": "topside", "title": "Topside" },
+        { "id": "infrastructure", "title": "Infrastructure" },
+        { "id": "software", "title": "Software & Licenses" }
+      ],
+      "zones": [
+        {
+          "id": "mast-area",
+          "title": "Mast Area",
+          "sceneAnchor": "mast",
+          "description": "Up on the mast, the two C-Nav X1 GNSS antennas receive satellite positioning and the C-Nav corrections for the dual receivers.",
+          "lines": [
+            { "equipmentId": "cnav-x1-antenna", "qty": 2, "category": "topside" }
+          ]
+        },
+        {
+          "id": "survey-online",
+          "title": "Survey Online",
+          "sceneAnchor": "survey-online",
+          "description": "The survey online room hosts the dual C-Nav X1 receivers, the surface MRU and the EIVA ATTU, which time-tags every serial feed before it reaches the dedicated survey PCs: NaviPac, Fusion 2, MBES acquisition, data processing, online, OMS and party chief, plus video recording and RAID storage.",
+          "lines": [
+            { "equipmentId": "cnav-x1-receiver", "qty": 2, "qtySpare": 2, "category": "topside" },
+            { "equipmentId": "surface-mru", "qty": 1, "qtySpare": 1, "category": "topside" },
+            { "equipmentId": "attu", "qty": 1, "qtySpare": 1, "category": "topside" },
+            { "equipmentId": "online-master-pc", "qty": 1, "qtySpare": 1, "category": "topside" },
+            { "equipmentId": "inertial-fusion2-pc", "qty": 1, "qtySpare": 1, "category": "topside" },
+            { "equipmentId": "naviscan-mbes-pc", "qty": 2, "qtySpare": 2, "category": "topside" },
+            { "equipmentId": "data-processor-pc", "qty": 1, "qtySpare": 1, "category": "topside" },
+            { "equipmentId": "online-survey-pc", "qty": 1, "category": "topside" },
+            { "equipmentId": "oms-pc", "qty": 1, "category": "topside" },
+            { "equipmentId": "party-chief-pc", "qty": 1, "category": "topside" },
+            { "equipmentId": "smart-remote-client", "qty": 1, "qtySpare": 1, "category": "topside" },
+            { "equipmentId": "smart-remote-engineer", "qty": 1, "qtySpare": 1, "category": "topside" },
+            { "equipmentId": "video-recorder", "qty": 1, "qtySpare": 1, "category": "topside" },
+            { "equipmentId": "raid-storage", "qty": 1, "qtySpare": 1, "category": "topside" },
+            { "equipmentId": "survey-online-monitors", "qty": 27, "category": "infrastructure" }
+          ]
+        },
+        {
+          "id": "bridge",
+          "title": "Bridge",
+          "sceneAnchor": "bridge",
+          "description": "On the bridge, the Smart Remote shows the officers the vessel position against the planned line.",
+          "lines": [
+            { "equipmentId": "bridge-remote-helmsman", "qty": 1, "qtySpare": 1, "category": "topside" }
+          ]
+        },
+        {
+          "id": "rov-control-room",
+          "title": "ROV Control Room",
+          "sceneAnchor": "rov-control",
+          "description": "In ROV control, the Smart Remote shows the pilots the online navigation picture.",
+          "lines": [
+            { "equipmentId": "rov-remote-helmsman", "qty": 1, "category": "topside" }
+          ]
+        },
+        {
+          "id": "licenses",
+          "title": "Software Licenses",
+          "sceneAnchor": "",
+          "description": "BID lines for the software licenses that run on the survey PCs. They are part of the scope but are not physical equipment, so they are not shown in 3D.",
+          "lines": [
+            { "equipmentId": "cnav-x1-license", "qty": 2, "category": "software" },
+            { "equipmentId": "navipac-license", "qty": 1, "category": "software" },
+            { "equipmentId": "naviscan-naviedit-license", "qty": 1, "category": "software" }
+          ]
+        }
+      ],
+      "links": [
+        { "from": "cnav-x1-antenna#1", "to": "cnav-x1-receiver#1", "kind": "rf" },
+        { "from": "cnav-x1-antenna#2", "to": "cnav-x1-receiver#2", "kind": "rf" },
+        { "from": "cnav-x1-receiver#1", "to": "attu", "kind": "data" },
+        { "from": "cnav-x1-receiver#2", "to": "attu", "kind": "data" },
+        { "from": "cnav-x1-receiver#1", "to": "attu", "kind": "timing", "cable": "PPS" },
+        { "from": "surface-mru", "to": "attu", "kind": "data" },
+        { "from": "attu", "to": "online-master-pc", "kind": "data" },
+        { "from": "inertial-fusion2-pc", "to": "online-master-pc", "kind": "data" },
+        { "from": "online-master-pc", "to": "naviscan-mbes-pc", "kind": "data" },
+        { "from": "online-master-pc", "to": "online-survey-pc", "kind": "data" },
+        { "from": "online-master-pc", "to": "oms-pc", "kind": "data" },
+        { "from": "online-master-pc", "to": "party-chief-pc", "kind": "data" },
+        { "from": "online-master-pc", "to": "video-recorder", "kind": "data" },
+        { "from": "video-recorder", "to": "raid-storage", "kind": "data" },
+        { "from": "naviscan-mbes-pc", "to": "raid-storage", "kind": "data" },
+        { "from": "raid-storage", "to": "data-processor-pc", "kind": "data" },
+        { "from": "online-master-pc", "to": "smart-remote-client", "kind": "data" },
+        { "from": "online-master-pc", "to": "smart-remote-engineer", "kind": "data" },
+        { "from": "online-master-pc", "to": "bridge-remote-helmsman", "kind": "data" },
+        { "from": "online-master-pc", "to": "rov-remote-helmsman", "kind": "data" },
+        { "from": "online-master-pc", "to": "survey-online-monitors", "kind": "video" }
+      ],
+      "pipeline": [
+        {
+          "id": "sw-navipac",
+          "title": "NaviPac Online Navigation",
+          "stage": "software",
+          "hostEquipmentId": "online-master-pc",
+          "description": "Combines the time-tagged position, motion and heading into the real-time navigation solution and logs it.",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity", "time-sync"],
+          "feeds": ["store-server"],
+          "displays": ["bridge-remote-helmsman", "rov-remote-helmsman", "smart-remote-client", "smart-remote-engineer", "survey-online-monitors"],
+          "validated": false
+        },
+        {
+          "id": "sw-naviscan",
+          "title": "NaviScan MBES Acquisition",
+          "stage": "software",
+          "hostEquipmentId": "naviscan-mbes-pc",
+          "description": "Logs the multibeam swaths with sound velocity, motion and heading applied in real time.",
+          "consumes": ["bathymetry", "sound-velocity", "motion", "heading", "position", "time-sync"],
+          "feeds": ["store-server"],
+          "displays": ["survey-online-monitors"],
+          "validated": false
+        },
+        {
+          "id": "sw-video",
+          "title": "Video Recording & Overlay",
+          "stage": "software",
+          "hostEquipmentId": "video-recorder",
+          "description": "Records the ROV camera channels with the survey data overlay and events.",
+          "consumes": ["video"],
+          "feeds": ["store-server"],
+          "displays": ["survey-online-monitors"],
+          "validated": false
+        },
+        {
+          "id": "store-server",
+          "title": "Project Data Storage",
+          "stage": "storage",
+          "hostEquipmentId": "raid-storage",
+          "description": "The RAID keeps raw navigation logs, MBES files and video until processing and delivery.",
+          "feeds": ["proc-naviedit", "proc-navimodel", "proc-eventing", "dlv-dpr", "dlv-calib"],
+          "validated": false
+        },
+        {
+          "id": "proc-naviedit",
+          "title": "NaviEdit Navigation & Sensor QC",
+          "stage": "processing",
+          "description": "Cleans and quality-checks navigation and sensor data offline.",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity", "bathymetry"],
+          "feeds": ["dlv-nav", "dlv-asbuilt", "proc-navimodel"],
+          "validated": false
+        },
+        {
+          "id": "proc-navimodel",
+          "title": "NaviModel Gridding & Charting",
+          "stage": "processing",
+          "description": "Builds the seabed terrain model, contours and charts from the cleaned soundings.",
+          "consumes": ["bathymetry", "sound-velocity", "motion", "heading"],
+          "feeds": ["dlv-mbes"],
+          "validated": false
+        },
+        {
+          "id": "proc-eventing",
+          "title": "Video Review & Eventing",
+          "stage": "processing",
+          "description": "Reviews the recorded video and logs inspection events and anomalies.",
+          "consumes": ["video"],
+          "feeds": ["dlv-video"],
+          "validated": false
+        },
+        {
+          "id": "dlv-dpr",
+          "title": "Daily Progress Report (DPR)",
+          "stage": "deliverable",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity", "bathymetry", "pipe-tracking", "video"],
+          "validated": false
+        },
+        {
+          "id": "dlv-nav",
+          "title": "Processed Navigation Data",
+          "stage": "deliverable",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-asbuilt",
+          "title": "As-built Position Report",
+          "stage": "deliverable",
+          "consumes": ["position", "heading", "depth", "acoustic-position"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-mbes",
+          "title": "MBES Bathymetry: DTM, XYZ & Charts",
+          "stage": "deliverable",
+          "consumes": ["bathymetry", "sound-velocity", "motion", "heading"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-video",
+          "title": "Inspection Video & Event Log",
+          "stage": "deliverable",
+          "consumes": ["video"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-calib",
+          "title": "Calibration Reports",
+          "stage": "deliverable",
+          "description": "USBL CASIUS, MBES patch test and gyro calibration.",
+          "consumes": ["acoustic-position", "heading", "motion", "bathymetry"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-final",
+          "title": "Final Survey Report",
+          "stage": "deliverable",
+          "validated": false
+        }
+      ]
+    },
+    {
+      "id": "mbes-spread",
+      "title": "MBES Spread",
+      "drawingNo": "N/A",
+      "revision": "N/A",
+      "description": "ROV multibeam package with operational and spare quantities. No one-line drawing: the cabling between items is inferred, not validated.",
+      "order": 4,
+      "kind": "package",
+      "categories": [
+        { "id": "subsea-rov", "title": "Subsea / ROV" },
+        { "id": "topside", "title": "Topside" }
+      ],
+      "zones": [
+        {
+          "id": "rov",
+          "title": "ROV",
+          "sceneAnchor": "rov",
+          "description": "On the ROV, the subsea MUX and its subsea cables collect the two MBES heads on their frame, the Mini SVS, the DQ, the SPRINT-Nav, the green laser, the Kongsberg M3 sonar and the pipe tracker on its frame.",
+          "lines": [
+            { "equipmentId": "r2sonic-heads", "qty": 2, "qtySpare": 1, "category": "subsea-rov" },
+            { "equipmentId": "mbes-frame", "qty": 1, "category": "subsea-rov" },
+            { "equipmentId": "mini-svs", "qty": 1, "qtySpare": 1, "category": "subsea-rov" },
+            { "equipmentId": "dq", "qty": 1, "qtySpare": 1, "category": "subsea-rov" },
+            { "equipmentId": "green-laser", "qty": 1, "qtySpare": 1, "category": "subsea-rov" },
+            { "equipmentId": "pipe-tracker", "qty": 1, "category": "subsea-rov" },
+            { "equipmentId": "pipe-tracker-frame", "qty": 1, "category": "subsea-rov" },
+            { "equipmentId": "subsea-heading-motion", "qty": 1, "qtySpare": 1, "category": "subsea-rov" },
+            { "equipmentId": "innova-subsea-mux", "qty": 1, "qtySpare": 1, "category": "subsea-rov" },
+            { "equipmentId": "kongsberg-m3", "qty": 1, "category": "subsea-rov" }
+          ]
+        },
+        {
+          "id": "survey-online",
+          "title": "Survey Online",
+          "sceneAnchor": "survey-online",
+          "description": "Topside, the RDOM receives the ROV fibre and hands the sensor data to the ATTU and to the MBES acquisition, Fusion 2 and data processing PCs.",
+          "lines": [
+            { "equipmentId": "rdom", "qty": 1, "category": "topside" },
+            { "equipmentId": "attu", "qty": 1, "category": "topside" },
+            { "equipmentId": "inertial-fusion2-pc", "qty": 1, "category": "topside" },
+            { "equipmentId": "naviscan-mbes-pc", "qty": 1, "category": "topside" },
+            { "equipmentId": "data-processor-pc", "qty": 1, "category": "topside" }
+          ]
+        }
+      ],
+      "links": [
+        { "from": "innova-subsea-mux", "to": "r2sonic-heads#1", "kind": "subsea" },
+        { "from": "innova-subsea-mux", "to": "r2sonic-heads#2", "kind": "subsea" },
+        { "from": "innova-subsea-mux", "to": "mini-svs", "kind": "subsea" },
+        { "from": "innova-subsea-mux", "to": "dq", "kind": "subsea" },
+        { "from": "innova-subsea-mux", "to": "green-laser", "kind": "subsea" },
+        { "from": "innova-subsea-mux", "to": "pipe-tracker", "kind": "subsea" },
+        { "from": "innova-subsea-mux", "to": "subsea-heading-motion", "kind": "subsea" },
+        { "from": "innova-subsea-mux", "to": "kongsberg-m3", "kind": "subsea" },
+        { "from": "innova-subsea-mux", "to": "rdom", "kind": "fibre", "cable": "Umbilical fibre" },
+        { "from": "rdom", "to": "naviscan-mbes-pc", "kind": "data" },
+        { "from": "rdom", "to": "attu", "kind": "data" },
+        { "from": "attu", "to": "inertial-fusion2-pc", "kind": "data" },
+        { "from": "naviscan-mbes-pc", "to": "data-processor-pc", "kind": "data" },
+        { "from": "attu", "to": "online-master-pc", "kind": "data" }
+      ],
+      "pipeline": [
+        {
+          "id": "sw-fusion2",
+          "title": "Fusion 2 Inertial Navigation",
+          "stage": "software",
+          "hostEquipmentId": "inertial-fusion2-pc",
+          "description": "Blends the SPRINT-Nav inertial data with depth and sound velocity into the ROV navigation solution.",
+          "consumes": ["heading", "motion", "depth", "sound-velocity", "acoustic-position"],
+          "feeds": ["sw-navipac", "store-server"],
+          "validated": false
+        },
+        {
+          "id": "sw-naviscan",
+          "title": "NaviScan MBES Acquisition",
+          "stage": "software",
+          "hostEquipmentId": "naviscan-mbes-pc",
+          "description": "Logs the multibeam swaths with sound velocity, motion and heading applied in real time.",
+          "consumes": ["bathymetry", "sound-velocity", "motion", "heading", "position", "depth", "pipe-tracking", "time-sync"],
+          "feeds": ["store-server"],
+          "displays": ["survey-online-monitors"],
+          "validated": false
+        },
+        {
+          "id": "store-server",
+          "title": "Project Data Storage",
+          "stage": "storage",
+          "hostEquipmentId": "naviscan-mbes-pc",
+          "description": "Raw MBES, navigation and pipe tracker files are kept until processing and delivery.",
+          "feeds": ["proc-naviedit", "proc-navimodel", "dlv-dpr", "dlv-calib"],
+          "validated": false
+        },
+        {
+          "id": "proc-naviedit",
+          "title": "NaviEdit Navigation & Sensor QC",
+          "stage": "processing",
+          "description": "Cleans and quality-checks navigation and sensor data offline.",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity", "pipe-tracking", "bathymetry"],
+          "feeds": ["dlv-nav", "dlv-asbuilt", "dlv-dob", "proc-navimodel"],
+          "validated": false
+        },
+        {
+          "id": "proc-navimodel",
+          "title": "NaviModel Gridding & Charting",
+          "stage": "processing",
+          "description": "Builds the seabed terrain model, contours and charts from the cleaned soundings.",
+          "consumes": ["bathymetry", "sound-velocity", "motion", "heading"],
+          "feeds": ["dlv-mbes"],
+          "validated": false
+        },
+        {
+          "id": "dlv-dpr",
+          "title": "Daily Progress Report (DPR)",
+          "stage": "deliverable",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity", "bathymetry", "pipe-tracking", "video"],
+          "validated": false
+        },
+        {
+          "id": "dlv-nav",
+          "title": "Processed Navigation Data",
+          "stage": "deliverable",
+          "consumes": ["position", "heading", "motion", "depth", "altitude", "acoustic-position", "sound-velocity"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-asbuilt",
+          "title": "As-built Position Report",
+          "stage": "deliverable",
+          "consumes": ["position", "heading", "depth", "acoustic-position"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-mbes",
+          "title": "MBES Bathymetry: DTM, XYZ & Charts",
+          "stage": "deliverable",
+          "consumes": ["bathymetry", "sound-velocity", "motion", "heading"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-dob",
+          "title": "Pipeline Depth of Burial Report",
+          "stage": "deliverable",
+          "consumes": ["pipe-tracking"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-calib",
+          "title": "Calibration Reports",
+          "stage": "deliverable",
+          "description": "MBES patch test and SPRINT-Nav calibration.",
+          "consumes": ["heading", "motion", "bathymetry"],
+          "feeds": ["dlv-final"],
+          "validated": false
+        },
+        {
+          "id": "dlv-final",
+          "title": "Final Survey Report",
+          "stage": "deliverable",
+          "validated": false
+        }
+      ]
+    },
+    {
+      "id": "subsea-equipments-basic",
+      "title": "Subsea Equipments Basic",
+      "drawingNo": "N/A",
+      "revision": "N/A",
+      "description": "Basic subsea positioning kit with operational and spare quantities. No one-line drawing: the cabling between items is inferred, not validated.",
+      "order": 5,
+      "kind": "package",
+      "categories": [
+        { "id": "subsea-rov", "title": "Subsea / ROV" },
+        { "id": "topside", "title": "Topside" }
+      ],
+      "zones": [
+        {
+          "id": "rov",
+          "title": "ROV",
+          "sceneAnchor": "rov",
+          "description": "The subsea kit adds a sound velocity profiler, a bathymetric sensor and the mini beacons used as acoustic references.",
+          "lines": [
+            { "equipmentId": "svp", "qty": 1, "qtySpare": 1, "category": "subsea-rov" },
+            { "equipmentId": "bathymetric-sensor", "qty": 1, "qtySpare": 1, "category": "subsea-rov" },
+            { "equipmentId": "mini-beacons", "qty": 4, "qtySpare": 2, "category": "subsea-rov" }
+          ]
+        },
+        {
+          "id": "survey-online",
+          "title": "Survey Online",
+          "sceneAnchor": "survey-online",
+          "description": "The beacon chargers keep the mini beacons ready between dives.",
+          "lines": [
+            { "equipmentId": "beacon-charger", "qty": 2, "qtySpare": 1, "category": "topside" }
+          ]
+        }
+      ],
+      "links": [
+        { "from": "innova-subsea-mux", "to": "svp", "kind": "subsea" },
+        { "from": "innova-subsea-mux", "to": "bathymetric-sensor", "kind": "subsea" }
+      ],
+      "pipeline": []
     }
   ]
 }

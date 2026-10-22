@@ -36,6 +36,7 @@ function loadModule(filename) {
 const graph = loadModule(path.join(app, "utils/surveySpreadGraph.ts"));
 const journeys = loadModule(path.join(app, "utils/surveyDataJourney.ts"));
 const formats = loadModule(path.join(app, "config/surveyDataFormats.ts"));
+const packages = loadModule(path.join(app, "utils/surveyPackages.ts"));
 const seed = JSON.parse(
   fs.readFileSync(path.join(root, "templates/survey-catalog/survey-catalog.seed.json"), "utf8"),
 );
@@ -82,7 +83,11 @@ function checksumOk(sentence) {
 }
 
 test("every journey has steps and the antenna never acts as the sensor", () => {
-  seed.spreads.forEach((spread) => {
+  // A package alone may have no path to the online hub; they are only checked combined.
+  const scenes = packages
+    .diagramsOf(seed.spreads)
+    .concat([packages.composePackages(packages.packagesOf(seed.spreads))]);
+  scenes.forEach((spread) => {
     const { ctx, out } = allJourneys(spread);
     assert.ok(out.length > 0, spread.id);
     out.forEach(({ node, journey }) => {
@@ -278,4 +283,54 @@ test("journey counts", () => {
   const partial = full.out.filter((j) => j.journey.partial).length;
   console.log(`full spread: ${full.out.length} journeys, ${partial} partial`);
   assert.ok(full.out.length > 0);
+});
+
+const pkg = (id) => seed.spreads.filter((s) => s.id === id)[0];
+const lineOf = (spread, zoneId, equipmentId) =>
+  spread.zones
+    .filter((z) => z.id === zoneId)[0]
+    .lines.filter((l) => l.equipmentId === equipmentId)[0];
+const hasLink = (spread, from, to) =>
+  spread.links.some((l) => l.from === from && l.to === to);
+
+test("packages: only diagrams are listed as diagrams", () => {
+  const diagramIds = packages.diagramsOf(seed.spreads).map((s) => s.id);
+  assert.ok(diagramIds.indexOf("full-survey-spread") >= 0);
+  assert.equal(diagramIds.indexOf("survey-surface-navigation"), -1);
+  assert.deepEqual(
+    packages.packagesOf(seed.spreads).map((s) => s.id),
+    ["survey-surface-navigation", "mbes-spread", "subsea-equipments-basic"],
+  );
+});
+
+test("packages: shared rooms merge and repeated equipment sums operational and spare", () => {
+  const combo = packages.composePackages([pkg("survey-surface-navigation"), pkg("mbes-spread")]);
+  assert.equal(combo.zones.filter((z) => z.id === "survey-online").length, 1);
+  const attu = lineOf(combo, "survey-online", "attu");
+  assert.equal(attu.qty, 2);
+  assert.equal(attu.qtySpare, 1);
+  // The seed itself is never mutated by the merge.
+  assert.equal(lineOf(pkg("survey-surface-navigation"), "survey-online", "attu").qty, 1);
+  const store = combo.pipeline.filter((p) => p.id === "store-server")[0];
+  assert.equal(store.hostEquipmentId, "raid-storage");
+  assert.equal(combo.kind, "package");
+});
+
+test("packages: cross-package cables only appear when both packages are ticked", () => {
+  const subsea = packages.composePackages([pkg("subsea-equipments-basic")]);
+  assert.equal(hasLink(subsea, "innova-subsea-mux", "svp"), false);
+  assert.equal(graph.expandSpreadNodes(subsea, seed).some((n) => n.equipmentId === "innova-subsea-mux"), false);
+  const both = packages.composePackages([pkg("mbes-spread"), pkg("subsea-equipments-basic")]);
+  assert.equal(hasLink(both, "innova-subsea-mux", "svp"), true);
+  const mbesAlone = packages.composePackages([pkg("mbes-spread")]);
+  assert.equal(hasLink(mbesAlone, "attu", "online-master-pc"), false);
+  assert.equal(mbesAlone.pipeline.filter((p) => p.id === "store-server")[0].hostEquipmentId, "naviscan-mbes-pc");
+});
+
+test("packages: the active spread falls back to the first diagram", () => {
+  const ids = ["mbes-spread"];
+  assert.equal(packages.resolveActiveSpread(seed, null, ids).id, "full-survey-spread");
+  assert.equal(packages.resolveActiveSpread(seed, "mbes-spread", ids).id, "full-survey-spread");
+  assert.equal(packages.resolveActiveSpread(seed, packages.PACKAGES_SPREAD_ID, ids).title, "MBES Spread");
+  assert.equal(packages.resolveActiveSpread(seed, packages.PACKAGES_SPREAD_ID, []).id, "full-survey-spread");
 });

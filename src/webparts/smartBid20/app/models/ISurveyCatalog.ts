@@ -139,6 +139,8 @@ export interface ISurveyCatalog {
 export interface ISurveySpreadLine {
   equipmentId: string;
   qty: number;
+  /** Spare units on top of `qty`; priced in the BID but never drawn in 3D. */
+  qtySpare?: number;
   /** Free-text quantity when it isn't a plain count (e.g. "1 set", "multiple channels"). */
   qtyLabel?: string;
   /** Provided by the vessel/client — kept in the scope but not priced. */
@@ -214,11 +216,14 @@ export interface ISurveySpread {
   categories?: ISurveySpreadCategory[];
   pipeline?: ISurveyPipelineNode[];
   order: number;
+  /** "package" = standard scope kit with no drawing, combinable with other packages; default diagram. */
+  kind?: "diagram" | "package";
 }
 
 export interface ISurveyPackageLine {
   equipmentId: string;
   qty: number;
+  qtySpare?: number;
   qtyLabel?: string;
   vesselSupplied?: boolean;
   /** Spread template the line came from (traceability in the BID scope). */

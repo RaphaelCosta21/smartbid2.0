@@ -181,6 +181,7 @@ export const SurveyPackageDrawer: React.FC<SurveyPackageDrawerProps> = ({
                             ? `PN ${eq.partNumber}`
                             : eq.technology}
                         {line.qtyLabel ? ` · ${line.qtyLabel}` : ""}
+                        {line.qtySpare ? ` · +${line.qtySpare} spare` : ""}
                       </span>
                     </div>
                     <div className={styles.stepper}>
