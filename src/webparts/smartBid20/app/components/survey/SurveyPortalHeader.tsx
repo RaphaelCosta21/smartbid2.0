@@ -5,6 +5,7 @@ import {
   Upload,
   ChevronDown,
   FileSearch,
+  Boxes,
   X,
 } from "lucide-react";
 import { useSurveyStore } from "../../stores/useSurveyStore";
@@ -14,6 +15,11 @@ import { useUIStore } from "../../stores/useUIStore";
 import { SurveyCatalogService } from "../../services/SurveyCatalogService";
 import { IBid, ISurveyCatalog } from "../../models";
 import { FREE_SPREAD_ID } from "../../utils/surveyFreeScene";
+import {
+  PACKAGES_SPREAD_ID,
+  diagramsOf,
+  packagesOf,
+} from "../../utils/surveyPackages";
 import { getBidBusinessLines } from "../../utils/divisionHelpers";
 import styles from "./SurveyPortalHeader.module.scss";
 
@@ -38,6 +44,29 @@ const surveyRank = (b: IBid): number => {
   return lines.length === 1 ? 0 : 1;
 };
 
+/** Closes a popover on outside click or Escape. */
+const useDismiss = (
+  ref: React.RefObject<HTMLElement>,
+  open: boolean,
+  close: () => void,
+): void => {
+  React.useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(e.target as Node)) close();
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") close();
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [ref, open, close]);
+};
+
 export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
   onOpenPackage,
   searchHits,
@@ -49,6 +78,9 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
   const packageLines = useSurveyStore((s) => s.packageLines);
   const spreadId = useSurveyStore((s) => s.spreadId);
   const setSpreadId = useSurveyStore((s) => s.setSpreadId);
+  const standardPackageIds = useSurveyStore((s) => s.standardPackageIds);
+  const toggleStandardPackage = useSurveyStore((s) => s.toggleStandardPackage);
+  const clearStandardPackages = useSurveyStore((s) => s.clearStandardPackages);
   const bidNumber = useSurveyStore((s) => s.bidNumber);
   const setBidNumber = useSurveyStore((s) => s.setBidNumber);
   const load = useSurveyStore((s) => s.load);
@@ -57,12 +89,16 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
   const addToast = useUIStore((s) => s.addToast);
   const fileRef = React.useRef<HTMLInputElement>(null);
   const bidRef = React.useRef<HTMLDivElement>(null);
+  const packagesRef = React.useRef<HTMLDivElement>(null);
   const [importing, setImporting] = React.useState(false);
   const [searchFocus, setSearchFocus] = React.useState(false);
   const [bidOpen, setBidOpen] = React.useState(false);
   const [bidQuery, setBidQuery] = React.useState("");
+  const [packagesOpen, setPackagesOpen] = React.useState(false);
 
-  const spreads = catalog?.spreads || [];
+  const allSpreads = catalog?.spreads || [];
+  const spreads = diagramsOf(allSpreads);
+  const standardPackages = packagesOf(allSpreads);
   const spread = spreads.find((s) => s.id === spreadId) || spreads[0];
   const selectedBid = bidNumber
     ? bids.find((b) => b.bidNumber === bidNumber)
@@ -90,22 +126,10 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
       .slice(0, BID_LIST_MAX);
   }, [bids, bidQuery]);
 
-  React.useEffect(() => {
-    if (!bidOpen) return undefined;
-    const onDown = (e: MouseEvent): void => {
-      if (bidRef.current && !bidRef.current.contains(e.target as Node))
-        setBidOpen(false);
-    };
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") setBidOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [bidOpen]);
+  const closeBid = React.useCallback(() => setBidOpen(false), []);
+  const closePackages = React.useCallback(() => setPackagesOpen(false), []);
+  useDismiss(bidRef, bidOpen, closeBid);
+  useDismiss(packagesRef, packagesOpen, closePackages);
 
   const pickBid = (value: string | null): void => {
     setBidNumber(value);
@@ -312,8 +336,8 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
             <span className={styles.selectLabel}>DIAGRAM</span>
             <select
               value={
-                spreadId === FREE_SPREAD_ID
-                  ? FREE_SPREAD_ID
+                spreadId === FREE_SPREAD_ID || spreadId === PACKAGES_SPREAD_ID
+                  ? spreadId
                   : spread
                     ? spread.id
                     : ""
@@ -321,6 +345,11 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
               onChange={(e) => setSpreadId(e.target.value)}
               aria-label="Diagram"
             >
+              {spreadId === PACKAGES_SPREAD_ID && (
+                <option value={PACKAGES_SPREAD_ID} disabled>
+                  Standard packages
+                </option>
+              )}
               <option value={FREE_SPREAD_ID}>Free composition (blank)</option>
               {spreads.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -330,6 +359,71 @@ export const SurveyPortalHeader: React.FC<SurveyPortalHeaderProps> = ({
             </select>
             <ChevronDown size={10} />
           </label>
+        )}
+
+        {standardPackages.length > 0 && (
+          <div className={styles.bidPicker} ref={packagesRef}>
+            <button
+              className={`${styles.bidBtn} ${
+                standardPackageIds.length ? styles.bidBtnActive : ""
+              }`}
+              onClick={() => setPackagesOpen((o) => !o)}
+              aria-expanded={packagesOpen}
+              title="Combine standard packages on the vessel"
+            >
+              <Boxes size={13} />
+              <span className={styles.bidLabel}>
+                {standardPackageIds.length
+                  ? `Standard packages · ${standardPackageIds.length}`
+                  : "Standard packages"}
+              </span>
+              <ChevronDown size={11} />
+            </button>
+            {standardPackageIds.length > 0 && (
+              <button
+                className={styles.bidClear}
+                onClick={clearStandardPackages}
+                aria-label="Clear the standard packages"
+                title="Back to the diagram"
+              >
+                <X size={11} />
+              </button>
+            )}
+            {packagesOpen && (
+              <div className={styles.bidPopover}>
+                <div
+                  className={styles.bidList}
+                  role="group"
+                  aria-label="Standard packages"
+                >
+                  {standardPackages.map((p) => {
+                    const on = standardPackageIds.indexOf(p.id) >= 0;
+                    const items = p.zones.reduce(
+                      (n, z) => n + z.lines.length,
+                      0,
+                    );
+                    return (
+                      <label
+                        key={p.id}
+                        className={`${styles.bidOption} ${
+                          on ? styles.bidOptionActive : ""
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className={styles.packageCheck}
+                          checked={on}
+                          onChange={() => toggleStandardPackage(p.id)}
+                        />
+                        <span className={styles.bidText}>{p.title}</span>
+                        <span className={styles.bidMeta}>{items} items</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         <span className={styles.spacer} />

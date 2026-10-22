@@ -8,6 +8,7 @@ import { SurveyEquipmentDetail } from "../components/survey/SurveyEquipmentDetai
 import { SurveyAddToPackageDialog } from "../components/survey/SurveyAddToPackageDialog";
 import { SurveyPackageDrawer } from "../components/survey/SurveyPackageDrawer";
 import { SurveySpreadPanel } from "../components/survey/SurveySpreadPanel";
+import { SurveyJourneyDeliverables } from "../components/survey/SurveyJourneyDeliverables";
 import { SurveyFailurePanel } from "../components/survey/SurveyFailurePanel";
 import { SurveyGapPanel } from "../components/survey/SurveyGapPanel";
 import { SurveyGlossary } from "../components/survey/SurveyGlossary";
@@ -64,6 +65,7 @@ import {
   traceSignalPath,
 } from "../utils/surveySpreadGraph";
 import { buildFreeScene, FREE_SPREAD_ID } from "../utils/surveyFreeScene";
+import { diagramsOf, resolveActiveSpread } from "../utils/surveyPackages";
 import { computeFailureImpact, IFailureImpact } from "../utils/surveyFailure";
 import {
   getGlossaryTerm,
@@ -148,6 +150,7 @@ export const SurveySystemPage: React.FC = () => {
   const setFilters = useSurveyStore((s) => s.setFilters);
   const search = useSurveyStore((s) => s.filters.search);
   const spreadId = useSurveyStore((s) => s.spreadId);
+  const standardPackageIds = useSurveyStore((s) => s.standardPackageIds);
   const load = useSurveyStore((s) => s.load);
   const addToast = useUIStore((s) => s.addToast);
   const comparison = useSurveyBidComparison();
@@ -193,13 +196,15 @@ export const SurveySystemPage: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  const spreads = catalog?.spreads || [];
-  const spread = spreads.find((s) => s.id === spreadId) || spreads[0];
+  const spread = React.useMemo(
+    () => resolveActiveSpread(catalog, spreadId, standardPackageIds),
+    [catalog, spreadId, standardPackageIds],
+  );
   // "Free composition" starts from a blank vessel; the package drives which rooms appear.
   const isFree = spreadId === FREE_SPREAD_ID;
-  // Richest spread (most physical rooms) is the location template for free placement.
+  // Richest diagram (most physical rooms) is the location template for free placement.
   const locationSpread = React.useMemo(() => {
-    const list = catalog?.spreads || [];
+    const list = diagramsOf(catalog?.spreads || []);
     if (!list.length) return undefined;
     return list.reduce((best, s) => {
       const rc = (s.zones || []).filter((z) => z.sceneAnchor).length;
@@ -710,11 +715,9 @@ export const SurveySystemPage: React.FC = () => {
             : "node"
         : s.kind === "cable"
           ? "cable"
-          : s.kind === "deliverables"
-            ? "deliverables"
-            : s.nodeId
-              ? "node"
-              : "overview";
+          : s.nodeId
+            ? "node"
+            : "overview";
     return {
       key: `${journeyStepIndex}:${s.id}`,
       mode,
@@ -726,16 +729,20 @@ export const SurveySystemPage: React.FC = () => {
       arriveReverse: s.arriveReverse,
       color: JOURNEY_PACKET_COLOR,
       effect: s.kind === "origin" ? s.effect : undefined,
-      deliverables: s.deliverables
-        ? s.deliverables.map((d) => ({
+    };
+  }, [journeyCurrent, journeyStepIndex]);
+  const journeyDeliverables = React.useMemo(
+    () =>
+      journeyCurrent && journeyCurrent.deliverables
+        ? journeyCurrent.deliverables.map((d) => ({
             id: d.id,
             title: d.title,
-            subtitle: localize(d.format, lang),
+            format: localize(d.format, lang),
             visual: d.visual,
           }))
-        : undefined,
-    };
-  }, [journeyCurrent, journeyStepIndex, lang]);
+        : null,
+    [journeyCurrent, lang],
+  );
   const journeyView = React.useMemo<SurveyJourneyView | null>(() => {
     if (!journey || !journeyCurrent || !journeyRun) return null;
     const L = (key: keyof typeof JOURNEY_UI): string => localize(JOURNEY_UI[key], lang);
@@ -1062,7 +1069,7 @@ export const SurveySystemPage: React.FC = () => {
     setSceneMode("none");
     setFaultNodeId(null);
     setJourneyRun(null);
-  }, [spreadId]);
+  }, [spreadId, standardPackageIds]);
 
   // Each journey step opens its room (or the overview) in the scene.
   const journeyZoneId = journeyCurrent ? journeyCurrent.zoneId : undefined;
@@ -1141,28 +1148,36 @@ export const SurveySystemPage: React.FC = () => {
     return (
       <>
         {spread && !isFree && (
-          <div
-            className={`${styles.spreadPanel} ${activeZoneId ? styles.spreadPanelOpen : ""}`}
-            key={spread.id}
-          >
-            <SurveySpreadPanel
-              spread={spread}
-              catalog={catalog}
-              activeZoneId={activeZoneId}
-              selectedEquipmentId={detailOpen ? selectedId : null}
-              packageEquipmentIds={packageEquipmentIds}
-              catalogByZone={catalogByZone}
-              softwareIds={softwareNodes.map((n) => n.equipmentId)}
-              addedSoftwareIds={addedSoftware}
-              onToggleSoftware={handleToggleSoftware}
-              considered={considered}
-              bidNumber={comparison ? comparison.bid.bidNumber : null}
-              onZoneToggle={handleZoneToggle}
-              onSelectLine={handleSelectLine}
-              onHoverLine={handleHoverLine}
-              onAddZone={handleAddZone}
-              onAddSpread={handleAddSpread}
-            />
+          <div className={styles.leftColumn}>
+            <div
+              className={`${styles.spreadPanel} ${activeZoneId ? styles.spreadPanelOpen : ""}`}
+              key={spread.id}
+            >
+              <SurveySpreadPanel
+                spread={spread}
+                catalog={catalog}
+                activeZoneId={activeZoneId}
+                selectedEquipmentId={detailOpen ? selectedId : null}
+                packageEquipmentIds={packageEquipmentIds}
+                catalogByZone={catalogByZone}
+                softwareIds={softwareNodes.map((n) => n.equipmentId)}
+                addedSoftwareIds={addedSoftware}
+                onToggleSoftware={handleToggleSoftware}
+                considered={considered}
+                bidNumber={comparison ? comparison.bid.bidNumber : null}
+                onZoneToggle={handleZoneToggle}
+                onSelectLine={handleSelectLine}
+                onHoverLine={handleHoverLine}
+                onAddZone={handleAddZone}
+                onAddSpread={handleAddSpread}
+              />
+            </div>
+            {journeyDeliverables && (
+              <SurveyJourneyDeliverables
+                label={localize(JOURNEY_KIND_LABELS.deliverables, lang)}
+                items={journeyDeliverables}
+              />
+            )}
           </div>
         )}
 

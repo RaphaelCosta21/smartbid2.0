@@ -173,6 +173,7 @@ export class SurveyCatalogService {
           categories: base.categories || [],
           pipeline: base.pipeline || [],
           order: base.order,
+          kind: base.kind === "package" ? "package" : "diagram",
         });
       } else if (type === "equipment") {
         catalog.equipment.push(

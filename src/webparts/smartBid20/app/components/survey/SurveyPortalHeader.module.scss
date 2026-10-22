@@ -258,6 +258,12 @@
   font-size: 11px;
 }
 
+.packageCheck {
+  margin: 0;
+  accent-color: var(--survey-teal);
+  cursor: pointer;
+}
+
 .selectChip {
   display: inline-flex;
   align-items: center;

@@ -7,6 +7,7 @@ import {
 } from "../models";
 import { SurveyCatalogService } from "../services/SurveyCatalogService";
 import { QuotationService } from "../services/QuotationService";
+import { PACKAGES_SPREAD_ID } from "../utils/surveyPackages";
 
 export interface SurveyFilters {
   search: string;
@@ -30,6 +31,8 @@ interface SurveyState {
   requestPrefill: ISurveyPackageLine[] | null;
   /** Diagram (spread template) shown in the System view; null = first one. */
   spreadId: string | null;
+  /** Standard packages ticked in the header; shown together while spreadId is PACKAGES_SPREAD_ID. */
+  standardPackageIds: string[];
   /** BID compared against the diagram; its package target. */
   bidNumber: string | null;
 
@@ -41,6 +44,8 @@ interface SurveyState {
   /** Updates a photo in the loaded catalog after an upload (no reload needed). */
   setEquipmentImage: (equipmentId: string, imageUrl: string) => void;
   setSpreadId: (spreadId: string | null) => void;
+  toggleStandardPackage: (packageId: string) => void;
+  clearStandardPackages: () => void;
   setBidNumber: (bidNumber: string | null) => void;
   addToPackage: (equipmentId: string, qty: number) => void;
   /**
@@ -71,6 +76,7 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
   packageLines: [],
   requestPrefill: null,
   spreadId: null,
+  standardPackageIds: [],
   bidNumber: null,
 
   load: async (force) => {
@@ -117,7 +123,16 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
           }
         : {},
     ),
-  setSpreadId: (spreadId) => set({ spreadId }),
+  setSpreadId: (spreadId) => set({ spreadId, standardPackageIds: [] }),
+  toggleStandardPackage: (packageId) =>
+    set((state) => {
+      const ids =
+        state.standardPackageIds.indexOf(packageId) >= 0
+          ? state.standardPackageIds.filter((id) => id !== packageId)
+          : state.standardPackageIds.concat(packageId);
+      return { standardPackageIds: ids, spreadId: ids.length ? PACKAGES_SPREAD_ID : null };
+    }),
+  clearStandardPackages: () => set({ standardPackageIds: [], spreadId: null }),
   setBidNumber: (bidNumber) => set({ bidNumber }),
 
   addToPackage: (equipmentId, qty) =>
@@ -144,6 +159,7 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
           lines.push({
             equipmentId: l.equipmentId,
             qty: l.qty,
+            qtySpare: l.qtySpare,
             qtyLabel: l.qtyLabel,
             vesselSupplied: l.vesselSupplied,
             spreadId: spread.id,
@@ -155,7 +171,12 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
       const next = state.packageLines.slice();
       lines.forEach((line) => {
         const i = next.findIndex((l) => l.equipmentId === line.equipmentId);
-        if (i >= 0) next[i] = { ...next[i], qty: next[i].qty + line.qty };
+        if (i >= 0)
+          next[i] = {
+            ...next[i],
+            qty: next[i].qty + line.qty,
+            qtySpare: (next[i].qtySpare || 0) + (line.qtySpare || 0),
+          };
         else next.push(line);
       });
       return { packageLines: next };
