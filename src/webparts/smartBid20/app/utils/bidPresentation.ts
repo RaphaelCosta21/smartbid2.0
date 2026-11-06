@@ -6,7 +6,7 @@
 import { IAssetBreakdownItem, IBid, IScopeItem } from "../models";
 import {
   getAssetCostBreakdown,
-  IContingencyOpts,
+  getBidContingency,
   isNoCostAvailability,
   isWorkshopAcq,
 } from "./costCalculations";
@@ -74,10 +74,7 @@ function isCostExempt(a: IAssetBreakdownItem): boolean {
 
 // ─── Items ───
 
-export function getBidContingency(bid: IBid): IContingencyOpts | undefined {
-  const perYear = bid.assetsContingencyPerYear || 0;
-  return perYear > 0 ? { perYear, applied: true } : undefined;
-}
+export { getBidContingency };
 
 export interface IPresentationItem {
   key: string;

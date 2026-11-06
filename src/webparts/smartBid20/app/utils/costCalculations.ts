@@ -109,9 +109,19 @@ export interface IContingencyOpts {
   engSolutionsPct?: number;
 }
 
+/** Contingency per year a BID uses until someone saves another value (0 turns it off). */
+export const DEFAULT_CONTINGENCY_PER_YEAR = 10;
+
+export function getBidContingencyPerYear(bid: IBid): number {
+  return Math.max(
+    0,
+    bid.assetsContingencyPerYear ?? DEFAULT_CONTINGENCY_PER_YEAR,
+  );
+}
+
 /** Contingency settings saved on a BID; undefined when every contingency is off. */
 export function getBidContingency(bid: IBid): IContingencyOpts | undefined {
-  const perYear = bid.assetsContingencyPerYear || 0;
+  const perYear = getBidContingencyPerYear(bid);
   const hasEngSolutions = (bid.scopeItems || []).some(
     (s) => !s.isSection && isEngSolutionsSubType(s.resourceSubType),
   );

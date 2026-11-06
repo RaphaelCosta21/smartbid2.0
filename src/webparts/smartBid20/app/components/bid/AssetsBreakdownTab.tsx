@@ -49,6 +49,7 @@ import {
 import {
   applyContingencyToCost,
   createBlankAsset,
+  DEFAULT_CONTINGENCY_PER_YEAR,
   feeLinkKey,
   getAgeContingencyPct,
   getAssetCostBreakdown,
@@ -461,7 +462,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
 
   // ─── Contingency state ───
   const [contingencyPerYear, setContingencyPerYear] = React.useState(
-    contingencyPerYearSaved ?? 10,
+    contingencyPerYearSaved ?? DEFAULT_CONTINGENCY_PER_YEAR,
   );
   const [isContingencyEditing, setIsContingencyEditing] = React.useState(false);
   // Contingency is always active — what matters is the % (0% = no adjustment)
@@ -2107,8 +2108,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     if (bd.main.fees > 0) parts.push(`${fmtCost(bd.main.fees)} fees`);
     const showCalc =
       parts.length > 1 || (!!base && (!!opts.baseAlone || bd.qty > 1));
-    const breakdownOpen =
-      !!breakdownAnchor && breakdownAnchor.assetId === a.id;
+    const breakdownOpen = !!breakdownAnchor && breakdownAnchor.assetId === a.id;
     return (
       <td className={styles.mainTotalCost}>
         <div className={styles.rollupCell}>
@@ -6320,135 +6320,138 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                       {/* Cost Ref / Supplier (+ source quotation chip) */}
                       <td>
                         <div className={styles.costRefCell}>
-                        {(() => {
-                          if (asset.costFromSubItems || asset.costFromPCF) {
-                            return (
-                              <span
-                                style={{
-                                  fontSize: 11,
-                                  color: "var(--text-muted)",
-                                  fontStyle: "italic",
-                                }}
-                              >
-                                {asset.costFromPCF
-                                  ? "from PCF"
-                                  : "from sub-items"}
-                              </span>
-                            );
-                          }
-                          const hasSplits =
-                            (asset.availabilitySplits || []).length > 0;
-                          if (hasSplits) {
-                            return (
-                              <span
-                                style={{
-                                  fontSize: 11,
-                                  color: "var(--text-muted)",
-                                  fontStyle: "italic",
-                                }}
-                              >
-                                See splits
-                              </span>
-                            );
-                          }
-                          const av = (
-                            asset.availabilityStatus || ""
-                          ).toLowerCase();
-                          const aq = (
-                            asset.acquisitionType || ""
-                          ).toLowerCase();
-                          const closed =
-                            av === "onboard" ||
-                            av === "call out" ||
-                            av === "not offered" ||
-                            aq === "workshop" ||
-                            aq === "in house";
-                          if (closed) {
-                            return (
-                              <span
-                                style={{
-                                  fontSize: 12,
-                                  color: "var(--text-muted)",
-                                }}
-                              >
-                                -
-                              </span>
-                            );
-                          }
-                          if (readOnly) {
-                            if (isQuerySource(asset.costReference)) {
+                          {(() => {
+                            if (asset.costFromSubItems || asset.costFromPCF) {
                               return (
-                                <div
+                                <span
                                   style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 2,
+                                    fontSize: 11,
+                                    color: "var(--text-muted)",
+                                    fontStyle: "italic",
                                   }}
                                 >
-                                  <span
-                                    className={`${styles.srcBadge} ${costRefBadgeClass(asset.costReference)}`}
-                                  >
-                                    {asset.costReference}
-                                  </span>
-                                  {asset.supplier && (
-                                    <span
-                                      style={{
-                                        fontSize: 10,
-                                        color: "var(--text-muted)",
-                                      }}
-                                    >
-                                      {asset.supplier}
-                                    </span>
-                                  )}
-                                </div>
+                                  {asset.costFromPCF
+                                    ? "from PCF"
+                                    : "from sub-items"}
+                                </span>
                               );
                             }
-                            const display = [
+                            const hasSplits =
+                              (asset.availabilitySplits || []).length > 0;
+                            if (hasSplits) {
+                              return (
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    color: "var(--text-muted)",
+                                    fontStyle: "italic",
+                                  }}
+                                >
+                                  See splits
+                                </span>
+                              );
+                            }
+                            const av = (
+                              asset.availabilityStatus || ""
+                            ).toLowerCase();
+                            const aq = (
+                              asset.acquisitionType || ""
+                            ).toLowerCase();
+                            const closed =
+                              av === "onboard" ||
+                              av === "call out" ||
+                              av === "not offered" ||
+                              aq === "workshop" ||
+                              aq === "in house";
+                            if (closed) {
+                              return (
+                                <span
+                                  style={{
+                                    fontSize: 12,
+                                    color: "var(--text-muted)",
+                                  }}
+                                >
+                                  -
+                                </span>
+                              );
+                            }
+                            if (readOnly) {
+                              if (isQuerySource(asset.costReference)) {
+                                return (
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      gap: 2,
+                                    }}
+                                  >
+                                    <span
+                                      className={`${styles.srcBadge} ${costRefBadgeClass(asset.costReference)}`}
+                                    >
+                                      {asset.costReference}
+                                    </span>
+                                    {asset.supplier && (
+                                      <span
+                                        style={{
+                                          fontSize: 10,
+                                          color: "var(--text-muted)",
+                                        }}
+                                      >
+                                        {asset.supplier}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
+                              const display = [
+                                asset.costReference,
+                                asset.supplier,
+                              ]
+                                .filter(Boolean)
+                                .join(" | ");
+                              return display ? (
+                                <span style={{ fontSize: 11 }}>{display}</span>
+                              ) : (
+                                <span style={{ color: "var(--text-muted)" }}>
+                                  -
+                                </span>
+                              );
+                            }
+                            const combined = [
                               asset.costReference,
                               asset.supplier,
                             ]
                               .filter(Boolean)
                               .join(" | ");
-                            return display ? (
-                              <span style={{ fontSize: 11 }}>{display}</span>
-                            ) : (
-                              <span style={{ color: "var(--text-muted)" }}>
-                                -
-                              </span>
+                            return (
+                              <input
+                                className={styles.editInput}
+                                value={combined}
+                                placeholder="Cost Ref / Supplier..."
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const parts = val
+                                    .split("|")
+                                    .map((p) => p.trim());
+                                  const updated = localAssets.map((a) =>
+                                    a.id === asset.id
+                                      ? {
+                                          ...a,
+                                          costReference: parts[0] || "",
+                                          supplier: parts[1] || "",
+                                        }
+                                      : a,
+                                  );
+                                  persist(updated);
+                                }}
+                                style={{ width: "100%", fontSize: 11 }}
+                              />
                             );
-                          }
-                          const combined = [asset.costReference, asset.supplier]
-                            .filter(Boolean)
-                            .join(" | ");
-                          return (
-                            <input
-                              className={styles.editInput}
-                              value={combined}
-                              placeholder="Cost Ref / Supplier..."
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                const parts = val
-                                  .split("|")
-                                  .map((p) => p.trim());
-                                const updated = localAssets.map((a) =>
-                                  a.id === asset.id
-                                    ? {
-                                        ...a,
-                                        costReference: parts[0] || "",
-                                        supplier: parts[1] || "",
-                                      }
-                                    : a,
-                                );
-                                persist(updated);
-                              }}
-                              style={{ width: "100%", fontSize: 11 }}
-                            />
-                          );
-                        })()}
-                        {renderQuoteLink(
-                          asset.quotationReference,
-                          asset.quotationFileUrl,
-                        )}
+                          })()}
+                          {renderQuoteLink(
+                            asset.quotationReference,
+                            asset.quotationFileUrl,
+                          )}
                         </div>
                       </td>
                       {/* Date Ref */}

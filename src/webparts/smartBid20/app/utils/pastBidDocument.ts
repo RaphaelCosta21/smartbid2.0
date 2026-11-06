@@ -25,6 +25,7 @@ import { normalizeQualificationTables } from "./qualificationHelpers";
 import {
   buildCostSummary,
   getAssetCostBreakdown,
+  getBidContingencyPerYear,
   getBidFx,
 } from "./costCalculations";
 import { formatDate } from "./formatters";
@@ -416,7 +417,9 @@ function pricing(bid: IBid, num: number): string[] {
       ["Rates captured", day(fx.capturedDate)],
       [
         "Contingency per year",
-        bid.assetsContingencyPerYear ? `${bid.assetsContingencyPerYear}%` : "",
+        getBidContingencyPerYear(bid)
+          ? `${getBidContingencyPerYear(bid)}%`
+          : "",
       ],
     ]),
   ];
