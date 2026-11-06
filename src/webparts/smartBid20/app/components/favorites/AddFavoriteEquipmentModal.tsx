@@ -37,6 +37,7 @@ import {
   IFavoriteGroup,
 } from "../../models";
 import { makeId } from "../../utils/idGenerator";
+import { sortByName } from "../../utils/sortHelpers";
 import { getPartPhotoUrl } from "../../utils/partPhoto";
 
 export interface AddFavoriteEquipmentModalProps {
@@ -560,7 +561,7 @@ export const AddFavoriteEquipmentModal: React.FC<
                         onChange={(e) => changeDestination(e.target.value, "")}
                       >
                         <option value="">Select a group...</option>
-                        {groups.map((g) => (
+                        {sortByName(groups).map((g) => (
                           <option key={g.id} value={g.id}>
                             {g.name}
                           </option>
@@ -579,7 +580,7 @@ export const AddFavoriteEquipmentModal: React.FC<
                           }
                         >
                           <option value="">Select a sub-group...</option>
-                          {currentGroup.subGroups.map((sg) => (
+                          {sortByName(currentGroup.subGroups).map((sg) => (
                             <option key={sg.id} value={sg.id}>
                               {sg.name}
                             </option>

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Trash2 } from "lucide-react";
 import { IBomCostAnalysis } from "../../models/IBomCostAnalysis";
-import { formatCurrency } from "../../utils/formatters";
+import { formatCurrency, formatHours } from "../../utils/formatters";
 import { formatDateDMY } from "../../utils/bomCostHelpers";
 import styles from "./BomAnalysisCard.module.scss";
 
@@ -11,6 +11,10 @@ export interface IBomAnalysisCardProps {
   costed: number;
   eligible: number;
   isComplete: boolean;
+  /** Import tax included in the total (USD) */
+  importTax?: number;
+  /** Workshop hours (assembly & test) per unit */
+  workshopHours?: number;
   onOpen: () => void;
   onDelete?: () => void;
 }
@@ -20,6 +24,8 @@ export const BomAnalysisCard: React.FC<IBomAnalysisCardProps> = ({
   costed,
   eligible,
   isComplete,
+  importTax = 0,
+  workshopHours = 0,
   onOpen,
   onDelete,
 }) => {
@@ -88,6 +94,28 @@ export const BomAnalysisCard: React.FC<IBomAnalysisCardProps> = ({
           </span>
         </div>
       </div>
+
+      {(importTax > 0 || workshopHours > 0) && (
+        <div className={styles.extras}>
+          {importTax > 0 && (
+            <span
+              className={styles.extraChip}
+              title="Import tax on Global BU prices, included in the Total"
+            >
+              Import tax {analysis.importTaxPercent || 0}% ·{" "}
+              {formatCurrency(importTax, "USD")}
+            </span>
+          )}
+          {workshopHours > 0 && (
+            <span
+              className={styles.extraChip}
+              title="Workshop assembly & test per unit, included in the Total"
+            >
+              Workshop {formatHours(workshopHours)}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className={styles.footer}>
         <span className={styles.by}>

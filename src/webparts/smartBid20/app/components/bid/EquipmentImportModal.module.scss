@@ -575,6 +575,71 @@
   color: var(--text-secondary);
 }
 
+/* BOM Costs tab: total + workshop, with a smaller second line */
+.colBomTotal,
+.colBomWorkshop {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.colBomTotal {
+  width: 130px;
+}
+
+.colBomWorkshop {
+  width: 150px;
+}
+
+.bomTotalValue {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bomSubLine {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.bomWorkshopChip {
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-500);
+  background: color-mix(in srgb, var(--accent-500) 10%, transparent);
+}
+
+.bomNone {
+  color: var(--text-muted);
+}
+
+.workshopNotice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent-500);
+  background: color-mix(in srgb, var(--accent-500) 10%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
 .colAction {
   width: 36px;
   flex-shrink: 0;

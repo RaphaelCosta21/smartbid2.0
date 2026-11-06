@@ -2,17 +2,25 @@
  * bomExcelExport - Styled ExcelJS workbook for a BOM Cost Analysis
  * (Summary sheet + BOM Costs tree), same look as the BID Details export.
  */
-import { IBomCostAnalysis, IBomCostItem } from "../models/IBomCostAnalysis";
+import {
+  IBomCostAnalysis,
+  IBomCostItem,
+  IBomWorkshop,
+} from "../models/IBomCostAnalysis";
 import { downloadBlob } from "./exportHelpers";
+import { formatCurrency } from "./formatters";
 import {
   BomItemStatus,
-  computeSmartTotal,
+  countTaxedItems,
   dateAgeBucket,
   formatDateDMY,
+  getBomCostBreakdown,
   getBomCoverage,
+  getImportTaxByRow,
   getMaxLeadTimeItem,
 } from "./bomCostHelpers";
 import {
+  IXlPlacedValue,
   IXlRange,
   NUM,
   XL_COLORS,
@@ -38,8 +46,15 @@ export interface IBomExcelOptions {
   /** Live items (the page may hold edits that are not saved yet) */
   items: IBomCostItem[];
   contingencyPerYear: number;
+  /** Import tax % applied to Global BU prices */
+  importTaxPercent?: number;
+  /** Workshop assembly & test of the main item (live value) */
+  workshop?: IBomWorkshop;
   exportedBy?: string;
 }
+
+const BID_DESTINATION =
+  "In a BID: hours go to Hours & Personnel > Onshore Hours and the cost to Assets Breakdown > Services & Fees of the item (both × the item quantity).";
 
 const STATUS_LABEL: Record<BomItemStatus, string> = {
   costed: "Costed",
@@ -78,6 +93,12 @@ export async function exportBomCostsToExcel(
   opts: IBomExcelOptions,
 ): Promise<string> {
   const { analysis, items, contingencyPerYear } = opts;
+  const taxRate = opts.importTaxPercent || 0;
+  const workshop =
+    opts.workshop &&
+    ((opts.workshop.hours || 0) > 0 || (opts.workshop.cost || 0) > 0)
+      ? opts.workshop
+      : undefined;
   const [ExcelJS, logo] = await Promise.all([loadExcelJS(), loadLogoDataUrl()]);
   const wb = new ExcelJS.Workbook();
   const now = new Date();
@@ -90,7 +111,11 @@ export async function exportBomCostsToExcel(
   wb.company = "Oceaneering";
 
   const cov = getBomCoverage(items);
-  const total = computeSmartTotal(items);
+  const bd = getBomCostBreakdown(items, workshop);
+  const total = bd.total;
+  const taxedCount = countTaxedItems(items);
+  const taxByRow = getImportTaxByRow(items);
+  const showTax = taxRate > 0 || bd.importTax > 0;
   const maxLead = getMaxLeadTimeItem(items);
   const missingCount = cov.missingIds.length;
   const revision = analysis.revision ? `Rev ${analysis.revision}` : "";
@@ -136,9 +161,19 @@ export async function exportBomCostsToExcel(
         from: 1,
         to: 2,
         sub:
-          contingencyPerYear > 0
-            ? `Contingency ${contingencyPerYear}% / year`
-            : "Contingency not applied",
+          bd.importTax > 0 || bd.workshop > 0
+            ? [
+                `Materials ${formatCurrency(bd.materials)}`,
+                bd.importTax > 0 ? `Tax ${formatCurrency(bd.importTax)}` : "",
+                bd.workshop > 0
+                  ? `Workshop ${formatCurrency(bd.workshop)}`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            : contingencyPerYear > 0
+              ? `Contingency ${contingencyPerYear}% / year`
+              : "Contingency not applied",
       },
       {
         label: "Costed",
@@ -189,16 +224,131 @@ export async function exportBomCostsToExcel(
       contingencyPerYear > 0 ? contingencyPerYear / 100 : "",
       { valueEnd: 5, numFmt: NUM.pct },
     );
+    x.keyValue("Import Tax Rate", taxRate > 0 ? taxRate / 100 : "", {
+      valueEnd: 5,
+      numFmt: NUM.pct,
+    });
+    x.keyValue(
+      "Workshop (per unit)",
+      workshop
+        ? [
+            workshop.hours > 0 ? `${workshop.hours} h` : "",
+            workshop.cost > 0
+              ? formatCurrency(workshop.cost, workshop.currency)
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : "",
+      { valueEnd: 5 },
+    );
     x.gap(14);
 
+    // Composition of the total: materials, import tax, workshop
+    {
+      const ranges: IXlRange[] = [
+        { header: "Component", width: 0, from: 1, to: 2 },
+        { header: "Basis", width: 0, wrap: true, from: 3, to: 5 },
+        {
+          header: "Total USD",
+          width: 0,
+          align: "right",
+          numFmt: NUM.usd,
+          from: 6,
+          to: 7,
+        },
+        {
+          header: "% of Total",
+          width: 0,
+          align: "right",
+          numFmt: NUM.pct,
+          from: 8,
+          to: 8,
+        },
+      ];
+      const pct = (v: number): number => (total > 0 ? v / total : 0);
+      x.sectionTitle("Cost Composition", span, "What makes up the Total Cost");
+      x.rangeHeader(ranges);
+      x.rangeRow(ranges, [
+        { value: "Materials", bold: true },
+        contingencyPerYear > 0
+          ? `BOM items incl. contingency ${contingencyPerYear}% / year`
+          : "BOM items (no contingency)",
+        bd.materials,
+        pct(bd.materials),
+      ]);
+      x.rangeRow(
+        ranges,
+        [
+          { value: "Import tax", bold: true, color: XL_COLORS.accentDark },
+          taxRate > 0
+            ? `${taxedCount} item${taxedCount === 1 ? "" : "s"} × ${taxRate}% (Global BU prices)`
+            : "Not applied",
+          bd.importTax,
+          pct(bd.importTax),
+        ],
+        { zebra: true },
+      );
+      x.rangeRow(ranges, [
+        { value: "Workshop - Assembly & Test", bold: true },
+        workshop
+          ? `${workshop.hours || 0} h per unit${workshop.jobFunction ? ` · ${workshop.jobFunction}` : ""}`
+          : "Not informed",
+        bd.workshop,
+        pct(bd.workshop),
+      ]);
+      x.total("TOTAL BOM COST", span, [
+        { col: 6, value: total, numFmt: NUM.usd },
+        { col: 8, value: total > 0 ? 1 : 0, numFmt: NUM.pct },
+      ]);
+      x.gap(14);
+    }
+
+    if (workshop) {
+      x.sectionTitle(
+        "Workshop - Assembly & Test",
+        span,
+        "Per unit of the main item",
+      );
+      x.keyValue("Hours", workshop.hours || 0, {
+        valueEnd: 5,
+        numFmt: NUM.hours,
+        bold: true,
+      });
+      x.keyValue("Function", workshop.jobFunction || "", { valueEnd: 5 });
+      x.keyValue("Phase", workshop.phase || "", { valueEnd: 5 });
+      x.keyValue("Cost (as entered)", workshop.cost || 0, {
+        valueEnd: 5,
+        numFmt: currencyFmt(workshop.currency),
+      });
+      if (workshop.currency === "BRL") {
+        x.keyValue("Rate (BRL per 1 USD)", workshop.rateUsed || "", {
+          valueEnd: 5,
+          numFmt: NUM.rate,
+        });
+      }
+      x.keyValue("Cost (USD)", workshop.costUSD || 0, {
+        valueEnd: 5,
+        numFmt: NUM.usd,
+        bold: true,
+      });
+      x.keyValue("Notes", workshop.notes || "", { valueEnd: 5, wrap: true });
+      x.note(BID_DESTINATION, span, "info");
+      x.gap(14);
+    }
+
     // Cost sources: only items whose own cost is in the total
-    const bySource = new Map<string, { count: number; usd: number }>();
+    const bySource = new Map<
+      string,
+      { count: number; usd: number; tax: number }
+    >();
     items.forEach((i) => {
       if (cov.statuses.get(i.id) !== "costed") return;
       const key = sourceLabel(i);
-      const cur = bySource.get(key) || { count: 0, usd: 0 };
+      const cur = bySource.get(key) || { count: 0, usd: 0, tax: 0 };
       cur.count++;
       cur.usd += i.totalCostInclCont;
+      cur.tax += taxByRow.get(i.id) || 0;
       bySource.set(key, cur);
     });
     const sources: string[] = [];
@@ -214,18 +364,26 @@ export async function exportBomCostsToExcel(
           align: "right",
           numFmt: NUM.int,
           from: 3,
-          to: 4,
+          to: 3,
         },
         {
-          header: "Total USD",
+          header: showTax ? "Total USD (incl. tax)" : "Total USD",
           width: 0,
           align: "right",
           numFmt: NUM.usd,
-          from: 5,
+          from: 4,
+          to: 5,
+        },
+        {
+          header: "Import Tax USD",
+          width: 0,
+          align: "right",
+          numFmt: NUM.usd,
+          from: 6,
           to: 6,
         },
         {
-          header: "% of Total",
+          header: "% of BOM Items",
           width: 0,
           align: "right",
           numFmt: NUM.pct,
@@ -243,7 +401,8 @@ export async function exportBomCostsToExcel(
             { value: s, bold: true },
             v.count,
             v.usd,
-            total > 0 ? v.usd / total : 0,
+            v.tax > 0 ? { value: v.tax, color: XL_COLORS.accentDark } : null,
+            bd.items > 0 ? v.usd / bd.items : 0,
           ],
           { zebra: i % 2 === 1 },
         );
@@ -358,9 +517,24 @@ export async function exportBomCostsToExcel(
     }
 
     x.note(
-      "Total = items priced directly. Rolled-up parents are skipped (their children are summed) and children of a parent with its own cost are not counted again.",
+      "Total = BOM items priced directly (incl. contingency and import tax) + workshop. Rolled-up parents are skipped (their children are summed) and children of a parent with its own cost are not counted again.",
       span,
       "info",
+    );
+    x.note(
+      "Contingency per year corrects past prices to today's value: each year between the cost Date Ref. and the current year adds this percentage to the item cost.",
+      span,
+      "muted",
+    );
+    x.note(
+      `Import tax${taxRate > 0 ? ` (${taxRate}%)` : ""} applies to items priced in Global BUs (Financials): item cost incl. contingency × (1 + rate). BUMBL, BUMBR, Quotation and Manual prices are not taxed unless switched on for the row.`,
+      span,
+      "muted",
+    );
+    x.note(
+      `Workshop = hours and cost to assemble and test one unit of the main item. ${BID_DESTINATION}`,
+      span,
+      "muted",
     );
     x.note(
       "Search priority: 1st BUMBL, 2nd BUMBR, 3rd Global BUs (Financials), using the most recent Last Order Date when a part exists in several Business Units.",
@@ -392,8 +566,24 @@ export async function exportBomCostsToExcel(
         numFmt: NUM.pctWhole,
       },
       {
+        key: "tax",
+        header: "Import Tax %",
+        width: 10,
+        align: "right",
+        numFmt: NUM.pctWhole,
+        when: showTax,
+      },
+      {
+        key: "taxUsd",
+        header: "Import Tax USD",
+        width: 15,
+        align: "right",
+        numFmt: NUM.usd,
+        when: showTax,
+      },
+      {
         key: "total",
-        header: "Total USD",
+        header: showTax ? "Total USD (Cont. + Tax)" : "Total USD",
         width: 18,
         align: "right",
         numFmt: NUM.usd,
@@ -459,6 +649,17 @@ export async function exportBomCostsToExcel(
           it.contingencyPercent > 0 && !it.isRolledUp
             ? it.contingencyPercent
             : null,
+        tax:
+          (it.importTaxPercent || 0) > 0 && !it.isRolledUp
+            ? it.importTaxPercent
+            : null,
+        taxUsd:
+          (taxByRow.get(it.id) || 0) > 0
+            ? {
+                value: taxByRow.get(it.id) || 0,
+                color: muted ? undefined : XL_COLORS.accentDark,
+              }
+            : null,
         total:
           it.totalCostInclCont > 0
             ? { value: it.totalCostInclCont, bold: !muted }
@@ -509,6 +710,35 @@ export async function exportBomCostsToExcel(
         to: { row: x.row - 1, column: span },
       };
     }
+    if (showTax || workshop) {
+      const taxUsdCol = showTax ? colOf(cols, "taxUsd") : 0;
+      const itemValues: IXlPlacedValue[] = [
+        { col: totalCol, value: bd.items, numFmt: NUM.usd },
+      ];
+      if (taxUsdCol > 0) {
+        itemValues.push({
+          col: taxUsdCol,
+          value: bd.importTax,
+          numFmt: NUM.usd,
+        });
+      }
+      x.total(
+        showTax ? "BOM ITEMS (MATERIALS + IMPORT TAX)" : "BOM ITEMS",
+        span,
+        itemValues,
+        "sub",
+        1,
+      );
+      if (workshop) {
+        x.total(
+          `WORKSHOP - ASSEMBLY & TEST (${workshop.hours || 0} h per unit)`,
+          span,
+          [{ col: totalCol, value: bd.workshop, numFmt: NUM.usd }],
+          "sub",
+          1,
+        );
+      }
+    }
     x.total(
       "TOTAL BOM COST",
       span,
@@ -522,6 +752,20 @@ export async function exportBomCostsToExcel(
       span,
       "muted",
     );
+    if (showTax) {
+      x.note(
+        `Import Tax USD = item cost incl. contingency × ${taxRate}%; it is already inside the Total column. Rolled-up rows show the tax summed from their children.`,
+        span,
+        "muted",
+      );
+    }
+    if (workshop) {
+      x.note(
+        `Workshop is not a BOM line: it is added once to the total. ${BID_DESTINATION}`,
+        span,
+        "muted",
+      );
+    }
   }
 
   const buffer = await wb.xlsx.writeBuffer();

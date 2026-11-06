@@ -13,6 +13,27 @@ export type BomCostSource =
   | "QUOTATION"
   | "";
 
+/** "on" / "off" force the import tax on a row; unset follows the source rule */
+export type BomImportTaxMode = "on" | "off";
+
+/** Workshop assembly & test of the main item (per unit of the Level 1 item) */
+export interface IBomWorkshop {
+  /** Workshop hours to assemble and test one unit */
+  hours: number;
+  /** Workshop cost per unit, in `currency` */
+  cost: number;
+  currency: "BRL" | "USD";
+  /** `cost` converted to USD with the system rate */
+  costUSD: number;
+  /** BRL per 1 USD used for the conversion (BRL only) */
+  rateUsed?: number;
+  /** Job function used for the hours line in the BID (System Config) */
+  jobFunction?: string;
+  /** Hours phase used for the hours line in the BID (System Config) */
+  phase?: string;
+  notes?: string;
+}
+
 /** A single line item in the BOM hierarchy */
 export interface IBomCostItem {
   /** Unique identifier */
@@ -35,7 +56,11 @@ export interface IBomCostItem {
   costPerItemUSD: number;
   /** Contingency percentage applied (0-100+) */
   contingencyPercent: number;
-  /** Calculated: qty × costPerItemUSD × (1 + contingencyPercent / 100) */
+  /** Import tax percentage applied to this row (snapshot of the analysis rate, 0 when not taxed) */
+  importTaxPercent?: number;
+  /** Per-row override of the import tax rule; unset = automatic (Global BUs only) */
+  importTaxMode?: BomImportTaxMode;
+  /** Calculated: qty × costPerItemUSD × (1 + contingency%) × (1 + importTax%) */
   totalCostInclCont: number;
   /** Lead time in days */
   leadTimeDays: number;
@@ -83,8 +108,19 @@ export interface IBomCostAnalysis {
   currencyRatesUsed: Record<string, number>;
   /** Default contingency % per year to apply */
   globalContingencyPerYear: number;
+  /** Import tax % (0-100) applied to items priced in Global BUs (Financials) */
+  importTaxPercent?: number;
+  /** Workshop assembly & test of the main item */
+  workshop?: IBomWorkshop;
   /** All BOM line items (flat list, hierarchy via level + parentId) */
   items: IBomCostItem[];
-  /** Total cost including contingency (sum of all items) */
+  /** Total cost: materials (incl. contingency) + import tax + workshop */
   totalCostUSD: number;
+}
+
+/** Tag on BID rows created from a BOM workshop, so a re-import replaces them */
+export interface IBomWorkshopRef {
+  bomAnalysisId: string;
+  scopeItemId: string;
+  partNumber: string;
 }

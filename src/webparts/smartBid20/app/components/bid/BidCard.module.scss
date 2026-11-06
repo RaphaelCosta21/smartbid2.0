@@ -27,6 +27,85 @@
       opacity: 0.85;
     }
   }
+
+  /* Bicolor stripe: lead division on top, partner division below */
+  &.integrated {
+    position: relative;
+
+    &::before {
+      content: "";
+      position: absolute;
+      top: -1px;
+      bottom: -1px;
+      left: -1px;
+      width: 4px;
+      border-radius: 14px 0 0 14px;
+      background: linear-gradient(
+        to bottom,
+        var(--lead-color) 0%,
+        var(--lead-color) 50%,
+        var(--partner-color) 50%,
+        var(--partner-color) 100%
+      );
+      pointer-events: none;
+    }
+  }
+}
+
+/* ---- Integrated teams ---- */
+
+.teamsBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.teamRow {
+  display: grid;
+  grid-template-columns: 30px 36px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 6px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border-left: 2px solid var(--team-color);
+  background: color-mix(in srgb, var(--team-color) 8%, transparent);
+}
+
+.teamDivision {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--team-color);
+}
+
+.leadChip {
+  justify-self: start;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary-accent-contrast);
+  background: var(--team-color);
+}
+
+.teamLine {
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teamErn {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .cardHeader {

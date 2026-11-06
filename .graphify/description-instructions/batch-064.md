@@ -1,4 +1,4 @@
-# Node Description Batch 65 of 86
+# Node Description Batch 65 of 102
 
 Graphify is running in assistant/skill mode (no API key). You are the host
 assistant (Claude Code / Codex / Gemini CLI). Read the prompt below and write
@@ -12,58 +12,51 @@ describing what it is or does. Use only the provided context.
 For a code symbol (kind=code-symbol — a function, class, or constant),
 describe what the function/symbol does based on its name, source location
 and neighbors — e.g. "Resolves the configured ontology profile from graphify.yaml.".
-For an entity node (any other kind — e.g. a person, place, event, object),
-describe what the entity is and its role, grounded in its type, its
-relations (neighbors) and the provided citations/evidence — e.g.
-"Lady Carfax, a wealthy heiress who disappears en route to Lausanne.".
-Ground entity descriptions in the citations/evidence when present; do not
-speculate beyond the context, so a node with no supporting context may be
-left out of the reply.
 Write every description in English (en). Do not switch languages.
 No marketing language.
 Respond ONLY with a JSON object mapping each node id (as a string) to its
 one-sentence description — no prose, no markdown fences.
 
-- "dashboard_ernwatchlist_empty_text": "EMPTY_TEXT" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/ErnWatchlist.tsx:L42 | neighbors=[ErnWatchlist.tsx]
-- "dashboard_ernwatchlist_ernwatchlistprops": "ErnWatchlistProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/ErnWatchlist.tsx:L28 | neighbors=[ErnWatchlist.tsx]
-- "dashboard_ernwatchlist_filters": "FILTERS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/ErnWatchlist.tsx:L35 | neighbors=[ErnWatchlist.tsx]
-- "dashboard_ernwatchlist_initials": "initials()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/ErnWatchlist.tsx:L57 | neighbors=[ErnWatchlist.tsx]
-- "dashboard_ernwatchlist_toneclass": "toneClass()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/ErnWatchlist.tsx:L49 | neighbors=[ErnWatchlist.tsx]
-- "dashboard_livefocusoverlay_focusmode": "FocusMode" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/LiveFocusOverlay.tsx:L17 | neighbors=[LiveFocusOverlay.tsx]
-- "dashboard_livefocusoverlay_focusorigin": "FocusOrigin" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/LiveFocusOverlay.tsx:L12 | neighbors=[LiveFocusOverlay.tsx]
-- "dashboard_livefocusoverlay_invert": "invert()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/LiveFocusOverlay.tsx:L75 | neighbors=[LiveFocusOverlay.tsx]
-- "dashboard_livefocusoverlay_livefocusoverlayprops": "LiveFocusOverlayProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/LiveFocusOverlay.tsx:L54 | neighbors=[LiveFocusOverlay.tsx]
-- "dashboard_livefocusoverlay_phase": "Phase" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/LiveFocusOverlay.tsx:L63 | neighbors=[LiveFocusOverlay.tsx]
-- "dashboard_monthlyvolumechart_monthlyvolumechart": "MonthlyVolumeChart()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/MonthlyVolumeChart.tsx:L11 | neighbors=[MonthlyVolumeChart.tsx]
-- "dashboard_monthlyvolumechart_monthlyvolumechartprops": "MonthlyVolumeChartProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/MonthlyVolumeChart.tsx:L6 | neighbors=[MonthlyVolumeChart.tsx]
-- "dashboard_recentactivity_recentactivity": "RecentActivity()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/RecentActivity.tsx:L24 | neighbors=[RecentActivity.tsx]
-- "dashboard_recentactivity_recentactivityprops": "RecentActivityProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/RecentActivity.tsx:L7 | neighbors=[RecentActivity.tsx]
-- "dashboard_recentactivity_type_colors": "TYPE_COLORS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/RecentActivity.tsx:L12 | neighbors=[RecentActivity.tsx]
-- "dashboard_upcomingdeadlines_focus_groups": "FOCUS_GROUPS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/UpcomingDeadlines.tsx:L20 | neighbors=[UpcomingDeadlines.tsx]
-- "dashboard_upcomingdeadlines_upcomingdeadlinesprops": "UpcomingDeadlinesProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/UpcomingDeadlines.tsx:L14 | neighbors=[UpcomingDeadlines.tsx]
-- "data_defaultsystemconfig_default_system_config": "DEFAULT_SYSTEM_CONFIG" | kind=code-symbol | source=src/webparts/smartBid20/app/data/defaultSystemConfig.ts:L13 | neighbors=[defaultSystemConfig.ts]
-- "data_mockapprovals_mockapprovals": "mockApprovals" | kind=code-symbol | source=src/webparts/smartBid20/app/data/mockApprovals.ts:L3 | neighbors=[mockApprovals.ts]
-- "data_mocknotifications_mock_notifications": "MOCK_NOTIFICATIONS" | kind=code-symbol | source=src/webparts/smartBid20/app/data/mockNotifications.ts:L3 | neighbors=[mockNotifications.ts]
-- "data_mockrequests_mockrequests": "mockRequests" | kind=code-symbol | source=src/webparts/smartBid20/app/data/mockRequests.ts:L3 | neighbors=[mockRequests.ts]
-- "data_mocktemplates_ibidtemplate": "IBidTemplate" | kind=code-symbol | source=src/webparts/smartBid20/app/data/mockTemplates.ts:L1 | neighbors=[mockTemplates.ts]
-- "data_mocktemplates_mock_templates": "MOCK_TEMPLATES" | kind=code-symbol | source=src/webparts/smartBid20/app/data/mockTemplates.ts:L16 | neighbors=[mockTemplates.ts]
-- "docref_rfc_4180": "RFC-4180" | kind=entity | source=src/webparts/smartBid20/app/utils/csvParser.ts:L2 | neighbors=[csvParser.ts]
-- "favorites_addfavoriteequipmentmodal_addfavoriteequipmentmodalprops": "AddFavoriteEquipmentModalProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/favorites/AddFavoriteEquipmentModal.tsx:L42 | neighbors=[AddFavoriteEquipmentModal.tsx]
-- "favorites_addfavoriteequipmentmodal_addmode": "AddMode" | kind=code-symbol | source=src/webparts/smartBid20/app/components/favorites/AddFavoriteEquipmentModal.tsx:L54 | neighbors=[AddFavoriteEquipmentModal.tsx]
-- "favorites_addfavoriteequipmentmodal_icandidate": "ICandidate" | kind=code-symbol | source=src/webparts/smartBid20/app/components/favorites/AddFavoriteEquipmentModal.tsx:L68 | neighbors=[AddFavoriteEquipmentModal.tsx]
-- "favorites_addfavoriteequipmentmodal_isection": "ISection" | kind=code-symbol | source=src/webparts/smartBid20/app/components/favorites/AddFavoriteEquipmentModal.tsx:L74 | neighbors=[AddFavoriteEquipmentModal.tsx]
-- "favorites_addfavoriteequipmentmodal_istageditem": "IStagedItem" | kind=code-symbol | source=src/webparts/smartBid20/app/components/favorites/AddFavoriteEquipmentModal.tsx:L56 | neighbors=[AddFavoriteEquipmentModal.tsx]
-- "favorites_addfavoriteequipmentmodal_normdesc": "normDesc()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/favorites/AddFavoriteEquipmentModal.tsx:L84 | neighbors=[AddFavoriteEquipmentModal.tsx]
-- "favorites_addfavoriteequipmentmodal_normpn": "normPn()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/favorites/AddFavoriteEquipmentModal.tsx:L83 | neighbors=[AddFavoriteEquipmentModal.tsx]
-- "favorites_addfavoriteequipmentmodal_partthumb": "PartThumb()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/favorites/AddFavoriteEquipmentModal.tsx:L90 | neighbors=[AddFavoriteEquipmentModal.tsx]
-- "function_app_document_structure_breadcrumb": "breadcrumb()" | kind=code-symbol | source=azure-ai-backend/function-app/document_structure.py:L357 | neighbors=[document_structure.py]
-- "function_app_document_structure_rationale_1": "document_structure.py — section-aware Markdown chunking for the SmartBid docs in" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L1 | neighbors=[document_structure.py]
-- "function_app_document_structure_rationale_106": "Guards against all-caps noise such as the \"X X X X\" row of a maintenance\r     ma" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L106 | neighbors=[_has_word()]
-- "function_app_document_structure_rationale_112": "Guards against all-caps noise such as the \"X X X X\" row of a maintenance\r     ma" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L112 | neighbors=[_has_word()]
-- "function_app_document_structure_rationale_120": "A single-level number is indistinguishable from a quantity in a\r     specificati" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L120 | neighbors=[_numbered_title()]
-- "function_app_document_structure_rationale_126": "A single-level number is indistinguishable from a quantity in a\r     specificati" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L126 | neighbors=[_numbered_title()]
-- "function_app_document_structure_rationale_132": "Collapse whitespace and mask digits so \"Page 3 of 19\" and \"Page 4 of 19\"\r     co" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L132 | neighbors=[_normalize()]
-- "function_app_document_structure_rationale_153": "Digit masking is what catches a running footer, but it also makes a\r     measure" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L153 | neighbors=[_is_boilerplate()]
+- "approval_approvalrequestcard_approvalrequestcardprops": "ApprovalRequestCardProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/approval/ApprovalRequestCard.tsx:L5 | neighbors=[ApprovalRequestCard.tsx]
+- "approval_approvaltimeline_approvaltimeline": "ApprovalTimeline()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/approval/ApprovalTimeline.tsx:L11 | neighbors=[ApprovalTimeline.tsx]
+- "approval_approvaltimeline_approvaltimelineprops": "ApprovalTimelineProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/approval/ApprovalTimeline.tsx:L6 | neighbors=[ApprovalTimeline.tsx]
+- "bid_addquotationmodal_addquotationmodalprops": "AddQuotationModalProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AddQuotationModal.tsx:L69 | neighbors=[AddQuotationModal.tsx]
+- "bid_addquotationmodal_iquotationlinedraft": "IQuotationLineDraft" | kind=code-symbol | neighbors=[ILineItem]
+- "bid_aitab_aitabprops": "AITabProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AITab.tsx:L7 | neighbors=[AITab.tsx]
+- "bid_approvaltab_approvaltrackpanel": "ApprovalTrackPanel()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/ApprovalTab.tsx:L291 | neighbors=[ApprovalTab.tsx]
+- "bid_approvaltab_matchesdivision": "matchesDivision()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/ApprovalTab.tsx:L114 | neighbors=[ApprovalTab.tsx]
+- "bid_approvaltab_sector_configs": "SECTOR_CONFIGS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/ApprovalTab.tsx:L130 | neighbors=[ApprovalTab.tsx]
+- "bid_approvaltab_sectorconfig": "SectorConfig" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/ApprovalTab.tsx:L91 | neighbors=[ApprovalTab.tsx]
+- "bid_approvaltab_status_display": "STATUS_DISPLAY" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/ApprovalTab.tsx:L245 | neighbors=[ApprovalTab.tsx]
+- "bid_assetsbreakdowntab_assetsbreakdowntabprops": "AssetsBreakdownTabProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L71 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_blankasset": "blankAsset()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L91 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_blanksubcost": "blankSubCost()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L116 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_blanksubitemcost": "blankSubItemCost()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L138 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_blanktransitsubcost": "blankTransitSubCost()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L125 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_cleared_pricing": "CLEARED_PRICING" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L153 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_costrefbadgeclass": "costRefBadgeClass()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L296 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_dateageclass": "dateAgeClass()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L261 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_drawertab": "DrawerTab" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L218 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_fmtpct": "fmtPct()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L279 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_formatdateref": "formatDateRef()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L239 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_getquotelinkhref": "getQuoteLinkHref()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L290 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_haspricing": "hasPricing()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L167 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_isquerysource": "isQuerySource()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L281 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_istransitfilled": "isTransitFilled()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L199 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_leavesrental": "leavesRental()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L213 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_query_sources": "QUERY_SOURCES" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L274 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_releasequotationprice": "releaseQuotationPrice()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L221 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_synctransitfees": "syncTransitFees()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L185 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_assetsbreakdowntab_withouttransit": "withoutTransit()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/AssetsBreakdownTab.tsx:L208 | neighbors=[AssetsBreakdownTab.tsx]
+- "bid_bidactivitylog_activity_icons": "ACTIVITY_ICONS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidActivityLog.tsx:L61 | neighbors=[BidActivityLog.tsx]
+- "bid_bidactivitylog_bidactivitylogprops": "BidActivityLogProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidActivityLog.tsx:L54 | neighbors=[BidActivityLog.tsx]
+- "bid_bidactivitylog_categoryfilter": "CategoryFilter" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidActivityLog.tsx:L92 | neighbors=[BidActivityLog.tsx]
+- "bid_bidactivitylog_getactivitycolor": "getActivityColor()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidActivityLog.tsx:L37 | neighbors=[BidActivityLog.tsx]
+- "bid_bidactivitylog_getinitials": "getInitials()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidActivityLog.tsx:L99 | neighbors=[BidActivityLog.tsx]
+- "bid_bidactivitylog_transition": "Transition()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidActivityLog.tsx:L107 | neighbors=[BidActivityLog.tsx]
+- "bid_bidapprovalpanel_bidapprovalpanel": "BidApprovalPanel()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidApprovalPanel.tsx:L13 | neighbors=[BidApprovalPanel.tsx]
+- "bid_bidapprovalpanel_bidapprovalpanelprops": "BidApprovalPanelProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidApprovalPanel.tsx:L7 | neighbors=[BidApprovalPanel.tsx]
+- "bid_bidcard_bidcardprops": "BidCardProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/bid/BidCard.tsx:L16 | neighbors=[BidCard.tsx]
 
 ## Instructions
 

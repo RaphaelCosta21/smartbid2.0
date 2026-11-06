@@ -71,9 +71,8 @@ import { withCurrentOption } from "../../utils/clarificationHelpers";
 import {
   buildDivisionFields,
   getBidBusinessLines,
-  getBidServiceLines,
+  getBidTeams,
   getBusinessLineLabel,
-  getLeadDivision,
   getTrackLabel,
   integratedLineOptions,
   isIntegratedDivision,
@@ -91,6 +90,7 @@ import {
   getErnLinkForSlot,
   getLinkedErnTitles,
   ErnDivision,
+  IErnSlot,
 } from "../../utils/ernHelpers";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import styles from "../../pages/BidDetailPage.module.scss";
@@ -1007,6 +1007,177 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const divisionOption = (value: string) =>
     (config?.divisions || []).find((d) => d.value === value);
 
+  type Person = {
+    name: string;
+    email: string;
+    role?: string;
+    photoUrl?: string;
+  };
+  const renderPeople = (people: Person[]): React.ReactNode =>
+    people.length > 0 ? (
+      <div className={styles.kpPeople}>
+        {people.map((p) => (
+          <PersonChip
+            key={p.email}
+            name={p.name}
+            email={p.email}
+            role={p.role}
+            photoUrl={p.photoUrl}
+          />
+        ))}
+      </div>
+    ) : (
+      <span className={styles.kpEmpty}>-</span>
+    );
+  const pmByLine: Record<BusinessLine, Person[]> = {
+    ROV: [],
+    SURVEY: [],
+    OPG: [],
+  };
+  const pmUnassigned: Person[] = [];
+  (bid.projectManager || []).forEach((pm) => {
+    if (pm.businessLine && pmByLine[pm.businessLine]) {
+      pmByLine[pm.businessLine].push(pm);
+      return;
+    }
+    const lines =
+      membersMap[(pm.email || "").toLowerCase()]?.businessLines || [];
+    const matched = PM_BUSINESS_LINES.filter((bl) => lines.indexOf(bl) >= 0);
+    if (matched.length === 0) pmUnassigned.push(pm);
+    matched.forEach((bl) => pmByLine[bl].push(pm));
+  });
+  const bidTeams = getBidTeams(bid);
+  const teamLines: BusinessLine[] = [];
+  bidTeams.forEach((t) =>
+    t.businessLines.forEach((bl) => {
+      if (teamLines.indexOf(bl) < 0) teamLines.push(bl);
+    }),
+  );
+  const teamPms = (lines: BusinessLine[]): Person[] => {
+    const out: Person[] = [];
+    lines.forEach((bl) =>
+      pmByLine[bl].forEach((p) => {
+        if (!out.some((o) => o.email === p.email)) out.push(p);
+      }),
+    );
+    return out;
+  };
+
+  const renderErnValue = (slot: IErnSlot): React.ReactNode => {
+    const link = getErnLinkForSlot(bid, slot.division);
+    const slotDeadline = link
+      ? getErnDeadlineState(
+          link.ernDueDate,
+          link.ernStatus,
+          link.ernFinishDate,
+        )
+      : "none";
+    return (
+      link ? (
+        <span
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
+          }}
+        >
+          <span className={styles.monoValue}>
+            {link.ernNumber}
+          </span>
+          <button
+            type="button"
+            style={ernLinkBtnStyle}
+            onClick={() => setErnDetails(link.ernNumber)}
+          >
+            View details
+          </button>
+          {canEditErn && (
+            <button
+              type="button"
+              style={ernLinkBtnStyle}
+              onClick={() =>
+                setErnSearch({ division: slot.division })
+              }
+            >
+              Change
+            </button>
+          )}
+          {slotDeadline === "overdue" && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "var(--danger)",
+              }}
+            >
+              ERN OVERDUE
+            </span>
+          )}
+          {slotDeadline === "due-soon" && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "var(--warning)",
+              }}
+            >
+              ERN due soon
+            </span>
+          )}
+          {(slotDeadline === "overdue" ||
+            slotDeadline === "due-soon") && (
+            <a
+              href={ernAppUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--primary-accent)",
+              }}
+            >
+              Open ERN app ↗
+            </a>
+          )}
+        </span>
+      ) : (
+        <span
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
+          }}
+        >
+          <StatusBadge status="TBD" color="var(--warning)" />
+          {canEditErn && (
+            <>
+              <button
+                type="button"
+                style={ernCreateBtnStyle}
+                onClick={() =>
+                  setErnCreate({ division: slot.division })
+                }
+              >
+                Create ERN
+              </button>
+              <button
+                type="button"
+                style={ernLinkBtnStyle}
+                onClick={() =>
+                  setErnSearch({ division: slot.division })
+                }
+              >
+                Select existing
+              </button>
+            </>
+          )}
+        </span>
+      )
+    );
+  };
+
   return (
     <div className={styles.overviewGrid}>
       <div className={styles.flexColumn}>
@@ -1309,45 +1480,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     />
                   }
                 />
-                {bidIsIntegrated && (
+                {!bidIsIntegrated && (
                   <InfoRow
-                    label="Lead Division"
+                    label="Service Line"
                     value={
-                      <StatusBadge
-                        status={getLeadDivision(bid)}
-                        color={divisionOption(getLeadDivision(bid))?.color}
-                      />
+                      <StatusBadge status={bid.serviceLine} color={slColor} />
                     }
                   />
                 )}
-                <InfoRow
-                  label="Service Line"
-                  value={
-                    bidIsIntegrated ? (
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          gap: 6,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        {getBidServiceLines(bid).map((sl) => (
-                          <StatusBadge
-                            key={sl}
-                            status={sl}
-                            color={
-                              (config?.serviceLines || []).find(
-                                (o) => o.value === sl,
-                              )?.color
-                            }
-                          />
-                        ))}
-                      </span>
-                    ) : (
-                      <StatusBadge status={bid.serviceLine} color={slColor} />
-                    )
-                  }
-                />
                 <InfoRow label="Type" value={bid.bidType} />
                 <InfoRow label="Size" value={bid.bidSize} />
               </>
@@ -1377,130 +1517,91 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               label="Status"
               value={<StatusBadge status={bid.currentStatus} />}
             />
-            {ernSlots.map((slot) => {
-              const link = getErnLinkForSlot(bid, slot.division);
-              const slotLabel = slot.label
-                ? `ERN (${slot.label})`
-                : "ERN Number";
-              const slotDeadline = link
-                ? getErnDeadlineState(
-                    link.ernDueDate,
-                    link.ernStatus,
-                    link.ernFinishDate,
-                  )
-                : "none";
-              return (
+            {!bidIsIntegrated &&
+              ernSlots.map((slot) => (
                 <InfoRow
                   key={slot.label || "single"}
-                  label={slotLabel}
-                  value={
-                    link ? (
-                      <span
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <span className={styles.monoValue}>
-                          {link.ernNumber}
-                        </span>
-                        <button
-                          type="button"
-                          style={ernLinkBtnStyle}
-                          onClick={() => setErnDetails(link.ernNumber)}
-                        >
-                          View details
-                        </button>
-                        {canEditErn && (
-                          <button
-                            type="button"
-                            style={ernLinkBtnStyle}
-                            onClick={() =>
-                              setErnSearch({ division: slot.division })
-                            }
-                          >
-                            Change
-                          </button>
-                        )}
-                        {slotDeadline === "overdue" && (
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: "var(--danger)",
-                            }}
-                          >
-                            ERN OVERDUE
-                          </span>
-                        )}
-                        {slotDeadline === "due-soon" && (
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: "var(--warning)",
-                            }}
-                          >
-                            ERN due soon
-                          </span>
-                        )}
-                        {(slotDeadline === "overdue" ||
-                          slotDeadline === "due-soon") && (
-                          <a
-                            href={ernAppUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 600,
-                              color: "var(--primary-accent)",
-                            }}
-                          >
-                            Open ERN app ↗
-                          </a>
-                        )}
-                      </span>
-                    ) : (
-                      <span
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <StatusBadge status="TBD" color="var(--warning)" />
-                        {canEditErn && (
-                          <>
-                            <button
-                              type="button"
-                              style={ernCreateBtnStyle}
-                              onClick={() =>
-                                setErnCreate({ division: slot.division })
-                              }
-                            >
-                              Create ERN
-                            </button>
-                            <button
-                              type="button"
-                              style={ernLinkBtnStyle}
-                              onClick={() =>
-                                setErnSearch({ division: slot.division })
-                              }
-                            >
-                              Select existing
-                            </button>
-                          </>
-                        )}
-                      </span>
-                    )
-                  }
+                  label={slot.label ? `ERN (${slot.label})` : "ERN Number"}
+                  value={renderErnValue(slot)}
                 />
-              );
-            })}
+              ))}
           </div>
+          {bidIsIntegrated && (
+            <div className={styles.teamPanels}>
+              {bidTeams.map((team) => {
+                const teamSlots = ernSlots.filter(
+                  (s) =>
+                    !!s.division &&
+                    team.businessLines.indexOf(s.division) >= 0,
+                );
+                return (
+                  <div
+                    key={team.division}
+                    className={`${styles.teamPanel} ${team.isLead ? styles.teamPanelLead : ""}`}
+                    style={
+                      {
+                        "--team-color":
+                          divisionOption(team.division)?.color ||
+                          "var(--text-muted)",
+                      } as React.CSSProperties
+                    }
+                  >
+                    <div className={styles.teamPanelHeader}>
+                      <span className={styles.teamPanelDivision}>
+                        {team.division}
+                      </span>
+                      {team.isLead && (
+                        <span className={styles.teamPanelLeadChip}>
+                          Lead
+                        </span>
+                      )}
+                      <span className={styles.teamPanelLine}>
+                        {team.serviceLine ? (
+                          <StatusBadge
+                            status={team.serviceLine}
+                            color={
+                              (config?.serviceLines || []).find(
+                                (o) => o.value === team.serviceLine,
+                              )?.color
+                            }
+                          />
+                        ) : (
+                          "-"
+                        )}
+                      </span>
+                    </div>
+                    <div className={styles.teamPanelBody}>
+                      {teamSlots.length === 0 && (
+                        <div className={`${styles.infoItem} ${styles.teamPanelField}`}>
+                          <div className={styles.infoLabel}>ERN</div>
+                          <div className={styles.infoValue}>-</div>
+                        </div>
+                      )}
+                      {teamSlots.map((slot) => (
+                        <div
+                          key={slot.label}
+                          className={`${styles.infoItem} ${styles.teamPanelField}`}
+                        >
+                          <div className={styles.infoLabel}>
+                            {teamSlots.length > 1
+                              ? `ERN (${slot.label})`
+                              : "ERN"}
+                          </div>
+                          <div className={styles.infoValue}>
+                            {renderErnValue(slot)}
+                          </div>
+                        </div>
+                      ))}
+                      <div className={`${styles.infoItem} ${styles.teamPanelField}`}>
+                        <div className={styles.infoLabel}>Project Manager</div>
+                        {renderPeople(teamPms(team.businessLines))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {ernCreate && (
@@ -1892,28 +1993,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         <div className={styles.infoSection}>
           <h4 className={styles.infoTitle}>Key People</h4>
           {(() => {
-            type Person = {
-              name: string;
-              email: string;
-              role?: string;
-              photoUrl?: string;
-            };
-            const renderPeople = (people: Person[]): React.ReactNode =>
-              people.length > 0 ? (
-                <div className={styles.kpPeople}>
-                  {people.map((p) => (
-                    <PersonChip
-                      key={p.email}
-                      name={p.name}
-                      email={p.email}
-                      role={p.role}
-                      photoUrl={p.photoUrl}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <span className={styles.kpEmpty}>-</span>
-              );
             const renderRole = (
               label: string,
               people: Person[],
@@ -1923,29 +2002,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 {renderPeople(people)}
               </div>
             );
-            const pmByLine: Record<BusinessLine, Person[]> = {
-              ROV: [],
-              SURVEY: [],
-              OPG: [],
-            };
-            const pmUnassigned: Person[] = [];
             const bidLines = getBidBusinessLines(bid);
-            const pmLineOrder = bidLines.concat(
-              PM_BUSINESS_LINES.filter((bl) => bidLines.indexOf(bl) < 0),
-            );
-            (bid.projectManager || []).forEach((pm) => {
-              if (pm.businessLine && pmByLine[pm.businessLine]) {
-                pmByLine[pm.businessLine].push(pm);
-                return;
-              }
-              const lines =
-                membersMap[(pm.email || "").toLowerCase()]?.businessLines || [];
-              const matched = PM_BUSINESS_LINES.filter(
-                (bl) => lines.indexOf(bl) >= 0,
-              );
-              if (matched.length === 0) pmUnassigned.push(pm);
-              matched.forEach((bl) => pmByLine[bl].push(pm));
-            });
+            const pmLineOrder = bidLines
+              .concat(
+                PM_BUSINESS_LINES.filter((bl) => bidLines.indexOf(bl) < 0),
+              )
+              // INTEGRATED BIDs show each team's PMs in the Divisions panels
+              .filter((bl) => teamLines.indexOf(bl) < 0);
+            const showPmPanel =
+              !bidIsIntegrated ||
+              pmUnassigned.length > 0 ||
+              pmLineOrder.some((bl) => pmByLine[bl].length > 0);
             return (
               <div className={styles.kpLayout}>
                 <div className={styles.kpPanel}>
@@ -1972,24 +2039,29 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     {renderRole("Analyst", bid.analyst || [])}
                   </div>
                 </div>
-                <div className={`${styles.kpPanel} ${styles.kpPanelWide}`}>
-                  <div className={styles.kpPanelTitle}>
-                    <Briefcase size={14} /> Project Manager
+                {showPmPanel && (
+                  <div className={`${styles.kpPanel} ${styles.kpPanelWide}`}>
+                    <div className={styles.kpPanelTitle}>
+                      <Briefcase size={14} />
+                      {bidIsIntegrated
+                        ? "Other Project Managers"
+                        : "Project Manager"}
+                    </div>
+                    <div className={styles.kpDivisionGrid}>
+                      {pmLineOrder
+                        .filter((bl) => pmByLine[bl].length > 0)
+                        .map((bl) => (
+                          <React.Fragment key={bl}>
+                            {renderRole(bl, pmByLine[bl])}
+                          </React.Fragment>
+                        ))}
+                      {pmUnassigned.length > 0 &&
+                        renderRole("No business line", pmUnassigned)}
+                      {(bid.projectManager || []).length === 0 &&
+                        renderPeople([])}
+                    </div>
                   </div>
-                  <div className={styles.kpDivisionGrid}>
-                    {pmLineOrder
-                      .filter((bl) => pmByLine[bl].length > 0)
-                      .map((bl) => (
-                        <React.Fragment key={bl}>
-                          {renderRole(bl, pmByLine[bl])}
-                        </React.Fragment>
-                      ))}
-                    {pmUnassigned.length > 0 &&
-                      renderRole("No business line", pmUnassigned)}
-                    {(bid.projectManager || []).length === 0 &&
-                      renderPeople([])}
-                  </div>
-                </div>
+                )}
               </div>
             );
           })()}

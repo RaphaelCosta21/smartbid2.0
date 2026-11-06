@@ -110,6 +110,42 @@ export function getTrackLabel(
   return sl ? `${div} - ${sl}` : div;
 }
 
+/** One division (team) of an INTEGRATED BID. */
+export interface IBidTeam {
+  division: BaseDivision;
+  serviceLine: string;
+  /** Business lines (ERN slots / PM tags) this team covers. */
+  businessLines: BusinessLine[];
+  isLead: boolean;
+}
+
+/** Teams of an INTEGRATED BID, lead first. Empty for other divisions. */
+export function getBidTeams(bid: BidDivisionFields): IBidTeam[] {
+  if (!isIntegratedDivision(bid.division)) return [];
+  const lines = bid.integratedLines || {};
+  const lead = getLeadDivision(bid);
+  return [lead, otherBaseDivision(lead)].map((division) => ({
+    division,
+    serviceLine: lines[division] || "",
+    businessLines: divisionBusinessLines(division, lines[division]),
+    isLead: division === lead,
+  }));
+}
+
+/** Kanban column of a BID: INTEGRATED BIDs live in their Lead Division column. */
+export function getBidColumnDivision(bid: BidDivisionFields): string {
+  return isIntegratedDivision(bid.division)
+    ? getLeadDivision(bid)
+    : bid.division || "";
+}
+
+/** Division filter values a BID matches: INTEGRATED BIDs match both divisions. */
+export function getBidFilterDivisions(bid: BidDivisionFields): string[] {
+  return isIntegratedDivision(bid.division)
+    ? [INTEGRATED_DIVISION].concat(BASE_DIVISIONS)
+    : [bid.division];
+}
+
 /** Config service line values of a BID (both lines for INTEGRATED). */
 export function getBidServiceLines(bid: BidDivisionFields): string[] {
   if (!isIntegratedDivision(bid.division)) {

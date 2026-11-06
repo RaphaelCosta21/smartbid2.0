@@ -1,4 +1,4 @@
-# Node Description Batch 78 of 86
+# Node Description Batch 78 of 102
 
 Graphify is running in assistant/skill mode (no API key). You are the host
 assistant (Claude Code / Codex / Gemini CLI). Read the prompt below and write
@@ -9,54 +9,58 @@ your JSON answer to the answer file.
 You are documenting nodes in a knowledge graph.
 For each entry below, write ONE concise factual plain-language sentence
 describing what it is or does. Use only the provided context.
-For a code symbol (kind=code-symbol — a function, class, or constant),
-describe what the function/symbol does based on its name, source location
-and neighbors — e.g. "Resolves the configured ontology profile from graphify.yaml.".
+For an entity node (any other kind — e.g. a person, place, event, object),
+describe what the entity is and its role, grounded in its type, its
+relations (neighbors) and the provided citations/evidence — e.g.
+"Lady Carfax, a wealthy heiress who disappears en route to Lausanne.".
+Ground entity descriptions in the citations/evidence when present; do not
+speculate beyond the context, so a node with no supporting context may be
+left out of the reply.
 Write every description in English (en). Do not switch languages.
 No marketing language.
 Respond ONLY with a JSON object mapping each node id (as a string) to its
 one-sentence description — no prose, no markdown fences.
 
-- "settings_accesslog_viewmode": "ViewMode" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/AccessLog.tsx:L17 | neighbors=[AccessLog.tsx]
-- "settings_accessmatrix_accessmatrixprops": "AccessMatrixProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/AccessMatrix.tsx:L30 | neighbors=[AccessMatrix.tsx]
-- "settings_accessmatrix_cycle": "CYCLE" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/AccessMatrix.tsx:L67 | neighbors=[AccessMatrix.tsx]
-- "settings_accessmatrix_iaccessmatrixitem": "IAccessMatrixItem" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/AccessMatrix.tsx:L17 | neighbors=[AccessMatrix.tsx]
-- "settings_accessmatrix_legendpill": "LegendPill()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/AccessMatrix.tsx:L97 | neighbors=[AccessMatrix.tsx]
-- "settings_accessmatrix_level_label": "LEVEL_LABEL" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/AccessMatrix.tsx:L78 | neighbors=[AccessMatrix.tsx]
-- "settings_accessmatrix_levelicon": "LevelIcon()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/AccessMatrix.tsx:L85 | neighbors=[AccessMatrix.tsx]
-- "settings_accessmatrix_nextlevel": "nextLevel()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/AccessMatrix.tsx:L68 | neighbors=[AccessMatrix.tsx]
-- "settings_accessmatrix_rolecolor": "roleColor()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/AccessMatrix.tsx:L94 | neighbors=[AccessMatrix.tsx]
-- "settings_approvalrulesconfig_approvalrulesconfig": "ApprovalRulesConfig()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/ApprovalRulesConfig.tsx:L4 | neighbors=[ApprovalRulesConfig.tsx]
-- "settings_membersmanagement_bid_role_meta": "BID_ROLE_META" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/MembersManagement.tsx:L98 | neighbors=[MembersManagement.tsx]
-- "settings_membersmanagement_bl_colors": "BL_COLORS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/MembersManagement.tsx:L85 | neighbors=[MembersManagement.tsx]
-- "settings_membersmanagement_business_lines": "BUSINESS_LINES" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/MembersManagement.tsx:L105 | neighbors=[MembersManagement.tsx]
-- "settings_membersmanagement_getavatarcolor": "getAvatarColor()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/MembersManagement.tsx:L126 | neighbors=[MembersManagement.tsx]
-- "settings_membersmanagement_getinitials": "getInitials()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/MembersManagement.tsx:L117 | neighbors=[MembersManagement.tsx]
-- "settings_membersmanagement_ibidrolemeta": "IBidRoleMeta" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/MembersManagement.tsx:L91 | neighbors=[MembersManagement.tsx]
-- "settings_membersmanagement_ipeopleresult": "IPeopleResult" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/MembersManagement.tsx:L146 | neighbors=[MembersManagement.tsx]
-- "settings_membersmanagement_isectormeta": "ISectorMeta" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/MembersManagement.tsx:L50 | neighbors=[MembersManagement.tsx]
-- "settings_membersmanagement_member_facet_values": "MEMBER_FACET_VALUES" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/MembersManagement.tsx:L109 | neighbors=[MembersManagement.tsx]
-- "settings_membersmanagement_memberfacetkey": "MemberFacetKey" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/MembersManagement.tsx:L107 | neighbors=[MembersManagement.tsx]
-- "settings_membersmanagement_membersmanagement": "MembersManagement()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/MembersManagement.tsx:L159 | neighbors=[MembersManagement.tsx]
-- "settings_membersmanagement_sector_meta": "SECTOR_META" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/MembersManagement.tsx:L57 | neighbors=[MembersManagement.tsx]
-- "settings_membersmanagement_sectorstyle": "sectorStyle()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/MembersManagement.tsx:L102 | neighbors=[MembersManagement.tsx]
-- "settings_notificationmatrix_channelchips": "ChannelChips()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/NotificationMatrix.tsx:L198 | neighbors=[NotificationMatrix.tsx]
-- "settings_notificationmatrix_deliverypatch": "DeliveryPatch" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/NotificationMatrix.tsx:L252 | neighbors=[NotificationMatrix.tsx]
-- "settings_notificationmatrix_event_icons": "EVENT_ICONS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/NotificationMatrix.tsx:L68 | neighbors=[NotificationMatrix.tsx]
-- "settings_notificationmatrix_group_icons": "GROUP_ICONS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/NotificationMatrix.tsx:L86 | neighbors=[NotificationMatrix.tsx]
-- "settings_notificationmatrix_mode_label": "MODE_LABEL" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/NotificationMatrix.tsx:L103 | neighbors=[NotificationMatrix.tsx]
-- "settings_notificationmatrix_modeicon": "ModeIcon()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/NotificationMatrix.tsx:L109 | neighbors=[NotificationMatrix.tsx]
-- "settings_notificationmatrix_modes": "MODES" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/NotificationMatrix.tsx:L101 | neighbors=[NotificationMatrix.tsx]
-- "settings_notificationmatrix_notificationdeliverycardprops": "NotificationDeliveryCardProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/NotificationMatrix.tsx:L259 | neighbors=[NotificationMatrix.tsx]
-- "settings_notificationmatrix_notificationmatrixprops": "NotificationMatrixProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/NotificationMatrix.tsx:L562 | neighbors=[NotificationMatrix.tsx]
-- "settings_notificationmatrix_notificationrules": "NotificationRules" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/NotificationMatrix.tsx:L66 | neighbors=[NotificationMatrix.tsx]
-- "settings_notificationmatrix_sameteamrule": "sameTeamRule()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/NotificationMatrix.tsx:L159 | neighbors=[NotificationMatrix.tsx]
-- "settings_notificationmatrix_switch": "Switch()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/NotificationMatrix.tsx:L177 | neighbors=[NotificationMatrix.tsx]
-- "settings_notificationmatrix_tone_color": "TONE_COLOR" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/NotificationMatrix.tsx:L93 | neighbors=[NotificationMatrix.tsx]
-- "settings_patchnotes_patchnote": "PatchNote" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/PatchNotes.tsx:L4 | neighbors=[PatchNotes.tsx]
-- "settings_systemconfiguration_access_areas": "ACCESS_AREAS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L204 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_all_nav_items": "ALL_NAV_ITEMS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L258 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_area_icons": "AREA_ICONS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L284 | neighbors=[SystemConfiguration.tsx]
+- "function_app_document_structure_rationale_1": "document_structure.py — section-aware Markdown chunking for the SmartBid docs in" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L1 | neighbors=[document_structure.py]
+- "function_app_document_structure_rationale_106": "Guards against all-caps noise such as the \"X X X X\" row of a maintenance\r     ma" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L106 | neighbors=[_has_word()]
+- "function_app_document_structure_rationale_112": "Guards against all-caps noise such as the \"X X X X\" row of a maintenance\r     ma" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L112 | neighbors=[_has_word()]
+- "function_app_document_structure_rationale_120": "A single-level number is indistinguishable from a quantity in a\r     specificati" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L120 | neighbors=[_numbered_title()]
+- "function_app_document_structure_rationale_126": "A single-level number is indistinguishable from a quantity in a\r     specificati" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L126 | neighbors=[_numbered_title()]
+- "function_app_document_structure_rationale_132": "Collapse whitespace and mask digits so \"Page 3 of 19\" and \"Page 4 of 19\"\r     co" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L132 | neighbors=[_normalize()]
+- "function_app_document_structure_rationale_153": "Digit masking is what catches a running footer, but it also makes a\r     measure" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L153 | neighbors=[_is_boilerplate()]
+- "function_app_document_structure_rationale_181": "Return (level, title) when the line opens a section, else None." | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L181 | neighbors=[_heading()]
+- "function_app_document_structure_rationale_199": "Return (level, title) when the line opens a section, else None." | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L199 | neighbors=[_heading()]
+- "function_app_document_structure_rationale_221": "Walk the document once, keeping a heading stack so every section carries\r     it" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L221 | neighbors=[split_sections()]
+- "function_app_document_structure_rationale_246": "Walk the document once, keeping a heading stack so every section carries\r     it" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L246 | neighbors=[split_sections()]
+- "function_app_document_structure_rationale_263": "Paragraphs are indivisible, so a specification table extracted as one\r     block" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L263 | neighbors=[_atomic_blocks()]
+- "function_app_document_structure_rationale_290": "Paragraphs are indivisible, so a specification table extracted as one\r     block" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L290 | neighbors=[_atomic_blocks()]
+- "function_app_document_structure_rationale_317": "`since` is the path already rendered earlier in the same chunk, so shared\r     a" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L317 | neighbors=[_render()]
+- "function_app_document_structure_rationale_344": "`since` is the path already rendered earlier in the same chunk, so shared\r     a" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L344 | neighbors=[_render()]
+- "function_app_document_structure_rationale_346": "Rendered once per chunk and fed to the embedding model. Without it the\r     vect" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L346 | neighbors=[metadata_header()]
+- "function_app_document_structure_rationale_373": "Rendered once per chunk and fed to the embedding model. Without it the\r     vect" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L373 | neighbors=[metadata_header()]
+- "function_app_document_structure_rationale_376": "Return one dict per chunk: `text` is what gets stored and shown to the\r     mode" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L376 | neighbors=[build_chunks()]
+- "function_app_document_structure_rationale_405": "Return one dict per chunk: `text` is what gets stored and shown to the\r     mode" | kind=entity | source=azure-ai-backend/function-app/document_structure.py:L405 | neighbors=[build_chunks()]
+- "function_app_function_app_rationale_1": "SmartBid AI backend — Azure Functions (Python v2 programming model).\r \r  Four HT" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L1 | neighbors=[function_app.py]
+- "function_app_function_app_rationale_125": "Prefer extracted text (cheap). For scanned/image PDFs with no text,\r     return" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L125 | neighbors=[extract_text_or_images()]
+- "function_app_function_app_rationale_152": "Guarantee plain text. If we only have page images (scanned document),\r     use g" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L152 | neighbors=[ensure_text()]
+- "function_app_function_app_rationale_181": "Prefer extracted text (cheap). For scanned/image PDFs with no text,\r     return" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L181 | neighbors=[extract_text_or_images()]
+- "function_app_function_app_rationale_220": "Guarantee plain text. If we only have page images (scanned document),\r     use g" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L220 | neighbors=[ensure_text()]
+- "function_app_function_app_rationale_231": "Parse the model's JSON answer. A reasoning model can return an empty\r     messag" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L231 | neighbors=[_model_json()]
+- "function_app_function_app_rationale_245": "Return (text, warnings), capping the length so a huge upload degrades\r     into" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L245 | neighbors=[_document_text()]
+- "function_app_function_app_rationale_271": "Input vs output tokens — the two behave very differently: prefill is fast," | kind=entity | source=azure-ai-backend/function-app/function_app.py:L271 | neighbors=[_token_usage()]
+- "function_app_function_app_rationale_283": "Return (body, file_name, file_bytes, system_prompt, document_text_override)." | kind=entity | source=azure-ai-backend/function-app/function_app.py:L283 | neighbors=[_parse_request()]
+- "function_app_function_app_rationale_296": "BID metadata SmartBid sends with every request (see utils/aiContext.ts)." | kind=entity | source=azure-ai-backend/function-app/function_app.py:L296 | neighbors=[_context_lines()]
+- "function_app_function_app_rationale_310": "Parse the model's JSON answer. A reasoning model can return an empty\r     messag" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L310 | neighbors=[_model_json()]
+- "function_app_function_app_rationale_316": "Bias retrieval towards the BID's division/service line, so a datasheet from" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L316 | neighbors=[_retrieval_query()]
+- "function_app_function_app_rationale_324": "Return (text, warnings), capping the length so a huge upload degrades\r     into" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L324 | neighbors=[_document_text()]
+- "function_app_function_app_rationale_325": "Render one retrieved document with the catalogued metadata, followed by\r     eve" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L325 | neighbors=[_document_block()]
+- "function_app_function_app_rationale_350": "Input vs output tokens — the two behave very differently: prefill is fast," | kind=entity | source=azure-ai-backend/function-app/function_app.py:L350 | neighbors=[_token_usage()]
+- "function_app_function_app_rationale_361": "Hybrid (keyword + vector) retrieval. Retrieval is an enhancement, not a\r     har" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L361 | neighbors=[_reference_material()]
+- "function_app_function_app_rationale_362": "Return (body, file_name, file_bytes, system_prompt, document_text_override)." | kind=entity | source=azure-ai-backend/function-app/function_app.py:L362 | neighbors=[_parse_request()]
+- "function_app_function_app_rationale_375": "BID metadata SmartBid sends with every request (see utils/aiContext.ts)." | kind=entity | source=azure-ai-backend/function-app/function_app.py:L375 | neighbors=[_context_lines()]
+- "function_app_function_app_rationale_395": "Bias retrieval towards the BID's division/service line, so a datasheet from" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L395 | neighbors=[_retrieval_query()]
+- "function_app_function_app_rationale_404": "Render one retrieved document with the catalogued metadata, followed by\r     eve" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L404 | neighbors=[_document_block()]
+- "function_app_function_app_rationale_417": "UPN of the authenticated caller, from the EasyAuth X-MS-CLIENT-PRINCIPAL\r     he" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L417 | neighbors=[_caller_upn()]
 
 ## Instructions
 

@@ -2,7 +2,8 @@
  * bomCostHelpers - Pure tree/cost rules of the BOM Costs page, shared by the page,
  * the list cards and the Excel export so every counter agrees.
  */
-import { IBomCostItem } from "../models/IBomCostAnalysis";
+import { IBomCostItem, IBomWorkshop } from "../models/IBomCostAnalysis";
+import { IExchangeRate } from "../models/ISystemConfig";
 
 const MONTH_NAMES = [
   "January",
@@ -96,7 +97,75 @@ export function calcContingency(
 }
 
 export function recalcTotal(item: IBomCostItem): number {
-  return item.qty * item.costPerItemUSD * (1 + item.contingencyPercent / 100);
+  return (
+    item.qty *
+    item.costPerItemUSD *
+    (1 + item.contingencyPercent / 100) *
+    (1 + (item.importTaxPercent || 0) / 100)
+  );
+}
+
+/** Whether the import tax applies to the row: Global BU prices, unless the user overrides it. */
+export function isImportTaxed(item: IBomCostItem): boolean {
+  if (item.isRolledUp) return false;
+  if (item.importTaxMode === "on") return true;
+  if (item.importTaxMode === "off") return false;
+  return item.sourceTab === "Financials";
+}
+
+export function resolveImportTaxPct(item: IBomCostItem, rate: number): number {
+  return rate > 0 && isImportTaxed(item) ? rate : 0;
+}
+
+/** Import tax amount inside the row's own total (0 for rolled-up parents). */
+export function getItemImportTax(item: IBomCostItem): number {
+  const pct = item.importTaxPercent || 0;
+  if (item.isRolledUp || pct <= 0) return 0;
+  return (
+    item.qty *
+    item.costPerItemUSD *
+    (1 + item.contingencyPercent / 100) *
+    (pct / 100)
+  );
+}
+
+/** Import tax inside each row's total; rolled-up parents get the tax summed from their children. */
+export function getImportTaxByRow(items: IBomCostItem[]): Map<string, number> {
+  const children = new Map<string, IBomCostItem[]>();
+  items.forEach((i) => {
+    if (!i.parentId) return;
+    const list = children.get(i.parentId) || [];
+    list.push(i);
+    children.set(i.parentId, list);
+  });
+  const out = new Map<string, number>();
+  const calc = (item: IBomCostItem): number => {
+    const cached = out.get(item.id);
+    if (cached !== undefined) return cached;
+    const value = item.isRolledUp
+      ? (children.get(item.id) || []).reduce((s, c) => s + calc(c), 0)
+      : getItemImportTax(item);
+    out.set(item.id, value);
+    return value;
+  };
+  items.forEach(calc);
+  return out;
+}
+
+/** Re-applies the import tax rate to every row and re-rolls the parents. */
+export function applyImportTax(
+  items: IBomCostItem[],
+  rate: number,
+): IBomCostItem[] {
+  const updated = items.map((item) => {
+    if (item.isRolledUp) return item;
+    const pct = resolveImportTaxPct(item, rate);
+    if ((item.importTaxPercent || 0) === pct) return item;
+    const u = { ...item, importTaxPercent: pct };
+    u.totalCostInclCont = recalcTotal(u);
+    return u;
+  });
+  return rollUpParentCosts(updated);
 }
 
 /** True when the item carries its own price (not a sum of its children). */
@@ -205,17 +274,89 @@ export function getCoveredIds(items: IBomCostItem[]): Set<string> {
   return covered;
 }
 
-/** Total without double counting: covered items and rolled-up parents are skipped. */
-export function computeSmartTotal(items: IBomCostItem[]): number {
+/** Rows left out of the total: covered by a parent with its own cost, or rolled-up sums. */
+function getSmartSkipIds(items: IBomCostItem[]): Set<string> {
   const skip = getCoveredIds(items);
   items.forEach((item) => {
     if (item.isRolledUp) skip.add(item.id);
   });
+  return skip;
+}
+
+/** Total without double counting: covered items and rolled-up parents are skipped. */
+export function computeSmartTotal(items: IBomCostItem[]): number {
+  const skip = getSmartSkipIds(items);
   let total = 0;
   items.forEach((item) => {
     if (!skip.has(item.id)) total += item.totalCostInclCont;
   });
   return total;
+}
+
+/** Import tax part of `computeSmartTotal`, with the same skip rules. */
+export function computeSmartImportTax(items: IBomCostItem[]): number {
+  const skip = getSmartSkipIds(items);
+  let total = 0;
+  items.forEach((item) => {
+    if (!skip.has(item.id)) total += getItemImportTax(item);
+  });
+  return total;
+}
+
+/** Items whose own import tax is counted in the total. */
+export function countTaxedItems(items: IBomCostItem[]): number {
+  const skip = getSmartSkipIds(items);
+  return items.filter((i) => !skip.has(i.id) && getItemImportTax(i) > 0)
+    .length;
+}
+
+export function hasWorkshop(ws: IBomWorkshop | undefined): boolean {
+  return !!ws && ((ws.hours || 0) > 0 || (ws.cost || 0) > 0);
+}
+
+/** Workshop with `costUSD` / `rateUsed` refreshed from the system rates (no BRL rate → 0 USD). */
+export function normalizeWorkshop(
+  ws: IBomWorkshop,
+  rates: IExchangeRate[],
+): IBomWorkshop {
+  const cost = ws.cost || 0;
+  if (ws.currency !== "BRL") {
+    return { ...ws, currency: "USD", costUSD: cost, rateUsed: undefined };
+  }
+  const brl = (rates || []).find((r) => r.currency.toUpperCase() === "BRL");
+  const rate = brl && brl.rate > 0 ? brl.rate : 0;
+  return {
+    ...ws,
+    costUSD: rate > 0 ? cost / rate : 0,
+    rateUsed: rate > 0 ? rate : undefined,
+  };
+}
+
+export interface IBomCostBreakdown {
+  /** BOM items incl. contingency, without the import tax */
+  materials: number;
+  importTax: number;
+  workshop: number;
+  /** materials + import tax */
+  items: number;
+  total: number;
+}
+
+/** Composition of the BOM Total Cost, shared by the page, list cards, Excel and BID imports. */
+export function getBomCostBreakdown(
+  items: IBomCostItem[],
+  workshop?: IBomWorkshop,
+): IBomCostBreakdown {
+  const itemsTotal = computeSmartTotal(items);
+  const importTax = computeSmartImportTax(items);
+  const ws = workshop && workshop.costUSD > 0 ? workshop.costUSD : 0;
+  return {
+    materials: itemsTotal - importTax,
+    importTax,
+    workshop: ws,
+    items: itemsTotal,
+    total: itemsTotal + ws,
+  };
 }
 
 export type BomItemStatus =

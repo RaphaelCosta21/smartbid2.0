@@ -1,7 +1,10 @@
 import { create } from "zustand";
 import { IBid, IQuickNote, Division, BidPriority } from "../models";
 import { BidService } from "../services/BidService";
-import { getBidServiceLines } from "../utils/divisionHelpers";
+import {
+  getBidFilterDivisions,
+  getBidServiceLines,
+} from "../utils/divisionHelpers";
 
 export type ViewMode = "kanban" | "list" | "table";
 
@@ -43,7 +46,7 @@ export const BID_FACET_VALUES: Record<
   BidFacetKey,
   (b: IBid) => string | string[]
 > = {
-  divisions: (b) => b.division,
+  divisions: (b) => getBidFilterDivisions(b),
   serviceLines: (b) => getBidServiceLines(b),
   phases: (b) => b.currentPhase,
   statuses: (b) => b.currentStatus,

@@ -17,7 +17,15 @@ import { PhotoLightbox } from "../common/PhotoLightbox";
 import { EmptyState } from "../common/EmptyState";
 import { SkeletonLoader } from "../common/SkeletonLoader";
 import { useDebounce } from "../../hooks/useDebounce";
-import { formatDate } from "../../utils/formatters";
+import {
+  formatCurrency,
+  formatDate,
+  formatHours,
+} from "../../utils/formatters";
+import {
+  getBomCostBreakdown,
+  hasWorkshop,
+} from "../../utils/bomCostHelpers";
 import {
   IBomCostAnalysis,
   IFavoriteEquipment,
@@ -39,6 +47,13 @@ export interface IImportPick {
   partNumber: string;
   description: string;
   subItems?: IImportSubItem[];
+  /** Set when the record was picked from the BOM Costs source */
+  bomAnalysis?: IBomCostAnalysis;
+}
+
+/** Where a single pick came from (BOM Costs analyses carry workshop data) */
+export interface IImportSourceMeta {
+  bomAnalysis?: IBomCostAnalysis;
 }
 
 export interface EquipmentImportModalProps {
@@ -47,6 +62,7 @@ export interface EquipmentImportModalProps {
     partNumber: string,
     description: string,
     subItems?: IImportSubItem[],
+    meta?: IImportSourceMeta,
   ) => void;
   /** Close the modal without selection */
   onClose: () => void;
@@ -62,6 +78,8 @@ export interface EquipmentImportModalProps {
     partNumber: string,
     description: string,
   ) => string | undefined;
+  /** BOM workshop (hours + cost) is brought into the BID: explain it in the footer */
+  showBomWorkshop?: boolean;
 }
 
 /* ────────── tab definition ────────── */
@@ -259,6 +277,18 @@ const CornerDownRightIcon = (
     <path d="M4 4v7a4 4 0 004 4h12" />
   </svg>
 );
+const WrenchIcon = (
+  <svg
+    viewBox="0 0 24 24"
+    width="13"
+    height="13"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+  </svg>
+);
 
 const QUERY_SOURCES: [QueryTabKey, string][] = [
   ["financials", "Peoplesoft Financials"],
@@ -356,6 +386,8 @@ interface IGlobalHit {
   pn: string;
   desc: string;
   meta?: string;
+  /** BOM Cost Analysis id, for hits from the BOM Costs source */
+  bomId?: string;
 }
 
 interface IGlobalSection {
@@ -396,6 +428,7 @@ function scanSource<T>(
   getDesc: (item: T) => string,
   loading: boolean,
   getMeta?: (item: T) => string,
+  getBomId?: (item: T) => string,
 ): IGlobalSection {
   const rows: IGlobalHit[] = [];
   let count = 0;
@@ -410,10 +443,29 @@ function scanSource<T>(
     }
     count++;
     if (rows.length < GLOBAL_ROWS_PER_SECTION) {
-      rows.push({ pn, desc, meta: getMeta ? getMeta(items[i]) : undefined });
+      rows.push({
+        pn,
+        desc,
+        meta: getMeta ? getMeta(items[i]) : undefined,
+        bomId: getBomId ? getBomId(items[i]) : undefined,
+      });
     }
   }
   return { ...base, count, capped, loading, rows };
+}
+
+/** "US$ 12,345.00 · Workshop 24h" */
+function bomMeta(a: IBomCostAnalysis): string {
+  const parts: string[] = [];
+  if ((a.totalCostUSD || 0) > 0) parts.push(formatCurrency(a.totalCostUSD));
+  if (hasWorkshop(a.workshop) && a.workshop) {
+    parts.push(
+      a.workshop.hours > 0
+        ? `Workshop ${formatHours(a.workshop.hours)}`
+        : "Workshop cost",
+    );
+  }
+  return parts.join(" · ");
 }
 
 function searchAllSources(input: IGlobalSearchInput): IGlobalSection[] {
@@ -450,6 +502,8 @@ function searchAllSources(input: IGlobalSearchInput): IGlobalSection[] {
       (a) => a.mainPartNumber,
       (a) => a.mainDescription,
       loading.bom,
+      bomMeta,
+      (a) => a.id,
     ),
   );
   sections.push(
@@ -558,6 +612,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   title,
   subtitle,
   getPickBlockReason,
+  showBomWorkshop = false,
 }) => {
   const visibleTabs =
     tabs && tabs.length > 0
@@ -581,6 +636,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     pn: string;
     desc: string;
     subs?: IImportSubItem[];
+    bomId?: string;
   } | null>(null);
   // Multi-select picks survive tab changes so sources can be mixed in one import
   const [selectedMany, setSelectedMany] = React.useState<IImportPick[]>([]);
@@ -618,6 +674,20 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
   const [bomAnalyses, setBomAnalyses] = React.useState<IBomCostAnalysis[]>([]);
   const [bomLoading, setBomLoading] = React.useState(false);
   const [bomLoaded, setBomLoaded] = React.useState(false);
+  const bomInfo = React.useMemo(() => {
+    const m = new Map<string, { importTax: number }>();
+    bomAnalyses.forEach((a) =>
+      m.set(a.id, {
+        importTax: getBomCostBreakdown(a.items || [], a.workshop).importTax,
+      }),
+    );
+    return m;
+  }, [bomAnalyses]);
+  const bomById = React.useMemo(() => {
+    const m = new Map<string, IBomCostAnalysis>();
+    bomAnalyses.forEach((a) => m.set(a.id, a));
+    return m;
+  }, [bomAnalyses]);
 
   // ── Lazy-load the sources of the visible tabs on mount ──
   React.useEffect(() => {
@@ -902,14 +972,28 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     pn: string,
     desc: string,
     subs?: IImportSubItem[],
+    bomId?: string,
   ): void => {
     if (blockReason(pn, desc)) return;
     const key = pickKey(pn, desc);
     setSelectedMany((prev) =>
       prev.some((p) => pickKey(p.partNumber, p.description) === key)
         ? prev.filter((p) => pickKey(p.partNumber, p.description) !== key)
-        : [...prev, { partNumber: pn, description: desc, subItems: subs }],
+        : [
+            ...prev,
+            {
+              partNumber: pn,
+              description: desc,
+              subItems: subs,
+              bomAnalysis: bomId ? bomById.get(bomId) : undefined,
+            },
+          ],
     );
+  };
+
+  const sourceMeta = (bomId?: string): IImportSourceMeta | undefined => {
+    const analysis = bomId ? bomById.get(bomId) : undefined;
+    return analysis ? { bomAnalysis: analysis } : undefined;
   };
 
   const handleConfirm = (): void => {
@@ -919,7 +1003,12 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
       return;
     }
     if (selectedItem && onSelect) {
-      onSelect(selectedItem.pn, selectedItem.desc, selectedItem.subs);
+      onSelect(
+        selectedItem.pn,
+        selectedItem.desc,
+        selectedItem.subs,
+        sourceMeta(selectedItem.bomId),
+      );
     }
   };
 
@@ -927,23 +1016,25 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     pn: string,
     desc: string,
     subs?: IImportSubItem[],
+    bomId?: string,
   ): void => {
     if (multiSelect) {
-      togglePick(pn, desc, subs);
+      togglePick(pn, desc, subs, bomId);
       return;
     }
     if (blockReason(pn, desc)) return;
-    setSelectedItem({ pn, desc, subs });
+    setSelectedItem({ pn, desc, subs, bomId });
   };
 
   const handleItemDoubleClick = (
     pn: string,
     desc: string,
     subs?: IImportSubItem[],
+    bomId?: string,
   ): void => {
     // In multi mode the two click events already toggled the row back and forth
     if (multiSelect || blockReason(pn, desc)) return;
-    if (onSelect) onSelect(pn, desc, subs);
+    if (onSelect) onSelect(pn, desc, subs, sourceMeta(bomId));
   };
 
   /** Trailing cell of every result row: a checkbox in multi mode, instant-select button otherwise */
@@ -951,6 +1042,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     pn: string,
     desc: string,
     subs?: IImportSubItem[],
+    bomId?: string,
   ): JSX.Element => {
     const blocked = blockReason(pn, desc);
     if (blocked) {
@@ -974,7 +1066,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
             className={styles.rowCheckbox}
             checked={isRowSelected(pn, desc)}
             onClick={(e) => e.stopPropagation()}
-            onChange={() => togglePick(pn, desc, subs)}
+            onChange={() => togglePick(pn, desc, subs, bomId)}
             title="Select"
             aria-label={`Select ${pn || desc}`}
           />
@@ -984,7 +1076,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
             className={styles.selectBtn}
             onClick={(e) => {
               e.stopPropagation();
-              if (onSelect) onSelect(pn, desc, subs);
+              if (onSelect) onSelect(pn, desc, subs, sourceMeta(bomId));
             }}
             title="Import this item"
             aria-label={`Import ${pn || desc}`}
@@ -1062,6 +1154,16 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
     });
   }
   const totalPicks = selectedMany.length + orphanChildPicks.length;
+
+  const pickHasWorkshop = (bomId?: string): boolean =>
+    !!bomId && hasWorkshop(bomById.get(bomId)?.workshop);
+  const workshopPickCount = !showBomWorkshop
+    ? 0
+    : multiSelect
+      ? selectedMany.filter((p) => hasWorkshop(p.bomAnalysis?.workshop)).length
+      : selectedItem && pickHasWorkshop(selectedItem.bomId)
+        ? 1
+        : 0;
 
   /** Toggle expand/collapse for a favorite item's sub-items */
   const toggleExpandFavItem = (id: string): void => {
@@ -1455,29 +1557,96 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
           <div className={styles.resultHeader}>
             <div className={styles.colPn}>Part Number</div>
             <div className={styles.colDesc}>Description</div>
+            <div
+              className={styles.colBomTotal}
+              title="BOM Total Cost (materials incl. contingency + import tax + workshop)"
+            >
+              Total (USD)
+            </div>
+            <div
+              className={styles.colBomWorkshop}
+              title="Workshop assembly & test per unit - goes to Hours & Personnel and Assets Breakdown › Services & Fees"
+            >
+              Workshop
+            </div>
             <div className={styles.colAction}></div>
           </div>
           {filtered.map((a) => {
+            const info = bomInfo.get(a.id);
+            const ws = a.workshop;
+            const hasWs = hasWorkshop(ws) && !!ws;
             return (
               <div
                 key={a.id}
                 className={`${styles.resultRow}${rowStateClass(a.mainPartNumber, a.mainDescription)}`}
                 onClick={() =>
-                  handleItemClick(a.mainPartNumber, a.mainDescription)
+                  handleItemClick(
+                    a.mainPartNumber,
+                    a.mainDescription,
+                    undefined,
+                    a.id,
+                  )
                 }
                 onDoubleClick={() =>
-                  handleItemDoubleClick(a.mainPartNumber, a.mainDescription)
+                  handleItemDoubleClick(
+                    a.mainPartNumber,
+                    a.mainDescription,
+                    undefined,
+                    a.id,
+                  )
                 }
               >
                 <div className={`${styles.colPn} ${styles.mono}`}>
                   {a.mainPartNumber || "-"}
                 </div>
                 <div className={styles.colDesc}>{a.mainDescription || "-"}</div>
-                {renderSelectCell(a.mainPartNumber, a.mainDescription)}
+                <div className={styles.colBomTotal}>
+                  <span className={styles.bomTotalValue}>
+                    {(a.totalCostUSD || 0) > 0
+                      ? formatCurrency(a.totalCostUSD)
+                      : "-"}
+                  </span>
+                  {info && info.importTax > 0 && (
+                    <span
+                      className={styles.bomSubLine}
+                      title={`Import tax ${a.importTaxPercent || 0}% on Global BU prices`}
+                    >
+                      incl. tax {formatCurrency(info.importTax)}
+                    </span>
+                  )}
+                </div>
+                <div className={styles.colBomWorkshop}>
+                  {hasWs && ws ? (
+                    <>
+                      <span className={styles.bomWorkshopChip}>
+                        {ws.hours > 0 ? formatHours(ws.hours) : "-"}
+                        {ws.cost > 0
+                          ? ` · ${formatCurrency(ws.cost, ws.currency)}`
+                          : ""}
+                      </span>
+                      <span className={styles.bomSubLine}>per unit</span>
+                    </>
+                  ) : (
+                    <span className={styles.bomNone}>-</span>
+                  )}
+                </div>
+                {renderSelectCell(
+                  a.mainPartNumber,
+                  a.mainDescription,
+                  undefined,
+                  a.id,
+                )}
               </div>
             );
           })}
         </div>
+        {showBomWorkshop && (
+          <div className={styles.listHint}>
+            Workshop hours and cost are not part of the Scope item: after you
+            confirm, you choose whether they go to Hours &amp; Personnel ›
+            Onshore Hours and Assets Breakdown › Services &amp; Fees.
+          </div>
+        )}
       </div>
     );
   };
@@ -2253,8 +2422,12 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                 <div
                   key={`${sec.id}-${i}`}
                   className={`${styles.resultRow}${rowStateClass(r.pn, r.desc)}`}
-                  onClick={() => handleItemClick(r.pn, r.desc)}
-                  onDoubleClick={() => handleItemDoubleClick(r.pn, r.desc)}
+                  onClick={() =>
+                    handleItemClick(r.pn, r.desc, undefined, r.bomId)
+                  }
+                  onDoubleClick={() =>
+                    handleItemDoubleClick(r.pn, r.desc, undefined, r.bomId)
+                  }
                 >
                   <div className={`${styles.colPn} ${styles.mono}`}>
                     {r.pn ? highlight(r.pn, globalWords) : "-"}
@@ -2265,7 +2438,7 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                       <span className={styles.metaChip}>{r.meta}</span>
                     )}
                   </div>
-                  {renderSelectCell(r.pn, r.desc)}
+                  {renderSelectCell(r.pn, r.desc, undefined, r.bomId)}
                 </div>
               ))}
             </div>
@@ -2481,6 +2654,18 @@ export const EquipmentImportModal: React.FC<EquipmentImportModalProps> = ({
                     : "Tick items, then confirm to add them all at once."
                   : "Click a row to select it, or double-click to import right away."}
               </div>
+            )}
+            {workshopPickCount > 0 && (
+              <span
+                className={styles.workshopNotice}
+                title="Workshop hours go to Hours & Personnel › Onshore Hours and the cost to Assets Breakdown › Services & Fees. You confirm it in the next step."
+              >
+                {WrenchIcon}
+                {workshopPickCount > 1
+                  ? `${workshopPickCount} BOMs with workshop`
+                  : "BOM with workshop"}{" "}
+                - you confirm where it goes next
+              </span>
             )}
             <div className={styles.footerBtns}>
               <button

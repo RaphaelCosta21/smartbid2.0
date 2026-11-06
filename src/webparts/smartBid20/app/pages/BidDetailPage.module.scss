@@ -482,6 +482,12 @@
   align-items: center;
 }
 
+/* The hero banner is dark in both themes */
+.headerDivisionTag {
+  --text-muted: var(--header-text-muted);
+  --border: var(--header-border);
+}
+
 .headerButtons {
   display: flex;
   gap: 8px;
@@ -899,6 +905,74 @@
 
 .kpPanelWide {
   grid-column: 1 / -1;
+}
+
+/* ---- Integrated BID: one panel per division (lead first) ---- */
+
+.teamPanels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.teamPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  border-top: 3px solid var(--team-color);
+  background: color-mix(in srgb, var(--team-color) 4%, transparent);
+}
+
+.teamPanelLead {
+  border-color: color-mix(in srgb, var(--team-color) 35%, transparent);
+  border-top-color: var(--team-color);
+  background: color-mix(in srgb, var(--team-color) 8%, transparent);
+}
+
+.teamPanelHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.teamPanelDivision {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--team-color);
+}
+
+.teamPanelLeadChip {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--primary-accent-contrast);
+  background: var(--team-color);
+}
+
+.teamPanelLine {
+  margin-left: auto;
+  min-width: 0;
+}
+
+.teamPanelBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.teamPanelField {
+  min-width: 0;
 }
 
 .kpPanelTitle {

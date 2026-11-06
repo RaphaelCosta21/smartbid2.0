@@ -1,5 +1,19 @@
 import * as React from "react";
-import { Search, Check, TriangleAlert, Boxes, Unlink } from "lucide-react";
+import {
+  Search,
+  Check,
+  TriangleAlert,
+  Boxes,
+  Unlink,
+  Eraser,
+  FilePlusCorner,
+  FileText,
+  Link2,
+  MessageSquarePlus,
+  MessageSquareText,
+  CircleDollarSign,
+  Sigma,
+} from "lucide-react";
 import {
   IScopeItem,
   IAssetBreakdownItem,
@@ -34,6 +48,7 @@ import {
 } from "../../utils/scopeHelpers";
 import {
   applyContingencyToCost,
+  createBlankAsset,
   feeLinkKey,
   getAgeContingencyPct,
   getAssetCostBreakdown,
@@ -49,7 +64,9 @@ import {
   IAssetCostBreakdown,
   IContingencyOpts,
   ICostNode,
+  IBidFx,
 } from "../../utils/costCalculations";
+import { IBomWorkshopImport, applyWorkshopFees } from "../../utils/bomWorkshop";
 import {
   buildReceivedLink,
   buildRequestLink,
@@ -66,6 +83,7 @@ import {
 import { formatCurrency } from "../../utils/formatters";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { BidTabHeader, HeaderChip, ShareBar } from "./BidTabHeader";
+import { ScopeInfoButton } from "./ScopeInfoButton";
 import styles from "./AssetsBreakdownTab.module.scss";
 
 interface AssetsBreakdownTabProps {
@@ -86,32 +104,14 @@ interface AssetsBreakdownTabProps {
   /** Persisted Eng. Solutions contingency (% on the typed cost of Eng. Solutions items) */
   engSolutionsContingencySaved?: number;
   onEngSolutionsContingencyChange?: (pct: number) => void;
+  /** BID exchange rates (converts a BOM workshop cost entered in BRL) */
+  fx?: IBidFx;
+  /**
+   * Saves the workshop hours of BOMs priced through Search Costs into Hours & Personnel.
+   * When set, Search Costs also offers the BOM workshop (its fee lands in Services & Fees).
+   */
+  onImportBomWorkshopHours?: (imports: IBomWorkshopImport[]) => void;
 }
-
-const blankAsset = (scopeItemId: string): IAssetBreakdownItem => ({
-  id: makeId("asset"),
-  scopeItemId,
-  availabilityStatus: "",
-  acquisitionType: "",
-  unitCostUSD: 0,
-  totalCostUSD: 0,
-  costReference: "",
-  costCalcMethod: "manual",
-  originalCost: 0,
-  originalCurrency: "USD",
-  costDate: "",
-  leadTimeDays: 0,
-  dailyRate: null,
-  rentalDays: null,
-  transitCost: 0,
-  costCategory: "",
-  supplier: "",
-  quoteReference: null,
-  statusIndicator: null,
-  notes: "",
-  subCosts: [],
-  subItemCosts: [],
-});
 
 const blankSubCost = (): IAssetSubCost => ({
   id: makeId("sc"),
@@ -315,6 +315,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   onContingencyChange,
   engSolutionsContingencySaved,
   onEngSolutionsContingencyChange,
+  fx,
+  onImportBomWorkshopHours,
 }) => {
   // Helper: append fieldEmpty class when value is empty/falsy
   const emptyIf = (base: string, value: unknown): string =>
@@ -432,12 +434,30 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       return next;
     });
   };
-  const noteBtnClass = (key: string, notes?: string): string => {
-    if (expandedNotesIds.has(key))
-      return `${styles.noteBtn} ${styles.noteBtnActive}`;
-    if (notes) return `${styles.noteBtn} ${styles.noteBtnFilled}`;
-    return styles.noteBtn;
-  };
+  /** Row action button: filled notes stay visible; other actions reveal on row hover/focus */
+  const actionBtnClass = (hasContent: boolean, extra?: string): string =>
+    `${styles.rowActionBtn} ${hasContent ? styles.rowActionOn : styles.rowActionEmpty}${extra ? ` ${extra}` : ""}`;
+
+  const renderQuoteLink = (
+    reference?: string | null,
+    fileUrl?: string | null,
+  ): React.ReactNode =>
+    reference ? (
+      <a
+        className={styles.quoteLink}
+        href={getQuoteLinkHref(fileUrl)}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={
+          fileUrl
+            ? `Open quotation: ${reference}`
+            : `From quotation "${reference}" - open Quotations to view`
+        }
+      >
+        <Link2 size={11} className={styles.quoteLinkIcon} />
+        <span className={styles.quoteLinkText}>{reference}</span>
+      </a>
+    ) : null;
 
   // ─── Contingency state ───
   const [contingencyPerYear, setContingencyPerYear] = React.useState(
@@ -623,7 +643,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       if (asset) {
         existing.delete(si.id);
       } else {
-        asset = blankAsset(si.id);
+        asset = createBlankAsset(si.id);
       }
       // Sync sub-item costs with scope sub-items
       const scopeSubs = (si.subItems || []) as IScopeSubItem[];
@@ -2087,14 +2107,40 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     if (bd.main.fees > 0) parts.push(`${fmtCost(bd.main.fees)} fees`);
     const showCalc =
       parts.length > 1 || (!!base && (!!opts.baseAlone || bd.qty > 1));
+    const breakdownOpen =
+      !!breakdownAnchor && breakdownAnchor.assetId === a.id;
     return (
       <td className={styles.mainTotalCost}>
         <div className={styles.rollupCell}>
-          {bd.total === 0 && opts.zeroLabel !== undefined ? (
-            <span className={styles.cellMuted}>{opts.zeroLabel}</span>
-          ) : (
-            <span>$ {fmtCost(bd.total)}</span>
-          )}
+          <span className={styles.totalLine}>
+            <button
+              type="button"
+              className={styles.breakdownBtn}
+              aria-expanded={breakdownOpen}
+              aria-haspopup="dialog"
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setBreakdownAnchor(
+                  breakdownOpen
+                    ? null
+                    : {
+                        assetId: a.id,
+                        x: r.left,
+                        y: r.bottom + 4,
+                        anchorTop: r.top,
+                      },
+                );
+              }}
+              title="Cost breakdown - where this total comes from"
+            >
+              <Sigma size={12} />
+            </button>
+            {bd.total === 0 && opts.zeroLabel !== undefined ? (
+              <span className={styles.cellMuted}>{opts.zeroLabel}</span>
+            ) : (
+              <span>$ {fmtCost(bd.total)}</span>
+            )}
+          </span>
           {showCalc && (
             <span className={styles.subCellCalc}>{parts.join(" + ")}</span>
           )}
@@ -2124,7 +2170,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
     return (
       <div className={styles.linkedFeesPanel}>
         <div className={styles.linkedFeesHead}>
-          <span className={styles.noteLabel}>💲 Services &amp; fees</span>
+          <span className={styles.noteLabel}>
+            <CircleDollarSign size={11} /> Services &amp; fees
+          </span>
           <span className={styles.linkedFeesHint}>{hint}</span>
           <button
             className={styles.linkedFeesOpen}
@@ -2288,26 +2336,14 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         >
           <div className={`${styles.subCell} ${styles.subNum}`}>{idx + 1}</div>
           <div className={`${styles.subCell} ${styles.subCellOffer}`}>
-            {/* Fixed-width slot keeps the icon (and thus text start) aligned across rows */}
-            <span className={styles.specsIconSlot}>
-              {!!sub.description && (
-                <span
-                  className={styles.specsIndicator}
-                  onClick={(e) => e.stopPropagation()}
-                  onMouseEnter={handleSpecsHover}
-                  title=""
-                >
-                  <span className={styles.specsIndicatorIcon}>ℹ️</span>
-                  <div className={styles.specsTooltip}>
-                    <div className={styles.specsTooltipTitle}>Description</div>
-                    {sub.description}
-                  </div>
-                </span>
-              )}
-            </span>
             <span className={styles.subCellText}>
               {sub.equipmentOffer || sub.description || "-"}
             </span>
+            <ScopeInfoButton
+              subtitle={sub.equipmentOffer || sub.description}
+              description={sub.description}
+              comments={sub.comments}
+            />
           </div>
           {kind === "sub" ? (
             <>
@@ -2670,7 +2706,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
               })()
             )}
           </div>
-          <div className={styles.subCell}>
+          <div className={`${styles.subCell} ${styles.subCellCostRef}`}>
             {sicShowDashMeta ? (
               <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
                 -
@@ -2741,6 +2777,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 style={{ width: "100%", fontSize: 11 }}
               />
             )}
+            {renderQuoteLink(sic.quotationReference, sic.quotationFileUrl)}
           </div>
           {/* Date Ref */}
           <div className={styles.subCell} style={{ fontSize: 11 }}>
@@ -2882,83 +2919,91 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
             )}
           </div>
           <div className={`${styles.subCell} ${styles.subCellNotes}`}>
-            {(!readOnly || !!sic.notes) && (
-              <button
-                className={noteBtnClass(noteKey, sic.notes)}
-                onClick={() => toggleNotesExpand(noteKey)}
-                title={sic.notes ? "View/edit notes" : "Add notes"}
-              >
-                💬
-              </button>
-            )}
-            {(!readOnly || rowLinkedFees.length > 0) && (
-              <button
-                className={noteBtnClass(
-                  feesKey,
-                  rowLinkedFees.length > 0 ? "linked" : "",
-                )}
-                onClick={() => toggleNotesExpand(feesKey)}
-                title={
-                  rowLinkedFees.length > 0
-                    ? "Services & fees linked to this item"
-                    : "Link a service / fee to this item"
-                }
-              >
-                {rowLinkedFees.length > 0 ? `💲${rowLinkedFees.length}` : "+💲"}
-              </button>
-            )}
-            {!readOnly && (
-              <button
-                className={styles.noteBtn}
-                onClick={() =>
-                  handleAddQuotation(
-                    asset.id,
-                    sub.partNumber || "",
-                    sub.equipmentOffer || sub.description || "",
-                    sic.id,
-                  )
-                }
-                title="Add Quotation"
-              >
-                📝
-              </button>
-            )}
-            {!readOnly && hasPricing(sic) && (
-              <button
-                className={`${styles.noteBtn} ${styles.clearPriceBtn}`}
-                onClick={() =>
-                  setPendingPriceClear({
-                    assetId: asset.id,
-                    costId: sic.id,
-                    kind,
-                  })
-                }
-                title="Clear pricing & quotation"
-              >
-                🧹
-              </button>
-            )}
-            {sic.quotationReference && (
-              <a
-                className={styles.quoteLink}
-                href={getQuoteLinkHref(sic.quotationFileUrl)}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={
-                  sic.quotationFileUrl
-                    ? `Open quotation: ${sic.quotationReference}`
-                    : `From quotation "${sic.quotationReference}" - open Quotations to view`
-                }
-              >
-                🔗 {sic.quotationReference}
-              </a>
-            )}
+            <div className={styles.rowActions}>
+              {(!readOnly || !!sic.notes) && (
+                <button
+                  type="button"
+                  className={actionBtnClass(!!sic.notes)}
+                  onClick={() => toggleNotesExpand(noteKey)}
+                  aria-pressed={expandedNotesIds.has(noteKey)}
+                  title={
+                    readOnly
+                      ? "View notes"
+                      : sic.notes
+                        ? "View / edit notes"
+                        : "Add notes"
+                  }
+                >
+                  {sic.notes ? (
+                    <MessageSquareText size={14} />
+                  ) : (
+                    <MessageSquarePlus size={14} />
+                  )}
+                </button>
+              )}
+              {(!readOnly || rowLinkedFees.length > 0) && (
+                <button
+                  type="button"
+                  className={actionBtnClass(false)}
+                  onClick={() => toggleNotesExpand(feesKey)}
+                  aria-pressed={expandedNotesIds.has(feesKey)}
+                  title={
+                    rowLinkedFees.length > 0
+                      ? `Services & fees linked to this item (${rowLinkedFees.length})`
+                      : "Link a service / fee to this item"
+                  }
+                >
+                  <CircleDollarSign size={14} />
+                </button>
+              )}
+              {!readOnly && (
+                <button
+                  type="button"
+                  className={actionBtnClass(false)}
+                  onClick={() =>
+                    handleAddQuotation(
+                      asset.id,
+                      sub.partNumber || "",
+                      sub.equipmentOffer || sub.description || "",
+                      sic.id,
+                    )
+                  }
+                  title="Add quotation"
+                >
+                  <FilePlusCorner size={14} />
+                </button>
+              )}
+              {!readOnly && hasPricing(sic) && (
+                <>
+                  <span
+                    className={`${styles.actionDivider} ${styles.rowActionEmpty}`}
+                    aria-hidden="true"
+                  />
+                  <button
+                    type="button"
+                    className={actionBtnClass(false, styles.rowActionDanger)}
+                    onClick={() =>
+                      setPendingPriceClear({
+                        assetId: asset.id,
+                        costId: sic.id,
+                        kind,
+                      })
+                    }
+                    title="Clear pricing & quotation"
+                  >
+                    <Eraser size={14} />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
         {/* Inline notes panel */}
         {expandedNotesIds.has(noteKey) && (
           <div className={styles.subNoteRow}>
-            <span className={styles.noteLabel}>💬 Notes</span>
+            <span className={styles.noteLabel}>
+              <MessageSquareText size={11} /> Notes
+            </span>
             {readOnly ? (
               <span className={styles.noteText}>{sic.notes || "-"}</span>
             ) : (
@@ -3878,6 +3923,15 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       if (!mainMatch && subMatches.length === 0) return a;
       return patched;
     });
+    // BOM workshop: fee in Services & Fees here, hours in Hours & Personnel via the parent
+    const workshop = items
+      .filter((i) => !!i.workshop)
+      .map((i) => i.workshop as IBomWorkshopImport);
+    if (workshop.length > 0 && onImportBomWorkshopHours) {
+      persist(applyWorkshopFees(updated, workshop));
+      onImportBomWorkshopHours(workshop);
+      return;
+    }
     persist(updated);
   };
 
@@ -4196,30 +4250,6 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
       respondSupplier: link.supplier,
     });
   };
-
-  // ─── Tooltip position helper (above/below viewport detection) ───
-  const handleSpecsHover = React.useCallback(
-    (e: React.MouseEvent<HTMLSpanElement>) => {
-      const indicator = e.currentTarget;
-      const tooltip = indicator.querySelector(
-        `.${styles.specsTooltip}`,
-      ) as HTMLElement | null;
-      if (!tooltip) return;
-      const rect = indicator.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      // Fixed (viewport) coords — .tableWrapper's overflow clips absolutely positioned tooltips
-      tooltip.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 410))}px`;
-      // If the bottom of the indicator is in the lower 35% of the viewport, show above
-      if (rect.bottom > viewportHeight * 0.65) {
-        tooltip.style.top = "auto";
-        tooltip.style.bottom = `${viewportHeight - rect.top + 4}px`;
-      } else {
-        tooltip.style.bottom = "auto";
-        tooltip.style.top = `${rect.bottom + 4}px`;
-      }
-    },
-    [],
-  );
 
   const COLS = 17;
 
@@ -5451,7 +5481,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 <th>Date Ref</th>
                 <th>Lead Time</th>
                 <th>CAPEX/OPEX</th>
-                <th>Notes</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -5518,40 +5548,13 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           <span className={styles.sectionBadge}>
                             ({count} items)
                           </span>
-                          {((sec.clientRequirement &&
-                            sec.clientRequirement.trim()) ||
-                            (sec.clientSpecs &&
-                              sec.clientSpecs.length > 0)) && (
-                            <span
-                              className={styles.specsIndicator}
-                              onClick={(e) => e.stopPropagation()}
-                              onMouseEnter={handleSpecsHover}
-                            >
-                              <span className={styles.specsIndicatorIcon}>
-                                📋
-                              </span>
-                              <div className={styles.specsTooltip}>
-                                <div className={styles.specsTooltipTitle}>
-                                  Section Technical Specs
-                                </div>
-                                {sec.clientRequirement &&
-                                  sec.clientRequirement.trim() && (
-                                    <div className={styles.specsTooltipReq}>
-                                      {sec.clientRequirement}
-                                    </div>
-                                  )}
-                                {(sec.clientSpecs || []).length > 0 && (
-                                  <ul className={styles.specsTooltipList}>
-                                    {(sec.clientSpecs || []).map(
-                                      (spec, idx) => (
-                                        <li key={idx}>{spec}</li>
-                                      ),
-                                    )}
-                                  </ul>
-                                )}
-                              </div>
-                            </span>
-                          )}
+                          <ScopeInfoButton
+                            title="Section details"
+                            subtitle={sec.sectionTitle}
+                            clientRequirement={sec.clientRequirement}
+                            clientSpecs={sec.clientSpecs}
+                            attachments={sec.attachments}
+                          />
                           {!readOnly && (
                             <span
                               style={{
@@ -5756,100 +5759,21 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                       </td>
                       {/* Read-only from Scope */}
                       <td className={styles.readOnlyCell}>
-                        <span
-                          style={{
-                            display: "flex",
-                            alignItems: "flex-start",
-                          }}
-                        >
-                          {/* Fixed-width slot keeps icons (and thus text start) aligned across rows */}
-                          <span className={styles.specsIconSlot}>
-                            {si &&
-                              ((si.clientRequirement &&
-                                si.clientRequirement.trim()) ||
-                                (si.clientSpecs &&
-                                  si.clientSpecs.length > 0)) && (
-                                <span
-                                  className={styles.specsIndicator}
-                                  onMouseEnter={handleSpecsHover}
-                                >
-                                  <span className={styles.specsIndicatorIcon}>
-                                    📋
-                                  </span>
-                                  <div className={styles.specsTooltip}>
-                                    <div className={styles.specsTooltipTitle}>
-                                      Technical Specs
-                                    </div>
-                                    {si.clientRequirement &&
-                                      si.clientRequirement.trim() && (
-                                        <div className={styles.specsTooltipReq}>
-                                          {si.clientRequirement}
-                                        </div>
-                                      )}
-                                    {(si.clientSpecs || []).length > 0 && (
-                                      <ul className={styles.specsTooltipList}>
-                                        {(si.clientSpecs || []).map(
-                                          (spec, idx) => (
-                                            <li key={idx}>{spec}</li>
-                                          ),
-                                        )}
-                                      </ul>
-                                    )}
-                                  </div>
-                                </span>
-                              )}
-                            {si && si.comments && si.comments.trim() && (
-                              <span
-                                className={styles.specsIndicator}
-                                onMouseEnter={handleSpecsHover}
-                              >
-                                <span className={styles.specsIndicatorIcon}>
-                                  💬
-                                </span>
-                                <div className={styles.specsTooltip}>
-                                  <div className={styles.specsTooltipTitle}>
-                                    Scope Comments
-                                  </div>
-                                  <div className={styles.specsTooltipReq}>
-                                    {si.comments}
-                                  </div>
-                                </div>
-                              </span>
-                            )}
-                            {si && (si.attachments || []).length > 0 && (
-                              <span
-                                className={styles.specsIndicator}
-                                onMouseEnter={handleSpecsHover}
-                              >
-                                <span className={styles.specsIndicatorIcon}>
-                                  📎
-                                </span>
-                                <div className={styles.specsTooltip}>
-                                  <div className={styles.specsTooltipTitle}>
-                                    Attachments ({si.attachments!.length})
-                                  </div>
-                                  <ul className={styles.specsTooltipList}>
-                                    {si.attachments!.map((att) => (
-                                      <li key={att.id}>
-                                        <a
-                                          href={att.fileUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          {att.fileName}
-                                        </a>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </span>
-                            )}
-                          </span>
-                          <span className={styles.subCellText}>
+                        <div className={styles.offerCell}>
+                          <span className={styles.offerText}>
                             {si?.equipmentOffer || "-"}
                           </span>
-                        </span>
+                          {si && (
+                            <ScopeInfoButton
+                              subtitle={si.equipmentOffer}
+                              description={si.description}
+                              clientRequirement={si.clientRequirement}
+                              clientSpecs={si.clientSpecs}
+                              comments={si.comments}
+                              attachments={si.attachments}
+                            />
+                          )}
+                        </div>
                       </td>
                       <td className={styles.readOnlyCell}>
                         <PartNumberDisplay value={si?.partNumber || ""} mono />
@@ -6393,8 +6317,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                           </>
                         );
                       })()}
-                      {/* Cost Ref / Supplier */}
+                      {/* Cost Ref / Supplier (+ source quotation chip) */}
                       <td>
+                        <div className={styles.costRefCell}>
                         {(() => {
                           if (asset.costFromSubItems || asset.costFromPCF) {
                             return (
@@ -6520,6 +6445,11 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                             />
                           );
                         })()}
+                        {renderQuoteLink(
+                          asset.quotationReference,
+                          asset.quotationFileUrl,
+                        )}
+                        </div>
                       </td>
                       {/* Date Ref */}
                       <td style={{ fontSize: 11 }}>
@@ -6822,75 +6752,54 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                         })()}
                       </td>
                       <td>
-                        <div className={styles.notesCell}>
-                          <div className={styles.notesRow}>
-                            {(!readOnly || !!asset.notes) && (
-                              <button
-                                className={noteBtnClass(asset.id, asset.notes)}
-                                onClick={() => toggleNotesExpand(asset.id)}
-                                title={
-                                  asset.notes ? "View/edit notes" : "Add notes"
-                                }
-                              >
-                                💬
-                              </button>
-                            )}
-                            {!readOnly && (
-                              <button
-                                className={`${styles.subCostToggle} ${hasSubCosts ? styles.hasSubCosts : ""}`}
-                                onClick={() =>
-                                  toggleDrawerTab(asset.id, "fees")
-                                }
-                                title={
-                                  isDrawerOpen && activeTab === "fees"
-                                    ? "Hide services & fees"
-                                    : "Show/add services & fees"
-                                }
-                              >
-                                {hasSubCosts
-                                  ? `💲${(asset.subCosts || []).length}`
-                                  : "+💲"}
-                              </button>
-                            )}
-                            {(!readOnly || quotationCountOf(asset) > 0) && (
-                              <button
-                                className={`${styles.subCostToggle} ${quotationCountOf(asset) > 0 ? styles.hasSubCosts : ""}`}
-                                onClick={() => openQuotationDrawer(asset.id)}
-                                title={
-                                  readOnly
-                                    ? "View quotations"
-                                    : "Add / manage quotations"
-                                }
-                              >
-                                {quotationCountOf(asset) > 0
-                                  ? `📝${quotationCountOf(asset)}`
-                                  : "📝"}
-                              </button>
-                            )}
+                        <div className={styles.rowActions}>
+                          {(!readOnly || !!asset.notes) && (
                             <button
-                              className={styles.subCostToggle}
-                              onClick={(e) => {
-                                const r =
-                                  e.currentTarget.getBoundingClientRect();
-                                setBreakdownAnchor(
-                                  breakdownAnchor &&
-                                    breakdownAnchor.assetId === asset.id
-                                    ? null
-                                    : {
-                                        assetId: asset.id,
-                                        x: r.left,
-                                        y: r.bottom + 4,
-                                        anchorTop: r.top,
-                                      },
-                                );
-                              }}
-                              title="Cost breakdown - where this item's total comes from"
+                              type="button"
+                              className={actionBtnClass(!!asset.notes)}
+                              onClick={() => toggleNotesExpand(asset.id)}
+                              aria-pressed={expandedNotesIds.has(asset.id)}
+                              title={
+                                readOnly
+                                  ? "View notes"
+                                  : asset.notes
+                                    ? "View / edit notes"
+                                    : "Add notes"
+                              }
                             >
-                              Σ
+                              {asset.notes ? (
+                                <MessageSquareText size={14} />
+                              ) : (
+                                <MessageSquarePlus size={14} />
+                              )}
                             </button>
-                            {!readOnly && hasPricing(asset) && (
+                          )}
+                          {(!readOnly || quotationCountOf(asset) > 0) && (
+                            <button
+                              type="button"
+                              className={actionBtnClass(false)}
+                              onClick={() => openQuotationDrawer(asset.id)}
+                              title={
+                                quotationCountOf(asset) > 0
+                                  ? `Quotations (${quotationCountOf(asset)})`
+                                  : "Add / manage quotations"
+                              }
+                            >
+                              <FileText size={14} />
+                            </button>
+                          )}
+                          {!readOnly && hasPricing(asset) && (
+                            <>
+                              <span
+                                className={`${styles.actionDivider} ${styles.rowActionEmpty}`}
+                                aria-hidden="true"
+                              />
                               <button
-                                className={`${styles.subCostToggle} ${styles.clearPriceBtn}`}
+                                type="button"
+                                className={actionBtnClass(
+                                  false,
+                                  styles.rowActionDanger,
+                                )}
                                 onClick={() =>
                                   setPendingPriceClear({
                                     assetId: asset.id,
@@ -6899,35 +6808,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 }
                                 title="Clear pricing & quotation"
                               >
-                                🧹
+                                <Eraser size={14} />
                               </button>
-                            )}
-                            {readOnly && hasSubCosts && (
-                              <button
-                                className={`${styles.subCostToggle} ${styles.hasSubCosts}`}
-                                onClick={() =>
-                                  toggleDrawerTab(asset.id, "fees")
-                                }
-                                title="View services & fees"
-                              >
-                                💲{(asset.subCosts || []).length}
-                              </button>
-                            )}
-                          </div>
-                          {asset.quotationReference && (
-                            <a
-                              className={styles.quoteLink}
-                              href={getQuoteLinkHref(asset.quotationFileUrl)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title={
-                                asset.quotationFileUrl
-                                  ? `Open quotation: ${asset.quotationReference}`
-                                  : `From quotation "${asset.quotationReference}" - open Quotations to view`
-                              }
-                            >
-                              🔗 {asset.quotationReference}
-                            </a>
+                            </>
                           )}
                         </div>
                       </td>
@@ -6936,7 +6819,9 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                     {expandedNotesIds.has(asset.id) && (
                       <tr className={styles.noteRow}>
                         <td colSpan={COLS} className={styles.noteCell}>
-                          <span className={styles.noteLabel}>💬 Notes</span>
+                          <span className={styles.noteLabel}>
+                            <MessageSquareText size={11} /> Notes
+                          </span>
                           {readOnly ? (
                             <span className={styles.noteText}>
                               {asset.notes || "-"}
@@ -7183,7 +7068,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   <div className={styles.subTh}>Date Ref</div>
                                   <div className={styles.subTh}>Lead Time</div>
                                   <div className={styles.subTh}>CAPEX/OPEX</div>
-                                  <div className={styles.subTh}>Notes</div>
+                                  <div className={styles.subTh}>Actions</div>
                                 </div>
                                 <div className={styles.subRows}>
                                   {(asset.pcfCosts || []).map((pc, idx) =>
@@ -7230,7 +7115,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 <div className={styles.subTh}>Date Ref</div>
                                 <div className={styles.subTh}>Lead Time</div>
                                 <div className={styles.subTh}>CAPEX/OPEX</div>
-                                <div className={styles.subTh}>Notes</div>
+                                <div className={styles.subTh}>Actions</div>
                               </div>
                               <div className={styles.subRows}>
                                 {(asset.subItemCosts || []).map((sic, idx) =>
@@ -7422,6 +7307,8 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           onImport={handleCostSearchImport}
           onClose={() => setShowCostSearch(false)}
           onCreateBom={onCreateBom}
+          allowWorkshop={!!onImportBomWorkshopHours}
+          fx={fx}
         />
       )}
 

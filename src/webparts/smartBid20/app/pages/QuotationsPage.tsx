@@ -19,6 +19,7 @@ import { validateMaxLength } from "../utils/validators";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { convertToUSD } from "../utils/costCalculations";
 import { canonicalSupplierName } from "../utils/supplierMatching";
+import { sortByName } from "../utils/sortHelpers";
 import { AddQuotationModal } from "../components/bid/AddQuotationModal";
 import { CollapsibleSidebar } from "../components/common/CollapsibleSidebar";
 import { SupplierCombobox } from "../components/common/SupplierCombobox";
@@ -474,7 +475,7 @@ export const QuotationsPage: React.FC = () => {
       groupId: string,
     ): { id: string; name: string }[] => {
       const grp = groups.find((g) => g.id === groupId);
-      return grp ? grp.subGroups : [];
+      return sortByName(grp ? grp.subGroups : []);
     };
 
     const getConversion = (
@@ -715,7 +716,7 @@ export const QuotationsPage: React.FC = () => {
                         }
                       >
                         <option value="">Select group...</option>
-                        {groups.map((g) => (
+                        {sortByName(groups).map((g) => (
                           <option key={g.id} value={g.id}>
                             {g.name}
                           </option>

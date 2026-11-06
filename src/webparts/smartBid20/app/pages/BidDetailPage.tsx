@@ -5,6 +5,7 @@ import { useBidStore } from "../stores/useBidStore";
 import { useAuthStore } from "../stores/useAuthStore";
 import { ROUTES } from "../config/routes.config";
 import { StatusBadge } from "../components/common/StatusBadge";
+import { BidDivisionTag } from "../components/common/BidDivisionTag";
 import { ScopeOfSupplyTab } from "../components/bid/ScopeOfSupplyTab";
 import { AssetsBreakdownTab } from "../components/bid/AssetsBreakdownTab";
 import { LogisticsBreakdownTab } from "../components/bid/LogisticsBreakdownTab";
@@ -70,19 +71,24 @@ import {
 } from "../models";
 import { ITeamMember } from "../models/ITeamMember";
 import { PRIORITY_COLORS } from "../utils/constants";
-import { formatDate, formatDaysLeft } from "../utils/formatters";
+import {
+  formatCurrency,
+  formatDate,
+  formatDaysLeft,
+  formatHours,
+} from "../utils/formatters";
 import { getDueFreezeDate } from "../utils/bidHelpers";
 import { isTerminalStatus } from "../utils/statusHelpers";
 import { getErnLinks } from "../utils/ernHelpers";
-import {
-  getBidServiceLines,
-  getLeadDivision,
-  isIntegratedDivision,
-} from "../utils/divisionHelpers";
+import { getTrackLabel } from "../utils/divisionHelpers";
 import { hasPendingApprovalRound } from "../utils/approvalTracks";
 import { makeId } from "../utils/idGenerator";
 import { getBidDisplayCurrency } from "../utils/quotationLinks";
 import { getBidFx, withCostSummary } from "../utils/costCalculations";
+import {
+  applyWorkshopFees,
+  upsertWorkshopHours,
+} from "../utils/bomWorkshop";
 import {
   canOpenBid,
   getConfidentialManagers,
@@ -139,6 +145,25 @@ const EMPTY_HOURS_SUMMARY: IHoursSummary = {
   grandTotalCostUSD: 0,
 };
 
+/** Scope of one division saved back into the full list (other divisions are kept). */
+const mergeDivisionScope = (
+  all: IScopeItem[],
+  items: IScopeItem[],
+  div: string | null | undefined,
+): IScopeItem[] => {
+  if (!div) return items;
+  const others = all.filter(
+    (i) => i.integratedDivision && i.integratedDivision !== div,
+  );
+  return [
+    ...others,
+    ...items.map((i) => ({
+      ...i,
+      integratedDivision: div as "ROV" | "SURVEY",
+    })),
+  ];
+};
+
 /**
  * DivisionEditWrap — Wraps a division-aware tab with edit lock control.
  * Uses useEditControl hook to manage concurrent editing per section/division.
@@ -179,7 +204,6 @@ export const BidDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const bids = useBidStore((s) => s.bids);
-  const config = useConfigStore((s) => s.config);
 
   // Config-aware phases
   const configPhases = useConfigPhases();
@@ -805,7 +829,9 @@ export const BidDetailPage: React.FC = () => {
                 if (links.length === 0) return "TBD";
                 return links
                   .map((l) =>
-                    l.division ? `${l.ernNumber} (${l.division})` : l.ernNumber,
+                    l.division
+                      ? `${l.ernNumber} (${getTrackLabel(bid, l.division)})`
+                      : l.ernNumber,
                   )
                   .join(", ");
               })()}
@@ -834,59 +860,11 @@ export const BidDetailPage: React.FC = () => {
         </div>
         <div className={styles.bidHeaderRight}>
           <div className={styles.bidHeaderActions}>
-            {isIntegratedDivision(bid.division) ? (
-              <>
-                <StatusBadge
-                  status={
-                    (config?.divisions || []).find(
-                      (d) => d.value === bid.division,
-                    )?.label || bid.division
-                  }
-                  color={
-                    (config?.divisions || []).find(
-                      (d) => d.value === bid.division,
-                    )?.color
-                  }
-                />
-                <StatusBadge
-                  status={`Lead: ${getLeadDivision(bid)}`}
-                  color={
-                    (config?.divisions || []).find(
-                      (d) => d.value === getLeadDivision(bid),
-                    )?.color
-                  }
-                />
-                {getBidServiceLines(bid).map((sl) => (
-                  <StatusBadge
-                    key={sl}
-                    status={sl}
-                    color={
-                      (config?.serviceLines || []).find((o) => o.value === sl)
-                        ?.color
-                    }
-                  />
-                ))}
-              </>
-            ) : (
-              <>
-                <StatusBadge
-                  status={bid.division}
-                  color={
-                    (config?.divisions || []).find(
-                      (d) => d.value === bid.division,
-                    )?.color
-                  }
-                />
-                <StatusBadge
-                  status={bid.serviceLine}
-                  color={
-                    (config?.serviceLines || []).find(
-                      (sl) => sl.value === bid.serviceLine,
-                    )?.color
-                  }
-                />
-              </>
-            )}
+            <BidDivisionTag
+              bid={bid}
+              variant="full"
+              className={styles.headerDivisionTag}
+            />
             <StatusBadge
               status={bid.priority}
               color={PRIORITY_COLORS[bid.priority] || PRIORITY_COLORS.Normal}
@@ -1065,26 +1043,48 @@ export const BidDetailPage: React.FC = () => {
                               importAiScope(aiItems, meta, div)
                             }
                             onSave={(items) => {
-                              if (div) {
-                                const others = (bid.scopeItems || []).filter(
-                                  (i) =>
-                                    i.integratedDivision &&
-                                    i.integratedDivision !== div,
-                                );
-                                savePatch({
-                                  scopeItems: [
-                                    ...others,
-                                    ...items.map((i) => ({
-                                      ...i,
-                                      integratedDivision: div as
-                                        | "ROV"
-                                        | "SURVEY",
-                                    })),
-                                  ],
-                                });
-                              } else {
-                                savePatch({ scopeItems: items });
-                              }
+                              savePatch({
+                                scopeItems: mergeDivisionScope(
+                                  bid.scopeItems || [],
+                                  items,
+                                  div,
+                                ),
+                              });
+                            }}
+                            onImportBomWorkshop={(items, imports) => {
+                              // Latest store copy: tabs may have saved since this render
+                              const latest =
+                                useBidStore
+                                  .getState()
+                                  .bids.find((b) => b.bidNumber === id) || bid;
+                              savePatch({
+                                scopeItems: mergeDivisionScope(
+                                  latest.scopeItems || [],
+                                  items,
+                                  div,
+                                ),
+                                assetBreakdown: applyWorkshopFees(
+                                  latest.assetBreakdown || [],
+                                  imports,
+                                ),
+                                hoursSummary: upsertWorkshopHours(
+                                  latest.hoursSummary || EMPTY_HOURS_SUMMARY,
+                                  imports,
+                                ),
+                              });
+                              const hours = imports.reduce(
+                                (s, i) => s + i.totalHours,
+                                0,
+                              );
+                              const usd = imports.reduce(
+                                (s, i) => s + i.totalCostUSD,
+                                0,
+                              );
+                              addToast({
+                                type: "success",
+                                title: "Workshop imported",
+                                message: `${formatHours(hours)} in Hours & Personnel › Onshore · ${formatCurrency(usd)} in Assets Breakdown › Services & Fees`,
+                              });
                             }}
                             onImportEngHours={(engItems, resAlloc) => {
                               const currentHours =
@@ -1356,6 +1356,30 @@ export const BidDetailPage: React.FC = () => {
                                   "&desc=" +
                                   encodeURIComponent(description),
                               );
+                            }}
+                            fx={bidFx}
+                            onImportBomWorkshopHours={(imports) => {
+                              const latest =
+                                useBidStore
+                                  .getState()
+                                  .bids.find((b) => b.bidNumber === id) || bid;
+                              savePatch({
+                                hoursSummary: upsertWorkshopHours(
+                                  latest.hoursSummary || EMPTY_HOURS_SUMMARY,
+                                  imports,
+                                ),
+                              });
+                              const hours = imports.reduce(
+                                (s, i) => s + i.totalHours,
+                                0,
+                              );
+                              if (hours > 0) {
+                                addToast({
+                                  type: "success",
+                                  title: "Workshop hours imported",
+                                  message: `${formatHours(hours)} added to Hours & Personnel › Onshore Hours`,
+                                });
+                              }
                             }}
                             onSave={(items) => {
                               if (div) {

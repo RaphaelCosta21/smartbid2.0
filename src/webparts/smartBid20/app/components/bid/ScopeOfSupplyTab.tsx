@@ -49,7 +49,17 @@ import {
   PartNumberAutocomplete,
   PartNumberDisplay,
 } from "../common/PartNumberAutocomplete";
-import { EquipmentImportModal, IImportPick } from "./EquipmentImportModal";
+import {
+  EquipmentImportModal,
+  IImportPick,
+  IImportSourceMeta,
+} from "./EquipmentImportModal";
+import { BomWorkshopImportDialog } from "./BomWorkshopImportDialog";
+import {
+  IBomWorkshopImport,
+  buildBomWorkshopImport,
+  hasWorkshopRows,
+} from "../../utils/bomWorkshop";
 import { ImportSourceModal } from "../common/ImportSourceModal";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { DivisionContext } from "../common/IntegratedDivisionTabs";
@@ -134,6 +144,14 @@ interface ScopeOfSupplyTabProps {
   onClearEngineeringHours?: (scopeItemId: string) => void;
   /** Rendered outside BID Details (template editor, AI preview): header shows metrics only */
   embedded?: boolean;
+  /**
+   * Saves the scope together with the workshop (hours + Services & Fees) of BOMs picked from
+   * BOM Costs, in one patch. Without it, BOM picks only fill part number and description.
+   */
+  onImportBomWorkshop?: (
+    items: IScopeItem[],
+    imports: IBomWorkshopImport[],
+  ) => void;
 }
 
 /** Duration of the drawer/section collapse exit animation — keep in sync with the CSS keyframes */
@@ -207,6 +225,15 @@ const blankSubItem = (): IScopeSubItem => ({
   comments: "",
 });
 
+/** Sequential line numbers for data rows (sections stay 0) */
+const renumberScope = (list: IScopeItem[]): IScopeItem[] => {
+  let lineNum = 1;
+  return list.map((item) => ({
+    ...item,
+    lineNumber: item.isSection ? 0 : lineNum++,
+  }));
+};
+
 export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   scopeItems,
   onSave,
@@ -229,6 +256,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   engineeringItems,
   onClearEngineeringHours,
   embedded,
+  onImportBomWorkshop,
 }) => {
   const divisionTabs = React.useContext(DivisionContext);
   const otherDivision =
@@ -637,17 +665,89 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
 
   const persist = React.useCallback(
     (updated: IScopeItem[]) => {
-      // Re-number lines
-      let lineNum = 1;
-      const renumbered = updated.map((item) => ({
-        ...item,
-        lineNumber: item.isSection ? 0 : lineNum++,
-      }));
+      const renumbered = renumberScope(updated);
       setItems(renumbered);
       debouncedSave(renumbered);
     },
     [debouncedSave],
   );
+
+  // ─── BOM workshop: confirm, then save scope + hours + Services & Fees together ───
+  const [pendingWorkshop, setPendingWorkshop] = React.useState<{
+    items: IScopeItem[];
+    imports: IBomWorkshopImport[];
+    replacingIds: string[];
+  } | null>(null);
+
+  const workshopFx = aiBid ? getBidFx(aiBid) : null;
+
+  /** Workshop of each BOM pick for the given scope rows (rows without workshop are skipped) */
+  const collectWorkshop = (
+    picks: {
+      scopeItem: IScopeItem;
+      analysis?: IImportSourceMeta["bomAnalysis"];
+    }[],
+  ): IBomWorkshopImport[] => {
+    if (!onImportBomWorkshop) return [];
+    const out: IBomWorkshopImport[] = [];
+    picks.forEach(({ scopeItem, analysis }) => {
+      if (!analysis) return;
+      const imp = buildBomWorkshopImport(
+        analysis,
+        {
+          ...scopeItem,
+          integratedDivision:
+            scopeItem.integratedDivision ||
+            ((currentDivision || "") as IScopeItem["integratedDivision"]),
+        },
+        workshopFx,
+      );
+      if (imp) out.push(imp);
+    });
+    return out;
+  };
+
+  /** Saves right away, or asks first when some picks carry a BOM workshop */
+  const persistWithWorkshop = (
+    updated: IScopeItem[],
+    imports: IBomWorkshopImport[],
+  ): void => {
+    if (imports.length === 0) {
+      persist(updated);
+      return;
+    }
+    setPendingWorkshop({
+      items: updated,
+      imports,
+      replacingIds: imports
+        .filter((imp) =>
+          hasWorkshopRows(
+            imp.scopeItemId,
+            aiBid?.hoursSummary,
+            assetBreakdown,
+          ),
+        )
+        .map((imp) => imp.scopeItemId),
+    });
+  };
+
+  const confirmWorkshop = (withWorkshop: boolean): void => {
+    if (!pendingWorkshop) return;
+    const { items: updated, imports } = pendingWorkshop;
+    setPendingWorkshop(null);
+    if (!withWorkshop || !onImportBomWorkshop) {
+      persist(updated);
+      return;
+    }
+    // The pending debounced save is folded into this single patch
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    const renumbered = renumberScope(updated);
+    setItems(renumbered);
+    onImportBomWorkshop(renumbered, imports);
+  };
 
   // ─── Computed ───
   const sections = items.filter((i) => i.isSection);
@@ -761,7 +861,15 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       }
       return newItem;
     });
-    persist([...items, ...newItems]);
+    persistWithWorkshop(
+      [...items, ...newItems],
+      collectWorkshop(
+        newItems.map((scopeItem, idx) => ({
+          scopeItem,
+          analysis: picks[idx].bomAnalysis,
+        })),
+      ),
+    );
   };
 
   const duplicateSection = (sectionId: string): void => {
@@ -4697,7 +4805,8 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       {/* Equipment Import Modal */}
       {importTargetId && (
         <EquipmentImportModal
-          onSelect={(pn, desc, importSubs) => {
+          showBomWorkshop={!!onImportBomWorkshop}
+          onSelect={(pn, desc, importSubs, source) => {
             // Set both fields in a single persist to avoid state race
             const updated = items.map((i) => {
               if (i.id !== importTargetId) return i;
@@ -4717,7 +4826,15 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
               }
               return patched;
             });
-            persist(updated);
+            const target = updated.find((i) => i.id === importTargetId);
+            persistWithWorkshop(
+              updated,
+              target
+                ? collectWorkshop([
+                    { scopeItem: target, analysis: source?.bomAnalysis },
+                  ])
+                : [],
+            );
             setImportTargetId(null);
           }}
           onClose={() => setImportTargetId(null)}
@@ -4752,11 +4869,30 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
       {catalogImportSectionId && (
         <EquipmentImportModal
           multiSelect
+          showBomWorkshop={!!onImportBomWorkshop}
           onSelectMany={(picks) => {
             addItemsFromCatalog(catalogImportSectionId, picks);
             setCatalogImportSectionId(null);
           }}
           onClose={() => setCatalogImportSectionId(null)}
+        />
+      )}
+
+      {pendingWorkshop && (
+        <BomWorkshopImportDialog
+          imports={pendingWorkshop.imports}
+          replacingIds={pendingWorkshop.replacingIds}
+          intro={
+            pendingWorkshop.imports.length > 1
+              ? `${pendingWorkshop.imports.length} of the picked BOMs have workshop hours / cost for assembly and test. Scope of Supply only gets the part number and description; the workshop is added to the BID pages below.`
+              : "This BOM has workshop hours / cost for assembly and test. Scope of Supply only gets the part number and description; the workshop is added to the BID pages below."
+          }
+          itemOnlyLabel={
+            pendingWorkshop.imports.length > 1 ? "Items only" : "Item only"
+          }
+          onImportWithWorkshop={() => confirmWorkshop(true)}
+          onImportItemOnly={() => confirmWorkshop(false)}
+          onCancel={() => setPendingWorkshop(null)}
         />
       )}
 

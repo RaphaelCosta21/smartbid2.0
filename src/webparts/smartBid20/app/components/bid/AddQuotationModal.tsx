@@ -16,6 +16,7 @@ import { SPService } from "../../services/SPService";
 import { validateMaxLength } from "../../utils/validators";
 import { convertToUSD } from "../../utils/costCalculations";
 import { formatCurrency } from "../../utils/formatters";
+import { sortByName } from "../../utils/sortHelpers";
 import {
   IQuotationItem,
   QuotationType,
@@ -188,7 +189,7 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
     groupId: string,
   ): { id: string; name: string }[] => {
     const grp = groups.find((g) => g.id === groupId);
-    return grp ? grp.subGroups : [];
+    return sortByName(grp ? grp.subGroups : []);
   };
 
   const getConversion = (
@@ -568,7 +569,7 @@ export const AddQuotationModal: React.FC<AddQuotationModalProps> = ({
                         }
                       >
                         <option value="">Select group...</option>
-                        {groups.map((g) => (
+                        {sortByName(groups).map((g) => (
                           <option key={g.id} value={g.id}>
                             {g.name}
                           </option>

@@ -1,4 +1,4 @@
-# Node Description Batch 75 of 86
+# Node Description Batch 75 of 102
 
 Graphify is running in assistant/skill mode (no API key). You are the host
 assistant (Claude Code / Codex / Gemini CLI). Read the prompt below and write
@@ -12,58 +12,51 @@ describing what it is or does. Use only the provided context.
 For a code symbol (kind=code-symbol — a function, class, or constant),
 describe what the function/symbol does based on its name, source location
 and neighbors — e.g. "Resolves the configured ontology profile from graphify.yaml.".
-For an entity node (any other kind — e.g. a person, place, event, object),
-describe what the entity is and its role, grounded in its type, its
-relations (neighbors) and the provided citations/evidence — e.g.
-"Lady Carfax, a wealthy heiress who disappears en route to Lausanne.".
-Ground entity descriptions in the citations/evidence when present; do not
-speculate beyond the context, so a node with no supporting context may be
-left out of the reply.
 Write every description in English (en). Do not switch languages.
 No marketing language.
 Respond ONLY with a JSON object mapping each node id (as a string) to its
 one-sentence description — no prose, no markdown fences.
 
-- "services_approvalservice_approvalservice_requestapproval": ".requestApproval()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/ApprovalService.ts:L156 | neighbors=[ApprovalService]
-- "services_attachmentservice_attachmentservice_deletefile": ".deleteFile()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/AttachmentService.ts:L57 | neighbors=[AttachmentService]
-- "services_attachmentservice_attachmentservice_getfilesinfolder": ".getFilesInFolder()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/AttachmentService.ts:L61 | neighbors=[AttachmentService]
-- "services_attachmentservice_attachmentservice_gettemplatefiles": ".getTemplateFiles()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/AttachmentService.ts:L179 | neighbors=[AttachmentService]
-- "services_attachmentservice_attachmentservice_safefoldername": ".safeFolderName()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/AttachmentService.ts:L11 | neighbors=[AttachmentService]
-- "services_attachmentservice_attachmentservice_uploadfile": ".uploadFile()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/AttachmentService.ts:L20 | neighbors=[AttachmentService]
-- "services_attachmentservice_attachmentservice_uploadrequestfiles": ".uploadRequestFiles()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/AttachmentService.ts:L93 | neighbors=[AttachmentService]
-- "services_attachmentservice_attachmentservice_uploadtemplatefile": ".uploadTemplateFile()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/AttachmentService.ts:L140 | neighbors=[AttachmentService]
-- "services_bidservice_bidservice_getall": ".getAll()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/BidService.ts:L95 | neighbors=[BidService]
-- "services_bidservice_bidservice_getbystatus": ".getByStatus()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/BidService.ts:L178 | neighbors=[BidService]
-- "services_bidservice_bidservice_getoverdue": ".getOverdue()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/BidService.ts:L188 | neighbors=[BidService]
-- "services_bidservice_bidservice_gettotalpatchversion": ".getTotalPatchVersion()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/BidService.ts:L241 | neighbors=[BidService]
-- "services_bidservice_bidservice_hasanypendingpatch": ".hasAnyPendingPatch()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/BidService.ts:L236 | neighbors=[BidService]
-- "services_bidservice_bidservice_haspendingpatch": ".hasPendingPatch()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/BidService.ts:L228 | neighbors=[BidService]
-- "services_bidservice_bidservice_list": "._list()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/BidService.ts:L25 | neighbors=[BidService]
-- "services_clarificationdbservice_clarificationdbservice_delete": ".delete()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/ClarificationDbService.ts:L204 | neighbors=[ClarificationDbService]
-- "services_clarificationdbservice_clarificationdbservice_list": "._list()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/ClarificationDbService.ts:L32 | neighbors=[ClarificationDbService]
-- "services_clarificationdbservice_clarificationdbservice_mapfromsp": "._mapFromSP()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/ClarificationDbService.ts:L96 | neighbors=[ClarificationDbService]
-- "services_clarificationdbservice_provisioned_fields": "PROVISIONED_FIELDS" | kind=code-symbol | source=src/webparts/smartBid20/app/services/ClarificationDbService.ts:L14 | neighbors=[ClarificationDbService.ts]
-- "services_clarificationdbservice_rationale_3": "NOTE: This list uses real SharePoint columns (not a JSON blob)." | kind=entity | source=src/webparts/smartBid20/app/services/ClarificationDbService.ts:L3 | neighbors=[ClarificationDbService.ts]
-- "services_clarificationknowledgeservice_clarificationknowledgeservice_folderserverrelativeurl": ".folderServerRelativeUrl()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/ClarificationKnowledgeService.ts:L34 | neighbors=[ClarificationKnowledgeService]
-- "services_clarificationknowledgeservice_iclarificationknowledgeresult": "IClarificationKnowledgeResult" | kind=code-symbol | source=src/webparts/smartBid20/app/services/ClarificationKnowledgeService.ts:L20 | neighbors=[ClarificationKnowledgeService.ts]
-- "services_clarificationknowledgeservice_types": "TYPES" | kind=code-symbol | source=src/webparts/smartBid20/app/services/ClarificationKnowledgeService.ts:L27 | neighbors=[ClarificationKnowledgeService.ts]
-- "services_currencyservice_bcb_currency_types": "BCB_CURRENCY_TYPES" | kind=code-symbol | source=src/webparts/smartBid20/app/services/CurrencyService.ts:L17 | neighbors=[CurrencyService.ts]
-- "services_currencyservice_ibcbcurrencyresponse": "IBCBCurrencyResponse" | kind=code-symbol | source=src/webparts/smartBid20/app/services/CurrencyService.ts:L37 | neighbors=[CurrencyService.ts]
-- "services_currencyservice_ibcbdollarresponse": "IBCBDollarResponse" | kind=code-symbol | source=src/webparts/smartBid20/app/services/CurrencyService.ts:L29 | neighbors=[CurrencyService.ts]
-- "services_currencyservice_icurrencyrate": "ICurrencyRate" | kind=code-symbol | source=src/webparts/smartBid20/app/services/CurrencyService.ts:L48 | neighbors=[CurrencyService.ts]
-- "services_dashboardservice_dashboardservice_getkpivalue": "._getKPIValue()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/DashboardService.ts:L73 | neighbors=[DashboardService]
-- "services_doclibrarycatalogservice_doc_type_choices": "DOC_TYPE_CHOICES" | kind=code-symbol | source=src/webparts/smartBid20/app/services/DocLibraryCatalogService.ts:L19 | neighbors=[DocLibraryCatalogService.ts]
-- "services_doclibrarycatalogservice_doclibrarycatalogservice_deletefile": ".deleteFile()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/DocLibraryCatalogService.ts:L322 | neighbors=[DocLibraryCatalogService]
-- "services_doclibrarycatalogservice_doclibrarycatalogservice_downloadfileasfile": ".downloadFileAsFile()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/DocLibraryCatalogService.ts:L329 | neighbors=[DocLibraryCatalogService]
-- "services_doclibrarycatalogservice_doclibrarycatalogservice_ensurecolumns": ".ensureColumns()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/DocLibraryCatalogService.ts:L153 | neighbors=[DocLibraryCatalogService]
-- "services_doclibrarycatalogservice_doclibrarycatalogservice_list": "._list()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/DocLibraryCatalogService.ts:L31 | neighbors=[DocLibraryCatalogService]
-- "services_easimodulesadapter_assetitem": "AssetItem" | kind=code-symbol | source=src/webparts/smartBid20/app/services/EasiModulesAdapter.ts:L20 | neighbors=[EasiModulesAdapter.ts]
-- "services_easimodulesadapter_easimodulesadapter_getsupplyindex": ".getSupplyIndex()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/EasiModulesAdapter.ts:L156 | neighbors=[EasiModulesAdapter]
-- "services_easimodulesadapter_hoursitem": "HoursItem" | kind=code-symbol | source=src/webparts/smartBid20/app/services/EasiModulesAdapter.ts:L21 | neighbors=[EasiModulesAdapter.ts]
-- "services_easimodulesadapter_rawrow": "RawRow" | kind=code-symbol | source=src/webparts/smartBid20/app/services/EasiModulesAdapter.ts:L25 | neighbors=[EasiModulesAdapter.ts]
-- "services_easimodulesadapter_scopeitem": "ScopeItem" | kind=code-symbol | source=src/webparts/smartBid20/app/services/EasiModulesAdapter.ts:L19 | neighbors=[EasiModulesAdapter.ts]
-- "services_easimodulesadapter_smartbiddataadapter": "SmartBidDataAdapter" | kind=code-symbol | neighbors=[EasiModulesAdapter]
-- "services_editcontrolservice_editcontrolservice_list": "._list()" | kind=code-symbol | source=src/webparts/smartBid20/app/services/EditControlService.ts:L12 | neighbors=[EditControlService]
+- "config_peoplesoftconsulting_i18n_readpeoplesoftlang": "readPeoplesoftLang()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/peoplesoftConsulting.i18n.ts:L622 | neighbors=[peoplesoftConsulting.i18n.ts]
+- "config_peoplesoftconsulting_i18n_savepeoplesoftlang": "savePeoplesoftLang()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/peoplesoftConsulting.i18n.ts:L632 | neighbors=[peoplesoftConsulting.i18n.ts]
+- "config_phases_config_getalltasks": "getAllTasks()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/phases.config.ts:L289 | neighbors=[phases.config.ts]
+- "config_phases_config_iphasetask": "IPhaseTask" | kind=code-symbol | source=src/webparts/smartBid20/app/config/phases.config.ts:L6 | neighbors=[phases.config.ts]
+- "config_phases_config_phases_config": "PHASES_CONFIG" | kind=code-symbol | source=src/webparts/smartBid20/app/config/phases.config.ts:L15 | neighbors=[phases.config.ts]
+- "config_prepmobilization_config_mob_types": "MOB_TYPES" | kind=code-symbol | source=src/webparts/smartBid20/app/config/prepMobilization.config.ts:L10 | neighbors=[prepMobilization.config.ts]
+- "config_prepmobilization_config_rts_types": "RTS_TYPES" | kind=code-symbol | source=src/webparts/smartBid20/app/config/prepMobilization.config.ts:L3 | neighbors=[prepMobilization.config.ts]
+- "config_quotation_config_quotation_link_status_labels": "QUOTATION_LINK_STATUS_LABELS" | kind=code-symbol | source=src/webparts/smartBid20/app/config/quotation.config.ts:L10 | neighbors=[quotation.config.ts]
+- "config_quotation_config_quotation_link_status_order": "QUOTATION_LINK_STATUS_ORDER" | kind=code-symbol | source=src/webparts/smartBid20/app/config/quotation.config.ts:L17 | neighbors=[quotation.config.ts]
+- "config_routes_config_routes": "ROUTES" | kind=code-symbol | source=src/webparts/smartBid20/app/config/routes.config.ts:L1 | neighbors=[routes.config.ts]
+- "config_sectors_config_by_label": "BY_LABEL" | kind=code-symbol | source=src/webparts/smartBid20/app/config/sectors.config.ts:L32 | neighbors=[sectors.config.ts]
+- "config_sectors_config_by_value": "BY_VALUE" | kind=code-symbol | source=src/webparts/smartBid20/app/config/sectors.config.ts:L31 | neighbors=[sectors.config.ts]
+- "config_sectors_config_getsectorcolor": "getSectorColor()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/sectors.config.ts:L46 | neighbors=[sectors.config.ts]
+- "config_sectors_config_getsectordef": "getSectorDef()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/sectors.config.ts:L38 | neighbors=[sectors.config.ts]
+- "config_sectors_config_getsectorlabel": "getSectorLabel()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/sectors.config.ts:L42 | neighbors=[sectors.config.ts]
+- "config_sectors_config_isectordef": "ISectorDef" | kind=code-symbol | source=src/webparts/smartBid20/app/config/sectors.config.ts:L9 | neighbors=[sectors.config.ts]
+- "config_sectors_config_sectorfromlabel": "sectorFromLabel()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/sectors.config.ts:L55 | neighbors=[sectors.config.ts]
+- "config_sectors_config_sectors": "SECTORS" | kind=code-symbol | source=src/webparts/smartBid20/app/config/sectors.config.ts:L16 | neighbors=[sectors.config.ts]
+- "config_sharepoint_config_sharepoint_config": "SHAREPOINT_CONFIG" | kind=code-symbol | source=src/webparts/smartBid20/app/config/sharepoint.config.ts:L4 | neighbors=[sharepoint.config.ts]
+- "config_status_config_bid_phases": "BID_PHASES" | kind=code-symbol | source=src/webparts/smartBid20/app/config/status.config.ts:L175 | neighbors=[status.config.ts]
+- "config_status_config_bid_statuses": "BID_STATUSES" | kind=code-symbol | source=src/webparts/smartBid20/app/config/status.config.ts:L10 | neighbors=[status.config.ts]
+- "config_status_config_getsubstatusesforphase": "getSubStatusesForPhase()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/status.config.ts:L424 | neighbors=[status.config.ts]
+- "config_status_config_sub_statuses": "SUB_STATUSES" | kind=code-symbol | source=src/webparts/smartBid20/app/config/status.config.ts:L297 | neighbors=[status.config.ts]
+- "config_suppliers_config_builddefaultsupplierservicetypes": "buildDefaultSupplierServiceTypes()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/suppliers.config.ts:L51 | neighbors=[suppliers.config.ts]
+- "config_suppliers_config_service_type_seed": "SERVICE_TYPE_SEED" | kind=code-symbol | source=src/webparts/smartBid20/app/config/suppliers.config.ts:L8 | neighbors=[suppliers.config.ts]
+- "config_surveydataformats_acoustic_telegram_tbd": "ACOUSTIC_TELEGRAM_TBD" | kind=code-symbol | source=src/webparts/smartBid20/app/config/surveyDataFormats.ts:L216 | neighbors=[surveyDataFormats.ts]
+- "config_surveydataformats_idataorigin": "IDataOrigin" | kind=code-symbol | source=src/webparts/smartBid20/app/config/surveyDataFormats.ts:L20 | neighbors=[surveyDataFormats.ts]
+- "config_surveydataformats_physical": "PHYSICAL" | kind=code-symbol | source=src/webparts/smartBid20/app/config/surveyDataFormats.ts:L331 | neighbors=[surveyDataFormats.ts]
+- "config_surveydataformats_t": "t()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/surveyDataFormats.ts:L9 | neighbors=[surveyDataFormats.ts]
+- "config_surveydataformats_tbd_format": "TBD_FORMAT" | kind=code-symbol | source=src/webparts/smartBid20/app/config/surveyDataFormats.ts:L211 | neighbors=[surveyDataFormats.ts]
+- "config_surveyglossary_sep": "sep()" | kind=code-symbol | source=src/webparts/smartBid20/app/config/surveyGlossary.ts:L16 | neighbors=[surveyGlossary.ts]
+- "dashboard_approvalspending_approvalspendingprops": "ApprovalsPendingProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/ApprovalsPending.tsx:L18 | neighbors=[ApprovalsPending.tsx]
+- "dashboard_approvalspending_initials": "initials()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/ApprovalsPending.tsx:L26 | neighbors=[ApprovalsPending.tsx]
+- "dashboard_approvalspending_sectorstyle": "sectorStyle()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/ApprovalsPending.tsx:L36 | neighbors=[ApprovalsPending.tsx]
+- "dashboard_bidsbydivisionchart_bidsbydivisionchartprops": "BidsByDivisionChartProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/BidsByDivisionChart.tsx:L15 | neighbors=[BidsByDivisionChart.tsx]
+- "dashboard_bidsbystatuschart_bidsbystatuschartprops": "BidsByStatusChartProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/BidsByStatusChart.tsx:L17 | neighbors=[BidsByStatusChart.tsx]
+- "dashboard_bidsbyurgencychart_bidsbyurgencychartprops": "BidsByUrgencyChartProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/BidsByUrgencyChart.tsx:L24 | neighbors=[BidsByUrgencyChart.tsx]
+- "dashboard_dashboardactivity_actorname": "actorName()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/DashboardActivity.tsx:L54 | neighbors=[DashboardActivity.tsx]
+- "dashboard_dashboardactivity_buildfeed": "buildFeed()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/DashboardActivity.tsx:L66 | neighbors=[DashboardActivity.tsx]
+- "dashboard_dashboardactivity_dashboardactivityprops": "DashboardActivityProps" | kind=code-symbol | source=src/webparts/smartBid20/app/components/dashboard/DashboardActivity.tsx:L45 | neighbors=[DashboardActivity.tsx]
 
 ## Instructions
 

@@ -30,6 +30,7 @@ import { useOpenBid } from "../hooks/useOpenBid";
 import { IBid, IFavoriteBid, IFavoriteEquipment } from "../models";
 import { getPartPhotoUrl as getPhotoUrl } from "../utils/partPhoto";
 import { formatDate } from "../utils/formatters";
+import { sortByName } from "../utils/sortHelpers";
 import { countFacets, withCounts } from "../utils/facetHelpers";
 import {
   IPastBidRow,
@@ -1195,7 +1196,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
               }}
             >
               <option value="">- Select Group -</option>
-              {groups.map((g) => (
+              {sortByName(groups).map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.name}
                 </option>
@@ -1212,7 +1213,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
                 onChange={(e) => setSubGroupId(e.target.value)}
               >
                 <option value="">- None -</option>
-                {selectedGroupObj.subGroups.map((sg) => (
+                {sortByName(selectedGroupObj.subGroups).map((sg) => (
                   <option key={sg.id} value={sg.id}>
                     {sg.name}
                   </option>

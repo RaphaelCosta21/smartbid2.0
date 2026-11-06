@@ -32,6 +32,7 @@ import {
 import { useDebounce } from "../../hooks/useDebounce";
 import { formatFileSize } from "../../utils/formatters";
 import { makeId } from "../../utils/idGenerator";
+import { sortByName } from "../../utils/sortHelpers";
 import {
   findGroupByName,
   findSubGroupByName,
@@ -324,7 +325,9 @@ const MetadataFields: React.FC<{
 }> = ({ meta, docTypeOptions, labels, groups, lockedGroupId, onChange }) => {
   const effectiveGroupId = lockedGroupId || meta.groupId;
   const selectedGroup = groups.find((g) => g.id === effectiveGroupId);
-  const subGroupOptions = selectedGroup ? selectedGroup.subGroups : [];
+  const subGroupOptions = sortByName(
+    selectedGroup ? selectedGroup.subGroups : [],
+  );
   return (
     <>
       <div className={styles.formRow}>
@@ -364,7 +367,7 @@ const MetadataFields: React.FC<{
             }
           >
             <option value="">-</option>
-            {groups.map((g) => (
+            {sortByName(groups).map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
               </option>

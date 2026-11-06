@@ -2,6 +2,7 @@ import {
   IBid,
   ICostSummary,
   IAssetBreakdownItem,
+  IHoursSummary,
   IScopeItem,
   IScopeSubItem,
   IExchangeRate,
@@ -11,6 +12,35 @@ import {
   IAssetSubCost,
 } from "../models";
 import { isEngSolutionsSubType } from "./scopeHelpers";
+import { makeId } from "./idGenerator";
+
+/** Empty cost row for a Scope item (Assets Breakdown keeps one per non-section item). */
+export function createBlankAsset(scopeItemId: string): IAssetBreakdownItem {
+  return {
+    id: makeId("asset"),
+    scopeItemId,
+    availabilityStatus: "",
+    acquisitionType: "",
+    unitCostUSD: 0,
+    totalCostUSD: 0,
+    costReference: "",
+    costCalcMethod: "manual",
+    originalCost: 0,
+    originalCurrency: "USD",
+    costDate: "",
+    leadTimeDays: 0,
+    dailyRate: null,
+    rentalDays: null,
+    transitCost: 0,
+    costCategory: "",
+    supplier: "",
+    quoteReference: null,
+    statusIndicator: null,
+    notes: "",
+    subCosts: [],
+    subItemCosts: [],
+  };
+}
 
 /** Per-resource-type asset cost breakdown */
 export interface IAssetResourceTypeCost {
@@ -856,11 +886,47 @@ export function pruneOrphanCosts<T extends IBid>(bid: T): T {
   });
   const certsChanged = keptCerts.length !== certs.length;
 
-  if (!assetsChanged && !certsChanged) return bid;
+  const hours = pruneOrphanWorkshopHours(bid.hoursSummary, scopeById);
+
+  if (!assetsChanged && !certsChanged && !hours) return bid;
   return {
     ...bid,
     ...(assetsChanged ? { assetBreakdown: assets } : {}),
     ...(certsChanged ? { certificationsBreakdown: keptCerts } : {}),
+    ...(hours ? { hoursSummary: hours } : {}),
+  };
+}
+
+/** Id prefix of the Onshore group that holds hours imported from BOM workshops. */
+export const BOM_WORKSHOP_GROUP_PREFIX = "hrs-bom-workshop";
+
+/** Onshore hours imported from a BOM workshop whose Scope item is gone (null = nothing to drop). */
+function pruneOrphanWorkshopHours(
+  summary: IHoursSummary | undefined,
+  scopeById: Map<string, IScopeItem>,
+): IHoursSummary | null {
+  const onshore = summary?.onshoreHours;
+  if (!summary || !onshore) return null;
+  const items = onshore.items.filter(
+    (i) => !i.bomWorkshop || scopeById.has(i.bomWorkshop.scopeItemId),
+  );
+  if (items.length === onshore.items.length) return null;
+  const used = new Set(items.map((i) => i.sectionId || ""));
+  const sections = (onshore.sections || []).filter(
+    (g) => g.id.indexOf(BOM_WORKSHOP_GROUP_PREFIX) !== 0 || used.has(g.id),
+  );
+  const data = items.filter((i) => !i.isSeparator);
+  const totalHours = data.reduce((s, i) => s + (i.totalHours || 0), 0);
+  const totalCostBRL = data.reduce((s, i) => s + (i.costBRL || 0), 0);
+  const eng = summary.engineeringHours;
+  const off = summary.offshoreHours;
+  return {
+    ...summary,
+    onshoreHours: { ...onshore, items, sections, totalHours, totalCostBRL },
+    grandTotalHours:
+      (eng?.totalHours || 0) + totalHours + (off?.totalHours || 0),
+    grandTotalCostBRL:
+      (eng?.totalCostBRL || 0) + totalCostBRL + (off?.totalCostBRL || 0),
   };
 }
 

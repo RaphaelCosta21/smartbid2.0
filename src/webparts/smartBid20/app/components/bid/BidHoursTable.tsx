@@ -1461,6 +1461,14 @@ const HoursRow: React.FC<HoursRowProps> = ({
               ))}
             </select>
           )}
+          {item.bomWorkshop && (
+            <span
+              className={styles.bomWorkshopBadge}
+              title={item.notes || "Workshop assembly & test from BOM Costs"}
+            >
+              BOM workshop · {item.bomWorkshop.partNumber}
+            </span>
+          )}
         </td>
         <td>
           {readOnly ? (
@@ -1533,6 +1541,7 @@ const HoursRow: React.FC<HoursRowProps> = ({
               className={styles.numInput}
               type="number"
               min={0}
+              step="any"
               value={item.workDays}
               onChange={(e) =>
                 updateItem(

@@ -1,11 +1,16 @@
 import * as React from "react";
 import { CalendarClock, ChevronDown, StickyNote } from "lucide-react";
-import { IBid, IQuickNote } from "../../models";
+import { BusinessLine, IBid, IQuickNote } from "../../models";
 import { StatusBadge } from "../common/StatusBadge";
+import { BidDivisionTag } from "../common/BidDivisionTag";
 import { ConfidentialLock } from "./ConfidentialLock";
 import { getPhaseDef } from "../../config/status.config";
 import { getPhaseProgressByIndex } from "../../utils/phaseHelpers";
-import { getErnLinks } from "../../utils/ernHelpers";
+import { getErnLinkForSlot, getErnLinks } from "../../utils/ernHelpers";
+import {
+  getBidTeams,
+  getBusinessLineLabel,
+} from "../../utils/divisionHelpers";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useStatusColors } from "../../hooks/useStatusColors";
 import { formatDate, formatDaysLeft } from "../../utils/formatters";
@@ -35,7 +40,6 @@ export const BidCard: React.FC<BidCardProps> = ({
     getStatusColor,
     getPriorityColor,
     getDivisionColor,
-    getServiceLineColor,
   } = useStatusColors();
   const due = formatDaysLeft(bid.dueDate, getDueFreezeDate(bid));
   const dueClass = due.isOverdue
@@ -58,6 +62,20 @@ export const BidCard: React.FC<BidCardProps> = ({
     .filter(Boolean);
   const analysts = (bid.analyst || []).map((a) => a.name).filter(Boolean);
   const ernLinks = getErnLinks(bid);
+  const teams = getBidTeams(bid);
+  const isIntegrated = teams.length > 0;
+  const teamErn = (lines: BusinessLine[]): string => {
+    const numbers = lines
+      .map((l) => getErnLinkForSlot(bid, l)?.ernNumber)
+      .filter(Boolean);
+    return numbers.length > 0 ? numbers.join(", ") : "TBD";
+  };
+  const cardStyle = isIntegrated
+    ? ({
+        "--lead-color": getDivisionColor(teams[0].division),
+        "--partner-color": getDivisionColor(teams[1].division),
+      } as React.CSSProperties)
+    : undefined;
 
   const handleAddNote = (e: React.MouseEvent): void => {
     e.stopPropagation();
@@ -80,7 +98,8 @@ export const BidCard: React.FC<BidCardProps> = ({
 
   return (
     <div
-      className={`${styles.bidCard} ${dimmed ? styles.dimmed : ""}`}
+      className={`${styles.bidCard} ${dimmed ? styles.dimmed : ""} ${isIntegrated ? styles.integrated : ""}`}
+      style={cardStyle}
       onClick={() => onClick(bid)}
     >
       <div className={styles.cardHeader}>
@@ -106,21 +125,41 @@ export const BidCard: React.FC<BidCardProps> = ({
       </div>
 
       <div className={styles.badgeRow}>
-        {!hideDivision && bid.division && (
-          <StatusBadge
-            status={bid.division}
-            color={getDivisionColor(bid.division)}
-          />
-        )}
-        {bid.serviceLine && (
-          <StatusBadge
-            status={bid.serviceLine}
-            color={getServiceLineColor(bid.serviceLine)}
-          />
+        {!isIntegrated && (
+          <BidDivisionTag bid={bid} hideDivision={hideDivision} />
         )}
         {phaseDef && <StatusBadge status={phaseDef.label} color={phaseColor} />}
         <StatusBadge status={bid.currentStatus} color={statusColor} />
       </div>
+
+      {isIntegrated && (
+        <div className={styles.teamsBlock} title="Integrated (OPG + SSR)">
+          {teams.map((t) => (
+            <div
+              key={t.division}
+              className={styles.teamRow}
+              style={
+                {
+                  "--team-color": getDivisionColor(t.division),
+                } as React.CSSProperties
+              }
+            >
+              <span className={styles.teamDivision}>{t.division}</span>
+              {t.isLead ? (
+                <span className={styles.leadChip}>Lead</span>
+              ) : (
+                <span />
+              )}
+              <span className={styles.teamLine} title={t.serviceLine}>
+                {t.serviceLine || "-"}
+              </span>
+              <span className={styles.teamErn} title="ERN">
+                {teamErn(t.businessLines)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className={styles.cardMeta}>
         <span className={styles.metaLabel}>Creator</span>
@@ -139,16 +178,22 @@ export const BidCard: React.FC<BidCardProps> = ({
             <span className={styles.metaValue}>{analysts.join(", ")}</span>
           </>
         )}
-        <span className={styles.metaLabel}>ERN</span>
-        <span className={styles.metaValue}>
-          {ernLinks.length === 0
-            ? "TBD"
-            : ernLinks
-                .map((l) =>
-                  l.division ? `${l.ernNumber} (${l.division})` : l.ernNumber,
-                )
-                .join(", ")}
-        </span>
+        {!isIntegrated && (
+          <>
+            <span className={styles.metaLabel}>ERN</span>
+            <span className={styles.metaValue}>
+              {ernLinks.length === 0
+                ? "TBD"
+                : ernLinks
+                    .map((l) =>
+                      l.division
+                        ? `${l.ernNumber} (${getBusinessLineLabel(l.division)})`
+                        : l.ernNumber,
+                    )
+                    .join(", ")}
+            </span>
+          </>
+        )}
       </div>
 
       <div className={styles.progressRow}>

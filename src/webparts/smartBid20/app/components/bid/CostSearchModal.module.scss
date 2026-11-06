@@ -225,6 +225,42 @@
   color: var(--text-muted);
 }
 
+.taxLine {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--accent-500);
+  white-space: nowrap;
+}
+
+.workshopToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--accent-500);
+  background: color-mix(in srgb, var(--accent-500) 10%, transparent);
+  cursor: pointer;
+
+  input {
+    margin: 0;
+    accent-color: var(--primary-accent);
+    cursor: pointer;
+  }
+}
+
+.workshopSummary {
+  align-self: center;
+  margin-right: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-500);
+}
+
 .tdOverride {
   width: 90px;
 }

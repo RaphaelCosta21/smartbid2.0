@@ -129,6 +129,7 @@ Users pick a **color theme** in System Configuration > System > Theme Selector (
 | Tables            | `common/DataTable`                                            | Generic `<T extends object>`; use for list views.                                                              |
 | Filters           | `common/FilterPanel` / `insights/AnalyticsFilterBar`          | Use `AnalyticsFilterBar` (+ `useAnalyticsFilters`) on analytics pages.                                         |
 | Badges            | `PriorityBadge`, `StatusBadge`, `PhaseBadge`, `DivisionBadge` | All config-color aware — do not restyle with inline hex.                                                       |
+| BID division      | `common/BidDivisionTag`                                       | Division + service line of a BID; INTEGRATED BIDs render one segment per team (lead first). Use it everywhere. |
 | Toasts            | `useUIStore.addToast` + `ToastContainer`                      | Don't build one-off notifications.                                                                             |
 
 ## Charts (Recharts)

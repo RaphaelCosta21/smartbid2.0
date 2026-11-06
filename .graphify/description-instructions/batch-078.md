@@ -1,4 +1,4 @@
-# Node Description Batch 79 of 86
+# Node Description Batch 79 of 102
 
 Graphify is running in assistant/skill mode (no API key). You are the host
 assistant (Claude Code / Codex / Gemini CLI). Read the prompt below and write
@@ -12,51 +12,58 @@ describing what it is or does. Use only the provided context.
 For a code symbol (kind=code-symbol — a function, class, or constant),
 describe what the function/symbol does based on its name, source location
 and neighbors — e.g. "Resolves the configured ontology profile from graphify.yaml.".
+For an entity node (any other kind — e.g. a person, place, event, object),
+describe what the entity is and its role, grounded in its type, its
+relations (neighbors) and the provided citations/evidence — e.g.
+"Lady Carfax, a wealthy heiress who disappears en route to Lausanne.".
+Ground entity descriptions in the citations/evidence when present; do not
+speculate beyond the context, so a node with no supporting context may be
+left out of the reply.
 Write every description in English (en). Do not switch languages.
 No marketing language.
 Respond ONLY with a JSON object mapping each node id (as a string) to its
 one-sentence description — no prose, no markdown fences.
 
-- "settings_systemconfiguration_bid_matrix_groups": "BID_MATRIX_GROUPS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L300 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_clamptarget": "clampTarget()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L271 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_clonedeep": "cloneDeep()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L308 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_inavgroup": "INavGroup" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L113 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_inavitem": "INavItem" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L106 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_kpi_meta": "KPI_META" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L166 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_master_only_tabs": "MASTER_ONLY_TABS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L256 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_nav_groups": "NAV_GROUPS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L118 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_notification_labels": "NOTIFICATION_LABELS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L215 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_page_matrix_groups": "PAGE_MATRIX_GROUPS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L293 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_perm_cycle": "PERM_CYCLE" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L213 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_phasecolorrow": "PhaseColorRow()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L314 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_role_labels": "ROLE_LABELS" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L193 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_roles": "ROLES" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L182 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_scalarkpikey": "ScalarKpiKey" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L266 | neighbors=[SystemConfiguration.tsx]
-- "settings_systemconfiguration_substatuscolorrow": "SubStatusColorRow()" | kind=code-symbol | source=src/webparts/smartBid20/app/components/settings/SystemConfiguration.tsx:L339 | neighbors=[SystemConfiguration.tsx]
-- "sheets_assetssheet_dash": "DASH" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/bidExcelExport/sheets/assetsSheet.ts:L21 | neighbors=[assetsSheet.ts]
-- "sheets_currencytable_itablegroup": "ITableGroup" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/bidExcelExport/sheets/currencyTable.ts:L20 | neighbors=[currencyTable.ts]
-- "sheets_prepmobsheet_icurrencyline": "ICurrencyLine" | kind=code-symbol | neighbors=[IPrepLine]
-- "sheets_scopesheet_yesno": "yesNo()" | kind=code-symbol | source=src/webparts/smartBid20/app/utils/bidExcelExport/sheets/scopeSheet.ts:L13 | neighbors=[scopeSheet.ts]
-- "smartbid20_smartbid20webpart_baseclientsidewebpart": "BaseClientSideWebPart" | kind=code-symbol | neighbors=[SmartBid20WebPart]
-- "smartbid20_smartbid20webpart_ismartbid20webpartprops": "ISmartBid20WebPartProps" | kind=code-symbol | source=src/webparts/smartBid20/SmartBid20WebPart.ts:L19 | neighbors=[SmartBid20WebPart.ts]
-- "smartbid20_smartbid20webpart_smartbid20webpart_dataversion": ".dataVersion()" | kind=code-symbol | source=src/webparts/smartBid20/SmartBid20WebPart.ts:L140 | neighbors=[SmartBid20WebPart]
-- "smartbid20_smartbid20webpart_smartbid20webpart_getpropertypaneconfiguration": ".getPropertyPaneConfiguration()" | kind=code-symbol | source=src/webparts/smartBid20/SmartBid20WebPart.ts:L144 | neighbors=[SmartBid20WebPart]
-- "smartbid20_smartbid20webpart_smartbid20webpart_ondispose": ".onDispose()" | kind=code-symbol | source=src/webparts/smartBid20/SmartBid20WebPart.ts:L136 | neighbors=[SmartBid20WebPart]
-- "smartbid20_smartbid20webpart_smartbid20webpart_onthemechanged": ".onThemeChanged()" | kind=code-symbol | source=src/webparts/smartBid20/SmartBid20WebPart.ts:L115 | neighbors=[SmartBid20WebPart]
-- "smartbid20_smartbid20webpart_smartbid20webpart_render": ".render()" | kind=code-symbol | source=src/webparts/smartBid20/SmartBid20WebPart.ts:L27 | neighbors=[SmartBid20WebPart]
-- "src_index": "index.ts" | kind=code-symbol | source=src/index.ts:L1 | neighbors=[fe3728a smartbid2.0]
-- "stores_useassetcatalogstore_assetcatalogstate": "AssetCatalogState" | kind=code-symbol | source=src/webparts/smartBid20/app/stores/useAssetCatalogStore.ts:L9 | neighbors=[useAssetCatalogStore.ts]
-- "stores_useauthstore_authstate": "AuthState" | kind=code-symbol | source=src/webparts/smartBid20/app/stores/useAuthStore.ts:L17 | neighbors=[useAuthStore.ts]
-- "stores_useauthstore_default_user": "DEFAULT_USER" | kind=code-symbol | source=src/webparts/smartBid20/app/stores/useAuthStore.ts:L5 | neighbors=[useAuthStore.ts]
-- "stores_usebidstore_bidfacetkey": "BidFacetKey" | kind=code-symbol | source=src/webparts/smartBid20/app/stores/useBidStore.ts:L31 | neighbors=[useBidStore.ts]
-- "stores_usebidstore_bidfilters": "BidFilters" | kind=code-symbol | source=src/webparts/smartBid20/app/stores/useBidStore.ts:L7 | neighbors=[useBidStore.ts]
-- "stores_usebidstore_bidstate": "BidState" | kind=code-symbol | source=src/webparts/smartBid20/app/stores/useBidStore.ts:L77 | neighbors=[useBidStore.ts]
-- "stores_usebidstore_default_filters": "DEFAULT_FILTERS" | kind=code-symbol | source=src/webparts/smartBid20/app/stores/useBidStore.ts:L19 | neighbors=[useBidStore.ts]
-- "stores_usebomcostanalysisstore_bomcostanalysisstate": "BomCostAnalysisState" | kind=code-symbol | source=src/webparts/smartBid20/app/stores/useBomCostAnalysisStore.ts:L9 | neighbors=[useBomCostAnalysisStore.ts]
-- "stores_usechatstore_chatstate": "ChatState" | kind=code-symbol | source=src/webparts/smartBid20/app/stores/useChatStore.ts:L16 | neighbors=[useChatStore.ts]
-- "stores_useconfigstore_configstate": "ConfigState" | kind=code-symbol | source=src/webparts/smartBid20/app/stores/useConfigStore.ts:L8 | neighbors=[useConfigStore.ts]
-- "stores_useernstore_ernstate": "ErnState" | kind=code-symbol | source=src/webparts/smartBid20/app/stores/useErnStore.ts:L8 | neighbors=[useErnStore.ts]
-- "stores_usefavoritesstore_favoritesstate": "FavoritesState" | kind=code-symbol | source=src/webparts/smartBid20/app/stores/useFavoritesStore.ts:L16 | neighbors=[useFavoritesStore.ts]
+- "function_app_function_app_rationale_448": "A BID number safe to place inside an OData literal, or \"\"." | kind=entity | source=azure-ai-backend/function-app/function_app.py:L448 | neighbors=[_bid_ref()]
+- "function_app_function_app_rationale_454": "Filter clause that keeps the BID being worked on out of its own precedents" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L454 | neighbors=[_not_this_bid()]
+- "function_app_function_app_rationale_486": "Chunks grouped per source document, in ranking order, within the limits." | kind=entity | source=azure-ai-backend/function-app/function_app.py:L486 | neighbors=[_group_by_document()]
+- "function_app_function_app_rationale_513": "Hybrid (keyword + vector) retrieval. Retrieval is an enhancement, not a\r     har" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L513 | neighbors=[_reference_material()]
+- "function_app_function_app_rationale_554": "Completed BIDs whose scope resembles the client document. Unlike the\r     librar" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L554 | neighbors=[_past_bid_scope_material()]
+- "function_app_function_app_rationale_581": "Clarif. & Qualif. library entries closest to the query. Every entry is its" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L581 | neighbors=[_clarification_library_material()]
+- "function_app_function_app_rationale_593": "One hybrid search pass. Semantic ranking is billed per tier, so the caller" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L593 | neighbors=[_chat_search()]
+- "function_app_function_app_rationale_616": "Hybrid retrieval for chat, deduplicated per document.\r \r     `top` counts CHUNKS" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L616 | neighbors=[_chat_reference_material()]
+- "function_app_function_app_rationale_642": "UPN of the authenticated caller, from the EasyAuth X-MS-CLIENT-PRINCIPAL\r     he" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L642 | neighbors=[_caller_upn()]
+- "function_app_function_app_rationale_676": "Normalize the conversation, keeping only the most recent turns." | kind=entity | source=azure-ai-backend/function-app/function_app.py:L676 | neighbors=[_chat_messages()]
+- "function_app_function_app_rationale_847": "One hybrid search pass. Semantic ranking is billed per tier, so the caller" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L847 | neighbors=[_chat_search()]
+- "function_app_function_app_rationale_876": "Hybrid retrieval for chat, deduplicated per document.\r \r     `top` counts CHUNKS" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L876 | neighbors=[_chat_reference_material()]
+- "function_app_function_app_rationale_951": "Read the Past Bid documents SmartBid matched to the question, in depth.\r     Gen" | kind=entity | source=azure-ai-backend/function-app/function_app.py:L951 | neighbors=[_chat_past_bid_material()]
+- "function_app_function_app_rationale_995": "Normalize the conversation, keeping only the most recent turns." | kind=entity | source=azure-ai-backend/function-app/function_app.py:L995 | neighbors=[_chat_messages()]
+- "function_app_function_app_skill_chunk": "skill_chunk()" | kind=code-symbol | source=azure-ai-backend/function-app/function_app.py:L1269 | neighbors=[function_app.py]
+- "gulpfile_build": "build" | kind=code-symbol | source=gulpfile.js:L3 | neighbors=[gulpfile.js]
+- "hooks_useaccesslevel_iaccesslevelapi": "IAccessLevelApi" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useAccessLevel.ts:L16 | neighbors=[useAccessLevel.ts]
+- "hooks_useanalyticsfilters_analyticsfacetkey": "AnalyticsFacetKey" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useAnalyticsFilters.ts:L38 | neighbors=[useAnalyticsFilters.ts]
+- "hooks_useanalyticsfilters_default": "DEFAULT" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useAnalyticsFilters.ts:L28 | neighbors=[useAnalyticsFilters.ts]
+- "hooks_useanalyticsfilters_facet_values": "FACET_VALUES" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useAnalyticsFilters.ts:L45 | neighbors=[useAnalyticsFilters.ts]
+- "hooks_useapprovals_approvalsummary": "ApprovalSummary" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useApprovals.ts:L8 | neighbors=[useApprovals.ts]
+- "hooks_useapprovalsync_flow_fields": "FLOW_FIELDS" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useApprovalSync.ts:L14 | neighbors=[useApprovalSync.ts]
+- "hooks_useapprovalsync_pickflowchanges": "pickFlowChanges()" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useApprovalSync.ts:L24 | neighbors=[useApprovalSync.ts]
+- "hooks_usecharttheme_categorical": "CATEGORICAL" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useChartTheme.ts:L40 | neighbors=[useChartTheme.ts]
+- "hooks_usecharttheme_categorical_rest": "CATEGORICAL_REST" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useChartTheme.ts:L42 | neighbors=[useChartTheme.ts]
+- "hooks_usecharttheme_charttheme": "ChartTheme" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useChartTheme.ts:L19 | neighbors=[useChartTheme.ts]
+- "hooks_usecharttheme_dark": "DARK" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useChartTheme.ts:L53 | neighbors=[useChartTheme.ts]
+- "hooks_usecharttheme_dark_base": "DARK_BASE" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useChartTheme.ts:L60 | neighbors=[useChartTheme.ts]
+- "hooks_usecharttheme_light": "LIGHT" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useChartTheme.ts:L74 | neighbors=[useChartTheme.ts]
+- "hooks_usecharttheme_light_base": "LIGHT_BASE" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useChartTheme.ts:L79 | neighbors=[useChartTheme.ts]
+- "hooks_useclarificationlibraryfilter_all_keys": "ALL_KEYS" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useClarificationLibraryFilter.ts:L33 | neighbors=[useClarificationLibraryFilter.ts]
+- "hooks_useclarificationlibraryfilter_empty_filters": "EMPTY_FILTERS" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useClarificationLibraryFilter.ts:L43 | neighbors=[useClarificationLibraryFilter.ts]
+- "hooks_useclarificationlibraryfilter_fixed_options": "FIXED_OPTIONS" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useClarificationLibraryFilter.ts:L82 | neighbors=[useClarificationLibraryFilter.ts]
+- "hooks_useclarificationlibraryfilter_ilibraryfilterstate": "ILibraryFilterState" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useClarificationLibraryFilter.ts:L70 | neighbors=[useClarificationLibraryFilter.ts]
+- "hooks_useclarificationlibraryfilter_libraryfacetkey": "LibraryFacetKey" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useClarificationLibraryFilter.ts:L19 | neighbors=[useClarificationLibraryFilter.ts]
+- "hooks_useclarificationlibraryfilter_libraryfilters": "LibraryFilters" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useClarificationLibraryFilter.ts:L28 | neighbors=[useClarificationLibraryFilter.ts]
+- "hooks_useclarificationlibrarysync_inflight": "inFlight" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useClarificationLibrarySync.ts:L22 | neighbors=[useClarificationLibrarySync.ts]
+- "hooks_usecolortheme_semanticcolorkind": "SemanticColorKind" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useColorTheme.ts:L14 | neighbors=[useColorTheme.ts]
+- "hooks_useconfigphases_iconfigphase": "IConfigPhase" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useConfigPhases.ts:L5 | neighbors=[useConfigPhases.ts]
+- "hooks_usedashboardfilters_default_period": "DEFAULT_PERIOD" | kind=code-symbol | source=src/webparts/smartBid20/app/hooks/useDashboardFilters.ts:L65 | neighbors=[useDashboardFilters.ts]
 
 ## Instructions
 

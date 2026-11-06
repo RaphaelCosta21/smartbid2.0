@@ -1,0 +1,314 @@
+/* ─── Scope info button (read-only Scope of Supply details of a row) ─── */
+.wrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--primary-accent);
+  cursor: pointer;
+  opacity: 0.75;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    opacity 150ms ease;
+
+  &:hover,
+  &[aria-expanded="true"] {
+    opacity: 1;
+    border-color: color-mix(in srgb, var(--primary-accent) 35%, transparent);
+    background: color-mix(in srgb, var(--primary-accent) 12%, transparent);
+  }
+
+  &:focus-visible {
+    opacity: 1;
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 1px;
+  }
+}
+
+.triggerPinned {
+  opacity: 1;
+  border-color: var(--primary-accent);
+}
+
+/* ─── Popover ─── */
+.popover {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card-hover);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.55;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+  cursor: auto;
+  animation: scopeInfoPopIn 140ms ease-out;
+}
+
+@keyframes scopeInfoPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover {
+    animation: none;
+  }
+}
+
+.popHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 9px 10px 9px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card-bg);
+}
+
+.popIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--primary-accent) 14%, transparent);
+  color: var(--primary-accent);
+  flex-shrink: 0;
+}
+
+.popTitleGroup {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.popTitle {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.popSubtitle {
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popHint {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.popClose {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease;
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--hover-bg);
+    border-color: var(--border);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 1px;
+  }
+}
+
+.popBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--text-secondary);
+  user-select: text;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sectionLabel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.sectionCount {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--primary-accent) 16%, transparent);
+  color: var(--primary-accent);
+  font-size: 9.5px;
+  line-height: 16px;
+  text-align: center;
+  letter-spacing: 0;
+}
+
+.requirement {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--primary-accent);
+  border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--primary-accent) 6%, transparent);
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.textBlock {
+  margin: 0;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.specList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.specItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.specNum {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary-accent) 14%, transparent);
+  color: var(--primary-accent);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.specText {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.fileList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fileLink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: background 150ms ease;
+
+  &:hover {
+    background: var(--hover-bg);
+    color: var(--primary-accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 1px;
+  }
+}
+
+.fileIcon {
+  flex-shrink: 0;
+  color: var(--primary-accent);
+}
+
+.fileName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

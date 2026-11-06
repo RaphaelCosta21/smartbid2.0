@@ -31,6 +31,15 @@ import {
   isPlaceholderPartNumber,
   searchablePartNumber,
 } from "../../utils/scopeHelpers";
+import { IBidFx } from "../../utils/costCalculations";
+import { getImportTaxByRow } from "../../utils/bomCostHelpers";
+import {
+  IBomWorkshopImport,
+  buildBomWorkshopImport,
+  hasWorkshopRows,
+} from "../../utils/bomWorkshop";
+import { formatCurrency, formatHours } from "../../utils/formatters";
+import { BomWorkshopImportDialog } from "./BomWorkshopImportDialog";
 import styles from "./CostSearchModal.module.scss";
 
 export interface CostSearchImportItem {
@@ -49,6 +58,8 @@ export interface CostSearchImportItem {
   quotationReference?: string;
   /** Server-relative URL of the quotation's uploaded file, if any */
   quotationFileUrl?: string;
+  /** BOM workshop (assembly & test) to bring with a BOM COST price */
+  workshop?: IBomWorkshopImport;
 }
 
 interface CostSearchModalProps {
@@ -58,6 +69,10 @@ interface CostSearchModalProps {
   onClose: () => void;
   /** Called when user wants to create a BOM for a specific item (triggers BOM import flow) */
   onCreateBom?: (partNumber: string, description: string) => void;
+  /** Offer the BOM workshop (hours + Services & Fees) with BOM COST prices */
+  allowWorkshop?: boolean;
+  /** BID exchange rates, to convert a workshop cost entered in BRL */
+  fx?: IBidFx | null;
 }
 
 interface SearchRow {
@@ -74,6 +89,12 @@ interface SearchRow {
     mainPartNumber: string;
     dateReference: string;
     leadTimeDays?: number;
+    /** Import tax inside totalCostUSD (Global BU prices) */
+    importTax?: number;
+    importTaxPercent?: number;
+    analysis?: IBomCostAnalysis;
+    /** The PN is the main (Level 1) item of the analysis, which owns the workshop */
+    isMain?: boolean;
   } | null;
   /** Quotation match */
   quoteResult: {
@@ -91,6 +112,8 @@ interface SearchRow {
   costOverride: number | null;
   /** Which source to use for import */
   selectedSource: "catalog" | "bom" | "quote" | null;
+  /** Bring the BOM workshop along (only main items of a BOM with workshop) */
+  includeWorkshop?: boolean;
   /** True if this row is a parent context row (not selectable, visual only) */
   isParentContext?: boolean;
 }
@@ -145,6 +168,8 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
   onImport,
   onClose,
   onCreateBom,
+  allowWorkshop = false,
+  fx,
 }) => {
   const catalogLoaded = useQueryCatalogStore((s) => s.isLoaded);
   const catalogLoading = useQueryCatalogStore((s) => s.isLoading);
@@ -376,6 +401,10 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                   mainPartNumber: item.partNumber,
                   dateReference,
                   leadTimeDays: item.leadTimeDays || 0,
+                  importTax: getImportTaxByRow(items).get(item.id) || 0,
+                  importTaxPercent: analysis.importTaxPercent || 0,
+                  analysis,
+                  isMain: item.level === 1 || !item.parentId,
                 };
               }
               break;
@@ -415,6 +444,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                   : row.asset.unitCostUSD
                 : null,
             selectedSource,
+            includeWorkshop: true,
           };
         });
 
@@ -474,6 +504,35 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
     );
   };
 
+  const toggleWorkshop = (rowKey: string): void => {
+    setRows((prev) =>
+      prev.map((r) =>
+        getRowKey(r) === rowKey
+          ? { ...r, includeWorkshop: r.includeWorkshop === false }
+          : r,
+      ),
+    );
+  };
+
+  /** Workshop offered with a BOM COST price: main rows priced by the BOM main item only */
+  const rowWorkshop = (r: SearchRow): IBomWorkshopImport | null => {
+    if (
+      !allowWorkshop ||
+      r.isParentContext ||
+      r.subItemCost ||
+      r.selectedSource !== "bom" ||
+      !r.bomResult ||
+      !r.bomResult.isMain ||
+      !r.bomResult.analysis
+    )
+      return null;
+    return buildBomWorkshopImport(r.bomResult.analysis, r.scopeItem, fx);
+  };
+
+  const [pendingImport, setPendingImport] = React.useState<
+    CostSearchImportItem[] | null
+  >(null);
+
   const selectableRows = rows.filter(
     (r) =>
       !r.isParentContext && (r.result?.found || r.bomResult || r.quoteResult),
@@ -511,6 +570,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
         if (src === "bom" && r.bomResult) {
           const cost =
             r.costOverride != null ? r.costOverride : r.bomResult.totalCostUSD;
+          const ws = r.includeWorkshop !== false ? rowWorkshop(r) : null;
           return {
             assetId: r.asset.id,
             subItemCostId: r.subItemCost ? r.subItemCost.id : undefined,
@@ -521,6 +581,7 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
             originalCost: r.bomResult.totalCostUSD,
             originalCurrency: "USD",
             costDate: r.bomResult.dateReference,
+            ...(ws ? { workshop: ws } : {}),
           };
         }
         if (src === "quote" && r.quoteResult) {
@@ -556,9 +617,35 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
           costDate: r.result!.dataReference,
         };
       });
+    if (items.some((i) => !!i.workshop)) {
+      setPendingImport(items);
+      return;
+    }
     onImport(items);
     onClose();
   };
+
+  const finishImport = (withWorkshop: boolean): void => {
+    if (!pendingImport) return;
+    onImport(
+      withWorkshop
+        ? pendingImport
+        : pendingImport.map((i) => ({ ...i, workshop: undefined })),
+    );
+    setPendingImport(null);
+    onClose();
+  };
+
+  /** Workshop that the current selection would bring */
+  const selectedWorkshop = rows
+    .filter(
+      (r) =>
+        r.selected &&
+        r.includeWorkshop !== false &&
+        (r.result?.found || r.bomResult || r.quoteResult),
+    )
+    .map(rowWorkshop)
+    .filter((w): w is IBomWorkshopImport => !!w);
 
   const foundCount = rows.filter(
     (r) =>
@@ -903,6 +990,43 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
                             {row.result!.costPerItem.toFixed(2)}
                           </div>
                         )}
+                      {row.selectedSource === "bom" &&
+                        row.bomResult &&
+                        (row.bomResult.importTax || 0) > 0 && (
+                          <div
+                            className={styles.taxLine}
+                            title={`Import tax ${row.bomResult.importTaxPercent || 0}% on Global BU prices, already in this cost`}
+                          >
+                            incl. import tax{" "}
+                            {formatCurrency(row.bomResult.importTax || 0)}
+                          </div>
+                        )}
+                      {(() => {
+                        const ws = rowWorkshop(row);
+                        if (!ws) return null;
+                        return (
+                          <label
+                            className={styles.workshopToggle}
+                            title="Workshop assembly & test of this BOM: hours go to Hours & Personnel › Onshore Hours and the cost to Services & Fees of this item (not to the unit cost)"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={row.includeWorkshop !== false}
+                              onChange={() => toggleWorkshop(rowKey)}
+                            />
+                            + Workshop{" "}
+                            {ws.totalHours > 0
+                              ? formatHours(ws.totalHours)
+                              : ""}
+                            {ws.totalHours > 0 && ws.totalCostUSD > 0
+                              ? " · "
+                              : ""}
+                            {ws.totalCostUSD > 0
+                              ? formatCurrency(ws.totalCostUSD)
+                              : ""}
+                          </label>
+                        );
+                      })()}
                     </td>
                     <td>
                       {hasAny && (
@@ -1071,6 +1195,22 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
 
         {/* Footer */}
         <div className={styles.footer}>
+          {selectedWorkshop.length > 0 && (
+            <span
+              className={styles.workshopSummary}
+              title="Unit costs stay materials + import tax; the workshop is added separately."
+            >
+              Workshop:{" "}
+              {formatHours(
+                selectedWorkshop.reduce((s, w) => s + w.totalHours, 0),
+              )}{" "}
+              → Hours &amp; Personnel ·{" "}
+              {formatCurrency(
+                selectedWorkshop.reduce((s, w) => s + w.totalCostUSD, 0),
+              )}{" "}
+              → Services &amp; Fees
+            </span>
+          )}
           <button className={styles.cancelBtn} onClick={onClose}>
             Cancel
           </button>
@@ -1083,6 +1223,30 @@ export const CostSearchModal: React.FC<CostSearchModalProps> = ({
           </button>
         </div>
       </div>
+
+      {pendingImport && (
+        <BomWorkshopImportDialog
+          imports={pendingImport
+            .map((i) => i.workshop)
+            .filter((w): w is IBomWorkshopImport => !!w)}
+          replacingIds={pendingImport
+            .filter(
+              (i) =>
+                !!i.workshop &&
+                hasWorkshopRows(
+                  i.workshop.scopeItemId,
+                  undefined,
+                  assetBreakdown,
+                ),
+            )
+            .map((i) => i.workshop!.scopeItemId)}
+          intro="The BOM COST price goes to the unit cost (materials + import tax). The workshop of the BOM is added on top, in the pages below."
+          itemOnlyLabel="Costs only"
+          onImportWithWorkshop={() => finishImport(true)}
+          onImportItemOnly={() => finishImport(false)}
+          onCancel={() => setPendingImport(null)}
+        />
+      )}
 
       {/* Add Quotation Modal */}
       {addQuotationOpen && (

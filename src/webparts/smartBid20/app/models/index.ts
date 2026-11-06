@@ -231,6 +231,9 @@ export {
   type IBomCostAnalysis,
   type IBomCostItem,
   type BomCostSource,
+  type BomImportTaxMode,
+  type IBomWorkshop,
+  type IBomWorkshopRef,
 } from "./IBomCostAnalysis";
 export { type IQuotationItem, type QuotationType } from "./IQuotationItem";
 export {

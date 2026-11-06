@@ -10,6 +10,7 @@ import {
   BidResultOutcome,
 } from "./IBidStatus";
 import { IQuotationLink } from "./IQuotationLink";
+import { IBomWorkshopRef } from "./IBomCostAnalysis";
 
 export interface IOpportunityInfo {
   client: string;
@@ -402,6 +403,8 @@ export interface IAssetSubCost {
   transitDiscount?: number;
   /** Asset-level fee tied to a sub-item / PCF item (FK to IScopeSubItem.id); counted with that item */
   linkedTo?: IFeeLink | null;
+  /** Set when the fee is the workshop (assembly & test) of an imported BOM Cost Analysis */
+  bomWorkshop?: IBomWorkshopRef;
 }
 
 export interface IFeeLink {
@@ -512,6 +515,8 @@ export interface IHoursItem {
   isSeparator?: boolean;
   /** Label for a separator row */
   separatorLabel?: string;
+  /** Set when the row holds the workshop hours of an imported BOM Cost Analysis */
+  bomWorkshop?: IBomWorkshopRef;
 }
 
 export interface IHoursSectionGroup {

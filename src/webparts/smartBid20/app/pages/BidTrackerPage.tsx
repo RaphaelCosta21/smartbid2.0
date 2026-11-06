@@ -17,12 +17,18 @@ import {
 } from "../utils/bidHelpers";
 import { getPhaseProgressByIndex } from "../utils/phaseHelpers";
 import { getErnLinks } from "../utils/ernHelpers";
-import { serviceLineOptionsForDivision } from "../utils/divisionHelpers";
+import {
+  getBidColumnDivision,
+  getTrackLabel,
+  isIntegratedDivision,
+  serviceLineOptionsForDivision,
+} from "../utils/divisionHelpers";
 import { useConfigStore } from "../stores/useConfigStore";
 import { BID_PHASES, getPhaseDef } from "../config/status.config";
 import { PageHeader } from "../components/common/PageHeader";
 import { DataTable } from "../components/common/DataTable";
 import { StatusBadge } from "../components/common/StatusBadge";
+import { BidDivisionTag } from "../components/common/BidDivisionTag";
 import { BidCard } from "../components/bid/BidCard";
 import { ConfidentialLock } from "../components/bid/ConfidentialLock";
 import {
@@ -274,27 +280,29 @@ export const BidTrackerPage: React.FC = () => {
     resetFilters();
   };
 
-  /* Kanban columns: group by top-level division from config */
+  /* Kanban columns: one per base division; INTEGRATED BIDs sit in their Lead Division column */
   const kanbanGroups = React.useMemo(() => {
     const configured = (config?.divisions || [])
-      .filter((d) => d.isActive !== false)
+      .filter((d) => d.isActive !== false && !isIntegratedDivision(d.value))
       .sort((a, b) => (a.order || 0) - (b.order || 0))
       .map((d) => ({ key: d.value, label: d.label || d.value }));
     const columns =
       configured.length > 0
         ? configured
-        : uniqueSorted(activeBids.map((b) => b.division)).map((d) => ({
+        : uniqueSorted(activeBids.map(getBidColumnDivision)).map((d) => ({
             key: d,
             label: d,
           }));
+    const integratedSelected = filters.divisions.some((d) =>
+      isIntegratedDivision(d),
+    );
+    // A filtered division also matches INTEGRATED BIDs led by the other one,
+    // so columns holding matching BIDs stay visible.
     return columns
-      .filter(
-        (col) =>
-          filters.divisions.length === 0 ||
-          filters.divisions.indexOf(col.key as Division) >= 0,
-      )
       .map((col) => {
-        const colBids = activeBids.filter((b) => b.division === col.key);
+        const colBids = activeBids.filter(
+          (b) => getBidColumnDivision(b) === col.key,
+        );
         return {
           key: col.key,
           label: col.label,
@@ -302,8 +310,14 @@ export const BidTrackerPage: React.FC = () => {
           bids: colBids.filter((b) => b.currentStatus !== "On Hold"),
           onHoldBids: colBids.filter((b) => b.currentStatus === "On Hold"),
           overdueCount: colBids.filter(isOverdueBid).length,
+          visible:
+            filters.divisions.length === 0 ||
+            integratedSelected ||
+            filters.divisions.indexOf(col.key as Division) >= 0 ||
+            colBids.length > 0,
         };
-      });
+      })
+      .filter((col) => col.visible);
   }, [config, activeBids, filters.divisions, getDivisionColor]);
 
   const handleBidClick = (bid: IBid): void => {
@@ -366,26 +380,13 @@ export const BidTrackerPage: React.FC = () => {
       key: "division",
       header: "Division",
       sortable: true,
-      render: (bid: IBid) => (
-        <StatusBadge
-          status={bid.division}
-          color={getDivisionColor(bid.division)}
-        />
-      ),
+      render: (bid: IBid) => <BidDivisionTag bid={bid} part="division" />,
     },
     {
       key: "serviceLine",
       header: "Service Line",
       sortable: true,
-      render: (bid: IBid) =>
-        bid.serviceLine ? (
-          <StatusBadge
-            status={bid.serviceLine}
-            color={getServiceLineColor(bid.serviceLine)}
-          />
-        ) : (
-          "-"
-        ),
+      render: (bid: IBid) => <BidDivisionTag bid={bid} part="serviceLine" />,
     },
     {
       key: "creatorName",
@@ -506,7 +507,7 @@ export const BidTrackerPage: React.FC = () => {
                 >
                   <span className={styles.mono}>
                     {l.ernNumber}
-                    {l.division ? ` · ${l.division}` : ""}
+                    {l.division ? ` · ${getTrackLabel(bid, l.division)}` : ""}
                   </span>
                   {liveStatus && (
                     <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
@@ -771,16 +772,7 @@ export const BidTrackerPage: React.FC = () => {
               >
                 {bid.opportunityInfo?.projectName || ""}
               </span>
-              <StatusBadge
-                status={bid.division}
-                color={getDivisionColor(bid.division)}
-              />
-              {bid.serviceLine && (
-                <StatusBadge
-                  status={bid.serviceLine}
-                  color={getServiceLineColor(bid.serviceLine)}
-                />
-              )}
+              <BidDivisionTag bid={bid} />
               <span
                 style={{
                   width: 80,

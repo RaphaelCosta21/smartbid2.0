@@ -44,6 +44,7 @@ import { SegmentedControl } from "../components/insights/SegmentedControl";
 import { AddQuotationModal } from "../components/bid/AddQuotationModal";
 import { BomAnalysisCard } from "../components/bom/BomAnalysisCard";
 import { BomQuotationPicker } from "../components/bom/BomQuotationPicker";
+import { BomWorkshopPanel } from "../components/bom/BomWorkshopPanel";
 import { useQueryCatalogStore } from "../stores/useQueryCatalogStore";
 import { useConfigStore } from "../stores/useConfigStore";
 import { useQuotationStore } from "../stores/useQuotationStore";
@@ -54,6 +55,7 @@ import { useAccessLevel } from "../hooks/useAccessLevel";
 import {
   IBomCostAnalysis,
   IBomCostItem,
+  IBomWorkshop,
   BomCostSource,
   IQuotationItem,
 } from "../models";
@@ -62,23 +64,30 @@ import { QuotationService } from "../services/QuotationService";
 import { SPService } from "../services/SPService";
 import { ROUTES } from "../config/routes.config";
 import { convertToUSD } from "../utils/costCalculations";
-import { formatCurrency, formatDate } from "../utils/formatters";
+import { formatCurrency, formatDate, formatHours } from "../utils/formatters";
 import { parseBomCSV, parseBomExcel, emptyItem } from "../utils/bomParser";
 import { searchablePartNumber } from "../utils/scopeHelpers";
 import { exportBomCostsToExcel } from "../utils/bomExcelExport";
 import {
+  applyImportTax,
   calcContingency,
-  computeSmartTotal,
+  countTaxedItems,
   dateAgeBucket,
   formatDateDMY,
   getAncestorIds,
+  getBomCostBreakdown,
   getBomCoverage,
   getDescendantIds,
+  getImportTaxByRow,
   getMaxLeadTimeItem,
   getVisibleItems,
   hasChildren,
+  hasWorkshop,
+  isImportTaxed,
+  normalizeWorkshop,
   recalcTotal,
   reassignFindNumbers,
+  resolveImportTaxPct,
   rollUpParentCosts,
 } from "../utils/bomCostHelpers";
 import styles from "./BomCostsPage.module.scss";
@@ -88,11 +97,20 @@ type ListSort = "recent" | "az" | "cost";
 type ListView = "grid" | "list";
 type ListFacet = "status" | "creator";
 
+const EMPTY_WORKSHOP: IBomWorkshop = {
+  hours: 0,
+  cost: 0,
+  currency: "BRL",
+  costUSD: 0,
+};
+
 interface IListRow {
   a: IBomCostAnalysis;
   costed: number;
   eligible: number;
   complete: boolean;
+  importTax: number;
+  workshopHours: number;
 }
 
 const STATUS_OPTIONS = [
@@ -212,6 +230,8 @@ export const BomCostsPage: React.FC = () => {
           costed: c.costed,
           eligible: c.eligible,
           complete: c.isComplete,
+          importTax: getBomCostBreakdown(a.items, a.workshop).importTax,
+          workshopHours: (hasWorkshop(a.workshop) && a.workshop?.hours) || 0,
         };
       }),
     [savedAnalyses],
@@ -315,6 +335,10 @@ export const BomCostsPage: React.FC = () => {
   const [isExporting, setIsExporting] = React.useState(false);
   const [contingencyPerYear, setContingencyPerYear] = React.useState(0);
   const [isContingencyEditing, setIsContingencyEditing] = React.useState(false);
+  const [importTaxRate, setImportTaxRate] = React.useState(0);
+  const [taxDraft, setTaxDraft] = React.useState(0);
+  const [isTaxEditing, setIsTaxEditing] = React.useState(false);
+  const [workshop, setWorkshop] = React.useState<IBomWorkshop>(EMPTY_WORKSHOP);
   const [editingRows, setEditingRows] = React.useState<Set<string>>(new Set());
   const [showPasteModal, setShowPasteModal] = React.useState(false);
   const [pasteText, setPasteText] = React.useState("");
@@ -363,7 +387,14 @@ export const BomCostsPage: React.FC = () => {
     [items, expanded],
   );
   const coverage = React.useMemo(() => getBomCoverage(items), [items]);
-  const totalCost = React.useMemo(() => computeSmartTotal(items), [items]);
+  const breakdown = React.useMemo(
+    () => getBomCostBreakdown(items, workshop),
+    [items, workshop],
+  );
+  const totalCost = breakdown.total;
+  const taxedCount = React.useMemo(() => countTaxedItems(items), [items]);
+  const rowTaxById = React.useMemo(() => getImportTaxByRow(items), [items]);
+  const hasWorkshopData = hasWorkshop(workshop);
   const maxLeadTimeItem = React.useMemo(
     () => getMaxLeadTimeItem(items),
     [items],
@@ -400,12 +431,17 @@ export const BomCostsPage: React.FC = () => {
   }, [items, coverage]);
 
   const ratesDisplay = React.useMemo(() => {
-    const rates = analysis?.currencyRatesUsed || {};
+    const rates: Record<string, number> = {
+      ...(analysis?.currencyRatesUsed || {}),
+    };
+    if (workshop.currency === "BRL" && workshop.rateUsed && !rates.BRL) {
+      rates.BRL = workshop.rateUsed;
+    }
     return Object.keys(rates).map((currency) => ({
       currency,
       rate: rates[currency],
     }));
-  }, [analysis?.currencyRatesUsed]);
+  }, [analysis?.currencyRatesUsed, workshop]);
 
   // ─── Go to ───
   const goToItem = (id: string): void => {
@@ -448,6 +484,12 @@ export const BomCostsPage: React.FC = () => {
     setItems(list);
     setHasSearchedCosts(searched);
     setContingencyPerYear(a.globalContingencyPerYear);
+    setImportTaxRate(a.importTaxPercent || 0);
+    setIsTaxEditing(false);
+    setIsContingencyEditing(false);
+    setWorkshop(
+      a.workshop ? { ...EMPTY_WORKSHOP, ...a.workshop } : EMPTY_WORKSHOP,
+    );
     setMissingCursor(0);
     setFocus(null);
     setEditingRows(new Set());
@@ -612,7 +654,7 @@ export const BomCostsPage: React.FC = () => {
         return u;
       });
 
-      updated = rollUpParentCosts(updated);
+      updated = applyImportTax(updated, importTaxRate);
       setItems(updated);
       setHasSearchedCosts(true);
       setMissingCursor(0);
@@ -622,7 +664,7 @@ export const BomCostsPage: React.FC = () => {
           ...analysis,
           currencyRatesUsed: { ...analysis.currencyRatesUsed, ...ratesUsed },
           maxLeadTimeDays: Math.max(0, ...updated.map((i) => i.leadTimeDays)),
-          totalCostUSD: computeSmartTotal(updated),
+          totalCostUSD: getBomCostBreakdown(updated, workshop).total,
         });
       }
 
@@ -651,9 +693,46 @@ export const BomCostsPage: React.FC = () => {
       setAnalysis({
         ...analysis,
         globalContingencyPerYear: contingencyPerYear,
-        totalCostUSD: computeSmartTotal(updated),
+        totalCostUSD: getBomCostBreakdown(updated, workshop).total,
       });
     }
+  };
+
+  // ─── Import tax (Global BU prices) ───
+  const startTaxEdit = (): void => {
+    setTaxDraft(importTaxRate);
+    setIsTaxEditing(true);
+  };
+
+  const handleApplyImportTax = (): void => {
+    const rate = Math.min(100, Math.max(0, taxDraft || 0));
+    const updated = applyImportTax(items, rate);
+    setImportTaxRate(rate);
+    setItems(updated);
+    setIsTaxEditing(false);
+    if (analysis) {
+      setAnalysis({
+        ...analysis,
+        importTaxPercent: rate,
+        totalCostUSD: getBomCostBreakdown(updated, workshop).total,
+      });
+    }
+  };
+
+  /** Checkbox override: back to automatic when the choice matches the source rule */
+  const toggleRowImportTax = (item: IBomCostItem): void => {
+    const want = !isImportTaxed(item);
+    const auto = item.sourceTab === "Financials";
+    updateItem(item.id, {
+      importTaxMode: want === auto ? undefined : want ? "on" : "off",
+    });
+  };
+
+  // ─── Workshop (assembly & test of the main item) ───
+  const updateWorkshop = (patch: Partial<IBomWorkshop>): void => {
+    setWorkshop((prev) =>
+      normalizeWorkshop({ ...prev, ...patch }, exchangeRates),
+    );
   };
 
   // ─── Update single item field (re-rolls parent costs live) ───
@@ -672,10 +751,16 @@ export const BomCostsPage: React.FC = () => {
         u.isManual = true;
         u.quotationItemId = undefined;
       }
+      // Source or override changes can switch the import tax on or off
+      if (!u.isRolledUp) {
+        const taxPct = resolveImportTaxPct(u, importTaxRate);
+        if (taxPct !== (u.importTaxPercent || 0)) u.importTaxPercent = taxPct;
+      }
       if (
         "costPerItemUSD" in patch ||
         "qty" in patch ||
-        "contingencyPercent" in patch
+        "contingencyPercent" in patch ||
+        (u.importTaxPercent || 0) !== (item.importTaxPercent || 0)
       ) {
         u.totalCostInclCont = recalcTotal(u);
       }
@@ -911,6 +996,16 @@ export const BomCostsPage: React.FC = () => {
     if (!analysis) return;
     setIsSaving(true);
     try {
+      const savedWorkshop = hasWorkshopData ? workshop : undefined;
+      const ratesUsed = { ...(analysis.currencyRatesUsed || {}) };
+      if (
+        savedWorkshop &&
+        savedWorkshop.currency === "BRL" &&
+        savedWorkshop.rateUsed &&
+        !ratesUsed.BRL
+      ) {
+        ratesUsed.BRL = savedWorkshop.rateUsed;
+      }
       const toSave: IBomCostAnalysis = {
         ...analysis,
         items,
@@ -919,6 +1014,9 @@ export const BomCostsPage: React.FC = () => {
         isComplete,
         lastModified: new Date().toISOString(),
         globalContingencyPerYear: contingencyPerYear,
+        importTaxPercent: importTaxRate,
+        workshop: savedWorkshop,
+        currencyRatesUsed: ratesUsed,
       };
       await BomCostAnalysisService.saveOne(toSave);
       setAnalysis(toSave);
@@ -945,6 +1043,8 @@ export const BomCostsPage: React.FC = () => {
         analysis,
         items,
         contingencyPerYear,
+        importTaxPercent: importTaxRate,
+        workshop: hasWorkshopData ? workshop : undefined,
         exportedBy: currentUser?.displayName,
       });
       addToast({ type: "success", title: "Excel exported", message: name });
@@ -1156,6 +1256,8 @@ export const BomCostsPage: React.FC = () => {
                 costed={r.costed}
                 eligible={r.eligible}
                 isComplete={r.complete}
+                importTax={r.importTax}
+                workshopHours={r.workshopHours}
                 onOpen={() => handleLoadAnalysis(r.a)}
                 onDelete={canEdit ? () => setDeleteTarget(r.a) : undefined}
               />
@@ -1193,6 +1295,20 @@ export const BomCostsPage: React.FC = () => {
                     </td>
                     <td className={styles.tdRight}>
                       {formatCurrency(r.a.totalCostUSD || 0, "USD")}
+                      {(r.importTax > 0 || r.workshopHours > 0) && (
+                        <div className={styles.origCost}>
+                          {[
+                            r.importTax > 0
+                              ? `incl. import tax ${formatCurrency(r.importTax, "USD")}`
+                              : "",
+                            r.workshopHours > 0
+                              ? `workshop ${formatHours(r.workshopHours)}`
+                              : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </div>
+                      )}
                     </td>
                     <td className={styles.tdRight}>
                       {r.a.maxLeadTimeDays > 0
@@ -1398,6 +1514,42 @@ export const BomCostsPage: React.FC = () => {
                 ? `Contingency ${contingencyPerYear}% / year`
                 : "No contingency applied"}
             </span>
+            {(breakdown.importTax > 0 || hasWorkshopData) && (
+              <div className={styles.kpiBreakdown}>
+                <div className={styles.kpiBreakdownRow}>
+                  <span className={styles.kpiBreakdownLabel}>Materials</span>
+                  <span className={styles.kpiBreakdownValue}>
+                    {formatCurrency(breakdown.materials, "USD")}
+                  </span>
+                </div>
+                {breakdown.importTax > 0 && (
+                  <div
+                    className={`${styles.kpiBreakdownRow} ${styles.kpiBreakdownTax}`}
+                    title={`${taxedCount} item${taxedCount === 1 ? "" : "s"} taxed × ${importTaxRate}%`}
+                  >
+                    <span className={styles.kpiBreakdownLabel}>
+                      Import tax ({importTaxRate}%)
+                    </span>
+                    <span className={styles.kpiBreakdownValue}>
+                      +{formatCurrency(breakdown.importTax, "USD")}
+                    </span>
+                  </div>
+                )}
+                {hasWorkshopData && (
+                  <div className={styles.kpiBreakdownRow}>
+                    <span className={styles.kpiBreakdownLabel}>
+                      Workshop
+                      {workshop.hours > 0
+                        ? ` · ${formatHours(workshop.hours)}`
+                        : ""}
+                    </span>
+                    <span className={styles.kpiBreakdownValue}>
+                      +{formatCurrency(breakdown.workshop, "USD")}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className={styles.kpi}>
@@ -1443,6 +1595,15 @@ export const BomCostsPage: React.FC = () => {
             </span>
           </div>
         </div>
+      )}
+
+      {analysis && (
+        <BomWorkshopPanel
+          workshop={workshop}
+          mainPartNumber={analysis.mainPartNumber}
+          readOnly={!canEdit}
+          onChange={updateWorkshop}
+        />
       )}
 
       {hasSearchedCosts && (
@@ -1515,62 +1676,140 @@ export const BomCostsPage: React.FC = () => {
           <p className={styles.insightNote}>
             <strong>Search priority:</strong> 1st BUMBL (Brazil), 2nd BUMBR
             (Brazil), 3rd Global BUs (Financials). When the same item exists in
-            several Business Units the most recent Last Order Date wins.
+            several Business Units the most recent Last Order Date wins. Global
+            BU prices also get the <strong>Import Tax Rate</strong> (item cost ×
+            (1 + rate)); BUMBL, BUMBR, Quotation and Manual prices do not,
+            unless switched on per row.
           </p>
         </div>
       )}
 
       {hasSearchedCosts && (
         <div className={styles.toolbar}>
-          <span className={styles.toolbarLabel}>Contingency per year</span>
-          {isContingencyEditing ? (
-            <>
-              <input
-                type="number"
-                className={styles.toolbarInput}
-                value={contingencyPerYear}
-                onChange={(e) =>
-                  setContingencyPerYear(parseFloat(e.target.value) || 0)
-                }
-                min={0}
-                max={100}
-                step={0.5}
-                autoFocus
-              />
-              <span className={styles.toolbarHint}>
-                % / year since Date Ref.
-              </span>
-              <button
-                type="button"
-                className={styles.toolbarPrimary}
-                onClick={handleApplyContingency}
-              >
-                Apply to All
-              </button>
-              <button
-                type="button"
-                className={styles.toolbarBtn}
-                onClick={() => setIsContingencyEditing(false)}
-              >
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <span className={styles.toolbarValue}>
-                {contingencyPerYear}% / year
-              </span>
-              {canEdit && (
+          <div
+            className={styles.toolbarGroup}
+            title="Old prices are brought to today's value: each year between the Date Ref. and the current year adds this percentage to the item cost."
+          >
+            <span className={styles.toolbarLabel}>Contingency per year</span>
+            {isContingencyEditing ? (
+              <>
+                <input
+                  type="number"
+                  className={styles.toolbarInput}
+                  value={contingencyPerYear}
+                  onChange={(e) =>
+                    setContingencyPerYear(parseFloat(e.target.value) || 0)
+                  }
+                  min={0}
+                  max={100}
+                  step={0.5}
+                  autoFocus
+                />
+                <span className={styles.toolbarHint}>
+                  % / year since Date Ref.
+                </span>
+                <button
+                  type="button"
+                  className={styles.toolbarPrimary}
+                  onClick={handleApplyContingency}
+                >
+                  Apply to All
+                </button>
                 <button
                   type="button"
                   className={styles.toolbarBtn}
-                  onClick={() => setIsContingencyEditing(true)}
+                  onClick={() => setIsContingencyEditing(false)}
                 >
-                  <Pencil size={13} /> Edit
+                  Cancel
                 </button>
-              )}
-            </>
-          )}
+              </>
+            ) : (
+              <>
+                <span className={styles.toolbarValue}>
+                  {contingencyPerYear}% / year
+                </span>
+                {canEdit && (
+                  <button
+                    type="button"
+                    className={styles.toolbarBtn}
+                    onClick={() => setIsContingencyEditing(true)}
+                  >
+                    <Pencil size={13} /> Edit
+                  </button>
+                )}
+              </>
+            )}
+            <span className={styles.toolbarExplain}>
+              Corrects past prices: +% for each year since the Date Ref.
+            </span>
+          </div>
+
+          <span className={styles.toolbarDivider} aria-hidden="true" />
+
+          <div
+            className={styles.toolbarGroup}
+            title="Applied to items priced in Global BUs (Financials): item cost × (1 + rate). Switch it on or off per row in edit mode."
+          >
+            <span className={styles.toolbarLabel}>Import Tax Rate</span>
+            {isTaxEditing ? (
+              <>
+                <input
+                  type="number"
+                  className={styles.toolbarInput}
+                  value={taxDraft}
+                  onChange={(e) =>
+                    setTaxDraft(
+                      Math.min(
+                        100,
+                        Math.max(0, parseFloat(e.target.value) || 0),
+                      ),
+                    )
+                  }
+                  min={0}
+                  max={100}
+                  step={1}
+                  autoFocus
+                />
+                <span className={styles.toolbarHint}>% (0 - 100)</span>
+                <button
+                  type="button"
+                  className={styles.toolbarPrimary}
+                  onClick={handleApplyImportTax}
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  className={styles.toolbarBtn}
+                  onClick={() => setIsTaxEditing(false)}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <span className={styles.toolbarValue}>{importTaxRate}%</span>
+                {canEdit && (
+                  <button
+                    type="button"
+                    className={styles.toolbarBtn}
+                    onClick={startTaxEdit}
+                  >
+                    <Pencil size={13} /> Edit
+                  </button>
+                )}
+                {breakdown.importTax > 0 && (
+                  <span className={styles.toolbarStat}>
+                    {taxedCount} item{taxedCount === 1 ? "" : "s"} · +
+                    {formatCurrency(breakdown.importTax, "USD")}
+                  </span>
+                )}
+              </>
+            )}
+            <span className={styles.toolbarExplain}>
+              Global BU items: cost × (1 + rate)
+            </span>
+          </div>
 
           <span className={styles.dateLegend}>
             <span className={`${styles.dateBadge} ${styles.dateRecent}`}>
@@ -1616,7 +1855,11 @@ export const BomCostsPage: React.FC = () => {
                     <>
                       <th className={styles.thRight}>Cost/Item (USD)</th>
                       <th className={styles.thRight}>Contgy. %</th>
-                      <th className={styles.thRight}>Total (Incl. Cont)</th>
+                      <th className={styles.thRight}>
+                        {importTaxRate > 0
+                          ? "Total (Cont. + Import Tax)"
+                          : "Total (Incl. Cont)"}
+                      </th>
                       <th className={styles.thRight}>Lead Time</th>
                       <th>Cost Ref.</th>
                       <th>Date Ref.</th>
@@ -1655,6 +1898,7 @@ export const BomCostsPage: React.FC = () => {
                   const isFocused = !!focus && focus.id === item.id;
                   if (isFocused) rowClass += ` ${styles.rowFocus}`;
                   const isEditing = editingRows.has(item.id);
+                  const rowTax = rowTaxById.get(item.id) || 0;
 
                   return (
                     <tr
@@ -1834,6 +2078,50 @@ export const BomCostsPage: React.FC = () => {
                             ) : (
                               "-"
                             )}
+                            {rowTax > 0 && (
+                              <div>
+                                <span
+                                  className={styles.taxBadge}
+                                  title={
+                                    isRolled
+                                      ? "Import tax included from the children priced in Global BUs"
+                                      : `Import tax on the cost incl. contingency: ${formatCurrency(item.totalCostInclCont - rowTax, "USD")} × ${item.importTaxPercent}%`
+                                  }
+                                >
+                                  {isRolled
+                                    ? "incl. import tax"
+                                    : `+${item.importTaxPercent}% import tax`}{" "}
+                                  · {formatCurrency(rowTax, "USD")}
+                                </span>
+                              </div>
+                            )}
+                            {isEditing &&
+                              !isRolled &&
+                              importTaxRate > 0 &&
+                              item.costPerItemUSD > 0 && (
+                                <div>
+                                  <label
+                                    className={styles.taxToggle}
+                                    title={
+                                      item.importTaxMode
+                                        ? "Set by hand for this row"
+                                        : "Automatic: Global BU prices only"
+                                    }
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isImportTaxed(item)}
+                                      onChange={() => toggleRowImportTax(item)}
+                                    />
+                                    Import tax
+                                    {!item.importTaxMode && (
+                                      <span className={styles.taxToggleAuto}>
+                                        (auto)
+                                      </span>
+                                    )}
+                                  </label>
+                                </div>
+                              )}
                             {isCovered && (
                               <div className={styles.childOfCostedNote}>
                                 parent has own cost
