@@ -6,9 +6,12 @@
 import * as React from "react";
 import { IBid, IErn } from "../models";
 import { useErnStore } from "../stores/useErnStore";
+import { useBidStore } from "../stores/useBidStore";
 import {
   buildErnLinkRows,
+  buildGeneralSupportErnRows,
   compareErnUrgency,
+  getErnLinks,
   IErnLinkRow,
 } from "../utils/ernHelpers";
 import {
@@ -31,7 +34,7 @@ export interface ErnLiveKpis {
 }
 
 export interface LiveOverview {
-  /** Linked ERNs (open and closed), most urgent first */
+  /** Linked ERNs (open and closed), plus General BID Support ERNs when asked, most urgent first */
   ernRows: IErnLinkRow[];
   ernKpis: ErnLiveKpis;
   approvals: IPendingApprovalRow[];
@@ -63,16 +66,37 @@ export interface LiveUpdates {
   items: ILiveUpdate[];
 }
 
-export function useLiveOverview(bids: IBid[]): LiveOverview {
+export interface LiveOverviewOptions {
+  /** Add General BID Support ERNs (not linked to any BID) to the ERN rows. */
+  includeGeneral?: boolean;
+}
+
+export function useLiveOverview(
+  bids: IBid[],
+  options: LiveOverviewOptions = {},
+): LiveOverview {
+  const { includeGeneral = false } = options;
   const erns = useErnStore((s) => s.erns);
+  const allBids = useBidStore((s) => s.bids);
 
   const ernRows = React.useMemo(() => {
     const byTitle: Record<string, IErn> = {};
     erns.forEach((e) => {
       byTitle[e.title] = e;
     });
-    return buildErnLinkRows(bids, byTitle).sort(compareErnUrgency);
-  }, [bids, erns]);
+    const rows = buildErnLinkRows(bids, byTitle);
+    if (includeGeneral) {
+      // Linked to any BID (even one outside `bids`) means it is not General
+      const linked: Record<string, boolean> = {};
+      allBids.forEach((b) => {
+        getErnLinks(b).forEach((l) => {
+          linked[l.ernNumber] = true;
+        });
+      });
+      rows.push(...buildGeneralSupportErnRows(erns, linked));
+    }
+    return rows.sort((a, b) => compareErnUrgency(a, b));
+  }, [bids, erns, includeGeneral, allBids]);
 
   const ernKpis = React.useMemo((): ErnLiveKpis => {
     let open = 0;

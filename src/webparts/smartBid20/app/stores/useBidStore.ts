@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { IBid, IQuickNote, Division, BidPriority } from "../models";
+import { IBid, Division, BidPriority } from "../models";
 import { BidService } from "../services/BidService";
 import {
   getBidFilterDivisions,
@@ -93,7 +93,8 @@ interface BidState {
   resetFilters: () => void;
   setViewMode: (mode: ViewMode) => void;
   setLoading: (loading: boolean) => void;
-  updateBidNotes: (bidNumber: string, notes: IQuickNote[]) => void;
+  /** Optimistic local patch of a BID's notes (see utils/bidNotes.buildNotesPatch). */
+  updateBidNotes: (bidNumber: string, patch: Partial<IBid>) => void;
   getFilteredBids: () => IBid[];
   refreshBids: () => Promise<void>;
 }
@@ -113,10 +114,10 @@ export const useBidStore = create<BidState>((set, get) => ({
   setViewMode: (mode) => set({ viewMode: mode }),
   setLoading: (loading) => set({ isLoading: loading }),
 
-  updateBidNotes: (bidNumber, notes) =>
+  updateBidNotes: (bidNumber, patch) =>
     set((state) => ({
       bids: state.bids.map((b) =>
-        b.bidNumber === bidNumber ? { ...b, quickNotes: notes } : b,
+        b.bidNumber === bidNumber ? { ...b, ...patch } : b,
       ),
     })),
 

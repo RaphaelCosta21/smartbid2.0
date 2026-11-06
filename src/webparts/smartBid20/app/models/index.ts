@@ -28,6 +28,7 @@ export {
   type IOpportunityInfo,
   type IExchangeRateSnapshot,
   type IBidErnLink,
+  type BidErnPurpose,
   type IPhaseHistoryEntry,
   type IStatusHistoryEntry,
   type IBidTask,
@@ -62,6 +63,11 @@ export {
   type IApprovalCancellation,
   type IBidAttachment,
   type IBidComment,
+  type BidNoteCategory,
+  type BidNoteSource,
+  type IBidNoteRevision,
+  type IBidNoteStamp,
+  type IBidNote,
   type IBidResult,
   type IActivityLogEntry,
   type IBidKPIs,
@@ -140,11 +146,6 @@ export {
   type BidExcelSheetKey,
   type IBidExcelExportOptions,
 } from "./IBidExport";
-export {
-  type IBidNote,
-  type BidNoteSection,
-  type IBidNotesMap,
-} from "./IBidNotes";
 export { type INotification } from "./INotification";
 export { type ITeamMember, type IMembersData } from "./ITeamMember";
 export {
@@ -245,6 +246,7 @@ export {
   type IErnCreateData,
   type IErnCreateResult,
   type ErnDeadlineState,
+  type ErnStage,
 } from "./IErn";
 export {
   type ISupplier,

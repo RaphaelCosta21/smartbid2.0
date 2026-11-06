@@ -382,6 +382,10 @@ export interface ISupplierSummary {
 
 export const NO_SUPPLIER_LABEL = "(No supplier informed)";
 
+export function hasSupplierOrRef(r: ISupplierRow): boolean {
+  return !!(r.supplier || r.costRef);
+}
+
 export function buildSupplierRows(bid: IBid): ISupplierRow[] {
   const scopeMap = scopeMapOf(bid);
   const cont = getBidContingency(bid);
@@ -450,7 +454,7 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
         qty,
         acqType: e.acquisitionType || "",
         supplier: (e.supplier || "").trim(),
-        costRef: e.costReference || "",
+        costRef: (e.costReference || "").trim(),
         quoteRef: e.quotationReference || "",
         dateRef: e.dateReference || "",
         leadTime: e.leadTimeDays && e.leadTimeDays > 0 ? e.leadTimeDays : null,
@@ -551,7 +555,8 @@ export function buildSupplierRows(bid: IBid): ISupplierRow[] {
 export function summarizeSuppliers(rows: ISupplierRow[]): ISupplierSummary[] {
   const map: Record<string, ISupplierSummary> = {};
   rows.forEach((r) => {
-    const key = r.supplier || NO_SUPPLIER_LABEL;
+    // The app edits "Cost Ref / Supplier" as one field; a lone value is stored as the cost ref
+    const key = r.supplier || r.costRef || NO_SUPPLIER_LABEL;
     if (!map[key]) {
       map[key] = { supplier: key, items: 0, totalUSD: 0, maxLeadTime: null };
     }

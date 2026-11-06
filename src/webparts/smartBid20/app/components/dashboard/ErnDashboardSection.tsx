@@ -72,7 +72,7 @@ export const ErnDashboardSection: React.FC<ErnDashboardSectionProps> = ({
   const byServiceLine = React.useMemo(() => {
     const map: Record<string, number> = {};
     links.forEach((l) => {
-      const key = l.division || l.bid.serviceLine || "-";
+      const key = l.division || l.bid?.serviceLine || "-";
       map[key] = (map[key] || 0) + 1;
     });
     return Object.keys(map)
@@ -83,7 +83,7 @@ export const ErnDashboardSection: React.FC<ErnDashboardSectionProps> = ({
   const byDivision = React.useMemo(() => {
     const map: Record<string, number> = {};
     links.forEach((l) => {
-      const key = l.bid.division || "-";
+      const key = l.bid?.division || "-";
       map[key] = (map[key] || 0) + 1;
     });
     return Object.keys(map).map((k) => ({

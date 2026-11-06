@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Lock, TriangleAlert } from "lucide-react";
+import { FileText, Lock, TriangleAlert } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   IBid,
@@ -17,8 +17,15 @@ import { resolveSemanticColor } from "../../hooks/useColorTheme";
 import { StatusBadge } from "../common/StatusBadge";
 import { GlassCard } from "../common/GlassCard";
 import { BidTaskChecklist } from "./BidTaskChecklist";
+import { ErnCreateModal } from "./ErnCreateModal";
+import { ErnSearchModal } from "./ErnSearchModal";
 import { getRevisionLetter } from "./RevisionsTab";
 import { formatDateTime } from "../../utils/formatters";
+import {
+  getLinkedErnTitles,
+  getMissingTechnicalProposalErnSlots,
+  IErnSlot,
+} from "../../utils/ernHelpers";
 import {
   getAssetsCostCompleteness,
   IAssetsCostCompleteness,
@@ -78,20 +85,38 @@ export const AssetCostsBlockDialog: React.FC<AssetCostsBlockDialogProps> = ({
 
 /* ─── Props ─── */
 
+/** Phase whose work needs the Technical Proposal ERN. */
+const TECHNICAL_PROPOSAL_PHASE = "Technical Proposal" as BidPhase;
+
 interface BidStatusPhasePanelProps {
   bid: IBid;
   readOnly?: boolean;
+  /** Can create / link ERNs (same permission as the Overview tab). */
+  canManageErn?: boolean;
   onSave: (patch: Partial<IBid>) => void;
 }
 
 export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
   bid,
   readOnly = false,
+  canManageErn = false,
   onSave,
 }) => {
   const config = useConfigStore((s) => s.config);
   const currentUser = useCurrentUser();
   const navigate = useNavigate();
+
+  /** Reminder to create the Technical Proposal ERN after entering that phase */
+  const [tpReminder, setTpReminder] = React.useState(false);
+  const [tpAction, setTpAction] = React.useState<{
+    kind: "create" | "select";
+    slot: IErnSlot;
+  } | null>(null);
+  const missingTpSlots = getMissingTechnicalProposalErnSlots(bid);
+  React.useEffect(() => {
+    if (tpReminder && missingTpSlots.length === 0) setTpReminder(false);
+  }, [tpReminder, missingTpSlots.length]);
+
   const [confirmAction, setConfirmAction] = React.useState<{
     type: "phase" | "status";
     phase: BidPhase;
@@ -436,6 +461,15 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
       }
 
       onSave(patch);
+
+      // Entering the Technical Proposal phase without its ERN: remind and offer to create it
+      if (
+        newPhase === TECHNICAL_PROPOSAL_PHASE &&
+        bid.currentPhase !== TECHNICAL_PROPOSAL_PHASE &&
+        getMissingTechnicalProposalErnSlots(bid).length > 0
+      ) {
+        setTpReminder(true);
+      }
 
       setConfirmAction(null);
       setTerminalWarning(null);
@@ -1244,6 +1278,111 @@ export const BidStatusPhasePanel: React.FC<BidStatusPhasePanelProps> = ({
             </>
           }
           onClose={() => setAssetCostsBlock(false)}
+        />
+      )}
+
+      {/* ─── Technical Proposal ERN reminder ─── */}
+      {tpReminder && !tpAction && missingTpSlots.length > 0 && (
+        <div className={styles.overlay} onClick={() => setTpReminder(false)}>
+          <div
+            className={styles.confirmDialog}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tp-ern-reminder-title"
+          >
+            <div className={styles.confirmIcon}>
+              <FileText size={28} color="var(--primary-accent)" />
+            </div>
+            <h3 id="tp-ern-reminder-title" className={styles.confirmTitle}>
+              Create the Technical Proposal ERN
+            </h3>
+            <div className={styles.tpReminderText}>
+              This BID requested a Technical Proposal. Writing it needs its own
+              ERN, separate from the BID ERN
+              {missingTpSlots.length > 1 ? " (one per team)" : ""}.
+              {!canManageErn &&
+                " Ask someone who can edit the BID Overview to create it."}
+            </div>
+            {canManageErn && missingTpSlots.length > 1 && (
+              <div className={styles.tpSlots}>
+                {missingTpSlots.map((slot) => (
+                  <div key={slot.label || "single"} className={styles.tpSlot}>
+                    <span className={styles.tpSlotLabel}>
+                      Tech. Proposal ERN
+                      {slot.label ? ` (${slot.label})` : ""}
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.tpSlotLink}
+                      onClick={() => setTpAction({ kind: "select", slot })}
+                    >
+                      Select existing
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.tpSlotCreate}
+                      onClick={() => setTpAction({ kind: "create", slot })}
+                    >
+                      Create ERN
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className={styles.confirmActions}>
+              <button
+                type="button"
+                className={styles.confirmCancel}
+                onClick={() => setTpReminder(false)}
+              >
+                {canManageErn ? "Later" : "Close"}
+              </button>
+              {canManageErn && missingTpSlots.length === 1 && (
+                <>
+                  <button
+                    type="button"
+                    className={styles.confirmCancel}
+                    onClick={() =>
+                      setTpAction({ kind: "select", slot: missingTpSlots[0] })
+                    }
+                  >
+                    Select existing
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.confirmSubmit}
+                    onClick={() =>
+                      setTpAction({ kind: "create", slot: missingTpSlots[0] })
+                    }
+                  >
+                    Create ERN
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {tpAction && tpAction.kind === "create" && (
+        <ErnCreateModal
+          bid={bid}
+          isOpen
+          division={tpAction.slot.division}
+          purpose="technical-proposal"
+          onDismiss={() => setTpAction(null)}
+          onCreated={() => setTpAction(null)}
+        />
+      )}
+      {tpAction && tpAction.kind === "select" && (
+        <ErnSearchModal
+          bid={bid}
+          isOpen
+          division={tpAction.slot.division}
+          purpose="technical-proposal"
+          excludeTitles={getLinkedErnTitles(bid)}
+          onDismiss={() => setTpAction(null)}
+          onSelected={() => setTpAction(null)}
         />
       )}
 

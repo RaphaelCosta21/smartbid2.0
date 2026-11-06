@@ -15,14 +15,17 @@ import {
   IBid,
   IBidApproval,
   IApprovalOverride,
+  IErn,
   IExchangeRateSnapshot,
   ITeamMember,
   BaseDivision,
+  BidErnPurpose,
   BusinessLine,
   Division,
   BidType,
   BidSize,
   BidPhase,
+  IUser,
 } from "../../models";
 import { StatusBadge } from "../common/StatusBadge";
 import { ConfirmDialog } from "../common/ConfirmDialog";
@@ -63,6 +66,13 @@ import {
   getBidContingency,
 } from "../../utils/costCalculations";
 import { EmptySection } from "./EmptySection";
+import { NoteCard } from "./NoteCard";
+import { NoteComposer } from "./NoteComposer";
+import {
+  IBidNoteAccess,
+  useBidNoteActions,
+} from "../../hooks/useBidNoteActions";
+import { isListedNote, sortNotesForOverview } from "../../utils/bidNotes";
 import { TechnicalProposalChip } from "./TechnicalProposalChip";
 import { getTechnicalProposalState } from "../../utils/technicalProposalHelpers";
 import { getPhaseLabelForBid } from "../../utils/phaseHelpers";
@@ -85,13 +95,19 @@ import { ErnDetailsModal } from "./ErnDetailsModal";
 import { ErnSearchModal } from "./ErnSearchModal";
 import { DueDateChangeModal } from "./DueDateChangeModal";
 import {
-  getErnDeadlineState,
+  ERN_STAGE_ROLES,
+  getErnLinkStageInfo,
   getErnSlots,
   getErnLinkForSlot,
   getLinkedErnTitles,
+  getTechnicalProposalErnSlots,
+  isErnClosed,
+  isErnOnHold,
   ErnDivision,
   IErnSlot,
 } from "../../utils/ernHelpers";
+import { ErnService } from "../../services/ErnService";
+import { useErnStore } from "../../stores/useErnStore";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import styles from "../../pages/BidDetailPage.module.scss";
 
@@ -571,7 +587,9 @@ export interface OverviewTabProps {
   currentPhaseIndex: number;
   canEdit?: boolean;
   onSave?: (patch: Partial<IBid>) => void;
-  currentUser?: { displayName: string; email: string };
+  currentUser?: IUser;
+  /** Notes tab permissions + saver, used by the BID Analysis Notes card. */
+  notesAccess?: IOverviewNotesAccess;
 }
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({
@@ -580,6 +598,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   canEdit,
   onSave,
   currentUser,
+  notesAccess,
 }) => {
   const configPhases = useConfigPhases();
   const config = useConfigStore((s) => s.config);
@@ -598,13 +617,38 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   // ERN modals
   const [ernCreate, setErnCreate] = React.useState<{
     division: ErnDivision;
+    purpose: BidErnPurpose;
   } | null>(null);
   const [ernSearch, setErnSearch] = React.useState<{
     division: ErnDivision;
+    purpose: BidErnPurpose;
   } | null>(null);
   const [ernDetails, setErnDetails] = React.useState<string | null>(null);
   const ernSlots = getErnSlots(bid);
+  const tpErnSlots = getTechnicalProposalErnSlots(bid);
   const ernAppUrl = SHAREPOINT_CONFIG.ern.appUrl;
+
+  // Live ERN data for the linked ERNs: the stage (Responsible / Checker / Lead) drives the deadline badge
+  const storeErns = useErnStore((s) => s.erns);
+  const [liveErns, setLiveErns] = React.useState<Record<string, IErn>>({});
+  const linkedErnKey = getLinkedErnTitles(bid).join("|");
+  React.useEffect(() => {
+    let cancelled = false;
+    (linkedErnKey ? linkedErnKey.split("|") : []).forEach((title) => {
+      ErnService.getByTitle(title)
+        .then((e) => {
+          if (!cancelled && e) {
+            setLiveErns((prev) => ({ ...prev, [title]: e }));
+          }
+        })
+        .catch(() => undefined);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [linkedErnKey]);
+  const liveErnFor = (title: string): IErn | undefined =>
+    liveErns[title] || storeErns.find((e) => e.title === title);
 
   // Photo loading for Key People
   const [photoMap, setPhotoMap] = React.useState<Record<string, string>>({});
@@ -1064,14 +1108,20 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   };
 
   const renderErnValue = (slot: IErnSlot): React.ReactNode => {
-    const link = getErnLinkForSlot(bid, slot.division);
-    const slotDeadline = link
-      ? getErnDeadlineState(
-          link.ernDueDate,
-          link.ernStatus,
-          link.ernFinishDate,
-        )
-      : "none";
+    const link = getErnLinkForSlot(bid, slot.division, slot.purpose);
+    const live = link ? liveErnFor(link.ernNumber) : undefined;
+    const stageInfo = link ? getErnLinkStageInfo(link, live) : null;
+    const slotDeadline = stageInfo ? stageInfo.deadline : "none";
+    const status = live ? live.status : link?.ernStatus;
+    const finish = live ? live.finishDate : link?.ernFinishDate;
+    const withOthers =
+      !!stageInfo &&
+      stageInfo.stage !== "engineering" &&
+      !isErnClosed(status, finish) &&
+      !isErnOnHold(status);
+    const stageSuffix = withOthers
+      ? ` (${ERN_STAGE_ROLES[stageInfo!.stage]})`
+      : "";
     return (
       link ? (
         <span
@@ -1097,11 +1147,25 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               type="button"
               style={ernLinkBtnStyle}
               onClick={() =>
-                setErnSearch({ division: slot.division })
+                setErnSearch({
+                  division: slot.division,
+                  purpose: slot.purpose,
+                })
               }
             >
               Change
             </button>
+          )}
+          {withOthers && slotDeadline === "ok" && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--text-muted)",
+              }}
+            >
+              With {ERN_STAGE_ROLES[stageInfo!.stage]}
+            </span>
           )}
           {slotDeadline === "overdue" && (
             <span
@@ -1111,7 +1175,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 color: "var(--danger)",
               }}
             >
-              ERN OVERDUE
+              ERN OVERDUE{stageSuffix}
             </span>
           )}
           {slotDeadline === "due-soon" && (
@@ -1122,7 +1186,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 color: "var(--warning)",
               }}
             >
-              ERN due soon
+              ERN due soon{stageSuffix}
             </span>
           )}
           {(slotDeadline === "overdue" ||
@@ -1157,7 +1221,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 type="button"
                 style={ernCreateBtnStyle}
                 onClick={() =>
-                  setErnCreate({ division: slot.division })
+                  setErnCreate({
+                    division: slot.division,
+                    purpose: slot.purpose,
+                  })
                 }
               >
                 Create ERN
@@ -1166,7 +1233,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 type="button"
                 style={ernLinkBtnStyle}
                 onClick={() =>
-                  setErnSearch({ division: slot.division })
+                  setErnSearch({
+                    division: slot.division,
+                    purpose: slot.purpose,
+                  })
                 }
               >
                 Select existing
@@ -1525,11 +1595,28 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   value={renderErnValue(slot)}
                 />
               ))}
+            {!bidIsIntegrated &&
+              tpErnSlots.map((slot) => (
+                <InfoRow
+                  key={`tp-${slot.label || "single"}`}
+                  label={
+                    slot.label
+                      ? `Tech. Proposal ERN (${slot.label})`
+                      : "Tech. Proposal ERN"
+                  }
+                  value={renderErnValue(slot)}
+                />
+              ))}
           </div>
           {bidIsIntegrated && (
             <div className={styles.teamPanels}>
               {bidTeams.map((team) => {
                 const teamSlots = ernSlots.filter(
+                  (s) =>
+                    !!s.division &&
+                    team.businessLines.indexOf(s.division) >= 0,
+                );
+                const teamTpSlots = tpErnSlots.filter(
                   (s) =>
                     !!s.division &&
                     team.businessLines.indexOf(s.division) >= 0,
@@ -1592,6 +1679,21 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           </div>
                         </div>
                       ))}
+                      {teamTpSlots.map((slot) => (
+                        <div
+                          key={`tp-${slot.label}`}
+                          className={`${styles.infoItem} ${styles.teamPanelField}`}
+                        >
+                          <div className={styles.infoLabel}>
+                            {teamTpSlots.length > 1
+                              ? `Tech. Proposal ERN (${slot.label})`
+                              : "Tech. Proposal ERN"}
+                          </div>
+                          <div className={styles.infoValue}>
+                            {renderErnValue(slot)}
+                          </div>
+                        </div>
+                      ))}
                       <div className={`${styles.infoItem} ${styles.teamPanelField}`}>
                         <div className={styles.infoLabel}>Project Manager</div>
                         {renderPeople(teamPms(team.businessLines))}
@@ -1609,6 +1711,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             bid={bid}
             isOpen={!!ernCreate}
             division={ernCreate.division}
+            purpose={ernCreate.purpose}
             onDismiss={() => setErnCreate(null)}
             onCreated={() => setErnCreate(null)}
           />
@@ -1618,6 +1721,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             bid={bid}
             isOpen={!!ernSearch}
             division={ernSearch.division}
+            purpose={ernSearch.purpose}
             excludeTitles={getLinkedErnTitles(bid)}
             onDismiss={() => setErnSearch(null)}
             onSelected={() => setErnSearch(null)}
@@ -1877,8 +1981,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         {/* BID Analysis Notes / Premisses */}
         <AnalysisNotesCard
           bid={bid}
-          canEdit={canEdit}
-          onSave={onSave}
+          access={
+            notesAccess || {
+              canEdit: false,
+              canDelete: false,
+              isTerminal: isClosed,
+            }
+          }
           currentUser={currentUser}
         />
 
@@ -2608,293 +2717,93 @@ const ExchangeRatesCard: React.FC<{
 );
 
 /* ─── BID Analysis Notes / Premisses Card ─── */
+export interface IOverviewNotesAccess extends IBidNoteAccess {
+  /** Opens the Notes & Comments tab (undefined when the tab is locked). */
+  onOpenNotes?: () => void;
+  /** Opens the Scope / Hours tab that maintains a tab note. */
+  onOpenTab?: (tab: "scope" | "hours") => void;
+}
+
 const AnalysisNotesCard: React.FC<{
   bid: IBid;
-  canEdit?: boolean;
-  onSave?: (patch: Partial<IBid>) => void;
-  currentUser?: { displayName: string; email: string };
-}> = ({ bid, canEdit, onSave, currentUser }) => {
-  const notes = (bid.bidNotes || {}) as Record<string, string>;
-  const notesMetadata = (bid.bidNotesMetadata || {}) as Record<
-    string,
-    {
-      author: string;
-      date: string;
-      lastEditedBy?: string;
-      lastEditedDate?: string;
-    }
-  >;
-  const entries = Object.entries(notes).filter(([k]) => k !== "general");
-  const [editingKey, setEditingKey] = React.useState<string | null>(null);
-  const [editValue, setEditValue] = React.useState("");
-  const [newKey, setNewKey] = React.useState("");
-  const [showAddForm, setShowAddForm] = React.useState(false);
-
-  const handleSave = (key: string, value: string): void => {
-    if (!onSave) return;
-    const now = new Date().toISOString();
-    const userName =
-      currentUser?.displayName || currentUser?.email || "Unknown";
-    const existingMeta = notesMetadata[key];
-    const updatedMeta = existingMeta
-      ? { ...existingMeta, lastEditedBy: userName, lastEditedDate: now }
-      : { author: userName, date: now };
-    onSave({
-      bidNotes: { ...notes, [key]: value },
-      bidNotesMetadata: { ...notesMetadata, [key]: updatedMeta },
-    });
-    setEditingKey(null);
-  };
-
-  const handleAddNote = (): void => {
-    if (!onSave || !newKey.trim()) return;
-    const now = new Date().toISOString();
-    const userName =
-      currentUser?.displayName || currentUser?.email || "Unknown";
-    const trimmedKey = newKey.trim();
-    onSave({
-      bidNotes: { ...notes, [trimmedKey]: editValue },
-      bidNotesMetadata: {
-        ...notesMetadata,
-        [trimmedKey]: { author: userName, date: now },
-      },
-    });
-    setNewKey("");
-    setEditValue("");
-    setShowAddForm(false);
-  };
-
-  const handleDelete = (key: string): void => {
-    if (!onSave) return;
-    const updated = { ...notes };
-    delete updated[key];
-    const updatedMeta = { ...notesMetadata };
-    delete updatedMeta[key];
-    onSave({ bidNotes: updated, bidNotesMetadata: updatedMeta });
-  };
+  access: IOverviewNotesAccess;
+  currentUser?: IUser;
+}> = ({ bid, access, currentUser }) => {
+  const { notes, ctx, by, add, update, remove } = useBidNoteActions(
+    bid,
+    access,
+    currentUser,
+  );
+  const [adding, setAdding] = React.useState(false);
+  const pinned = sortNotesForOverview(
+    notes.filter((n) => isListedNote(n) && n.pinned),
+  );
+  const unpinnedCount = notes.filter(
+    (n) => isListedNote(n) && !n.pinned,
+  ).length;
 
   return (
     <div className={styles.infoSection}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
+      <div className={styles.analysisNotesHeader}>
         <h4
           className={styles.infoTitle}
           style={{ borderBottom: "none", marginBottom: 0 }}
         >
           BID Analysis Notes / Premisses
         </h4>
-        {canEdit && !showAddForm && (
-          <button
-            style={{
-              background: "var(--primary-accent)",
-              color: "var(--primary-accent-contrast)",
-              border: "none",
-              borderRadius: 6,
-              padding: "3px 10px",
-              fontSize: 12,
-              cursor: "pointer",
-            }}
-            onClick={() => setShowAddForm(true)}
-          >
-            + Add Note
-          </button>
-        )}
+        <div className={styles.analysisNotesActions}>
+          {access.onOpenNotes && unpinnedCount > 0 && (
+            <button
+              type="button"
+              className={styles.analysisNotesLink}
+              onClick={access.onOpenNotes}
+            >
+              +{unpinnedCount} in Notes & Comments
+            </button>
+          )}
+          {ctx.canEdit && !adding && (
+            <button
+              type="button"
+              className={styles.analysisNotesAddBtn}
+              onClick={() => setAdding(true)}
+            >
+              + Add Note
+            </button>
+          )}
+        </div>
       </div>
-      {entries.length === 0 && !showAddForm && (
-        <EmptySection message="No analysis notes added yet." />
+      {adding && (
+        <div style={{ marginTop: 12 }}>
+          <NoteComposer
+            autoFocus
+            hidePin
+            defaultPinned
+            defaultCategory="info"
+            placeholder="Analysis note or premise (pinned to the Overview)..."
+            onSubmit={(draft) => {
+              add({ ...draft, pinned: true });
+              setAdding(false);
+            }}
+            onCancel={() => setAdding(false)}
+          />
+        </div>
       )}
-      <div
-        className={styles.flexColumn}
-        style={{ marginTop: entries.length > 0 ? 12 : 0 }}
-      >
-        {entries.map(([section, content]) => (
-          <div
-            key={section}
-            style={{
-              padding: "10px 14px",
-              borderRadius: 8,
-              border: "1px solid var(--border-subtle)",
-              background: "var(--card-bg-elevated, rgba(0,0,0,0.02))",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <strong style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                {section}
-              </strong>
-              {canEdit && editingKey !== section && (
-                <div style={{ display: "flex", gap: "6px" }}>
-                  <button
-                    className={styles.backBtn}
-                    onClick={() => {
-                      setEditingKey(section);
-                      setEditValue(content);
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className={styles.backBtn}
-                    style={{ color: "var(--error-color, #EF4444)" }}
-                    onClick={() => handleDelete(section)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-            </div>
-            {editingKey === section ? (
-              <div style={{ marginTop: 8 }}>
-                <textarea
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  style={{
-                    width: "100%",
-                    minHeight: 80,
-                    padding: 10,
-                    borderRadius: 8,
-                    border: "1px solid var(--border)",
-                    background: "var(--card-bg-elevated)",
-                    color: "var(--text-primary)",
-                    fontSize: 13,
-                    resize: "vertical",
-                  }}
-                />
-                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                  <button
-                    className={styles.backBtn}
-                    style={{
-                      background: "var(--primary-accent)",
-                      color: "var(--primary-accent-contrast)",
-                      border: "none",
-                    }}
-                    onClick={() => handleSave(section, editValue)}
-                  >
-                    Save
-                  </button>
-                  <button
-                    className={styles.backBtn}
-                    onClick={() => setEditingKey(null)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <p
-                  style={{
-                    margin: "8px 0 0",
-                    fontSize: 13,
-                    color: "var(--text-secondary)",
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {content}
-                </p>
-                {notesMetadata[section] && (
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-tertiary)",
-                      marginTop: 6,
-                    }}
-                  >
-                    Created by <strong>{notesMetadata[section].author}</strong>{" "}
-                    · {formatDateTime(notesMetadata[section].date)}
-                    {notesMetadata[section].lastEditedBy && (
-                      <>
-                        {" "}
-                        | Last edited by{" "}
-                        <strong>
-                          {notesMetadata[section].lastEditedBy}
-                        </strong> ·{" "}
-                        {formatDateTime(
-                          notesMetadata[section].lastEditedDate || "",
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        ))}
-      </div>
-      {canEdit && showAddForm && (
-        <div
-          style={{
-            marginTop: 12,
-            padding: 12,
-            borderRadius: 8,
-            border: "1px solid var(--border-subtle)",
-          }}
-        >
-          <input
-            placeholder="Section title (e.g., Gap Analysis, Technical Notes...)"
-            value={newKey}
-            onChange={(e) => setNewKey(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid var(--border)",
-              background: "var(--card-bg-elevated)",
-              color: "var(--text-primary)",
-              fontSize: 14,
-              marginBottom: 8,
-            }}
-          />
-          <textarea
-            placeholder="Note content..."
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            style={{
-              width: "100%",
-              minHeight: 80,
-              padding: 10,
-              borderRadius: 8,
-              border: "1px solid var(--border)",
-              background: "var(--card-bg-elevated)",
-              color: "var(--text-primary)",
-              fontSize: 13,
-              resize: "vertical",
-            }}
-          />
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button
-              className={styles.backBtn}
-              style={{
-                background: "var(--primary-accent)",
-                color: "var(--primary-accent-contrast)",
-                border: "none",
-              }}
-              onClick={handleAddNote}
-              disabled={!newKey.trim()}
-            >
-              Save Note
-            </button>
-            <button
-              className={styles.backBtn}
-              onClick={() => {
-                setShowAddForm(false);
-                setNewKey("");
-                setEditValue("");
-              }}
-            >
-              Cancel
-            </button>
-          </div>
+      {pinned.length === 0 && !adding ? (
+        <EmptySection message="No analysis notes pinned yet." />
+      ) : (
+        <div className={styles.analysisNotesList}>
+          {pinned.map((note) => (
+            <NoteCard
+              key={note.id}
+              note={note}
+              ctx={ctx}
+              by={by}
+              compact
+              onUpdate={update}
+              onDelete={remove}
+              onOpenSource={access.onOpenTab}
+            />
+          ))}
         </div>
       )}
     </div>

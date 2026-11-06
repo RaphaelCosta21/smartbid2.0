@@ -1,4 +1,5 @@
 import { BidTabGroupKey } from "../models/ISystemConfig";
+import { ROUTES } from "./routes.config";
 
 export type BidTab =
   | "overview"
@@ -90,3 +91,26 @@ BID_TAB_GROUPS.forEach((g) => {
     BID_TAB_GROUP[t.key] = g.key;
   });
 });
+
+export function isBidTab(value: string | null | undefined): value is BidTab {
+  return !!value && !!BID_TAB_GROUP[value];
+}
+
+/** Deep-link query params of the BID Details page: `?tab=<BidTab>&nav=collapsed`. */
+export const BID_LINK_PARAMS = { tab: "tab", nav: "nav" } as const;
+export const BID_LINK_NAV_COLLAPSED = "collapsed";
+
+/** Hash route that opens a BID straight on a tab, optionally with the section menus collapsed. */
+export function buildBidTabRoute(
+  bidNumber: string,
+  tab?: BidTab,
+  collapseNav?: boolean,
+): string {
+  const path = ROUTES.bidDetail.replace(":id", encodeURIComponent(bidNumber));
+  const params: string[] = [];
+  if (tab) params.push(`${BID_LINK_PARAMS.tab}=${tab}`);
+  if (collapseNav) {
+    params.push(`${BID_LINK_PARAMS.nav}=${BID_LINK_NAV_COLLAPSED}`);
+  }
+  return params.length > 0 ? `${path}?${params.join("&")}` : path;
+}

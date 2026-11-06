@@ -1,6 +1,6 @@
 import * as React from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Link2, Lock } from "lucide-react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { Clock, Link2, Lock } from "lucide-react";
 import { useBidStore } from "../stores/useBidStore";
 import { useAuthStore } from "../stores/useAuthStore";
 import { ROUTES } from "../config/routes.config";
@@ -64,11 +64,19 @@ import {
   IClarificationItem,
   IScopeItem,
   IHoursSummary,
-  IBidComment,
+  IBidNote,
   IActivityLogEntry,
   IAIImportMeta,
   IQualificationItem,
 } from "../models";
+import {
+  buildNotesPatch,
+  countOpenPending,
+  findTabNote,
+  getBidNotes,
+  toPersonRef,
+  upsertTabNote,
+} from "../utils/bidNotes";
 import { ITeamMember } from "../models/ITeamMember";
 import { PRIORITY_COLORS } from "../utils/constants";
 import {
@@ -79,8 +87,7 @@ import {
 } from "../utils/formatters";
 import { getDueFreezeDate } from "../utils/bidHelpers";
 import { isTerminalStatus } from "../utils/statusHelpers";
-import { getErnLinks } from "../utils/ernHelpers";
-import { getTrackLabel } from "../utils/divisionHelpers";
+import { getErnLinkLabel, getErnLinks } from "../utils/ernHelpers";
 import { hasPendingApprovalRound } from "../utils/approvalTracks";
 import { makeId } from "../utils/idGenerator";
 import { getBidDisplayCurrency } from "../utils/quotationLinks";
@@ -112,7 +119,15 @@ import {
   removeScopeQualifications,
   upsertQualificationItem,
 } from "../utils/qualificationHelpers";
-import { BID_TAB_GROUPS, BidTab } from "../config/bidTabs.config";
+import {
+  BID_LINK_NAV_COLLAPSED,
+  BID_LINK_PARAMS,
+  BID_TAB_GROUPS,
+  BidTab,
+  buildBidTabRoute,
+  isBidTab,
+} from "../config/bidTabs.config";
+import { buildAppHashUrl, copyTextToClipboard } from "../utils/clipboard";
 import { ViewOnlyBanner } from "../components/common/RequirePageAccess";
 import { EmptyState } from "../components/common/EmptyState";
 import { SkeletonLoader } from "../components/common/SkeletonLoader";
@@ -204,12 +219,22 @@ export const BidDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const bids = useBidStore((s) => s.bids);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkTab = searchParams.get(BID_LINK_PARAMS.tab);
+  const linkNavCollapsed =
+    searchParams.get(BID_LINK_PARAMS.nav) === BID_LINK_NAV_COLLAPSED;
 
   // Config-aware phases
   const configPhases = useConfigPhases();
 
-  const [activeTab, setActiveTab] = React.useState<BidTab>("overview");
-  const [navCollapsed, setNavCollapsed] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState<BidTab>(() =>
+    isBidTab(linkTab) ? linkTab : "overview",
+  );
+  const [navCollapsed, setNavCollapsed] = React.useState(
+    () => linkNavCollapsed || linkTab === "presentation",
+  );
+  const navCollapsedRef = React.useRef(navCollapsed);
+  navCollapsedRef.current = navCollapsed;
   const [teamMembers, setTeamMembers] = React.useState<ITeamMember[]>([]);
   const currentUser = useCurrentUser();
   const setSidebarExpanded = useUIStore((s) => s.setSidebarExpanded);
@@ -231,6 +256,32 @@ export const BidDetailPage: React.FC = () => {
   const handleEditChange = React.useCallback((editing: boolean) => {
     setNavCollapsed(editing);
   }, []);
+
+  // Deep link (?tab=…&nav=collapsed): open the tab, then drop the params so a later
+  // tab change isn't overridden and a pasted link is applied again.
+  React.useEffect(() => {
+    if (!linkTab && !linkNavCollapsed) return;
+    if (isBidTab(linkTab)) setActiveTab(linkTab);
+    if (linkNavCollapsed) setNavCollapsed(true);
+    setSearchParams({}, { replace: true });
+  }, [linkTab, linkNavCollapsed, setSearchParams]);
+
+  // The presentation needs the width: collapse the section menu while it is open and give
+  // the user back their previous choice on leaving (a presentation link restores it expanded).
+  const navBeforePresentation = React.useRef<boolean | null>(
+    linkTab === "presentation" && !linkNavCollapsed ? false : null,
+  );
+  React.useEffect(() => {
+    if (activeTab === "presentation") {
+      if (navBeforePresentation.current === null) {
+        navBeforePresentation.current = navCollapsedRef.current;
+        setNavCollapsed(true);
+      }
+    } else if (navBeforePresentation.current !== null) {
+      setNavCollapsed(navBeforePresentation.current);
+      navBeforePresentation.current = null;
+    }
+  }, [activeTab]);
 
   // Load team members for Approval tab
   React.useEffect(() => {
@@ -403,7 +454,44 @@ export const BidDetailPage: React.FC = () => {
     currentBid: IBid,
   ): string => {
     const parts: string[] = [];
-    if (patch.bidNotes) {
+    if (patch.noteEntries) {
+      const before = getBidNotes(currentBid);
+      const label = (n: IBidNote): string =>
+        `"${n.title || n.text.slice(0, 40)}"`;
+      const added: string[] = [];
+      const edited: string[] = [];
+      const deleted: string[] = [];
+      const pinned: string[] = [];
+      const unpinned: string[] = [];
+      const resolved: string[] = [];
+      patch.noteEntries.forEach((n) => {
+        const old = before.find((b) => b.id === n.id);
+        if (!old) {
+          added.push(label(n));
+          return;
+        }
+        if (!old.deleted && n.deleted) deleted.push(label(n));
+        else if (
+          old.text !== n.text ||
+          (old.title || "") !== (n.title || "") ||
+          old.category !== n.category
+        )
+          edited.push(label(n));
+        if (old.pinned !== n.pinned) {
+          (n.pinned ? pinned : unpinned).push(label(n));
+        }
+        if (!old.resolved && n.resolved) resolved.push(label(n));
+      });
+      if (added.length) parts.push(`Added note: ${added.join(", ")}`);
+      if (edited.length) parts.push(`Edited note: ${edited.join(", ")}`);
+      if (deleted.length) parts.push(`Deleted note: ${deleted.join(", ")}`);
+      if (pinned.length)
+        parts.push(`Pinned to Overview: ${pinned.join(", ")}`);
+      if (unpinned.length)
+        parts.push(`Unpinned from Overview: ${unpinned.join(", ")}`);
+      if (resolved.length)
+        parts.push(`Resolved pending: ${resolved.join(", ")}`);
+    } else if (patch.bidNotes) {
       const oldKeys = Object.keys(currentBid.bidNotes || {});
       const newKeys = Object.keys(patch.bidNotes);
       const added = newKeys.filter((k) => oldKeys.indexOf(k) === -1);
@@ -419,13 +507,13 @@ export const BidDetailPage: React.FC = () => {
       if (removed.length > 0)
         parts.push(`Deleted note: "${removed.join('", "')}"`);
     }
-    if (patch.quickNotes) {
+    if (patch.quickNotes && !patch.noteEntries) {
       const oldCount = (currentBid.quickNotes || []).length;
       const newCount = patch.quickNotes.length;
       if (newCount > oldCount) parts.push("Added a quick note");
       else if (newCount < oldCount) parts.push("Deleted a quick note");
     }
-    if (patch.comments) {
+    if (patch.comments && !patch.noteEntries) {
       const oldCount = (currentBid.comments || []).length;
       const newCount = patch.comments.length;
       if (newCount > oldCount) parts.push("Added a comment");
@@ -447,11 +535,17 @@ export const BidDetailPage: React.FC = () => {
         savePatch(patch);
         return;
       }
+      // Legacy note fields are only cleared alongside noteEntries (migration).
+      const migrationOnly = patch.noteEntries !== undefined;
       const fields = Object.keys(patch).filter(
         (k) =>
           k !== "activityLog" &&
           k !== "lastModified" &&
-          k !== "bidNotesMetadata",
+          k !== "bidNotesMetadata" &&
+          !(
+            migrationOnly &&
+            (k === "bidNotes" || k === "quickNotes" || k === "comments")
+          ),
       );
       if (fields.length === 0) {
         savePatch(patch);
@@ -492,7 +586,31 @@ export const BidDetailPage: React.FC = () => {
     [makeTerminalSave],
   );
 
+  /** Scope / Hours "Notes / Comments" field → unified note (built from the latest store copy). */
+  const saveTabNote = React.useCallback(
+    (source: "scope" | "hours", text: string) => {
+      const latest = useBidStore
+        .getState()
+        .bids.find((b) => b.bidNumber === id);
+      if (!latest) return;
+      const next = upsertTabNote(
+        getBidNotes(latest),
+        source,
+        text,
+        toPersonRef(currentUser),
+      );
+      if (next) {
+        savePatch(buildNotesPatch(latest, next)).catch(() => undefined);
+      }
+    },
+    [id, currentUser, savePatch],
+  );
+
   const bid = bids.find((b) => b.bidNumber === id);
+  const bidNotesList = getBidNotes(bid);
+  const scopeTabNote = findTabNote(bidNotesList, "scope");
+  const hoursTabNote = findTabNote(bidNotesList, "hours");
+  const openPendingNotes = countOpenPending(bid);
   const authResolved = useAuthStore((s) => s.isResolved);
   // Confidential BIDs: extra gate on top of the access matrix.
   const hasBidAccess = !!bid && canOpenBid(bid, currentUser.email);
@@ -752,38 +870,16 @@ export const BidDetailPage: React.FC = () => {
   };
 
   const copyShareLink = (): void => {
-    const { origin, pathname, search } = window.location;
-    const url = `${origin}${pathname}${search}#${ROUTES.bidDetail.replace(":id", encodeURIComponent(bid.bidNumber))}`;
-
-    // Fallback for contexts where the async Clipboard API is blocked (e.g. Teams iframe).
-    const legacyCopy = (): boolean => {
-      const textarea = document.createElement("textarea");
-      textarea.value = url;
-      textarea.setAttribute("readonly", "");
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      const ok = document.execCommand("copy");
-      document.body.removeChild(textarea);
-      return ok;
-    };
-
-    const notify = (ok: boolean): void =>
-      addToast(
-        ok
-          ? { type: "success", title: "BID link copied", message: url }
-          : { type: "error", title: "Could not copy link", message: url },
-      );
-
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard
-        .writeText(url)
-        .then(() => notify(true))
-        .catch(() => notify(legacyCopy()));
-    } else {
-      notify(legacyCopy());
-    }
+    const url = buildAppHashUrl(buildBidTabRoute(bid.bidNumber));
+    copyTextToClipboard(url)
+      .then((ok) =>
+        addToast(
+          ok
+            ? { type: "success", title: "BID link copied", message: url }
+            : { type: "error", title: "Could not copy link", message: url },
+        ),
+      )
+      .catch(() => undefined);
   };
 
   return (
@@ -827,13 +923,7 @@ export const BidDetailPage: React.FC = () => {
               {(() => {
                 const links = getErnLinks(bid);
                 if (links.length === 0) return "TBD";
-                return links
-                  .map((l) =>
-                    l.division
-                      ? `${l.ernNumber} (${getTrackLabel(bid, l.division)})`
-                      : l.ernNumber,
-                  )
-                  .join(", ");
+                return links.map((l) => getErnLinkLabel(bid, l)).join(", ");
               })()}
             </span>
             <span className={styles.headerSep}>|</span>
@@ -909,15 +999,24 @@ export const BidDetailPage: React.FC = () => {
               {BID_TAB_GROUPS.map((group) =>
                 group.items.map((item) => {
                   const locked = isTabLocked(item.key);
+                  const pending =
+                    item.key === "notes" && !locked ? openPendingNotes : 0;
                   return (
                     <button
                       key={item.key}
-                      className={`${styles.navItem} ${activeTab === item.key ? styles.navItemActive : ""} ${locked ? styles.navItemDisabled : ""}`}
+                      className={`${styles.navItem} ${activeTab === item.key ? styles.navItemActive : ""} ${locked ? styles.navItemDisabled : ""} ${pending > 0 ? styles.navItemWithDot : ""}`}
                       onClick={() => setActiveTab(item.key)}
                       disabled={locked}
-                      title={locked ? `${item.label} - no access` : item.label}
+                      title={
+                        locked
+                          ? `${item.label} - no access`
+                          : pending > 0
+                            ? `${item.label} - ${pending} open pending`
+                            : item.label
+                      }
                     >
                       <span className={styles.navIcon}>{item.icon}</span>
+                      {pending > 0 && <span className={styles.navPendingDot} />}
                     </button>
                   );
                 }),
@@ -931,18 +1030,35 @@ export const BidDetailPage: React.FC = () => {
                 <div className={styles.navGroupLabel}>{group.group}</div>
                 {group.items.map((item) => {
                   const locked = isTabLocked(item.key);
+                  const pending =
+                    item.key === "notes" && !locked ? openPendingNotes : 0;
                   return (
                     <button
                       key={item.key}
                       className={`${styles.navItem} ${activeTab === item.key ? styles.navItemActive : ""} ${locked ? styles.navItemDisabled : ""}`}
                       onClick={() => setActiveTab(item.key)}
                       disabled={locked}
-                      title={locked ? "No access for your team" : undefined}
+                      title={
+                        locked
+                          ? "No access for your team"
+                          : pending > 0
+                            ? `${pending} open pending note${pending === 1 ? "" : "s"}`
+                            : undefined
+                      }
                     >
                       <span className={styles.navIcon}>{item.icon}</span>
                       <span className={styles.navLabel}>{item.label}</span>
                       {locked && (
                         <Lock size={12} className={styles.navLockIcon} />
+                      )}
+                      {pending > 0 && (
+                        <span
+                          className={styles.navPendingBadge}
+                          aria-label={`${pending} open pending notes`}
+                        >
+                          <Clock size={10} />
+                          {pending}
+                        </span>
                       )}
                     </button>
                   );
@@ -1007,6 +1123,18 @@ export const BidDetailPage: React.FC = () => {
                   canEdit={canEditTab("overview")}
                   onSave={saveOverview}
                   currentUser={currentUser}
+                  notesAccess={{
+                    canEdit: canEditTab("notes"),
+                    canDelete: canDeleteTab("notes"),
+                    isTerminal: isTerminalStatus(bid.currentStatus),
+                    onSave: saveNotes,
+                    onOpenNotes: isTabLocked("notes")
+                      ? undefined
+                      : () => setActiveTab("notes"),
+                    onOpenTab: (tab) => {
+                      if (!isTabLocked(tab)) setActiveTab(tab);
+                    },
+                  }}
                 />
               )}
               {activeTab === "scope" && (
@@ -1141,17 +1269,10 @@ export const BidDetailPage: React.FC = () => {
                                 ? upsertScopeQualification
                                 : undefined
                             }
-                            tabNotes={
-                              (bid.bidNotes as Record<string, string>)?.scope ||
-                              ""
-                            }
+                            tabNotes={scopeTabNote ? scopeTabNote.text : ""}
+                            tabNotesMeta={scopeTabNote}
                             onSaveTabNotes={(notes) =>
-                              savePatch({
-                                bidNotes: {
-                                  ...(bid.bidNotes || {}),
-                                  scope: notes,
-                                },
-                              })
+                              saveTabNote("scope", notes)
                             }
                             currentDivision={div}
                             onMoveSectionToDivision={
@@ -1977,17 +2098,10 @@ export const BidDetailPage: React.FC = () => {
                             availableDivisions={resolveDivisions(bid)}
                             scopeItems={filteredScope}
                             fx={bidFx}
-                            tabNotes={
-                              (bid.bidNotes as Record<string, string>)?.hours ||
-                              ""
-                            }
+                            tabNotes={hoursTabNote ? hoursTabNote.text : ""}
+                            tabNotesMeta={hoursTabNote}
                             onSaveTabNotes={(notes) =>
-                              savePatch({
-                                bidNotes: {
-                                  ...(bid.bidNotes || {}),
-                                  hours: notes,
-                                },
-                              })
+                              saveTabNote("hours", notes)
                             }
                           />
                         );
@@ -2001,6 +2115,7 @@ export const BidDetailPage: React.FC = () => {
                 <BidStatusPhasePanel
                   bid={bid}
                   readOnly={!canEditTab("tasks")}
+                  canManageErn={canEditTab("overview")}
                   onSave={savePatch}
                 />
               )}
@@ -2040,30 +2155,8 @@ export const BidDetailPage: React.FC = () => {
                   canDelete={canDeleteTab("notes")}
                   onSave={saveNotes}
                   currentUser={currentUser}
-                  onAddComment={
-                    canEditTab("notes")
-                      ? (text) => {
-                          const newComment: IBidComment = {
-                            id: `comment-${Date.now()}`,
-                            author: {
-                              name: currentUser.displayName,
-                              email: currentUser.email,
-                            },
-                            text,
-                            timestamp: new Date().toISOString(),
-                            phase: bid.currentPhase,
-                            section: "general",
-                            isEdited: false,
-                            editedAt: null,
-                            mentions: [],
-                            attachments: [],
-                          };
-                          saveNotes({
-                            comments: [...(bid.comments || []), newComment],
-                          });
-                        }
-                      : undefined
-                  }
+                  isTerminal={isTerminalStatus(bid.currentStatus)}
+                  onOpenTab={setActiveTab}
                 />
               )}
               {activeTab === "qualifications" && (

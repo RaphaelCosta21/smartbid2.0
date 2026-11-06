@@ -21,13 +21,17 @@ import {
 } from "../../hooks/useLiveOverview";
 import { useAccessLevel } from "../../hooks/useAccessLevel";
 import { useOpenBid } from "../../hooks/useOpenBid";
-import { IErnLinkRow } from "../../utils/ernHelpers";
+import {
+  ERN_GENERAL_SUPPORT_TITLE,
+  ERN_STAGE_ROLES,
+  IErnLinkRow,
+} from "../../utils/ernHelpers";
 import { IPendingApprovalRow } from "../../utils/approvalHelpers";
 import { IUpcomingDeadline } from "../../utils/bidHelpers";
 import { ROUTES } from "../../config/routes.config";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import { formatDate } from "../../utils/formatters";
-import { IBid } from "../../models";
+import { ErnStage, IBid } from "../../models";
 import globalStyles from "../../styles/globals.module.scss";
 import { LivePulsePanel } from "./LivePulsePanel";
 import styles from "./LivePulse.module.scss";
@@ -77,13 +81,15 @@ function buildSignature(
     sig[`ern:${r.ernNumber}`] = {
       kind: "erns",
       id: r.ernNumber,
-      title: r.ern?.projectTitle || bidTitle(r.bid),
+      title: r.ern?.projectTitle || (r.bid ? bidTitle(r.bid) : r.ernNumber),
       fields: {
-        bid: r.bid.bidNumber,
+        bid: r.bid ? r.bid.bidNumber : "",
         status: r.status,
         dueDate: r.dueDate,
         finishDate: r.finishDate,
         deadline: r.deadline,
+        stage: r.stage,
+        stageDueDate: r.stageDueDate,
       },
     };
   });
@@ -137,10 +143,20 @@ function describeDateChange(label: string, from: string, to: string): string {
 
 function describeErn(prev: SigEntry | undefined, cur: SigEntry): string[] {
   const f = cur.fields;
-  if (!prev) return [`New ERN linked to ${f.bid} (${f.status})`];
+  if (!prev) {
+    return [
+      f.bid
+        ? `New ERN linked to ${f.bid} (${f.status})`
+        : `New ${ERN_GENERAL_SUPPORT_TITLE} ERN (${f.status})`,
+    ];
+  }
   const p = prev.fields;
+  const role = ERN_STAGE_ROLES[f.stage as ErnStage] || "";
+  const withRole = f.stage && f.stage !== "engineering" ? ` (${role})` : "";
   const out: string[] = [];
-  if (p.bid !== f.bid) out.push(`Now linked to ${f.bid}`);
+  if (p.bid !== f.bid) {
+    out.push(f.bid ? `Now linked to ${f.bid}` : "No longer linked to a BID");
+  }
   if (p.status !== f.status) {
     out.push(`Status changed from ${p.status} to ${f.status}`);
   }
@@ -154,11 +170,18 @@ function describeErn(prev: SigEntry | undefined, cur: SigEntry): string[] {
   if (p.dueDate !== f.dueDate) {
     out.push(describeDateChange("Due date", p.dueDate, f.dueDate));
   }
+  if (
+    p.stage === f.stage &&
+    f.stage !== "engineering" &&
+    p.stageDueDate !== f.stageDueDate
+  ) {
+    out.push(describeDateChange(`${role} date`, p.stageDueDate, f.stageDueDate));
+  }
   if (p.deadline !== f.deadline) {
-    if (f.deadline === "overdue") out.push("Now overdue");
+    if (f.deadline === "overdue") out.push(`Now overdue${withRole}`);
     else if (f.deadline === "due-soon") {
       out.push(
-        `Now due soon (${SHAREPOINT_CONFIG.ern.dueSoonDays} days or less)`,
+        `Now due soon${withRole} (${SHAREPOINT_CONFIG.ern.dueSoonDays} days or less)`,
       );
     } else if (out.length === 0) {
       out.push(f.deadline === "ok" ? "Back on track" : "No due date anymore");
@@ -224,7 +247,9 @@ function describeDeadline(prev: SigEntry | undefined, cur: SigEntry): string[] {
 
 function describeGone(entry: SigEntry, bid: IBid | undefined): string {
   if (entry.kind === "erns") {
-    return `No longer linked to ${entry.fields.bid}`;
+    return entry.fields.bid
+      ? `No longer linked to ${entry.fields.bid}`
+      : "No longer listed";
   }
   if (!bid) return "BID removed";
   if (entry.kind === "approvals") {
@@ -307,7 +332,9 @@ export const LivePulse: React.FC = () => {
   const surfaceRef = React.useRef<HTMLDivElement>(null);
   const expanded = phase !== "closed";
 
-  const live = useLiveOverview(allowed ? allBids : NO_BIDS);
+  const live = useLiveOverview(allowed ? allBids : NO_BIDS, {
+    includeGeneral: allowed,
+  });
   const onDashboard = location.pathname === ROUTES.dashboard;
   const onBidDetail = location.pathname.indexOf("/bid/") === 0;
   // Background polling feeds the update indicator; the dashboard page polls itself.

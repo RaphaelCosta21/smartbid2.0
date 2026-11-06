@@ -1,94 +1,163 @@
 /**
- * PresentationHero — executive summary of the selected BID: total, CAPEX / OPEX and readiness.
+ * PresentationHero — what the BID is (identity + opportunity facts) and what it is worth
+ * (full BID total, the same figure as the Cost Summary, and its CAPEX / OPEX split).
  */
 import * as React from "react";
-import { IPresentationStats } from "../../utils/bidPresentation";
-import { formatCurrency, formatNumber } from "../../utils/formatters";
+import { AlertTriangle, CalendarClock, Clock3, ListChecks } from "lucide-react";
+import { IPresentationModel } from "../../hooks/usePresentationModel";
+import {
+  formatCurrency,
+  formatDate,
+  formatDaysLeft,
+  formatNumber,
+} from "../../utils/formatters";
+import { getDueFreezeDate } from "../../utils/bidHelpers";
+import { getCurrentRevisionLetter } from "../bid/RevisionsTab";
+import { AnimatedNumber } from "../common/AnimatedNumber";
+import { BidDivisionTag } from "../common/BidDivisionTag";
 import { GlassCard } from "../common/GlassCard";
-import { KPICard } from "../common/KPICard";
+import { StatusBadge } from "../common/StatusBadge";
+import { RingGauge } from "../charts/RingGauge";
 import styles from "./PresentationHero.module.scss";
 
 export interface PresentationHeroProps {
-  bidNumber: string;
-  title: string;
-  stats: IPresentationStats;
-  displayCurrency: { currency: "USD" | "BRL"; rate: number };
+  model: IPresentationModel;
 }
 
-export const PresentationHero: React.FC<PresentationHeroProps> = ({
-  bidNumber,
-  title,
-  stats,
-  displayCurrency,
-}) => {
-  const { currency, rate } = displayCurrency;
-  const fmt = (usd: number): string => formatCurrency(usd * rate, currency);
-  const split = stats.capexUSD + stats.opexUSD;
-  const capexPct = split ? Math.round((stats.capexUSD / split) * 100) : 0;
-  const readyClass =
-    stats.readiness >= 80
-      ? styles.good
-      : stats.readiness >= 50
-        ? styles.warn
-        : styles.bad;
+export const PresentationHero: React.FC<PresentationHeroProps> = ({ model }) => {
+  const { bid, view, display, colors, money, facts, effort } = model;
+  const theme = colors.theme;
+  const capex = view.capex.usd;
+  const opex = view.opex.usd;
+  const uncategorized = view.uncategorized.usd;
+  const split = capex + opex + uncategorized;
+  const capexPct = split > 0 ? (capex / split) * 100 : 0;
+  const ptax = view.fx.brlRate;
+  const due = formatDaysLeft(bid.dueDate, getDueFreezeDate(bid));
+  const scopeCount = (bid.scopeItems || []).filter((s) => !s.isSection).length;
+  const missingRates = view.summary.missingRateCurrencies || [];
+  const projectName =
+    (bid.opportunityInfo && bid.opportunityInfo.projectName) || "Proposal";
+
+  const otherCurrency =
+    ptax > 0
+      ? display.currency === "USD"
+        ? `≈ ${formatCurrency(model.totalUSD * ptax, "BRL")}`
+        : `≈ ${formatCurrency(model.totalUSD, "USD")}`
+      : "";
 
   return (
-    <div className={styles.root}>
-      <GlassCard accentColor="var(--gradient-accent)">
-        <p className={styles.eyebrow}>Executive Summary · BID {bidNumber}</p>
-        <h2 className={styles.title}>{title || "Proposal"}</h2>
-        <div className={styles.stats}>
-          <div>
-            <div className={styles.label}>Total Value</div>
-            <div className={`${styles.value} ${styles.big}`}>
-              {fmt(stats.totalUSD)}
+    <GlassCard variant="liquid" className={styles.hero}>
+      <div className={styles.layout}>
+        <div className={styles.identity}>
+          <div className={styles.eyebrowRow}>
+            <span className={styles.bidNumber}>BID {bid.bidNumber}</span>
+            <span className={styles.rev}>
+              Rev. {getCurrentRevisionLetter(bid)}
+            </span>
+            <BidDivisionTag bid={bid} variant="compact" />
+            <StatusBadge status={bid.currentStatus} />
+          </div>
+          <h2 className={styles.title} title={projectName}>
+            {projectName}
+          </h2>
+          {facts.length > 0 && (
+            <div className={styles.facts}>
+              {facts.map((f) => (
+                <div key={f.key} className={styles.fact}>
+                  <span className={styles.factLabel}>{f.label}</span>
+                  <span className={styles.factValue} title={f.value}>
+                    {f.value}
+                  </span>
+                </div>
+              ))}
             </div>
-            {stats.uncategorizedUSD > 0 && (
-              <div className={styles.sub}>
-                incl. {fmt(stats.uncategorizedUSD)} uncategorized
-              </div>
+          )}
+          <div className={styles.meta}>
+            <span className={due.isOverdue ? styles.metaDanger : undefined}>
+              <CalendarClock size={14} />
+              Due {formatDate(bid.dueDate)} · {due.text}
+            </span>
+            <span>
+              <ListChecks size={14} />
+              {formatNumber(scopeCount)} scope items
+            </span>
+            {effort.totalHours > 0 && (
+              <span>
+                <Clock3 size={14} />
+                {formatNumber(Math.round(effort.totalHours))} labor hours
+              </span>
             )}
           </div>
-          <div>
-            <div className={styles.label}>CAPEX</div>
-            <div className={styles.value}>{fmt(stats.capexUSD)}</div>
-          </div>
-          <div>
-            <div className={styles.label}>OPEX</div>
-            <div className={styles.value}>{fmt(stats.opexUSD)}</div>
-          </div>
-          <div>
-            <div className={styles.label}>BID Readiness</div>
-            <div className={`${styles.value} ${readyClass}`}>
-              {stats.readiness}%
-            </div>
-            <div className={styles.sub}>
-              {stats.withoutPn} without PN · {stats.withoutCost} without cost
-            </div>
-          </div>
         </div>
-      </GlassCard>
 
-      <div className={styles.kpis}>
-        <KPICard
-          variant="glass"
-          label="Items in scope"
-          value={formatNumber(stats.itemCount)}
-          accentColor="var(--primary-accent)"
-        />
-        <KPICard
-          variant="glass"
-          label="Priced items"
-          value={formatNumber(stats.pricedCount)}
-          accentColor="var(--primary-accent)"
-        />
-        <KPICard
-          variant="glass"
-          label="Split CAPEX / OPEX"
-          value={`${capexPct}% / ${split ? 100 - capexPct : 0}%`}
-          accentColor="var(--secondary-accent)"
-        />
+        <div className={styles.value}>
+          <span className={styles.valueLabel}>Total BID value</span>
+          <AnimatedNumber
+            className={styles.total}
+            value={model.totalUSD * display.rate}
+            format={(v) => formatCurrency(v, display.currency)}
+          />
+          {otherCurrency && (
+            <span className={styles.other}>
+              {otherCurrency} · PTAX {ptax.toFixed(4)}
+            </span>
+          )}
+          {missingRates.length > 0 && (
+            <span className={styles.warning}>
+              <AlertTriangle size={12} />
+              {missingRates.join(", ")} items left out (no exchange rate)
+            </span>
+          )}
+
+          {split > 0 && (
+            <div className={styles.split}>
+              <RingGauge
+                variant="semi"
+                size={128}
+                thickness={14}
+                trackColor={theme.grid}
+                segments={[
+                  { key: "capex", value: capex, color: theme.capex, label: "CAPEX" },
+                  { key: "opex", value: opex, color: theme.opex, label: "OPEX" },
+                  {
+                    key: "uncat",
+                    value: uncategorized,
+                    color: theme.textMuted,
+                    label: "Uncategorized",
+                  },
+                ]}
+              >
+                <span className={styles.gaugeValue}>
+                  {capexPct.toFixed(0)}%
+                </span>
+                <span className={styles.gaugeLabel}>CAPEX</span>
+              </RingGauge>
+              <div className={styles.legend}>
+                <div className={styles.legendRow}>
+                  <i style={{ background: "var(--fin-capex)" }} />
+                  <span className={styles.legendName}>CAPEX</span>
+                  <span className={styles.legendValue}>{money(capex)}</span>
+                </div>
+                <div className={styles.legendRow}>
+                  <i style={{ background: "var(--fin-opex)" }} />
+                  <span className={styles.legendName}>OPEX</span>
+                  <span className={styles.legendValue}>{money(opex)}</span>
+                </div>
+                {uncategorized > 0 && (
+                  <div className={styles.legendRow}>
+                    <i style={{ background: "var(--text-muted)" }} />
+                    <span className={styles.legendName}>Uncategorized</span>
+                    <span className={styles.legendValue}>
+                      {money(uncategorized)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </GlassCard>
   );
 };

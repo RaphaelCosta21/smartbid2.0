@@ -1320,6 +1320,13 @@ export const PreparationMobilizationTab: React.FC<
         title="Prep & Mobilization"
         subtitle="RTS, mobilization and consumables costs"
         icon={<Wrench size={18} />}
+        sticky
+        pending={{
+          missing: itemsWithoutCost,
+          total: allPrepItems.length,
+          label: "without cost",
+          doneLabel: "All costed",
+        }}
         hero={{
           label: "Grand total (USD)",
           value: formatCurrency(rtsTotal + mobTotal + consTotal),

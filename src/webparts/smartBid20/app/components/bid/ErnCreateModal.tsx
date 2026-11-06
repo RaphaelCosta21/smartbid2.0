@@ -1,37 +1,63 @@
 /**
- * ErnCreateModal — two-page wizard to create an ERN for a BID and link it back.
- * Creates the ERN directly in SharePoint (no drafts). On success, patches the
- * BID with ernNumber/ernId/ernStatus/ernDueDate and logs the activity.
+ * ErnCreateModal — two-page wizard to create an ERN and link it back to a BID.
+ * Creates the ERN directly in SharePoint (no drafts). Purposes:
+ *  - bid: the BID's engineering ERN (patches the BID's ERN slot)
+ *  - technical-proposal: the ERN to write the BID's Technical Proposal
+ *  - general: "General BID Support" ERN, not linked to any BID
  */
 import * as React from "react";
-import { IBid, IErnCreateData, IPersonRef } from "../../models";
+import {
+  BidErnPurpose,
+  BusinessLine,
+  IBid,
+  IErnCreateData,
+  IPersonRef,
+} from "../../models";
 import { ErnService } from "../../services/ErnService";
 import { useConfigStore } from "../../stores/useConfigStore";
+import { useErnStore } from "../../stores/useErnStore";
 import { useUIStore } from "../../stores/useUIStore";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useTeamMembers } from "../../hooks/useTeamMembers";
 import { PeoplePicker, IPickedPerson } from "../common/PeoplePicker";
 import {
   ERN_REVISION_REASONS,
+  ERN_GENERAL_SUPPORT_TITLE,
   resolveErnProjectNumber,
+  resolveErnProjectNumberFor,
   resolveErnServiceLineChoice,
   findErnChoice,
+  getBusinessLineErnServiceLine,
+  getTechnicalProposalErnTitle,
   ERN_DEFAULT_DELIVERABLE_TYPE,
   ErnDivision,
 } from "../../utils/ernHelpers";
 import { linkErnToBid } from "../../utils/ernLink";
 import {
+  businessLineDivision,
   getBusinessLineLabel,
   getBusinessLineServiceLine,
 } from "../../utils/divisionHelpers";
+import {
+  addDaysOnBusinessDay,
+  toLocalDateInput,
+} from "../../utils/businessDays";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import styles from "./ErnCreateModal.module.scss";
 
+export type ErnCreatePurpose = BidErnPurpose | "general";
+
+/** Days ahead of today for a General BID Support ERN's Eng. Due Date. */
+const GENERAL_DUE_DAYS = 7;
+
 interface ErnCreateModalProps {
-  bid: IBid;
+  /** BID to link the new ERN to; omit for a General BID Support ERN. */
+  bid?: IBid;
   isOpen: boolean;
   /** Division slot for Integrated BIDs (null = single ERN). */
   division?: ErnDivision;
+  /** Default: "bid" with a BID, "general" without. */
+  purpose?: ErnCreatePurpose;
   onDismiss: () => void;
   onCreated: (ernNumber: string, ernStatus: string, ernId: number) => void;
 }
@@ -50,17 +76,28 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
   bid,
   isOpen,
   division = null,
+  purpose: purposeProp,
   onDismiss,
   onCreated,
 }) => {
   const config = useConfigStore((s) => s.config);
   const currentUser = useCurrentUser();
   const addToast = useUIStore((s) => s.addToast);
+  const purpose: ErnCreatePurpose = !bid ? "general" : purposeProp || "bid";
 
   // Service line value that drives this slot's Project Number / ServiceLine
-  const slotServiceLine = division
-    ? getBusinessLineServiceLine(bid, division)
+  const slotServiceLine =
+    division && bid ? getBusinessLineServiceLine(bid, division) : "";
+
+  // General BID Support: the current user's team drives Service Line / Project Number
+  const userLine: BusinessLine | undefined = (currentUser.businessLines ||
+    [])[0];
+  const generalServiceLine = userLine
+    ? getBusinessLineErnServiceLine(userLine)
     : "";
+  const generalDivision = userLine
+    ? businessLineDivision(userLine)
+    : currentUser.division || "";
 
   const [page, setPage] = React.useState(1);
   const [saving, setSaving] = React.useState(false);
@@ -127,6 +164,33 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
     setPage(1);
     setContentAction("Create");
     setRevisionReason("");
+    setCheckerDueDate("");
+    setLeadDate("");
+    setChecker(null);
+    setLead(null);
+    setDeliverableType("");
+    if (!bid) {
+      setProjectNumber(
+        resolveErnProjectNumberFor(config, generalServiceLine, generalDivision),
+      );
+      setProjectName(ERN_GENERAL_SUPPORT_TITLE);
+      setProjectTitle(ERN_GENERAL_SUPPORT_TITLE);
+      setDescription("");
+      setEngDueDate(
+        toLocalDateInput(addDaysOnBusinessDay(new Date(), GENERAL_DUE_DAYS)),
+      );
+      setResource1(
+        currentUser.email
+          ? {
+              name: currentUser.displayName,
+              email: currentUser.email,
+              photoUrl: currentUser.photoUrl || "",
+              jobTitle: currentUser.jobTitle,
+            }
+          : null,
+      );
+      return;
+    }
     setProjectNumber(
       resolveErnProjectNumber(
         bid,
@@ -136,15 +200,14 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
       ),
     );
     setProjectName(bid.opportunityInfo?.projectName || "");
-    setProjectTitle(bid.opportunityInfo?.projectName || "");
+    setProjectTitle(
+      purpose === "technical-proposal"
+        ? getTechnicalProposalErnTitle(bid)
+        : bid.opportunityInfo?.projectName || "",
+    );
     setDescription(bid.opportunityInfo?.projectDescription || "");
     setEngDueDate(toInputDate(bid.desiredDueDate || bid.dueDate));
-    setCheckerDueDate("");
-    setLeadDate("");
     setResource1(personToPicked((bid.engineerResponsible || [])[0]));
-    setChecker(null);
-    setLead(null);
-    setDeliverableType("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
@@ -157,7 +220,10 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
       .then((c) => {
         setServiceLineChoices(c);
         setServiceLine(
-          resolveErnServiceLineChoice(c, slotServiceLine || bid.serviceLine),
+          resolveErnServiceLineChoice(
+            c,
+            bid ? slotServiceLine || bid.serviceLine : generalServiceLine,
+          ),
         );
       })
       .catch(console.error);
@@ -237,23 +303,38 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
           }
         : null;
 
-      await linkErnToBid(
-        bid,
-        division,
-        {
-          ernNumber: result.title,
-          ernId: result.id,
-          ernStatus: result.status,
-          ernDueDate: result.dueDate,
-        },
-        linkedBy,
-        "created",
-      );
+      if (bid && purpose !== "general") {
+        await linkErnToBid(
+          bid,
+          division,
+          {
+            ernNumber: result.title,
+            ernId: result.id,
+            ernStatus: result.status,
+            ernDueDate: result.dueDate,
+            ernCheckerDueDate: result.checkerDueDate,
+            ernLeadDate: result.leadDate,
+          },
+          linkedBy,
+          "created",
+          purpose,
+        );
+      }
+      // Watchlist / Live panel pick the new ERN up right away
+      useErnStore
+        .getState()
+        .loadAll()
+        .catch(() => undefined);
 
       addToast({
         type: "success",
-        title: "ERN created",
-        message: `${result.title} linked to ${bid.bidNumber}.`,
+        title:
+          purpose === "technical-proposal"
+            ? "Technical Proposal ERN created"
+            : "ERN created",
+        message: bid
+          ? `${result.title} linked to ${bid.bidNumber}.`
+          : `${result.title} created as ${ERN_GENERAL_SUPPORT_TITLE}.`,
       });
       onCreated(result.title, result.status, result.id);
       onDismiss();
@@ -281,11 +362,17 @@ export const ErnCreateModal: React.FC<ErnCreateModalProps> = ({
         <div className={styles.header}>
           <div>
             <div className={styles.title}>
-              Create Engineering Request (ERN)
+              {purpose === "technical-proposal"
+                ? "Create Technical Proposal ERN"
+                : purpose === "general"
+                  ? "Create BID Support ERN"
+                  : "Create Engineering Request (ERN)"}
               {division ? ` - ${getBusinessLineLabel(division)}` : ""}
             </div>
             <div className={styles.subtitle}>
-              {bid.bidNumber} · {bid.opportunityInfo?.client || "-"}
+              {bid
+                ? `${bid.bidNumber} · ${bid.opportunityInfo?.client || "-"}`
+                : `${ERN_GENERAL_SUPPORT_TITLE} · not linked to a BID`}
             </div>
           </div>
           <button

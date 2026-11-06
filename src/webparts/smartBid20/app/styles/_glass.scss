@@ -1,0 +1,97 @@
+// SmartBid 2.0 â€” glass materials (partial: emits no CSS on its own).
+// Hierarchy: ambient backdrop â†’ glass tiles â†’ liquid-glass floating surfaces.
+// Use liquid glass sparingly (hero, floating toolbars, drawers) so it keeps its meaning.
+//
+//   @import "../../styles/glass";
+//   .tile    { @include glass-surface; }
+//   .toolbar { @include liquid-glass(var(--radius-panel)); }
+
+@mixin glass-surface($tier: base) {
+  border: 1px solid var(--glass-border);
+
+  @if $tier == subtle {
+    background: var(--glass-bg-subtle);
+    backdrop-filter: blur(var(--glass-blur-sm));
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  } @else if $tier == strong {
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(var(--glass-blur-lg)) unquote("saturate(var(--glass-saturate))");
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg))
+      unquote("saturate(var(--glass-saturate))");
+  } @else {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+  }
+}
+
+// Floating surface: stronger blur + saturation, corner sheen, specular top edge and a
+// gradient hairline rim. The element becomes a stacking context for the rim.
+@mixin liquid-glass($radius: var(--radius-card)) {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid transparent;
+  border-radius: $radius;
+  background: var(--glass-sheen), var(--glass-bg-strong);
+  background-clip: padding-box;
+  backdrop-filter: blur(var(--glass-blur-lg)) unquote("saturate(var(--glass-saturate))");
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg))
+    unquote("saturate(var(--glass-saturate))");
+  box-shadow:
+    var(--glass-edge),
+    var(--shadow-card);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    z-index: -1;
+    padding: 1px;
+    border-radius: inherit;
+    background: var(--glass-rim);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+// Static ambient light behind a glass-heavy view. Never animate it.
+@mixin ambient-backdrop {
+  background-image: var(--ambient-backdrop);
+  background-repeat: no-repeat;
+}
+
+// Small uppercase label above titles and figures.
+@mixin eyebrow {
+  margin: 0;
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+// Money, hours and counts: aligned digits.
+@mixin figure {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+// Thin, theme-aware scrollbar for internally scrolling panels.
+@mixin panel-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+// Keyboard focus ring for custom interactive elements.
+@mixin focus-ring {
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+}

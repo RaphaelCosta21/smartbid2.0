@@ -781,6 +781,44 @@ export interface IQuickNote {
   createdAt: string;
 }
 
+export type BidNoteCategory = "comment" | "pending" | "attention" | "info";
+
+/** Where the note text is maintained: free note, or the Scope / Hours tab field. */
+export type BidNoteSource = "manual" | "scope" | "hours";
+
+/** Snapshot of a note before an edit (most recent last). */
+export interface IBidNoteRevision {
+  title?: string;
+  text: string;
+  category: BidNoteCategory;
+  editedBy: IPersonRef;
+  editedAt: string;
+}
+
+export interface IBidNoteStamp {
+  by: IPersonRef;
+  at: string;
+}
+
+/** Unified BID note (Notes & Comments tab; pinned ones show on Overview). */
+export interface IBidNote {
+  id: string;
+  title?: string;
+  text: string;
+  category: BidNoteCategory;
+  pinned: boolean;
+  source: BidNoteSource;
+  author: IPersonRef;
+  createdAt: string;
+  updatedBy?: IPersonRef;
+  updatedAt?: string;
+  /** Pending notes only. */
+  resolved?: IBidNoteStamp | null;
+  /** Soft delete — kept for the deleted-notes history. */
+  deleted?: IBidNoteStamp | null;
+  history: IBidNoteRevision[];
+}
+
 export interface IBidComment {
   id: string;
   author: IPersonRef;
@@ -1023,12 +1061,15 @@ export interface IBid {
   /** Primary/secondary approval state, keyed by team. */
   approvalTracks?: Partial<Record<BusinessLine, IApprovalTrackState>>;
   attachments: IBidAttachment[];
+  /** Legacy ? migrated into noteEntries on the first notes save. */
   comments: IBidComment[];
   activityLog: IActivityLogEntry[];
   templateUsed: string | null;
   bidFolderUrl: string | null;
   commercialFolderUrl: string | null;
+  /** "general" = Commercial request notes. Other keys are legacy notes migrated into noteEntries. */
   bidNotes: Record<string, string>;
+  /** Legacy ? migrated into noteEntries. */
   bidNotesMetadata?: Record<
     string,
     {
@@ -1038,7 +1079,10 @@ export interface IBid {
       lastEditedDate?: string;
     }
   >;
+  /** Legacy ? migrated into noteEntries. */
   quickNotes: IQuickNote[];
+  /** Unified notes. When absent, read legacy bidNotes/quickNotes/comments via getBidNotes(). */
+  noteEntries?: IBidNote[];
   engineerBidOverview: string;
   revisions: IBidRevision[];
   metadata: IBidMetadata;
@@ -1073,14 +1117,23 @@ export interface IBid {
   ernLinks?: IBidErnLink[];
 }
 
+/** What a BID ERN is for: the BID itself or the Technical Proposal. */
+export type BidErnPurpose = "bid" | "technical-proposal";
+
 /** A single ERN linked to a BID (supports one-per-division for Integrated). */
 export interface IBidErnLink {
   /** Team this ERN covers (BIDs with two teams). null = single ERN. */
   division: BusinessLine | null;
+  /** Missing = "bid" (links saved before Technical Proposal ERNs existed). */
+  purpose?: BidErnPurpose;
   ernNumber: string;
   ernId: number;
   ernStatus: string;
   ernDueDate: string;
+  /** Snapshot of the Checker Due Date — ISO */
+  ernCheckerDueDate?: string;
+  /** Snapshot of the Lead Date — ISO */
+  ernLeadDate?: string;
   ernFinishDate?: string;
   linkedBy?: IPersonRef | null;
   linkedDate?: string;

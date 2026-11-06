@@ -3,12 +3,13 @@
  * and link it to a BID slot. No drafts — reads live from SharePoint.
  */
 import * as React from "react";
-import { IBid, IErn, IPersonRef } from "../../models";
+import { BidErnPurpose, IBid, IErn, IPersonRef } from "../../models";
 import { ErnService } from "../../services/ErnService";
 import { useUIStore } from "../../stores/useUIStore";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { formatDate } from "../../utils/formatters";
 import { ErnDivision, isErnClosed } from "../../utils/ernHelpers";
+import { getBusinessLineLabel } from "../../utils/divisionHelpers";
 import { linkErnToBid } from "../../utils/ernLink";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import styles from "./ErnSearchModal.module.scss";
@@ -18,6 +19,8 @@ interface ErnSearchModalProps {
   isOpen: boolean;
   /** Division slot for Integrated BIDs (null = single ERN). */
   division?: ErnDivision;
+  /** BID ERN (default) or Technical Proposal ERN slot. */
+  purpose?: BidErnPurpose;
   /** ERN titles already linked to this BID — excluded from the results. */
   excludeTitles?: string[];
   onDismiss: () => void;
@@ -33,6 +36,7 @@ export const ErnSearchModal: React.FC<ErnSearchModalProps> = ({
   bid,
   isOpen,
   division = null,
+  purpose = "bid",
   excludeTitles = [],
   onDismiss,
   onSelected,
@@ -101,9 +105,13 @@ export const ErnSearchModal: React.FC<ErnSearchModalProps> = ({
           ernId: ern.id,
           ernStatus: ern.status,
           ernDueDate: ern.dueDate,
+          ernCheckerDueDate: ern.checkerDueDate,
+          ernLeadDate: ern.leadDate,
           ernFinishDate: ern.finishDate,
         },
         linkedBy,
+        "selected",
+        purpose,
       );
       addToast({
         type: "success",
@@ -135,10 +143,11 @@ export const ErnSearchModal: React.FC<ErnSearchModalProps> = ({
         <div className={styles.header}>
           <div>
             <div className={styles.title}>
-              Select existing ERN
-              {division
-                ? ` - ${division === "SURVEY" ? "Survey" : division}`
-                : ""}
+              Select existing
+              {purpose === "technical-proposal"
+                ? " Technical Proposal ERN"
+                : " ERN"}
+              {division ? ` - ${getBusinessLineLabel(division)}` : ""}
             </div>
             <div className={styles.subtitle}>
               Open ERNs from the Engineering Request app · {bid.bidNumber}

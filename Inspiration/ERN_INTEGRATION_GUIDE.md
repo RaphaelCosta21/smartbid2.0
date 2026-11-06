@@ -384,3 +384,37 @@ export interface IErnCreateData {
   field_2: string; // Deliverable Description
 }
 ```
+
+---
+
+## 12. SmartBid ERN Rules (stages, purposes, General BID Support)
+
+These rules live in `src/webparts/smartBid20/app/utils/ernHelpers.ts` and are used by the Engineering Dashboard ERN Watchlist / Timeline, the header Live panel, the BID Overview and the ERN Details modal.
+
+### 12.1 Stage-aware deadlines
+
+ERN statuses: `Received Not Started`, `Work In Progress`, `Waiting for Checker Approval`, `Waiting for Lead Approval`, `On Hold`, `Completed`, `Canceled`.
+
+| Status contains | Stage (who holds the ERN) | Date that drives Due soon / Overdue |
+| --------------- | ------------------------- | ----------------------------------- |
+| `checker`       | Checker (`Resource3`)     | `CheckerDueDate`                    |
+| `lead`          | Lead (`Lead`)             | `LeadDate`                          |
+| anything else   | Responsible (`Resource1`) | `field_4` (Eng. Due Date)           |
+
+- `On Hold` and closed ERNs (`Completed`, `Canceled`, or a `FinishDate`) are never due soon / overdue.
+- An ERN waiting for the Lead is **not** late for the Responsible once the Eng. Due Date passes; it is late only after the Lead Date.
+- Watchlist scopes: **Mine** = I am the Responsible (late only while still in the Responsible stage; otherwise it reads "With Checker" / "With Lead"); **To review** = waiting on me as Checker or Lead.
+
+### 12.2 BID ERN purposes
+
+`IBidErnLink.purpose` is `"bid"` (default, also for links saved before this field existed) or `"technical-proposal"`.
+
+- A BID that requested a Technical Proposal (`bid.technicalProposal.requested`) gets one Technical Proposal ERN slot per team, next to the BID ERN slots in the Overview.
+- TP ERN pre-fill: Project Title `<Project Name> - Technical Proposal`, Deliverable `Bids - Engineering Hours and Lead Time Estimate`.
+- Moving the BID into the **Technical Proposal** phase (Status & Phases) without its TP ERN shows a reminder that opens the ERN creation.
+- The legacy single `ern*` fields on the BID always mirror a `"bid"` link, never a Technical Proposal ERN.
+- Links also snapshot `ernCheckerDueDate` / `ernLeadDate` so the stage rule works before live ERN data loads.
+
+### 12.3 General BID Support ERNs
+
+Created from the ERN Watchlist ("+ BID Support ERN") and **not linked to any BID**: Project Name / Project Title `General BID Support`, Responsible = current user, Service Line / Project Number from the user's business line, Eng. Due Date = today + 7 days (moved to Monday on weekends). ERNs with that Project Title that are not linked to a BID show in the Watchlist, Timeline and Live panel (the dashboard hides them while BID scope filters are active).

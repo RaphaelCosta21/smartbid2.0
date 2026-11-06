@@ -1,0 +1,154 @@
+@import "../../styles/glass";
+
+/* Shared structure of the BID Presentation bento tiles: fixed heights so the page never
+   grows with the BID size; long content scrolls inside its tile. */
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 20px 22px;
+}
+
+/* Large tiles don't lift on hover; the content inside is what's interactive */
+.tile.tile:hover {
+  transform: none;
+}
+
+.tileBuild,
+.tileSupply {
+  height: 380px;
+}
+
+.tileAssets,
+.tileTop {
+  height: 470px;
+}
+
+.tileEffort,
+.tileCommercial {
+  height: 380px;
+}
+
+@media (max-width: 1100px) {
+  .tileBuild,
+  .tileSupply,
+  .tileAssets,
+  .tileTop,
+  .tileEffort,
+  .tileCommercial {
+    height: auto;
+    min-height: 320px;
+  }
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.scroll {
+  @include panel-scroll;
+  flex: 1;
+  min-height: 0;
+  margin-right: -8px;
+  padding-right: 8px;
+}
+
+.empty {
+  margin: auto;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.eyebrow {
+  @include eyebrow;
+}
+
+/* Small pill tabs in tile headers */
+.toggle {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-control);
+  background: var(--glass-bg-subtle);
+  border: 1px solid var(--glass-border);
+}
+
+.toggleBtn {
+  @include focus-ring;
+  height: 26px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toggleActive {
+  background: var(--accent-soft);
+  color: var(--primary-accent);
+}
+
+/* Text button in tile headers ("View all", clear filter) */
+.linkBtn {
+  @include focus-ring;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--primary-accent);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--accent-soft);
+  }
+}
+
+/* Filter chip with a clear button */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 4px 0 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--primary-accent);
+  font-size: var(--text-xs);
+  font-weight: 600;
+
+  button {
+    @include focus-ring;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--accent-soft);
+    }
+  }
+}
+
+.figure {
+  @include figure;
+}

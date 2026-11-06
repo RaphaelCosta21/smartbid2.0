@@ -1,431 +1,186 @@
 import * as React from "react";
-import { IBid, IQuickNote } from "../../models";
+import { ChevronDown, ChevronRight, FileText, Trash2 } from "lucide-react";
+import { BidNoteCategory, IBid, IUser } from "../../models";
+import { BidTab } from "../../config/bidTabs.config";
+import { NOTE_CATEGORIES } from "../../config/noteCategories.config";
+import {
+  REQUEST_NOTES_KEY,
+  isActiveNote,
+  isListedNote,
+  isOpenPending,
+  sortNotesForList,
+} from "../../utils/bidNotes";
+import { useBidNoteActions } from "../../hooks/useBidNoteActions";
 import { GlassCard } from "../common/GlassCard";
-import { BidComments } from "./BidComments";
-import { EmptySection } from "./EmptySection";
-import { makeId } from "../../utils/idGenerator";
-import { formatDateTime } from "../../utils/formatters";
-import styles from "../../pages/BidDetailPage.module.scss";
+import { EmptyState } from "../common/EmptyState";
+import { NoteCard, NoteCategoryIcon } from "./NoteCard";
+import { NoteComposer } from "./NoteComposer";
+import styles from "./NotesTab.module.scss";
 
 export interface NotesTabProps {
   bid: IBid;
   canEdit?: boolean;
   canDelete?: boolean;
   onSave?: (patch: Partial<IBid>) => void;
-  currentUser?: { displayName: string; email: string };
-  onAddComment?: (text: string) => void;
+  currentUser?: IUser;
+  /** BID in a terminal status — notes can no longer be deleted. */
+  isTerminal?: boolean;
+  /** Opens another BID tab (Scope / Hours notes are edited there). */
+  onOpenTab?: (tab: BidTab) => void;
 }
+
+type NotesFilter = "all" | "pinned" | "openPending" | BidNoteCategory;
 
 export const NotesTab: React.FC<NotesTabProps> = ({
   bid,
-  canEdit,
+  canEdit = false,
   canDelete = canEdit,
   onSave,
   currentUser,
-  onAddComment,
+  isTerminal = false,
+  onOpenTab,
 }) => {
-  const notes = (bid.bidNotes || {}) as Record<string, string>;
-  const notesMetadata = (bid.bidNotesMetadata || {}) as Record<
-    string,
+  const { notes, ctx, by, add, update, remove } = useBidNoteActions(
+    bid,
+    { canEdit, canDelete, isTerminal, onSave },
+    currentUser,
+  );
+  const [filter, setFilter] = React.useState<NotesFilter>("all");
+  const [showDeleted, setShowDeleted] = React.useState(false);
+
+  const requestNotes = ((bid.bidNotes || {}) as Record<string, string>)[
+    REQUEST_NOTES_KEY
+  ];
+  const active = notes.filter(isListedNote);
+  const deleted = notes
+    .filter((n) => !isActiveNote(n))
+    .sort((a, b) =>
+      (b.deleted?.at || "").localeCompare(a.deleted?.at || ""),
+    );
+
+  const filters: { key: NotesFilter; label: string; count: number }[] = [
+    { key: "all", label: "All", count: active.length },
     {
-      author: string;
-      date: string;
-      lastEditedBy?: string;
-      lastEditedDate?: string;
-    }
-  >;
-  const entries = Object.entries(notes);
-  const quickNotes: IQuickNote[] = bid.quickNotes || [];
-  const [editingKey, setEditingKey] = React.useState<string | null>(null);
-  const [editValue, setEditValue] = React.useState("");
-  const [newKey, setNewKey] = React.useState("");
-  const [showAddForm, setShowAddForm] = React.useState(false);
-  const [newQuickNote, setNewQuickNote] = React.useState("");
-  const allowDelete = !!canEdit && !!canDelete;
+      key: "pinned",
+      label: "On Overview",
+      count: active.filter((n) => n.pinned).length,
+    },
+    {
+      key: "openPending",
+      label: "Open pending",
+      count: active.filter(isOpenPending).length,
+    },
+    ...NOTE_CATEGORIES.map((c) => ({
+      key: c.value as NotesFilter,
+      label: c.label,
+      count: active.filter((n) => n.category === c.value).length,
+    })),
+  ];
 
-  const handleSave = (key: string, value: string): void => {
-    if (!canEdit || !onSave) return;
-    const now = new Date().toISOString();
-    const userName =
-      currentUser?.displayName || currentUser?.email || "Unknown";
-    const existingMeta = notesMetadata[key];
-    const updatedMeta = existingMeta
-      ? { ...existingMeta, lastEditedBy: userName, lastEditedDate: now }
-      : { author: userName, date: now };
-    onSave({
-      bidNotes: { ...notes, [key]: value },
-      bidNotesMetadata: { ...notesMetadata, [key]: updatedMeta },
-    });
-    setEditingKey(null);
-  };
+  const visible = sortNotesForList(
+    active.filter((n) => {
+      if (filter === "all") return true;
+      if (filter === "pinned") return n.pinned;
+      if (filter === "openPending") return isOpenPending(n);
+      return n.category === filter;
+    }),
+  );
 
-  const handleAddNote = (): void => {
-    if (!canEdit || !onSave || !newKey.trim()) return;
-    const now = new Date().toISOString();
-    const userName =
-      currentUser?.displayName || currentUser?.email || "Unknown";
-    const trimmedKey = newKey.trim();
-    onSave({
-      bidNotes: { ...notes, [trimmedKey]: editValue },
-      bidNotesMetadata: {
-        ...notesMetadata,
-        [trimmedKey]: { author: userName, date: now },
-      },
-    });
-    setNewKey("");
-    setEditValue("");
-    setShowAddForm(false);
-  };
-
-  const handleDelete = (key: string): void => {
-    if (!allowDelete || !onSave) return;
-    const updated = { ...notes };
-    delete updated[key];
-    const updatedMeta = { ...notesMetadata };
-    delete updatedMeta[key];
-    onSave({ bidNotes: updated, bidNotesMetadata: updatedMeta });
-  };
-
-  const addQuickNote = (): void => {
-    if (!canEdit || !onSave || !newQuickNote.trim()) return;
-    const qn: IQuickNote = {
-      id: makeId("note"),
-      text: newQuickNote.trim(),
-      author: {
-        name: currentUser?.displayName || "",
-        email: currentUser?.email || "",
-      },
-      createdAt: new Date().toISOString(),
-    };
-    onSave({ quickNotes: [...quickNotes, qn] });
-    setNewQuickNote("");
-  };
-
-  const deleteQuickNote = (noteId: string): void => {
-    if (!allowDelete || !onSave) return;
-    onSave({ quickNotes: quickNotes.filter((n) => n.id !== noteId) });
-  };
+  const openSource = onOpenTab
+    ? (source: "scope" | "hours") => onOpenTab(source)
+    : undefined;
 
   return (
-    <div className={styles.flexColumn}>
-      {/* Request Notes (bidNotes.general) */}
-      {notes.general && (
-        <GlassCard title="Request Notes (from Commercial)">
-          <p className={styles.scopeDescription}>{notes.general}</p>
-        </GlassCard>
-      )}
-
-      {/* Quick Notes */}
-      <GlassCard title="Quick Notes">
-        {quickNotes.length === 0 && !canEdit && (
-          <EmptySection message="No quick notes yet." />
-        )}
-        <div className={styles.flexColumn}>
-          {quickNotes.map((qn) => (
-            <div
-              key={qn.id}
-              className={styles.infoSection}
-              style={{
-                padding: "10px 14px",
-                borderLeft: "3px solid var(--primary-accent)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                }}
-              >
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 13,
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  {qn.text}
-                </p>
-                {allowDelete && (
-                  <button
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--error-color, #EF4444)",
-                      cursor: "pointer",
-                      fontSize: 13,
-                      marginLeft: 8,
-                      flexShrink: 0,
-                    }}
-                    onClick={() => deleteQuickNote(qn.id)}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--text-tertiary)",
-                  marginTop: 4,
-                }}
-              >
-                {qn.author?.name || "Unknown"} ·{" "}
-                {qn.createdAt ? formatDateTime(qn.createdAt) : ""}
-              </div>
+    <GlassCard
+      title="Notes & Comments"
+      subtitle="Comments, pending items, attention points and premisses. Pinned notes show on the Overview."
+    >
+      <div className={styles.container}>
+        {requestNotes && (
+          <section className={styles.requestNotes}>
+            <div className={styles.requestLabel}>
+              <FileText size={13} /> Request notes (from Commercial)
             </div>
+            <p className={styles.requestText}>{requestNotes}</p>
+          </section>
+        )}
+
+        {ctx.canEdit && <NoteComposer onSubmit={add} />}
+
+        <div className={styles.filters} role="tablist">
+          {filters.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              role="tab"
+              aria-selected={filter === f.key}
+              className={`${styles.filterChip} ${filter === f.key ? styles.filterChipActive : ""}`}
+              onClick={() => setFilter(f.key)}
+            >
+              {f.key !== "all" &&
+                f.key !== "pinned" &&
+                f.key !== "openPending" && (
+                  <NoteCategoryIcon category={f.key} size={11} />
+                )}
+              {f.label}
+              <span className={styles.filterCount}>{f.count}</span>
+            </button>
           ))}
         </div>
-        {canEdit && (
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            <input
-              value={newQuickNote}
-              onChange={(e) => setNewQuickNote(e.target.value)}
-              placeholder="Write a quick note..."
-              onKeyDown={(e) => {
-                if (e.key === "Enter") addQuickNote();
-              }}
-              style={{
-                flex: 1,
-                padding: "8px 12px",
-                borderRadius: 8,
-                border: "1px solid var(--border)",
-                background: "var(--card-bg-elevated)",
-                color: "var(--text-primary)",
-                fontSize: 13,
-              }}
-            />
-            <button
-              className={styles.backBtn}
-              style={{
-                background: "var(--primary-accent)",
-                color: "var(--primary-accent-contrast)",
-                border: "none",
-              }}
-              onClick={addQuickNote}
-              disabled={!newQuickNote.trim()}
-            >
-              + Add
-            </button>
-          </div>
-        )}
-      </GlassCard>
 
-      {/* Analysis Notes (bidNotes) */}
-      <GlassCard title="BID Analysis Notes">
-        {entries.filter(([k]) => k !== "general").length === 0 &&
-        !showAddForm ? (
-          <EmptySection message="No analysis notes added yet." />
+        {visible.length === 0 ? (
+          <EmptyState
+            title={active.length === 0 ? "No notes yet" : "No notes match"}
+            description={
+              active.length === 0
+                ? ctx.canEdit
+                  ? "Add the first comment, pending item or premise above."
+                  : "Notes added to this BID will appear here."
+                : "Try another filter."
+            }
+          />
         ) : (
-          <div className={styles.flexColumn}>
-            {entries
-              .filter(([k]) => k !== "general")
-              .map(([section, content]) => (
-                <div key={section} className={styles.infoSection}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <h4
-                      className={styles.infoTitle}
-                      style={{
-                        marginBottom: 0,
-                        borderBottom: "none",
-                        paddingBottom: 0,
-                        flex: 1,
-                      }}
-                    >
-                      {section}
-                    </h4>
-                    {canEdit && editingKey !== section && (
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        <button
-                          className={styles.backBtn}
-                          onClick={() => {
-                            setEditingKey(section);
-                            setEditValue(content);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        {allowDelete && (
-                          <button
-                            className={styles.backBtn}
-                            style={{ color: "var(--error-color, #EF4444)" }}
-                            onClick={() => handleDelete(section)}
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {editingKey === section ? (
-                    <div style={{ marginTop: "12px" }}>
-                      <textarea
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        style={{
-                          width: "100%",
-                          minHeight: "100px",
-                          padding: "10px",
-                          borderRadius: "8px",
-                          border: "1px solid var(--border)",
-                          background: "var(--card-bg-elevated)",
-                          color: "var(--text-primary)",
-                          fontSize: "13px",
-                          resize: "vertical",
-                        }}
-                      />
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "8px",
-                          marginTop: "8px",
-                        }}
-                      >
-                        <button
-                          className={styles.backBtn}
-                          style={{
-                            background: "var(--primary-accent)",
-                            color: "var(--primary-accent-contrast)",
-                            border: "none",
-                          }}
-                          onClick={() => handleSave(section, editValue)}
-                        >
-                          Save
-                        </button>
-                        <button
-                          className={styles.backBtn}
-                          onClick={() => setEditingKey(null)}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p
-                        className={styles.noteContent}
-                        style={{ marginTop: "12px" }}
-                      >
-                        {content}
-                      </p>
-                      {notesMetadata[section] && (
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: "var(--text-tertiary)",
-                            marginTop: 6,
-                          }}
-                        >
-                          Created by{" "}
-                          <strong>{notesMetadata[section].author}</strong> ·{" "}
-                          {formatDateTime(notesMetadata[section].date)}
-                          {notesMetadata[section].lastEditedBy && (
-                            <>
-                              {" "}
-                              | Last edited by{" "}
-                              <strong>
-                                {notesMetadata[section].lastEditedBy}
-                              </strong>{" "}
-                              ·{" "}
-                              {formatDateTime(
-                                notesMetadata[section].lastEditedDate || "",
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              ))}
+          <div className={styles.list}>
+            {visible.map((note) => (
+              <NoteCard
+                key={note.id}
+                note={note}
+                ctx={ctx}
+                by={by}
+                onUpdate={update}
+                onDelete={remove}
+                onOpenSource={openSource}
+              />
+            ))}
           </div>
         )}
-        {canEdit && !showAddForm && (
-          <button
-            className={styles.backBtn}
-            style={{
-              marginTop: "16px",
-              background: "var(--primary-accent)",
-              color: "var(--primary-accent-contrast)",
-              border: "none",
-            }}
-            onClick={() => setShowAddForm(true)}
-          >
-            + Add Note
-          </button>
-        )}
-        {canEdit && showAddForm && (
-          <div className={styles.infoSection} style={{ marginTop: "16px" }}>
-            <input
-              placeholder="Section title (e.g., Gap Analysis, Technical Notes...)"
-              value={newKey}
-              onChange={(e) => setNewKey(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                borderRadius: "8px",
-                border: "1px solid var(--border)",
-                background: "var(--card-bg-elevated)",
-                color: "var(--text-primary)",
-                fontSize: "14px",
-                marginBottom: "8px",
-              }}
-            />
-            <textarea
-              placeholder="Note content..."
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              style={{
-                width: "100%",
-                minHeight: "100px",
-                padding: "10px",
-                borderRadius: "8px",
-                border: "1px solid var(--border)",
-                background: "var(--card-bg-elevated)",
-                color: "var(--text-primary)",
-                fontSize: "13px",
-                resize: "vertical",
-              }}
-            />
-            <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-              <button
-                className={styles.backBtn}
-                style={{
-                  background: "var(--primary-accent)",
-                  color: "var(--primary-accent-contrast)",
-                  border: "none",
-                }}
-                onClick={handleAddNote}
-                disabled={!newKey.trim()}
-              >
-                Save Note
-              </button>
-              <button
-                className={styles.backBtn}
-                onClick={() => {
-                  setShowAddForm(false);
-                  setNewKey("");
-                  setEditValue("");
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </GlassCard>
 
-      {/* Comments / Discussion */}
-      <BidComments
-        comments={bid.comments || []}
-        onAdd={canEdit ? onAddComment : undefined}
-      />
-    </div>
+        {deleted.length > 0 && (
+          <section className={styles.deletedSection}>
+            <button
+              type="button"
+              className={styles.deletedToggle}
+              aria-expanded={showDeleted}
+              onClick={() => setShowDeleted((v) => !v)}
+            >
+              {showDeleted ? (
+                <ChevronDown size={14} />
+              ) : (
+                <ChevronRight size={14} />
+              )}
+              <Trash2 size={13} />
+              Deleted notes ({deleted.length})
+            </button>
+            {showDeleted && (
+              <div className={styles.list}>
+                {deleted.map((note) => (
+                  <NoteCard key={note.id} note={note} ctx={ctx} by={by} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+      </div>
+    </GlassCard>
   );
 };

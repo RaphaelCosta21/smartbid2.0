@@ -15,7 +15,11 @@ import {
   isActiveBid,
 } from "../../utils/bidHelpers";
 import { formatHours } from "../../utils/engHoursHelpers";
-import { buildErnLinkRows, getErnLinks } from "../../utils/ernHelpers";
+import {
+  buildErnLinkRows,
+  getErnLinkPurpose,
+  getErnLinks,
+} from "../../utils/ernHelpers";
 import { getPhaseProgressByIndex } from "../../utils/phaseHelpers";
 import { countFacets, withCounts } from "../../utils/facetHelpers";
 import { StatusBadge } from "../common/StatusBadge";
@@ -151,16 +155,13 @@ export const DashboardBidTable: React.FC<DashboardBidTableProps> = ({
     return map;
   }, [erns]);
 
-  // Per-BID ERN facet values: linked/tbd + live deadline states
+  // Per-BID ERN facet values: linked/tbd (BID ERN) + live deadline states (any ERN)
   const ernStates = React.useMemo(() => {
     const map: Record<string, string[]> = {};
     bids.forEach((b) => {
       const rows = buildErnLinkRows([b], liveByTitle);
-      if (rows.length === 0) {
-        map[b.bidNumber] = ["tbd"];
-        return;
-      }
-      const values = ["linked"];
+      const hasBidErn = rows.some((r) => r.purpose === "bid");
+      const values = [hasBidErn ? "linked" : "tbd"];
       rows.forEach((r) => {
         if (r.deadline === "due-soon" || r.deadline === "overdue") {
           if (values.indexOf(r.deadline) < 0) values.push(r.deadline);
@@ -506,6 +507,9 @@ export const DashboardBidTable: React.FC<DashboardBidTableProps> = ({
                             <span key={l.ernNumber} className={styles.mono}>
                               {l.ernNumber}
                               {l.division ? ` · ${l.division}` : ""}
+                              {getErnLinkPurpose(l) === "technical-proposal"
+                                ? " · TP"
+                                : ""}
                             </span>
                           ))}
                         </span>

@@ -63,6 +63,53 @@
   --input-bg: #1a2d4a;
   --hover-bg: rgba(255, 255, 255, 0.04);
 
+  /* ─── Material: ambient → glass → liquid glass (see styles/_glass.scss) ─── */
+  --glass-blur-sm: 8px;
+  --glass-blur: 18px;
+  --glass-blur-lg: 28px;
+  --glass-saturate: 160%;
+  --glass-bg-subtle: color-mix(in srgb, var(--card-bg) 45%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--card-bg) 84%, transparent);
+  /* Specular top edge of liquid-glass surfaces */
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  /* Hairline rim that catches the light on liquid-glass surfaces */
+  --glass-rim: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.03) 42%,
+    color-mix(in srgb, var(--accent-brand) 26%, transparent) 100%
+  );
+  /* Static ambient light behind glass-heavy views (never animated) */
+  --ambient-backdrop:
+    radial-gradient(
+      55% 60% at 0% 0%,
+      color-mix(in srgb, var(--accent-brand) 10%, transparent) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      45% 55% at 100% 10%,
+      color-mix(in srgb, var(--secondary-accent) 9%, transparent) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      50% 50% at 60% 100%,
+      color-mix(in srgb, var(--tertiary-accent) 7%, transparent) 0%,
+      transparent 70%
+    );
+
+  /* ─── Soft semantic tints (badges, chips, row highlights) ─── */
+  --accent-soft: color-mix(in srgb, var(--primary-accent) 14%, transparent);
+  --success-soft: color-mix(in srgb, var(--success) 14%, transparent);
+  --warning-soft: color-mix(in srgb, var(--warning) 14%, transparent);
+  --danger-soft: color-mix(in srgb, var(--danger) 14%, transparent);
+  --info-soft: color-mix(in srgb, var(--info) 14%, transparent);
+  --focus-ring: 0 0 0 3px
+    color-mix(in srgb, var(--primary-accent) 38%, transparent);
+
+  /* ─── Finance / data-viz ─── */
+  --fin-capex: var(--primary-accent);
+  --fin-opex: var(--secondary-accent);
+
   /* Survey Portal "bid package" accent */
   --package-accent: #ffc72c;
   --package-accent-contrast: #003b5c;

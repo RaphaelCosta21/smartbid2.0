@@ -136,6 +136,28 @@
   }
 }
 
+/* ─── Drawer enter (side panels) ─── */
+@keyframes drawerInRight {
+  from {
+    opacity: 0.6;
+    transform: translateX(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ─── Scrim fade ─── */
+@keyframes overlayFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* ─── CSS Classes ─── */
 
 .fadeIn {
@@ -174,6 +196,13 @@
 }
 .bounce {
   animation: bounce 0.6s ease-in-out infinite;
+}
+.drawerInRight {
+  animation: drawerInRight var(--duration-slow, 450ms)
+    var(--ease-emphasized, ease-out) both;
+}
+.overlayFade {
+  animation: overlayFade var(--duration-base, 250ms) ease-out both;
 }
 
 /* ─── Staggered children ─── */

@@ -477,6 +477,13 @@ export const CertificationsBreakdownTab: React.FC<
         title="Certifications"
         subtitle="Certification costs for Scope items"
         icon={<BadgeCheck size={18} />}
+        sticky
+        pending={{
+          missing: withoutCostCount,
+          total: dataItems.length,
+          label: "without cost",
+          doneLabel: "All costed",
+        }}
         hero={{
           label: "Total cost (USD)",
           value: formatCurrency(totals.totalUSD),

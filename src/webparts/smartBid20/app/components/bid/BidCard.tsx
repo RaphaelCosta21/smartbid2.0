@@ -1,12 +1,16 @@
 import * as React from "react";
 import { CalendarClock, ChevronDown, StickyNote } from "lucide-react";
-import { BusinessLine, IBid, IQuickNote } from "../../models";
+import { BusinessLine, IBid, IBidNote } from "../../models";
 import { StatusBadge } from "../common/StatusBadge";
 import { BidDivisionTag } from "../common/BidDivisionTag";
 import { ConfidentialLock } from "./ConfidentialLock";
 import { getPhaseDef } from "../../config/status.config";
 import { getPhaseProgressByIndex } from "../../utils/phaseHelpers";
-import { getErnLinkForSlot, getErnLinks } from "../../utils/ernHelpers";
+import {
+  getErnLinkForSlot,
+  getErnLinkPurpose,
+  getErnLinks,
+} from "../../utils/ernHelpers";
 import {
   getBidTeams,
   getBusinessLineLabel,
@@ -15,6 +19,12 @@ import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useStatusColors } from "../../hooks/useStatusColors";
 import { formatDate, formatDaysLeft } from "../../utils/formatters";
 import { getDueFreezeDate } from "../../utils/bidHelpers";
+import {
+  createNote,
+  getBidNotes,
+  isListedNote,
+  toPersonRef,
+} from "../../utils/bidNotes";
 import { format } from "date-fns";
 import styles from "./BidCard.module.scss";
 
@@ -24,7 +34,8 @@ interface BidCardProps {
   dimmed?: boolean;
   /** Hide the division badge when the container already conveys it (Kanban column). */
   hideDivision?: boolean;
-  onNotesChange?: (bidNumber: string, notes: IQuickNote[]) => void;
+  /** Receives the full unified note list (see utils/bidNotes). */
+  onNotesChange?: (bidNumber: string, notes: IBidNote[]) => void;
 }
 
 export const BidCard: React.FC<BidCardProps> = ({
@@ -55,7 +66,10 @@ export const BidCard: React.FC<BidCardProps> = ({
 
   const [notesOpen, setNotesOpen] = React.useState(false);
   const [noteText, setNoteText] = React.useState("");
-  const notes: IQuickNote[] = bid.quickNotes || [];
+  const allNotes = getBidNotes(bid);
+  const notes = allNotes
+    .filter(isListedNote)
+    .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
 
   const engineers = (bid.engineerResponsible || [])
     .map((e) => e.name)
@@ -80,13 +94,11 @@ export const BidCard: React.FC<BidCardProps> = ({
   const handleAddNote = (e: React.MouseEvent): void => {
     e.stopPropagation();
     if (!noteText.trim()) return;
-    const newNote: IQuickNote = {
-      id: `note-${Date.now()}`,
-      text: noteText.trim(),
-      author: { name: currentUser.displayName, email: currentUser.email },
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [...notes, newNote];
+    const newNote = createNote(
+      { text: noteText, category: "comment", pinned: false },
+      toPersonRef(currentUser),
+    );
+    const updated = [...allNotes, newNote];
     setNoteText("");
     if (onNotesChange) onNotesChange(bid.bidNumber, updated);
   };
@@ -185,11 +197,17 @@ export const BidCard: React.FC<BidCardProps> = ({
               {ernLinks.length === 0
                 ? "TBD"
                 : ernLinks
-                    .map((l) =>
-                      l.division
-                        ? `${l.ernNumber} (${getBusinessLineLabel(l.division)})`
-                        : l.ernNumber,
-                    )
+                    .map((l) => {
+                      const tags = [
+                        l.division ? getBusinessLineLabel(l.division) : "",
+                        getErnLinkPurpose(l) === "technical-proposal"
+                          ? "TP"
+                          : "",
+                      ].filter(Boolean);
+                      return tags.length
+                        ? `${l.ernNumber} (${tags.join(" · ")})`
+                        : l.ernNumber;
+                    })
                     .join(", ")}
             </span>
           </>
@@ -247,7 +265,9 @@ export const BidCard: React.FC<BidCardProps> = ({
               <div className={styles.noteText}>{n.text}</div>
               <div className={styles.noteMeta}>
                 {n.author.name} ·{" "}
-                {format(new Date(n.createdAt), "dd/MM/yyyy HH:mm")}
+                {n.createdAt
+                  ? format(new Date(n.createdAt), "dd/MM/yyyy HH:mm")
+                  : ""}
               </div>
             </div>
           ))}

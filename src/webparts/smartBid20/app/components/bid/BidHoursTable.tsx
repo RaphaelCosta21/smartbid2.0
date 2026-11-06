@@ -13,7 +13,9 @@ import {
   IHoursSectionGroup,
   IEngineeringHoursSection,
   IScopeItem,
+  IBidNote,
 } from "../../models";
+import { TabNoteStamp } from "./TabNoteStamp";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { formatHours, formatCurrency } from "../../utils/formatters";
 import { IBidFx } from "../../utils/costCalculations";
@@ -36,6 +38,8 @@ interface BidHoursTableProps {
   scopeItems?: IScopeItem[];
   /** Tab-level notes/comments */
   tabNotes?: string;
+  /** Unified note behind tabNotes (author / last edit stamp) */
+  tabNotesMeta?: IBidNote;
   /** Callback to save tab-level notes */
   onSaveTabNotes?: (notes: string) => void;
   /** BID exchange rates (USD cost in the header) */
@@ -89,6 +93,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
   availableDivisions,
   scopeItems = [],
   tabNotes = "",
+  tabNotesMeta,
   onSaveTabNotes,
   fx,
   embedded,
@@ -587,6 +592,11 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
     ...(localSummary?.offshoreHours?.items || []),
   ].filter((i) => !i.isSeparator).length;
   const editCols = !readOnly && !!onSave;
+  const costUsdStat = {
+    label: "Cost (USD)",
+    value: totalCostUSD !== null ? formatCurrency(totalCostUSD) : "-",
+    sub: totalCostUSD !== null ? "at the BID PTAX" : undefined,
+  };
 
   return (
     <div className={styles.container}>
@@ -595,6 +605,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
         subtitle="Engineering, onshore and offshore hours"
         icon={<Clock size={18} />}
         compact={embedded}
+        sticky
         hero={{
           label: "Total hours",
           value: formatHours(engHours + onshoreHours + offshoreHours),
@@ -602,12 +613,9 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
         }}
         stats={[
           { label: "Cost (BRL)", value: formatCurrency(totalCostBRL, "BRL") },
-          {
-            label: "Cost (USD)",
-            value: totalCostUSD !== null ? formatCurrency(totalCostUSD) : "-",
-            sub: totalCostUSD !== null ? "at the BID PTAX" : undefined,
-          },
+          costUsdStat,
         ]}
+        pinned={[costUsdStat]}
         footer={
           fx && !embedded ? (
             <BidFxNote fx={fx} currencies={[]} requireBrl />
@@ -667,6 +675,7 @@ export const BidHoursTable: React.FC<BidHoursTableProps> = ({
             onChange={(e) => handleTabNotesChange(e.target.value)}
           />
         )}
+        <TabNoteStamp note={tabNotesMeta} />
       </div>
 
       {/* Engineering Hours — deliverable-based section */}

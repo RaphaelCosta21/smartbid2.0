@@ -40,6 +40,7 @@ import {
   NO_SUPPLIER_LABEL,
   buildSupplierRows,
   getBidContingency,
+  hasSupplierOrRef,
   summarizeSuppliers,
 } from "../../utils/bidExcelExport/rows";
 import {
@@ -182,14 +183,17 @@ export const BidExportTab: React.FC<BidExportTabProps> = ({
         label: `${formatCurrency(view.uncategorized.usd)} of assets without CAPEX/OPEX`,
       });
     }
-    const noSupplier = supplierRows.filter((r) => !r.supplier).length;
+    const noSupplier = supplierRows.filter((r) => !hasSupplierOrRef(r)).length;
     list.push(
       noSupplier > 0
         ? {
             ok: false,
-            label: `${plural(noSupplier, "procured line")} without supplier`,
+            label: `${plural(noSupplier, "procured line")} without cost ref / supplier`,
           }
-        : { ok: true, label: "Supplier informed on every procured line" },
+        : {
+            ok: true,
+            label: "Cost ref / supplier informed on every procured line",
+          },
     );
     const noLead = supplierRows.filter((r) => r.leadTime === null).length;
     list.push(

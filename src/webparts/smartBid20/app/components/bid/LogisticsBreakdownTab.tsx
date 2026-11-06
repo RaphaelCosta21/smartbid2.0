@@ -158,6 +158,13 @@ export const LogisticsBreakdownTab: React.FC<LogisticsBreakdownTabProps> = ({
         title="Logistics"
         subtitle="Freight and transport costs"
         icon={<Truck size={18} />}
+        sticky
+        pending={{
+          missing: header.withoutCost,
+          total: items.length,
+          label: "without cost",
+          doneLabel: "All costed",
+        }}
         hero={{
           label: "Total cost (USD)",
           value: formatCurrency(totals.totalUSD),

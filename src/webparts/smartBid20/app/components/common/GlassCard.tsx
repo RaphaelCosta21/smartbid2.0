@@ -13,9 +13,16 @@ interface GlassCardProps {
   interactive?: boolean;
   /** Removes the default body padding (e.g. for edge-to-edge tables). */
   noBodyPadding?: boolean;
+  /** Material: default glass, a lighter "subtle" tile, or a static "liquid" anchor surface. */
+  variant?: "default" | "subtle" | "liquid";
   children: React.ReactNode;
   className?: string;
 }
+
+const VARIANT_CLASS: Record<string, string> = {
+  subtle: styles.subtle,
+  liquid: styles.liquid,
+};
 
 export const GlassCard: React.FC<GlassCardProps> = ({
   title,
@@ -25,6 +32,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   accentColor,
   interactive,
   noBodyPadding,
+  variant,
   children,
   className,
 }) => {
@@ -32,9 +40,9 @@ export const GlassCard: React.FC<GlassCardProps> = ({
 
   return (
     <div
-      className={`${styles.glassCard} ${interactive ? styles.interactive : ""} ${
-        noBodyPadding ? styles.flush : ""
-      } ${className || ""}`}
+      className={`${styles.glassCard} ${(variant && VARIANT_CLASS[variant]) || ""} ${
+        interactive ? styles.interactive : ""
+      } ${noBodyPadding ? styles.flush : ""} ${className || ""}`}
     >
       {accentColor && (
         <span className={styles.accent} style={{ background: accentColor }} />

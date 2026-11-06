@@ -37,6 +37,8 @@ export interface IErn {
   lead: string;
   leadEmail: string;
   leadDate: string;
+  /** SharePoint Created date — ISO string (timeline start) */
+  created: string;
 }
 
 /** Payload written to SharePoint when creating a new ERN. */
@@ -88,7 +90,16 @@ export interface IErnCreateResult {
   title: string;
   status: string;
   dueDate: string;
+  checkerDueDate: string;
+  leadDate: string;
 }
 
 /** ERN deadline urgency state (for reminders). */
 export type ErnDeadlineState = "none" | "ok" | "due-soon" | "overdue";
+
+/**
+ * Who holds an open ERN right now, derived from its status:
+ * engineering = Responsible (Eng. Due Date), checker = Checker (Checker Due Date),
+ * lead = Lead (Lead Date).
+ */
+export type ErnStage = "engineering" | "checker" | "lead";

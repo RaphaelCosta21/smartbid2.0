@@ -9,6 +9,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
   Clock,
   ExternalLink,
   LayoutDashboard,
@@ -24,11 +25,23 @@ import {
 } from "../../hooks/useLiveOverview";
 import { DashboardSync } from "../../hooks/useDashboardSync";
 import {
+  compareErnUrgency,
+  ERN_GENERAL_SUPPORT_TITLE,
+  ERN_STAGE_DATE_LABELS,
+  ERN_STAGE_ROLES,
   ErnWatchFilter,
+  ErnWatchScope,
   getErnCountdownLabel,
+  getErnPeople,
+  getErnRowTags,
+  getErnScopedDeadline,
+  getErnStageOwner,
   IErnLinkRow,
-  isErnAssignedTo,
+  isErnHandedOver,
+  isErnResponsible,
+  isErnWaitingOn,
   matchesErnWatchFilter,
+  matchesErnWatchScope,
 } from "../../utils/ernHelpers";
 import { IPendingApprovalRow } from "../../utils/approvalHelpers";
 import { IUpcomingDeadline } from "../../utils/bidHelpers";
@@ -37,6 +50,7 @@ import { getPhaseDef } from "../../config/status.config";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
 import { SegmentedControl, SegmentOption } from "../insights/SegmentedControl";
 import { StatusBadge } from "../common/StatusBadge";
+import { UserAvatar } from "../common/UserAvatar";
 import { ConfidentialLock } from "../bid/ConfidentialLock";
 import { prefersReducedMotion } from "../dashboard/LiveFocusOverlay";
 import styles from "./LivePulsePanel.module.scss";
@@ -117,11 +131,13 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
-function ernTone(r: IErnLinkRow): string {
+function ernTone(r: IErnLinkRow, scope: ErnWatchScope = "all"): string {
   if (r.onHold) return styles.toneMuted;
-  if (r.deadline === "overdue") return styles.toneDanger;
-  if (r.deadline === "due-soon") return styles.toneWarning;
-  if (r.deadline === "none") return styles.toneMuted;
+  if (isErnHandedOver(r, scope)) return styles.toneInfo;
+  const d = getErnScopedDeadline(r, scope);
+  if (d === "overdue") return styles.toneDanger;
+  if (d === "due-soon") return styles.toneWarning;
+  if (d === "none") return styles.toneMuted;
   return styles.toneOk;
 }
 
@@ -193,7 +209,7 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
   const { ernRows, ernKpis, approvals, deadlines } = live;
   const [tab, setTab] = React.useState<Tab>("erns");
   const [ernFilter, setErnFilter] = React.useState<ErnWatchFilter>("open");
-  const [mine, setMine] = React.useState(false);
+  const [ernScope, setErnScope] = React.useState<ErnWatchScope>("all");
   const [detail, setDetail] = React.useState<DetailRef | null>(null);
   const [showAllUpdates, setShowAllUpdates] = React.useState(false);
   const [direction, setDirection] = React.useState<"forward" | "back">(
@@ -209,12 +225,23 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
     () => ernRows.filter((r) => !r.closed),
     [ernRows],
   );
-  const ernScoped = mine
-    ? openErns.filter((r) => isErnAssignedTo(r.ern, userEmail))
-    : openErns;
+  const ernScoped =
+    ernScope === "all"
+      ? openErns
+      : openErns
+          .filter((r) => matchesErnWatchScope(r, ernScope, userEmail))
+          .sort((a, b) => compareErnUrgency(a, b, ernScope));
   const ernVisible = ernScoped.filter((r) =>
-    matchesErnWatchFilter(r, ernFilter),
+    matchesErnWatchFilter(r, ernFilter, ernScope),
   );
+  const mineCount = openErns.filter((r) =>
+    isErnResponsible(r.ern, userEmail),
+  ).length;
+  const reviewCount = openErns.filter((r) =>
+    isErnWaitingOn(r, userEmail),
+  ).length;
+  const toggleErnScope = (s: ErnWatchScope): void =>
+    setErnScope((cur) => (cur === s ? "all" : s));
   const soonBids = deadlines.filter((d) => d.days <= SOON_BID_DAYS).length;
 
   const openDetail = (kind: Tab, key: string): void => {
@@ -263,23 +290,37 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
     if (ernVisible.length === 0) {
       return (
         <div className={styles.empty}>
-          {mine ? "No ERN assigned to you here." : "Nothing here. All clear."}
+          {ernScope === "mine"
+            ? "No ERN where you are the Responsible here."
+            : ernScope === "review"
+              ? "No ERN waiting on you here."
+              : "Nothing here. All clear."}
         </div>
       );
     }
     return ernVisible.slice(0, LIST_LIMIT).map((r, i) => {
       const project =
         r.ern?.projectTitle ||
-        r.bid.opportunityInfo?.projectName ||
-        r.bid.bidNumber;
+        r.bid?.opportunityInfo?.projectName ||
+        r.bid?.bidNumber ||
+        r.ernNumber;
+      const owner = getErnStageOwner(r);
       return (
         <button
           key={r.ernNumber}
           type="button"
-          className={rowClass(`ern:${r.ernNumber}`, ernTone(r))}
+          className={rowClass(`ern:${r.ernNumber}`, ernTone(r, ernScope))}
           style={itemStyle(i)}
           onClick={() => openDetail("erns", r.ernNumber)}
         >
+          {owner ? (
+            <UserAvatar
+              name={owner.name || owner.email}
+              email={owner.email}
+              size={24}
+              title={`${owner.role}: ${owner.name}`}
+            />
+          ) : null}
           <span className={styles.rowMain}>
             <span className={styles.rowTitle}>
               {newMark(`ern:${r.ernNumber}`)}
@@ -287,11 +328,13 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
               <span className={styles.rowTitleText}>{project}</span>
             </span>
             <span className={styles.rowMeta}>
-              {r.bid.bidNumber}
+              {r.bid ? r.bid.bidNumber : ERN_GENERAL_SUPPORT_TITLE}
               {r.ern?.resource1 ? ` · ${r.ern.resource1}` : ""}
             </span>
           </span>
-          <span className={styles.pill}>{getErnCountdownLabel(r)}</span>
+          <span className={styles.pill}>
+            {getErnCountdownLabel(r, ernScope)}
+          </span>
           <ChevronRight size={14} className={styles.rowChevron} />
         </button>
       );
@@ -497,49 +540,73 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
     const ern = r.ern;
     const bid = r.bid;
     const project =
-      ern?.projectTitle || bid.opportunityInfo?.projectName || bid.bidNumber;
+      ern?.projectTitle ||
+      bid?.opportunityInfo?.projectName ||
+      bid?.bidNumber ||
+      r.ernNumber;
+    const open = !r.closed && !r.onHold;
+    const tags = getErnRowTags(r).filter(
+      (t) => t !== ERN_GENERAL_SUPPORT_TITLE,
+    );
     return (
       <>
-        <div className={`${styles.detailHead} ${ernTone(r)}`}>
+        <div className={`${styles.detailHead} ${ernTone(r, ernScope)}`}>
           <span className={styles.mono}>
             {r.ernNumber}
-            {r.division
-              ? ` · ${r.division === "SURVEY" ? "Survey" : r.division}`
-              : ""}
+            {tags.length > 0 ? ` · ${tags.join(" · ")}` : ""}
           </span>
-          <span className={styles.pillLg}>{getErnCountdownLabel(r)}</span>
+          <span className={styles.pillLg}>
+            {getErnCountdownLabel(r, ernScope)}
+          </span>
         </div>
         <h3 className={styles.detailTitle}>{project}</h3>
         <div className={styles.detailMeta}>
           <span className={styles.chip}>{r.status}</span>
-          {bid.bidNumber}
-          {bid.opportunityInfo?.client
+          {bid ? bid.bidNumber : ERN_GENERAL_SUPPORT_TITLE}
+          {bid?.opportunityInfo?.client
             ? ` · ${bid.opportunityInfo.client}`
             : ""}
         </div>
+        <ul className={styles.people}>
+          {getErnPeople(ern).map((p, i) => {
+            const current = open && p.stage === r.stage;
+            return (
+              <li
+                key={p.stage}
+                className={styles.personRow}
+                style={itemStyle(i)}
+              >
+                <UserAvatar
+                  name={p.name || p.email}
+                  email={p.email}
+                  size={26}
+                  ring={current}
+                />
+                <span className={styles.personInfo}>
+                  <span className={styles.personName}>{p.name || "-"}</span>
+                  <span className={styles.personSector}>
+                    {p.role}
+                    {p.dueDate
+                      ? ` · ${ERN_STAGE_DATE_LABELS[p.stage]} ${formatDate(p.dueDate, "MMM d")}`
+                      : ""}
+                  </span>
+                </span>
+                {current && (
+                  <span
+                    className={`${styles.personStatus} ${styles.toneWarning}`}
+                  >
+                    <Clock size={12} />
+                    With {ERN_STAGE_ROLES[p.stage]}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
         <div className={styles.fields}>
           <Field
-            label="Eng. due date"
-            value={r.dueDate ? formatDate(r.dueDate) : ""}
-          />
-          <Field label="Responsible" value={ern?.resource1} />
-          <Field
-            label="Checker"
-            value={ern?.checker}
-            hint={
-              ern?.checkerDueDate
-                ? `due ${formatDate(ern.checkerDueDate, "MMM d")}`
-                : undefined
-            }
-          />
-          <Field
-            label="Lead"
-            value={ern?.lead}
-            hint={ern?.leadDate ? formatDate(ern.leadDate, "MMM d") : undefined}
-          />
-          <Field
             label="Service line"
-            value={ern?.serviceLine || bid.serviceLine}
+            value={ern?.serviceLine || bid?.serviceLine}
           />
           <Field label="Deliverable" value={ern?.deliverableType} />
           <Field label="Project number" value={ern?.projectNumber} />
@@ -548,7 +615,7 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
           <div className={styles.description}>{ern.description}</div>
         )}
         <div className={styles.detailActions}>
-          {openBidBtn(bid.bidNumber)}
+          {bid && openBidBtn(bid.bidNumber)}
           <a
             className={styles.secondaryBtn}
             href={SHAREPOINT_CONFIG.ern.appUrl}
@@ -854,17 +921,29 @@ export const LivePulsePanel: React.FC<LivePulsePanelProps> = ({
                 ))}
                 <button
                   type="button"
-                  className={`${styles.chipBtn} ${styles.mineBtn} ${mine ? styles.chipActive : ""}`}
-                  onClick={() => setMine((m) => !m)}
-                  aria-pressed={mine}
-                  title="Only ERNs where I am the responsible, checker or lead"
+                  className={`${styles.chipBtn} ${styles.mineBtn} ${ernScope === "mine" ? styles.chipActive : ""}`}
+                  onClick={() => toggleErnScope("mine")}
+                  aria-pressed={ernScope === "mine"}
+                  title="Only ERNs where I am the Responsible. They count as late only while still with me."
                 >
-                  <UserRound size={12} /> Mine
+                  <UserRound size={12} /> Mine {mineCount}
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.chipBtn} ${ernScope === "review" ? styles.chipActive : ""}`}
+                  onClick={() => toggleErnScope("review")}
+                  aria-pressed={ernScope === "review"}
+                  title="ERNs waiting on me as Checker or Lead"
+                >
+                  <ClipboardCheck size={12} /> To review {reviewCount}
                 </button>
               </div>
             )}
 
-            <div key={`${tab}-${ernFilter}-${mine}`} className={styles.list}>
+            <div
+              key={`${tab}-${ernFilter}-${ernScope}`}
+              className={styles.list}
+            >
               {tab === "erns"
                 ? renderErnList()
                 : tab === "approvals"

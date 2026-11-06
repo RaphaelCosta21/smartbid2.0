@@ -11,6 +11,11 @@ import { IBid } from "../models";
 import { getPhaseLabel } from "../config/phases.config";
 import { getSubStatusDef } from "../config/status.config";
 import { formatDate, formatDaysLeft } from "../utils/formatters";
+import {
+  REQUEST_NOTES_KEY,
+  getBidNotes,
+  isActiveNote,
+} from "../utils/bidNotes";
 import styles from "./BidBoardPage.module.scss";
 
 export const BidBoardPage: React.FC = () => {
@@ -94,12 +99,14 @@ export const BidBoardPage: React.FC = () => {
                 const phaseLabel = getPhaseLabel(bid.currentPhase);
                 const subStatusDef = getSubStatusDef(bid.currentStatus);
 
-                // Pick a notes string from bidNotes (first non-empty)
-                const notesText = bid.bidNotes
-                  ? Object.values(bid.bidNotes).find(
-                      (n) => typeof n === "string" && n.trim().length > 0,
-                    )
-                  : undefined;
+                // Commercial request notes first, then the first pinned BID note
+                const requestNotes = (bid.bidNotes || {})[REQUEST_NOTES_KEY];
+                const pinnedNote = getBidNotes(bid).find(
+                  (n) => isActiveNote(n) && n.pinned && !!n.text.trim(),
+                );
+                const notesText =
+                  (requestNotes && requestNotes.trim()) ||
+                  (pinnedNote ? pinnedNote.text : undefined);
 
                 return (
                   <div

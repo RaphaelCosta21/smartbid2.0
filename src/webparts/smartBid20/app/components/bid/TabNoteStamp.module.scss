@@ -1,0 +1,26 @@
+.stamp {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: var(--text-2xs, 10.5px);
+  color: var(--text-muted);
+
+  strong {
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+}
+
+.pinned {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+  border-radius: 6px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--border-subtle);
+}

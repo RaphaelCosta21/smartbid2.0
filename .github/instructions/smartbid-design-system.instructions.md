@@ -105,6 +105,47 @@ Users pick a **color theme** in System Configuration > System > Theme Selector (
 - `--shadow-card`, `--shadow-card-hover`, `--shadow-glow` — never invent new shadows.
 - `--overlay-bg` — modal/scrim background. `--scrollbar-thumb` / `--scrollbar-track` for custom scrollbars.
 
+### Material: ambient → glass → liquid glass
+
+Three depth levels. Keep the hierarchy: most surfaces are plain glass; liquid glass is reserved
+for a few **floating anchors** (a page hero, a floating toolbar, a side drawer) so it keeps its meaning.
+
+| Level           | Use                                                       | How                                                                                     |
+| --------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Ambient         | Static light behind glass-heavy views (never animated)    | `@include ambient-backdrop` (`--ambient-backdrop`)                                      |
+| Glass           | Cards, tiles, panels                                      | `GlassCard` (default / `variant="subtle"`) or `@include glass-surface($tier)`           |
+| Liquid glass    | Hero, floating toolbar, drawer, popover menu (≤ 3 per view) | `GlassCard variant="liquid"` or `@include liquid-glass($radius)` (rim + specular edge) |
+
+| Token                                        | Purpose                                                       |
+| -------------------------------------------- | ------------------------------------------------------------- |
+| `--glass-blur-sm` / `--glass-blur` / `--glass-blur-lg` | Blur radius per tier (8 / 18 / 28px)                  |
+| `--glass-saturate`                           | Backdrop saturation of liquid glass                           |
+| `--glass-bg-subtle` / `--glass-bg` / `--glass-bg-strong` | Glass fill per tier (derived from `--card-bg`)    |
+| `--glass-sheen` / `--glass-edge` / `--glass-rim` | Corner light, specular top edge, gradient hairline rim    |
+| `--ambient-backdrop`                         | Accent / secondary / tertiary radial glows                    |
+
+Mixins live in `styles/_glass.scss` (partial — `@import "../../styles/glass";`): `glass-surface($tier)`,
+`liquid-glass($radius)`, `ambient-backdrop`, `eyebrow`, `figure`, `panel-scroll`, `focus-ring`.
+Never hardcode a `backdrop-filter` blur in new code — use the tokens / mixins.
+In SCSS, write the CSS filter as `unquote("saturate(var(--glass-saturate))")` (Sass has its own `saturate()`).
+
+### Soft tints, focus & finance
+
+- `--accent-soft`, `--success-soft`, `--warning-soft`, `--danger-soft`, `--info-soft` — ready-made
+  backgrounds for chips, badges and highlighted rows. Prefer them over inline `color-mix(...)`.
+- `--focus-ring` — keyboard focus for custom controls (`@include focus-ring`).
+- `--fin-capex` / `--fin-opex` — CAPEX vs OPEX everywhere (`useChartTheme().capex` / `.opex` in JS).
+
+### Typography & motion tokens (theme-agnostic, in `globals.module.scss`)
+
+- Fonts: `--font-sans` (Inter, body), `--font-display` (Montserrat — hero titles and headline
+  figures only), `--font-mono` (JetBrains Mono — identifiers).
+- Scale: `--text-2xs` 10.5 · `--text-xs` 11.5 · `--text-sm` 12.5 · `--text-md` 14 · `--text-lg` 16 ·
+  `--text-xl` 20 · `--text-2xl` 26 · `--text-display` 40. Eyebrows: uppercase + `--tracking-eyebrow`.
+- Money, hours and counts use tabular figures (`@include figure`).
+- Motion: `--duration-fast` 150ms · `--duration-base` 250ms · `--duration-slow` 450ms;
+  `--ease-standard` for state changes, `--ease-emphasized` for surfaces entering the screen.
+
 > When you add a new token, add it to **both** `dark.module.scss` and `light.module.scss`.
 
 ## Spacing, Radius & Motion
@@ -115,14 +156,19 @@ Users pick a **color theme** in System Configuration > System > Theme Selector (
 - **Transitions**: `250ms ease` for hover transforms; `300–600ms` for interactive fills/progress.
 - **Hover**: cards lift `translateY(-2px)` + upgrade to `--shadow-card-hover` + brighten border;
   bars go to `opacity: .9`.
-- Prefer the shared keyframes in `styles/animations.module.scss` over ad-hoc `@keyframes`.
+- Prefer the shared keyframes in `styles/animations.module.scss` over ad-hoc `@keyframes`
+  (import the module and apply its class, e.g. `animations.drawerInRight`, `animations.overlayFade`).
 - Respect `prefers-reduced-motion` for non-essential motion.
+- One headline figure per view may count up (`common/AnimatedNumber`); everything else renders
+  statically. No stacked or looping effects on data views.
 
 ## Core Components — reuse before building
 
 | Need              | Component                                                     | Notes                                                                                                          |
 | ----------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Container / panel | `common/GlassCard`                                            | Props: `title`, `subtitle`, `actions`, `accentColor`, `interactive`, `noBodyPadding`. Backdrop blur ~18px.     |
+| Container / panel | `common/GlassCard`                                            | Props: `title`, `subtitle`, `actions`, `accentColor`, `interactive`, `noBodyPadding`, `variant` (`default` · `subtle` · `liquid`). |
+| Side drawer       | `common/SideDrawer`                                           | Floating liquid-glass panel for drill-downs: `onBack` (stack), `onPrev`/`onNext` (← / →), `contentKey`. Rendered inline (works in fullscreen) — keep it out of ancestors with transform/filter. |
+| Headline figure   | `common/AnimatedNumber`                                       | Short count-up for the single main total of a view; respects reduced motion.                                   |
 | Metric tile       | `common/KPICard`                                              | Props: `label`, `value`, `accentColor`, `trend`, `subtitle`, `progress`; `variant="glass"` + `sparkline` slot. |
 | Empty state       | `common/EmptyState`                                           | Supports `variant="glass"`.                                                                                    |
 | Loading           | `common/SkeletonLoader`                                       | Use skeletons, not spinners, for content areas.                                                                |
@@ -130,6 +176,7 @@ Users pick a **color theme** in System Configuration > System > Theme Selector (
 | Filters           | `common/FilterPanel` / `insights/AnalyticsFilterBar`          | Use `AnalyticsFilterBar` (+ `useAnalyticsFilters`) on analytics pages.                                         |
 | Badges            | `PriorityBadge`, `StatusBadge`, `PhaseBadge`, `DivisionBadge` | All config-color aware — do not restyle with inline hex.                                                       |
 | BID division      | `common/BidDivisionTag`                                       | Division + service line of a BID; INTEGRATED BIDs render one segment per team (lead first). Use it everywhere. |
+| BID tab header    | `bid/BidTabHeader` (+ `useStickyCollapse`)                    | `sticky` pins it on scroll as a slim glass bar (auto-collapsed, restored at the top); `pinned` stats and `pending` (missing-items ring) show in the slim bar. |
 | Toasts            | `useUIStore.addToast` + `ToastContainer`                      | Don't build one-off notifications.                                                                             |
 
 ## Charts (Recharts)
@@ -145,13 +192,32 @@ Users pick a **color theme** in System Configuration > System > Theme Selector (
   - Status / phase / division series → `useStatusColors()` (config-driven).
   - Generic non-semantic series → `categoricalColor(index)` / `theme.categorical`.
 - **Reuse the charts kit** in `components/charts/`: `ChartTooltip` (always pass as Recharts
-  `content`), `Sparkline`, `HeatmapGrid`. Wrap every chart in a `GlassCard`.
+  `content`), `Sparkline`, `HeatmapGrid`, `ParetoChart`, `SupplierQuoteBars`, plus the custom
+  SVG/HTML charts below. Wrap every chart in a `GlassCard`.
+
+  | Chart            | Answers                                   | Notes                                                                 |
+  | ---------------- | ----------------------------------------- | --------------------------------------------------------------------- |
+  | `WaterfallChart` | How a total is built, step by step        | Floating bars + connectors + total bar; steps are clickable.          |
+  | `TreemapChart`   | Part-to-whole with many parts / drill-down | Squarified HTML tiles; tail folds into "Other" (`TREEMAP_OTHER_KEY`). |
+  | `SunburstChart`  | Two-level part-to-whole                   | Recharts: groups inner ring, children outer ring (same hue, fading).  |
+  | `RingGauge`      | A split (`semi`) or a progress (`full`)   | Compact SVG; center content via children.                             |
+  | `BulletBar`      | A value against a reference (inline)      | Micro-chart for list rows (e.g. price vs. historical median).         |
+  | `DotStripPlot`   | Where one value sits among observations   | Dots on one axis + dashed median; highlights "this" value.            |
+
+  Custom charts size themselves with `useElementSize()`. Pass **resolved hex colors** (from
+  `useChartTheme()`) to SVG fills/strokes/text as attributes — `html2canvas` (PDF capture) does not
+  apply stylesheet classes or `var()` inside SVG.
+- **One visual per question.** On a data page, don't repeat the same chart type for different
+  questions — pick the type from what is asked (below) and use cards for plain facts.
 - **Chart-type selection** (lean on the `ui-ux-pro-max` charts data for ideas, then implement in Recharts):
   - Trend over time → `LineChart` / `AreaChart` / `ComposedChart` (win-vs-loss, volume).
-  - Part-to-whole → `PieChart` (donut) — prefer donut with a center total.
+  - Part-to-whole → `PieChart` (donut) — prefer donut with a center total; `TreemapChart` for many
+    parts or a drill-down; `SunburstChart` for two levels.
+  - Build-up of a total → `WaterfallChart`.
   - Category comparison → `BarChart` (horizontal for long labels).
-  - Distribution / density → `HeatmapGrid` (e.g., division × phase).
-  - KPI micro-trend → `Sparkline` inside a glass `KPICard`.
+  - Ranking with a reference → list rows + `BulletBar`.
+  - Distribution / density → `HeatmapGrid` (e.g., division × phase); one value vs. history → `DotStripPlot`.
+  - KPI micro-trend → `Sparkline` inside a glass `KPICard`; share / split → `RingGauge`.
 - Keep charts responsive (`ResponsiveContainer`), show empty/loading states, and label axes.
 
 ## Working with the `ui-ux-pro-max` skill
@@ -175,5 +241,7 @@ When you use it:
 - [ ] Looks correct in **both** dark and light mode.
 - [ ] New SCSS classes mirrored in the `.module.scss.ts` shim.
 - [ ] Reused existing components (GlassCard/KPICard/DataTable/badges) instead of re-building.
+- [ ] Glass via tokens/mixins (`_glass.scss`); liquid glass only on floating anchors (≤ 3 per view).
+- [ ] Each chart answers a different question; details go to a `SideDrawer`, not inline expansion.
 - [ ] Responsive down to ~900px; empty + loading states handled.
 - [ ] `gulp bundle` passes clean (catches Recharts/TS4.7 issues the editor hides).

@@ -38,6 +38,7 @@ export class ErnService {
     ERN.lead,
     ERN.leadEmail,
     ERN.leadDate,
+    "Created",
   ];
 
   /** Fetch all ERNs (top 5000). Falls back to all fields if a select fails. */
@@ -141,6 +142,8 @@ export class ErnService {
       title,
       status: created?.status || "Open",
       dueDate: created?.dueDate || data.field_4,
+      checkerDueDate: created?.checkerDueDate || data.CheckerDueDate,
+      leadDate: created?.leadDate || data.LeadDate,
     };
   }
 
@@ -223,6 +226,7 @@ export class ErnService {
       lead: item[ERN.lead] || "",
       leadEmail: item[ERN.leadEmail] || "",
       leadDate: item[ERN.leadDate] || "",
+      created: item.Created || "",
     };
   }
 }

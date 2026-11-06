@@ -81,7 +81,13 @@ export function buildInfoSheet(ctx: IBidExcelContext): void {
   kv("Revision", ctx.revision);
   kv("CRM Number", bid.crmNumber);
   const erns = (bid.ernLinks || [])
-    .map((e) => (e.division ? `${e.ernNumber} (${e.division})` : e.ernNumber))
+    .map((e) => {
+      const tags = [
+        e.division,
+        e.purpose === "technical-proposal" ? "TP" : "",
+      ].filter(Boolean);
+      return tags.length ? `${e.ernNumber} (${tags.join(" · ")})` : e.ernNumber;
+    })
     .filter(Boolean);
   kv("ERN", erns.length ? erns.join("; ") : bid.ernNumber || "");
   kv("Division", bid.division);

@@ -29,6 +29,8 @@ import {
   getBidFx,
 } from "./costCalculations";
 import { formatDate } from "./formatters";
+import { REQUEST_NOTES_KEY, getBidNotes, isListedNote } from "./bidNotes";
+import { getNoteCategoryDef } from "../config/noteCategories.config";
 import { getApprovalTracks, getLatestTrackRound } from "./approvalTracks";
 
 export const PAST_BID_DOC_TYPE = "Past Bid";
@@ -178,7 +180,13 @@ function identification(bid: IBid, num: number): string[] {
   const opp = bid.opportunityInfo || ({} as IBid["opportunityInfo"]);
   const ernNumbers =
     bid.ernLinks && bid.ernLinks.length
-      ? bid.ernLinks.map((l) => l.ernNumber).join(", ")
+      ? bid.ernLinks
+          .map((l) =>
+            l.purpose === "technical-proposal"
+              ? `${l.ernNumber} (Technical Proposal)`
+              : l.ernNumber,
+          )
+          .join(", ")
       : bid.ernNumber || "";
   return [
     heading(2, `${num} Identification`),
@@ -287,9 +295,16 @@ function description(bid: IBid, num: number): string[] {
   add("Project Description", richText(bid.opportunityInfo?.projectDescription));
   add("Engineer BID Overview", richText(bid.engineerBidOverview));
   const notes = bid.bidNotes || {};
-  Object.keys(notes).forEach((key) =>
-    add(`BID Notes ${key}`, richText(notes[key])),
-  );
+  if (notes[REQUEST_NOTES_KEY])
+    add("Request Notes", richText(notes[REQUEST_NOTES_KEY]));
+  getBidNotes(bid)
+    .filter(isListedNote)
+    .forEach((note) =>
+      add(
+        `BID Notes ${note.title || getNoteCategoryDef(note.category).label}`,
+        richText(note.text),
+      ),
+    );
   return blocks.length ? [heading(2, `${num} Description`)].concat(blocks) : [];
 }
 

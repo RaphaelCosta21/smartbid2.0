@@ -12,6 +12,7 @@ import {
 import {
   NO_SUPPLIER_LABEL,
   buildSupplierRows,
+  hasSupplierOrRef,
   summarizeSuppliers,
 } from "../rows";
 
@@ -78,7 +79,7 @@ export function buildSuppliersSheet(ctx: IBidExcelContext): void {
   const longest = leads.length ? Math.max(...leads) : 0;
   const suppliers = summarizeSuppliers(rows);
   const named = suppliers.filter((s) => s.supplier !== NO_SUPPLIER_LABEL);
-  const noSupplier = rows.filter((r) => !r.supplier).length;
+  const noSupplier = rows.filter((r) => !hasSupplierOrRef(r)).length;
   const noLead = rows.filter((r) => r.leadTime === null).length;
   x.kpis([
     {
@@ -99,7 +100,7 @@ export function buildSuppliersSheet(ctx: IBidExcelContext): void {
       to: 4,
     },
     {
-      label: "Lines without supplier",
+      label: "Lines without cost ref / supplier",
       value: noSupplier,
       sub: noSupplier > 0 ? "Check before pricing" : "All informed",
       from: 5,
@@ -136,11 +137,13 @@ export function buildSuppliersSheet(ctx: IBidExcelContext): void {
         pn: r.partNumber,
         qty: { value: r.qty, numFmt: qtyFmt(r.qty) },
         acq: r.acqType,
-        supplier: r.supplier || {
-          value: "Not informed",
-          italic: true,
-          color: XL_COLORS.warningText,
-        },
+        supplier: hasSupplierOrRef(r)
+          ? r.supplier
+          : {
+              value: "Not informed",
+              italic: true,
+              color: XL_COLORS.warningText,
+            },
         costRef: r.costRef,
         quote: r.quoteRef,
         dateRef: toExcelDate(r.dateRef),
@@ -184,7 +187,7 @@ export function buildSuppliersSheet(ctx: IBidExcelContext): void {
 
   x.sectionTitle("By Supplier", span, "Sorted by total cost");
   const ranges: IXlRange[] = [
-    { header: "Supplier", width: 0, from: 1, to: 2 },
+    { header: "Supplier / Cost Ref", width: 0, from: 1, to: 2 },
     {
       header: "Lines",
       width: 0,

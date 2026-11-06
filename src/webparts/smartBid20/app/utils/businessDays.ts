@@ -47,13 +47,24 @@ export function calculatePriority(
  * Get today's date as YYYY-MM-DD for input[type=date].
  */
 export function getTodayISO(): string {
-  const d = new Date();
+  return toLocalDateInput(new Date());
+}
+
+/** Local YYYY-MM-DD for input[type=date]. */
+export function toLocalDateInput(d: Date): string {
   const yyyy = d.getFullYear();
   const m = d.getMonth() + 1;
   const day = d.getDate();
   const mm = m < 10 ? "0" + m : "" + m;
   const dd = day < 10 ? "0" + day : "" + day;
   return `${yyyy}-${mm}-${dd}`;
+}
+
+/** `days` calendar days after `from`, moved to the next Monday when it lands on a weekend. */
+export function addDaysOnBusinessDay(from: Date, days: number): Date {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + days);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return d;
 }
 
 /**

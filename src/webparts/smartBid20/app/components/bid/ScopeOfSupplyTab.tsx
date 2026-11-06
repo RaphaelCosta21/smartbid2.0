@@ -36,7 +36,9 @@ import {
   IAIImportMeta,
   IQualificationItem,
   IQualificationTable,
+  IBidNote,
 } from "../../models";
+import { TabNoteStamp } from "./TabNoteStamp";
 import { useConfigStore } from "../../stores/useConfigStore";
 import { useFavoritesStore } from "../../stores/useFavoritesStore";
 import { useBidStore } from "../../stores/useBidStore";
@@ -117,6 +119,8 @@ interface ScopeOfSupplyTabProps {
   templateId?: string;
   /** Tab-level notes/comments */
   tabNotes?: string;
+  /** Unified note behind tabNotes (author / last edit stamp) */
+  tabNotesMeta?: IBidNote;
   /** Callback to save tab-level notes */
   onSaveTabNotes?: (notes: string) => void;
   /** Callback to merge imported engineering hours into the BID */
@@ -246,6 +250,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
   onAiImport,
   templateId,
   tabNotes = "",
+  tabNotesMeta,
   onSaveTabNotes,
   onImportEngHours,
   currentDivision,
@@ -800,7 +805,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
     if (untyped > 0) {
       byResourceType.push({ label: "No type", value: untyped, neutral: true });
     }
-    return { stats, byResourceType };
+    return { stats, byResourceType, untyped };
   }, [dataItems, resourceTypeCounts]);
 
   // Resource type sub-tab filter (e.g. "All" / "ROV Asset" / "Tooling")
@@ -1841,12 +1846,19 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
         subtitle="Items and sections offered to the client"
         icon={<ClipboardList size={18} />}
         compact={embedded}
+        sticky
         hero={{
           label: "Scope items",
           value: formatNumber(dataItems.length),
           sub: `in ${sections.length} section${sections.length !== 1 ? "s" : ""}`,
         }}
         stats={headerStats.stats}
+        pending={{
+          missing: headerStats.untyped,
+          total: dataItems.length,
+          label: "without type",
+          doneLabel: "All typed",
+        }}
       >
         <ShareBar
           title="By resource type"
@@ -1874,6 +1886,7 @@ export const ScopeOfSupplyTab: React.FC<ScopeOfSupplyTabProps> = ({
             onChange={(e) => handleTabNotesChange(e.target.value)}
           />
         )}
+        <TabNoteStamp note={tabNotesMeta} />
       </div>
 
       {/* Toolbar */}

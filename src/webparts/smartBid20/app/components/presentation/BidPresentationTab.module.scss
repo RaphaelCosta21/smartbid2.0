@@ -1,41 +1,65 @@
-.page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
+@import "../../styles/glass";
 
-.section {
+.root {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
 
-.sectionHead {
-  h2 {
-    margin: 4px 0 0;
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--text-primary);
+  /* Static ambient light: gives the glass surfaces something to refract */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -20px 0 0;
+    z-index: -1;
+    pointer-events: none;
+    @include ambient-backdrop;
+    background-size: 100% 100%;
   }
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--primary-accent);
-}
-
-.hint {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: var(--text-secondary);
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 16px;
+}
+
+.span5 {
+  grid-column: span 5;
+  min-width: 0;
+}
+
+.span6 {
+  grid-column: span 6;
+  min-width: 0;
+}
+
+.span7 {
+  grid-column: span 7;
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .span5,
+  .span6,
+  .span7 {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Present mode: the page owns the viewport (browser fullscreen when allowed) */
+.presenting {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 32px 32px;
+  background: var(--main-bg);
+
+  &::before {
+    position: fixed;
+    inset: 0;
+  }
 }

@@ -37,6 +37,9 @@ export interface ChartTheme {
   categorical: string[];
   /** Subtle fill for reference areas / target bands. */
   referenceFill: string;
+  /** CAPEX / OPEX series (mirror --fin-capex / --fin-opex). */
+  capex: string;
+  opex: string;
 }
 
 const CATEGORICAL_REST = [
@@ -100,11 +103,16 @@ export function useChartTheme(): ChartTheme {
   const colorTheme = useColorTheme();
   return React.useMemo(() => {
     const base = theme === "dark" ? DARK_BASE : LIGHT_BASE;
-    return {
+    const merged = {
       ...base,
       ...(colorTheme.chart && colorTheme.chart[base.mode]),
       accent: colorTheme.primaryAccent[base.mode],
       categorical: buildCategorical(colorTheme),
+    };
+    return {
+      ...merged,
+      capex: merged.accent,
+      opex: merged.accentSecondary,
     };
   }, [theme, colorTheme]);
 }

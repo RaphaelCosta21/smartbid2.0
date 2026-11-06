@@ -29,6 +29,30 @@
   --card-padding: 20px;
   --table-row-height: 40px;
 
+  /* ─── Typography tokens ─── */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+  /* Display face for hero titles and headline figures */
+  --font-display: "Montserrat", "Inter", "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Consolas", monospace;
+  --text-2xs: 10.5px;
+  --text-xs: 11.5px;
+  --text-sm: 12.5px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 26px;
+  --text-display: 40px;
+  --tracking-eyebrow: 0.08em;
+
+  /* ─── Motion tokens ─── */
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 450ms;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  /* Decelerating curve for surfaces entering the screen (drawers, popovers) */
+  --ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+
   /* z-index scale — use these instead of arbitrary values */
   /* Floating launchers (chat FAB) stay below drawers/modals so those cover them. */
   --z-fab: 950;
@@ -103,6 +127,12 @@
     font-size: 36px;
     font-weight: 700;
     line-height: 1;
+  }
+
+  /* ─── Figures: aligned digits for money, hours and counts ─── */
+  .figure {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
   }
 
   /* ─── Table Data ─── */

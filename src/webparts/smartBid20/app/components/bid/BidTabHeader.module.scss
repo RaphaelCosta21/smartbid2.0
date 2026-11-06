@@ -199,6 +199,333 @@
   overflow: hidden;
 }
 
+/* ── Sticky: pins to the top of the page, collapses into a slim glass bar ── */
+
+$ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+$ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+.sticky {
+  --bth-sticky-top: 16px;
+  position: sticky;
+  top: var(--bth-sticky-top);
+  z-index: 20;
+  transition:
+    box-shadow 300ms ease,
+    border-color 300ms ease,
+    border-radius 300ms ease;
+
+  .titleRow {
+    transition:
+      padding 280ms $ease-out-soft,
+      gap 280ms $ease-out-soft;
+  }
+
+  .iconChip {
+    transition:
+      width 280ms $ease-out-soft,
+      height 280ms $ease-out-soft,
+      border-radius 280ms $ease-out-soft;
+  }
+
+  .title {
+    transition: font-size 280ms $ease-out-soft;
+  }
+
+  .subtitle {
+    max-height: 18px;
+    overflow: hidden;
+    transition:
+      max-height 280ms $ease-out-soft,
+      opacity 200ms ease;
+  }
+
+  /* Fades the content scrolling through the gap above the stuck bar
+     (sized for the page padding too; the scroll container clips the excess) */
+  &::before {
+    content: "";
+    position: absolute;
+    left: -1px;
+    right: -1px;
+    bottom: 100%;
+    height: calc(var(--bth-sticky-top) + 32px);
+    background: linear-gradient(
+      to bottom,
+      var(--main-bg) 0%,
+      var(--main-bg) 65%,
+      transparent 100%
+    );
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 250ms ease;
+  }
+
+  /* Scroll progress through the tab (--sticky-progress set by useStickyCollapse) */
+  &::after {
+    content: "";
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--primary-accent) 25%, transparent),
+      var(--primary-accent)
+    );
+    transform: scaleX(var(--sticky-progress, 0));
+    transform-origin: left center;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity 250ms ease,
+      transform 120ms linear;
+  }
+}
+
+.stuck {
+  background: var(--glass-sheen), var(--glass-bg);
+  border-color: color-mix(
+    in srgb,
+    var(--primary-accent) 18%,
+    var(--glass-border)
+  );
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  box-shadow:
+    var(--elevation-3),
+    inset 0 1px 0 var(--glass-highlight);
+
+  &::before,
+  &::after {
+    opacity: 1;
+  }
+}
+
+.slim {
+  border-radius: 14px;
+
+  .titleRow {
+    gap: 10px;
+    padding: 8px 12px 8px 10px;
+  }
+
+  .iconChip {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+  }
+
+  .titleBlock {
+    gap: 0;
+  }
+
+  .title {
+    font-size: 14px;
+  }
+
+  .subtitle {
+    max-height: 0;
+    opacity: 0;
+  }
+}
+
+/* Key figures + missing ring (0fr/1fr columns animate the width) */
+.summary {
+  display: inline-grid;
+  grid-template-columns: 0fr;
+  transition: grid-template-columns 360ms $ease-out-soft;
+}
+
+.summaryVisible {
+  grid-template-columns: 1fr;
+}
+
+.summaryInner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  /* Room for focus rings and the ring halo inside the clip */
+  margin: -6px 0;
+  padding: 6px 2px;
+}
+
+.sumPill {
+  --pill-color: var(--primary-accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--pill-color) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pill-color) 22%, transparent);
+  opacity: 0;
+  transform: translateY(6px) scale(0.94);
+  filter: blur(4px);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    filter 160ms ease;
+}
+
+.summaryVisible .sumPill {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  transition:
+    opacity 320ms ease,
+    transform 460ms $ease-spring,
+    filter 320ms ease,
+    background 200ms ease,
+    border-color 200ms ease;
+  transition-delay: calc(120ms + var(--i, 0) * 70ms);
+}
+
+.sumLabel {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.sumValue {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sumPinned {
+  --pill-color: var(--text-secondary);
+}
+
+.sumWarning .sumValue {
+  color: var(--warning);
+}
+
+.sumSuccess .sumValue {
+  color: var(--success);
+}
+
+.ringWarn {
+  --pill-color: var(--warning);
+}
+
+.ringDone {
+  --pill-color: var(--success);
+}
+
+.ringPill {
+  gap: 7px;
+  padding: 0 11px 0 3px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pill-color);
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pill-color) 16%, transparent);
+    border-color: color-mix(in srgb, var(--pill-color) 42%, transparent);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--pill-color) 22%, transparent);
+  }
+}
+
+.ring {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.ringSvg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: rotate(-90deg);
+}
+
+.ringTrack,
+.ringValue {
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.ringTrack {
+  stroke: color-mix(in srgb, var(--pill-color) 22%, transparent);
+}
+
+/* pathLength=100: the dash offset is a percentage of the ring */
+.ringValue {
+  stroke: var(--pill-color);
+  stroke-linecap: round;
+  stroke-dasharray: 100px;
+  stroke-dashoffset: 100px;
+  transition: stroke-dashoffset 200ms ease;
+}
+
+.summaryVisible .ringValue {
+  stroke-dashoffset: calc((1 - var(--ring-progress, 0)) * 100px);
+  transition: stroke-dashoffset 900ms $ease-out-soft
+    calc(260ms + var(--i, 0) * 70ms);
+}
+
+.ringCenter {
+  position: relative;
+  display: inline-flex;
+  font-size: 9.5px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.2px;
+  color: var(--pill-color);
+}
+
+/* Pulses when the ring appears and every time the missing count changes */
+.ringHalo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: bthRingPulse 1.3s ease-out calc(700ms + var(--i, 0) * 70ms) 2
+    both;
+}
+
+@keyframes bthRingPulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--pill-color) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 9px color-mix(in srgb, var(--pill-color) 0%, transparent);
+  }
+}
+
+.sumDivider {
+  width: 1px;
+  height: 20px;
+  margin-left: 2px;
+  flex-shrink: 0;
+  background: var(--hairline);
+}
+
 /* ── Body: hero + detail ── */
 
 .body {
@@ -510,6 +837,21 @@
     border-top: 1px solid var(--hairline);
     padding-left: 20px;
   }
+
+  .sumPinned,
+  .ringText {
+    display: none;
+  }
+
+  .ringPill {
+    padding-right: 3px;
+  }
+}
+
+@media (max-width: 640px) {
+  .sumPill:not(.ringPill) {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -520,7 +862,28 @@
   .toggleBtn,
   .toggleIcon,
   .collapsible,
-  .collapsed {
+  .collapsed,
+  .sticky,
+  .sticky::before,
+  .sticky::after,
+  .sticky .titleRow,
+  .sticky .iconChip,
+  .sticky .title,
+  .sticky .subtitle,
+  .summary,
+  .sumPill,
+  .summaryVisible .sumPill,
+  .ringValue,
+  .summaryVisible .ringValue {
     transition: none;
+  }
+
+  .sumPill {
+    transform: none;
+    filter: none;
+  }
+
+  .ringHalo {
+    animation: none;
   }
 }

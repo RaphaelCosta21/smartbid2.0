@@ -1,0 +1,307 @@
+@import "../../styles/glass";
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.empty {
+  margin: 0;
+  padding: 24px 0;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ─── Summary strip ─── */
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.summaryItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-panel);
+  background: var(--glass-bg-subtle);
+  border: 1px solid var(--glass-border);
+}
+
+.summaryLabel {
+  @include eyebrow;
+}
+
+.summaryValue {
+  @include figure;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Row list ─── */
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row {
+  @include focus-ring;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "main value chevron"
+    "bar bar bar";
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 6px;
+  width: 100%;
+  padding: 10px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-panel);
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  font: inherit;
+}
+
+button.row {
+  cursor: pointer;
+
+  &:hover {
+    background: var(--hover-bg);
+    border-color: var(--glass-border);
+
+    .chevron {
+      color: var(--primary-accent);
+    }
+  }
+}
+
+.rowMain {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.rowSub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.rowValue {
+  @include figure;
+  grid-area: value;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.chevron {
+  grid-area: chevron;
+  color: var(--text-muted);
+}
+
+.rowBar {
+  grid-area: bar;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-subtle);
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+  }
+}
+
+/* ─── Grouped sections ─── */
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.groupTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+
+  span {
+    @include figure;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--hover-bg);
+    font-size: var(--text-2xs);
+    color: var(--text-muted);
+  }
+
+  i {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+  }
+}
+
+.bullets {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+/* ─── Clarification cards ─── */
+
+.cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--radius-panel);
+  background: var(--glass-bg-subtle);
+  border: 1px solid var(--glass-border);
+}
+
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cardRef {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.pill {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pillOk {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.pillWait {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.cardText {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  white-space: pre-wrap;
+}
+
+.cardReply {
+  margin: 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--success);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+
+  span {
+    @include eyebrow;
+    display: block;
+    color: var(--success);
+  }
+}
+
+/* ─── Approval ─── */
+
+.approver {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+  background: var(--glass-bg-subtle);
+}
+
+.approverName {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.approverMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.approverComment {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}

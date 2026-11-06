@@ -16,7 +16,7 @@ import {
   isUnassignedBid,
 } from "../utils/bidHelpers";
 import { getPhaseProgressByIndex } from "../utils/phaseHelpers";
-import { getErnLinks } from "../utils/ernHelpers";
+import { getErnLinkPurpose, getErnLinks } from "../utils/ernHelpers";
 import {
   getBidColumnDivision,
   getTrackLabel,
@@ -39,10 +39,11 @@ import {
   BidPriority,
   Division,
   IBid,
+  IBidNote,
   IConfigOption,
-  IQuickNote,
 } from "../models";
 import { BidService } from "../services/BidService";
+import { buildNotesPatch } from "../utils/bidNotes";
 import { useErnStore } from "../stores/useErnStore";
 import { useDebounce } from "../hooks/useDebounce";
 import { useSlidingIndicator } from "../hooks/useSlidingIndicator";
@@ -325,12 +326,17 @@ export const BidTrackerPage: React.FC = () => {
   };
 
   const handleNotesChange = React.useCallback(
-    (bidNumber: string, notes: IQuickNote[]) => {
+    (bidNumber: string, notes: IBidNote[]) => {
+      const current = useBidStore
+        .getState()
+        .bids.find((b) => b.bidNumber === bidNumber);
+      if (!current) return;
+      const patch = buildNotesPatch(current, notes);
       // Optimistic update in the store
-      useBidStore.getState().updateBidNotes?.(bidNumber, notes);
+      useBidStore.getState().updateBidNotes(bidNumber, patch);
       // Persist to SharePoint in background
-      BidService.patchByBidNumber(bidNumber, { quickNotes: notes }).catch(
-        (err) => console.error("Failed to save notes:", err),
+      BidService.patchByBidNumber(bidNumber, patch).catch((err) =>
+        console.error("Failed to save notes:", err),
       );
     },
     [],
@@ -508,6 +514,9 @@ export const BidTrackerPage: React.FC = () => {
                   <span className={styles.mono}>
                     {l.ernNumber}
                     {l.division ? ` · ${getTrackLabel(bid, l.division)}` : ""}
+                    {getErnLinkPurpose(l) === "technical-proposal"
+                      ? " · TP"
+                      : ""}
                   </span>
                   {liveStatus && (
                     <span style={{ fontSize: 11, color: "var(--text-muted)" }}>

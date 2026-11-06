@@ -108,6 +108,45 @@
   color: var(--text-muted);
 }
 
+// Open "Pending" notes reminder next to Notes & Comments.
+.navPendingBadge {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--warning);
+  background: var(--warning-soft);
+  border: 1px solid var(--warning);
+}
+
+.navItemActive .navPendingBadge {
+  color: var(--primary-accent-contrast);
+  background: var(--warning);
+}
+
+.navPendingDot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warning);
+  box-shadow: 0 0 0 2px var(--card-bg);
+}
+
+.navItemWithDot {
+  position: relative;
+}
+
 .overviewGrid {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -128,6 +167,57 @@
   margin: 0 0 16px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border-subtle);
+}
+
+/* BID Analysis Notes / Premisses (Overview) */
+.analysisNotesHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.analysisNotesActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.analysisNotesLink {
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 12px;
+  color: var(--primary-accent);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.analysisNotesAddBtn {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--primary-accent);
+  color: var(--primary-accent-contrast);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 150ms ease;
+
+  &:hover {
+    opacity: 0.9;
+  }
+}
+
+.analysisNotesList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .infoGrid {

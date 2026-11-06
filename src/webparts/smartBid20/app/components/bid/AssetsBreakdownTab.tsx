@@ -304,6 +304,57 @@ const costRefBadgeClass = (ref: string): string => {
   return styles.srcOther;
 };
 
+type SupplierRefPatch = { supplier?: string; costReference?: string };
+
+/** Supplier (top) and Cost Ref (bottom) stacked in one cell */
+const SupplierRefFields: React.FC<{
+  supplier?: string;
+  costRef?: string;
+  readOnly: boolean;
+  onChange: (patch: SupplierRefPatch) => void;
+}> = ({ supplier, costRef, readOnly, onChange }) => {
+  if (readOnly) {
+    if (!supplier && !costRef) {
+      return <span className={styles.cellMuted}>-</span>;
+    }
+    return (
+      <div className={styles.refFields}>
+        {supplier && <span className={styles.refSupplier}>{supplier}</span>}
+        {costRef &&
+          (isQuerySource(costRef) ? (
+            <span
+              className={`${styles.srcBadge} ${costRefBadgeClass(costRef)}`}
+            >
+              {costRef}
+            </span>
+          ) : (
+            <span className={styles.refText}>{costRef}</span>
+          ))}
+      </div>
+    );
+  }
+  return (
+    <div className={styles.refFields}>
+      <input
+        className={styles.editInput}
+        value={supplier || ""}
+        placeholder="Supplier..."
+        aria-label="Supplier"
+        title="Supplier"
+        onChange={(e) => onChange({ supplier: e.target.value })}
+      />
+      <input
+        className={`${styles.editInput} ${styles.refInput}`}
+        value={costRef || ""}
+        placeholder="Cost ref..."
+        aria-label="Cost reference"
+        title="Cost reference"
+        onChange={(e) => onChange({ costReference: e.target.value })}
+      />
+    </div>
+  );
+};
+
 export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
   scopeItems,
   assetBreakdown,
@@ -2711,70 +2762,24 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
               <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
                 -
               </span>
-            ) : readOnly ? (
-              (() => {
-                if (isQuerySource(sic.costReference)) {
-                  return (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                      }}
-                    >
-                      <span
-                        className={`${styles.srcBadge} ${costRefBadgeClass(sic.costReference)}`}
-                      >
-                        {sic.costReference}
-                      </span>
-                      {sic.supplier && (
-                        <span
-                          style={{ fontSize: 10, color: "var(--text-muted)" }}
-                        >
-                          {sic.supplier}
-                        </span>
-                      )}
-                    </div>
-                  );
-                }
-                const d = [sic.costReference, sic.supplier]
-                  .filter(Boolean)
-                  .join(" | ");
-                return d ? (
-                  <span style={{ fontSize: 11 }}>{d}</span>
-                ) : (
-                  <span style={{ color: "var(--text-muted)" }}>-</span>
-                );
-              })()
             ) : (
-              <input
-                className={styles.editInput}
-                value={[sic.costReference, sic.supplier]
-                  .filter(Boolean)
-                  .join(" | ")}
-                placeholder="Cost Ref / Supplier..."
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const parts = val.split("|").map((p) => p.trim());
+              <SupplierRefFields
+                supplier={sic.supplier}
+                costRef={sic.costReference}
+                readOnly={readOnly}
+                onChange={(patch) => {
                   const updated = localAssets.map((a) => {
                     if (a.id !== asset.id) return a;
                     return withCosts(
                       a,
                       kind,
                       costsOf(a, kind).map((s) =>
-                        s.id === sic.id
-                          ? {
-                              ...s,
-                              costReference: parts[0] || "",
-                              supplier: parts[1] || "",
-                            }
-                          : s,
+                        s.id === sic.id ? { ...s, ...patch } : s,
                       ),
                     );
                   });
                   persist(updated);
                 }}
-                style={{ width: "100%", fontSize: 11 }}
               />
             )}
             {renderQuoteLink(sic.quotationReference, sic.quotationFileUrl)}
@@ -4468,7 +4473,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
           <div className={styles.subTh}>Acq. Type</div>
           <div className={styles.subTh}>Unit Cost USD</div>
           <div className={styles.subTh}>Total Cost USD</div>
-          <div className={styles.subTh}>Cost Ref / Supplier</div>
+          <div className={styles.subTh}>Supplier / Cost Ref</div>
           <div className={styles.subTh}>Date Ref</div>
           <div className={styles.subTh}>Lead Time</div>
           <div className={styles.subTh}>CAPEX/OPEX</div>
@@ -4686,23 +4691,12 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                   <div className={styles.subCell}>
                     {isNoCostSplit || isWorkshopSplit ? (
                       <span className={styles.cellMuted}>-</span>
-                    ) : readOnly ? (
-                      <span>
-                        {[split.costReference, split.supplier]
-                          .filter(Boolean)
-                          .join(" | ") || "-"}
-                      </span>
                     ) : (
-                      <input
-                        className={styles.editInput}
-                        value={[split.costReference, split.supplier]
-                          .filter(Boolean)
-                          .join(" | ")}
-                        placeholder="Ref / Supplier..."
-                        onChange={(e) => {
-                          const parts = e.target.value
-                            .split("|")
-                            .map((p) => p.trim());
+                      <SupplierRefFields
+                        supplier={split.supplier}
+                        costRef={split.costReference}
+                        readOnly={readOnly}
+                        onChange={(patch) =>
                           persist(
                             localAssets.map((a) =>
                               a.id !== asset.id
@@ -4713,17 +4707,13 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                       a.availabilitySplits || []
                                     ).map((sp) =>
                                       sp.id === split.id
-                                        ? {
-                                            ...sp,
-                                            costReference: parts[0] || "",
-                                            supplier: parts[1] || "",
-                                          }
+                                        ? { ...sp, ...patch }
                                         : sp,
                                     ),
                                   },
                             ),
-                          );
-                        }}
+                          )
+                        }
                       />
                     )}
                   </div>
@@ -5119,6 +5109,13 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
         title="Assets Breakdown"
         subtitle="Equipment costs linked to Scope items"
         icon={<Boxes size={18} />}
+        sticky
+        pending={{
+          missing: totalMissing,
+          total: totalItems,
+          label: "missing cost",
+          doneLabel: "All costed",
+        }}
         hero={{
           label: "Total cost (USD)",
           value: formatCurrency(totals.total),
@@ -5477,7 +5474,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                 <th style={{ minWidth: 120 }}>Acq. Type</th>
                 <th>Unit Cost USD</th>
                 <th>Total Cost USD</th>
-                <th>Cost Ref / Supplier</th>
+                <th>Supplier / Cost Ref</th>
                 <th>Date Ref</th>
                 <th>Lead Time</th>
                 <th>CAPEX/OPEX</th>
@@ -6375,76 +6372,20 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 </span>
                               );
                             }
-                            if (readOnly) {
-                              if (isQuerySource(asset.costReference)) {
-                                return (
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      flexDirection: "column",
-                                      gap: 2,
-                                    }}
-                                  >
-                                    <span
-                                      className={`${styles.srcBadge} ${costRefBadgeClass(asset.costReference)}`}
-                                    >
-                                      {asset.costReference}
-                                    </span>
-                                    {asset.supplier && (
-                                      <span
-                                        style={{
-                                          fontSize: 10,
-                                          color: "var(--text-muted)",
-                                        }}
-                                      >
-                                        {asset.supplier}
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              }
-                              const display = [
-                                asset.costReference,
-                                asset.supplier,
-                              ]
-                                .filter(Boolean)
-                                .join(" | ");
-                              return display ? (
-                                <span style={{ fontSize: 11 }}>{display}</span>
-                              ) : (
-                                <span style={{ color: "var(--text-muted)" }}>
-                                  -
-                                </span>
-                              );
-                            }
-                            const combined = [
-                              asset.costReference,
-                              asset.supplier,
-                            ]
-                              .filter(Boolean)
-                              .join(" | ");
                             return (
-                              <input
-                                className={styles.editInput}
-                                value={combined}
-                                placeholder="Cost Ref / Supplier..."
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  const parts = val
-                                    .split("|")
-                                    .map((p) => p.trim());
-                                  const updated = localAssets.map((a) =>
-                                    a.id === asset.id
-                                      ? {
-                                          ...a,
-                                          costReference: parts[0] || "",
-                                          supplier: parts[1] || "",
-                                        }
-                                      : a,
-                                  );
-                                  persist(updated);
-                                }}
-                                style={{ width: "100%", fontSize: 11 }}
+                              <SupplierRefFields
+                                supplier={asset.supplier}
+                                costRef={asset.costReference}
+                                readOnly={readOnly}
+                                onChange={(patch) =>
+                                  persist(
+                                    localAssets.map((a) =>
+                                      a.id === asset.id
+                                        ? { ...a, ...patch }
+                                        : a,
+                                    ),
+                                  )
+                                }
                               />
                             );
                           })()}
@@ -7066,7 +7007,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                   <div className={styles.subTh}>Unit Cost</div>
                                   <div className={styles.subTh}>Total Cost</div>
                                   <div className={styles.subTh}>
-                                    Cost Ref / Supplier
+                                    Supplier / Cost Ref
                                   </div>
                                   <div className={styles.subTh}>Date Ref</div>
                                   <div className={styles.subTh}>Lead Time</div>
@@ -7113,7 +7054,7 @@ export const AssetsBreakdownTab: React.FC<AssetsBreakdownTabProps> = ({
                                 <div className={styles.subTh}>Unit Cost</div>
                                 <div className={styles.subTh}>Total Cost</div>
                                 <div className={styles.subTh}>
-                                  Cost Ref / Supplier
+                                  Supplier / Cost Ref
                                 </div>
                                 <div className={styles.subTh}>Date Ref</div>
                                 <div className={styles.subTh}>Lead Time</div>

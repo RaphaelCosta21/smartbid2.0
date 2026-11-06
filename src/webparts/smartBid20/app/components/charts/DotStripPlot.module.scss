@@ -1,0 +1,77 @@
+@import "../../styles/glass";
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.plot {
+  position: relative;
+  height: 64px;
+}
+
+.axis {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--border-subtle);
+}
+
+.median {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  border-left: 1.5px dashed var(--text-muted);
+}
+
+.medianLabel {
+  @include figure;
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}
+
+.dot {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  border: 2px solid var(--card-bg);
+  transform: translate(-50%, -50%);
+}
+
+.dotHighlight {
+  width: 16px;
+  height: 16px;
+  z-index: 1;
+  box-shadow: var(--focus-ring);
+}
+
+.highlightLabel {
+  position: absolute;
+  top: calc(50% + 12px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow);
+}
+
+.scale {
+  @include figure;
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}

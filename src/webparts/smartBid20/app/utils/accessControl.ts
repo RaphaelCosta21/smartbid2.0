@@ -16,6 +16,7 @@ import {
   SUPER_ADMIN_PAGES,
 } from "../config/accessControl.config";
 import { BID_TAB_GROUP } from "../config/bidTabs.config";
+import { patchRemovesNotes } from "./bidNotes";
 
 type MaybeConfig = ISystemConfig | null | undefined;
 type MaybeUser = IUser | null | undefined;
@@ -37,6 +38,16 @@ export function isSuperAdminMaster(email: string): boolean {
 
 export function isSuperAdminUser(user: MaybeUser): boolean {
   return !!user && (user.isSuperAdmin === true || isSuperAdmin(user.email));
+}
+
+/** Engineering (and super admins) may edit, pin and delete any BID note; others only their own. */
+export function canModerateNotes(user: MaybeUser): boolean {
+  return (
+    !!user &&
+    (user.role === "engineering" ||
+      user.sector === "engineering" ||
+      isSuperAdminUser(user))
+  );
 }
 
 const roleOf = (user: MaybeUser): UserRole => (user && user.role) || "guest";
@@ -137,6 +148,8 @@ export function removesCollaborationContent(
     before.some((item) => !after.some((next) => next.id === item.id));
 
   if (tab === "notes") {
+    // Writing the unified list also clears the legacy structures — that is a migration, not a removal.
+    if (patch.noteEntries !== undefined) return patchRemovesNotes(bid, patch);
     return (
       (patch.bidNotes !== undefined &&
         Object.keys(bid.bidNotes || {}).some(

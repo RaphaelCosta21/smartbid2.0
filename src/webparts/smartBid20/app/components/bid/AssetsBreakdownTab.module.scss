@@ -640,6 +640,33 @@
   gap: 4px;
 }
 
+.refFields {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  width: 100%;
+}
+
+.refSupplier {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.refText {
+  font-size: 10px;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.refInput {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
 /* ─── Total Cost: Σ breakdown trigger next to the amount ─── */
 .totalLine {
   display: inline-flex;

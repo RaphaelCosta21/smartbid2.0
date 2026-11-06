@@ -1,0 +1,30 @@
+@import "../../styles/glass";
+
+.root {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.centerValue {
+  @include figure;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.centerLabel {
+  @include eyebrow;
+}

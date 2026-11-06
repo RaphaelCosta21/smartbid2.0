@@ -80,7 +80,10 @@ export const DashboardPage: React.FC = () => {
   const { getResult, options: resultOptions } = useResultStatus();
   const filters = useDashboardFilters(bids, getResult);
   const { scopeBids, analyticsBids } = filters;
-  const live = useLiveOverview(canSeeLive ? scopeBids : NO_BIDS);
+  // General BID Support ERNs have no BID, so BID scope filters hide them
+  const live = useLiveOverview(canSeeLive ? scopeBids : NO_BIDS, {
+    includeGeneral: canSeeLive && !filters.hasScope,
+  });
   const kpis = useKPIs(analyticsBids);
   const { targets, priorityRules } = useKpiTargets();
 

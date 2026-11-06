@@ -1,8 +1,9 @@
 /** Unified glass header for the BID Details scope & costing tabs. */
 import * as React from "react";
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { EditControls, TabEditContext } from "../common/EditLockBanner";
 import { DivisionContext } from "../common/IntegratedDivisionTabs";
+import { useStickyCollapse } from "../../hooks/useStickyCollapse";
 import styles from "./BidTabHeader.module.scss";
 
 export interface IHeaderStat {
@@ -16,6 +17,16 @@ export interface IHeaderHero {
   label: string;
   value: string;
   sub?: React.ReactNode;
+}
+
+/** Items still missing data, shown as a progress ring in the stuck bar */
+export interface IHeaderPending {
+  missing: number;
+  total: number;
+  /** e.g. "missing cost" */
+  label: string;
+  /** Shown when nothing is missing, e.g. "All costed" */
+  doneLabel?: string;
 }
 
 interface BidTabHeaderProps {
@@ -32,10 +43,131 @@ interface BidTabHeaderProps {
   footer?: React.ReactNode;
   /** Metrics only, no title row (tab embedded outside BID Details) */
   compact?: boolean;
+  /** Pins to the top of the page on scroll and auto-collapses into a slim bar */
+  sticky?: boolean;
+  /** Key figures kept in the slim bar, next to the hero value */
+  pinned?: IHeaderStat[];
+  pending?: IHeaderPending;
 }
 
 /** Headers the user collapsed during this page session (keyed by title) */
 const collapsedHeaders = new Set<string>();
+
+interface StuckSummaryProps {
+  visible: boolean;
+  hero?: IHeaderHero;
+  pinned?: IHeaderStat[];
+  pending?: IHeaderPending;
+  onOpen: () => void;
+}
+
+/** Key figures + missing ring shown in the slim stuck bar */
+const StuckSummary: React.FC<StuckSummaryProps> = ({
+  visible,
+  hero,
+  pinned,
+  pending,
+  onOpen,
+}) => {
+  const pins = pinned || [];
+  const showRing = !!pending && pending.total > 0;
+  if (!hero && pins.length === 0 && !showRing) return null;
+
+  const order = (i: number): React.CSSProperties =>
+    ({ "--i": i }) as React.CSSProperties;
+  const done = showRing && pending.missing <= 0;
+  const progress = showRing
+    ? Math.max(
+        0,
+        Math.min(1, (pending.total - pending.missing) / pending.total),
+      )
+    : 0;
+  const ringText = done ? pending.doneLabel || "All set" : pending?.label;
+  const ringIndex = (hero ? 1 : 0) + pins.length;
+
+  return (
+    <div
+      className={`${styles.summary} ${visible ? styles.summaryVisible : ""}`}
+      aria-hidden={!visible}
+    >
+      <div className={styles.summaryInner}>
+        {hero && (
+          <span className={styles.sumPill} style={order(0)}>
+            <span className={styles.sumLabel}>{hero.label}</span>
+            <span className={styles.sumValue}>{hero.value}</span>
+          </span>
+        )}
+        {pins.map((s, i) => (
+          <span
+            key={s.label}
+            className={`${styles.sumPill} ${styles.sumPinned} ${s.tone === "warning" ? styles.sumWarning : s.tone === "success" ? styles.sumSuccess : ""}`}
+            style={order((hero ? 1 : 0) + i)}
+          >
+            <span className={styles.sumLabel}>{s.label}</span>
+            <span className={styles.sumValue}>{s.value}</span>
+          </span>
+        ))}
+        {showRing && (
+          <button
+            type="button"
+            className={`${styles.sumPill} ${styles.ringPill} ${done ? styles.ringDone : styles.ringWarn}`}
+            style={
+              {
+                "--i": ringIndex,
+                "--ring-progress": progress,
+              } as React.CSSProperties
+            }
+            onClick={onOpen}
+            tabIndex={visible ? 0 : -1}
+            title={
+              done
+                ? ringText
+                : `${pending.missing} of ${pending.total} ${pending.label} - show details`
+            }
+            aria-label={
+              done
+                ? ringText
+                : `${pending.missing} of ${pending.total} ${pending.label}. Expand the summary`
+            }
+          >
+            <span className={styles.ring} aria-hidden="true">
+              <svg viewBox="0 0 24 24" className={styles.ringSvg}>
+                <circle
+                  className={styles.ringTrack}
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  pathLength={100}
+                />
+                <circle
+                  className={styles.ringValue}
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  pathLength={100}
+                />
+              </svg>
+              <span className={styles.ringCenter}>
+                {done ? (
+                  <Check size={11} strokeWidth={3} />
+                ) : pending.missing > 99 ? (
+                  "99+"
+                ) : (
+                  pending.missing
+                )}
+              </span>
+              {visible && (
+                <span key={pending.missing} className={styles.ringHalo} />
+              )}
+            </span>
+            <span className={styles.ringText}>{ringText}</span>
+          </button>
+        )}
+        <span className={styles.sumDivider} aria-hidden="true" />
+      </div>
+    </div>
+  );
+};
 
 export const BidTabHeader: React.FC<BidTabHeaderProps> = ({
   title,
@@ -47,17 +179,32 @@ export const BidTabHeader: React.FC<BidTabHeaderProps> = ({
   children,
   footer,
   compact,
+  sticky,
+  pinned,
+  pending,
 }) => {
   const edit = React.useContext(TabEditContext);
   const division = React.useContext(DivisionContext);
+  const panelRef = React.useRef<HTMLElement>(null);
   const [expanded, setExpanded] = React.useState(
     () => !collapsedHeaders.has(title),
   );
+  const stickyOn = !!sticky && !compact;
+  const { stuck, manualOpen, setManualOpen } = useStickyCollapse(
+    panelRef,
+    stickyOn,
+  );
   const hasStats = !!stats && stats.length > 0;
   const hasDetail = !!children || hasStats;
-  const isOpen = compact || expanded;
+  // Stuck: auto-collapsed unless opened on purpose; the saved state returns at the top
+  const isOpen = compact || (stuck ? manualOpen : expanded);
+  const slim = stuck && !isOpen;
 
   const toggleExpanded = (): void => {
+    if (stuck) {
+      setManualOpen(!manualOpen);
+      return;
+    }
     if (expanded) collapsedHeaders.add(title);
     else collapsedHeaders.delete(title);
     setExpanded(!expanded);
@@ -65,7 +212,8 @@ export const BidTabHeader: React.FC<BidTabHeaderProps> = ({
 
   return (
     <section
-      className={`${styles.panel} ${compact ? styles.compact : ""}`}
+      ref={panelRef}
+      className={`${styles.panel} ${compact ? styles.compact : ""} ${stickyOn ? styles.sticky : ""} ${stuck ? styles.stuck : ""} ${slim ? styles.slim : ""}`}
       aria-label={title}
     >
       {!compact && (
@@ -102,6 +250,15 @@ export const BidTabHeader: React.FC<BidTabHeaderProps> = ({
           )}
           {meta && <div className={styles.meta}>{meta}</div>}
           <div className={styles.actions}>
+            {stickyOn && (
+              <StuckSummary
+                visible={slim}
+                hero={hero}
+                pinned={pinned}
+                pending={pending}
+                onOpen={() => setManualOpen(true)}
+              />
+            )}
             {edit && (
               <EditControls
                 editControl={edit.editControl}
@@ -112,13 +269,13 @@ export const BidTabHeader: React.FC<BidTabHeaderProps> = ({
               type="button"
               className={styles.toggleBtn}
               onClick={toggleExpanded}
-              aria-expanded={expanded}
-              aria-label={expanded ? "Collapse summary" : "Expand summary"}
-              title={expanded ? "Collapse summary" : "Expand summary"}
+              aria-expanded={isOpen}
+              aria-label={isOpen ? "Collapse summary" : "Expand summary"}
+              title={isOpen ? "Collapse summary" : "Expand summary"}
             >
               <ChevronDown
                 size={16}
-                className={`${styles.toggleIcon} ${expanded ? styles.toggleIconOpen : ""}`}
+                className={`${styles.toggleIcon} ${isOpen ? styles.toggleIconOpen : ""}`}
               />
             </button>
           </div>

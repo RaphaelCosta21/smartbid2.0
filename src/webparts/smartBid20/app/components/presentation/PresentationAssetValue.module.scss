@@ -1,0 +1,40 @@
+@import "../../styles/glass";
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  margin-top: -10px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+
+  svg {
+    color: var(--text-muted);
+  }
+}
+
+.crumbBtn {
+  @include focus-ring;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--primary-accent);
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.crumbCurrent {
+  font-weight: 700;
+}
+
+.chart {
+  flex: 1;
+  min-height: 0;
+  border-radius: var(--radius-panel);
+}

@@ -1,0 +1,201 @@
+@import "../../styles/glass";
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.card {
+  @include focus-ring;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-subtle);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    border-color: var(--border);
+    background: var(--hover-bg);
+
+    .open {
+      color: var(--primary-accent);
+    }
+  }
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.open {
+  color: var(--text-muted);
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.muted {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ─── Team ─── */
+
+.avatars {
+  display: flex;
+  padding-left: 6px;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-left: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--card-bg);
+  background: var(--gradient-primary);
+  color: var(--primary-accent-contrast);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.avatarMore {
+  background: var(--card-bg-elevated);
+  color: var(--text-secondary);
+}
+
+.roles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+}
+
+.roleLine {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--text-xs);
+}
+
+.roleName {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.rolePeople {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+/* ─── Clarifications ─── */
+
+.ringRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ringValue {
+  @include figure;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ringText {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+
+  strong {
+    @include figure;
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    color: var(--success);
+  }
+}
+
+/* ─── Qualifications ─── */
+
+.bigNumber {
+  @include figure;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--info-soft);
+  color: var(--info);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  b {
+    @include figure;
+  }
+}
+
+/* ─── Approval ─── */
+
+.stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}

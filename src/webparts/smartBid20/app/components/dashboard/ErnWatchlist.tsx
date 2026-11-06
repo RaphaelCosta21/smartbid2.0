@@ -1,28 +1,51 @@
 /**
- * ErnWatchlist — live list of open ERNs linked to BIDs, most urgent first, so
- * no ERN closing date slips. Rows expand inline with the full ERN details.
+ * ErnWatchlist — live list of open ERNs (linked to BIDs or General BID
+ * Support), most urgent first, so no ERN closing date slips. Due soon /
+ * overdue follow whoever holds the ERN now (Responsible, Checker or Lead).
+ * List rows expand inline with full details; Timeline shows each ERN's stages.
  */
 import * as React from "react";
-import { ChevronDown, ExternalLink, UserRound } from "lucide-react";
+import {
+  ChartGantt,
+  ChevronDown,
+  ClipboardCheck,
+  List,
+  Plus,
+  UserRound,
+} from "lucide-react";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import {
+  compareErnUrgency,
+  ERN_GENERAL_SUPPORT_TITLE,
+  ERN_STAGE_DATE_LABELS,
   ErnWatchFilter,
+  ErnWatchScope,
   getErnCountdownLabel,
+  getErnRowTags,
+  getErnScopedDeadline,
   IErnLinkRow,
-  isErnAssignedTo,
+  isErnHandedOver,
+  isErnResponsible,
+  isErnWaitingOn,
   matchesErnWatchFilter,
+  matchesErnWatchScope,
 } from "../../utils/ernHelpers";
 import { formatDate } from "../../utils/formatters";
 import { SHAREPOINT_CONFIG } from "../../config/sharepoint.config";
+import { ErnStage } from "../../models";
 import { GlassCard } from "../common/GlassCard";
 import { EmptyState } from "../common/EmptyState";
+import { UserAvatar } from "../common/UserAvatar";
 import { ConfidentialLock } from "../bid/ConfidentialLock";
+import { ErnCreateModal } from "../bid/ErnCreateModal";
 import { SegmentedControl, SegmentOption } from "../insights/SegmentedControl";
 import {
   FocusButton,
   LiveFocusOverlay,
   useFocusMode,
 } from "./LiveFocusOverlay";
+import { ErnRowDetails } from "./ErnRowDetails";
+import { ErnTimeline } from "./ErnTimeline";
 import styles from "./ErnWatchlist.module.scss";
 
 interface ErnWatchlistProps {
@@ -32,6 +55,13 @@ interface ErnWatchlistProps {
   onBidClick: (bidNumber: string) => void;
 }
 
+type ViewMode = "list" | "timeline";
+
+const VIEW_SEGMENTS: SegmentOption<ViewMode>[] = [
+  { value: "list", label: "List", icon: <List size={13} /> },
+  { value: "timeline", label: "Timeline", icon: <ChartGantt size={13} /> },
+];
+
 const FILTERS: { value: ErnWatchFilter; label: string }[] = [
   { value: "overdue", label: "Overdue" },
   { value: "due-soon", label: "Due soon" },
@@ -40,28 +70,66 @@ const FILTERS: { value: ErnWatchFilter; label: string }[] = [
 ];
 
 const EMPTY_TEXT: Record<ErnWatchFilter, string> = {
-  overdue: "No open ERN is past its due date.",
+  overdue: "No open ERN is past the date of whoever holds it.",
   "due-soon": `No ERN is due within ${SHAREPOINT_CONFIG.ern.dueSoonDays} days.`,
-  open: "Every linked ERN is closed.",
+  open: "Every ERN here is closed.",
   "on-hold": "No ERN is on hold.",
 };
 
-function toneClass(r: IErnLinkRow): string {
+const EMPTY_TITLE: Record<ErnWatchScope, string> = {
+  all: "All clear",
+  mine: "Nothing where you are the Responsible",
+  review: "Nothing waiting on you",
+};
+
+const SCOPE_HINT: Record<ErnWatchScope, string> = {
+  all: "",
+  mine: " where I am the Responsible",
+  review: " waiting on me as Checker / Lead",
+};
+
+/** Short label of the date that closes each stage. */
+const STAGE_DATE_SHORT: Record<ErnStage, string> = {
+  engineering: "Eng.",
+  checker: "Checker",
+  lead: "Lead",
+};
+
+function toneClass(r: IErnLinkRow, scope: ErnWatchScope): string {
   if (r.onHold) return styles.toneHold;
-  if (r.deadline === "overdue") return styles.toneDanger;
-  if (r.deadline === "due-soon") return styles.toneWarning;
-  if (r.deadline === "none") return styles.toneNone;
+  if (isErnHandedOver(r, scope)) return styles.toneInfo;
+  const d = getErnScopedDeadline(r, scope);
+  if (d === "overdue") return styles.toneDanger;
+  if (d === "due-soon") return styles.toneWarning;
+  if (d === "none") return styles.toneNone;
   return styles.toneOk;
 }
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+function firstName(name: string): string {
+  return (name || "").split(" ")[0];
+}
+
+/** Second people line: who has the ERN after / instead of the Responsible. */
+function reviewText(r: IErnLinkRow): string {
+  const ern = r.ern;
+  if (!ern) return "";
+  const open = !r.closed && !r.onHold;
+  if (open && r.stage === "checker" && ern.checker) {
+    return `With Checker ${firstName(ern.checker)}${
+      ern.checkerDueDate ? ` · due ${formatDate(ern.checkerDueDate, "MMM d")}` : ""
+    }`;
+  }
+  if (open && r.stage === "lead" && ern.lead) {
+    return `With Lead ${firstName(ern.lead)}${
+      ern.leadDate ? ` · ${formatDate(ern.leadDate, "MMM d")}` : ""
+    }`;
+  }
+  if (ern.checker) {
+    return `Checker ${firstName(ern.checker)}${
+      ern.checkerDueDate ? ` · due ${formatDate(ern.checkerDueDate, "MMM d")}` : ""
+    }`;
+  }
+  return ern.lead ? `Lead ${firstName(ern.lead)}` : "";
 }
 
 export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
@@ -71,16 +139,21 @@ export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
   onBidClick,
 }) => {
   const currentUser = useCurrentUser();
+  const email = currentUser.email;
   const focus = useFocusMode();
-  const [mine, setMine] = React.useState(false);
+  const [scope, setScope] = React.useState<ErnWatchScope>("all");
+  const [view, setView] = React.useState<ViewMode>("list");
   const [openKey, setOpenKey] = React.useState<string | null>(null);
+  const [creating, setCreating] = React.useState(false);
 
   const scoped = React.useMemo(
     () =>
-      mine
-        ? rows.filter((r) => isErnAssignedTo(r.ern, currentUser.email))
-        : rows,
-    [rows, mine, currentUser.email],
+      scope === "all"
+        ? rows
+        : rows
+            .filter((r) => matchesErnWatchScope(r, scope, email))
+            .sort((a, b) => compareErnUrgency(a, b, scope)),
+    [rows, scope, email],
   );
 
   const counts = React.useMemo(() => {
@@ -92,27 +165,39 @@ export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
     };
     scoped.forEach((r) => {
       FILTERS.forEach((f) => {
-        if (matchesErnWatchFilter(r, f.value)) c[f.value]++;
+        if (matchesErnWatchFilter(r, f.value, scope)) c[f.value]++;
       });
     });
     return c;
-  }, [scoped]);
+  }, [scoped, scope]);
 
-  const mineCount = React.useMemo(
-    () =>
-      rows.filter((r) => !r.closed && isErnAssignedTo(r.ern, currentUser.email))
-        .length,
-    [rows, currentUser.email],
+  const handedOver = React.useMemo(
+    () => scoped.filter((r) => isErnHandedOver(r, scope)).length,
+    [scoped, scope],
   );
 
-  const visible = scoped.filter((r) => matchesErnWatchFilter(r, filter));
+  const mineCount = React.useMemo(
+    () => rows.filter((r) => !r.closed && isErnResponsible(r.ern, email)).length,
+    [rows, email],
+  );
+  const reviewCount = React.useMemo(
+    () => rows.filter((r) => !r.closed && isErnWaitingOn(r, email)).length,
+    [rows, email],
+  );
+
+  const visible = scoped.filter((r) => matchesErnWatchFilter(r, filter, scope));
 
   const segments: SegmentOption<ErnWatchFilter>[] = FILTERS.map((f) => ({
     value: f.value,
     label: `${f.label} ${counts[f.value]}`,
   }));
 
-  const subtitle = `${counts.open} open${mine ? " assigned to me" : ""} · ${counts.overdue} overdue · ${counts["due-soon"]} due within ${SHAREPOINT_CONFIG.ern.dueSoonDays} days`;
+  const subtitle = `${counts.open} open${SCOPE_HINT[scope]} · ${counts.overdue} overdue · ${counts["due-soon"]} due within ${SHAREPOINT_CONFIG.ern.dueSoonDays} days${
+    handedOver > 0 ? ` · ${handedOver} with Checker / Lead` : ""
+  }`;
+
+  const toggleScope = (s: ErnWatchScope): void =>
+    setScope((cur) => (cur === s ? "all" : s));
 
   const controls = (
     <>
@@ -125,16 +210,48 @@ export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
       />
       <button
         type="button"
-        className={`${styles.mineBtn} ${mine ? styles.mineActive : ""}`}
-        onClick={() => setMine((m) => !m)}
-        aria-pressed={mine}
-        title="Only ERNs where I am the responsible, checker or lead"
+        className={`${styles.mineBtn} ${scope === "mine" ? styles.mineActive : ""}`}
+        onClick={() => toggleScope("mine")}
+        aria-pressed={scope === "mine"}
+        title="Only ERNs where I am the Responsible. They count as late only while still with me (before the Checker)."
       >
         <UserRound size={13} />
         Mine
         <span className={styles.mineCount}>{mineCount}</span>
       </button>
+      <button
+        type="button"
+        className={`${styles.mineBtn} ${scope === "review" ? styles.mineActive : ""}`}
+        onClick={() => toggleScope("review")}
+        aria-pressed={scope === "review"}
+        title="ERNs waiting on me as Checker or Lead"
+      >
+        <ClipboardCheck size={13} />
+        To review
+        <span className={styles.mineCount}>{reviewCount}</span>
+      </button>
     </>
+  );
+
+  const toolbar = (
+    <div className={styles.toolbar}>
+      <SegmentedControl<ViewMode>
+        value={view}
+        segments={VIEW_SEGMENTS}
+        onChange={setView}
+        size="sm"
+        ariaLabel="ERN view"
+      />
+      <button
+        type="button"
+        className={styles.createBtn}
+        onClick={() => setCreating(true)}
+        title={`Create a ${ERN_GENERAL_SUPPORT_TITLE} ERN (not linked to a BID)`}
+      >
+        <Plus size={13} />
+        BID Support ERN
+      </button>
+    </div>
   );
 
   const renderRow = (
@@ -145,19 +262,27 @@ export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
     const ern = r.ern;
     const bid = r.bid;
     const project =
-      ern?.projectTitle || bid.opportunityInfo?.projectName || bid.bidNumber;
-    const client = bid.opportunityInfo?.client;
+      ern?.projectTitle ||
+      bid?.opportunityInfo?.projectName ||
+      bid?.bidNumber ||
+      r.ernNumber;
+    const client = bid?.opportunityInfo?.client;
     const isOpen = openKey === r.ernNumber;
+    const active = !r.closed && !r.onHold;
+    const tags = getErnRowTags(r).filter(
+      (t) => t !== ERN_GENERAL_SUPPORT_TITLE,
+    );
     const meta = [
       client,
-      ern?.serviceLine || bid.serviceLine,
+      ern?.serviceLine || bid?.serviceLine,
       ern?.deliverableType,
     ].filter(Boolean);
+    const second = reviewText(r);
     const toggle = (): void => setOpenKey(isOpen ? null : r.ernNumber);
     return (
       <div
         key={r.ernNumber}
-        className={`${styles.row} ${toneClass(r)} ${isOpen ? styles.rowOpen : ""} ${
+        className={`${styles.row} ${toneClass(r, scope)} ${isOpen ? styles.rowOpen : ""} ${
           expanded ? styles.rowExpanded : ""
         }`}
         data-focus-item={expanded ? "" : undefined}
@@ -183,22 +308,30 @@ export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
           <div className={styles.ernCol}>
             <span className={styles.ernNumber}>
               {r.ernNumber}
-              {r.division && (
-                <span className={styles.divisionTag}>
-                  {r.division === "SURVEY" ? "Survey" : r.division}
+              {tags.map((t) => (
+                <span key={t} className={styles.divisionTag}>
+                  {t}
                 </span>
-              )}
+              ))}
             </span>
-            <span className={styles.statusChip}>{r.status}</span>
+            <span className={styles.statusChip} title={r.status}>
+              {r.status}
+            </span>
           </div>
 
           <div className={styles.projectCol}>
             <span className={styles.project}>{project}</span>
             <span className={styles.meta}>
-              <span className={styles.bidNumber}>
-                {bid.bidNumber}
-                <ConfidentialLock bid={bid} />
-              </span>
+              {bid ? (
+                <span className={styles.bidNumber}>
+                  {bid.bidNumber}
+                  <ConfidentialLock bid={bid} />
+                </span>
+              ) : (
+                <span className={styles.generalTag}>
+                  {ERN_GENERAL_SUPPORT_TITLE}
+                </span>
+              )}
               {meta.length > 0 ? ` · ${meta.join(" · ")}` : ""}
             </span>
           </div>
@@ -209,27 +342,59 @@ export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
                 className={styles.person}
                 title={`Responsible: ${ern.resource1}`}
               >
-                <span className={styles.avatar}>{initials(ern.resource1)}</span>
+                <UserAvatar
+                  name={ern.resource1}
+                  email={ern.resource1Email}
+                  size={24}
+                  ring={active && r.stage === "engineering"}
+                  title=""
+                />
                 <span className={styles.personName}>{ern.resource1}</span>
               </span>
             ) : (
-              <span className={styles.muted}>No responsible</span>
+              <span className={styles.muted}>
+                {ern ? "No responsible" : "ERN not loaded yet"}
+              </span>
             )}
-            {ern?.checker && (
-              <span className={styles.subPerson}>
-                Checker {ern.checker.split(" ")[0]}
-                {ern.checkerDueDate
-                  ? ` · due ${formatDate(ern.checkerDueDate, "MMM d")}`
-                  : ""}
+            {ern && (ern.checker || ern.lead) && (
+              <span className={styles.reviewers}>
+                <span className={styles.avatarStack}>
+                  {ern.checker && (
+                    <UserAvatar
+                      name={ern.checker}
+                      email={ern.checkerEmail}
+                      size={18}
+                      ring={active && r.stage === "checker"}
+                      title={`Checker: ${ern.checker}`}
+                    />
+                  )}
+                  {ern.lead && (
+                    <UserAvatar
+                      name={ern.lead}
+                      email={ern.leadEmail}
+                      size={18}
+                      ring={active && r.stage === "lead"}
+                      title={`Lead: ${ern.lead}`}
+                    />
+                  )}
+                </span>
+                <span className={styles.subPerson}>{second}</span>
               </span>
             )}
           </div>
 
           <div className={styles.dueCol}>
-            <span className={styles.dueDate}>
-              {r.dueDate ? formatDate(r.dueDate, "MMM d") : "-"}
+            <span
+              className={styles.dueDate}
+              title={ERN_STAGE_DATE_LABELS[r.stage]}
+            >
+              {r.stageDueDate
+                ? `${STAGE_DATE_SHORT[r.stage]} ${formatDate(r.stageDueDate, "MMM d")}`
+                : "-"}
             </span>
-            <span className={styles.countdown}>{getErnCountdownLabel(r)}</span>
+            <span className={styles.countdown}>
+              {getErnCountdownLabel(r, scope, false)}
+            </span>
           </div>
 
           <ChevronDown
@@ -241,73 +406,50 @@ export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
 
         <div className={styles.details} aria-hidden={!isOpen}>
           <div className={styles.detailsInner}>
-            <div className={styles.detailGrid}>
-              <Detail label="Responsible" value={ern?.resource1} />
-              <Detail
-                label="Checker"
-                value={ern?.checker}
-                hint={
-                  ern?.checkerDueDate
-                    ? `due ${formatDate(ern.checkerDueDate, "MMM d, yyyy")}`
-                    : undefined
-                }
-              />
-              <Detail
-                label="Lead"
-                value={ern?.lead}
-                hint={
-                  ern?.leadDate
-                    ? formatDate(ern.leadDate, "MMM d, yyyy")
-                    : undefined
-                }
-              />
-              <Detail
-                label="Eng. due date"
-                value={r.dueDate ? formatDate(r.dueDate) : ""}
-              />
-              <Detail label="Project number" value={ern?.projectNumber} />
-              <Detail label="Deliverable" value={ern?.deliverableType} />
-            </div>
-            {ern?.description && (
-              <p className={styles.description}>{ern.description}</p>
-            )}
-            <div className={styles.detailActions}>
-              <button
-                type="button"
-                className={styles.primaryBtn}
-                onClick={() => onBidClick(bid.bidNumber)}
-                tabIndex={isOpen ? 0 : -1}
-              >
-                Open {bid.bidNumber}
-              </button>
-              <a
-                className={styles.linkBtn}
-                href={SHAREPOINT_CONFIG.ern.appUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                tabIndex={isOpen ? 0 : -1}
-              >
-                Open in ERN app <ExternalLink size={12} />
-              </a>
-            </div>
+            <ErnRowDetails
+              row={r}
+              onBidClick={onBidClick}
+              tabbable={isOpen}
+            />
           </div>
         </div>
       </div>
     );
   };
 
-  const renderList = (expanded: boolean): React.ReactNode =>
-    visible.length === 0 ? (
-      <EmptyState
-        variant="glass"
-        title={mine ? "Nothing assigned to you here" : "All clear"}
-        description={EMPTY_TEXT[filter]}
-      />
-    ) : (
+  const renderContent = (expanded: boolean): React.ReactNode => {
+    if (visible.length === 0) {
+      return (
+        <EmptyState
+          variant="glass"
+          title={EMPTY_TITLE[scope]}
+          description={EMPTY_TEXT[filter]}
+        />
+      );
+    }
+    if (view === "timeline") {
+      return (
+        <ErnTimeline
+          rows={visible}
+          scope={scope}
+          expanded={expanded}
+          onBidClick={onBidClick}
+        />
+      );
+    }
+    return (
       <div className={expanded ? styles.focusList : styles.list}>
         {visible.map((r, i) => renderRow(r, expanded, i))}
       </div>
     );
+  };
+
+  const renderBody = (expanded: boolean): React.ReactNode => (
+    <>
+      {toolbar}
+      {renderContent(expanded)}
+    </>
+  );
 
   return (
     <div ref={focus.ref}>
@@ -321,7 +463,7 @@ export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
           </div>
         }
       >
-        {renderList(false)}
+        {renderBody(false)}
       </GlassCard>
 
       <LiveFocusOverlay
@@ -331,24 +473,16 @@ export const ErnWatchlist: React.FC<ErnWatchlistProps> = ({
         subtitle={subtitle}
         actions={<div className={styles.actions}>{controls}</div>}
       >
-        {renderList(true)}
+        {renderBody(true)}
       </LiveFocusOverlay>
+
+      {creating && (
+        <ErnCreateModal
+          isOpen={creating}
+          onDismiss={() => setCreating(false)}
+          onCreated={() => setCreating(false)}
+        />
+      )}
     </div>
   );
 };
-
-const Detail: React.FC<{ label: string; value?: string; hint?: string }> = ({
-  label,
-  value,
-  hint,
-}) => (
-  <div className={styles.detail}>
-    <span className={styles.detailLabel}>{label}</span>
-    <span className={styles.detailValue}>
-      {value || "-"}
-      {value && hint ? (
-        <span className={styles.detailHint}> · {hint}</span>
-      ) : null}
-    </span>
-  </div>
-);
